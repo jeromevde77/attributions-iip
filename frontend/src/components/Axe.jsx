@@ -213,11 +213,15 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
       // FERMÉ PAR DÉFAUT (Charles, 4 octobre 2026) : on arrive sur la rubrique
       // sans le tiroir ; un clic sur elle, quand on y est déjà, l'ouvre ou le
       // referme. Il reste ouvert tant qu'on travaille dans l'un de ses outils.
-      const ouvertR = enfants.some(e => e.actif) || sousOuvert === sm.key;
+      /* OUVERT DÈS LE PREMIER CLIC (3.5.119, Charles, 4 novembre 2026 : l'outil « Corriger une UE » restait introuvable —
+         le tiroir n'apparaissait qu'au second clic, règle du 4 octobre levée). On arrive sur la rubrique, ses outils sont
+         dessous ; un clic de plus le referme (le geste universel de `RailDessine`). Le tiroir ne suit pas la rubrique quand
+         on en change. */
+      const ouvertR = enfants.some(e => e.actif) || (sousOuvert === sm.key && rubrique.actif);
       parCle.set(sm.key, { ...rubrique, sous: ouvertR ? enfants : undefined,
         onClick: () => {
           if (rubrique.actif) setSousOuvert(o => (o === sm.key ? null : sm.key));
-          else rubrique.onClick();
+          else { setSousOuvert(sm.key); rubrique.onClick(); }
         } });
       continue;
     }

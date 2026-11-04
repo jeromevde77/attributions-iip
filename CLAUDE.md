@@ -3549,6 +3549,11 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LE TIROIR D'UNE RUBRIQUE S'OUVRE DÈS LE PREMIER CLIC** (3.5.119, Charles : « je ne vois pas l'outil de correction » — la
+règle du 4 octobre, « fermé par défaut, ouvert au second clic », est levée). `Axe.jsx` : cliquer une rubrique à sous-menu pose
+`sousOuvert` en même temps qu'elle s'ouvre ; un clic de plus replie (`RailDessine`) ; le tiroir ne reste ouvert que sur la
+rubrique active.
+
 **CORRIGER UNE UE — ANNÉES REPRISES, OUTIL TEMPORAIRE** (3.5.118, Charles : « un moyen rapide de changer la note de l'UE,
 mettre refus, réussite… on est toujours dans les corrections de l'import 22-23 à 25-26 ; par UE avec année, par AA, cours et
 UE, un simple clic pour changer la décision » ; tranché : secrétariat et direction, années avant `ANNEE_CIRCUIT_VA` seulement ;
