@@ -52,6 +52,10 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
      que je ne le veux pas — on a du papier spécial ») : la case se souvenait d'un essai, et tous les
      diplômes suivants sortaient avec. Décochée à chaque ouverture ; on la coche pour le papier sans pied. */
   const [piedDiplome, setPiedDiplome] = useState(false);
+  // SPÉCIMEN (3.5.117) : tout ce qui sort porte le filigrane, et rien n'entre au registre des pièces authentiques.
+  const [specimen, setSpecimen] = useState(false);
+  // La liste des diplômés rangée par mention (3.5.117).
+  const [parMention, setParMention] = useState(false);
   useEffect(() => { try { localStorage.removeItem('diplome.pied'); } catch { /* */ } }, []);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
@@ -65,7 +69,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
 
   // UNE PIÈCE PRODUITE NE SURVIT PAS À UN CHANGEMENT DE SÉLECTION. Sinon on
   // imprimerait, sous le nom de la sélection affichée, les titres d'une autre.
-  useEffect(() => { setProduits(null); setManques([]); }, [retenus, veut, date, section]);
+  useEffect(() => { setProduits(null); setManques([]); }, [retenus, veut, date, section, specimen, parMention]);
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -110,7 +114,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
     setEnCours(true); setErreur(null); setProduits(null); setManques([]);
     const ids = [...retenus];
     const poster = (url, corps) => fetch(url, {
-      method: 'POST', headers: authHeaders(), body: JSON.stringify(corps),
+      method: 'POST', headers: authHeaders(), body: JSON.stringify(specimen ? { ...corps, specimen: true } : corps),
     }).then(async r => { const j = await r.json(); if (!r.ok) { const e = new Error(j.error); e.code = j.code; e.seance = j.seance; throw e; } return j; });
     try {
       const [t, l, pv, pr, su] = await Promise.all([
@@ -121,7 +125,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           pied_diplome: piedDiplome,
         }) : null,
         veut.liste ? poster('/api/diplomes/document', {
-          section, annee, etudiants: ids, date: dateLongue(date),
+          section, annee, etudiants: ids, date: dateLongue(date), par_mention: parMention,
         }) : null,
         veut.pv ? poster('/api/diplomes/pv-section', {
           section, annee, etudiants: ids, date,
@@ -184,7 +188,8 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
         nb: pv.nb, detail: 'fait en deux exemplaires', html: pv.html,
         nom: `PV_section_${section}_${an}`,
       });
-      setProduits(out);
+      setProduits(specimen ? out.map(p => ({ ...p, titre: `SPÉCIMEN — ${p.titre}`, nom: `SPECIMEN_${p.nom}`,
+        envoi: p.envoi?.map(x => ({ ...x, nom_fichier: `SPECIMEN_${x.nom_fichier}` })) })) : out);
       setManques([...(t?.manques || []), ...(pr?.manques || []), ...(l?.manques || []), ...(pv?.manques || [])]);
     } catch (e) {
       /* LE PRÉSIDENT DU JURY N'EST PAS CONNU (7 octobre 2026) : on le demande,
@@ -271,6 +276,18 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               ))}
             </div>
           </div>
+          {veut.liste && (
+            <label className="flex items-center gap-1.5 text-second text-slate-600 self-end pb-2"
+              title="La liste des diplômés rangée par mention, de la plus haute à la plus basse">
+              <input type="checkbox" checked={parMention} onChange={e => setParMention(e.target.checked)} />
+              Liste par mention
+            </label>)}
+          <label className="flex items-center gap-1.5 text-second self-end pb-2 font-semibold"
+            style={{ color: specimen ? 'var(--c-refuse)' : undefined }}
+            title="Chaque pièce porte « SPÉCIMEN » en travers ; elle peut s'imprimer ou s'envoyer, mais n'entre pas au registre des pièces authentiques">
+            <input type="checkbox" checked={specimen} onChange={e => setSpecimen(e.target.checked)} />
+            Spécimen
+          </label>
           {veut.diplome && (
             <label className="flex items-center gap-1.5 text-second text-slate-600 self-end pb-2"
               title="Le papier à diplôme actuel porte déjà son bas de page, pré-imprimé : laissez décoché.">

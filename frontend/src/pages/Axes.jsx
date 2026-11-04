@@ -8,7 +8,7 @@ import {
   IconChartBar, IconSpeakerphone,
   IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
   IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible, IconTable,
-  IconUserPlus, IconListSearch, IconCash, IconQrcode, IconMessages, IconInbox, IconPlaylistX, IconBolt, IconChecks, IconZoomQuestion, IconAdjustments,
+  IconUserPlus, IconListSearch, IconCash, IconQrcode, IconMessages, IconInbox, IconPlaylistX, IconBolt, IconPencil, IconChecks, IconZoomQuestion, IconAdjustments,
   IconListDetails, IconArchive,
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
@@ -144,6 +144,7 @@ export function AxeEtudiants() {
         { key: 'deliberation', label: 'Délibération', icone: IconScale, hote: 'deliberation',
           enfants: [
             { key: 'rapide', label: 'Encodage rapide', icone: IconBolt },
+            { key: 'corriger-ue', label: 'Corriger une UE (années reprises)', icone: IconPencil, peut: () => passeRole(['admin', 'editeur']) },
             { key: 'controles', label: 'Contrôles des notes et des décisions', icone: IconChecks, peut: () => passeRole(['admin', 'editeur']) },
             { key: 'ou-notes', label: 'Où sont les notes ?', icone: IconZoomQuestion, peut: () => passeRole(['admin', 'editeur']) },
             { key: 'regles', label: 'Règles de délibération', icone: IconAdjustments, peut: () => passeRole(['admin', 'editeur']) },

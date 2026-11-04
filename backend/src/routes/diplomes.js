@@ -23,6 +23,7 @@ import { envelopper } from './attestations.js';
 import { enteteDocument } from '../lib/document.js';
 import { identiteEtablissement } from './config.js';
 import { calculerMention, reglesMention } from '../lib/mention.js';
+import { poserSpecimen } from '../lib/filigraneDocument.js';
 import { TITRES_ACCES } from '../lib/profilEtudiant.js';
 import { LOGO_EUROPASS } from '../lib/logoEuropass.js';
 import { presidenceConseil, delibererUE } from './acquis.js';
@@ -1287,8 +1288,28 @@ export function reunirDiplomes(htmls) {
  * Rien n'est produit pour un dossier que la sélection n'a pas retenu : c'est la
  * direction qui arrête qui reçoit un titre, pas une requête.
  */
+/* LA CASE « SPÉCIMEN » (3.5.117, Charles) : `specimen: true` pose le filigrane sur tout ce que la route rend — diplômes, lot,
+   pièces par étudiant (celles qui partent par courriel), document d'ensemble. Marquées, elles n'entrent pas au registre des
+   pièces authentiques (`poserSpecimen`, `filigraner`). */
+function avecSpecimen(req, res, next) {
+  if (!req.body?.specimen) return next();
+  const json = res.json.bind(res);
+  res.json = o => {
+    if (!o || o.error) return json(o);
+    const f = poserSpecimen;
+    const r = { ...o, specimen: true };
+    if (r.html) r.html = f(r.html);
+    if (r.diplomes_lot) r.diplomes_lot = f(r.diplomes_lot);
+    if (Array.isArray(r.diplomes)) r.diplomes = r.diplomes.map(f);
+    if (Array.isArray(r.par_etudiant)) r.par_etudiant = r.par_etudiant.map(e => Object.fromEntries(Object.entries(e)
+      .map(([k, v]) => [k, ['attestation', 'supplement', 'provisoire'].includes(k) && typeof v === 'string' ? f(v) : v])));
+    return json(r);
+  };
+  return next();
+}
+
 r.post('/pieces', authRequired,
-       gesteRequis('diplomes.produire'),
+       gesteRequis('diplomes.produire'), avecSpecimen,
        async (req, res) => {
   const { section, annee, etudiants: ids, pieces, date_deliberation } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
@@ -1699,7 +1720,7 @@ export function pvDeSection(sectionCode, annee, lignes, { session = 1, lieu = nu
 }
 
 r.post('/document', authRequired,
-       gesteRequis('diplomes.produire'), (req, res) => {
+       gesteRequis('diplomes.produire'), avecSpecimen, (req, res) => {
   const { section, annee, etudiants: ids, lieu, date } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
   if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));
@@ -1716,13 +1737,27 @@ r.post('/document', authRequired,
     FROM etudiant WHERE id IN (${marques}) ORDER BY nom, prenom
   `).all(...ids);
 
-  const lignes = liste.map(e => `<tr>
+  const ligneDe = e => `<tr>
     <td>${esc(e.nom)}</td>
     <td>${esc(e.prenom)}</td>
     <td>${esc(e.lieu_naissance || '')}</td>
     <td>${esc(enToutesLettres(e.date_naissance))}</td>
     <td class="c">${esc(genre(e.titre))}</td>
-  </tr>`).join('');
+  </tr>`;
+  /* PAR MENTION (3.5.117, Charles : « une liste des diplômés par grade » — tranché : par mention, dans une section). Les
+     mentions se relisent du dossier de diplomation, jamais de l'écran ; une ligne de regroupement par mention, de la plus
+     haute à la plus basse, et son nombre. */
+  let lignes;
+  if (req.body?.par_mention) {
+    const mentions = new Map();
+    try { for (const d of dossierDiplomation(section, an).diplomables || []) mentions.set(d.id, d.mention?.mention || null); } catch { /* sans dossier */ }
+    const ordre = (reglesMention().seuils || []).map(x => x.libelle);
+    const groupes = new Map();
+    for (const e of liste) { const m = mentions.get(e.id) || 'Mention non calculée'; if (!groupes.has(m)) groupes.set(m, []); groupes.get(m).push(e); }
+    const rang = m => { const i = ordre.indexOf(m); return i < 0 ? 99 : i; };
+    lignes = [...groupes.entries()].sort((a, b) => rang(a[0]) - rang(b[0])).map(([m, l]) =>
+      `<tr class="groupe-mention"><td colspan="5">${esc(m)} — ${l.length} diplômé${l.length > 1 ? 's' : ''}</td></tr>` + l.map(ligneDe).join('')).join('');
+  } else lignes = liste.map(ligneDe).join('');
 
   // L'année académique s'écrit 2025/2026, comme le veut le formulaire.
   const academique = String(an).replace('-', '/');
@@ -1789,13 +1824,14 @@ r.post('/document', authRequired,
     table.doc.etab-liste th { width: 62mm; text-align:left; }
     table.doc.liste-dip th { font-size: 8pt; }
     table.doc.liste-dip .pt { font-weight:400; font-size:7pt; }
+    table.doc.liste-dip tr.groupe-mention td { font-weight:700; color:#1B2B4B; background:#EDF2F8; }
     .fin-dip { margin-top: 14mm; display:flex; justify-content:space-between;
                align-items:flex-start; gap:10mm; font-size:9.5pt; break-inside: avoid; }
     .sign-dip { text-align:center; }
   </style>`;
 
   res.json({
-    html: envelopper(corps, `Liste des diplômés — ${sec.libelle || section}`),
+    html: envelopper(corps, `Liste des diplômés${req.body?.par_mention ? ' par mention' : ''} — ${sec.libelle || section}`),
     nom: `Diplomes_${String(section).replace(/\W/g, '')}_${String(an).replace(/\W/g, '')}.html`,
     nb: liste.length,
     manques: liste.filter(e => !e.date_naissance || !e.lieu_naissance || !genre(e.titre))
@@ -1812,7 +1848,7 @@ r.post('/document', authRequired,
  * y figure : on ne devine pas une délibération.
  */
 r.post('/pv-section', authRequired,
-       gesteRequis('diplomes.produire'), (req, res) => {
+       gesteRequis('diplomes.produire'), avecSpecimen, (req, res) => {
   const { section, annee, etudiants: ids, session, lieu, date } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
   if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));

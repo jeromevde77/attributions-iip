@@ -3180,6 +3180,8 @@ app.use('/api/presence-qr-suivi', (await import('./routes/presenceQrSuivi.js')).
 app.use('/api/presences-ue', (await import('./routes/presencesUE.js')).default);
 // La démarche qualité : le plan d'action AEQES (3.1.442).
 app.use('/api/qualite', (await import('./routes/qualite.js')).default);
+// Corriger une UE — années reprises (3.5.118, outil temporaire) : routes/correctionUE.js.
+app.use('/api/correction-ue', (await import('./routes/correctionUE.js')).default);
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
