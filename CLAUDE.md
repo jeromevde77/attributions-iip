@@ -3551,7 +3551,7 @@ mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : 
 
 **LE VOLET DU RAIL SE REPLIE EN ICÔNES** (3.5.114, Charles : « profiter d'un maximum de la largeur ; si on laissait juste des
 icônes ? »). `RailDessine` (`ui.jsx`) : `voletReplie` (défaut replié, `localStorage` « lucie.voletOuvert ») ; replié, le rail garde
-sa largeur d'icônes (`voletVu` décide `--rail`) et l'icône `IconAdjustmentsHorizontal` en tête le rouvre ; le contenu du volet reste
+sa largeur d'icônes (`voletVu` décide `--rail`) et l'icône `IconAdjustmentsHorizontal` le rouvre, posée en tiroir sous la rubrique ouverte (3.5.115, « comme pour le reste ») ; le contenu du volet reste
 MONTÉ, caché (le portail de `VoletRail` ne doit pas perdre l'état de l'écran). Vaut pour Attributions et Recrutement.
 
 **LES COLONNES D'UNE UE SONT CELLES DONT ELLE A L'USAGE** (3.5.113, Charles : « on ne voit pas le nom du prof ») : dans

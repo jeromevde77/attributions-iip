@@ -380,20 +380,6 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
           il le nomme, et il ramène à sa première rubrique — l'écran de base de
           cette partie de Lucie. C'est ce qui manquait : un point d'ancrage
           identique d'un axe à l'autre. */}
-      {volet && voletReplie && (
-        <div className="flex-shrink-0">
-          <button type="button" onClick={() => replierVolet(false)} aria-label={volet.titre || 'Ouvrir le volet'}
-            onMouseEnter={e => !epingle && surviser(e, `${volet.titre || 'Volet'} — ouvrir`)}
-            onMouseLeave={() => setSurvol(null)}
-            className={`relative flex text-sm transition-colors duration-150 ease-ios hover:shadow-pose
-              ${epingle ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre' : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}`}
-            style={{ color: 'var(--menu-texte)' }} data-case-rail={epingle ? undefined : '1'}>
-            <IconAdjustmentsHorizontal size={20} stroke={1.8} className="flex-shrink-0" style={{ color: 'var(--menu-accent)' }} />
-            {epingle && <span className="text-left min-w-0 flex-1 truncate">{volet.titre}</span>}
-          </button>
-          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`} style={{ borderColor: 'var(--menu-filet)' }} />
-        </div>
-      )}
       {HeaderIcon && (
         <div className="flex-shrink-0">
           <button onClick={surAccueil} aria-label={`Revenir à ${titre}`}
@@ -561,7 +547,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                 {sec.label}
               </div>
             )}
-            {sec.items.map(it0 => {
+            {sec.items.map(itBrut => {
+              /* LE VOLET REPLIÉ SE ROUVRE SOUS LA RUBRIQUE OUVERTE (3.5.115, Charles : « l'icône de paramètres sous l'icône
+                 Attributions, comme pour le reste ») : il prend la place d'un tiroir d'une entrée. */
+              const it0 = volet && voletReplie && itBrut.actif && !(itBrut.sous?.length > 0)
+                ? { ...itBrut, sous: [{ key: '__volet', label: `${volet.titre || 'Volet'} — ouvrir`, icon: IconAdjustmentsHorizontal, onClick: () => replierVolet(false) }] }
+                : itBrut;
               const aTiroir = it0.sous?.length > 0;
               const it = aTiroir && replies.has(it0.key)
                 ? { ...it0, sous: undefined, onClick: () => basculerTiroir(it0.key) }
