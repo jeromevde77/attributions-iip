@@ -3549,6 +3549,11 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LE VOLET DU RAIL SE REPLIE EN ICÔNES** (3.5.114, Charles : « profiter d'un maximum de la largeur ; si on laissait juste des
+icônes ? »). `RailDessine` (`ui.jsx`) : `voletReplie` (défaut replié, `localStorage` « lucie.voletOuvert ») ; replié, le rail garde
+sa largeur d'icônes (`voletVu` décide `--rail`) et l'icône `IconAdjustmentsHorizontal` en tête le rouvre ; le contenu du volet reste
+MONTÉ, caché (le portail de `VoletRail` ne doit pas perdre l'état de l'écran). Vaut pour Attributions et Recrutement.
+
 **LES COLONNES D'UNE UE SONT CELLES DONT ELLE A L'USAGE** (3.5.113, Charles : « on ne voit pas le nom du prof ») : dans
 Attributions, « HELB » (`helbOnly`) et « Sup. » (`tcOnly`) se décident PAR UE (`colsDeLUE(ue.rows)`, passé à `renderCours` et
 `renderActiviteGroups`) et non plus pour toute la grille dès qu'une ligne en a besoin.
