@@ -286,7 +286,7 @@ function chapitre(r, i, dims) {
   const pubs = String(r.pour || '').split(/\s+/).filter(x => PUBLICS[x]);
   const titres = r.points.filter(p => p.titre);
   let k = 0;
-  return page(`${bande({ kick: partieDe(r.id), titre: r.titre, resume: r.resume, nom: r.icone, grand: i + 1, pubs })}
+  return page(`${bande({ kick: r.partie || partieDe(r.id), titre: r.titre, resume: r.resume, nom: r.icone, grand: i + 1, pubs })}
     ${titres.length > 1 ? `<div class="trouver"><div class="t">${icone('main', 17, C.bleu)} Ce que vous trouverez ici</div>
       <ul>${titres.map(p => `<li>${esc(p.titre)}</li>`).join('')}</ul></div>` : ''}
     ${r.points.map(p => point(p, p.titre ? ++k : null, dims)).join('')}`);
@@ -295,8 +295,8 @@ function chapitre(r, i, dims) {
 /** La couverture : pleine page bleu nuit, sans marge ni pied. */
 function couverture(m) {
   const pub = m.publics?.length === 1 ? m.publics[0] : null;
-  const titre = pub ? GUIDE_DE[pub] : 'Le guide complet';
-  const sous = pub === 'ens'
+  const titre = m.titre || (pub ? GUIDE_DE[pub] : 'Le guide complet');
+  const sous = m.sous ? m.sous : pub === 'ens'
     ? 'Vos premiers pas dans Lucie, puis tout ce que vous pouvez y faire : vos cours, vos notes, vos présences, vos avis.'
     : "Où aller, ce qu'on y fait, et ce qu'il faut savoir : tout le travail de l'école, écran par écran.";
   const v = String(m.version).split('.').slice(0, 2).join('.');
@@ -482,6 +482,37 @@ export async function rendreGuidePdf(role, voir, images = {}) {
     CACHE.set(cle, composerGuidePdf(role, voir, images).catch(e => { CACHE.delete(cle); throw e; }));
   }
   return CACHE.get(cle);
+}
+
+/* UN MINI GUIDE SUR MESURE (3.5.108, Charles : « un mini guide pour les coordinations, en mise en page comme le mode
+ * d'emploi Lucie »). Même couverture, mêmes chapitres, même aide-mémoire, même liseré et même pied que le mode d'emploi —
+ * jamais une mise en page à part. `m` : { version, titre, sous, publics, rubriques } au format de `modeEmploi.js` ;
+ * `images` : { '/guide/x.png': data URL }. Ni mot de la direction, ni sommaire, ni annexes. */
+export async function rendreMiniGuidePdf(m, images = {}) {
+  const dims = dimsDepuis(images);
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const corpsOpts = { pied, marges: MARGES, delaiMs: 10 * 60 * 1000 };
+  const morceaux = [
+    { html: couverture(m), pageCss: true, delaiMs: 10 * 60 * 1000 },
+    ...m.rubriques.map((r, i) => ({ html: joindre(chapitre(r, i, dims), images), ...corpsOpts })),
+    ...(m.aideMemoire === false ? [] : [{ html: aideMemoire(m), ...corpsOpts }]),
+  ];
+  const rendus = await rendrePdfs(morceaux, {}, 2);
+  const doc = await PDFDocument.create();
+  for (const b of rendus) { const d = await PDFDocument.load(b); (await doc.copyPages(d, d.getPageIndices())).forEach(pg => doc.addPage(pg)); }
+  const police = await doc.embedFont(StandardFonts.Helvetica);
+  const mm = x => x * 72 / 25.4;
+  const hex = h => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
+  const total = doc.getPageCount() - 1;
+  doc.getPages().forEach((pg, k) => {
+    if (k === 0) return;
+    const { width, height } = pg.getSize();
+    pg.drawRectangle({ x: 0, y: 0, width: mm(2.2), height, color: hex(C.nuit) });
+    const t = `${k} / ${total}`;
+    pg.drawText(t, { x: width - mm(18) - police.widthOfTextAtSize(t, 6.5), y: mm(10.4), size: 6.5, font: police, color: hex('#3F4652') });
+  });
+  doc.setTitle(`Lucie — ${m.titre || "mode d'emploi"}`);
+  return Buffer.from(await doc.save());
 }
 
 async function composerGuidePdf(role, voir, images = {}) {
