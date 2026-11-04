@@ -3549,6 +3549,10 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**CONFIGURATION → ACCÈS EN QUATRE FACES** (3.5.112, Charles : « très longue, qu'elle soit coupée en sous-parties ») : l'entrée
+« Rôles et personnes » porte `faces` — `roles` (plafonds), `gestes`, `users` (le rôle décide, accès par personne), `constat` ;
+`RolesPlafonds({ partie })` ne rend que la sienne. `?onglet=users` ouvre directement les personnes.
+
 **UN PROFESSEUR NE VOIT QUE SES UNITÉS DANS MES COURS** (3.5.110, Charles, aperçu comme une professeure : l'UE 67 paraissait,
 puis « ne figure pas dans vos attributions »). `GET /api/due` ajoutait aux attributions les unités des sections de la fiche
 (`getUserSections`) ; pour le rôle `professeur`, ce périmètre ne compte plus — seules ses attributions. La coordination garde ses
