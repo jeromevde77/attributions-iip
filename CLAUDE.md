@@ -3549,6 +3549,11 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LES LISTES D'EXAMENS** (3.5.123, Charles : « le secrétariat doit pouvoir sortir des listes pour les examens avec le prof, la
+date, le local » ; « ça existe » — les dates sont celles du CALENDRIER DES SESSIONS, `epreuve_session1` / `deliberation_session2`).
+Rapport `listes-examens` (`routes/rapports.js`, `donneesExamens`, `documentExamens`) : une page par épreuve datée (unité, cours,
+date, heure, local, professeurs des attributions), étudiants à émarger — inscrits en S1, `aRepresenterParCours` en S2 ; Excel.
+
 **LE TIROIR D'UNE RUBRIQUE S'OUVRE DÈS LE PREMIER CLIC** (3.5.119, Charles : « je ne vois pas l'outil de correction » — la
 règle du 4 octobre, « fermé par défaut, ouvert au second clic », est levée). `Axe.jsx` : cliquer une rubrique à sous-menu pose
 `sousOuvert` en même temps qu'elle s'ouvre ; un clic de plus replie (`RailDessine`) ; le tiroir ne reste ouvert que sur la
