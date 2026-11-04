@@ -3563,6 +3563,10 @@ coordination de la section ; posée par la direction et le secrétariat sur le g
 colonne « Sup. » (`PATCH /api/attributions/:id`, refus 403 pour les autres rôles, section contrôlée). Rappels qui la lisent : délai
 dépassé des points (ses lignes seulement), séance non close et date à poser (`rappelsDeliberation.js`), présences non prises
 (`rappelsPersonnel.js`, copie à la coordination qui supervise les groupes du professeur). Ni droit d'accès, ni comptage.
+**Qui est de quelle section** (3.5.111, Charles, UE 282 : « on dirait qu'ils sont dans les deux ») : dans la répartition d'une UE
+`ue_tc`, chaque inscrit porte sa section (`sectionPropre`, pastille OPTO / ORTHO, « sans section ») et un filtre « Étudiants de X »
+s'ouvre sur la section choisie. Les organisations ne sont pas touchées (UE 282 en 2026-2027 : 144 Orthoptie, 56 Optométrie,
+11 sans section, tous sans organisation ; « ranger par section » écarté pour l'instant).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
