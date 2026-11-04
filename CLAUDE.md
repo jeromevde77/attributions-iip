@@ -3558,7 +3558,10 @@ Dans le délai : accepté, les présences « absent » de la période deviennent
 `ecrirePresences` convertit toute absence encodée PLUS TARD sur une séance couverte. Hors délai : `a_decider`, la direction
 accepte ou refuse (motif). Notifications `certificat_medical` : rôle secrétariat + comptes des professeurs des séances.
 Porte du secrétariat : Suivi des présences → Certificats médicaux (`components/CertificatsMedicaux.jsx`, `routes/certificats.js`
-sur `/api/certificats-medicaux`). **Reste : la porte de l'étudiant dans l'espace (3.5.126).**
+sur `/api/certificats-medicaux`). **La porte de l'étudiant** (3.5.126) : fonction `espace.certificats` (née éteinte), onglet « Mes absences » de l'espace
+(`frontend/src/portail/MesAbsences.jsx`) ; le portail note le dépôt (`cm_geste`, `/api/portail/certificat`, octets bruts, 10 Mo,
+PDF/JPEG/PNG) ; Lucie le relève (`portailSync`, `r.cm`, `/interne/cm/piece/:id`), le juge par le même `deposer` (« NOM Prénom
+(étudiant, en ligne) ») et rend le résultat (`resultat` ou `erreur`) que l'espace affiche.
 
 **LES JALONS DE RÉGULARITÉ SE CHOISISSENT** (3.5.124, Charles : « ne pas mettre R/IR au 1/10 et 5/10, laisse la vérificatrice
 décider — permettre de choisir 1/10, 5/10 et autre 3/10 »). `jalonsChoisis`, `NOM_DIXIEME` (`lib/regularite.js`) ;

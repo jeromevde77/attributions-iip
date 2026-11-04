@@ -25,6 +25,7 @@ import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
 import { parcoursPortail, fraisPortail } from './portailEspace.js';
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
+import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
 import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants } from './portailEnseignants.js';
@@ -187,7 +188,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], ts: [], messages_lus: [], messages_reponses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], ts: [], cm: [], messages_lus: [], messages_reponses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -285,6 +286,29 @@ async function relever() {
     ok.ts.push({ id: g.id, erreur });
     touches.add(Number(g.etudiant_id));
   }
+  // LE CERTIFICAT MÉDICAL DÉPOSÉ EN LIGNE (3.5.126) : jugé et écrit par `deposer`, comme celui que le secrétariat encode.
+  for (const g of r.cm || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null, resultat = null;
+    try {
+      if (!e) erreur = 'Votre accès à l’espace n’est plus valable : adressez-vous au secrétariat.';
+      else if (!fonctionPour('espace.certificats', { etudiantId: e.id })) erreur = 'Le dépôt de certificat en ligne n’est pas ouvert : remettez-le au secrétariat.';
+      else {
+        const contenu = await lireBinaire(`/interne/cm/piece/${g.id}`);
+        const h = contenu?.toString('hex', 0, 4) || '';
+        const mime = contenu?.toString('latin1', 0, 4) === '%PDF' ? 'application/pdf' : h.startsWith('ffd8ff') ? 'image/jpeg' : h === '89504e47' ? 'image/png' : null;
+        if (!contenu?.length || !mime) erreur = 'Le fichier n’a pas pu être lu : déposez-le à nouveau (PDF ou photo).';
+        else {
+          const x = deposerCertificat({ etudiantId: e.id, du: g.du, au: g.au, fichier: { nom: g.nom || 'certificat', mime, buffer: contenu },
+            deposePar: 'etudiant', par: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} (étudiant, en ligne)`, annee: anneeActive() });
+          if (x.erreur) erreur = x.erreur;
+          else resultat = x.hors_delai ? `Reçu après la limite du ${String(x.limite).split('-').reverse().join('/')} : la direction décidera.`
+            : 'Reçu dans le délai : vos absences de la période sont justifiées.';
+        }
+      }
+    } catch (x) { console.error('[portail] certificat :', x.message); erreur = 'Le certificat n’a pas pu être enregistré : réessayez, ou remettez-le au secrétariat.'; }
+    ok.cm.push({ id: g.id, erreur, resultat });
+  }
   // LES MESSAGES (3.1.516) : ✓ lu, et les réponses (au fil, l'auteur prévenu).
   if ((r.messages_lus || []).length || (r.messages_reponses || []).length) {
     const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [] });
@@ -292,7 +316,7 @@ async function relever() {
     for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || [])]) touches.add(Number(x.etudiant_id));
     tours = 0;
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.ts.length
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.ts.length || ok.cm.length
     || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);
