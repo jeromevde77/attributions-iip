@@ -1805,6 +1805,9 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
 
   marquerPrimo(etudiants, annee);
   const tc = db.prepare(`SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND ue_tc = 'x'`).get(ueNum, annee);
+  /* LE TRONC COMMUN MÊLE DEUX SECTIONS (3.5.111, Charles, UE 282 : « on dirait qu'ils sont dans les deux ») : chaque inscrit
+     porte SA section (la règle de la fiche, `sectionPropre`), pour la pastille et le filtre de l'écran. */
+  if (tc) for (const e of etudiants) e.section = sectionPropre(e.id);
   res.json({ ue_num: ueNum, annee, cours, etudiants, affectations, dispenses, tronc_commun: !!tc,
     peut_superviser: peutPoserSupervision(req.user),
     sections: db.prepare('SELECT code FROM section ORDER BY code').all().map(x => x.code) });

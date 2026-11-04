@@ -25,6 +25,9 @@ import { BadgePrimo } from '../components/ui.jsx';
  */
 const cle = (eid, code) => `${eid}|${code}`;
 const cleGroupe = (g) => `${g.num_organisation}|${g.groupe || ''}`;
+// La pastille de section d'un inscrit du tronc commun (3.5.111) : courte, lisible d'un coup d'œil.
+const ABREGES = { 'Optométrie': 'OPTO', 'Orthoptie': 'ORTHO', 'Psychomotricité': 'PSYMOT' };
+const abregeSection = s => ABREGES[s] || String(s || '').toUpperCase().slice(0, 6);
 
 /* UN CLASSEUR DE GROUPES (Jérôme, 24 septembre 2026) : les groupes de labo se
  * composent dans Excel — « Groupe 1 — 17 étudiants », puis Nom, Prénom, Mail,
@@ -99,6 +102,8 @@ export default function RepartitionCours() {
   const [coches, setCoches] = useState(new Set());
   const [q, setQ] = useState('');
   const [fPrimo, setFPrimo] = useState('');           // '' tous · 'primo' · 'anciens'
+  // Tronc commun (3.5.111) : la section DE L'ÉTUDIANT — '' toutes · '∅' sans section · sinon le code ; d'office celle choisie.
+  const [fSection, setFSection] = useState('');
   const [erreur, setErreur] = useState(null);
   const [saving, setSaving] = useState(false);
   // Le classeur reste chargé d'une UE à l'autre : un même fichier couvre
@@ -173,6 +178,8 @@ export default function RepartitionCours() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Erreur');
       setData(j);
+      // Ouverte depuis une section, une UE du tronc commun ne montre d'abord que ses étudiants.
+      setFSection(j.tronc_commun && (j.etudiants || []).some(e => e.section === section) ? section : '');
     } catch (e) { setErreur(e.message); }
   }
 
@@ -193,8 +200,9 @@ export default function RepartitionCours() {
     const l = data?.etudiants || [];
     const t = q.trim().toLowerCase();
     return l.filter(e => (!t || `${e.nom} ${e.prenom}`.toLowerCase().includes(t))
-      && (!fPrimo || (fPrimo === 'primo') === !!e.primo));
-  }, [data, q, fPrimo]);
+      && (!fPrimo || (fPrimo === 'primo') === !!e.primo)
+      && (!fSection || (fSection === '∅' ? !e.section : e.section === fSection)));
+  }, [data, q, fPrimo, fSection]);
 
   // Les cours qui se répartissent (les « Tous » ne comptent pas les lignes
   // incomplètes : chacun y est d'office).
@@ -605,6 +613,18 @@ export default function RepartitionCours() {
             <option value="primo">Primo-inscrits ({(data.etudiants || []).filter(e => e.primo).length})</option>
             <option value="anciens">Déjà inscrits avant ({(data.etudiants || []).filter(e => !e.primo).length})</option>
           </select>
+          {data.tronc_commun && (() => {
+            const l = data.etudiants || [];
+            const secs = [...new Set(l.map(e => e.section).filter(Boolean))].sort();
+            const sans = l.filter(e => !e.section).length;
+            return (
+              <select value={fSection} onChange={e => setFSection(e.target.value)} className="controle"
+                title="Tronc commun : les inscrits viennent de plusieurs sections. Le filtre porte sur la section de l'étudiant.">
+                {secs.map(x => <option key={x} value={x}>Étudiants de {x} ({l.filter(e => e.section === x).length})</option>)}
+                {sans > 0 && <option value="∅">Sans section ({sans})</option>}
+                <option value="">Toutes les sections ({l.length})</option>
+              </select>);
+          })()}
           {coches.size > 0 && (
             <span className="text-second font-semibold text-iip-blue bg-iip-turquoise/10 border border-iip-turquoise/40 rounded-champ px-3 py-1.5 inline-flex items-center gap-2">
               {coches.size} coché(s) — cliquez l'en-tête d'un groupe pour les y placer
@@ -721,6 +741,11 @@ export default function RepartitionCours() {
                           {(e.nom || '').toUpperCase()} {e.prenom}
                         </span>
                         {e.primo && <BadgePrimo />}
+                        {data.tronc_commun && (e.section
+                          ? <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full border border-iip-blue text-iip-blue"
+                              title={`Section de l'étudiant : ${e.section}`}>{abregeSection(e.section)}</span>
+                          : <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full border border-amber-500 text-amber-700"
+                              title="Aucune section posée ni déduite pour cet étudiant">sans section</span>)}
                         {e.num_organisation != null
                           ? <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
                           : <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
