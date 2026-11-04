@@ -978,8 +978,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 ? <span className="inline-flex flex-col items-center gap-3">
                     <span>Tous les étudiants ont une décision.</span>
                     <span className="flex flex-wrap justify-center gap-2">
-                      <button type="button" className="bouton" onClick={() => revoir(e => e.resultat === 'ajourne')}>
-                        Revoir les ajournés ({(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length})</button>
+                      {/* EN SECONDE SESSION, PAS D'AJOURNÉ (3.5.107, Charles, UE 333 : « il ne me propose pas de passer les
+                          derniers en revue ») : ce qui reste à revoir, ce sont les REFUS — c'est là que le Conseil peut encore
+                          accorder une faveur. Le bouton comptait les ajournés, toujours zéro en seconde session. */}
+                      {(() => { const echec = session === 2 ? 'refuse' : 'ajourne';
+                        const n = (data?.etudiants || []).filter(e => e.resultat === echec).length;
+                        return (
+                          <button type="button" className="bouton" onClick={() => revoir(e => e.resultat === echec)}>
+                            Revoir les {session === 2 ? 'refusés' : 'ajournés'} ({n})</button>); })()}
                       <button type="button" className="bouton" onClick={() => revoir(() => true)}>
                         Revoir toute l'unité ({(data?.etudiants || []).length})</button>
                       <button type="button" className="bouton bouton-fort" onClick={() => setEtape('cloture')}>Passer à la clôture</button>

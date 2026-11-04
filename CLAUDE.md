@@ -261,6 +261,7 @@ niveau, bouton « Filtres » (le nombre de filtres actifs), statuts ; le panneau
 posée/déduite, Dossier, Doublons et Plus de 60 ECTS ; les filtres actifs se lisent en pastilles sous la barre.
 « Composer les PAE » depuis une sélection ouvre sur la section des étudiants cochés quand ils en partagent une, sinon
 sur la section du filtre (3.1.457, `sectionInitiale` de `ComposerPAE`).
+**En seconde session, on revoit les refusés** (3.5.107, Charles, UE 333 : « je valide les réussites d'office, le refus d'office, puis il ne me propose pas de passer les derniers en revue ») : « Tous les étudiants ont une décision » proposait « Revoir les ajournés (0) » — il n'y en a pas en S2 ; c'est « Revoir les refusés (n) », où le Conseil peut encore accorder une faveur.
 **La clôture ouvre la seconde session** (3.1.458, Charles, UE 333 : « séance close et pas de seconde session proposée ») :
 `sessionDeLUE` exigeait en plus une décision de première session pour CHAQUE inscrit ; un seul dossier sans décision
 tenait la seconde fermée, sans un mot. Désormais : séance de première session close + au moins un ajourné.
