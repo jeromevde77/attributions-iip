@@ -3182,7 +3182,11 @@ app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
 app.use('/api/attributions', garderModule('attributions'), attrRoutes);
-app.use('/api/ref',          garderModule('ref'), refRoutes);
+// LIRE LE DOSSIER PÉDAGOGIQUE D'UNE UE EST OUVERT À TOUT COMPTE (3.5.108, Charles : l'étape 0 de Mes cours disait « aucun
+// dossier » à un professeur — le module Référentiels lui est fermé). C'est le référentiel approuvé par le Gouvernement ;
+// seule la LECTURE de la fiche d'une UE passe, tout le reste du module garde sa garde.
+const gardeRef = garderModule('ref');
+app.use('/api/ref', (req, res, next) => (req.method === 'GET' && /^\/ue\/\d+\/?$/.test(req.path) ? next() : gardeRef(req, res, next)), refRoutes);
 app.use('/api/pilotage',     garderModule('pilotage'), pilotRoutes);
 app.use('/api/exports',      garderModule('exports'), exportRoutes);
 app.use('/api/planning',     garderModule('planning'), planningRoutes);

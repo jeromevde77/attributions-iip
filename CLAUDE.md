@@ -3542,6 +3542,13 @@ VOLUMINEUSES dont le corps n'est pas arrivé entier (Safari : « Load failed » 
 Le registre exige un tableau, la feuille dit « pas arrivée entière ». **La cause côté serveur n'est pas établie** (le serveur
 n'a pas redémarré, la sauvegarde passe) : à regarder sur le VPS — `df -h`, `docker system df`, journaux du conteneur frontend.
 
+**LE DOSSIER PÉDAGOGIQUE SE LIT PAR TOUT COMPTE, ET UN MINI GUIDE A SON MOTEUR** (3.5.108, Charles, 4 novembre 2026, aperçu
+comme un professeur : l'étape 0 de Mes cours disait « aucun dossier pédagogique » pour l'UE 338, qui en a un). `GET /api/ref/ue/:num`
+passait par la garde du module Référentiels, fermé aux professeurs : 403, lu comme « pas de dossier ». `server.js` laisse passer CETTE
+seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fiche pour les coordinations, au dessin du mode
+d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
+mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
