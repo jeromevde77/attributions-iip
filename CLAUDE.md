@@ -3549,6 +3549,16 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**CORRIGER UNE UE — ANNÉES REPRISES, OUTIL TEMPORAIRE** (3.5.118, Charles : « un moyen rapide de changer la note de l'UE,
+mettre refus, réussite… on est toujours dans les corrections de l'import 22-23 à 25-26 ; par UE avec année, par AA, cours et
+UE, un simple clic pour changer la décision » ; tranché : secrétariat et direction, années avant `ANNEE_CIRCUIT_VA` seulement ;
+les deux sessions si elles existent, seule la décision finale compte). Étudiants → Délibération → « Corriger une UE (années
+reprises) » (`components/CorrectionUE.jsx`, `routes/correctionUE.js` sur `/api/correction-ue`). Lecture : `delibererUE` par
+inscrit (notes cours × acquis, note de cours, note d'unité, décision proposée) ; l'épreuve d'unité (`__ue__`) a sa colonne.
+Écritures : note `s{n}|cours|aa` (épreuve : `s{n}|aa`), décision et note sur l'inscription, faveur = ajustement de l'unité
+(comme la grille du parcours) — toutes sous `avecNoteForcee`. Rôles vérifiés par le rôle, pas `roleRequired('admin')` (la
+lecture de Configuration l'ouvrait). **À retirer quand les corrections des imports seront finies.**
+
 **LE SPÉCIMEN D'UNE PIÈCE RÉELLE, ET LA LISTE DES DIPLÔMÉS PAR MENTION** (3.5.117, Charles : « une case Spécimen avec un
 filigrane Spécimen » dans l'envoi des diplômes ; « liste des diplômés par grade » — tranché : par mention, dans une section).
 `poserSpecimen(html)` et `MARQUE_SPECIMEN` (`lib/filigraneDocument.js`) : « SPÉCIMEN » fixe en travers de chaque page ;

@@ -11,6 +11,7 @@ import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
 import MenuActions from '../components/MenuActions.jsx';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { estDirection } from '../lib/modules.js';
+import { passeRole } from '../lib/droits.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import RepartitionOrganisation from '../components/RepartitionOrganisation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
@@ -20,6 +21,7 @@ import ImportSuivi from '../components/ImportSuivi.jsx';
 import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
+import CorrectionUE from '../components/CorrectionUE.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import { BoutonEditions, Fenetre, RailLateral, EnteteCarte } from '../components/ui.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
@@ -51,6 +53,7 @@ export default function Deliberation() {
   // La répartition des étudiants dans les organisations d'une unité, depuis le plan.
   const [repartirUE, setRepartirUE] = useState(null);
   const [rapide, setRapide] = useState(false);
+  const [corriger, setCorriger] = useState(false);   // Corriger une UE — années reprises (3.5.118, temporaire)
   /* LES CONTRÔLES VENUS DE CONFIGURATION (lot 4, 2 octobre 2026) : le
      contrôle des notes de décision et la clôture d'une année reprise
      appartiennent à la délibération. Un renvoi pose la face à ouvrir. */
@@ -214,6 +217,20 @@ export default function Deliberation() {
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee]);
 
+  if (corriger) {
+    return (
+      <div>
+        <div className="px-5 pt-4">
+          <button onClick={() => { setCorriger(false); charger(); }}
+            className="flex items-center gap-1.5 text-sm text-iip-blue hover:underline">
+            <IconArrowLeft size={15} /> Retour à la délibération
+          </button>
+        </div>
+        <div className="px-5 pt-2"><CorrectionUE /></div>
+      </div>
+    );
+  }
+
   if (rapide) {
     return (
       <div>
@@ -266,6 +283,8 @@ export default function Deliberation() {
             la rubrique, réservé aux mêmes rôles. */}
         <RailLateral icon={IconScale} titre="Délibération" sections={[{ items: [
           { key: 'rapide', label: 'Encodage rapide', icon: IconBolt, onClick: () => setRapide(true) },
+          ...(passeRole(['admin', 'editeur']) ? [
+            { key: 'corriger-ue', label: 'Corriger une UE (années reprises)', icon: IconPencil, onClick: () => setCorriger(true) }] : []),
           ...(peutToutEncoder ? [
             { key: 'controles', label: 'Contrôles des notes et des décisions', icon: IconChecks,
               onClick: () => setControles('controle-decisions') },
