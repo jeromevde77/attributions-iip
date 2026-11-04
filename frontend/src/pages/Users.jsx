@@ -402,7 +402,7 @@ function CasesPersonnelles({ onFait }) {
     <div className="carte overflow-hidden mb-4">
       <TitreCarte titre={`Le rôle décide — ${l.length} compte(s) ont encore des cases personnelles`}
         droite={<button type="button" className="bouton bouton-fort controle text-second" onClick={appliquer}>Le rôle décide pour tous</button>}>
-        Ces cases réduisent ce que leur rôle permet. Les effacer ouvrirait ce qui suit. Resserrez d’abord la grille des rôles (face « Rôles ») si un accès ne doit pas s’ouvrir : ce tableau se met à jour.
+        Ces cases réduisent ce que leur rôle permet. Les effacer ouvrirait ce qui suit. Resserrez d’abord la grille des rôles (face « Plafonds par rôle ») si un accès ne doit pas s’ouvrir : ce tableau se met à jour.
       </TitreCarte>
       <table className="w-full text-sm">
         <thead><tr><th className="px-3 py-1.5 text-left">Rôle</th><th className="px-3 py-1.5 text-left">Module</th><th className="px-3 py-1.5 text-left">S’ouvrirait</th><th className="px-3 py-1.5 text-left">Comptes</th></tr></thead>

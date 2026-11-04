@@ -448,7 +448,7 @@ function JournalGestes({ lignes, g }) {
   );
 }
 
-export default function RolesPlafonds() {
+export default function RolesPlafonds({ partie = 'roles' }) {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(null);
@@ -520,7 +520,7 @@ export default function RolesPlafonds() {
         </div>
       )}
 
-      <div className="carte overflow-hidden">
+      {partie === 'roles' && <div className="carte overflow-hidden">
         <TitreCarte titre="Plafonds par rôle"
           droite={!nouveau && (
             <button className="bouton controle text-second"
@@ -623,11 +623,11 @@ export default function RolesPlafonds() {
             qui répare les erreurs de paramétrage.
           </span>
         </Legende>
-      </div>
+      </div>}
 
-      <Gestes plafonds={data.plafonds} onMessage={setMessage} />
+      {partie === 'gestes' && <Gestes plafonds={data.plafonds} onMessage={setMessage} />}
 
-      <Constat />
+      {partie === 'constat' && <Constat />}
     </div>
   );
 }

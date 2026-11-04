@@ -934,7 +934,7 @@ export default function Configuration() {
   // L'onglet peut être imposé par l'URL (?onglet=...) — utilisé par les
   // assistants de mise en route pour envoyer vers le bon écran.
   const [paramsUrl] = useSearchParams();
-  const [tab, setTab] = useState(() => { const o = paramsUrl.get('onglet'); return !o || o === 'users' ? 'roles' : o; });
+  const [tab, setTab] = useState(() => paramsUrl.get('onglet') || 'roles');
   const [historiqueActif, setHistoriqueActif] = useState(false);
   const [changelog, setChangelog] = useState({ byDay: {}, commits: [] });
   const [loading, setLoading] = useState(true);
@@ -1120,7 +1120,10 @@ export default function Configuration() {
          accès, et lequel »). Le maximum de chaque rôle en haut, le résultat
          pour chaque personne en dessous : deux écrans séparés faisaient croire
          à deux réglages qui se contredisent. */
-      { key: 'roles', label: 'Accès', icon: IconKey },
+      /* EN QUATRE FACES (3.5.112, Charles : « cette fenêtre est très longue, qu'elle soit coupée en sous-parties, on ne s'en
+         sort pas ») : les plafonds des rôles, les gestes, les personnes, le constat des refus. */
+      { key: 'roles', label: 'Rôles et personnes', icon: IconKey,
+        faces: [['roles', 'Plafonds par rôle'], ['gestes', 'Les gestes'], ['users', 'Les personnes'], ['constat', 'Ce que le contrôle a vu']] },
       /* « Fonctions » est retirée (3.1.32) : elles se règlent sur la fiche du
          membre, onglet Fonctions, et se lisent par le filtre « Fonction » de Personnel. */
       { key: 'securite', label: 'Sécurité', icon: IconShieldLock },
@@ -1287,12 +1290,8 @@ export default function Configuration() {
       {tab === 'sauvegardes' && <Sauvegardes />}
 
       {/* ── Onglet Utilisateurs ── */}
-      {(tab === 'roles' || tab === 'users') && (
-        <div className="max-w-none space-y-6">
-          <RolesPlafonds />
-          <Users embedded />
-        </div>
-      )}
+      {['roles', 'gestes', 'constat'].includes(tab) && <RolesPlafonds partie={tab} />}
+      {tab === 'users' && <Users embedded />}
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
