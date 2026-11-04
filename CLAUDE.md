@@ -3549,6 +3549,12 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LE TIROIR D'UNE RUBRIQUE S'OUVRE DÈS LE PREMIER CLIC** (3.5.119, Charles : « je ne vois pas l'outil de correction » — la
+règle du 4 octobre, « fermé par défaut, ouvert au second clic », est levée). `Axe.jsx` : cliquer une rubrique à sous-menu pose
+`sousOuvert` en même temps qu'elle s'ouvre ; un clic de plus replie (`RailDessine`) ; le tiroir ne reste ouvert que sur la
+rubrique active. 3.5.121 : ouvert dès qu'on est sur la rubrique, quelle que soit la façon d'y arriver, sauf si on l'a replié
+(`sousOuvert` = « ferme:<clé> »).
+
 **CORRIGER UNE UE — ANNÉES REPRISES, OUTIL TEMPORAIRE** (3.5.118, Charles : « un moyen rapide de changer la note de l'UE,
 mettre refus, réussite… on est toujours dans les corrections de l'import 22-23 à 25-26 ; par UE avec année, par AA, cours et
 UE, un simple clic pour changer la décision » ; tranché : secrétariat et direction, années avant `ANNEE_CIRCUIT_VA` seulement ;
@@ -3557,7 +3563,7 @@ reprises) » (`components/CorrectionUE.jsx`, `routes/correctionUE.js` sur `/api/
 inscrit (notes cours × acquis, note de cours, note d'unité, décision proposée) ; l'épreuve d'unité (`__ue__`) a sa colonne.
 Écritures : note `s{n}|cours|aa` (épreuve : `s{n}|aa`), décision et note sur l'inscription, faveur = ajustement de l'unité
 (comme la grille du parcours) — toutes sous `avecNoteForcee`. Rôles vérifiés par le rôle, pas `roleRequired('admin')` (la
-lecture de Configuration l'ouvrait). **À retirer quand les corrections des imports seront finies.**
+lecture de Configuration l'ouvrait). **À retirer quand les corrections des imports seront finies.** Il REMPLACE l'encodage rapide (la matrice, `EncodageRapide.jsx`, retiré en 3.5.120 à la demande de Charles ; les routes `/matrice` du serveur restent).
 
 **LE SPÉCIMEN D'UNE PIÈCE RÉELLE, ET LA LISTE DES DIPLÔMÉS PAR MENTION** (3.5.117, Charles : « une case Spécimen avec un
 filigrane Spécimen » dans l'envoi des diplômes ; « liste des diplômés par grade » — tranché : par mention, dans une section).
