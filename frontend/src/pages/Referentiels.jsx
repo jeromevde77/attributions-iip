@@ -675,10 +675,12 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
 }
 
 // ─── Modale UE ───
-export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ongletInitial = 'fiche' }) {
+export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ongletInitial = 'fiche', lecture = false }) {
   const isNew = !ue?._edit;
   const me = getUser?.();
-  const isAdmin = estDirection(me);
+  /* EN LECTURE (3.5.106, Charles : « dans le DP depuis Organisation, on sait modifier ?! ») : ouverte depuis l'atelier de
+     l'unité (Organisation, Mes cours), la fiche se CONSULTE — le dossier se modifie dans Configuration → Unités et cours. */
+  const isAdmin = estDirection(me) && !lecture;
   const [form, setForm] = useState({
     ue_num: ue?.ue_num || '', ue_nom: ue?.ue_nom || '', section: ue?.section || (sections[0]?.code || ''),
     ue_niv: ue?.ue_niv || '', ue_niveau: ue?.ue_niveau || '', ue_quad: ue?.ue_quad || '',
@@ -814,7 +816,7 @@ export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ong
   const aside = 'text-slate-400';
 
   const fiche = (
-    <form id="fiche-ue" onSubmit={submit}>
+    <form id="fiche-ue" onSubmit={submit}><fieldset disabled={lecture} className="min-w-0 border-0 p-0 m-0">
       <GroupeFenetre titre="Identification officielle">
         <div className="grid grid-cols-[1.3fr_1.6fr_1fr_1fr_0.8fr] gap-3">
           <label className="block"><span className={lbl}>N° UE *</span>
@@ -949,7 +951,7 @@ export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ong
           <span>Unité hors cursus <span className={aside}>(ouverte à plusieurs sections : les statistiques la comptent dans la section de l’étudiant, pas dans celle-ci)</span></span>
         </label>
       </GroupeFenetre>
-    </form>
+    </fieldset></form>
   );
 
   const avecAcquis = !isNew && form.ue_num;
@@ -958,9 +960,12 @@ export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ong
     <Fenetre icone={IconBooks} large="pleine" onFermer={onClose}
       navigation={navigation ? { ...navigation, sale: JSON.stringify(form) !== depart.current } : null}
       editions={isNew ? null : { ongletInitial: 'organisation' }}
-      titre={isNew ? 'Nouvelle UE' : `Modifier l'UE ${ue.ue_num}`}
+      titre={isNew ? 'Nouvelle UE' : lecture ? `Dossier pédagogique de l'UE ${ue.ue_num}` : `Modifier l'UE ${ue.ue_num}`}
       sous={isNew ? 'Son identification, son contenu et sa charge' : form.ue_nom}
-      pied={<>
+      pied={lecture ? <>
+        <span className="text-second text-slate-500">En lecture. Le dossier se modifie dans Configuration → Unités et cours.</span>
+        <button type="button" onClick={onClose} className="bouton ml-auto">Fermer</button>
+      </> : <>
         <button type="submit" form="fiche-ue" disabled={saving}
           className="bouton bouton-fort disabled:opacity-40">
           {saving ? 'Enregistrement…' : isNew ? "Créer l'UE" : 'Enregistrer'}
@@ -1020,10 +1025,10 @@ export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ong
               </div>
               <div className="border-l border-slate-200 pl-6 min-w-0">
                 <GroupeFenetre titre="Acquis encodés dans Lucie">
-                  <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+                  <fieldset disabled={lecture} className="min-w-0 border-0 p-0 m-0"><AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} /></fieldset>
                 </GroupeFenetre>
                 <GroupeFenetre titre="Motif proposé en cas d’échec, par acquis">
-                  <MotifsDefautUE ueNum={form.ue_num} />
+                  <fieldset disabled={lecture} className="min-w-0 border-0 p-0 m-0"><MotifsDefautUE ueNum={form.ue_num} /></fieldset>
                 </GroupeFenetre>
               </div>
             </div>)}

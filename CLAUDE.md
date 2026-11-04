@@ -3512,7 +3512,7 @@ visible que dans Config »). Organisation → Unité (`AtelierUE.jsx`) : bouton 
 **L'ÉTAPE 0 ET LA FICHE QUI NE RÈGLE QUE LE RÔLE** (3.5.099, Charles : « le DP en étape 0, puis cliquable au besoin » ; « dans la
 fiche, on choisit le rôle et la/les sections, point » ; « trop de cadres et de bordures »). (1) `AtelierUE.jsx` : face `dossier`
 (numéro 0, `components/ApercuDossier.jsx` — les rubriques du DP en lecture par `rubriquesDuDossier`), dans Organisation et Mes cours ;
-le bouton ouvre toujours `UEModal`. (2) `Professeurs.jsx` → Accès Lucie : rôle + sections (segments Toutes · Ces sections · Aucune),
+le bouton ouvre toujours `UEModal`. **En lecture** (3.5.106, Charles : « depuis Organisation, on sait modifier ?! ») : ouverte depuis l'atelier, `UEModal lecture` désactive fiche, acquis et motifs (`fieldset disabled`), rubriques en lecture, titre « Dossier pédagogique de l'UE n », pied « Fermer » ; le dossier se modifie dans Configuration → Unités et cours. (2) `Professeurs.jsx` → Accès Lucie : rôle + sections (segments Toutes · Ces sections · Aucune),
 plus de cases par module ; à l'enregistrement `permsDuRole` ouvre toutes les cases (le plafond du rôle borne) sauf `amenagements`,
 octroi nominatif gardé (`MODULES_SUR_OCTROI`). **La gestion des accès est en deux temps : Configuration → Accès paramètre les rôles ;
 la fiche choisit le rôle et les sections.**

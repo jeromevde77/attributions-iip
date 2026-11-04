@@ -223,7 +223,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
         {ue && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={ouvrirDP}>
           <IconBook size={15} /> Dossier pédagogique</button>}
       </div>
-      {dp && <UEModal ue={dp.ue} sections={dp.sections} ongletInitial="contenu" onClose={() => setDp(null)} onSaved={() => setDp(null)} />}
+      {dp && <UEModal ue={dp.ue} sections={dp.sections} ongletInitial="contenu" lecture onClose={() => setDp(null)} onSaved={() => setDp(null)} />}
 
       <Frise faces={FACES} ouvertes={ouvertes.map(f => f[0])} face={face} onFace={setFace} et={suivi} />
 
