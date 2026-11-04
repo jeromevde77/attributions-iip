@@ -134,7 +134,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       // qui vient d'enregistrer les réussites d'office doit savoir qui reste, et
       // l'état de React n'est pas encore à jour à cet instant-là.
       return j.etudiants;
-    } catch (e) { setErreur(e.message); return null; }
+    } catch (e) {
+      // « Load failed » (Safari) / « Failed to fetch » : la réponse n'est pas arrivée entière.
+      setErreur(/load failed|failed to fetch|networkerror/i.test(e.message)
+        ? 'La feuille n’est pas arrivée entière (connexion interrompue). Rechargez la page ; si cela revient, signalez-le.'
+        : e.message);
+      return null;
+    }
   }
   async function chargerSeance() {
     try {

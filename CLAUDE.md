@@ -3535,6 +3535,12 @@ pas de noir, gris clair » ; « fond blanc uni partout ; le rail devient une par
 #E4E7EC, rail transparent (`.rail-lucie`) avec sa parenthèse (`::after`, fondu par masque) et un point bleu face à l'entrée
 `[data-actif]`, fenêtres à 22 px. **Second passage** (3.5.104, Charles : « bof, très peu abouti ») : le thème dépasse aussi les réglages de forme de l'école (`--d-*` en `!important`, sous ce thème seulement) — police du système, titre d'écran 26 px, boutons et rubriques en pilule, bleu du logo pour l'action, en-têtes de tableau sans bande ni capitales, pastilles d'état pâles, `--menu-*` redéfinis. Les réglages de l'école ne changent pas. Si Charles l'adopte : en faire le défaut.
 
+**UNE RÉPONSE COUPÉE SE DIT, ELLE NE PLANTE PAS L'ÉCRAN** (3.5.105, Charles, 4 novembre 2026, production 3.5.098 : la feuille S2
+de l'UE 333 affichait « Load failed » et le registre des envois plantait sur `(u||[]).map`). Les deux sont des réponses
+VOLUMINEUSES dont le corps n'est pas arrivé entier (Safari : « Load failed » au `json()` ; le registre lisait l'échec en `{}`).
+Le registre exige un tableau, la feuille dit « pas arrivée entière ». **La cause côté serveur n'est pas établie** (le serveur
+n'a pas redémarré, la sauvegarde passe) : à regarder sur le VPS — `df -h`, `docker system df`, journaux du conteneur frontend.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
