@@ -476,6 +476,11 @@ export default function Attributions() {
   const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly && (!c.helbOnly || hasHelb) && (!c.tcOnly || hasTC)), [COLS, hasHelb, hasTC]);
   // Colonnes pour la vue accordéon niveau Cours (masque aussi code_cours/nom_cours)
   const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly && (!c.helbOnly || hasHelb) && (!c.tcOnly || hasTC)), [COLS, hasHelb, hasTC]);
+  /* LA LARGEUR VA AU PROFESSEUR (3.5.113, Charles : « gagner en largeur, on ne voit pas le nom du prof ») : « HELB » et « Sup. »
+     ne s'affichent que dans les UE qui en ont l'usage — une ligne HELB, une UE du tronc commun —, pas partout dès qu'une
+     seule en a besoin. Les colonnes se décident par UE : tous ses cours s'alignent. */
+  const colsDeLUE = rowsUE => COLS_COURS.filter(c => (!c.helbOnly || rowsUE.some(r => r.contrat_mdp === 'HELB'))
+    && (!c.tcOnly || rowsUE.some(r => r.ue_tc === 'x')));
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = estDirection(me);
@@ -1787,7 +1792,7 @@ export default function Attributions() {
   /* === Rendu d'un cours (niveau 3) === */
   // Regroupe les lignes d'un cours par activité. Les activités à plusieurs groupes
   // forment un volet repliable (fermé par défaut) ; celles à une seule ligne restent directes.
-  function renderActiviteGroups(cg, coursKey) {
+  function renderActiviteGroups(cg, coursKey, COLS_COURS) {
     const rows = cg.rows;
     // Grouper par activite_id (null = sans activité)
     const groupes = new Map();
@@ -1833,7 +1838,7 @@ export default function Attributions() {
     return out;
   }
 
-  function renderCours(ueKey, cg, montrerHeader = true) {
+  function renderCours(ueKey, cg, montrerHeader = true, COLS_COURS = colsDeLUE(cg.rows)) {
     const key = 'cours:'+ueKey+'/'+cg.code_cours;
     const open = openUEs.has(key);
     const st = groupStats(cg.rows);
@@ -1931,7 +1936,7 @@ export default function Attributions() {
                 </tr>
               )}
               </thead>)}
-              <tbody>{renderActiviteGroups(cg, key)}</tbody>
+              <tbody>{renderActiviteGroups(cg, key, COLS_COURS)}</tbody>
             </table>
           </div>
         )}
@@ -2145,7 +2150,7 @@ export default function Attributions() {
                 colonnes sans nom, et l'en-tête affiché appartenait à un autre
                 cours que celui qu'on lisait. Fusionné à sa bande, il devient ce
                 qu'il est — la légende de CE cours, avec ses plafonds. */}
-            {ue.cours.map(cg => renderCours(ueKey, cg, true))}
+            {ue.cours.map(cg => renderCours(ueKey, cg, true, colsDeLUE(ue.rows)))}
           </div>
         )}
       </div>

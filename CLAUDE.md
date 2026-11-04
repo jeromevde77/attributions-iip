@@ -3549,6 +3549,10 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LES COLONNES D'UNE UE SONT CELLES DONT ELLE A L'USAGE** (3.5.113, Charles : « on ne voit pas le nom du prof ») : dans
+Attributions, « HELB » (`helbOnly`) et « Sup. » (`tcOnly`) se décident PAR UE (`colsDeLUE(ue.rows)`, passé à `renderCours` et
+`renderActiviteGroups`) et non plus pour toute la grille dès qu'une ligne en a besoin.
+
 **CONFIGURATION → ACCÈS EN QUATRE FACES** (3.5.112, Charles : « très longue, qu'elle soit coupée en sous-parties ») : l'entrée
 « Rôles et personnes » porte `faces` — `roles` (plafonds), `gestes`, `users` (le rôle décide, accès par personne), `constat` ;
 `RolesPlafonds({ partie })` ne rend que la sienne. `?onglet=users` ouvre directement les personnes.
