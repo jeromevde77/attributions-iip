@@ -3549,6 +3549,17 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LE CERTIFICAT MÉDICAL** (3.5.125, Charles, 4 novembre 2026 : « l'étudiant doit pouvoir uploader un certificat médical et
+compléter les dates de son absence ; cela doit aller dans les présences ; le prof doit le voir et le secrétariat aussi, avec
+notification ; attention aux délais du RDE » ; tranché : deux portes, délai de 3 jours ouvrables après le début de l'absence —
+**à vérifier dans le RDE**). `lib/certificatMedical.js` (`deposer`, `decider`, `appliquer`, `dateLimite` — samedis, dimanches,
+`joursFeries` exclus), table `certificat_medical`, fichier sous DATA_DIR/certificats/<id> (PDF, JPEG, PNG lus aux premiers octets).
+Dans le délai : accepté, les présences « absent » de la période deviennent « justifie / medical » (`ecrirePresences`), et
+`ecrirePresences` convertit toute absence encodée PLUS TARD sur une séance couverte. Hors délai : `a_decider`, la direction
+accepte ou refuse (motif). Notifications `certificat_medical` : rôle secrétariat + comptes des professeurs des séances.
+Porte du secrétariat : Suivi des présences → Certificats médicaux (`components/CertificatsMedicaux.jsx`, `routes/certificats.js`
+sur `/api/certificats-medicaux`). **Reste : la porte de l'étudiant dans l'espace (3.5.126).**
+
 **LES JALONS DE RÉGULARITÉ SE CHOISISSENT** (3.5.124, Charles : « ne pas mettre R/IR au 1/10 et 5/10, laisse la vérificatrice
 décider — permettre de choisir 1/10, 5/10 et autre 3/10 »). `jalonsChoisis`, `NOM_DIXIEME` (`lib/regularite.js`) ;
 `GET /api/presences-ue/ue/:ue?jalons=10,30,50` ; marques par dixième (10 à 90). Écran : boutons 1/10…9/10 (localStorage

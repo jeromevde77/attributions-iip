@@ -448,9 +448,17 @@ export function ecrirePresences(lignes, par, source = 'manuel') {
   const effacer = db.prepare('DELETE FROM presence WHERE seance_id = ? AND etudiant_id = ?');
   const journal = db.prepare(`INSERT INTO presence_journal (seance_id, etudiant_id, avant, apres, motif, par, source, retard)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  /* LE CERTIFICAT MÉDICAL COUVRE AUSSI LES ABSENCES ENCODÉES APRÈS LUI (3.5.125) : une absence posée sur une séance d'une
+     période couverte par un certificat accepté devient « justifiée — certificat médical ». */
+  let couvre = null;
+  try {
+    couvre = db.prepare(`SELECT 1 FROM certificat_medical c JOIN horaire_seance s ON s.id = ?
+      WHERE c.etudiant_id = ? AND c.statut = 'accepte' AND s.date BETWEEN c.du AND c.au LIMIT 1`);
+  } catch { couvre = null; }
   let ecrites = 0;
   db.transaction(() => {
-    for (const l of lignes) {
+    for (const l0 of lignes) {
+      const l = l0.statut === 'absent' && couvre?.get(l0.seance_id, l0.etudiant_id) ? { ...l0, statut: 'justifie', motif: 'medical' } : l0;
       const avant = lire.get(l.seance_id, l.etudiant_id);
       const motif = l.statut === 'justifie' ? l.motif : null;
       const retard = l.statut === 'present' && l.retard ? 1 : 0;
