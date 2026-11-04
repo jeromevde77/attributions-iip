@@ -3549,6 +3549,11 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LES JALONS DE RÉGULARITÉ SE CHOISISSENT** (3.5.124, Charles : « ne pas mettre R/IR au 1/10 et 5/10, laisse la vérificatrice
+décider — permettre de choisir 1/10, 5/10 et autre 3/10 »). `jalonsChoisis`, `NOM_DIXIEME` (`lib/regularite.js`) ;
+`GET /api/presences-ue/ue/:ue?jalons=10,30,50` ; marques par dixième (10 à 90). Écran : boutons 1/10…9/10 (localStorage
+« lucie.jalonsRegularite », aucun = pas de colonne). Pilotage reste au 1/10 (défaut [10, 50]).
+
 **LES LISTES D'EXAMENS** (3.5.123, Charles : « le secrétariat doit pouvoir sortir des listes pour les examens avec le prof, la
 date, le local » ; « ça existe » — les dates sont celles du CALENDRIER DES SESSIONS, `epreuve_session1` / `deliberation_session2`).
 Rapport `listes-examens` (`routes/rapports.js`, `donneesExamens`, `documentExamens`) : une page par épreuve datée (unité, cours,

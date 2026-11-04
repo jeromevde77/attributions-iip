@@ -23,6 +23,13 @@ import { minutesDe } from './cep.js';
 
 export const SEUIL_REGULARITE = 0.6;
 export const JALONS = { 10: '1er dixième', 50: '5e dixième' };
+/* LES JALONS SE CHOISISSENT (3.5.124, Charles : « laisse la vérificatrice décider — permettre de choisir 1/10, 5/10 et autre
+   3/10 »). Tout dixième de 1 à 9 ; 1/10 et 5/10 restent ceux par défaut (et ceux que lit Pilotage). */
+export const NOM_DIXIEME = n => (Number(n) === 10 ? '1er dixième' : `${Number(n) / 10}e dixième`);
+export function jalonsChoisis(liste) {
+  const l = [...new Set(String(liste ?? '').split(',').map(Number).filter(n => Number.isInteger(n) && n >= 10 && n <= 90 && n % 10 === 0))].sort((a, b) => a - b);
+  return l.length ? l : [10, 50];
+}
 
 export function migrerRegularite(base = db) {
   base.exec(`CREATE TABLE IF NOT EXISTS regularite_marque (
@@ -33,9 +40,9 @@ export function migrerRegularite(base = db) {
 }
 
 /** Les jalons de l'UE, dans l'horaire réel : { 10: 'AAAA-MM-JJ', 50: … } (null sans séance). */
-export function jalonsDeLUE(seances) {
+export function jalonsDeLUE(seances, choisis = [10, 50]) {
   const dates = seances.filter(s => !s.annule).map(s => s.date);
-  return { 10: jalonDesSeances(dates, 10), 50: jalonDesSeances(dates, 50) };
+  return Object.fromEntries(choisis.map(j => [j, jalonDesSeances(dates, j)]));
 }
 
 /**
@@ -59,15 +66,15 @@ export function regulariteAuJalon(g, ligne, jalon, aujourdhui = new Date().toISO
 }
 
 /** La grille de l'UE, enrichie de la régularité à chaque jalon (calcul + marque manuelle). */
-export function presencesDeLUE(ueNum, annee) {
+export function presencesDeLUE(ueNum, annee, choisis = [10, 50]) {
   const { g, opts } = grilleUE(Number(ueNum), annee);
-  const jalons = jalonsDeLUE(g.seances);
+  const jalons = jalonsDeLUE(g.seances, choisis);
   const marques = new Map(db.prepare('SELECT etudiant_id, jalon, valeur, par, le FROM regularite_marque WHERE annee_scolaire = ? AND ue_num = ?')
     .all(annee, Number(ueNum)).map(m => [`${m.etudiant_id}|${m.jalon}`, m]));
   const aujourdhui = new Date().toISOString().slice(0, 10);
   const lignes = g.lignes.map(l => {
     const regularite = {};
-    for (const j of Object.keys(JALONS)) {
+    for (const j of choisis.map(String)) {
       const r = regulariteAuJalon(g, l, jalons[j], aujourdhui);
       const m = marques.get(`${l.etudiant.id}|${j}`);
       const atteint = !!jalons[j] && jalons[j] <= aujourdhui;
@@ -81,9 +88,9 @@ export function presencesDeLUE(ueNum, annee) {
 
 /** Inverser le badge : la valeur voulue ; égale au calcul, la marque s'efface. */
 export function marquerRegularite(ueNum, annee, etudiantId, jalon, valeur, par) {
-  if (!JALONS[jalon]) return { erreur: 'Jalon inconnu (10 ou 50).' };
+  if (!jalonsChoisis(String(jalon)).includes(Number(jalon)) || !Number(jalon)) return { erreur: 'Jalon inconnu (un dixième, de 10 à 90).' };
   if (!['R', 'IR'].includes(valeur)) return { erreur: 'R ou IR.' };
-  const x = presencesDeLUE(ueNum, annee);
+  const x = presencesDeLUE(ueNum, annee, [Number(jalon)]);
   const l = x.g.lignes.find(y => y.etudiant.id === Number(etudiantId));
   if (!l) return { erreur: 'Cet étudiant n’est pas inscrit à cette UE.' };
   const calcule = l.regularite[jalon].calcule;

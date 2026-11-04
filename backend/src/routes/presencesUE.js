@@ -15,7 +15,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { ecrirePresences, MOTIFS_JUSTIFIES, STATUTS_PRESENCE } from '../lib/cep.js';
 import { periodesDI } from '../lib/periodesUE.js';
-import { migrerRegularite, presencesDeLUE, marquerRegularite, uesAvecHoraire, JALONS, SEUIL_REGULARITE } from '../lib/regularite.js';
+import { migrerRegularite, presencesDeLUE, marquerRegularite, uesAvecHoraire, SEUIL_REGULARITE, jalonsChoisis, NOM_DIXIEME } from '../lib/regularite.js';
 
 try { migrerRegularite(); } catch (e) { console.error('[migration] régularité :', e.message); }
 
@@ -31,9 +31,10 @@ r.get('/ues', authRequired, EDITEUR, (req, res) => {
 r.get('/ue/:ue', authRequired, EDITEUR, (req, res) => {
   try {
     const annee = anneeDe(req);
-    const x = presencesDeLUE(req.params.ue, annee);
+    const choisis = jalonsChoisis(req.query.jalons);
+    const x = presencesDeLUE(req.params.ue, annee, choisis);
     res.json({ annee, ue_num: Number(req.params.ue), titre: x.opts.titre, sous: x.opts.sous, cours: x.opts.cours,
-      jalons: x.jalons, libelles_jalons: JALONS, seuil: SEUIL_REGULARITE, dixieme: x.g.dixieme,
+      jalons: x.jalons, choisis, libelles_jalons: Object.fromEntries(choisis.map(j => [j, NOM_DIXIEME(j)])), seuil: SEUIL_REGULARITE, dixieme: x.g.dixieme,
       motifs: MOTIFS_JUSTIFIES, statuts: STATUTS_PRESENCE, aujourdhui: new Date().toISOString().slice(0, 10),
       seances: x.g.seances.map(s => ({ id: s.id, date: s.date, heure_debut: s.heure_debut, heure_fin: s.heure_fin,
         cours_code: s.cours_code, sous_groupe: s.sous_groupe, annule: !!s.annule })),
