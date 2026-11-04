@@ -3549,6 +3549,12 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**L'APERÇU DE L'ESPACE S'OUVRE TOUT DE SUITE** (3.5.128, Charles : « l'espace étudiant est vraiment lent » — à l'ouverture).
+`ouvrirApercu` (`portailSync.js`) demande le lien d'abord ; le dépôt de toute l'école suit en arrière-plan (ou se fait avant
+seulement si le portail ne connaît pas l'étudiant, 404). **La mise à jour automatique de la dev ne touche pas le portail des
+étudiants** (images `lucie-portail-*`) : après un changement du portail, lancer `maj-dev`, et vérifier le site
+(etudiants-dev.lucie-iip.be). La liste `TOUTES` du portail (fonctions vues en aperçu) suit le CATALOGUE de `lib/fonctions.js`.
+
 **LE CERTIFICAT MÉDICAL** (3.5.125, Charles, 4 novembre 2026 : « l'étudiant doit pouvoir uploader un certificat médical et
 compléter les dates de son absence ; cela doit aller dans les présences ; le prof doit le voir et le secrétariat aussi, avec
 notification ; attention aux délais du RDE » ; tranché : deux portes, délai de 3 jours ouvrables après le début de l'absence —

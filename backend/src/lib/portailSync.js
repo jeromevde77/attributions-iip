@@ -478,13 +478,21 @@ export async function ouvrirApercu(etudiantId, par) {
   db.exec(`CREATE TABLE IF NOT EXISTS portail_apercu (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);
   try {
-    // Tracé d'abord : c'est la trace qui fait déposer TOUTES les données de cet étudiant (30 minutes), aussitôt.
+    // Tracé d'abord : c'est la trace qui fait déposer TOUTES les données de cet étudiant (30 minutes).
     db.prepare('INSERT INTO portail_apercu (etudiant_id, par) VALUES (?,?)').run(Number(etudiantId), par);
-    await deposer();
-    await deposerVA([Number(etudiantId)]);
-    try { await deposerDocuments(); } catch (e) { console.error('[portail] aperçu, documents :', e.message); }
-    const r = await appel('POST', '/interne/apercu', { etudiant_id: Number(etudiantId), par });
-    return { url: r.url };
+    /* LE LIEN D'ABORD, LES DONNÉES ENSUITE (3.5.128, Charles : « l'espace étudiant est vraiment lent » — à l'ouverture). Le dépôt
+       de TOUTE l'école se faisait avant de rendre le lien : plusieurs secondes d'attente. Si le portail connaît déjà l'étudiant,
+       le lien part aussitôt et le dépôt suit en arrière-plan (les onglets se complètent en quelques secondes) ; sinon, on
+       dépose d'abord, comme avant. */
+    const lien = async () => (await appel('POST', '/interne/apercu', { etudiant_id: Number(etudiantId), par })).url;
+    let url;
+    try { url = await lien(); }
+    catch (e) { if (!/404/.test(e.message)) throw e; await deposer(); url = await lien(); }
+    (async () => {
+      try { await deposer(); await deposerVA([Number(etudiantId)]); await deposerDocuments(); }
+      catch (e) { console.error('[portail] aperçu, dépôt :', e.message); }
+    })();
+    return { url };
   } catch (e) {
     return { erreur: /404/.test(e.message) ? 'Le portail n’a pas reçu cet étudiant (archivé, ou sorti de Lucie).'
       : 'Le portail des étudiants ne répond pas.' };
