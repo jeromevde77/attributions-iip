@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
 import { mettreEnFile, comptesDuRole } from './rappels.js';
+import { sectionsSupervisant } from './supervisionGroupes.js';
 import { alertesAbsences } from './alertesAbsences.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
 import { chargerDossier, chargesDeCours } from './piecesAmenagement.js';
@@ -72,6 +73,16 @@ function presences(annee, auj) {
     for (const uid of comptesProf(pid)) {
       if (deposerUneFois({ cibleType: 'presences_prof', cibleId: pid, jalon, utilisateurId: uid, cle: 'presences_a_completer',
         titre: `Présences à compléter — ${seances.length} séance(s)`, detail, lien: '/mes-cours' })) n++;
+    }
+    // LA COORDINATION QUI SUPERVISE SES GROUPES (tronc commun, 3.5.109) en reçoit copie.
+    const sups = sectionsSupervisant({ annee, profId: pid, coursCodes: [...new Set(seances.map(s => s.cours_code))] });
+    if (sups.length) {
+      const p = db.prepare('SELECT nom, prenom FROM professeur WHERE id = ?').get(pid) || {};
+      const qui = `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
+      for (const uid of new Set(sups.flatMap(sup => comptesDuRole('coordination', sup)))) {
+        if (deposerUneFois({ cibleType: 'presences_prof', cibleId: pid, jalon: `sup|${jalon}`, utilisateurId: uid, cle: 'presences_a_completer',
+          titre: `Présences non prises — ${qui}, ${seances.length} séance(s) (groupes supervisés)`, detail, lien: '/etudiants' })) n++;
+      }
     }
   }
   return n;

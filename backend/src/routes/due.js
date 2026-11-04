@@ -485,7 +485,10 @@ r.get('/', authRequired, (req, res) => {
       parSection.set(u.ue_num, u);
     }
   } else {
-    const perim = getUserSections(req.user);          // null = toutes
+    /* UN PROFESSEUR NE VOIT QUE SES UNITÉS (3.5.110, Charles, aperçu comme Laetitia Van Bogaert : l'UE 67 de Psychomotricité
+     * paraissait dans sa liste, puis le croisement répondait « ne figure pas dans vos attributions »). Les sections de sa fiche
+     * ne lui ouvrent rien : seules ses attributions comptent. */
+    const perim = req.user.role === 'professeur' ? [] : getUserSections(req.user);   // null = toutes
     if (perim === null) {
       for (const u of db.prepare(`
         SELECT ue_num, ue_nom, section, ects, ue_quad, ue_tc FROM ue

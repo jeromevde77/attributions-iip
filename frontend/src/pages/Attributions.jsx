@@ -343,6 +343,9 @@ const DEFAULT_COLS = [
   { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true, flatOnly: true,
     render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
   { key: 'code',                  label: 'Gr.',        width: 92, edit: 'text' },
+  /* LA COORDINATION QUI SUPERVISE LE GROUPE (tronc commun, 3.5.109, Charles) : une étiquette ; sa coordination reçoit en
+     plus les rappels du groupe. Posée par la direction et le secrétariat, ici ou dans la répartition des groupes. */
+  { key: 'coordination_section',  label: 'Sup.',       width: 92, tcOnly: true },
   { key: 'professeur_id',         label: 'Professeur', width: 236, flex: true, edit: 'prof',
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
   { key: 'contrat',               label: 'Stat.',      width: 64, edit: 'statut',
@@ -469,9 +472,10 @@ export default function Attributions() {
   // Détecter s'il y a des lignes HELB dans les données affichées
   const hasHelb = useMemo(() => Array.isArray(data) && data.some(r => r.contrat_mdp === 'HELB'), [data]);
   // Colonnes pour la vue accordéon niveau UE (masque section/ue/bloc/org, garde code_cours/nom_cours)
-  const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly && (!c.helbOnly || hasHelb)), [COLS, hasHelb]);
+  const hasTC = useMemo(() => Array.isArray(data) && data.some(r => r.ue_tc === 'x'), [data]);
+  const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly && (!c.helbOnly || hasHelb) && (!c.tcOnly || hasTC)), [COLS, hasHelb, hasTC]);
   // Colonnes pour la vue accordéon niveau Cours (masque aussi code_cours/nom_cours)
-  const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly && (!c.helbOnly || hasHelb)), [COLS, hasHelb]);
+  const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly && (!c.helbOnly || hasHelb) && (!c.tcOnly || hasTC)), [COLS, hasHelb, hasTC]);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = estDirection(me);
@@ -481,6 +485,8 @@ export default function Attributions() {
      congé, sans « Nouveau ». La porte reste le serveur. */
   const droits = useDroits();
   const peutEcrireAttr = droits.ecrit('attributions') && droits.peut('attributions.modifier');
+  // La supervision d'un groupe du tronc commun se pose par la direction et le secrétariat (3.5.109).
+  const peutSuperviser = peutEcrireAttr && droits.passe('admin', 'editeur');
   const peutSupprAttr = droits.ecrit('attributions') && droits.peut('attributions.supprimer');
   const peutAdminAttr = droits.ecrit('attributions') && droits.passe('admin');
   const saveValide = async (id, valide) => {
@@ -1678,6 +1684,14 @@ export default function Attributions() {
                 </>}
               </div>
             </td>;
+          }
+          if (c.key==='coordination_section') {
+            if (row.ue_tc !== 'x') return <td key={c.key} style={sty} className="text-center text-gray-300" title="Réservé au tronc commun">—</td>;
+            if (!peutSuperviser) return <td key={c.key} style={sty} className="text-center text-xs">{v || <span className="text-gray-300">—</span>}</td>;
+            return <td key={c.key} style={sty}><select key={`sup-${row.id}-${v??''}`} defaultValue={v??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer"
+              title="Coordination qui supervise ce groupe : elle reçoit en plus les rappels du groupe"
+              onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value||null);}}>
+              <option value="">—</option>{sections.map(x=><option key={x.code} value={x.code}>{x.code}</option>)}</select></td>;
           }
           if (c.edit==='text') return <td key={c.key} style={sty}><input type="text" defaultValue={v??''} className="input-cell w-full text-center" onClick={e=>e.stopPropagation()} onBlur={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}/></td>;
           if (c.key==='type_cours_helb') {
