@@ -217,11 +217,13 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
          le tiroir n'apparaissait qu'au second clic, règle du 4 octobre levée). On arrive sur la rubrique, ses outils sont
          dessous ; un clic de plus le referme (le geste universel de `RailDessine`). Le tiroir ne suit pas la rubrique quand
          on en change. */
-      const ouvertR = enfants.some(e => e.actif) || (sousOuvert === sm.key && rubrique.actif);
+      // OUVERT DÈS QU'ON EST SUR LA RUBRIQUE, quelle que soit la façon d'y arriver (clic, rechargement, lien) — sauf si on
+      // l'a replié soi-même (3.5.121, Charles : « pourquoi je dois cliquer deux fois ? »).
+      const ouvertR = enfants.some(e => e.actif) || (rubrique.actif && sousOuvert !== `ferme:${sm.key}`);
       parCle.set(sm.key, { ...rubrique, sous: ouvertR ? enfants : undefined,
         onClick: () => {
-          if (rubrique.actif) setSousOuvert(o => (o === sm.key ? null : sm.key));
-          else { setSousOuvert(sm.key); rubrique.onClick(); }
+          if (rubrique.actif) setSousOuvert(o => (o === `ferme:${sm.key}` ? null : `ferme:${sm.key}`));
+          else { setSousOuvert(null); rubrique.onClick(); }
         } });
       continue;
     }

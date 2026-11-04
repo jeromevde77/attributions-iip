@@ -3552,7 +3552,8 @@ mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : 
 **LE TIROIR D'UNE RUBRIQUE S'OUVRE DÈS LE PREMIER CLIC** (3.5.119, Charles : « je ne vois pas l'outil de correction » — la
 règle du 4 octobre, « fermé par défaut, ouvert au second clic », est levée). `Axe.jsx` : cliquer une rubrique à sous-menu pose
 `sousOuvert` en même temps qu'elle s'ouvre ; un clic de plus replie (`RailDessine`) ; le tiroir ne reste ouvert que sur la
-rubrique active.
+rubrique active. 3.5.121 : ouvert dès qu'on est sur la rubrique, quelle que soit la façon d'y arriver, sauf si on l'a replié
+(`sousOuvert` = « ferme:<clé> »).
 
 **CORRIGER UNE UE — ANNÉES REPRISES, OUTIL TEMPORAIRE** (3.5.118, Charles : « un moyen rapide de changer la note de l'UE,
 mettre refus, réussite… on est toujours dans les corrections de l'import 22-23 à 25-26 ; par UE avec année, par AA, cours et
