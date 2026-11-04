@@ -3567,7 +3567,7 @@ lecture de Configuration l'ouvrait). **À retirer quand les corrections des impo
 
 **LE SPÉCIMEN D'UNE PIÈCE RÉELLE, ET LA LISTE DES DIPLÔMÉS PAR MENTION** (3.5.117, Charles : « une case Spécimen avec un
 filigrane Spécimen » dans l'envoi des diplômes ; « liste des diplômés par grade » — tranché : par mention, dans une section).
-`poserSpecimen(html)` et `MARQUE_SPECIMEN` (`lib/filigraneDocument.js`) : « SPÉCIMEN » fixe en travers de chaque page ;
+`poserSpecimen(html)` et `MARQUE_SPECIMEN` (`lib/filigraneDocument.js`) : « SPÉCIMEN » fixe en travers de chaque page, gris-bleu très pâle sans cadre (3.5.122, « un peu flagrant et rouge ») ;
 `filigraner` lit la marque et n'inscrit rien au registre des pièces authentiques (comme `enSpecimen`). `avecSpecimen` (middleware de
 `routes/diplomes.js`) l'applique quand `specimen: true` à `/pieces`, `/document`, `/pv-section`. `par_mention` de `/document` :
 une ligne de regroupement par mention (`reglesMention().seuils`, du dossier de diplomation). Écran : cases « Spécimen » et
