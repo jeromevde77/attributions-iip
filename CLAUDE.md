@@ -3549,6 +3549,15 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**DES MENUS PLUS COURTS** (3.5.130, Charles, 5 novembre 2026 : « simplifier les menus » ; « le rail d'Organisation devient fort
+long » ; maquettes validées). Étudiants : `ordreRail` [pae, valorisation, accompagner, deliberation, procedures] + [purge] ; le
+tiroir de « Inscriptions & PAE » porte créer, contrôler, les outils du PAE, les extraits ; groupe `accompagner` (présences,
+aménagements, écrire). Organisation : quatre groupes `g-programme`, `g-annee`, `g-enseigne`, `g-etudiants` ; les étapes des écrans
+(unité, labo, horaires) sont des enfants `seulementPresent` (dans le tiroir seulement quand l'écran est ouvert — `Axe.jsx`). Un
+groupe se déclare comme un sous-menu dont la clé n'est pas une rubrique. « Importer » (`lib/barreOutils.js`, l'axe déclare sa porte)
+et « Proposer une amélioration » sont dans la barre du haut (`components/OutilsBarre.jsx`). L'icône des réglages d'un volet replié
+se pose sous la rubrique active, y compris dans le tiroir d'un groupe (`RailDessine`).
+
 **LA FICHE DU COURS DANS MES COURS** (3.5.129, Charles : « que les professeurs voient leurs UE et cours, le dossier pédagogique
 lié, les AA et points de programme de chaque cours ; et les périodes d'autonomie et les heures prévues pour l'évaluation »).
 Onglet « Le cours » (`components/FicheCours.jsx`, `GET /api/mes-cours/:cours/fiche`, garde `accesCours`) : UE, `cours_per`,

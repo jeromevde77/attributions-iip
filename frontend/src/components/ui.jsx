@@ -481,8 +481,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                n'est nulle part. Elle remplace les rubriques « à venir », qui
                promettaient des écrans inexistants dans le menu de ceux qui
                travaillent. */
-            { key: '__idee', label: 'Proposer une amélioration', icon: IconBulb,
-              onClick: () => setIdees(true) },
+            /* « Proposer une amélioration » est dans la barre du haut (3.5.130). */
             ...actions.filter(a2 => a2.destructif)].map(a2 => {
             const Ic = a2.icon;
             return (
@@ -550,8 +549,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
             {sec.items.map(itBrut => {
               /* LE VOLET REPLIÉ SE ROUVRE SOUS LA RUBRIQUE OUVERTE (3.5.115, Charles : « l'icône de paramètres sous l'icône
                  Attributions, comme pour le reste ») : il prend la place d'un tiroir d'une entrée. */
-              const it0 = volet && voletReplie && itBrut.actif && !(itBrut.sous?.length > 0)
-                ? { ...itBrut, sous: [{ key: '__volet', label: `${volet.titre || 'Volet'} — ouvrir`, icon: IconAdjustmentsHorizontal, onClick: () => replierVolet(false) }] }
+              const entreeVolet = { key: '__volet', label: `${volet?.titre || 'Volet'} — ouvrir`, icon: IconAdjustmentsHorizontal, onClick: () => replierVolet(false) };
+              const enfantActif = (itBrut.sous || []).findIndex(x => x.actif);
+              const it0 = !(volet && voletReplie) ? itBrut
+                : itBrut.actif && !(itBrut.sous?.length > 0) ? { ...itBrut, sous: [entreeVolet] }
+                // Rubrique rangée dans le tiroir d'un groupe (3.5.130) : les réglages se posent juste sous elle.
+                : enfantActif >= 0 ? { ...itBrut, sous: [...itBrut.sous.slice(0, enfantActif + 1), entreeVolet, ...itBrut.sous.slice(enfantActif + 1)] }
                 : itBrut;
               const aTiroir = it0.sous?.length > 0;
               const it = aTiroir && replies.has(it0.key)

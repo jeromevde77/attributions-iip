@@ -7,7 +7,7 @@ import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
   IconChartBar, IconSpeakerphone,
   IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
-  IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible, IconTable,
+  IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible, IconHeartHandshake, IconTable,
   IconUserPlus, IconListSearch, IconCash, IconQrcode, IconMessages, IconInbox, IconPlaylistX, IconPencil, IconChecks, IconZoomQuestion, IconAdjustments,
   IconListDetails, IconArchive,
 } from '@tabler/icons-react';
@@ -114,11 +114,11 @@ export function AxeEtudiants() {
          l'année : inscrire, accompagner, évaluer, recours, vider. Chaque outil vit sous la rubrique à laquelle il appartient,
          ou à son étape ; les visites de stage ont quitté ce rail (Organisation → Stages → Visites et trajets). Une icône par
          entrée, qui n'est qu'à elle. */
+      /* SIX RUBRIQUES À TIROIR (3.5.130, Charles, 5 novembre 2026 : « simplifier les menus » ; maquette validée). Inscrire
+         (Inscriptions & PAE, avec créer, contrôler, les outils du PAE, les extraits), Valorisation, Accompagner (présences,
+         aménagements, écrire), Délibération, Procédures — puis Vider, seul en bas. */
       ordreRail={[
-        ['nouvel-etudiant', 'controles-dossiers', 'pae', 'extraits-bancaires'],
-        ['valorisation', 'amenagements', 'presence-qr', 'messages-etudiants'],
-        ['deliberation'],
-        ['procedures'],
+        ['pae', 'valorisation', 'accompagner', 'deliberation', 'procedures'],
         ['purge'],
       ]}
       outilsPermanents={[
@@ -134,12 +134,21 @@ export function AxeEtudiants() {
       sousMenus={[
         { key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList, hote: 'pae',
           enfants: [
+            { key: 'nouvel-etudiant', label: 'Créer un étudiant', icone: IconUserPlus, peut: () => peutGeste('etudiants.creer') },
+            { key: 'controles-dossiers', label: 'Contrôler les dossiers', icone: IconListSearch },
             { key: 'passage', label: 'Composer le PAE', icone: IconStairsUp, peut: () => peutGeste('etudiants.pae_composer') },
             { key: 'revue-pae', label: 'Revue des PAE', icone: IconEyeCheck },
             { key: 'pae-en-ligne', label: 'PAE en ligne', icone: IconInbox, peut: () => peutGeste('etudiants.pae_composer') },
             { key: 'inscrits-unites', label: 'Inscrits par unité', icone: IconTable },
             { key: 'refus2', label: 'Refus en 2e session', icone: IconPlaylistX,
               peut: () => passeRole(['admin', 'editeur']) || peutGeste('etudiants.pae_composer') },
+            { key: 'extraits-bancaires', label: 'Frais — extraits de compte', icone: IconCash, peut: () => passeRole(['admin', 'editeur']) },
+          ] },
+        { key: 'accompagner', label: 'Accompagner', icone: IconHeartHandshake, hote: 'pae',
+          enfants: [
+            { key: 'presence-qr', label: 'Suivi des présences', icone: IconQrcode, peut: () => passeRole(['admin', 'editeur', 'coordination']) },
+            { key: 'amenagements', label: 'Aménagements raisonnables', icone: IconAccessible },
+            { key: 'messages-etudiants', label: 'Écrire aux étudiants', icone: IconMessages, peut: () => passeRole(['admin', 'editeur', 'coordination']) },
           ] },
         { key: 'deliberation', label: 'Délibération', icone: IconScale, hote: 'deliberation',
           enfants: [

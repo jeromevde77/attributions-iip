@@ -5,7 +5,7 @@ import GardeAnnee from '../components/GardeAnnee.jsx';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
-  IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
+  IconLayoutGrid, IconBook2, IconCalendar, IconChalkboard, IconUsers, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
   IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
@@ -72,30 +72,40 @@ export default function Organisation({ ongletInitial }) {
          ses trois étapes dessous. */
       /* QUATRE GROUPES, DANS L'ORDRE DU TRAVAIL (3.5.069, Charles, 2 novembre 2026 : « revoir les groupements du
          menu ») : le programme, l'année, qui enseigne et quand, les étudiants. */
-      ordreRail={[['structure', 'unite'], ['agenda', 'planifier', 'effectifs'], ['attributions', 'laboratoire', 'horaire-semaine'],
-        ['rentree', 'repartition', 'stages', 'tfe']]}
-      sousMenus={[{ key: 'laboratoire', label: 'Le laboratoire temporel', icone: IconeLaboratoire, hote: 'laboratoire',
-        enfants: [
-          // LES ÉTAPES DANS L'ORDRE DU TRAVAIL (3.1.465) — celui de ETAPES_LABO (LaboratoireTemporel.jsx).
-          { key: 'labo-schema', label: '1. Le schéma', icone: IconHierarchy2 },
-          { key: 'labo-temps', label: '2. Le temps', icone: IconTimeline },
-          { key: 'labo-groupes', label: '3. Les groupes', icone: IconPuzzle },
-          { key: 'labo-planning', label: '4. Le planning', icone: IconCalendarCog },
-          { key: 'labo-disponibilites', label: '5. Les disponibilités', icone: IconUserCheck },
-          { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarTime },
-          { key: 'labo-horaire', label: '7. L’horaire', icone: IconCalendarCheck },
-        ] }, { key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, hote: 'horaire-semaine',
-        enfants: [
-          { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye },
-          { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent },
-          { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock },
-        ] }, { key: 'unite', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, hote: 'unite',
-        enfants: [
-          { key: 'face-dossier', label: '0. Lire le dossier pédagogique', icone: IconBook },
-          { key: 'face-croisement', label: '1. Croiser les acquis et le programme', icone: IconTable },
-          { key: 'face-ponderation', label: '2. Pondérer', icone: IconPercentage },
-          { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription },
-        ] }]}
+      /* QUATRE GROUPES À TIROIR (3.5.130, Charles, 5 novembre 2026 : « le rail d'Organisation devient fort long » ; maquette
+         validée) : le programme, l'année, qui enseigne et quand, les étudiants. Les étapes de l'Unité, du Laboratoire et des
+         Horaires se déplient dans le tiroir de leur groupe quand leur écran est ouvert (`seulementPresent`). */
+      ordreRail={[['g-programme', 'g-annee', 'g-enseigne', 'g-etudiants']]}
+      sousMenus={[
+        { key: 'g-programme', label: 'Le programme', icone: IconBook2,
+          enfants: [
+            { key: 'structure' }, { key: 'unite' },
+            { key: 'face-dossier', label: '0. Lire le dossier pédagogique', icone: IconBook, seulementPresent: true },
+            { key: 'face-croisement', label: '1. Croiser les acquis et le programme', icone: IconTable, seulementPresent: true },
+            { key: 'face-ponderation', label: '2. Pondérer', icone: IconPercentage, seulementPresent: true },
+            { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription, seulementPresent: true },
+          ] },
+        { key: 'g-annee', label: 'L’année', icone: IconCalendar,
+          enfants: [{ key: 'agenda' }, { key: 'planifier' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
+        { key: 'g-enseigne', label: 'Qui enseigne et quand', icone: IconChalkboard,
+          enfants: [
+            { key: 'attributions' }, { key: 'laboratoire' },
+            // LES ÉTAPES DANS L'ORDRE DU TRAVAIL (3.1.465) — celui de ETAPES_LABO (LaboratoireTemporel.jsx).
+            { key: 'labo-schema', label: '1. Le schéma', icone: IconHierarchy2, seulementPresent: true },
+            { key: 'labo-temps', label: '2. Le temps', icone: IconTimeline, seulementPresent: true },
+            { key: 'labo-groupes', label: '3. Les groupes', icone: IconPuzzle, seulementPresent: true },
+            { key: 'labo-planning', label: '4. Le planning', icone: IconCalendarCog, seulementPresent: true },
+            { key: 'labo-disponibilites', label: '5. Les disponibilités', icone: IconUserCheck, seulementPresent: true },
+            { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarTime, seulementPresent: true },
+            { key: 'labo-horaire', label: '7. L’horaire', icone: IconCalendarCheck, seulementPresent: true },
+            { key: 'horaire-semaine' },
+            { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye, seulementPresent: true },
+            { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent, seulementPresent: true },
+            { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock, seulementPresent: true },
+          ] },
+        { key: 'g-etudiants', label: 'Les étudiants', icone: IconUsers,
+          enfants: [{ key: 'repartition' }, { key: 'stages' }, { key: 'tfe' }] },
+      ]}
       onglets={[
         { key: 'attributions', module: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },

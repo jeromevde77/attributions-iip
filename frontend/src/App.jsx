@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import OutilsBarre from './components/OutilsBarre.jsx';
 import PontEspaceEnseignant from './components/PontEspaceEnseignant.jsx';
 import { nomDuCompte } from './lib/nom.js';
 import { BoutonAnnulerReglage } from './lib/annulerReglage.jsx';
@@ -723,6 +724,7 @@ function ProtectedLayout({ children }) {
             <BoutonUrgence />
             <RechercheLucie />
             <AnnulerGestes />
+            <OutilsBarre />
             {u?.role === 'admin' && (
               <button onClick={basculerMiseEnPage} aria-label="Mise en page" aria-pressed={mep.actif}
                 title={mep.actif ? 'Mise en page activée — glissez les menus et les blocs ; cliquer pour terminer' : 'Mise en page — ranger les menus et les pages en les glissant (administrateur)'}
