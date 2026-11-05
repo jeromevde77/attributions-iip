@@ -3549,6 +3549,42 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LA FICHE DU COURS DANS MES COURS** (3.5.129, Charles : « que les professeurs voient leurs UE et cours, le dossier pédagogique
+lié, les AA et points de programme de chaque cours ; et les périodes d'autonomie et les heures prévues pour l'évaluation »).
+Onglet « Le cours » (`components/FicheCours.jsx`, `GET /api/mes-cours/:cours/fiche`, garde `accesCours`) : UE, `cours_per`,
+`cours_autonomie` (+ `grille_cours.autonomie_placee` de l'année), évaluation = `cours_ev1` (examens) + `cours_vc1` (remédiation),
+acquis de `aa_ponderation` de l'année avec leur part, programme du cours découpé du dossier de l'UE (`decouperProgramme`).
+
+**L'APERÇU DE L'ESPACE S'OUVRE TOUT DE SUITE** (3.5.128, Charles : « l'espace étudiant est vraiment lent » — à l'ouverture).
+`ouvrirApercu` (`portailSync.js`) demande le lien d'abord ; le dépôt de toute l'école suit en arrière-plan (ou se fait avant
+seulement si le portail ne connaît pas l'étudiant, 404). **La mise à jour automatique de la dev ne touche pas le portail des
+étudiants** (images `lucie-portail-*`) : après un changement du portail, lancer `maj-dev`, et vérifier le site
+(etudiants-dev.lucie-iip.be). La liste `TOUTES` du portail (fonctions vues en aperçu) suit le CATALOGUE de `lib/fonctions.js`.
+
+**LE CERTIFICAT MÉDICAL** (3.5.125, Charles, 4 novembre 2026 : « l'étudiant doit pouvoir uploader un certificat médical et
+compléter les dates de son absence ; cela doit aller dans les présences ; le prof doit le voir et le secrétariat aussi, avec
+notification ; attention aux délais du RDE » ; tranché : deux portes, délai de 3 jours ouvrables après le début de l'absence —
+**à vérifier dans le RDE**). `lib/certificatMedical.js` (`deposer`, `decider`, `appliquer`, `dateLimite` — samedis, dimanches,
+`joursFeries` exclus), table `certificat_medical`, fichier sous DATA_DIR/certificats/<id> (PDF, JPEG, PNG lus aux premiers octets).
+Dans le délai : accepté, les présences « absent » de la période deviennent « justifie / medical » (`ecrirePresences`), et
+`ecrirePresences` convertit toute absence encodée PLUS TARD sur une séance couverte. Hors délai : `a_decider`, la direction
+accepte ou refuse (motif). Notifications `certificat_medical` : rôle secrétariat + comptes des professeurs des séances.
+Porte du secrétariat : Suivi des présences → Certificats médicaux (`components/CertificatsMedicaux.jsx`, `routes/certificats.js`
+sur `/api/certificats-medicaux`). **La porte de l'étudiant** (3.5.126) : fonction `espace.certificats` (née éteinte), onglet « Mes absences » de l'espace
+(`frontend/src/portail/MesAbsences.jsx`) ; le portail note le dépôt (`cm_geste`, `/api/portail/certificat`, octets bruts, 10 Mo,
+PDF/JPEG/PNG) ; Lucie le relève (`portailSync`, `r.cm`, `/interne/cm/piece/:id`), le juge par le même `deposer` (« NOM Prénom
+(étudiant, en ligne) ») et rend le résultat (`resultat` ou `erreur`) que l'espace affiche.
+
+**LES JALONS DE RÉGULARITÉ SE CHOISISSENT** (3.5.124, Charles : « ne pas mettre R/IR au 1/10 et 5/10, laisse la vérificatrice
+décider — permettre de choisir 1/10, 5/10 et autre 3/10 »). `jalonsChoisis`, `NOM_DIXIEME` (`lib/regularite.js`) ;
+`GET /api/presences-ue/ue/:ue?jalons=10,30,50` ; marques par dixième (10 à 90). Écran : boutons 1/10…9/10 (localStorage
+« lucie.jalonsRegularite », aucun = pas de colonne). Pilotage reste au 1/10 (défaut [10, 50]).
+
+**LES LISTES D'EXAMENS** (3.5.123, Charles : « le secrétariat doit pouvoir sortir des listes pour les examens avec le prof, la
+date, le local » ; « ça existe » — les dates sont celles du CALENDRIER DES SESSIONS, `epreuve_session1` / `deliberation_session2`).
+Rapport `listes-examens` (`routes/rapports.js`, `donneesExamens`, `documentExamens`) : une page par épreuve datée (unité, cours,
+date, heure, local, professeurs des attributions), étudiants à émarger — inscrits en S1, `aRepresenterParCours` en S2 ; Excel.
+
 **LE TIROIR D'UNE RUBRIQUE S'OUVRE DÈS LE PREMIER CLIC** (3.5.119, Charles : « je ne vois pas l'outil de correction » — la
 règle du 4 octobre, « fermé par défaut, ouvert au second clic », est levée). `Axe.jsx` : cliquer une rubrique à sous-menu pose
 `sousOuvert` en même temps qu'elle s'ouvre ; un clic de plus replie (`RailDessine`) ; le tiroir ne reste ouvert que sur la

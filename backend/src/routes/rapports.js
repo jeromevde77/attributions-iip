@@ -21,7 +21,7 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { donneesInscritsUnites } from './etudiants.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { decisionDeSession, structureUE } from './acquis.js';
+import { decisionDeSession, structureUE, aRepresenterParCours } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
 import { MOTIFS_DI } from './droitInscription.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
@@ -1216,6 +1216,79 @@ export function donneesListesUE(annee, section) {
   return out;
 }
 
+/* LES LISTES D'EXAMENS (3.5.123, Charles : « le secrétariat doit pouvoir sortir des listes pour les examens avec le prof, la
+   date, le local » — les dates sont celles du calendrier des sessions, Organisation → Calendrier des sessions). Une épreuve =
+   un cours (ou l'unité) daté dans `epreuve_session1` (1re session) ou `deliberation_session2` (2e) ; ses étudiants : les
+   inscrits de l'unité en 1re session, les ajournés qui représentent CE cours en 2e (`aRepresenterParCours`) ; ses
+   professeurs : les attributions du cours. Triées par date et heure. */
+function donneesExamens(p) {
+  const s2 = Number(p.session) === 2;
+  const t = s2 ? 'deliberation_session2' : 'epreuve_session1', k = s2 ? 's2' : 's1';
+  let epreuves = [];
+  try {
+    epreuves = db.prepare(`SELECT e.ue_num, e.cours_code, e.${k}_date AS date, e.${k}_heure AS heure, e.${k}_local AS local,
+        e.${k}_adresse AS adresse,
+        (SELECT u.ue_nom FROM ue u WHERE u.ue_num = e.ue_num AND u.annee_scolaire = e.annee_scolaire LIMIT 1) AS ue_nom,
+        (SELECT u.section FROM ue u WHERE u.ue_num = e.ue_num AND u.annee_scolaire = e.annee_scolaire LIMIT 1) AS section,
+        (SELECT c.cours_nom FROM cours c WHERE c.cours_code = e.cours_code AND c.annee_scolaire = e.annee_scolaire LIMIT 1) AS cours_nom
+      FROM ${t} e WHERE e.annee_scolaire = ? AND e.${k}_date IS NOT NULL AND e.${k}_date <> ''
+      ORDER BY e.${k}_date, e.${k}_heure, e.ue_num, e.cours_code`).all(p.annee);
+  } catch { epreuves = []; }
+  if (p.section) epreuves = epreuves.filter(e => e.section === p.section);
+  const profs = db.prepare(`SELECT DISTINCT pr.nom, pr.prenom FROM attribution a JOIN professeur pr ON pr.id = a.professeur_id
+    WHERE a.annee_scolaire = ? AND a.ue_num = ? AND (? = '' OR a.code_cours = ?) ORDER BY pr.nom`);
+  const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, e.id_ecampus FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND COALESCE(i.statut, '') NOT IN ('abandon', 'desinscrit')
+    ORDER BY e.nom COLLATE NOCASE, e.prenom COLLATE NOCASE`);
+  const ajournes = {};
+  return epreuves.map(e => {
+    const cours = e.cours_code || '';
+    let etudiants;
+    if (s2) {
+      if (!ajournes[e.ue_num]) { try { ajournes[e.ue_num] = aRepresenterParCours(e.ue_num, p.annee, 1) || {}; } catch { ajournes[e.ue_num] = {}; } }
+      const par = ajournes[e.ue_num];
+      etudiants = cours ? (par[cours] || [])
+        : [...new Map(Object.values(par).flat().map(x => [x.id, x])).values()];
+    } else etudiants = inscrits.all(p.annee, e.ue_num);
+    return {
+      ...e, cours_code: cours,
+      professeurs: profs.all(p.annee, e.ue_num, cours, cours).map(x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim()).join(', '),
+      etudiants: etudiants.map(x => ({ nom: `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim(), matricule: x.id_ecampus || '' })),
+    };
+  });
+}
+function documentExamens(p) {
+  const d = donneesExamens(p);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const jour = v => (v ? new Date(`${String(v).slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '');
+  const ses = Number(p.session) === 2 ? 'Seconde session' : 'Première session';
+  const corps = d.length ? d.map((e, k) => `
+    <section class="examen"${k ? ' style="break-before:page;page-break-before:always"' : ''}>
+      <h2>UE ${e.ue_num} — ${esc(e.ue_nom || '')}</h2>
+      <table class="serre fiche-examen">
+        <tr><th>Épreuve</th><td>${e.cours_code ? `${esc(e.cours_code)} — ${esc(e.cours_nom || '')}` : 'Unité entière'}</td></tr>
+        <tr><th>Date</th><td><b>${esc(jour(e.date))}</b>${e.heure ? ` à <b>${esc(e.heure)}</b>` : ''}</td></tr>
+        <tr><th>Local</th><td>${esc(e.local || '—')}${e.adresse ? ` · ${esc(e.adresse)}` : ''}</td></tr>
+        <tr><th>Professeur(s)</th><td>${esc(e.professeurs || '—')}</td></tr>
+        <tr><th>Étudiants</th><td>${e.etudiants.length}</td></tr>
+      </table>
+      ${e.etudiants.length ? `<table class="serre"><thead><tr><th class="n" style="width:10mm">N°</th><th>Étudiant</th>
+        <th style="width:28mm">Matricule</th><th style="width:22mm">Présent</th><th style="width:50mm">Signature</th></tr></thead>
+        <tbody>${e.etudiants.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.nom)}</td><td>${esc(x.matricule)}</td><td></td><td class="sig"></td></tr>`).join('')}</tbody></table>`
+        : '<p class="fin">Aucun étudiant pour cette épreuve.</p>'}
+    </section>`).join('') : `<p class="fin">Aucune épreuve datée pour cette sélection (Organisation → Calendrier des sessions).</p>`;
+  return {
+    corps,
+    entete: { titre: 'Listes d’examens', sous: `${ses} · année académique ${p.annee}${p.section ? ` · ${p.section}` : ''}` },
+    titre: 'Listes d’examens',
+    nom: `Listes-examens-${p.section || 'toutes'}-${Number(p.session) === 2 ? 's2' : 's1'}-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + `
+      .examen h2 { margin-top:0; }
+      table.fiche-examen { margin-bottom:4mm; } table.fiche-examen th { width:34mm; text-align:left; }
+      td.sig { height:7mm; }`,
+  };
+}
+
 function documentListesUE(p) {
   const d = donneesListesUE(p.annee, p.section);
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -2359,6 +2432,17 @@ export const RAPPORTS = [
   },
 
   // ── ORGANISATION ────────────────────────────────────────────────────────
+  {
+    id: 'listes-examens', domaine: 'etudiants', params: ['annee', 'section', 'session'],
+    libelle: 'Listes d’examens',
+    aide: "Une page par épreuve datée dans le calendrier des sessions : unité, cours, date, heure, local, professeur(s), puis les étudiants à émarger (inscrits en 1re session, ajournés qui représentent le cours en 2e).",
+    colonnes: COLS([['date', 'Date', 12], ['heure', 'Heure', 8], ['local', 'Local', 14], ['ue_num', 'UE', 8], ['cours', 'Épreuve', 30],
+      ['professeurs', 'Professeur(s)', 30], ['n', 'N°', 6], ['etudiant', 'Étudiant', 32], ['matricule', 'Matricule', 14]]),
+    lignes: (p) => donneesExamens(p).flatMap(e => e.etudiants.map((x, i) => ({ date: e.date, heure: e.heure, local: e.local,
+      ue_num: e.ue_num, cours: e.cours_code ? `${e.cours_code} — ${e.cours_nom || ''}` : 'Unité entière', professeurs: e.professeurs,
+      n: i + 1, etudiant: x.nom, matricule: x.matricule }))),
+    document: (p) => documentExamens(p),
+  },
   {
     id: 'organisation-seances', domaine: 'organisation', params: ['annee'],
     libelle: 'Calendrier des délibérations',

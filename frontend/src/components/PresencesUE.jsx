@@ -64,20 +64,26 @@ export default function PresencesUE({ ueInitiale = null }) {
   const uesVues = useMemo(() => (ues || []).filter(u => !section || sectionsDe(u).includes(section)), [ues, section]);
 
   useEffect(() => { appel(`/ues?annee=${encodeURIComponent(annee)}`).then(j => setUes(j.ues)).catch(e => setErreur(e.message)); }, [annee]);
-  const charger = (u = ue) => u && appel(`/ue/${u}?annee=${encodeURIComponent(annee)}`).then(j => { setD(j); setErreur(null); }).catch(e => setErreur(e.message));
-  useEffect(() => { setD(null); charger(ue); }, [ue]);   // eslint-disable-line react-hooks/exhaustive-deps
+  /* LES JALONS SE CHOISISSENT (3.5.124, Charles : « laisse la vérificatrice décider ; 1/10, 5/10 et autre 3/10 ») : les dixièmes
+     cochés ont chacun leur colonne de régularité ; le choix se garde sur l'appareil. */
+  const [choisis, setChoisis] = useState(() => { try { const v = JSON.parse(localStorage.getItem('lucie.jalonsRegularite') || 'null'); return Array.isArray(v) && v.length ? v : [10, 50]; } catch { return [10, 50]; } });
+  const basculerJalon = n => setChoisis(c => { const x = c.includes(n) ? c.filter(y => y !== n) : [...c, n].sort((a, b) => a - b);
+    try { localStorage.setItem('lucie.jalonsRegularite', JSON.stringify(x)); } catch { /* */ } return x; });
+  const charger = (u = ue) => u && appel(`/ue/${u}?annee=${encodeURIComponent(annee)}&jalons=${(choisis.length ? choisis : [0]).join(',')}`).then(j => { setD(j); setErreur(null); }).catch(e => setErreur(e.message));
+  useEffect(() => { setD(null); charger(ue); }, [ue, choisis.join(',')]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const vus = choisis.length ? (d?.choisis || []).map(String) : [];
 
   const lignes = useMemo(() => (d?.lignes || []).filter(l => !filtre || `${l.etudiant.nom} ${l.etudiant.prenom} ${l.etudiant.id_ecampus || ''}`.toLowerCase().includes(filtre.toLowerCase())), [d, filtre]);
   // L'index de la séance qui porte chaque jalon : la colonne de régularité se pose juste après.
   const apres = useMemo(() => {
     const m = {};
-    for (const j of ['10', '50']) {
+    for (const j of vus) {
       const date = d?.jalons?.[j]; if (!date) continue;
       let k = -1; (d.seances || []).forEach((s, i) => { if (!s.annule && s.date === date) k = i; });
       if (k >= 0) (m[k] ||= []).push(j);
     }
     return m;
-  }, [d]);
+  }, [d, vus.join(',')]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   async function poser(li, si, choix, mot = null) {
     const l = d.lignes.find(x => x.etudiant.id === li); const s = d.seances[si];
@@ -121,7 +127,7 @@ export default function PresencesUE({ ueInitiale = null }) {
     <th key={`r${j}`} className="px-1.5 py-1 text-center" style={{ borderLeft: '2px solid #C9A227', borderRight: '2px solid #C9A227' }}
       title={`Régularité au ${d.libelles_jalons[j]} (${frl(d.jalons[j])}) : présences + justifiées ≥ ${Math.round(d.seuil * 100)} %`}>
       <div className="font-semibold normal-case tracking-normal text-slate-800">Rég.</div>
-      <div className="font-normal normal-case tracking-normal">{j === '10' ? '1/10' : '5/10'}</div>
+      <div className="font-normal normal-case tracking-normal">{Number(j) / 10}/10</div>
     </th>);
 
   return (
@@ -149,8 +155,17 @@ export default function PresencesUE({ ueInitiale = null }) {
               onChange={e => setJusquau(e.target.value)} />
             <button type="button" className="bouton" onClick={() => remplir({ jusquau }, `jusqu’au ${frl(jusquau)}`)}>Remplir</button>
           </span>)}
-        {d && <span className="text-second text-slate-500">
-          1er dixième : <b>{frl(d.jalons['10'])}</b> · 5e dixième : <b>{frl(d.jalons['50'])}</b> · régulier : présences + justifiées ≥ {Math.round(d.seuil * 100)} %</span>}
+        {d && (
+          <span className="inline-flex items-center gap-1.5" title="Les dixièmes auxquels la régularité se lit : chacun a sa colonne">
+            <span className="text-second text-slate-600">Régularité au</span>
+            <span className="segments flex h-9">
+              {[10, 20, 30, 40, 50, 60, 70, 80, 90].map(n => (
+                <button key={n} type="button" onClick={() => basculerJalon(n)}
+                  className={`px-1.5 text-second ${choisis.includes(n) ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{n / 10}/10</button>))}
+            </span>
+          </span>)}
+        {d && vus.length > 0 && <span className="text-second text-slate-500">
+          {vus.map(j => <span key={j}>{d.libelles_jalons[j]} : <b>{frl(d.jalons[j])}</b> · </span>)}régulier : présences + justifiées ≥ {Math.round(d.seuil * 100)} %</span>}
       </div>
       {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
       {!ue && <p className="text-sm text-slate-500">Choisissez une unité : ses inscrits, toutes ses séances, et la régularité au 1er et au 5e dixième.</p>}

@@ -133,6 +133,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS ts_geste (id INTEGER PRIMARY KEY AUTOINCREME
   type TEXT NOT NULL CHECK (type IN ('question','remise')), tfe_id INTEGER, jalon_id INTEGER, nom TEXT, taille INTEGER, contenu BLOB,
   texte TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT)`);
 
+/* LE CERTIFICAT MÉDICAL (3.5.126) : l'étudiant dépose le fichier et les dates de son absence ; le dépôt n'attend ici que le
+   relevé de Lucie, qui le juge (délai de 3 jours ouvrables) et l'écrit. */
+db.exec(`CREATE TABLE IF NOT EXISTS cm_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+  du TEXT NOT NULL, au TEXT NOT NULL, nom TEXT, taille INTEGER, contenu BLOB,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
+
 /* LA MOTIVATION PAR ACQUIS (3.5.006) : un type de geste de plus et sa colonne. Une contrainte CHECK ne se
    modifie pas en SQLite : la table se reconstruit, ses lignes recopiées. */
 if (!/'motiver'/.test(db.prepare("SELECT sql FROM sqlite_master WHERE name = 'va_geste'").get()?.sql || '')) {
@@ -398,7 +404,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats'];
 const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
 const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
@@ -722,6 +728,31 @@ pub.get('/api/portail/stage', connecte, exige('stage'), (req, res) => {
   res.json({ pret: !!l, stage: l ? JSON.parse(l.stage || 'null') : null, maj_le: l?.maj_le || null });
 });
 
+// ── MES ABSENCES : LE CERTIFICAT MÉDICAL (3.5.126) ──
+const estImageOuPdf = b => { if (!b || b.length < 4) return false; const h = b.toString('hex', 0, 4);
+  return b.toString('latin1', 0, 4) === '%PDF' || h.startsWith('ffd8ff') || h === '89504e47'; };
+pub.get('/api/portail/certificats', connecte, exige('certificats'), (req, res) => {
+  res.json({ delai: 3, certificats: db.prepare(`SELECT id, du, au, nom, cree_le, releve_le, erreur, resultat FROM cm_geste
+    WHERE etudiant_id = ? ORDER BY id DESC LIMIT 30`).all(req.etudiant.id) });
+});
+pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw({ type: 'application/octet-stream', limit: '10mb' }), (req, res) => {
+  const j = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+  const du = String(req.query.du || ''), au = String(req.query.au || '');
+  if (!j(du) || !j(au)) return res.status(400).json({ error: 'Indiquez les dates de votre absence (du … au …).' });
+  if (au < du) return res.status(400).json({ error: 'La fin de l’absence précède son début.' });
+  const b = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!b || !b.length) return res.status(400).json({ error: 'Joignez votre certificat (PDF ou photo).' });
+  if (!estImageOuPdf(b)) return res.status(400).json({ error: 'Le certificat doit être un PDF ou une photo (JPEG, PNG).' });
+  if (db.prepare(`SELECT COUNT(*) n FROM cm_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 10) {
+    return res.status(429).json({ error: 'Trop de dépôts en une heure. Réessayez plus tard.' });
+  }
+  db.prepare('INSERT INTO cm_geste (etudiant_id, du, au, nom, taille, contenu) VALUES (?,?,?,?,?,?)')
+    .run(req.etudiant.id, du, au, String(req.query.nom || 'certificat').slice(0, 150), b.length, b);
+  res.json({ ok: true });
+});
+pub.use('/api/portail/certificat', (err, req, res, next) => (err?.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' }) : next(err)));
+
 // ── LES MESSAGES (3.1.516) ──
 pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const id = req.etudiant.id;
@@ -914,6 +945,12 @@ int.get('/interne/va/piece/:id', (req, res) => {
   res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
 });
 
+int.get('/interne/cm/piece/:id', (req, res) => {
+  const g = db.prepare('SELECT contenu FROM cm_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
+  if (!g?.contenu) return res.status(404).end();
+  res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
+});
+
 int.get('/interne/ts/piece/:id', (req, res) => {
   const g = db.prepare(`SELECT contenu FROM ts_geste WHERE id = ? AND type = 'remise' AND releve_le IS NULL`).get(Number(req.params.id));
   if (!g?.contenu) return res.status(404).end();
@@ -972,6 +1009,7 @@ int.get('/interne/releve', (req, res) => {
     va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, texte FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
     pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     ts: db.prepare('SELECT id, etudiant_id, type, tfe_id, jalon_id, nom, taille, texte FROM ts_geste WHERE releve_le IS NULL ORDER BY id LIMIT 30').all(),
+    cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
   });
@@ -994,6 +1032,11 @@ int.post('/interne/acquitter', (req, res) => {
       db.prepare("UPDATE ts_geste SET releve_le = datetime('now'), erreur = ?, contenu = NULL WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM ts_geste WHERE releve_le < datetime('now', '-30 days')").run();
+    for (const g of Array.isArray(req.body?.cm) ? req.body.cm : []) {
+      db.prepare("UPDATE cm_geste SET releve_le = datetime('now'), erreur = ?, resultat = ?, contenu = NULL WHERE id = ?")
+        .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
+    }
+    db.prepare("DELETE FROM cm_geste WHERE releve_le < datetime('now', '-180 days')").run();
     for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {
       db.prepare("UPDATE pae_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }

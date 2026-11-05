@@ -3182,6 +3182,9 @@ app.use('/api/presences-ue', (await import('./routes/presencesUE.js')).default);
 app.use('/api/qualite', (await import('./routes/qualite.js')).default);
 // Corriger une UE — années reprises (3.5.118, outil temporaire) : routes/correctionUE.js.
 app.use('/api/correction-ue', (await import('./routes/correctionUE.js')).default);
+// Les certificats médicaux (3.5.125) : routes/certificats.js, métier lib/certificatMedical.js.
+app.use('/api/certificats-medicaux', (await import('./routes/certificats.js')).default);
+try { (await import('./lib/certificatMedical.js')).migrerCertificats(); } catch (e) { console.error('[migration] certificats médicaux :', e.message); }
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
