@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { IconDatabaseImport } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { declarerImport } from '../lib/barreOutils.js';
 import { RailDessine, FournisseurRail } from './ui.jsx';
 import { droitEffectif, usePlafonds } from '../lib/modules.js';
 import { getUser } from '../lib/api.js';
@@ -93,12 +93,9 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
    * on importe quelques fois par an.
    */
   const [portesEchanges, setPortesEchanges] = useState(null);
-  const outilsCommuns = [
-    ...(echanges && portesEchanges ? [{
-      key: 'echanges', label: 'Importer', icon: IconDatabaseImport,
-      onClick: portesEchanges,
-    }] : []),
-  ];
+  /* « IMPORTER » EST DANS LA BARRE DU HAUT (3.5.130, simplification des menus) : l'axe y déclare sa porte. */
+  const outilsCommuns = [];
+  useEffect(() => { declarerImport(echanges && portesEchanges ? portesEchanges : null); return () => declarerImport(null); }, [echanges, portesEchanges]);
 
   /*
    * LES OUTILS DE L'ÉCRAN NAISSENT SOUS LEUR RUBRIQUE.
@@ -198,6 +195,8 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
       if (e.peut && !e.peut()) return null;
       const present = parCle.get(e.key);
       if (present) return { ...present, label: e.label || present.label, icon: e.icone || present.icon };
+      // LES ÉTAPES D'UN ÉCRAN (3.5.130) : dans le tiroir de leur groupe, seulement quand l'écran est ouvert.
+      if (e.seulementPresent) return null;
       // Une RUBRIQUE que le rôle ne voit pas ne revient pas par le tiroir.
       if (onglets.some(o => o.key === e.key)) return null;
       // L'outil vit sur un autre écran : on l'ouvre, et il se lance.
