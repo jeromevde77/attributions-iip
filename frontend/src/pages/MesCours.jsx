@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
@@ -80,7 +81,7 @@ export default function MesCours() {
   const [messages, setMessages] = useState(false);   // écrire à mes étudiants (3.1.516)
   const [semaine, setSemaine] = useState(false);     // mon horaire de la semaine (3.1.464)
   const [visites, setVisites] = useState(false);     // mes visites de stage (3.5.058)
-  const [face, setFace] = useState('notes');          // notes | carnet | presences | indicateurs
+  const [face, setFace] = useState('notes');          // fiche | notes | carnet | presences | indicateurs
   /* LA SÉANCE CHOISIE DANS « MA JOURNÉE » (28 octobre 2026) : un clic y ouvre le
      cours sur la bonne face. Si elle est d'une autre année que celle affichée,
      on change d'année d'abord, puis on ouvre. */
@@ -548,7 +549,7 @@ export default function MesCours() {
                 attestations du congé-éducation payé. */}
             <div className="flex items-center gap-1 border-b border-slate-200">
               {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
-              {[['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
+              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
               ))}
@@ -609,6 +610,8 @@ export default function MesCours() {
             {face === 'presences' && feuille && (
               <GrillePresence coursCode={ouvert} ueNum={feuille.ue_num} annee={annee} grilleUE={!!feuille.grille_ue} />
             )}
+            {/* LA FICHE DU COURS (3.5.129) : son UE, ses périodes, l'autonomie, l'évaluation, ses acquis et son programme. */}
+            {face === 'fiche' && <FicheCours key={ouvert} coursCode={ouvert} annee={annee} />}
             {face === 'presences' && <PresencesCours key={`${ouvert}|${seanceChoisie || ''}`} coursCode={ouvert} annee={annee} seanceInitiale={seanceChoisie} />}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
                 (le groupe choisi), notes tapées comprises. */}

@@ -512,6 +512,31 @@ r.get('/', authRequired, (req, res) => {
     sections_coordination: coordination ? (secs === null ? 'toutes' : secs) : null });
 });
 
+/* LA FICHE DU COURS (3.5.129, Charles : « les professeurs voient leurs UE et les cours qu'ils ont, le dossier pédagogique lié,
+   les AA et les points de programme de chaque cours ; et les périodes d'autonomie et les heures prévues pour l'évaluation »).
+   Ce que le professeur doit savoir de SON cours : son UE, ses périodes, l'autonomie (du dossier, et placée dans la grille de
+   l'année), l'évaluation (examens et remédiation), ses acquis avec leur poids dans le cours ; le programme se lit côté écran
+   dans le dossier pédagogique de l'UE (`rubriquesDuDossier`, la même lecture que l'étape 0). Accès : `accesCours`. */
+r.get('/:cours/fiche', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const code = String(req.params.cours);
+  if (!accesCours(req, code, annee)) return res.status(404).json({ error: 'Cours introuvable dans vos attributions.' });
+  const c = db.prepare(`SELECT cours_code, cours_nom, ue_num, ct_pp, cours_per, cours_autonomie, ue_autonomie, cours_ev1, cours_vc1,
+      heures, is_stage, quadrimestre_cours FROM cours WHERE cours_code = ? AND annee_scolaire = ? LIMIT 1`).get(code, annee);
+  if (!c) return res.status(404).json({ error: 'Cours introuvable pour cette année.' });
+  const ue = db.prepare('SELECT ue_num, ue_nom, section, ects, ue_quad FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(c.ue_num, annee) || {};
+  let placee = null;
+  try {
+    placee = db.prepare(`SELECT SUM(g.autonomie_placee) s FROM grille_cours g JOIN organisation_ue o ON o.id = g.organisation_id
+      WHERE g.cours_code = ? AND o.annee_scolaire = ?`).get(code, annee)?.s ?? null;
+  } catch { placee = null; }
+  const acquis = db.prepare(`SELECT p.aa_code, p.poids, (SELECT a.description FROM aa a WHERE a.aa_code = p.aa_code LIMIT 1) AS description
+    FROM aa_ponderation p WHERE p.cours_code = ? AND p.annee_scolaire = ? ORDER BY p.aa_code`).all(code, annee);
+  const somme = acquis.reduce((x, a) => x + (Number(a.poids) || 0), 0);
+  res.json({ annee, cours: c, ue, autonomie_placee: placee,
+    acquis: acquis.map(a => ({ ...a, part: somme ? Math.round((Number(a.poids) || 0) / somme * 1000) / 10 : null })) });
+});
+
 // ── LA GRILLE DE PRÉSENCE (28 octobre 2026) ─────────────────────────────────
 /* Les étudiants en lignes, les séances en colonnes : par cours (le professeur,
  * depuis Mes cours) et par UE (la vérificatrice contrôle les présences dans

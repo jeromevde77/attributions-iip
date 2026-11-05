@@ -3549,6 +3549,12 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LA FICHE DU COURS DANS MES COURS** (3.5.129, Charles : « que les professeurs voient leurs UE et cours, le dossier pédagogique
+lié, les AA et points de programme de chaque cours ; et les périodes d'autonomie et les heures prévues pour l'évaluation »).
+Onglet « Le cours » (`components/FicheCours.jsx`, `GET /api/mes-cours/:cours/fiche`, garde `accesCours`) : UE, `cours_per`,
+`cours_autonomie` (+ `grille_cours.autonomie_placee` de l'année), évaluation = `cours_ev1` (examens) + `cours_vc1` (remédiation),
+acquis de `aa_ponderation` de l'année avec leur part, programme du cours découpé du dossier de l'UE (`decouperProgramme`).
+
 **L'APERÇU DE L'ESPACE S'OUVRE TOUT DE SUITE** (3.5.128, Charles : « l'espace étudiant est vraiment lent » — à l'ouverture).
 `ouvrirApercu` (`portailSync.js`) demande le lien d'abord ; le dépôt de toute l'école suit en arrière-plan (ou se fait avant
 seulement si le portail ne connaît pas l'étudiant, 404). **La mise à jour automatique de la dev ne touche pas le portail des
