@@ -185,6 +185,11 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   }
 
   const [sousOuvert, setSousOuvert] = useState(null);
+  /* UN SEUL TIROIR OUVERT À LA FOIS (3.5.154, Charles : « deux menus ne peuvent pas être ouverts en même temps ») : le
+     groupe qu'on vient d'ouvrir à la main l'emporte sur celui qui contient l'écran ouvert ; changer d'écran rend la main
+     au groupe de l'écran. */
+  useEffect(() => { setSousOuvert(null); }, [actif]);
+  const choisi = sousOuvert && !String(sousOuvert).startsWith('ferme:') ? sousOuvert : null;
   for (const sm of sousMenus) {
     /* PAS DE DROIT, PAS DE TIROIR (3.5.073) : un sous-menu qui porte la clé d'une rubrique que le rôle ne voit pas ne la fait
        pas revenir par la bande — une coordination sans Organisation voyait le laboratoire, les horaires et l'unité. */
@@ -218,7 +223,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
          on en change. */
       // OUVERT DÈS QU'ON EST SUR LA RUBRIQUE, quelle que soit la façon d'y arriver (clic, rechargement, lien) — sauf si on
       // l'a replié soi-même (3.5.121, Charles : « pourquoi je dois cliquer deux fois ? »).
-      const ouvertR = enfants.some(e => e.actif) || (rubrique.actif && sousOuvert !== `ferme:${sm.key}`);
+      const ouvertR = !choisi && sousOuvert !== `ferme:${sm.key}` && (enfants.some(e => e.actif) || rubrique.actif);
       parCle.set(sm.key, { ...rubrique, sous: ouvertR ? enfants : undefined,
         onClick: () => {
           if (rubrique.actif) setSousOuvert(o => (o === `ferme:${sm.key}` ? null : `ferme:${sm.key}`));
@@ -226,9 +231,9 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
         } });
       continue;
     }
-    const ouvert = sousOuvert === sm.key || enfants.some(e => e.actif);
+    const ouvert = choisi ? choisi === sm.key : (sousOuvert !== `ferme:${sm.key}` && enfants.some(e => e.actif));
     parCle.set(sm.key, { key: sm.key, label: sm.label, icon: sm.icone, actif: false,
-      onClick: () => setSousOuvert(o => (o === sm.key ? null : sm.key)),
+      onClick: () => setSousOuvert(ouvert ? `ferme:${sm.key}` : sm.key),
       sous: ouvert ? enfants : undefined });
   }
 
