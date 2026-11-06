@@ -23,6 +23,7 @@ import { etatLecture, derniereVersion } from '../routes/documentation.js';
 import { corpsImprimable, STYLES_IMPRESSION } from './textesParties.js';
 import { copieDeLEnvoi } from '../routes/envois.js';
 import { modeEmploiPour } from './modeEmploi.js';
+import { rubriquesDuDossier, texteVersHtml, RUBRIQUES_DP } from './texteDossier.js';
 
 const URL_ENS = () => (process.env.ENSEIGNANTS_URL_PUBLIQUE || 'https://enseignants.lucie-iip.be').replace(/\/$/, '');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -106,6 +107,26 @@ let versionsTextes = new Map();
 
 const anneeActive = () => db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code
   || db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get()?.code;
+/* LE DOSSIER PÉDAGOGIQUE DE L'UE (3.5.133, Charles : « je voudrais aussi le dossier pédagogique » dans l'espace enseignant).
+   Le texte officiel de `ue.ue_dp`, rangé par rubriques comme l'étape 0 de l'unité dans Lucie, en lecture. */
+const escHtml = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export function dossierPedagogiqueHtml(ueNum, annee) {
+  const ue = db.prepare('SELECT ue_num, ue_nom, ue_code_fwb, section, ects, ue_dp FROM ue WHERE ue_num = ? AND annee_scolaire = ? ORDER BY (ue_dp IS NULL) LIMIT 1').get(ueNum, annee);
+  if (!ue?.ue_dp || !String(ue.ue_dp).trim()) return null;
+  let cours = [];
+  try { cours = db.prepare(`SELECT cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND UPPER(COALESCE(ct_pp, '')) <> 'Z'`).all(ueNum, annee).map(c => c.cours_nom).filter(Boolean); } catch { /* */ }
+  const R = rubriquesDuDossier(ue.ue_dp, cours);
+  const ordre = [...RUBRIQUES_DP.filter(k => R[k]), ...Object.keys(R).filter(k => !RUBRIQUES_DP.includes(k))];
+  const corps = ordre.filter(k => String(R[k] || '').trim()).map(k => `<h2>${escHtml(k)}</h2>${texteVersHtml(R[k], { intertitre: 'strong' })}`).join('');
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+    body{font:14px/1.5 -apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#16406A;margin:0;padding:8px 4px}
+    h1{font-size:19px;margin:0 0 4px} .sous{color:#64748b;font-size:13px;margin:0 0 14px}
+    h2{font-size:15px;margin:18px 0 6px;padding-bottom:3px;border-bottom:1px solid #E4E7EC} p{margin:0 0 6px} ul{margin:0 0 6px;padding-left:20px}
+  </style></head><body><h1>UE ${escHtml(ue.ue_num)} — ${escHtml(ue.ue_nom || '')}</h1>
+  <p class="sous">${[ue.section, ue.ue_code_fwb ? `code ${escHtml(ue.ue_code_fwb)}` : '', ue.ects ? `${escHtml(ue.ects)} ECTS` : '', `dossier pédagogique · ${escHtml(annee)}`].filter(Boolean).join(' · ')}</p>
+  ${corps}</body></html>`;
+}
+
 async function tableauDe(u, profId, annee, documentDUE) {
   const aFaire = [];
   if (u.id > 0) {
@@ -130,7 +151,9 @@ async function tableauDe(u, profId, annee, documentDUE) {
       try { statut = statutDUE.get(a.ue_num, annee)?.statut || 'preparation'; } catch { /* */ }
       let due = null;
       try { due = documentDUE ? documentDUE(a.ue_num, annee) : null; } catch { due = null; }
-      ues.set(a.ue_num, { ue_num: a.ue_num, ue_nom: a.ue_nom, section: a.section, due_statut: statut, due_html: due, cours: [] });
+      let dp = null;
+      try { dp = dossierPedagogiqueHtml(a.ue_num, annee); } catch { dp = null; }
+      ues.set(a.ue_num, { ue_num: a.ue_num, ue_nom: a.ue_nom, section: a.section, due_statut: statut, due_html: due, dp_html: dp, cours: [] });
     }
     const ue = ues.get(a.ue_num);
     if (ue.cours.some(c => c.code === a.code_cours)) continue;

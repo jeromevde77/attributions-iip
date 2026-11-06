@@ -394,11 +394,22 @@ function VoirDUE({ ue, onFermer }) {
       {d ? <iframe title="DUE" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
     </Volet>);
 }
+function VoirDP({ ue, onFermer }) {
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => { appel('GET', `/dp/${ue}`).then(setD).catch(e => setErreur(e.message)); }, [ue]);
+  return (
+    <Volet titre={d ? `Dossier pédagogique — UE ${d.ue_num} ${d.ue_nom || ''}` : 'Dossier pédagogique'} sous="le texte officiel de l’unité" onFermer={onFermer}>
+      {erreur && <p className="text-red-700">{erreur}</p>}
+      {d ? <iframe title="Dossier pédagogique" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
+    </Volet>);
+}
 function MesUE() {
   const [t, setT] = useState(null);
   const [ouvert, setOuvert] = useState({});
   const [fiche, setFiche] = useState(null);
   const [due, setDue] = useState(null);
+  const [dp, setDp] = useState(null);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
   if (!t) return <p className="text-slate-500">Chargement…</p>;
   if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
@@ -409,7 +420,11 @@ function MesUE() {
         <section key={u.ue_num} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
           <div className="entete-carte px-4 py-3 flex flex-wrap items-center gap-3">
             <span className="flex-1 min-w-0 font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
-            {u.a_due && <button type="button" className="bouton controle" onClick={() => setDue(u.ue_num)}>DUE{u.due_statut === 'validee' ? '' : ' (en préparation)'}</button>}
+            {u.a_dp && <button type="button" className="bouton controle" onClick={() => setDp(u.ue_num)}>Dossier pédagogique</button>}
+            {/* LA DUE EST À L'ESSAI (3.5.133, Charles : « pour DUE tu mets un badge TEST »). */}
+            {u.a_due && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setDue(u.ue_num)}
+              title={u.due_statut === 'validee' ? 'Version validée par la direction' : 'En préparation dans Lucie'}>
+              DUE <span className="px-1.5 py-px rounded-pastille text-[10px] font-bold tracking-wide text-white" style={{ background: 'var(--c-attente, #B45309)' }}>TEST</span></button>}
           </div>
           {u.cours.map(c => {
             const k = `${u.ue_num}|${c.code}`;
@@ -431,6 +446,7 @@ function MesUE() {
         </section>))}
       {fiche && <FicheEtudiant id={fiche} onFermer={() => setFiche(null)} />}
       {due && <VoirDUE ue={due} onFermer={() => setDue(null)} />}
+      {dp && <VoirDP ue={dp} onFermer={() => setDp(null)} />}
     </div>);
 }
 

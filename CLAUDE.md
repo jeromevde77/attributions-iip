@@ -3666,6 +3666,11 @@ de l'écran ouvert se range sous la DERNIÈRE rubrique de l'axe ; depuis 3.5.119
 entrée à tiroir un « replier » — sur le tableau de bord, Communication (dernière rubrique) ne s'ouvrait plus depuis « Ce qui
 m'attend ». Le geste universel ne vaut désormais que pour l'entrée active ou dont un enfant est actif.
 
+**LE DOSSIER PÉDAGOGIQUE DANS L'ESPACE ENSEIGNANT, ET LA DUE « TEST »** (3.5.133, Charles, 6 novembre 2026). Mes UE et
+mes étudiants : bouton « Dossier pédagogique » par UE — `dossierPedagogiqueHtml(ue, annee)` (`lib/portailEnseignants.js` :
+`ue.ue_dp` rangé par `rubriquesDuDossier`, rendu par `texteVersHtml`), déposé avec le tableau (`dp_html`), servi par
+`GET /api/enseignant/dp/:ue`. Le bouton DUE porte un badge « TEST ».
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

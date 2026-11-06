@@ -242,7 +242,7 @@ export function monterEnseignants(pub, int, o) {
     if (!t) return res.json({ pret: false });
     const noms = new Map((t.etudiants || []).map(e => [e.id, e]));
     res.json({ pret: true, annee: t.annee, a_faire: t.a_faire || [],
-      ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, due_statut: u.due_statut, a_due: !!u.due_html,
+      ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, due_statut: u.due_statut, a_due: !!u.due_html, a_dp: !!u.dp_html,
         cours: u.cours.map(c => ({ code: c.code, nom: c.nom, etudiants: c.etudiants.map(e => ({ ...e, nom: noms.get(e.id)?.nom || '', prenom: noms.get(e.id)?.prenom || '' })) })) })) });
   });
   // ── LES TEXTES DE L'ÉCOLE (3.5.088) : les lire ici pose « présenté », « Je confirme » pose « confirmé » — Lucie les relève. ──
@@ -319,6 +319,11 @@ export function monterEnseignants(pub, int, o) {
     const u = (tableau(req.ens.id)?.ues || []).find(x => Number(x.ue_num) === Number(req.params.ue));
     if (!u?.due_html) return res.status(404).json({ error: 'DUE introuvable pour cette unité.' });
     res.json({ ue_num: u.ue_num, ue_nom: u.ue_nom, statut: u.due_statut, html: u.due_html });
+  });
+  pub.get('/api/enseignant/dp/:ue', connecte, (req, res) => {
+    const u = (tableau(req.ens.id)?.ues || []).find(x => Number(x.ue_num) === Number(req.params.ue));
+    if (!u?.dp_html) return res.status(404).json({ error: 'Aucun dossier pédagogique pour cette unité.' });
+    res.json({ ue_num: u.ue_num, ue_nom: u.ue_nom, html: u.dp_html });
   });
   pub.get('/api/enseignant/etudiant/:id', connecte, (req, res) => {
     const e = (tableau(req.ens.id)?.etudiants || []).find(x => Number(x.id) === Number(req.params.id));
