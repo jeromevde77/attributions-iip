@@ -294,7 +294,7 @@ export default function MesCours({ espace = null }) {
       </div>)}
     {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
-      <div className="flex items-center gap-2" hidden={vueEspace === 'aujourdhui'}>
+      <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>
         <IconBooks size={20} className="text-iip-turquoise" />
         <h1 className="text-lg font-semibold text-iip-blue m-0">{{ aujourdhui: 'Ma journée', rendre: 'À rendre', notes: 'Mes notes', presences: 'Mes présences' }[vueEspace] || 'Mes cours'}</h1>
         <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
@@ -574,7 +574,7 @@ export default function MesCours({ espace = null }) {
             {/* DEUX FACES DU MÊME COURS (29 septembre 2026) : les notes, et les
                 présences séance par séance — celles-ci partent sur les
                 attestations du congé-éducation payé. */}
-            <div className="flex items-center gap-1 border-b border-slate-200" hidden={vueEspace === 'presences'}>
+            <div className={`${vueEspace === 'presences' ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200`}>
               {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
               {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
                 .filter(([k]) => !espace || (vueEspace === 'presences' ? k === 'presences' : k !== 'presences')).map(([k, l]) => (
