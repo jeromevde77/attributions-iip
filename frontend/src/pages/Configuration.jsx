@@ -1754,7 +1754,7 @@ const versDelib = face => () => {
   window.location.href = '/etudiants?onglet=deliberation';
 };
 const DEMENAGES = {
-  'dates-ue': { ou: 'Organisation → Planification → Dates des UE', aller: () => { window.location.href = '/organisation?onglet=planifier&sous=dates'; } },
+  'dates-ue': { ou: 'Organisation → L’année → Dates des UE', aller: () => { window.location.href = '/organisation?onglet=planif-dates'; } },
   doublons: { ou: 'Étudiants → rail → Contrôler les dossiers', aller: versEtudiants('controles-dossiers', 'doublons') },
   'doubles-programmes': { ou: 'Étudiants → rail → Contrôler les dossiers', aller: versEtudiants('controles-dossiers', 'doubles-programmes') },
   'hors-bloc': { ou: 'Étudiants → rail → Contrôler les dossiers', aller: versEtudiants('controles-dossiers', 'hors-bloc') },

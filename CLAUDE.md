@@ -3754,6 +3754,11 @@ tranché : la fermeture fait foi). En production, le calendrier des cours (`anne
 totale = « École fermée », partielle = « Congé ». **La rangée « Cours » de l'agenda de l'école reste à repeindre par la direction**
 (elle sert à l'échéancier et au reste de Lucie).
 
+**PAS DE SOUS-MENU DE SOUS-MENU** (3.5.146, Charles : « je ne trouve plus les dates des délibérations et sessions » ; « il ne faut
+pas de sous-menu de sous-menu »). Organisation → L'année : « Planification des UE et cours » (`planif-ue`), « Dates des UE »
+(`planif-dates`), « Sessions : épreuves et délibérations » (`planif-sessions`) — `CentrePlanification face=…` sans barre d'onglets ;
+`onglet=planifier&sous=…` y mène encore. **Une entrée d'un tiroir ouvre un écran ; elle n'ouvre pas une page d'onglets.**
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

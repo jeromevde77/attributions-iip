@@ -43,7 +43,9 @@ export default function Organisation({ ongletInitial }) {
   const demande = params.get('onglet') || ongletInitial;
   const faceUnite = demande === 'ponderations' ? 'ponderation' : params.get('face') || (demande === 'due' ? 'descriptif' : 'croisement');
   // Groupes communs est devenu une face du laboratoire temporel (10 octobre 2026) : l'ancienne adresse y mène.
-  const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande === 'groupes-communs' ? 'laboratoire' : demande;
+  const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande === 'groupes-communs' ? 'laboratoire'
+    // La planification en trois entrées (3.5.146) : l'ancienne adresse « onglet=planifier&sous=… » mène à la bonne.
+    : demande === 'planifier' ? ({ dates: 'planif-dates', sessions: 'planif-sessions' }[params.get('sous')] || 'planif-ue') : demande;
   const [annee, setAnnee] = useState('');
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -86,7 +88,7 @@ export default function Organisation({ ongletInitial }) {
             { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription, seulementPresent: true },
           ] },
         { key: 'g-annee', label: 'L’année', icone: IconCalendar,
-          enfants: [{ key: 'agenda' }, { key: 'planifier' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
+          enfants: [{ key: 'agenda' }, { key: 'planif-ue' }, { key: 'planif-dates' }, { key: 'planif-sessions' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
         { key: 'g-enseigne', label: 'Qui enseigne et quand', icone: IconChalkboard,
           enfants: [
             { key: 'attributions' }, { key: 'laboratoire' },
@@ -125,11 +127,14 @@ export default function Organisation({ ongletInitial }) {
          *
          * La planification suit immédiatement les attributions : elle se fait
          * AVANT d'attribuer, et c'est l'ordre du travail de rentrée. */
-        { key: 'planifier', module: 'planification', label: 'Planification', icone: IconCalendarStats,
-          sansMarge: true, railPropre: true,
+        /* TROIS ENTRÉES, PAS UN SOUS-MENU DE SOUS-MENU (3.5.146, Charles, 6 novembre 2026 : « je ne trouve plus l'endroit avec les
+           dates des délibérations et sessions » ; « il ne faut pas de sous-menu de sous-menu »). La grille, les dates des UE et les
+           sessions (épreuves et délibérations) sont trois entrées du groupe « L'année » ; plus d'onglets dans la page. */
+        ...[['planif-ue', 'ue', 'Planification des UE et cours', IconCalendarStats], ['planif-dates', 'dates', 'Dates des UE', IconCalendarTime],
+          ['planif-sessions', 'sessions', 'Sessions : épreuves et délibérations', IconCalendarEvent]].map(([key, face, label, icone]) => ({
+          key, module: 'planification', label, icone, sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
-                   <CentrePlanification annee={annee}
-                     ongletInitial={params.get('sous') || 'ue'} /></Suspense> },
+                   <CentrePlanification annee={annee} face={face} /></Suspense> })),
         /* LE LABORATOIRE TEMPOREL DE LUCIE (10 octobre 2026) : les UE posées sur
            l'année en tuiles, leurs couches, et le verre de chacune — sur la
            grille d'organisation et les dates des UE, sans rien doubler. */
