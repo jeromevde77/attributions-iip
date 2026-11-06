@@ -5,6 +5,8 @@
 import { useState } from 'react';
 import { IconCalendarMonth, IconX } from '@tabler/icons-react';
 import { EnteteCarte, PastilleEtat } from '../components/ui.jsx';
+import { authHeaders } from '../lib/api.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 import AgendaLigne, { useAgenda } from '../components/AgendaLigne.jsx';
 import AgendaMois from '../components/AgendaMois.jsx';
 
@@ -16,12 +18,27 @@ export default function AgendaEcole({ annee, simple = false }) {
   const [sel, setSel] = useState(null);
   const [vue, setVue] = useState('annee');
   const k = ag?.semaines?.indexOf(sel) ?? -1;
+  /* LA FERMETURE FAIT FOI (3.5.148) : les semaines où le calendrier des cours contredit la fermeture se nomment, et s'alignent d'un
+     geste — la liste d'abord, puis la confirmation. */
+  async function aligner() {
+    const l = ag?.desaccords || [];
+    if (!(await demander({ titre: 'Aligner les cours sur la fermeture', message: `${l.length} semaine(s) changent dans le calendrier des cours :\n\n${l.map(x => `· semaine du ${fmt(x.lundi)} : ${x.raison} → ${x.apres === 'vacances' ? 'vacances' : 'cours'}`).join('\n')}`, confirmer: 'Aligner' }))) return;
+    const r = await fetch(`/api/agenda-ecole/aligner?annee=${encodeURIComponent(annee)}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ecrire: true }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { informer(j.error || 'Alignement refusé.'); return; }
+    informer(`✓ ${j.changements.length} semaine(s) alignée(s).`); recharger();
+  }
   return (
     <div className="space-y-4">
       {!simple && <div>
         <h1 className="titre-ecran">Agenda de l’école</h1>
         <p className="text-second text-slate-500">L’année {annee} en une ligne : les grands moments, la chaleur des semaines, les cours, la fermeture de l’école, les sections et ce qu’elles demandent de personnel. On peint, ou on saisit au calendrier.</p>
       </div>}
+      {!simple && ag?.desaccords?.length > 0 && (
+        <div className="bloc-etat px-3 py-2 text-sm flex flex-wrap items-center gap-2" data-etat="surveiller">
+          <span className="min-w-0 flex-1"><b>{ag.desaccords.length} semaine(s)</b> où le calendrier des cours contredit la fermeture de l’école : {ag.desaccords.slice(0, 3).map(x => `${fmt(x.lundi)} (${x.raison})`).join(' ; ')}{ag.desaccords.length > 3 ? '…' : ''}</span>
+          {ag.peut?.etablissement && <button type="button" className="bouton" onClick={aligner}>Aligner sur la fermeture</button>}
+        </div>)}
       <div className="carte overflow-hidden">
         <EnteteCarte icone={IconCalendarMonth} titre="L’année de l’école" sous={simple ? 'Les grands moments, les cours, les congés et les fermetures de l’école.' : 'Glissez sur des semaines (ou des jours, vue Mois) et choisissez quoi y mettre ; « Saisir » ouvre le mini calendrier.'}>
           <div className="segments">{[['annee', 'Année'], ['mois', 'Mois']].map(([v, l]) => <button key={v} type="button" onClick={() => setVue(v)} className={vue === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>)}</div>

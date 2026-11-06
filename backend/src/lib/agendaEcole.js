@@ -144,7 +144,7 @@ export function agenda(annee, { user = null, presentsMin = 2 } = {}) {
     annee, semaines, types_cours: TYPES_COURS,
     cours: semaines.map(l => { const c = coursDe.get(l); return c ? { id: c.id, type: c.type, label: c.label } : null; }),
     fermetures: semaines.map(l => { const f = ferm.get(l); return f ? { fermeture: f.fermeture, libelle: f.libelle, par: f.par, le: f.le } : null; }),
-    jours_fermes: joursFermes(annee), sections, besoin, stages,
+    jours_fermes: joursFermes(annee), sections, besoin, stages, desaccords: desaccords(annee), ...unitesEtSessions(annee, semaines),
     peut: { etablissement: !!user && PEINT_ETABLISSEMENT.includes(user.role), sections: perim },
   };
 }
@@ -179,8 +179,68 @@ export function peindreFermeture(annee, lundis, fermeture, libelle, par) {
         ON CONFLICT(annee, lundi) DO UPDATE SET fermeture = excluded.fermeture, libelle = excluded.libelle, par = excluded.par, le = datetime('now')`)
         .run(annee, x, fermeture, String(libelle || '').trim() || (fermeture === 'totale' ? 'Fermeture' : 'Fermeture partielle'), par);
       journal(annee, 'fermeture', x, a ? `${a.fermeture} ${a.libelle || ''}` : null, `${fermeture} ${libelle || ''}`, par);
+      /* UNE ÉCOLE FERMÉE N'A PAS COURS (3.5.148, Charles : l'agenda, une seule porte). Une fermeture totale passe la semaine en
+         « vacances » dans le calendrier des cours, d'office : les deux ne se contredisent plus. */
+      if (fermeture === 'totale') {
+        const c = essai(() => db.prepare('SELECT id, date_debut, type, label FROM annee_calendrier WHERE annee_scolaire = ?').all(annee), [])
+          .find(r => lundiDe(r.date_debut) === x);
+        if (c && c.type !== 'vacances') {
+          db.prepare('UPDATE annee_calendrier SET type = ?, label = ? WHERE id = ?').run('vacances', String(libelle || '').trim() || c.label || 'Fermeture', c.id);
+          journal(annee, 'cours', x, `${c.type} ${c.label || ''}`, `vacances ${libelle || ''}`, par);
+        }
+      }
     }
   })();
+}
+
+/** LES DÉSACCORDS ENTRE LA FERMETURE ET LES COURS (3.5.148) : une semaine fermée en entier qui a cours, une semaine « vacances »
+ *  où l'école est ouverte. `aligner` les règle (simulation d'abord) : la fermeture fait foi. */
+export function desaccords(annee) {
+  const ferm = fermetures(annee);
+  const cal = essai(() => db.prepare('SELECT id, date_debut, type, label FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY date_debut').all(annee), []);
+  const out = [];
+  for (const c of cal) {
+    const l = lundiDe(c.date_debut), f = ferm.get(l);
+    if (f?.fermeture === 'totale' && c.type !== 'vacances') out.push({ id: c.id, lundi: l, avant: c.type, apres: 'vacances', label: f.libelle || c.label || 'Fermeture', raison: `école fermée (${f.libelle || 'fermeture'}) mais semaine de ${TYPES_COURS[c.type] || c.type}` });
+    // Une semaine « vacances » sans fermeture n'est un désaccord que si une fermeture se trouve à une ou deux semaines d'elle : un
+    // congé DÉCALÉ (l'automne 2026 : fermé les 19 et 26/10, « vacances » le 2/11). Un congé que l'agenda n'a pas peint reste tel quel.
+    else if (c.type === 'vacances' && !f && [-14, -7, 7, 14].some(n => ferm.has(plus(l, n)))) out.push({ id: c.id, lundi: l, avant: 'vacances', apres: 'cours', label: null, raison: `« ${c.label || 'vacances'} » alors que l’école est ouverte` });
+  }
+  return out;
+}
+export function aligner(annee, par, ecrire = false) {
+  const l = desaccords(annee);
+  if (!ecrire) return { changements: l };
+  db.transaction(() => {
+    for (const x of l) {
+      db.prepare('UPDATE annee_calendrier SET type = ?, label = ? WHERE id = ?').run(x.apres, x.label, x.id);
+      journal(annee, 'cours', x.lundi, x.avant, `${x.apres} ${x.label || ''}`, par);
+    }
+  })();
+  return { changements: l, ecrit: true };
+}
+
+/** LES UNITÉS ET LES SESSIONS DANS L'AGENDA (3.5.148) : par semaine, les ouvertures et fermetures d'unités, les épreuves et les
+ *  délibérations — lues de leurs tables (`organisation_ue`, `epreuve_session1`, `deliberation_session2`, `deliberation_seance`). */
+export function unitesEtSessions(annee, semaines) {
+  const idx = d => { const l = lundiDe(d); return semaines.indexOf(l); };
+  const unites = semaines.map(l => ({ lundi: l, ouvertures: [], fermetures: [] }));
+  const sessions = semaines.map(l => ({ lundi: l, epreuves: [], deliberations: [] }));
+  for (const o of essai(() => db.prepare('SELECT ue_num, num_organisation org, date_debut du, date_fin au FROM organisation_ue WHERE annee_scolaire = ?').all(annee), [])) {
+    const a = o.du ? idx(o.du) : -1, b = o.au ? idx(o.au) : -1;
+    if (a >= 0) unites[a].ouvertures.push(`UE ${o.ue_num}${o.org > 1 ? ` (org. ${o.org})` : ''}`);
+    if (b >= 0) unites[b].fermetures.push(`UE ${o.ue_num}${o.org > 1 ? ` (org. ${o.org})` : ''}`);
+  }
+  for (const [t, k, n] of [['epreuve_session1', 's1', 1], ['deliberation_session2', 's2', 2]]) {
+    for (const e of essai(() => db.prepare(`SELECT ue_num, cours_code, ${k}_date d, ${k}_heure h FROM ${t} WHERE annee_scolaire = ? AND ${k}_date IS NOT NULL AND ${k}_date <> ''`).all(annee), [])) {
+      const i = idx(String(e.d).slice(0, 10)); if (i >= 0) sessions[i].epreuves.push(`S${n} ${e.cours_code || `UE ${e.ue_num}`} — ${String(e.d).slice(8, 10)}/${String(e.d).slice(5, 7)}${e.h ? ` ${String(e.h).slice(0, 5)}` : ''}`);
+    }
+  }
+  for (const d of essai(() => db.prepare(`SELECT ue_num, COALESCE(session, 1) s, COALESCE(num_organisation, 0) org, date_seance d, heure_seance h FROM deliberation_seance
+      WHERE annee_scolaire = ? AND date_seance IS NOT NULL AND date_seance <> ''`).all(annee), [])) {
+    const i = idx(String(d.d).slice(0, 10)); if (i >= 0) sessions[i].deliberations.push(`S${d.s} UE ${d.ue_num}${d.org ? ` (org. ${d.org})` : ''} — ${String(d.d).slice(8, 10)}/${String(d.d).slice(5, 7)}${d.h ? ` ${String(d.h).slice(0, 5)}` : ''}`);
+  }
+  return { unites, sessions };
 }
 
 /** Le type d'une semaine de cours (le calendrier de Planification). Les semaines hors du calendrier ne se créent pas ici. */

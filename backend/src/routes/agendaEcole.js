@@ -8,7 +8,7 @@ import { nomEcranDuCompte } from '../lib/nom.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import {
   migrerAgenda, agenda, peindreFermeture, peindreCours, poserJourFerme, retirerJourFerme, forcerSection, journalAgenda,
-  reprendreCongesModule, PEINT_ETABLISSEMENT, plus,
+  reprendreCongesModule, PEINT_ETABLISSEMENT, plus, aligner,
 } from '../lib/agendaEcole.js';
 import { reglage, feriesDe } from '../lib/tempsTravail.js';
 import { moments, chaleur, TYPES_MOMENT, NATURES, NATURE_DU_TYPE, DOMAINES, POUR, ecrireMoment, retirerMoment, ecrireSerie, retirerSerie, exceptionSerie } from '../lib/ligneTemps.js';
@@ -36,6 +36,11 @@ r.put('/fermeture', authRequired, (req, res) => {
 r.put('/cours', authRequired, (req, res) => {
   if (!direction(req, res)) return;
   try { res.json(peindreCours(annee(req), req.body?.lundis, req.body?.type, req.body?.label, nomDe(req.user))); } catch (e) { faute(res, e); }
+});
+// ALIGNER LES COURS SUR LA FERMETURE (3.5.148) : simulation d'abord (`ecrire: false`), la direction confirme.
+r.post('/aligner', authRequired, (req, res) => {
+  if (!direction(req, res)) return;
+  try { res.json(aligner(annee(req), nomDe(req.user), req.body?.ecrire === true)); } catch (e) { faute(res, e); }
 });
 r.put('/jour-ferme/:date', authRequired, (req, res) => {
   if (!direction(req, res)) return;

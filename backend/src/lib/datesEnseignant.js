@@ -18,10 +18,13 @@ export async function agendaEcoleProf(annee) {
     const { moments } = await import('./ligneTemps.js');
     const { joursFeries } = await import('../routes/horaire.js');
     const sem = semaines52(annee);
-    const cal = db.prepare("SELECT date_debut, type, label FROM annee_calendrier WHERE annee_scolaire = ? AND type = 'vacances'").all(annee);
-    for (const c of cal) out.push({ type: 'conge', du: c.date_debut, au: plus(c.date_debut, 6), libelle: c.label || 'Congé scolaire' });
+    /* LA FERMETURE DE L'AGENDA FAIT FOI (3.5.145, Charles, 6 novembre 2026 : « pourquoi mets-tu que c'est congé de Toussaint ? » —
+       le calendrier des cours mettait l'automne une semaine trop tard, la fermeture peinte dans l'agenda de l'école était juste).
+       Les congés de l'enseignant sont les semaines que l'agenda ferme : en entier (« École fermée »), ou en partie (« Congé »). Le
+       calendrier des cours n'est plus lu ici. */
     for (const [lundi, f] of fermetures(annee)) {
       if (f.fermeture === 'totale') out.push({ type: 'ferme', du: lundi, au: plus(lundi, 6), libelle: f.libelle || 'École fermée' });
+      else if (f.fermeture === 'partielle') out.push({ type: 'conge', du: lundi, au: plus(lundi, 6), libelle: f.libelle || 'Congé' });
     }
     const ans = [...new Set([sem[0].slice(0, 4), sem[51].slice(0, 4)])].map(Number);
     for (const an of ans) for (const [date, libelle] of joursFeries(an)) if (date >= sem[0] && date <= plus(sem[51], 6)) out.push({ type: 'ferie', du: date, au: date, libelle });

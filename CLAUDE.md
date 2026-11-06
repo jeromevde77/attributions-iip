@@ -3748,6 +3748,33 @@ celui qui porte le plus de périodes) ; un titulaire lit. `AtelierUE` : qui ne p
 et lit chaque étape (bandeau « Lecture seule »). (3) `GET /api/acquis/ue/:n/(structure|liens)` se lit par tout compte (l'étape
 « Pondérer » en lecture) ; écrire reste gardé par le module.
 
+**LES CONGÉS DE L'ENSEIGNANT VIENNENT DE LA FERMETURE DE L'AGENDA** (3.5.145, Charles : « pourquoi mets-tu congé de Toussaint ? » ;
+tranché : la fermeture fait foi). En production, le calendrier des cours (`annee_calendrier`) mettait l'automne 2026 la semaine du
+2/11, la fermeture peinte (`agenda_semaine`) les semaines du 19 et du 26/10. `agendaEcoleProf` ne lit plus que les fermetures :
+totale = « École fermée », partielle = « Congé ». **La rangée « Cours » de l'agenda de l'école reste à repeindre par la direction**
+(elle sert à l'échéancier et au reste de Lucie).
+
+**PAS DE SOUS-MENU DE SOUS-MENU** (3.5.146, Charles : « je ne trouve plus les dates des délibérations et sessions » ; « il ne faut
+pas de sous-menu de sous-menu »). Organisation → L'année : « Planification des UE et cours » (`planif-ue`), « Dates des UE »
+(`planif-dates`), « Sessions : épreuves et délibérations » (`planif-sessions`) — `CentrePlanification face=…` sans barre d'onglets ;
+`onglet=planifier&sous=…` y mène encore. **Une entrée d'un tiroir ouvre un écran ; elle n'ouvre pas une page d'onglets.**
+
+**UN NUMÉRO DEVANT CHAQUE ÉTUDIANT, ET LA LISTE QUI SE COMPOSE** (3.5.147, Charles : « un numéro (1, 2, 3…) toujours quand on a des
+étudiants » ; « composer des listes comme dans Éditions, avec mail, matricule »). `lib/numeros.js` (installé dans `main.jsx` et
+l'espace) marque `data-numeros="oui"` tout tableau dont un en-tête commence par « Étudiant » ; `index.css` numérote ses lignes par un
+compteur (lignes de total et de regroupement exclues ; `data-numeros="non"` pour s'en passer). **Un nouveau tableau d'étudiants est
+numéroté sans rien faire.** Mes cours → Ma liste → Composer une liste (`MaListe.jsx`, `Composer`) ; `GET /mes-cours/:cours/listes`
+accepte `colonnes`, `vides`, `titre`.
+
+**L'AGENDA DE L'ÉCOLE, SEULE PORTE DES DATES — PREMIER LOT** (3.5.148, Charles : « repenser tout l'agenda de manière structurée » ;
+« ok pour agenda » : cinq couches — école, cours, unités, sessions, moments —, posées une fois, lues partout). (1) La fermeture fait
+foi : `peindreFermeture` totale passe la semaine en « vacances » dans `annee_calendrier` ; `desaccords(annee)` nomme les semaines qui
+se contredisent (fermée mais en cours ; « vacances » sans fermeture À UNE OU DEUX SEMAINES d'une fermeture — un congé décalé, jamais
+un congé simplement non peint) ; `POST /api/agenda-ecole/aligner` (`ecrire: false` = simulation, direction). (2) Rangées « Unités »
+(`organisation_ue`) et « Sessions » (`epreuve_session1`, `deliberation_session2`, `deliberation_seance`) dans `AgendaLigne`
+(`unitesEtSessions`), un clic ouvre leur écran (planif-dates, planif-sessions). **À venir** : poser dates d'UE et sessions depuis
+l'agenda même ; l'agenda de l'étudiant (non tranché).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -33,9 +33,12 @@ const ONGLETS = [
     aide: 'Évaluations et délibérations de la section' },
 ];
 
-export default function CentrePlanification({ annee, ongletInitial = 'ue' }) {
-  const [onglet, setOnglet] = useState(
+/* `face` (3.5.146, Charles : « il ne faut pas de sous-menu de sous-menu ») : les trois faces sont désormais trois entrées du groupe
+   « L'année » du rail d'Organisation ; posée, elle fixe la face et la barre d'onglets disparaît. */
+export default function CentrePlanification({ annee, ongletInitial = 'ue', face = null }) {
+  const [ongletLocal, setOnglet] = useState(
     ONGLETS.some(o => o.cle === ongletInitial) ? ongletInitial : 'ue');
+  const onglet = face || ongletLocal;
 
   return (
     /* LA GOUTTIÈRE DU RAIL EST POSÉE ICI, UNE FOIS POUR LES TROIS FACES.
@@ -49,8 +52,8 @@ export default function CentrePlanification({ annee, ongletInitial = 'ue' }) {
     <div className="gouttiere-rail flex flex-col min-h-0">
       {/* LA BARRE D'ONGLETS NE DÉFILE PAS AVEC LE CONTENU : on change de face
           en gardant le repère, comme sur une fiche. */}
-      <div className="flex-none flex items-center gap-1 px-4 pt-3
-                      border-b border-slate-200">
+      <div className={`flex-none ${face ? 'hidden' : 'flex'} items-center gap-1 px-4 pt-3
+                      border-b border-slate-200`}>
         {ONGLETS.map(o => {
           const Icone = o.icone;
           return (

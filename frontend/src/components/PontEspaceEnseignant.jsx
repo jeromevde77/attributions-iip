@@ -34,11 +34,11 @@ export default function PontEspaceEnseignant() {
       <div className="space-y-3 text-sm">
         <p className="m-0">Les enseignants ont désormais leur propre espace, plus simple, à l’adresse <b className="select-all">{url.replace(/^https?:\/\//, '')}</b> — sur téléphone, tablette ou ordinateur.</p>
         <ul className="m-0 pl-0 list-none space-y-1.5">
-          <li className="flex items-center gap-2"><IconSun size={16} className="text-slate-500" /> Ma journée : vos séances du jour et ce qui vous attend.</li>
-          <li className="flex items-center gap-2"><IconUserCheck size={16} className="text-slate-500" /> Les présences, d’un toucher par étudiant.</li>
-          <li className="flex items-center gap-2"><IconCalendarWeek size={16} className="text-slate-500" /> Votre horaire de la semaine.</li>
+          <li className="flex items-center gap-2"><IconSun size={16} className="text-slate-500" /> Aujourd’hui : votre journée, vos messages, ce qui vous attend.</li>
+          <li className="flex items-center gap-2"><IconUserCheck size={16} className="text-slate-500" /> Vos notes, votre carnet, vos présences et vos étudiants.</li>
+          <li className="flex items-center gap-2"><IconCalendarWeek size={16} className="text-slate-500" /> Vos unités, les avis à rendre, et votre agenda : examens, délibérations, congés.</li>
         </ul>
-        <p className="m-0 text-slate-600">La première fois, choisissez « Première visite » : un lien arrive à votre adresse de l’institut, et vous choisissez un mot de passe pour cet espace. Les notes, le carnet de cotes et les avis y arrivent par étapes ; en attendant, ils restent ici, dans Mes cours.</p>
+        <p className="m-0 text-slate-600">La première fois, choisissez « Première visite » : un lien arrive à votre adresse de l’institut, et vous choisissez un mot de passe pour cet espace. Tout ce que vous faites dans Mes cours s’y fait aussi.</p>
       </div>
     </Fenetre>
   );

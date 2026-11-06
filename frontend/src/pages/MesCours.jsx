@@ -530,18 +530,20 @@ export default function MesCours({ espace = null }) {
         /* LA LISTE DU GROUPE, IMPRIMÉE : une feuille par groupe (ou celle du
            groupe choisi), dans l'enveloppe commune — la même mise en page que
            Listes. */
-        const imprimerGroupes = async () => {
+        const imprimerGroupes = async (opt = null) => {
           setImpression('…'); setErreur(null);
           try {
             /* L'APERÇU D'ABORD (Charles, 7 octobre 2026 : « pour TOUS les documents,
                un aperçu ») : la feuille s'ouvrait en PDF dans un onglet, sans
                relecture. Elle passe désormais par l'aperçu commun, PDF compris. */
-            const r0 = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/listes?annee=${encodeURIComponent(annee)}&format=html${groupeVu ? `&groupe=${encodeURIComponent(groupeVu)}` : ''}`,
+            // La liste composée (3.5.147) : ses colonnes, ses colonnes vides et son titre partent avec la demande.
+            const compose = opt && typeof opt === 'object' && opt.colonnes ? `&colonnes=${encodeURIComponent(opt.colonnes)}&vides=${encodeURIComponent(opt.vides || '')}&titre=${encodeURIComponent(opt.titre || '')}` : '';
+            const r0 = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/listes?annee=${encodeURIComponent(annee)}&format=html${groupeVu ? `&groupe=${encodeURIComponent(groupeVu)}` : ''}${compose}`,
               { headers: authHeaders() });
             const j = await r0.json().catch(() => ({}));
             if (!r0.ok) throw new Error(j.error || `Erreur ${r0.status}`);
             ouvrirApercu({ html: j.html, titre: `Liste — ${ouvert}${groupeVu ? ` · groupe ${groupeVu}` : ''}`, nomFichier: j.nom,
-              envoiPossible: false, pdf: { orientation: 'portrait' } });
+              envoiPossible: false, pdf: { orientation: opt?.paysage ? 'landscape' : 'portrait' } });
           } catch (e) { setErreur(e.message); } finally { setImpression(null); }
         };
         return (

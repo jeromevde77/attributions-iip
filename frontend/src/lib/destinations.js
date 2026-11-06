@@ -35,7 +35,9 @@ export const DESTINATIONS = [
   { label: 'Mes cours', axe: 'Personnel', chemin: '/mes-cours', mots: 'mes cours notes encoder avis presences' },
   // Organisation
   { label: 'Attributions', axe: 'Organisation', chemin: '/organisation', mots: 'attributions cours professeurs charge periodes groupes' },
-  { label: 'Planification et dates des UE', axe: 'Organisation', chemin: '/organisation?onglet=planifier', mots: 'planification dates ue sessions calendrier grille organisation' },
+  { label: 'Planification des UE et cours', axe: 'Organisation', chemin: '/organisation?onglet=planif-ue', mots: 'planification grille organisation ue cours' },
+  { label: 'Dates des UE', axe: 'Organisation', chemin: '/organisation?onglet=planif-dates', mots: 'dates ue ouverture fermeture calendrier' },
+  { label: 'Sessions : épreuves et délibérations', axe: 'Organisation', chemin: '/organisation?onglet=planif-sessions', mots: 'sessions délibération deliberation examen épreuve calendrier dates seconde session' },
   { label: 'Rentrée', axe: 'Organisation', chemin: '/organisation?onglet=rentree', mots: 'rentree' },
   { label: 'Répartition des étudiants dans les cours', axe: 'Organisation', chemin: '/organisation?onglet=repartition', mots: 'repartition groupes etudiants cours' },
   { label: 'Schéma de capitalisation', axe: 'Organisation', chemin: '/organisation?onglet=structure', mots: 'schema capitalisation prerequis structure section' },
