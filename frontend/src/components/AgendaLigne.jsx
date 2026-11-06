@@ -204,6 +204,25 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
               </button>; })}
             <div />
           </GrilleAnnee>
+          {/* LES UNITÉS ET LES SESSIONS (3.5.148, l'agenda comme seule porte) : par semaine, les ouvertures et fermetures d'unités,
+              les épreuves et les délibérations ; un clic ouvre l'écran où elles se posent. */}
+          {!simple && ag.unites && ag.unites.some(x => x.ouvertures.length || x.fermetures.length) && (
+            <GrilleAnnee droite={droite}>
+              <a href="/organisation?onglet=planif-dates" className="text-second text-slate-600 pr-2 self-center hover:underline">Unités</a>
+              {ag.unites.map(x => { const n = x.ouvertures.length + x.fermetures.length;
+                return <a key={x.lundi} href="/organisation?onglet=planif-dates" title={n ? `${fmt(x.lundi)} · ${x.ouvertures.length ? `ouvrent : ${x.ouvertures.join(', ')}` : ''}${x.ouvertures.length && x.fermetures.length ? ' · ' : ''}${x.fermetures.length ? `ferment : ${x.fermetures.join(', ')}` : ''}` : fmt(x.lundi)}
+                  className="text-mention text-center tabular-nums self-center rounded-[2px] mx-px" style={n ? { background: 'color-mix(in srgb, var(--c-principal) 14%, transparent)', color: 'var(--c-principal)' } : undefined}>{n || ''}</a>; })}
+              <div />
+            </GrilleAnnee>)}
+          {!simple && ag.sessions && ag.sessions.some(x => x.epreuves.length || x.deliberations.length) && (
+            <GrilleAnnee droite={droite}>
+              <a href="/organisation?onglet=planif-sessions" className="text-second text-slate-600 pr-2 self-center hover:underline">Sessions</a>
+              {ag.sessions.map(x => { const e = x.epreuves.length, d = x.deliberations.length;
+                return <a key={x.lundi} href="/organisation?onglet=planif-sessions" title={e || d ? `${fmt(x.lundi)}${e ? ` · épreuves : ${x.epreuves.join(', ')}` : ''}${d ? ` · délibérations : ${x.deliberations.join(', ')}` : ''}` : fmt(x.lundi)}
+                  className="relative h-5 mx-px rounded-[3px] flex items-center justify-center text-[9px] tabular-nums text-white"
+                  style={{ background: d ? 'var(--c-principal)' : e ? 'var(--c-attente)' : 'transparent' }}>{e + d || ''}</a>; })}
+              <div />
+            </GrilleAnnee>)}
           {!simple && ag.sections.length > 0 && (
             <GrilleAnnee droite={droite}>
               <button type="button" className="text-second text-slate-600 pr-2 self-center text-left inline-flex items-center gap-0.5" onClick={() => setOuvertes(o => !o)}>

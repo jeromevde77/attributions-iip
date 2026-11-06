@@ -3766,6 +3766,15 @@ compteur (lignes de total et de regroupement exclues ; `data-numeros="non"` pour
 numéroté sans rien faire.** Mes cours → Ma liste → Composer une liste (`MaListe.jsx`, `Composer`) ; `GET /mes-cours/:cours/listes`
 accepte `colonnes`, `vides`, `titre`.
 
+**L'AGENDA DE L'ÉCOLE, SEULE PORTE DES DATES — PREMIER LOT** (3.5.148, Charles : « repenser tout l'agenda de manière structurée » ;
+« ok pour agenda » : cinq couches — école, cours, unités, sessions, moments —, posées une fois, lues partout). (1) La fermeture fait
+foi : `peindreFermeture` totale passe la semaine en « vacances » dans `annee_calendrier` ; `desaccords(annee)` nomme les semaines qui
+se contredisent (fermée mais en cours ; « vacances » sans fermeture À UNE OU DEUX SEMAINES d'une fermeture — un congé décalé, jamais
+un congé simplement non peint) ; `POST /api/agenda-ecole/aligner` (`ecrire: false` = simulation, direction). (2) Rangées « Unités »
+(`organisation_ue`) et « Sessions » (`epreuve_session1`, `deliberation_session2`, `deliberation_seance`) dans `AgendaLigne`
+(`unitesEtSessions`), un clic ouvre leur écran (planif-dates, planif-sessions). **À venir** : poser dates d'UE et sessions depuis
+l'agenda même ; l'agenda de l'étudiant (non tranché).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
