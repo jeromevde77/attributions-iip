@@ -83,7 +83,10 @@ async function lireClasseurGroupes(fichier) {
         cours: col.cours >= 0 && r[col.cours]
           ? String(r[col.cours]).split(/[+,;/]/).map(x => x.trim()).filter(Boolean) : null,
       };
-      const k = mail || `${normNom(ligne.nom)}|${normNom(ligne.prenom)}`;
+      /* UN ÉTUDIANT PEUT AVOIR UN GROUPE PAR COURS (3.5.152, Charles : « n'est-il pas possible de faire un seul
+         import ? ») : en 254.2 il est en G, en 254.1 en D, en 257.2 en C. Le doublon se juge donc sur l'étudiant,
+         le groupe ET les cours — la même ligne recopiée sur deux feuilles reste lue une fois. */
+      const k = `${mail || `${normNom(ligne.nom)}|${normNom(ligne.prenom)}`}|${ligne.groupe}|${(ligne.cours || []).join('+')}`;
       if (vus.has(k)) continue;
       vus.add(k); lignes.push(ligne);
     }
