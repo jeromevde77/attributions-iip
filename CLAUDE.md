@@ -3748,6 +3748,12 @@ celui qui porte le plus de périodes) ; un titulaire lit. `AtelierUE` : qui ne p
 et lit chaque étape (bandeau « Lecture seule »). (3) `GET /api/acquis/ue/:n/(structure|liens)` se lit par tout compte (l'étape
 « Pondérer » en lecture) ; écrire reste gardé par le module.
 
+**LES CONGÉS DE L'ENSEIGNANT VIENNENT DE LA FERMETURE DE L'AGENDA** (3.5.145, Charles : « pourquoi mets-tu congé de Toussaint ? » ;
+tranché : la fermeture fait foi). En production, le calendrier des cours (`annee_calendrier`) mettait l'automne 2026 la semaine du
+2/11, la fermeture peinte (`agenda_semaine`) les semaines du 19 et du 26/10. `agendaEcoleProf` ne lit plus que les fermetures :
+totale = « École fermée », partielle = « Congé ». **La rangée « Cours » de l'agenda de l'école reste à repeindre par la direction**
+(elle sert à l'échéancier et au reste de Lucie).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
