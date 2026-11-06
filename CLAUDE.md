@@ -3711,6 +3711,14 @@ pièce jointe, corps en base64). Le mur reste à sens unique. Jamais relayé : `
 dans l'espace** ; une nouvelle porte d'API qu'il appelle passe par le même relais, avec les droits du professeur. nginx du site :
 `/api/enseignant/relais/` à 26 Mo, 60 s.
 
+**L'ESPACE ENSEIGNANT RANGÉ PAR CE QU'ON Y FAIT** (3.5.138, Charles : « j'aime le design actuel, c'est la structure que je veux
+changer » ; « mes notes, mes présences, mes étudiants » ; la frise de Lucie pour la journée). Navigation : Aujourd'hui · Mes notes ·
+Mes présences · Mes étudiants · Mes unités · À rendre · Mon agenda ; en bas L'école (textes, documents, aide, écrire aux étudiants) et
+Mon compte. `MesCours` prend `espace={ vue, tic, allerA }` : il cache son rail, montre la frise (`aujourdhui`), la liste puis notes /
+carnet / indicateurs / le cours (`notes`), ou les seules présences (`presences`), les étapes de l'unité en segments (`ue`), les avis
+(`rendre`). UNE instance montée pour ces cinq vues (un cours reste ouvert entre notes et présences, se ferme ailleurs, re-cliquer
+ramène à la liste). Mes étudiants = `MesUE` de l'espace ; Mon agenda = l'horaire de l'espace + visites et agenda (fenêtres de Lucie).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

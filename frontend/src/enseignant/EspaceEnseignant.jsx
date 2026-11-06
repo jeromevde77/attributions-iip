@@ -7,8 +7,11 @@ import { lazy, Suspense } from 'react';
 import { FournisseurRail } from '../components/ui.jsx';
 import { preparerLucie } from './relais.js';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
+const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
+const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
+const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -788,63 +791,116 @@ function GrillePresences({ moi }) {
 
 /* MES COURS, TEL QUE DANS LUCIE (3.5.137) : l'écran de Lucie, ses requêtes passant par le relais. Ses entrées de rail remontent
    dans la navigation de l'espace (`surSections`). */
-function MesCoursEspace({ surSections, mobile = null }) {
-  const [pret, setPret] = useState(false);
-  useEffect(() => { preparerLucie().finally(() => setPret(true)); }, []);
-  if (!pret) return <p className="text-slate-500">Ouverture de vos cours…</p>;
+function MesCoursEspace({ vue, tic, allerA }) {
+  // Une seule instance pour Aujourd'hui, Mes notes, Mes présences, Mes unités et À rendre : un cours ouvert reste ouvert.
   return (
     // Pas de rail de Lucie ici : sa gouttière tombe à zéro (`--rail`), la navigation de l'espace en tient lieu.
     <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-6">
-      {mobile && <SousNav sections={mobile} ligne />}
-      <FournisseurRail valeur={surSections} panneau={null} echanges={() => {}}>
-        <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><MesCoursLucie /></Suspense>
+      <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
+        <Suspense fallback={<p className="text-slate-500 px-4">Chargement…</p>}><MesCoursLucie espace={{ vue, tic, retour: true, allerA }} /></Suspense>
       </FournisseurRail>
     </div>);
 }
-function SousNav({ sections, ligne = false }) {
-  const items = (sections || []).flatMap(sec => sec.items || []);
-  if (!items.length) return null;
-  // Sur téléphone : une rangée qui défile, sous la bande d'onglets de l'espace.
-  if (ligne) {
-    return (
-      <div className="md:hidden flex gap-1.5 overflow-x-auto px-4 pb-3">
-        {items.flatMap(it => [it, ...(it.sous || [])]).map(it => (
-          <button key={it.key} type="button" onClick={it.onClick} disabled={it.bloque}
-            className="shrink-0 min-h-10 px-3 rounded-pastille border text-second inline-flex items-center gap-1.5"
-            style={it.actif ? { background: 'var(--c-principal, #19537E)', color: '#fff', borderColor: 'transparent' } : { borderColor: '#E4E7EC' }}>
-            {it.icon ? <it.icon size={14} /> : null}{it.label}</button>))}
-      </div>);
-  }
-  const Entree = ({ it, retrait = 0 }) => (
-    <>
-      <button type="button" onClick={it.onClick} disabled={it.bloque} aria-current={it.actif ? 'page' : undefined}
-        className="shrink-0 min-h-9 pr-2 rounded-champ inline-flex items-center gap-2 text-second text-left w-full"
-        style={{ paddingLeft: `${1.6 + retrait}rem`, ...(it.actif ? { color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600, background: 'var(--menu-actif, #E3ECF5)' } : {}) }}>
-        {it.icon ? <it.icon size={15} className="flex-none" /> : null}<span className="min-w-0">{it.label}</span>
-      </button>
-      {(it.sous || []).map(x => <Entree key={x.key} it={x} retrait={retrait + 0.9} />)}
-    </>);
-  return <div className="hidden md:flex flex-col gap-0.5 pb-1">{items.map(it => <Entree key={it.key} it={it} />)}</div>;
+
+/* CE QUI M'ATTEND (sous la frise d'Aujourd'hui) : tâches, textes à lire, messages, DUE, séances sans présences. */
+function CeQuiMAttend({ moi, onPresences }) {
+  const [d, setD] = useState(null);
+  const [t, setT] = useState(null);
+  const [lire, setLire] = useState(null);
+  useEffect(() => { appel('GET', `/journee?date=${moi.aujourdhui}`).then(setD).catch(() => setD({ sans_presences: [] })); }, [moi.aujourdhui]);
+  useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
+  const aFaire = t?.a_faire || [];
+  const sans = d?.sans_presences || [];
+  return (
+    <section className="bg-white border border-slate-200 rounded-carte overflow-hidden mx-0">
+      <div className="entete-carte px-4 py-3 font-semibold text-iip-texte">Ce qui m’attend</div>
+      {d && t && !sans.length && !aFaire.length && <p className="m-0 px-4 py-3 text-slate-500">Rien en retard. Bonne journée.</p>}
+      {aFaire.map((x, i) => (
+        <div key={`f${i}`} role={x.version_id ? 'button' : undefined} tabIndex={x.version_id ? 0 : undefined}
+          onClick={x.version_id ? () => setLire(x.version_id) : undefined}
+          className={`flex items-center gap-3 px-4 py-3 border-t border-slate-100 ${x.version_id ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
+          <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: x.retard ? 'var(--c-refuse, #9D4A38)' : x.type === 'due' ? 'var(--c-attente, #B45309)' : 'var(--c-disponible, #2F6FB0)' }}>
+            {{ tache: 'tâche', texte: 'à lire', message: 'message', rappel: 'rappel', due: 'DUE' }[x.type] || 'à faire'}</span>
+          <span className="flex-1 min-w-0">{x.titre}{x.echeance ? ` — pour le ${court(x.echeance)}${x.retard ? ' (en retard)' : ''}` : ''}</span>
+          {x.version_id && <IconChevronRight size={16} className="text-slate-400" />}
+        </div>))}
+      {sans.map(s => (
+        <button key={s.id} type="button" onClick={() => onPresences(s.id)} className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white hover:bg-slate-50">
+          <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-attente, #B45309)' }}>présences</span>
+          <span className="flex-1 min-w-0">{s.cours_nom || s.cours_code} — séance du {court(s.date)} à {h(s.heure_debut)}</span>
+          <IconChevronRight size={16} className="text-slate-400" />
+        </button>))}
+      {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); appel('GET', '/tableau').then(setT).catch(() => {}); }} />}
+    </section>);
 }
 
+/* MON AGENDA : la semaine (avec les journées de l'école), et deux portes — les visites de stage, l'horaire dans le téléphone. */
+function MonAgenda({ moi, onPresences }) {
+  const [ouvert, setOuvert] = useState(null);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 justify-end">
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('agenda')}><IconCalendarShare size={16} /> Dans l’agenda de mon téléphone</button>
+      </div>
+      <MonHoraire moi={moi} onPresences={onPresences} />
+      <Suspense fallback={null}>
+        {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
+        {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
+      </Suspense>
+    </div>);
+}
+
+/* L'ÉCOLE : ce qu'elle envoie (textes à lire, documents), écrire aux étudiants, l'aide. Une face soulignée à la fois. */
+function LEcole() {
+  const [f, setF] = useState('textes');
+  const [ecrire, setEcrire] = useState(false);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200">
+        {[['textes', 'Textes à lire'], ['documents', 'Mes documents'], ['aide', 'Aide']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setF(k)} className={`onglet-page ${f === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
+        <span className="flex-1" />
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5 mb-1" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>
+      </div>
+      {f === 'textes' ? <TextesEcole /> : f === 'documents' ? <MesDocuments /> : <Aide />}
+      <Suspense fallback={null}>{ecrire && <MessagesEtudiantsLucie titre="Écrire à mes étudiants" onFermer={() => setEcrire(false)} />}</Suspense>
+    </div>);
+}
+
+function BoutonFace({ f, actif, onClick }) {
+  return (
+    <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined}
+      className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
+      style={actif ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
+      <f.I size={18} /> {f.l}
+    </button>);
+}
+
+/* LA STRUCTURE (3.5.138, Charles, 6 novembre 2026 : « c'est la structure que je veux changer » ; « mes notes, mes présences, mes
+   étudiants » ; Aujourd'hui garde la frise de Lucie). Les entrées de travail en haut ; l'école et le compte en bas. */
 const FACES = [
-  { k: 'journee', l: 'Ma journée', I: IconSun },
-  { k: 'cours', l: 'Mes cours', I: IconBook },
-  { k: 'horaire', l: 'Mon horaire', I: IconCalendarWeek },
-  { k: 'presences', l: 'Présences de l’année', I: IconTable },
-  { k: 'ues', l: 'Mes UE et étudiants', I: IconUsers },
-  { k: 'textes', l: 'Textes de l’école', I: IconBook },
-  { k: 'documents', l: 'Mes documents', I: IconFileText },
-  { k: 'aide', l: 'Aide', I: IconHelpCircle },
+  { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
+  { k: 'notes', l: 'Mes notes', I: IconPencil },
+  { k: 'presences', l: 'Mes présences', I: IconUserCheck },
+  { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
+  { k: 'ue', l: 'Mes unités', I: IconFileText },
+  { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
+];
+const FACES_BAS = [
+  { k: 'ecole', l: 'L’école', I: IconBuilding },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
+const VUES_LUCIE = new Set(['aujourdhui', 'notes', 'presences', 'ue', 'rendre']);
 
 export default function EspaceEnseignant() {
   const [token, setToken] = useState(lire());
   const [definir, setDefinir] = useState(false);
   const [moi, setMoi] = useState(null);
-  const [face, setFace] = useState('journee');
-  const [sectionsCours, setSectionsCours] = useState(null);
+  const [face, setFace] = useState('aujourdhui');
+  const [tic, setTic] = useState(0);
+  const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
   const [erreur, setErreur] = useState(null);
   const entrer = t => { poser(t); setToken(t); setDefinir(false); };
@@ -866,6 +922,7 @@ export default function EspaceEnseignant() {
     if (!token || definir) return;
     appel('GET', '/moi').then(setMoi).catch(e => { if (e.session) setToken(null); else setErreur(e.message); });
   }, [token, definir]);
+  useEffect(() => { if (moi) preparerLucie().finally(() => setLucie(true)); }, [moi]);
   if (!token) return <>{erreur && <div className="bloc-etat px-3 py-2 text-sm m-4" data-etat="corriger">{erreur}</div>}<Entree onEntre={entrer} /></>;
   if (definir) {
     return (
@@ -879,7 +936,7 @@ export default function EspaceEnseignant() {
   }
   if (!moi) return <p className="p-6 text-slate-500">{erreur || 'Chargement…'}</p>;
   const quitter = () => { poser(null); setToken(null); setMoi(null); };
-  const aller = k => { setFace(k); setSeance(null); };
+  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); };
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
@@ -888,13 +945,9 @@ export default function EspaceEnseignant() {
         <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div></div>
         {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
         <div className="hidden md:block px-2 pb-3"><BoutonContact /></div>
-        {FACES.map(f => (
-          <button key={f.k} type="button" onClick={() => aller(f.k)} aria-current={face === f.k && !seance ? 'page' : undefined}
-            className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
-            style={face === f.k ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
-            <f.I size={18} /> {f.l}
-          </button>)).flatMap((b, i) => (FACES[i].k === 'cours' && face === 'cours' && !seance ? [b, <SousNav key="sous-cours" sections={sectionsCours} />] : [b]))}
+        {FACES.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
+        {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
           <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>
           <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0" onClick={quitter}><IconLogout size={15} /> Se déconnecter</button>
@@ -903,16 +956,19 @@ export default function EspaceEnseignant() {
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
-        {seance ? <Presences seanceId={seance} motifs={moi.motifs} qr={!!moi.qr && !moi.apercu} onRetour={() => setSeance(null)} />
-          : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
-          : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
-          : face === 'cours' ? <MesCoursEspace surSections={setSectionsCours} mobile={sectionsCours} />
-          : face === 'presences' ? <GrillePresences moi={moi} />
-          : face === 'ues' ? <MesUE />
-          : face === 'textes' ? <TextesEcole />
-          : face === 'documents' ? <MesDocuments />
-          : face === 'aide' ? <Aide />
-          : <MonCompte moi={moi} onToken={entrer} />}
+        {seance ? <Presences seanceId={seance} motifs={moi.motifs} qr={!!moi.qr && !moi.apercu} onRetour={() => setSeance(null)} /> : null}
+        {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}
+        {lucie && (
+          <div hidden={!!seance || !VUES_LUCIE.has(face)} className="space-y-5">
+            <MesCoursEspace vue={face} tic={tic} allerA={k => setFace(k)} />
+            {face === 'aujourdhui' && <CeQuiMAttend moi={moi} onPresences={setSeance} />}
+          </div>)}
+        {!lucie && VUES_LUCIE.has(face) && !seance && <p className="text-slate-500">Ouverture…</p>}
+        {!seance && (face === 'etudiants' ? <MesUE />
+          : face === 'agenda' ? <MonAgenda moi={moi} onPresences={setSeance} />
+          : face === 'ecole' ? <LEcole />
+          : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
+          : null)}
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>
     </div>
