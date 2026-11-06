@@ -3677,6 +3677,21 @@ tranché : lecture d'abord, écriture ensuite ; ordre : présences → notes et 
 dessine la journée de l'équipe avec la frise de Lucie : `FriseJournee` sort de `TuileQuiEstLa` vers
 `components/FriseJournee.jsx` (avec `telAffiche`, `Appeler`, `LIEU_AGENDA`), et `contactMaintenant` dépose `journee`.
 
+**LUCIE EN TROIS : ADMIN, ÉTUDIANT, ENSEIGNANT** (Charles, 6 novembre 2026 : « les enseignants ne pourront plus se connecter
+à Lucie. Lucie est coupée en 3 : Admin, étudiant et enseignant, chacun évoluant dans sa partie, le tout centralisé dans Admin ;
+les enseignants encoderont dans leur espace, les étudiants liront dans le leur »). Tout ce que fait Mes cours passe dans
+l'espace enseignant, en ÉCRITURE. Tranché : le mur reste à sens unique — l'espace note le geste, Lucie le relève vite (2-3 s),
+le juge avec ses propres règles et rend « enregistré » ou le refus ; coordinations et direction qui enseignent gardent les deux
+accès ; la date où le rôle professeur cesse d'entrer dans Lucie sera décidée par Charles. Lots : présences de l'année →
+notes et carnet → avis VA et AR → indicateurs, DUE et croisement, messages, visites. **Toute fonction nouvelle pour les
+enseignants se construit dans l'espace, pas dans Mes cours.**
+
+**LOT 1 DE L'ESPACE ENSEIGNANT : LES PRÉSENCES DE L'ANNÉE** (3.5.135). Espace → *Présences de l'année* (`GrillePresences`,
+`GET /api/enseignant/grille`) : par cours, étudiants × séances depuis la rentrée (le dépôt part du 15 août de l'année active),
+une case = un geste « presences » d'une ligne par la porte de la séance ; export Excel (xlsx, dans le navigateur). Lucie relève
+les gestes des enseignants toutes les 3 s (`releverEnseignantsVite`, `portailSync.js`, son propre verrou) et redépose dans les
+10 s qui suivent.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

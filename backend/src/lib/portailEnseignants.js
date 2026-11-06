@@ -195,7 +195,10 @@ async function tableauDe(u, profId, annee, documentDUE) {
 
 export async function deposerEnseignants(appel) {
   const jour = aujourdhuiBruxelles();
-  const du = decaler(jour, -30), au = decaler(jour, 21);
+  // TOUTE L'ANNÉE (3.5.135) : la grille des présences de l'espace porte chaque séance depuis la rentrée, pas trente jours.
+  const an = anneeActive();
+  const rentree = an ? `${an.slice(0, 4)}-08-15` : decaler(jour, -30);
+  const du = rentree < decaler(jour, -30) ? rentree : decaler(jour, -30), au = decaler(jour, 21);
   const enseignants = [], seances = [], etudiants = new Map(), presences = [];
   for (const u of aDeposer()) {
     enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul });

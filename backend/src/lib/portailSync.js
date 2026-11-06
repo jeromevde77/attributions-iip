@@ -394,8 +394,8 @@ export async function passerPortail() {
     await relever();
     // L'ESPACE ENSEIGNANT (3.5.076) : relevé à chaque passage ; déposé toutes les deux minutes, et aussitôt après des
     // présences reprises (pour qu'il voie ce que Lucie a gardé). Une panne ici n'arrête pas l'espace des étudiants.
-    let ensDepot = tours % 12 === 0;
-    try { const x = await releverEnseignants(appel); if (x.gestes) ensDepot = true; } catch (e) { if (tours % 30 === 0) console.error('[espace enseignant]', e.message); }
+    // Le relevé de l'espace enseignant a sa propre boucle, rapide (3.5.135, `releverEnseignantsVite`).
+    const ensDepot = tours % 12 === 0;
     if (ensDepot) {
       try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); }
       try { await deposerDocumentsEnseignants(appel); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
@@ -413,6 +413,20 @@ export function planifierPortail() {
   migrerPortail();
   setInterval(passerPortail, 10_000).unref?.();
   setTimeout(passerPortail, 5_000).unref?.();
+  setInterval(releverEnseignantsVite, 3_000).unref?.();
+}
+
+/* LE RELEVÉ RAPIDE DE L'ESPACE ENSEIGNANT (3.5.135, Charles, 6 novembre 2026 : « les enseignants encoderont dans leur espace »).
+   Toutes les trois secondes, Lucie relève les gestes des enseignants, les juge et rend « enregistré » ou le refus — sans
+   attendre le dépôt de l'école, qui reste toutes les deux minutes. Son propre verrou : un dépôt long ne la retarde pas. */
+let ensEnCours = false, ensTours = 0;
+export async function releverEnseignantsVite() {
+  if (!portailActif() || ensEnCours) return;
+  ensEnCours = true;
+  // Des gestes repris : le passage suivant (dix secondes au plus) redépose, pour que l'espace voie ce que Lucie a gardé.
+  try { const x = await releverEnseignants(appel); if (x?.gestes) deposerBientot(); }
+  catch (e) { if (ensTours % 100 === 0) console.error('[espace enseignant]', e.message); }
+  finally { ensTours++; ensEnCours = false; }
 }
 
 /** Pour la fiche : ce que l'étudiant a fait de l'autre côté du mur, tel que Lucie l'a relevé. */

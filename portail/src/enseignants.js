@@ -364,6 +364,28 @@ export function monterEnseignants(pub, int, o) {
     res.json({ ok: true, n: lignes.length });
   });
 
+  /* LA GRILLE DES PRÉSENCES DE L'ANNÉE (3.5.135) : par cours, ses étudiants × ses séances depuis la rentrée. Une case se change
+     d'un clic ; elle part par la même porte que la séance (geste « presences »), Lucie la juge au relevé. */
+  pub.get('/api/enseignant/grille', connecte, (req, res) => {
+    const cours = db.prepare(`SELECT cours_code code, MAX(cours_nom) nom, MAX(ue_num) ue_num, COUNT(*) n FROM ens_seance
+      WHERE ens_id = ? AND visite = 0 AND cours_code IS NOT NULL GROUP BY cours_code ORDER BY MAX(ue_num), cours_code`).all(req.ens.id);
+    const code = String(req.query.cours || '');
+    if (!code) return res.json({ cours, aujourdhui: aujourdhui() });
+    const seances = db.prepare(`SELECT id, date, heure_debut, heure_fin, matiere, local, annule FROM ens_seance
+      WHERE ens_id = ? AND visite = 0 AND cours_code = ? ORDER BY date, heure_debut`).all(req.ens.id, code).map(x => ({ ...x, annule: !!x.annule }));
+    const ids = seances.map(x => x.id);
+    const marque = ids.map(() => '?').join(',');
+    const etudiants = ids.length ? db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.groupe FROM ens_inscrit i JOIN ens_etudiant e ON e.id = i.etudiant_id
+      WHERE i.seance_id IN (${marque}) ORDER BY e.nom, e.prenom`).all(...ids) : [];
+    const inscrits = ids.length ? db.prepare(`SELECT seance_id, etudiant_id FROM ens_inscrit WHERE seance_id IN (${marque})`).all(...ids) : [];
+    const presences = ids.length ? db.prepare(`SELECT seance_id, etudiant_id, statut, retard, motif FROM ens_presence WHERE seance_id IN (${marque})`).all(...ids)
+      .map(x => ({ ...x, retard: !!x.retard })) : [];
+    const refus = ids.length ? db.prepare(`SELECT seance_id, erreur, cree_le FROM ens_geste WHERE ens_id = ? AND erreur IS NOT NULL AND seance_id IN (${marque})
+      AND cree_le >= datetime('now', '-1 day') ORDER BY id DESC LIMIT 20`).all(req.ens.id, ...ids) : [];
+    const enRoute = db.prepare('SELECT COUNT(*) n FROM ens_geste WHERE ens_id = ? AND releve_le IS NULL').get(req.ens.id).n;
+    res.json({ cours, code, seances, etudiants, inscrits, presences, refus, en_route: enRoute, aujourdhui: aujourdhui() });
+  });
+
   pub.post('/api/enseignant/apercu', (req, res) => {
     const j = db.prepare('SELECT * FROM ens_apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
     if (!j || j.utilise_le || j.expire_le < maintenant()) return res.status(400).json({ error: 'Lien d’aperçu expiré : rouvrez-le depuis la fiche dans Lucie.' });

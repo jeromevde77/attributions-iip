@@ -3,7 +3,7 @@ import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import { FriseJournee } from '../components/FriseJournee.jsx';
 import { useCallback, useEffect, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -632,9 +632,130 @@ function MonCompte({ moi, onToken }) {
   );
 }
 
+/* LA GRILLE DES PRÉSENCES DE L'ANNÉE (3.5.135, Charles, 6 novembre 2026 : « les enseignants encoderont dans leur espace » ; lot 1).
+   Par cours : ses étudiants en lignes, ses séances depuis la rentrée en colonnes. Un clic sur une case ouvre le choix (P, P*, A,
+   J + motif, effacer) ; la case part par la porte de la séance, Lucie la juge au relevé (quelques secondes) et un refus se dit.
+   Export Excel : la grille telle qu'elle est à l'écran. */
+const LETTRE = { present: 'P', retard: 'P*', absent: 'A', justifie: 'J' };
+function GrillePresences({ moi }) {
+  const [d, setD] = useState(null);
+  const [code, setCode] = useState(() => { try { return localStorage.getItem('ens.grille.cours') || ''; } catch { return ''; } });
+  const [choix, setChoix] = useState(null);      // { s, e, x, y }
+  const [motif, setMotif] = useState('');
+  const [msg, setMsg] = useState(null);
+  const charger = useCallback(c => appel('GET', `/grille${c ? `?cours=${encodeURIComponent(c)}` : ''}`).then(j => {
+    setD(j);
+    if (!c && j.cours?.length) setCode(j.cours[0].code);
+  }).catch(e => setMsg(e.message)), []);
+  useEffect(() => { charger(code); try { localStorage.setItem('ens.grille.cours', code); } catch { /* */ } }, [code, charger]);
+  useEffect(() => { if (!d?.en_route) return undefined; const t = setTimeout(() => charger(code), 4000); return () => clearTimeout(t); }, [d, code, charger]);
+  if (!d) return <p className="text-slate-500">{msg || 'Chargement…'}</p>;
+  if (!d.cours?.length) return <p className="text-slate-500">Aucun cours avec des séances à l’horaire cette année.</p>;
+  const seances = d.seances || [];
+  const etudiants = d.etudiants || [];
+  const cle = (s, e) => `${s}|${e}`;
+  const pres = new Map((d.presences || []).map(p => [cle(p.seance_id, p.etudiant_id), p]));
+  const inscrit = new Set((d.inscrits || []).map(i => cle(i.seance_id, i.etudiant_id)));
+  const motifs = moi.motifs || [];
+  const libMotif = k => motifs.find(m => m.k === k)?.l || k;
+  async function poser(s, e, statut, mot) {
+    if (moi.apercu) { setMsg('Aperçu : rien ne s’enregistre.'); setChoix(null); return; }
+    const ligne = statut === 'retard' ? { etudiant_id: e, statut: 'present', retard: true }
+      : { etudiant_id: e, statut: statut || null, retard: false, motif: statut === 'justifie' ? mot : null };
+    try { await appel('POST', `/seance/${s}/presences`, { presences: [ligne] }); setMsg(null); } catch (x) { setMsg(x.message); }
+    setChoix(null); setMotif(''); charger(code);
+  }
+  function exporter() {
+    import('xlsx').then(XLSX => {
+      const c = d.cours.find(x => x.code === code);
+      const tete = ['Nom', 'Prénom', 'Groupe', ...seances.map(s => `${court(s.date)}${s.annule ? ' (annulée)' : ''}`), 'P', 'A', 'J'];
+      const lignes = etudiants.map(e => {
+        const cases = seances.map(s => { const p = pres.get(cle(s.id, e.id)); return !inscrit.has(cle(s.id, e.id)) ? '—' : LETTRE[cleDe(p)] || ''; });
+        return [String(e.nom || '').toUpperCase(), e.prenom, e.groupe || '', ...cases,
+          cases.filter(x => x === 'P' || x === 'P*').length, cases.filter(x => x === 'A').length, cases.filter(x => x === 'J').length];
+      });
+      const ws = XLSX.utils.aoa_to_sheet([[`${c?.nom || code} — présences ${seances[0] ? `du ${court(seances[0].date)} au ${court(seances[seances.length - 1].date)}` : ''}`], [], tete, ...lignes]);
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Présences');
+      XLSX.writeFile(wb, `Presences_${code}.xlsx`);
+    });
+  }
+  const passee = s => s.date <= d.aujourdhui;
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="m-0 text-2xl font-semibold text-iip-texte">Présences de l’année</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="controle" value={code} onChange={e => setCode(e.target.value)} aria-label="Cours">
+            {d.cours.map(c => <option key={c.code} value={c.code}>{c.ue_num ? `UE ${c.ue_num} · ` : ''}{c.nom || c.code}</option>)}
+          </select>
+          <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={exporter} disabled={!etudiants.length}><IconDownload size={16} /> Excel</button>
+        </div>
+      </header>
+      {msg && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{msg}</div>}
+      {(d.refus || []).length > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">Lucie a refusé : {d.refus[0].erreur}</div>}
+      {d.en_route > 0 && <p className="m-0 text-second text-slate-500">Envoi vers Lucie en cours…</p>}
+      {!seances.length ? <p className="text-slate-500">Aucune séance de ce cours à l’horaire.</p> : (
+        <div className="bg-white border border-slate-200 rounded-carte overflow-auto" style={{ maxHeight: '70vh' }}>
+          <table className="text-sm border-collapse">
+            <thead><tr>
+              <th className="sticky left-0 top-0 z-20 bg-white px-3 py-2 text-left border-b border-slate-200 min-w-[13rem]">Étudiant</th>
+              {seances.map(s => (
+                <th key={s.id} className={`sticky top-0 z-10 bg-white px-1 py-2 border-b border-slate-200 text-center font-semibold whitespace-nowrap ${s.annule ? 'line-through text-slate-400' : ''}`}
+                  title={`${court(s.date)} ${h(s.heure_debut)}–${h(s.heure_fin)}${s.local ? ` · ${s.local}` : ''}${s.annule ? ' · annulée' : ''}`}>
+                  <span className="text-mention">{court(s.date)}</span></th>))}
+              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">P</th>
+              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">A</th>
+              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">J</th>
+            </tr></thead>
+            <tbody>{etudiants.map(e => {
+              let nP = 0, nA = 0, nJ = 0;
+              return (
+                <tr key={e.id} className="border-t border-slate-100">
+                  <td className="sticky left-0 z-10 bg-white px-3 py-1 whitespace-nowrap">{String(e.nom || '').toUpperCase()} {e.prenom}{e.groupe ? <span className="text-second text-slate-400"> · {e.groupe}</span> : null}</td>
+                  {seances.map(s => {
+                    if (!inscrit.has(cle(s.id, e.id))) return <td key={s.id} className="text-center text-slate-300">—</td>;
+                    const p = pres.get(cle(s.id, e.id)); const k = cleDe(p); const st = STATUTS.find(x => x.k === k);
+                    if (k === 'present' || k === 'retard') nP++; else if (k === 'absent') nA++; else if (k === 'justifie') nJ++;
+                    const actif = passee(s) && !s.annule;
+                    return (
+                      <td key={s.id} className="p-0.5 text-center">
+                        <button type="button" disabled={!actif} onClick={ev => setChoix({ s: s.id, e: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom}`, date: s.date, x: ev.clientX, y: ev.clientY })}
+                          className="w-9 h-7 rounded text-xs font-bold disabled:opacity-40"
+                          style={st ? { background: st.c, color: '#fff' } : { border: '1px solid #E4E7EC', color: '#94a3b8' }}
+                          title={p?.statut === 'justifie' && p.motif ? libMotif(p.motif) : st?.titre || (actif ? 'Non encodé' : s.annule ? 'Séance annulée' : 'Séance à venir')}>
+                          {st ? st.l : actif ? '·' : ''}</button>
+                      </td>);
+                  })}
+                  <td className="text-center tabular-nums">{nP}</td><td className="text-center tabular-nums">{nA}</td><td className="text-center tabular-nums">{nJ}</td>
+                </tr>);
+            })}</tbody>
+          </table>
+        </div>)}
+      <p className="m-0 text-mention text-slate-400">P présent · P* en retard · A absent · J absence justifiée · — pas inscrit à cette séance. Les séances à venir ne s’encodent pas.</p>
+      {choix && (
+        <Volet titre={choix.nom} sous={`Séance du ${court(choix.date)}`} large="26rem" onFermer={() => { setChoix(null); setMotif(''); }}>
+          <div className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              {STATUTS.filter(x => x.k !== 'justifie').map(x => (
+                <button key={x.k} type="button" className="bouton controle font-bold" style={{ background: x.c, color: '#fff', borderColor: x.c }} onClick={() => poser(choix.s, choix.e, x.k)}>{x.l} · {x.titre}</button>))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="controle" value={motif} onChange={e => setMotif(e.target.value)} aria-label="Motif de l’absence justifiée">
+                <option value="">Absence justifiée — motif…</option>
+                {motifs.map(m => <option key={m.k} value={m.k}>{m.l}</option>)}
+              </select>
+              <button type="button" className="bouton controle" disabled={!motif} onClick={() => poser(choix.s, choix.e, 'justifie', motif)}>J · Justifiée</button>
+            </div>
+            <button type="button" className="bouton controle" onClick={() => poser(choix.s, choix.e, null)}>Effacer</button>
+          </div>
+        </Volet>)}
+    </div>);
+}
+
 const FACES = [
   { k: 'journee', l: 'Ma journée', I: IconSun },
   { k: 'horaire', l: 'Mon horaire', I: IconCalendarWeek },
+  { k: 'presences', l: 'Présences de l’année', I: IconTable },
   { k: 'ues', l: 'Mes UE et étudiants', I: IconUsers },
   { k: 'textes', l: 'Textes de l’école', I: IconBook },
   { k: 'documents', l: 'Mes documents', I: IconFileText },
@@ -708,6 +829,7 @@ export default function EspaceEnseignant() {
         {seance ? <Presences seanceId={seance} motifs={moi.motifs} onRetour={() => setSeance(null)} />
           : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
           : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
+          : face === 'presences' ? <GrillePresences moi={moi} />
           : face === 'ues' ? <MesUE />
           : face === 'textes' ? <TextesEcole />
           : face === 'documents' ? <MesDocuments />
