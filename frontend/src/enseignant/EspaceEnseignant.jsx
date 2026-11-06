@@ -9,6 +9,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
+import TrainUE from '../components/TrainUE.jsx';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
 const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
@@ -420,27 +421,9 @@ function VoirDP({ ue, onFermer }) {
       {d ? <iframe title="Dossier pédagogique" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
     </Volet>);
 }
-/* LE PETIT TRAIN D'UNE UNITÉ (3.5.156, Charles : « on ne comprend pas si c'est Bac 1, 2… il faut le mini train ») : le dessin
-   de la fiche de l'étudiant dans Lucie — section, bloc (liseré à la couleur du bloc), ECTS, cours, étudiants. */
-function Wagon({ v, l, ligne = false }) {
-  return (
-    <span className="relative px-2.5 py-1 leading-tight">
-      <span className="block text-sm font-semibold text-iip-texte tabular-nums">{v}</span>
-      {l && <span className="block text-mention text-slate-500">{l}</span>}
-      {ligne && <span className="absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full bg-blue-700" />}
-    </span>);
-}
-function TrainUE({ u }) {
-  const n = new Set(u.cours.flatMap(c => c.etudiants.map(e => e.id))).size;
-  return (
-    <span className="bloc-etat etat-neutre inline-flex items-stretch divide-x divide-slate-200 bg-white"
-      style={{ borderLeftColor: couleurBloc(u.ue_niv) || 'rgb(var(--gris-200))' }}>
-      <Wagon v={u.section || '—'} l="section" />
-      <Wagon v={u.ue_niv || '—'} l="bloc" ligne />
-      {u.ects != null && <Wagon v={u.ects} l="ECTS" />}
-      <Wagon v={u.cours.length} l="cours" />
-      <Wagon v={n} l={n > 1 ? 'étudiants' : 'étudiant'} />
-    </span>);
+function TrainDeLUE({ u }) {
+  return <TrainUE section={u.section} niveau={u.ue_niv} ects={u.ects} nbCours={u.cours.length}
+    nbEtudiants={new Set(u.cours.flatMap(c => c.etudiants.map(e => e.id))).size} />;
 }
 /* LA LISTE PAR GROUPE (3.5.156, Charles : « je ne vois pas les listes par groupe ») : un intertitre par groupe (« Labo · Gr. A »),
    ses étudiants numérotés ; un cours que tous suivent reste une seule liste. */
@@ -492,7 +475,7 @@ function MesUE() {
               <span className="block font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
               <LigneDeliberation seances={delibs} ue={u.ue_num} />
             </span>
-            <TrainUE u={u} />
+            <TrainDeLUE u={u} />
             {u.a_dp && <button type="button" className="bouton controle" onClick={() => setDp(u.ue_num)}>Dossier pédagogique</button>}
             {/* LA DUE EST À L'ESSAI (3.5.133, Charles : « pour DUE tu mets un badge TEST »). */}
             {u.a_due && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setDue(u.ue_num)}
