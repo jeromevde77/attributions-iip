@@ -3661,6 +3661,11 @@ pptx reconnus aux premiers octets ; 10 Mo chacun, 20 Mo en tout), envoyés en da
 par courriel. `GET /api/communication/:id/piece/:pid` : destinataires du message (non retiré), l'auteur, la direction.
 `PiecesJointes` (`MessagesRecus.jsx`) les ouvre au tableau de bord et dans le registre de l'auteur.
 
+**SEULE L'ENTRÉE OÙ L'ON EST REPLIE SON TIROIR** (3.5.132, Charles : « le porte-voix n'ouvre rien »). Sans `ordreRail`, le tiroir
+de l'écran ouvert se range sous la DERNIÈRE rubrique de l'axe ; depuis 3.5.119, `RailDessine` faisait de tout clic sur une
+entrée à tiroir un « replier » — sur le tableau de bord, Communication (dernière rubrique) ne s'ouvrait plus depuis « Ce qui
+m'attend ». Le geste universel ne vaut désormais que pour l'entrée active ou dont un enfant est actif.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

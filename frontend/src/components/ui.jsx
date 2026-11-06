@@ -556,7 +556,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                 // Rubrique rangée dans le tiroir d'un groupe (3.5.130) : les réglages se posent juste sous elle.
                 : enfantActif >= 0 ? { ...itBrut, sous: [...itBrut.sous.slice(0, enfantActif + 1), entreeVolet, ...itBrut.sous.slice(enfantActif + 1)] }
                 : itBrut;
-              const aTiroir = it0.sous?.length > 0;
+              /* SEULE L'ENTRÉE OÙ L'ON EST REPLIE SON TIROIR (3.5.131, Charles : « le porte-voix ne marche pas »). Le tiroir
+                 de l'écran ouvert se range sous la DERNIÈRE rubrique de l'axe ; sur le tableau de bord, c'était Communication,
+                 dont le clic ne faisait plus que replier les outils d'Accueil. Une entrée qui n'est pas ouverte, et dont aucun
+                 enfant ne l'est, garde son geste (ouvrir son écran, ou son groupe). */
+              const aTiroir = it0.sous?.length > 0 && (it0.actif || (it0.sous || []).some(x => x.actif));
               const it = aTiroir && replies.has(it0.key)
                 ? { ...it0, sous: undefined, onClick: () => basculerTiroir(it0.key) }
                 : aTiroir ? { ...it0, onClick: () => basculerTiroir(it0.key) } : it0;
