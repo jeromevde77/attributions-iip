@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconCheck, IconChecks, IconEraser, IconMail, IconSend, IconSpeakerphone, IconTrash, IconUser, IconUserOff, IconX } from '@tabler/icons-react';
+import { IconCheck, IconChecks, IconEraser, IconMail, IconPaperclip, IconSend, IconSpeakerphone, IconTrash, IconUser, IconUserOff, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { Fenetre } from '../components/ui.jsx';
 import ChoixRecherche from '../components/ChoixRecherche.jsx';
 import EditeurDUE from '../components/EditeurDUE.jsx';
 import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
+import { PiecesJointes } from '../components/MessagesRecus.jsx';
 
 /**
  * LA COMMUNICATION (3.1.278, Charles, 10 octobre 2026 : « envoyer des notifications sur le
@@ -43,6 +44,7 @@ export default function Communication() {
   const [envois, setEnvois] = useState([]);
   const [detail, setDetail] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [pieces, setPieces] = useState([]);         // { nom, taille, contenu (data URL) } — 3.5.131
 
   const chargerEnvois = () => fetch('/api/communication/envoyes', { headers: authHeaders() }).then(r => r.ok ? r.json() : []).then(setEnvois).catch(() => {});
   useEffect(() => {
@@ -67,17 +69,27 @@ export default function Communication() {
   const optionsPers = useMemo(() => (c?.personnes || []).map(p => ({ valeur: p.professeur_id ? `p${p.professeur_id}` : `u${p.utilisateur_id}`, libelle: p.nom, detail: p.compte ? 'compte Lucie' : 'sans compte' })), [c]);
   const nomPers = v => (c?.personnes || []).find(p => (p.professeur_id ? `p${p.professeur_id}` : `u${p.utilisateur_id}`) === v)?.nom || v;
 
+  /* LES PIÈCES JOINTES (3.5.131) : lues dans le navigateur, envoyées avec le message ; le serveur les contrôle. */
+  async function joindre(fichiers) {
+    const lus = await Promise.all([...fichiers].map(f => new Promise(ok => {
+      const fr = new FileReader(); fr.onload = () => ok({ nom: f.name, taille: f.size, contenu: fr.result }); fr.onerror = () => ok(null); fr.readAsDataURL(f);
+    })));
+    const trop = lus.filter(Boolean).find(p => p.taille > 10 * 1024 * 1024);
+    if (trop) { await informer(`« ${trop.nom} » dépasse 10 Mo.`); return; }
+    setPieces(x => [...x, ...lus.filter(Boolean)].slice(0, 5));
+  }
+
   async function envoyer() {
     if (!titre.trim() || !String(texte).replace(/<[^>]+>/g, '').trim() || !apercu?.nb) return;
-    if (!(await demander({ titre: 'Envoyer le message', message: `« ${titre} » (${IMPORTANCES_MESSAGE[importance].libelle.toLowerCase()}) à ${apercu.nb} personne(s) — ${apercu.resume}.${accuse ? '\n\nUn accusé de lecture est demandé.' : ''}${courriel ? '\n\nUne copie part aussi par courriel.' : ''}`, confirmer: 'Envoyer' }))) return;
+    if (!(await demander({ titre: 'Envoyer le message', message: `« ${titre} » (${IMPORTANCES_MESSAGE[importance].libelle.toLowerCase()}) à ${apercu.nb} personne(s) — ${apercu.resume}.${accuse ? '\n\nUn accusé de lecture est demandé.' : ''}${pieces.length ? `\n\nPièce(s) jointe(s) : ${pieces.map(p => p.nom).join(', ')}.` : ''}${courriel ? '\n\nUne copie part aussi par courriel.' : ''}`, confirmer: 'Envoyer' }))) return;
     setEnCours(true);
-    const r = await fetch('/api/communication', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ titre, html: texte, critere: crit, canal_email: courriel, annee, importance, icone, accuse_demande: accuse, jusquau: jusquau || null }) });
+    const r = await fetch('/api/communication', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ titre, html: texte, critere: crit, canal_email: courriel, annee, importance, icone, accuse_demande: accuse, jusquau: jusquau || null, pieces: pieces.map(p => ({ nom: p.nom, contenu: p.contenu })) }) });
     const j = await r.json().catch(() => ({}));
     setEnCours(false);
     if (!r.ok) { await informer(`❌ ${j.error || 'Envoi impossible'}`); return; }
     await informer(`✓ Envoyé à ${j.nb} personne(s). Le message est sur leur tableau de bord.`);
     setTitre(''); setTexte(''); setCrit({ tous: false, sections: [], ues: [], roles: [], professeurs: [], utilisateurs: [] }); setCourriel(false);
-    setImportance('info'); setIcone('porte-voix'); setAccuse(false); setJusquau('');
+    setImportance('info'); setIcone('porte-voix'); setAccuse(false); setJusquau(''); setPieces([]);
     chargerEnvois();
   }
   /* LE MÉNAGE (3.1.279) : mêmes groupes que l'envoi ; on dit combien de comptes, puis on vide. */
@@ -120,6 +132,20 @@ export default function Communication() {
           {/* L'éditeur de la DUE : votre mise en page arrive telle quelle (3.1.286). */}
           <div className="border border-slate-300 rounded-champ overflow-hidden" style={{ background: 'var(--blanc)' }}>
             <EditeurDUE valeur={texte} onChange={setTexte} />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <span className="intertitre block">Documents joints</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {pieces.map((p, i) => <Puce key={i} onRetirer={() => setPieces(x => x.filter((_, j) => j !== i))}><IconPaperclip size={12} /> {p.nom}</Puce>)}
+            {pieces.length < 5 && (
+              <label className="bouton cursor-pointer inline-flex items-center gap-1.5">
+                <IconPaperclip size={15} /> Joindre un document
+                <input type="file" multiple className="hidden" accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.pptx"
+                  onChange={e => { joindre(e.target.files); e.target.value = ''; }} />
+              </label>)}
+            <span className="text-second text-slate-500">PDF, image, Word, Excel ou PowerPoint — 5 au plus, 10 Mo chacun. Ils s’ouvrent depuis le tableau de bord et partent avec la copie par courriel.</span>
           </div>
         </div>
 
@@ -244,6 +270,7 @@ export default function Communication() {
             {!detail.retire_le && <button className="bouton bouton-detruire" onClick={() => retirer(detail)}><IconTrash size={14} className="inline -mt-0.5 mr-1" />Retirer</button>}
             <button className="bouton bouton-fort" onClick={() => setDetail(null)}>Fermer</button></>}>
           <div className="texte-due mb-4 border-l-2 border-slate-200 pl-3" dangerouslySetInnerHTML={{ __html: detail.corps_html }} />
+          <PiecesJointes message={detail} />
           <ul className="text-sm divide-y divide-slate-100">
             {detail.destinataires.map(d => (
               <li key={d.id} className="py-1.5 flex items-center gap-2">

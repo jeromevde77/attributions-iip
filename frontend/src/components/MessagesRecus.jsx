@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconSpeakerphone, IconChevronRight, IconCheck, IconChecks } from '@tabler/icons-react';
+import { IconSpeakerphone, IconChevronRight, IconCheck, IconChecks, IconPaperclip } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
@@ -14,6 +14,29 @@ import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
  */
 const heure = s => { const d = new Date(String(s || '').replace(' ', 'T') + 'Z'); return isNaN(d) ? '' : d.toLocaleString('fr-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
 const apercu = html => String(html || '').replace(/<\/(p|li)>/g, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+/* LES PIÈCES JOINTES D'UN MESSAGE (3.5.131) : un bouton par fichier, ouvert dans un nouvel onglet (la route exige la
+   session, d'où le passage par un blob). */
+export function PiecesJointes({ message }) {
+  const l = message?.pieces || [];
+  if (!l.length) return null;
+  async function ouvrir(p) {
+    const fen = window.open('', '_blank');
+    const r = await fetch(`/api/communication/${message.id}/piece/${p.id}`, { headers: authHeaders() });
+    if (!r.ok) { fen?.close(); return; }
+    const url = URL.createObjectURL(new Blob([await r.blob()], { type: p.mime }));
+    if (fen && /^(application\/pdf|image\/)/.test(p.mime)) fen.location = url;
+    else { fen?.close(); const a = document.createElement('a'); a.href = url; a.download = p.nom; a.click(); }
+  }
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {l.map(p => (
+        <button key={p.id} type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => ouvrir(p)}>
+          <IconPaperclip size={15} /> {p.nom}
+        </button>))}
+    </div>
+  );
+}
 
 export default function MessagesRecus() {
   const [liste, setListe] = useState([]);
@@ -42,6 +65,7 @@ export default function MessagesRecus() {
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2 flex-wrap">
                 <b className="text-sm">{m.titre}</b>
+                {m.pieces?.length > 0 && <IconPaperclip size={14} className="text-slate-400" aria-label="Document joint" />}
                 {nouveau && <span className="pastille-etat" data-etat={m.accuse_demande ? 'surveiller' : imp.etat}>{m.accuse_demande ? 'À confirmer' : 'Nouveau'}</span>}
                 {!nouveau && <span className="text-mention flex items-center gap-0.5" style={{ color: 'var(--c-reussi)' }}>{m.accuse_le ? <IconChecks size={13} /> : <IconCheck size={13} />}{m.accuse_le ? 'Confirmé' : 'Lu'}</span>}
               </span>
@@ -64,6 +88,7 @@ export default function MessagesRecus() {
                   : <button className="bouton bouton-fort" onClick={() => setOuvert(null)}>Fermer</button>}
             </>}>
             <div className="texte-due" dangerouslySetInnerHTML={{ __html: m.corps_html }} />
+            <PiecesJointes message={m} />
           </Fenetre>);
       })()}
     </div>

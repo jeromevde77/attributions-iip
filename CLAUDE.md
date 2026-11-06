@@ -3654,6 +3654,13 @@ dépassé des points (ses lignes seulement), séance non close et date à poser 
 s'ouvre sur la section choisie. Les organisations ne sont pas touchées (UE 282 en 2026-2027 : 144 Orthoptie, 56 Optométrie,
 11 sans section, tous sans organisation ; « ranger par section » écarté pour l'instant).
 
+**UN MESSAGE PORTE SES DOCUMENTS** (3.5.131, Charles, 6 novembre 2026 : la lettre « Merci » aux enseignants, « je ne sais
+pas mettre de message et le document »). Communication → *Documents joints* : cinq fichiers au plus (PDF, JPEG, PNG, docx, xlsx,
+pptx reconnus aux premiers octets ; 10 Mo chacun, 20 Mo en tout), envoyés en data URL avec le message (`pieces`, limite JSON
+30 Mo sur `/api/communication`), écrits sous DATA_DIR/communication/<id>/<n> (table `communication_piece`), joints à la copie
+par courriel. `GET /api/communication/:id/piece/:pid` : destinataires du message (non retiré), l'auteur, la direction.
+`PiecesJointes` (`MessagesRecus.jsx`) les ouvre au tableau de bord et dans le registre de l'auteur.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
