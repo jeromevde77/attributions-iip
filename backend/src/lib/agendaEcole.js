@@ -223,22 +223,30 @@ export function aligner(annee, par, ecrire = false) {
 /** LES UNITÉS ET LES SESSIONS DANS L'AGENDA (3.5.148) : par semaine, les ouvertures et fermetures d'unités, les épreuves et les
  *  délibérations — lues de leurs tables (`organisation_ue`, `epreuve_session1`, `deliberation_session2`, `deliberation_seance`). */
 export function unitesEtSessions(annee, semaines) {
-  const idx = d => { const l = lundiDe(d); return semaines.indexOf(l); };
-  const unites = semaines.map(l => ({ lundi: l, ouvertures: [], fermetures: [] }));
-  const sessions = semaines.map(l => ({ lundi: l, epreuves: [], deliberations: [] }));
-  for (const o of essai(() => db.prepare('SELECT ue_num, num_organisation org, date_debut du, date_fin au FROM organisation_ue WHERE annee_scolaire = ?').all(annee), [])) {
+  const idx = d => semaines.indexOf(lundiDe(d));
+  const jm = d => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`;
+  const unites = semaines.map(l => ({ lundi: l, ouvertures: [], fermetures: [], items: [] }));
+  const sessions = semaines.map(l => ({ lundi: l, epreuves: [], deliberations: [], items: [] }));
+  const nomUE = n => essai(() => db.prepare('SELECT MAX(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(n, annee)?.n || '', '');
+  for (const o of essai(() => db.prepare('SELECT id, ue_num, num_organisation org, date_debut du, date_fin au FROM organisation_ue WHERE annee_scolaire = ?').all(annee), [])) {
+    const nom = `UE ${o.ue_num}${o.org > 1 ? ` (org. ${o.org})` : ''}`;
+    const item = { id: o.id, ue_num: o.ue_num, ue_nom: nomUE(o.ue_num), org: o.org, du: o.du, au: o.au };
     const a = o.du ? idx(o.du) : -1, b = o.au ? idx(o.au) : -1;
-    if (a >= 0) unites[a].ouvertures.push(`UE ${o.ue_num}${o.org > 1 ? ` (org. ${o.org})` : ''}`);
-    if (b >= 0) unites[b].fermetures.push(`UE ${o.ue_num}${o.org > 1 ? ` (org. ${o.org})` : ''}`);
+    if (a >= 0) { unites[a].ouvertures.push(nom); unites[a].items.push({ ...item, quoi: 'ouvre' }); }
+    if (b >= 0) { unites[b].fermetures.push(nom); unites[b].items.push({ ...item, quoi: 'ferme' }); }
   }
   for (const [t, k, n] of [['epreuve_session1', 's1', 1], ['deliberation_session2', 's2', 2]]) {
-    for (const e of essai(() => db.prepare(`SELECT ue_num, cours_code, ${k}_date d, ${k}_heure h FROM ${t} WHERE annee_scolaire = ? AND ${k}_date IS NOT NULL AND ${k}_date <> ''`).all(annee), [])) {
-      const i = idx(String(e.d).slice(0, 10)); if (i >= 0) sessions[i].epreuves.push(`S${n} ${e.cours_code || `UE ${e.ue_num}`} — ${String(e.d).slice(8, 10)}/${String(e.d).slice(5, 7)}${e.h ? ` ${String(e.h).slice(0, 5)}` : ''}`);
+    for (const e of essai(() => db.prepare(`SELECT ue_num, cours_code, ${k}_date d, ${k}_heure h, ${k}_local l FROM ${t} WHERE annee_scolaire = ? AND ${k}_date IS NOT NULL AND ${k}_date <> ''`).all(annee), [])) {
+      const i = idx(String(e.d).slice(0, 10)); if (i < 0) continue;
+      sessions[i].epreuves.push(`S${n} ${e.cours_code || `UE ${e.ue_num}`} — ${jm(e.d)}${e.h ? ` ${String(e.h).slice(0, 5)}` : ''}`);
+      sessions[i].items.push({ quoi: 'epreuve', session: n, ue_num: e.ue_num, ue_nom: nomUE(e.ue_num), cours_code: e.cours_code || '', date: String(e.d).slice(0, 10), heure: e.h || '', local: e.l || '' });
     }
   }
-  for (const d of essai(() => db.prepare(`SELECT ue_num, COALESCE(session, 1) s, COALESCE(num_organisation, 0) org, date_seance d, heure_seance h FROM deliberation_seance
+  for (const d of essai(() => db.prepare(`SELECT ue_num, COALESCE(session, 1) s, COALESCE(num_organisation, 0) org, date_seance d, heure_seance h, COALESCE(cloturee, 0) close FROM deliberation_seance
       WHERE annee_scolaire = ? AND date_seance IS NOT NULL AND date_seance <> ''`).all(annee), [])) {
-    const i = idx(String(d.d).slice(0, 10)); if (i >= 0) sessions[i].deliberations.push(`S${d.s} UE ${d.ue_num}${d.org ? ` (org. ${d.org})` : ''} — ${String(d.d).slice(8, 10)}/${String(d.d).slice(5, 7)}${d.h ? ` ${String(d.h).slice(0, 5)}` : ''}`);
+    const i = idx(String(d.d).slice(0, 10)); if (i < 0) continue;
+    sessions[i].deliberations.push(`S${d.s} UE ${d.ue_num}${d.org ? ` (org. ${d.org})` : ''} — ${jm(d.d)}${d.h ? ` ${String(d.h).slice(0, 5)}` : ''}`);
+    sessions[i].items.push({ quoi: 'deliberation', session: d.s, ue_num: d.ue_num, ue_nom: nomUE(d.ue_num), org: d.org, date: String(d.d).slice(0, 10), heure: d.h || '', close: !!d.close });
   }
   return { unites, sessions };
 }
