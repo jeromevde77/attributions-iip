@@ -326,7 +326,12 @@ async function contactMaintenant() {
     const p = x => ({ nom: x.nom, role: x.role, telephone: x.telephone || null });
     return { secretariat_ouvert: !!e.secretariat_ouvert, heure: e.heure, date: e.date,
       presents: (e.presents || []).map(x => ({ ...p(x), jusqu: x.jusqu || null })),
-      permanences: (e.permanences || []).map(x => ({ ...p(x), debut: x.debut, fin: x.fin, en_cours: !!x.en_cours, secours: (x.secours || []).map(p) })) };
+      permanences: (e.permanences || []).map((x, i) => ({ ...p(x), id: `p${i}`, debut: x.debut, fin: x.fin, en_cours: !!x.en_cours, note: x.note || null,
+        secours: (x.secours || []).map((y, k) => ({ ...p(y), id: `s${i}-${k}` })) })),
+      // LA JOURNÉE DE L'ÉQUIPE, COMME DANS LUCIE (3.5.134) : les plages, la pause, les pointages et l'état de chacun — la frise.
+      journee: (e.journee || []).map((x, i) => ({ ...p(x), id: `j${i}`, etat: x.etat,
+        plages: (x.plages || []).map(h => ({ debut: h.debut, fin: h.fin, lieu: h.lieu || null, pause_debut: h.pause_debut || null, pause_fin: h.pause_fin || null })),
+        pointages: (x.pointages || []).map(t => ({ etat: t.etat, heure: t.heure })) })) };
   } catch (e) { return null; }
 }
 

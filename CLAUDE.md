@@ -3671,6 +3671,12 @@ mes étudiants : bouton « Dossier pédagogique » par UE — `dossierPedagogiqu
 `ue.ue_dp` rangé par `rubriquesDuDossier`, rendu par `texteVersHtml`), déposé avec le tableau (`dp_html`), servi par
 `GET /api/enseignant/dp/:ue`. Le bouton DUE porte un badge « TEST ».
 
+**L'ESPACE ENSEIGNANT VOIT LES DONNÉES DE LUCIE** (3.5.134, Charles, 6 novembre 2026 : « l'espace enseignant est une
+manière de VOIR les données de Lucie — pas toutes, certaines » ; « tout ce qui est dans Mes cours doit basculer à terme » ;
+tranché : lecture d'abord, écriture ensuite ; ordre : présences → notes et carnet → avis VA et AR → le reste). « Contacter »
+dessine la journée de l'équipe avec la frise de Lucie : `FriseJournee` sort de `TuileQuiEstLa` vers
+`components/FriseJournee.jsx` (avec `telAffiche`, `Appeler`, `LIEU_AGENDA`), et `contactMaintenant` dépose `journee`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -1,6 +1,7 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
+import { FriseJournee } from '../components/FriseJournee.jsx';
 import { useCallback, useEffect, useState } from 'react';
 import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone } from '@tabler/icons-react';
 
@@ -550,15 +551,14 @@ function BoutonContact() {
       <IconPhone size={16} /> {ok ? 'Contacter' : 'Urgence'}
     </button>
     {ouvert && (
-      <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} large="34rem" onFermer={() => setOuvert(false)}>
-        <div className="space-y-5 text-sm">
-          {c.presents.length > 0 && <section><div className="font-semibold mb-1">Là maintenant</div>
-            <ul className="m-0 pl-0 list-none divide-y divide-slate-100">{c.presents.map((p, i) => <li key={i} className="py-2 flex flex-wrap gap-x-3"><span className="flex-1 min-w-0">{p.nom} <span className="text-slate-500">· {p.role}{p.jusqu ? ` · jusqu’à ${p.jusqu}` : ''}</span></span><Tel p={p} /></li>)}</ul></section>}
-          {c.permanences.length > 0 && <section><div className="font-semibold mb-1">La permanence aujourd’hui</div>
-            <ul className="m-0 pl-0 list-none divide-y divide-slate-100">{c.permanences.map((p, i) => <li key={i} className="py-2">
-              <div className="flex flex-wrap gap-x-3"><span className="flex-1 min-w-0">{p.debut}–{p.fin} · {p.nom}{p.en_cours ? <b className="ml-1" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>en cours</b> : ''}</span><Tel p={p} /></div>
-              {p.secours.length > 0 && <div className="text-second text-slate-500 mt-0.5">En secours : {p.secours.map((x, k) => <span key={k}>{k ? ' · ' : ''}{x.nom} <Tel p={x} /></span>)}</div>}</li>)}</ul></section>}
-          {!c.presents.length && !c.permanences.length && <p className="m-0 text-slate-500">Personne n’est signalé pour l’instant.</p>}
+      <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} onFermer={() => setOuvert(false)}>
+        {/* LA FRISE DE LUCIE (3.5.134, Charles : « cela ne respecte pas la mise en page de Lucie, avec la ligne du temps de la
+            journée ») : le même dessin que « Qui est là ? », sans les crayons de la direction. */}
+        <div className="space-y-2 text-sm">
+          <div className="intertitre">La journée de l’équipe</div>
+          {c.journee?.length || c.permanences.length
+            ? <div className="overflow-x-auto"><div className="min-w-[640px]"><FriseJournee journee={c.journee || []} permanences={c.permanences} heure={c.heure} /></div></div>
+            : <p className="m-0 text-slate-500">Personne n’a d’horaire ni de permanence aujourd’hui.</p>}
           <p className="m-0 text-mention text-slate-400">Mis à jour à {c.heure}.</p>
         </div>
       </Volet>)}
