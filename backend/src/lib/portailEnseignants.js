@@ -153,7 +153,12 @@ async function tableauDe(u, profId, annee, documentDUE) {
       try { due = documentDUE ? documentDUE(a.ue_num, annee) : null; } catch { due = null; }
       let dp = null;
       try { dp = dossierPedagogiqueHtml(a.ue_num, annee); } catch { dp = null; }
-      ues.set(a.ue_num, { ue_num: a.ue_num, ue_nom: a.ue_nom, section: a.section, due_statut: statut, due_html: due, dp_html: dp, cours: [] });
+      /* LE PETIT TRAIN DE L'UNITÉ (3.5.156, Charles : « on ne comprend pas si c'est Bac 1, 2 ») : son bloc dans la section de
+         l'attribution, ses ECTS. */
+      let ects = null;
+      try { ects = db.prepare(`SELECT ects FROM ue WHERE ue_num = ? AND ects IS NOT NULL AND (? IS NULL OR section = ?)
+        ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(a.ue_num, a.section || null, a.section || null, annee)?.ects ?? null; } catch { /* */ }
+      ues.set(a.ue_num, { ue_num: a.ue_num, ue_nom: a.ue_nom, section: a.section, ue_niv: a.ue_niv || null, ects, due_statut: statut, due_html: due, dp_html: dp, cours: [] });
     }
     const ue = ues.get(a.ue_num);
     if (ue.cours.some(c => c.code === a.code_cours)) continue;
@@ -165,7 +170,10 @@ async function tableauDe(u, profId, annee, documentDUE) {
     try { for (const r of presencesDe.all(annee, a.code_cours)) { const x = pres.get(r.etudiant_id) || {}; x[r.statut] = r.n; pres.set(r.etudiant_id, x); } } catch { /* */ }
     const notes = new Map();
     try { for (const r of notesDe.all(annee, a.code_cours)) { (notes.get(r.etudiant_id) || notes.set(r.etudiant_id, []).get(r.etudiant_id)).push({ evaluation: r.intitule, sur: r.sur, points: r.points, mention: r.mention }); } } catch { /* */ }
-    ue.cours.push({ code: a.code_cours, nom: a.cours_nom, etudiants: etus.map(e => ({ id: e.id, groupe: e.groupe || null })) });
+    // Les groupes que CE professeur a dans ce cours (ses attributions), pour lire la liste groupe par groupe.
+    const groupes = [...new Set(attrs.filter(x => x.code_cours === a.code_cours && x.groupe).map(x => String(x.groupe)))]
+      .sort((x, y) => x.localeCompare(y, 'fr', { numeric: true }));
+    ue.cours.push({ code: a.code_cours, nom: a.cours_nom, groupes, etudiants: etus.map(e => ({ id: e.id, groupe: e.groupe || null })) });
     for (const e of etus) {
       if (!fiches.has(e.id)) {
         const x = db.prepare('SELECT nom, prenom, email_ecole, id_ecampus, section_rattachement FROM etudiant WHERE id = ?').get(e.id) || {};

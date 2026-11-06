@@ -247,8 +247,8 @@ export function monterEnseignants(pub, int, o) {
     if (!t) return res.json({ pret: false });
     const noms = new Map((t.etudiants || []).map(e => [e.id, e]));
     res.json({ pret: true, annee: t.annee, a_faire: t.a_faire || [],
-      ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, due_statut: u.due_statut, a_due: !!u.due_html, a_dp: !!u.dp_html,
-        cours: u.cours.map(c => ({ code: c.code, nom: c.nom, etudiants: c.etudiants.map(e => ({ ...e, nom: noms.get(e.id)?.nom || '', prenom: noms.get(e.id)?.prenom || '' })) })) })) });
+      ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, ue_niv: u.ue_niv || null, ects: u.ects ?? null, due_statut: u.due_statut, a_due: !!u.due_html, a_dp: !!u.dp_html,
+        cours: u.cours.map(c => ({ code: c.code, nom: c.nom, groupes: c.groupes || [], etudiants: c.etudiants.map(e => ({ ...e, nom: noms.get(e.id)?.nom || '', prenom: noms.get(e.id)?.prenom || '' })) })) })) });
   });
   // ── LES TEXTES DE L'ÉCOLE (3.5.088) : les lire ici pose « présenté », « Je confirme » pose « confirmé » — Lucie les relève. ──
   const geste = (ens, type, contenu) => db.prepare('INSERT INTO ens_geste (ens_id, type, contenu) VALUES (?,?,?)').run(ens, type, JSON.stringify(contenu));

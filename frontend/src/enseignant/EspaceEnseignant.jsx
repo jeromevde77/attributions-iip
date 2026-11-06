@@ -8,6 +8,7 @@ import { FournisseurRail } from '../components/ui.jsx';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
+import { couleurBloc, rangBloc } from '../lib/blocs.js';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
 const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
@@ -419,6 +420,57 @@ function VoirDP({ ue, onFermer }) {
       {d ? <iframe title="Dossier pédagogique" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
     </Volet>);
 }
+/* LE PETIT TRAIN D'UNE UNITÉ (3.5.156, Charles : « on ne comprend pas si c'est Bac 1, 2… il faut le mini train ») : le dessin
+   de la fiche de l'étudiant dans Lucie — section, bloc (liseré à la couleur du bloc), ECTS, cours, étudiants. */
+function Wagon({ v, l, ligne = false }) {
+  return (
+    <span className="relative px-2.5 py-1 leading-tight">
+      <span className="block text-sm font-semibold text-iip-texte tabular-nums">{v}</span>
+      {l && <span className="block text-mention text-slate-500">{l}</span>}
+      {ligne && <span className="absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full bg-blue-700" />}
+    </span>);
+}
+function TrainUE({ u }) {
+  const n = new Set(u.cours.flatMap(c => c.etudiants.map(e => e.id))).size;
+  return (
+    <span className="bloc-etat etat-neutre inline-flex items-stretch divide-x divide-slate-200 bg-white"
+      style={{ borderLeftColor: couleurBloc(u.ue_niv) || 'rgb(var(--gris-200))' }}>
+      <Wagon v={u.section || '—'} l="section" />
+      <Wagon v={u.ue_niv || '—'} l="bloc" ligne />
+      {u.ects != null && <Wagon v={u.ects} l="ECTS" />}
+      <Wagon v={u.cours.length} l="cours" />
+      <Wagon v={n} l={n > 1 ? 'étudiants' : 'étudiant'} />
+    </span>);
+}
+/* LA LISTE PAR GROUPE (3.5.156, Charles : « je ne vois pas les listes par groupe ») : un intertitre par groupe (« Labo · Gr. A »),
+   ses étudiants numérotés ; un cours que tous suivent reste une seule liste. */
+function ListeParGroupe({ etudiants, onFiche }) {
+  const groupes = new Map();
+  for (const e of etudiants) for (const g of String(e.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean).concat(e.groupe ? [] : [''])) {
+    (groupes.get(g) || groupes.set(g, []).get(g)).push(e);
+  }
+  const cles = [...groupes.keys()].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+  const nomOrd = (x, y) => `${x.nom} ${x.prenom}`.localeCompare(`${y.nom} ${y.prenom}`, 'fr');
+  return (
+    <div className="pb-2 px-4 grid gap-3" style={{ gridTemplateColumns: cles.length > 1 ? 'repeat(auto-fill, minmax(260px, 1fr))' : '1fr' }}>
+      {cles.map(g => (
+        <div key={g || '—'} className="min-w-0">
+          {(cles.length > 1 || g) && (
+            <div className="intertitre flex items-baseline gap-2 px-1 py-1 border-b border-slate-200">
+              <span className="font-semibold text-iip-texte">{g.replace(/^Org 1 · /, '').replace(/ · Org 1 · /, ' · ') || 'Sans groupe'}</span>
+              <span className="text-second text-slate-500">{groupes.get(g).length}</span>
+            </div>)}
+          <ol className="m-0 pl-0 list-none">
+            {groupes.get(g).sort(nomOrd).map((e, i) => (
+              <li key={e.id}><button type="button" className="w-full text-left px-1 py-1 text-sm hover:bg-slate-50 flex gap-2" onClick={() => onFiche(e.id)}>
+                <span className="w-6 text-right tabular-nums text-slate-400">{i + 1}</span>
+                <span className="flex-1 min-w-0 truncate"><b className="font-semibold">{String(e.nom || '').toUpperCase()}</b> {e.prenom}</span>
+              </button></li>))}
+          </ol>
+        </div>))}
+    </div>);
+}
+
 function MesUE() {
   const [t, setT] = useState(null);
   const [ouvert, setOuvert] = useState({});
@@ -432,13 +484,15 @@ function MesUE() {
   return (
     <div className="space-y-5">
       <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mes UE et mes étudiants{t.annee ? ` · ${t.annee}` : ''}</h1>
-      {t.ues.map(u => (
-        <section key={u.ue_num} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+      {[...t.ues].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num).map(u => (
+        <section key={u.ue_num} className="bg-white border border-slate-200 border-l-[5px] rounded-carte overflow-hidden"
+          style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
           <div className="entete-carte px-4 py-3 flex flex-wrap items-center gap-3">
-            <span className="flex-1 min-w-0">
+            <span className="flex-1 min-w-[16rem]">
               <span className="block font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
               <LigneDeliberation seances={delibs} ue={u.ue_num} />
             </span>
+            <TrainUE u={u} />
             {u.a_dp && <button type="button" className="bouton controle" onClick={() => setDp(u.ue_num)}>Dossier pédagogique</button>}
             {/* LA DUE EST À L'ESSAI (3.5.133, Charles : « pour DUE tu mets un badge TEST »). */}
             {u.a_due && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setDue(u.ue_num)}
@@ -452,14 +506,9 @@ function MesUE() {
                 <button type="button" className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50" onClick={() => setOuvert(o => ({ ...o, [k]: !o[k] }))}>
                   {ouvert[k] ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                   <span className="flex-1 min-w-0">{c.nom || c.code}</span>
-                  <span className="text-second text-slate-500">{c.etudiants.length} étudiant(s)</span>
+                  <span className="text-second text-slate-500">{(c.groupes || []).length ? `${c.groupes.length > 1 ? 'groupes' : 'groupe'} ${c.groupes.join(', ')} · ` : ''}{c.etudiants.length} étudiant(s)</span>
                 </button>
-                {ouvert[k] && (
-                  <ul className="m-0 pl-0 list-none pb-2">
-                    {c.etudiants.map(e => (
-                      <li key={e.id}><button type="button" className="w-full text-left px-11 py-1.5 text-sm hover:bg-slate-50 flex gap-3" onClick={() => setFiche(e.id)}>
-                        <span className="flex-1">{String(e.nom || '').toUpperCase()} {e.prenom}</span>{e.groupe && <span className="text-second text-slate-500">{e.groupe}</span>}</button></li>))}
-                  </ul>)}
+                {ouvert[k] && <ListeParGroupe etudiants={c.etudiants} onFiche={setFiche} />}
               </div>);
           })}
         </section>))}
