@@ -27,7 +27,7 @@ function chargerPdfjs() {
   });
   return pdfjsPromesse;
 }
-function PagesPdf({ url, titre }) {
+export function PagesPdf({ url, titre }) {
   const boite = useRef(null);
   const [echec, setEchec] = useState(false);
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconSpeakerphone, IconChevronRight, IconCheck, IconChecks, IconPaperclip } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
+import { PagesPdf } from './PreviewModal.jsx';
 import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
 
 /**
@@ -17,6 +18,27 @@ const apercu = html => String(html || '').replace(/<\/(p|li)>/g, ' ').replace(/<
 
 /* LES PIÈCES JOINTES D'UN MESSAGE (3.5.131) : un bouton par fichier, ouvert dans un nouvel onglet (la route exige la
    session, d'où le passage par un blob). */
+export const montrable = p => /^(application\/pdf|image\/)/.test(p?.mime || '');
+
+/* UN DOCUMENT JOINT S'OUVRE DIRECTEMENT (3.5.153, Charles : « quand c'est un document, j'aimerais qu'il s'ouvre
+   direct ») : un PDF ou une image se montre DANS le message, sous le texte — les pages du PDF dessinées comme dans
+   l'aperçu des pièces. Les autres fichiers (Word, Excel…) gardent leur bouton. */
+function DocumentJoint({ message, piece }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let u = null, vivant = true;
+    fetch(`/api/communication/${message.id}/piece/${piece.id}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.blob() : null))
+      .then(b => { if (b && vivant) { u = URL.createObjectURL(new Blob([b], { type: piece.mime })); setUrl(u); } })
+      .catch(() => {});
+    return () => { vivant = false; if (u) URL.revokeObjectURL(u); };
+  }, [message.id, piece.id, piece.mime]);
+  if (!url) return <div className="mt-3 text-second text-slate-500">Ouverture de {piece.nom}…</div>;
+  return piece.mime === 'application/pdf'
+    ? <div className="mt-3 h-[68vh] flex flex-col rounded-carte overflow-hidden border border-slate-200"><PagesPdf url={url} titre={piece.nom} /></div>
+    : <img src={url} alt={piece.nom} className="mt-3 max-w-full mx-auto rounded-carte border border-slate-200" />;
+}
+
 export function PiecesJointes({ message }) {
   const l = message?.pieces || [];
   if (!l.length) return null;
@@ -25,16 +47,20 @@ export function PiecesJointes({ message }) {
     const r = await fetch(`/api/communication/${message.id}/piece/${p.id}`, { headers: authHeaders() });
     if (!r.ok) { fen?.close(); return; }
     const url = URL.createObjectURL(new Blob([await r.blob()], { type: p.mime }));
-    if (fen && /^(application\/pdf|image\/)/.test(p.mime)) fen.location = url;
+    if (fen && montrable(p)) fen.location = url;
     else { fen?.close(); const a = document.createElement('a'); a.href = url; a.download = p.nom; a.click(); }
   }
   return (
-    <div className="mt-3 flex flex-wrap gap-1.5">
-      {l.map(p => (
-        <button key={p.id} type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => ouvrir(p)}>
-          <IconPaperclip size={15} /> {p.nom}
-        </button>))}
-    </div>
+    <>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {l.map(p => (
+          <button key={p.id} type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => ouvrir(p)}
+            title={montrable(p) ? 'Ouvrir dans un nouvel onglet' : 'Télécharger'}>
+            <IconPaperclip size={15} /> {p.nom}
+          </button>))}
+      </div>
+      {l.filter(montrable).map(p => <DocumentJoint key={p.id} message={message} piece={p} />)}
+    </>
   );
 }
 
@@ -79,6 +105,7 @@ export default function MessagesRecus() {
         const imp = IMPORTANCES_MESSAGE[m.importance] || IMPORTANCES_MESSAGE.info;
         return (
           <Fenetre titre={m.titre} sous={`${m.cree_par} · ${heure(m.envoye_le)} · ${imp.libelle}`} onFermer={() => setOuvert(null)}
+            large={(m.pieces || []).some(montrable) ? 'grande' : 'moyenne'}
             pied={<>
               <span className="text-second text-slate-500 min-w-0 flex-1">{m.accuse_demande && !m.accuse_le ? 'L’auteur demande que vous confirmiez en avoir pris connaissance.' : ''}</span>
               {m.accuse_demande && !m.accuse_le
