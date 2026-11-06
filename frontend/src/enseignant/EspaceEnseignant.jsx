@@ -5,13 +5,16 @@ import { FriseJournee } from '../components/FriseJournee.jsx';
 import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
 import { FournisseurRail } from '../components/ui.jsx';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { preparerLucie } from './relais.js';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
+const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
+const AgendaEcoleLucie = lazy(() => import('../pages/AgendaEcole.jsx'));
 const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
 const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
 const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -791,6 +794,33 @@ function GrillePresences({ moi }) {
 
 /* MES COURS, TEL QUE DANS LUCIE (3.5.137) : l'écran de Lucie, ses requêtes passant par le relais. Ses entrées de rail remontent
    dans la navigation de l'espace (`surSections`). */
+/* LE TABLEAU DE BORD DE LUCIE (3.5.140, Charles : « je veux aussi la page d'accueil, tableau de bord, avec les notifications, les
+   messages, etc. ») : la page « Ce qui m'attend » de Lucie elle-même, par le relais. Ses liens vers d'autres écrans de Lucie se
+   traduisent en entrées de l'espace (un texte → L'école, un cours → Mes notes) ; un écran qui n'existe pas ici le dit. */
+function SuivreLiens({ allerA }) {
+  const loc = useLocation();
+  useEffect(() => {
+    const p = loc.pathname;
+    if (p === '/' || p === '/accueil') return;
+    if (p.startsWith('/documentation')) allerA('ecole');
+    else if (p.startsWith('/mes-cours')) allerA('notes');
+    else if (p.startsWith('/agenda') || p.startsWith('/horaire')) allerA('agenda');
+    else import('../lib/dialogue.jsx').then(m => m.informer('Cet écran est dans Lucie, pas dans l’espace enseignant.')).catch(() => {});
+  }, [loc.key]);   // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+function TableauDeBord({ allerA }) {
+  return (
+    <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-8 -mt-4 md:-mt-8">
+      <MemoryRouter initialEntries={['/accueil']}>
+        <SuivreLiens allerA={allerA} />
+        <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
+          <Suspense fallback={<p className="text-slate-500 p-4">Chargement…</p>}><AccueilLucie /></Suspense>
+        </FournisseurRail>
+      </MemoryRouter>
+    </div>);
+}
+
 function MesCoursEspace({ vue, tic, allerA }) {
   // Une seule instance pour Aujourd'hui, Mes notes, Mes présences, Mes unités et À rendre : un cours ouvert reste ouvert.
   return (
@@ -837,13 +867,20 @@ function CeQuiMAttend({ moi, onPresences }) {
 /* MON AGENDA : la semaine (avec les journées de l'école), et deux portes — les visites de stage, l'horaire dans le téléphone. */
 function MonAgenda({ moi, onPresences }) {
   const [ouvert, setOuvert] = useState(null);
+  // L'ANNÉE DE L'ÉCOLE (3.5.140, Charles : « l'agenda de l'année, basé sur ce qu'on a créé ») : l'agenda de l'école de Lucie, en lecture.
+  const [vue, setVue] = useState('semaine');
+  let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 justify-end">
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="segments">{[['semaine', 'Ma semaine'], ['annee', 'L’année de l’école']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
+        <span className="flex-1" />
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('agenda')}><IconCalendarShare size={16} /> Dans l’agenda de mon téléphone</button>
       </div>
-      <MonHoraire moi={moi} onPresences={onPresences} />
+      {vue === 'semaine' ? <MonHoraire moi={moi} onPresences={onPresences} />
+        : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
         {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
@@ -880,6 +917,7 @@ function BoutonFace({ f, actif, onClick }) {
 /* LA STRUCTURE (3.5.138, Charles, 6 novembre 2026 : « c'est la structure que je veux changer » ; « mes notes, mes présences, mes
    étudiants » ; Aujourd'hui garde la frise de Lucie). Les entrées de travail en haut ; l'école et le compte en bas. */
 const FACES = [
+  { k: 'tableau', l: 'Tableau de bord', I: IconLayoutDashboard },
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
   { k: 'notes', l: 'Mes notes', I: IconPencil },
   { k: 'presences', l: 'Mes présences', I: IconUserCheck },
@@ -898,7 +936,7 @@ export default function EspaceEnseignant() {
   const [token, setToken] = useState(lire());
   const [definir, setDefinir] = useState(false);
   const [moi, setMoi] = useState(null);
-  const [face, setFace] = useState('aujourdhui');
+  const [face, setFace] = useState('tableau');
   const [tic, setTic] = useState(0);
   const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
@@ -964,6 +1002,8 @@ export default function EspaceEnseignant() {
             {face === 'aujourdhui' && <CeQuiMAttend moi={moi} onPresences={setSeance} />}
           </div>)}
         {!lucie && VUES_LUCIE.has(face) && !seance && <p className="text-slate-500">Ouverture…</p>}
+        {!seance && lucie && face === 'tableau' && <TableauDeBord allerA={k => aller(k)} />}
+        {!seance && !lucie && face === 'tableau' && <p className="text-slate-500">Ouverture…</p>}
         {!seance && (face === 'etudiants' ? <MesUE />
           : face === 'agenda' ? <MonAgenda moi={moi} onPresences={setSeance} />
           : face === 'ecole' ? <LEcole />

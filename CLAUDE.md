@@ -3719,6 +3719,13 @@ carnet / indicateurs / le cours (`notes`), ou les seules présences (`presences`
 (`rendre`). UNE instance montée pour ces cinq vues (un cours reste ouvert entre notes et présences, se ferme ailleurs, re-cliquer
 ramène à la liste). Mes étudiants = `MesUE` de l'espace ; Mon agenda = l'horaire de l'espace + visites et agenda (fenêtres de Lucie).
 
+**LE TABLEAU DE BORD ET L'ANNÉE DE L'ÉCOLE DANS L'ESPACE ENSEIGNANT** (3.5.140, Charles : « la page d'accueil tableau de bord, avec
+les notifications, les messages » ; « l'agenda de l'année basé sur ce qu'on a créé »). Première entrée « Tableau de bord » =
+`pages/Accueil.jsx` de Lucie par le relais, dans un `MemoryRouter` ; `SuivreLiens` traduit ses liens (documentation → L'école,
+mes-cours → Mes notes, agenda → Mon agenda ; sinon « cet écran est dans Lucie »). Mon agenda → « L'année de l'école » =
+`AgendaEcole simple` (sans tension, sections ni stages ; `AgendaLigne simple`), en lecture (le serveur ne laisse peindre que la
+direction et la coordination).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

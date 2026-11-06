@@ -55,7 +55,9 @@ export function GrilleAnnee({ children, className = '', droite = '5.5rem' }) {
  * La ligne du temps de l'agenda. `apres` : des rangées à poser sous l'agenda (les personnes du temps de travail).
  * `selSemaine` / `onSemaine` : la semaine choisie quand aucun pinceau n'est pris.
  */
-export default function AgendaLigne({ annee, ag, recharger, apres = null, selSemaine = null, onSemaine = null, droite = '5.5rem', onChange = null }) {
+/* `simple` (3.5.140, l'espace enseignant) : l'année telle qu'un enseignant a besoin de la lire — les moments, les cours, l'école ;
+   ni la tension des semaines, ni les sections, ni les stages, qui sont des lectures de gestion. */
+export default function AgendaLigne({ annee, ag, recharger, apres = null, selSemaine = null, onSemaine = null, droite = '5.5rem', onChange = null, simple = false }) {
   const [pinceau, setPinceau] = useState(null);         // { cle, valeur, section? }
   const [debut, setDebut] = useState(null);             // première semaine touchée
   const [ouvertes, setOuvertes] = useState(false);      // sections dépliées
@@ -175,14 +177,14 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
             <div />
           </GrilleAnnee>
           <RangeeMoments ag={ag} droite={droite} cible={cible('moments')} toucher={l => toucher('moments', l)} enCours={l => enCours('moments', l)} onRetirer={peutEtab ? retirerMoment : null} />
-          <GrilleAnnee droite={droite}>
+          {!simple && <GrilleAnnee droite={droite}>
             <div className="text-second text-slate-600 pr-2 self-center">Période</div>
             {ag.semaines.map(l => { const c = ch.get(l); const f = c?.niveau !== 'normal' ? CHALEUR[c?.niveau] : null;
               return <button key={l} data-lundi={l} type="button" onClick={() => toucher('chaleur', l)} title={`${fmt(l)} · ${c?.niveau === 'chaud' ? 'tension' : c?.niveau === 'creux' ? 'calme' : 'normale'}${c?.force ? ' (fixée)' : ''}${c?.raisons?.length ? ' — ' + c.raisons.join(', ') : ''}`}
                 className={`h-4 mx-px rounded-[3px] ${anneau('chaleur', l)} ${cible('chaleur') ? 'cursor-crosshair' : ''}`}
                 style={{ background: c?.conge ? HACHURE : f || 'var(--c-filet, #E2E8F0)', opacity: f ? 1 : 0.6, outline: c?.force ? '1px dashed var(--c-texte)' : 'none' }} />; })}
             <div />
-          </GrilleAnnee>
+          </GrilleAnnee>}
           <GrilleAnnee droite={droite}>
             <div className="text-second text-slate-600 pr-2 self-center">Cours</div>
             {ag.semaines.map((l, i) => { const c = ag.cours[i];
@@ -202,7 +204,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
               </button>; })}
             <div />
           </GrilleAnnee>
-          {ag.sections.length > 0 && (
+          {!simple && ag.sections.length > 0 && (
             <GrilleAnnee droite={droite}>
               <button type="button" className="text-second text-slate-600 pr-2 self-center text-left inline-flex items-center gap-0.5" onClick={() => setOuvertes(o => !o)}>
                 Sections {ouvertes ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}</button>
@@ -210,7 +212,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
                 className="text-mention text-center tabular-nums text-slate-500 self-center">{b.sections_actives || ''}</div>)}
               <div />
             </GrilleAnnee>)}
-          {(ag.stages || []).some(x => x.etudiants || x.periodes.length || x.prepares) && (() => { const max = Math.max(1, ...ag.stages.map(x => x.etudiants));
+          {!simple && (ag.stages || []).some(x => x.etudiants || x.periodes.length || x.prepares) && (() => { const max = Math.max(1, ...ag.stages.map(x => x.etudiants));
             return (
               <GrilleAnnee droite={droite}>
                 <div className="text-second text-slate-600 pr-2 self-center">Stages</div>
@@ -223,7 +225,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
                   </div>))}
                 <div />
               </GrilleAnnee>); })()}
-          {ouvertes && ag.sections.map(s => (
+          {!simple && ouvertes && ag.sections.map(s => (
             <GrilleAnnee key={s.section} droite={droite}>
               <div className="text-mention text-slate-600 pr-2 self-center truncate pl-2" title={s.section}>{s.section}</div>
               {s.semaines.map(x => (
@@ -236,7 +238,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
           {apres}
         </div>
       </div>
-      <Legende />
+      <Legende simple={simple} />
       {(ag.jours_fermes.length > 0 || ag.moments.some(m => !m.serie_id)) && (
         <div className="px-4 py-2 border-t text-second space-y-1">
           {ag.moments.length > 0 && <div className="flex flex-wrap gap-x-3 gap-y-1"><span className="text-slate-500">Grands moments :</span>
@@ -355,15 +357,15 @@ function RangeeMoments({ ag, droite, cible, toucher, enCours, onRetirer }) {
   );
 }
 
-function Legende() {
+function Legende({ simple = false }) {
   const P = ({ fond, children, bord }) => <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-[2px]" style={{ background: fond, border: bord ? '1px solid var(--c-filet, #E2E8F0)' : 'none' }} />{children}</span>;
   return (
     <div className="px-4 py-2 border-t flex flex-wrap gap-x-4 gap-y-1 text-mention text-slate-600">
-      <P fond="var(--c-attente)">tension</P><P fond="var(--c-disponible)">calme</P>
+      {!simple && <><P fond="var(--c-attente)">tension</P><P fond="var(--c-disponible)">calme</P></>}
       <P fond="var(--c-texte)">école fermée</P><P fond="color-mix(in srgb, var(--c-texte) 35%, transparent)">en partie fermée</P>
       <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-refuse)' }} />jour fermé</span>
-      <P fond="var(--c-serie_5, #4FA64A)">étudiants en stage</P><P fond="color-mix(in srgb, var(--c-attente) 18%, transparent)" bord>stages à préparer</P>
-      <P fond={HACHURE}>vacances (cours)</P><P fond="var(--c-principal)">heures prévues · section active</P><P fond="var(--c-accent)">proposition · jour donné · stage</P>
+      {!simple && <><P fond="var(--c-serie_5, #4FA64A)">étudiants en stage</P><P fond="color-mix(in srgb, var(--c-attente) 18%, transparent)" bord>stages à préparer</P></>}
+      <P fond={HACHURE}>vacances (cours)</P>{!simple && <><P fond="var(--c-principal)">heures prévues · section active</P><P fond="var(--c-accent)">proposition · jour donné · stage</P></>}
     </div>
   );
 }
