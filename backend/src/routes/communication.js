@@ -28,6 +28,8 @@ import { authRequired, getUserSections, professeurDe } from '../middleware/auth.
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { assainirDUE } from './due.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const r = Router();
 /* L'IMPORTANCE DIT LA COULEUR DE LA CARTE (3.1.286, Charles, 11 octobre 2026 : « des accusés
@@ -161,6 +163,53 @@ r.get('/cibles', authRequired, (req, res) => {
   res.json({ ...c, personnes, annee, toutes_sections: getUserSections(req.user) === null });
 });
 
+/* LES PIÈCES JOINTES (3.5.131, Charles, 6 novembre 2026 : la lettre « Merci » aux enseignants, un PDF, « je ne sais
+   pas mettre de message et le document »). Un message porte jusqu'à cinq fichiers (PDF, image, Word, tableur ;
+   10 Mo chacun, 20 Mo en tout), reconnus à leurs premiers octets. Ils vivent sous DATA_DIR/communication/<message>/<n> ;
+   le tableau de bord les ouvre, la copie par courriel les joint. Seuls l'auteur, la direction et les destinataires
+   les lisent. */
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS communication_piece (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, communication_id INTEGER NOT NULL REFERENCES communication(id) ON DELETE CASCADE,
+    nom TEXT NOT NULL, mime TEXT NOT NULL, taille INTEGER NOT NULL, chemin TEXT NOT NULL)`);
+} catch (e) { console.error('[migration] communication_piece :', e.message); }
+const DATA_DIR = () => process.env.DATA_DIR || '/app/data';
+const MAX_PIECE = 10 * 1024 * 1024, MAX_TOTAL = 20 * 1024 * 1024;
+function typeReel(buf, nom) {
+  const ext = String(nom || '').toLowerCase().split('.').pop();
+  if (buf.slice(0, 4).toString('latin1') === '%PDF') return 'application/pdf';
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return 'image/jpeg';
+  if (buf.slice(0, 8).toString('hex') === '89504e470d0a1a0a') return 'image/png';
+  if (buf.slice(0, 4).toString('hex') === '504b0304') {
+    if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (ext === 'xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (ext === 'pptx') return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  }
+  return null;
+}
+/** Lit les pièces envoyées par l'écran ({ nom, contenu: data URL }) ; rend { pieces } ou { erreur }. */
+function lirePieces(liste) {
+  const l = Array.isArray(liste) ? liste : [];
+  if (l.length > 5) return { erreur: 'Cinq pièces jointes au plus.' };
+  const pieces = []; let total = 0;
+  for (const p of l) {
+    const nom = String(p?.nom || 'piece').replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 150);
+    const m = /^data:[^;,]*;base64,(.*)$/s.exec(String(p?.contenu || ''));
+    if (!m) return { erreur: `« ${nom} » : fichier illisible.` };
+    const buf = Buffer.from(m[1], 'base64');
+    const mime = typeReel(buf, nom);
+    if (!mime) return { erreur: `« ${nom} » : seuls les PDF, images (JPEG, PNG), Word, Excel et PowerPoint se joignent.` };
+    if (buf.length > MAX_PIECE) return { erreur: `« ${nom} » dépasse 10 Mo.` };
+    total += buf.length;
+    pieces.push({ nom, mime, buf });
+  }
+  if (total > MAX_TOTAL) return { erreur: 'Les pièces jointes dépassent 20 Mo en tout.' };
+  return { pieces };
+}
+export function piecesDe(cid) {
+  try { return db.prepare('SELECT id, nom, mime, taille FROM communication_piece WHERE communication_id = ? ORDER BY id').all(cid); } catch { return []; }
+}
+
 // ── L'aperçu : qui recevra ─────────────────────────────────────────────────
 r.post('/apercu', authRequired, (req, res) => {
   if (!peutEnvoyer(req.user)) return res.status(403).json({ error: 'Envoi réservé.' });
@@ -188,6 +237,8 @@ r.post('/', authRequired, async (req, res) => {
   const importance = IMPORTANCES[b.importance] ? b.importance : 'info';
   const icone = ICONES.includes(b.icone) ? b.icone : null;
   const jusquau = /^\d{4}-\d{2}-\d{2}$/.test(String(b.jusquau || '')) ? b.jusquau : null;
+  const lues = lirePieces(b.pieces);
+  if (lues.erreur) return res.status(400).json({ error: lues.erreur });
   const id = db.transaction(() => {
     const info = db.prepare(`INSERT INTO communication (titre, corps_html, canal_inapp, canal_email, accuse_demande, critere_json, annee_scolaire,
         statut, cree_par, cree_par_id, envoye_le, resume_cible, importance, icone, jusquau) VALUES (?,?,1,?,?,?,?, 'envoye', ?, ?, datetime('now'), ?, ?, ?, ?)`)
@@ -196,6 +247,14 @@ r.post('/', authRequired, async (req, res) => {
     const cid = Number(info.lastInsertRowid);
     const ins = db.prepare('INSERT INTO communication_destinataire (communication_id, professeur_id, utilisateur_id, email_cible) VALUES (?,?,?,?)');
     for (const d of dest) ins.run(cid, d.professeur_id, d.utilisateur_id, b.canal_email ? d.email : null);
+    // Le fichier d'abord, la ligne ensuite : une écriture qui échoue annule tout le message.
+    const dir = path.join(DATA_DIR(), 'communication', String(cid));
+    if (lues.pieces.length) fs.mkdirSync(dir, { recursive: true });
+    lues.pieces.forEach((p, i) => {
+      const chemin = path.join(dir, String(i + 1));
+      fs.writeFileSync(chemin, p.buf);
+      db.prepare('INSERT INTO communication_piece (communication_id, nom, mime, taille, chemin) VALUES (?,?,?,?,?)').run(cid, p.nom, p.mime, p.buf.length, chemin);
+    });
     return cid;
   })();
   res.json({ ok: true, id, nb: dest.length });
@@ -205,7 +264,8 @@ r.post('/', authRequired, async (req, res) => {
     const html = templateNotif({ titre, corps: `${corpsHtml}<p style="color:#6b7280;font-size:12px">Envoyé par ${echapper(parNom || 'Lucie')} — à retrouver sur votre tableau de bord Lucie.</p>`, lien: '/accueil' });
     for (const d of db.prepare('SELECT id, email_cible FROM communication_destinataire WHERE communication_id = ? AND email_cible IS NOT NULL').all(id)) {
       try {
-        await envoyerEmail({ to: d.email_cible, subject: titre, html });
+        await envoyerEmail({ to: d.email_cible, subject: titre, html,
+          attachments: lues.pieces.length ? lues.pieces.map(p => ({ filename: p.nom, content: p.buf, contentType: p.mime })) : undefined });
         db.prepare("UPDATE communication_destinataire SET email_envoye_le = datetime('now') WHERE id = ?").run(d.id);
       } catch (e) { db.prepare('UPDATE communication_destinataire SET email_erreur = ? WHERE id = ?').run(String(e.message).slice(0, 300), d.id); }
     }
@@ -230,6 +290,23 @@ r.get('/recus', authRequired, (req, res) => {
   res.json(messagesRecus(req.user));
 });
 
+/** Ouvrir une pièce jointe : l'auteur, la direction (tout) et les destinataires du message. */
+r.get('/:id/piece/:pid', authRequired, (req, res) => {
+  const cid = Number(req.params.id);
+  const p = db.prepare('SELECT * FROM communication_piece WHERE id = ? AND communication_id = ?').get(Number(req.params.pid), cid);
+  const c = db.prepare('SELECT cree_par_id, retire_le FROM communication WHERE id = ?').get(cid);
+  if (!p || !c) return res.status(404).json({ error: 'Introuvable.' });
+  const moi = professeurDe(req.user);
+  const destinataire = !c.retire_le && db.prepare(`SELECT 1 FROM communication_destinataire WHERE communication_id = ?
+    AND (utilisateur_id = ? OR (? IS NOT NULL AND professeur_id = ?))`).get(cid, req.user.id, moi, moi);
+  const envoyeur = peutEnvoyer(req.user) && (getUserSections(req.user) === null || c.cree_par_id === req.user.id);
+  if (!destinataire && !envoyeur) return res.status(404).json({ error: 'Introuvable.' });
+  if (!fs.existsSync(p.chemin)) return res.status(404).json({ error: 'Le fichier n’est plus sur le serveur.' });
+  res.setHeader('Content-Type', p.mime);
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(p.nom)}`);
+  fs.createReadStream(p.chemin).pipe(res);
+});
+
 r.get('/:id', authRequired, (req, res) => {
   if (!peutEnvoyer(req.user)) return res.status(403).json({ error: 'Réservé.' });
   const c = db.prepare('SELECT * FROM communication WHERE id = ?').get(Number(req.params.id));
@@ -241,7 +318,7 @@ r.get('/:id', authRequired, (req, res) => {
     .map(d => ({ id: d.id, nom: d.nom ? nomDe(d) : (d.nom_complet || d.email), compte: !!d.utilisateur_id, lu_le: d.lu_le, accuse_le: d.accuse_le,
       email: d.email_cible, email_envoye_le: d.email_envoye_le, email_erreur: d.email_erreur }))
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
-  res.json({ ...c, destinataires: dest });
+  res.json({ ...c, destinataires: dest, pieces: piecesDe(c.id) });
 });
 
 /** Retirer un message envoyé par erreur : il quitte les tableaux de bord, il reste au registre. */
@@ -310,7 +387,8 @@ export function messagesRecus(user) {
         -- Passée la date de fin d'affichage, le message quitte le tableau de bord (il reste au registre).
         AND (c.jusquau IS NULL OR c.jusquau >= date('now'))
         AND (d.utilisateur_id = ? OR (? IS NOT NULL AND d.professeur_id = ?))
-      GROUP BY c.id ORDER BY c.id DESC`).all(user.id, user.id, user.id, moi, moi);
+      GROUP BY c.id ORDER BY c.id DESC`).all(user.id, user.id, user.id, moi, moi)
+    .map(m => ({ ...m, pieces: piecesDe(m.id) }));
 }
 
 export default r;
