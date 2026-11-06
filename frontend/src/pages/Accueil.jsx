@@ -525,7 +525,8 @@ function TextesAConfirmer() {
   );
 }
 
-export default function Accueil() {
+/* `apresEntete` (3.5.144, l'espace enseignant) : ce qui se pose juste sous le « Bonjour » — la frise de la journée. */
+export default function Accueil({ apresEntete = null }) {
   const [items, setItems]     = useState([]);
   const [nbNonLus, setNbNonLus] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -690,6 +691,7 @@ export default function Accueil() {
             filtre !== 'tout' ? LIBELLES_FILTRE[filtre] : null,
             jours !== 30 ? LIBELLES_PERIODE[jours] : null,
           ].filter(Boolean).join(' · ')} />
+        {apresEntete && <div className="mb-4">{apresEntete}</div>}
 
         {/* CE QUI M'ATTEND VIENT AVANT CE QUI S'EST PASSÉ.
             Le fil d'activité raconte ce que les autres ont fait ; il ne dit pas

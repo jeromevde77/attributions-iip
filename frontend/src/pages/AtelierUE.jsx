@@ -96,14 +96,14 @@ export function verrouDe(k, et) {
    sans pour autant les valider — sinon je ne sais pas voir ce qu'il y a partout »). Le cadenas reste
    affiché, l'étape s'ouvre quand même ; rien n'est coché pour autant. */
 const passeLesVerrous = () => ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
-function Frise({ faces, ouvertes, face, onFace, et }) {
+function Frise({ faces, ouvertes, face, onFace, et, passe = false }) {
   return (
     <ol className="m-0 p-0 list-none flex items-start w-full max-w-4xl" aria-label="Étapes">
       {faces.map(([k, l, , n], i) => {
         const e = et[k]?.etat; const actif = face === k; const fait = etapeFaite(e);
         const ouverte = ouvertes.includes(k);
         const verrou = verrouDe(k, et);
-        const libre = ouverte && (!verrou || passeLesVerrous());
+        const libre = ouverte && (!verrou || passe || passeLesVerrous());
         return (
           <li key={k} className="flex-1 min-w-0 relative">
             {i > 0 && <LienEtape fait={etapeFaite(et[faces[i - 1][0]]?.etat)} className="absolute top-[13px] right-1/2 w-full" />}
@@ -156,6 +156,10 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
   const setFace = onFace || setFaceLocale;
   const [numero, setNumero] = useState('');
   const [suivi, setSuivi] = useState({});
+  /* QUI NE PEUT PAS ÉCRIRE LIT TOUTES LES ÉTAPES (3.5.144, Charles : « si pas référent ou coordination, elle doit voir toutes les
+     étapes en lecture pour avoir l'info ») : les verrous de l'ordre du travail ne gardent que ceux qui rédigent. */
+  const [lecture, setLecture] = useState(false);
+  const passe = lecture || passeLesVerrous();
   const lireSuivi = useCallback(async n => {
     if (!n) return;
     const [due, liens] = await Promise.all([
@@ -164,6 +168,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
         .then(r => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     setSuivi(etats(due, liens));
+    setLecture(!!due && !due?.droits?.ecrire);
   }, []);
   // Relu à chaque changement d'unité ou d'étape : ce qu'on vient d'enregistrer se voit.
   useEffect(() => { lireSuivi(ue); }, [ue, face, lireSuivi]);
@@ -225,13 +230,14 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
       </div>
       {dp && <UEModal ue={dp.ue} sections={dp.sections} ongletInitial="contenu" lecture onClose={() => setDp(null)} onSaved={() => setDp(null)} />}
 
-      <Frise faces={FACES} ouvertes={ouvertes.map(f => f[0])} face={face} onFace={setFace} et={suivi} />
+      <Frise faces={FACES} ouvertes={ouvertes.map(f => f[0])} face={face} onFace={setFace} et={suivi} passe={lecture} />
+      {ue && lecture && <div className="bloc-etat px-3 py-2 text-sm" data-etat="neutre">Lecture seule : le référent de l’unité (le responsable choisi dans la DUE) et la coordination rédigent ; vous voyez chaque étape.</div>}
 
       {railPropre && (
         <RailLateral titre="Unité" sections={[{ items: ouvertes.map(([k, l, I, n]) => (
           { key: `face-${k}`, label: `${n}. ${l}${verrouDe(k, suivi) ? ' (verrouillée)' : ''}`, icon: I, actif: face === k, onClick: () => setFace(k) })) }]} />)}
 
-      {ue && verrouDe(face, suivi) && (
+      {ue && !lecture && verrouDe(face, suivi) && (
         <div className="bloc-etat px-3 py-2 text-sm flex items-center gap-2" data-etat="surveiller">
           <IconLock size={15} /> {verrouDe(face, suivi)}{passeLesVerrous() ? ' Vous la consultez en tant que direction : rien n’est validé pour autant.' : ''}
           <button type="button" className="bouton ml-auto" onClick={() => setFace('croisement')}>Aller à l'étape 1</button>
@@ -239,7 +245,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
       {ue && face === 'dossier' && <ApercuDossier key={ue} ueNum={ue} onSuivante={() => setFace('croisement')} />}
       {ue && face === 'croisement' && <CroisementUE key={ue} ueNum={ue} onEnregistre={() => lireSuivi(ue)}
         suivante={ouvertes.find(f => f[3] === 2) ? () => setFace('ponderation') : ouvertes.find(f => f[3] === 3) ? () => setFace('descriptif') : null} />}
-      {ue && face === 'ponderation' && faces.includes('ponderation') && (!verrouDe('ponderation', suivi) || passeLesVerrous()) && <PonderationsUE key={ue} ueFixe={ue} />}
-      {ue && face === 'descriptif' && (!verrouDe('descriptif', suivi) || passeLesVerrous()) && <Fiche key={ue} ueNum={ue} integree />}
+      {ue && face === 'ponderation' && faces.includes('ponderation') && (!verrouDe('ponderation', suivi) || passe) && <PonderationsUE key={ue} ueFixe={ue} />}
+      {ue && face === 'descriptif' && (!verrouDe('descriptif', suivi) || passe) && <Fiche key={ue} ueNum={ue} integree />}
     </div>);
 }

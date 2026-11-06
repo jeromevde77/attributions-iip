@@ -10,6 +10,7 @@ import { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeli
 import { preparerLucie } from './relais.js';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
+const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
 const AgendaEcoleLucie = lazy(() => import('../pages/AgendaEcole.jsx'));
 const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
 const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
@@ -640,7 +641,7 @@ function MonHoraire({ moi, onPresences }) {
               <span className={`font-semibold first-letter:uppercase ${j === d.aujourdhui ? 'text-iip-blue' : 'text-iip-texte'}`}>{jourFr(j)}{j === d.aujourdhui ? ' · aujourd’hui' : ''}</span>
               {duJour(j).map((a, i) => <AgendaPastille key={i} a={a} />)}
               {d.seances.filter(s => s.date === j).map(s => (
-                <button key={s.id} type="button" disabled={s.visite || s.annule} onClick={() => onPresences(s.id)}
+                <button key={s.id} type="button" disabled={s.visite || s.annule} onClick={() => onPresences(s)}
                   className="text-left rounded-r-champ px-2.5 py-2 flex flex-col gap-0.5"
                   style={s.annule ? { background: '#F4F5F7', borderLeft: '4px solid #C9CED6' } : s.visite ? { background: 'color-mix(in srgb, #F9B619 18%, #fff)', borderLeft: '4px solid #B8860B' } : styleTuileCours(s.cours_code, { filet: false })}>
                   <span className="text-mention text-slate-600">{h(s.heure_debut)}{s.heure_fin ? ` – ${h(s.heure_fin)}` : ''}</span>
@@ -815,25 +816,25 @@ function SuivreLiens({ allerA }) {
   }, [loc.key]);   // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
-function TableauDeBord({ allerA }) {
+function TableauDeBord({ allerA, apresEntete = null }) {
   return (
     <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-8 -mt-4 md:-mt-8">
       <MemoryRouter initialEntries={['/accueil']}>
         <SuivreLiens allerA={allerA} />
         <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
-          <Suspense fallback={<p className="text-slate-500 p-4">Chargement…</p>}><AccueilLucie /></Suspense>
+          <Suspense fallback={<p className="text-slate-500 p-4">Chargement…</p>}><AccueilLucie apresEntete={apresEntete} /></Suspense>
         </FournisseurRail>
       </MemoryRouter>
     </div>);
 }
 
-function MesCoursEspace({ vue, tic, allerA }) {
+function MesCoursEspace({ vue, tic, allerA, demande }) {
   // Une seule instance pour Aujourd'hui, Mes notes, Mes présences, Mes unités et À rendre : un cours ouvert reste ouvert.
   return (
     // Pas de rail de Lucie ici : sa gouttière tombe à zéro (`--rail`), la navigation de l'espace en tient lieu.
     <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-6">
       <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
-        <Suspense fallback={<p className="text-slate-500 px-4">Chargement…</p>}><MesCoursLucie espace={{ vue, tic, retour: true, allerA }} /></Suspense>
+        <Suspense fallback={<p className="text-slate-500 px-4">Chargement…</p>}><MesCoursLucie espace={{ vue, tic, retour: true, allerA, demande }} /></Suspense>
       </FournisseurRail>
     </div>);
 }
@@ -971,7 +972,6 @@ function BoutonFace({ f, actif, onClick }) {
 /* LA STRUCTURE (3.5.138, Charles, 6 novembre 2026 : « c'est la structure que je veux changer » ; « mes notes, mes présences, mes
    étudiants » ; Aujourd'hui garde la frise de Lucie). Les entrées de travail en haut ; l'école et le compte en bas. */
 const FACES = [
-  { k: 'tableau', l: 'Tableau de bord', I: IconLayoutDashboard },
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
   { k: 'notes', l: 'Mes notes', I: IconPencil },
   { k: 'presences', l: 'Mes présences', I: IconUserCheck },
@@ -984,13 +984,17 @@ const FACES_BAS = [
   { k: 'ecole', l: 'L’école', I: IconBuilding },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
-const VUES_LUCIE = new Set(['aujourdhui', 'notes', 'presences', 'ue', 'rendre']);
+const VUES_LUCIE = new Set(['notes', 'presences', 'ue', 'rendre']);
 
 export default function EspaceEnseignant() {
   const [token, setToken] = useState(lire());
   const [definir, setDefinir] = useState(false);
   const [moi, setMoi] = useState(null);
-  const [face, setFace] = useState('tableau');
+  const [face, setFace] = useState('aujourdhui');
+  // UN SEUL ÉCRAN DE PRÉSENCES (3.5.144, Charles : « les présences se font à plusieurs endroits ») : celui de Mes cours. La frise et
+  // la semaine y envoient une demande { action, s, n }.
+  const [demande, setDemande] = useState(null);
+  const ouvrirSeance = (action, s) => { setDemande({ action, s, n: Date.now() }); setFace(action === 'presences' ? 'presences' : 'notes'); };
   const [tic, setTic] = useState(0);
   const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
@@ -1048,18 +1052,18 @@ export default function EspaceEnseignant() {
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
-        {seance ? <Presences seanceId={seance} motifs={moi.motifs} qr={!!moi.qr && !moi.apercu} onRetour={() => setSeance(null)} /> : null}
         {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}
         {lucie && (
-          <div hidden={!!seance || !VUES_LUCIE.has(face)} className="space-y-5">
-            <MesCoursEspace vue={face} tic={tic} allerA={k => setFace(k)} />
-            {face === 'aujourdhui' && <CeQuiMAttend moi={moi} onPresences={setSeance} />}
+          <div hidden={!VUES_LUCIE.has(face)}>
+            <MesCoursEspace vue={face} tic={tic} allerA={k => setFace(k)} demande={demande} />
           </div>)}
-        {!lucie && VUES_LUCIE.has(face) && !seance && <p className="text-slate-500">Ouverture…</p>}
-        {!seance && lucie && face === 'tableau' && <TableauDeBord allerA={k => aller(k)} />}
-        {!seance && !lucie && face === 'tableau' && <p className="text-slate-500">Ouverture…</p>}
+        {!lucie && (VUES_LUCIE.has(face) || face === 'aujourdhui') && <p className="text-slate-500">Ouverture…</p>}
+        {/* AUJOURD'HUI = LE TABLEAU DE BORD DE LUCIE, ET LA FRISE DE LA JOURNÉE SOUS LE « BONJOUR » (3.5.144, Charles : « tableau de bord
+            doit être fusionné avec aujourd'hui »). */}
+        {lucie && face === 'aujourdhui' && <TableauDeBord allerA={k => aller(k)}
+          apresEntete={<Suspense fallback={null}><MaJourneeLucie onAgir={ouvrirSeance} onSemaine={() => aller('agenda')} /></Suspense>} />}
         {!seance && (face === 'etudiants' ? <MesUE />
-          : face === 'agenda' ? <MonAgenda moi={moi} onPresences={setSeance} />
+          : face === 'agenda' ? <MonAgenda moi={moi} onPresences={s => ouvrirSeance('presences', s)} />
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}
