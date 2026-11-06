@@ -1641,3 +1641,13 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
 :root[data-theme="nouveau"] .rail-lucie [data-case-rail]:hover { box-shadow: none !important; background: var(--n-survol); }
 :root[data-theme="nouveau"] .rail-lucie [data-actif][data-case-rail]::after { content: ""; position: absolute; top: 50%; right: -9px; width: 7px; height: 7px; margin-top: -3.5px;
   border-radius: 50%; background: var(--n-bleu); }
+
+/* UN NUMÉRO DEVANT CHAQUE ÉTUDIANT (3.5.147) : posé par lib/numeros.js sur les tableaux d'étudiants ; compteur CSS, rien dans les
+   données. Les lignes de total et de regroupement ne comptent pas. */
+table[data-numeros="oui"] tbody { counter-reset: lucie-num; }
+table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-sans-numero]) { counter-increment: lucie-num; }
+table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-sans-numero]) > td:first-child::before {
+  content: counter(lucie-num);
+  display: inline-block; min-width: 1.9em; margin-right: .45em; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 500; font-size: .92em; color: #64748B;
+}

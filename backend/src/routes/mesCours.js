@@ -855,13 +855,26 @@ r.get('/:coursCode/listes', authRequired, async (req, res) => {
   const nom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1')
     .get(code, annee)?.cours_nom || '';
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  /* COMPOSER SA LISTE (3.5.147, Charles : « pouvoir composer des listes comme dans Éditions, avec mail, matricule… »). `colonnes` :
+     les colonnes choisies, dans l'ordre (nom, prenom, matricule, email, groupe, section) ; `vides` : des colonnes vides à remplir
+     à la main (« Signature », « Remarques »…) ; `titre` : le titre de la feuille. Sans rien, la feuille de toujours. */
+  const DISPO = { nom: ['Nom', null], prenom: ['Prénom', null], matricule: ['Matricule', '26mm'], email: ['Adresse école', null],
+    groupe: ['Groupe', '30mm'], section: ['Section', '24mm'] };
+  const demandees = String(req.query.colonnes || '').split(',').map(x => x.trim()).filter(k => DISPO[k]);
+  const colonnes = demandees.length ? demandees : ['nom', 'prenom', 'matricule'];
+  const vides = req.query.vides != null ? String(req.query.vides).split(',').map(x => x.trim()).filter(Boolean).slice(0, 6) : ['Signature'];
+  const titreListe = String(req.query.titre || '').trim().slice(0, 120);
+  const sectionDe = (() => { const st = db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?'); return id => { try { return st.get(id)?.s || ''; } catch { return ''; } }; })();
+  const valeur = (e, k) => ({ nom: `<b>${esc(String(e.nom || '').toUpperCase())}</b>`, prenom: esc(e.prenom), matricule: esc(e.id_ecampus || ''),
+    email: esc(e.email_ecole || ''), groupe: esc(e.groupe || ''), section: esc(sectionDe(e.id)) }[k]);
+  const nbCol = 1 + colonnes.length + vides.length;
   const corps = gs.map((g, i) => {
     const lot = d.etudiants.filter(e => !g || groupesDe(e).includes(g));
     return `<div${i ? ' style="break-before:page;page-break-before:always"' : ''}>
-      <div class="tg">${esc(g || 'Tous les étudiants')} <span>— ${lot.length} étudiant(s)</span></div>
-      <table><thead><tr><th style="width:8mm">N°</th><th>Nom</th><th>Prénom</th><th style="width:26mm">Matricule</th><th style="width:45mm">Signature</th></tr></thead>
-      <tbody>${lot.map((e, k) => `<tr><td>${k + 1}</td><td><b>${esc(String(e.nom || '').toUpperCase())}</b></td><td>${esc(e.prenom)}</td><td>${esc(e.id_ecampus || '')}</td><td></td></tr>`).join('')
-        || '<tr><td colspan="5" style="text-align:center;color:#94a3b8">Aucun étudiant dans ce groupe.</td></tr>'}</tbody></table></div>`;
+      <div class="tg">${esc(titreListe || g || 'Tous les étudiants')}${titreListe && g ? ` · ${esc(g)}` : ''} <span>— ${lot.length} étudiant(s)</span></div>
+      <table><thead><tr><th style="width:8mm">N°</th>${colonnes.map(k => `<th${DISPO[k][1] ? ` style="width:${DISPO[k][1]}"` : ''}>${DISPO[k][0]}</th>`).join('')}${vides.map(v => `<th style="width:${vides.length > 2 ? 28 : 45}mm">${esc(v)}</th>`).join('')}</tr></thead>
+      <tbody>${lot.map((e, k) => `<tr><td>${k + 1}</td>${colonnes.map(c => `<td>${valeur(e, c)}</td>`).join('')}${vides.map(() => '<td></td>').join('')}</tr>`).join('')
+        || `<tr><td colspan="${nbCol}" style="text-align:center;color:#94a3b8">Aucun étudiant dans ce groupe.</td></tr>`}</tbody></table></div>`;
   }).join('');
   const html = envelopperDocument({
     html: corps, titre: `Liste — ${code}`,

@@ -3759,6 +3759,13 @@ pas de sous-menu de sous-menu »). Organisation → L'année : « Planification 
 (`planif-dates`), « Sessions : épreuves et délibérations » (`planif-sessions`) — `CentrePlanification face=…` sans barre d'onglets ;
 `onglet=planifier&sous=…` y mène encore. **Une entrée d'un tiroir ouvre un écran ; elle n'ouvre pas une page d'onglets.**
 
+**UN NUMÉRO DEVANT CHAQUE ÉTUDIANT, ET LA LISTE QUI SE COMPOSE** (3.5.147, Charles : « un numéro (1, 2, 3…) toujours quand on a des
+étudiants » ; « composer des listes comme dans Éditions, avec mail, matricule »). `lib/numeros.js` (installé dans `main.jsx` et
+l'espace) marque `data-numeros="oui"` tout tableau dont un en-tête commence par « Étudiant » ; `index.css` numérote ses lignes par un
+compteur (lignes de total et de regroupement exclues ; `data-numeros="non"` pour s'en passer). **Un nouveau tableau d'étudiants est
+numéroté sans rien faire.** Mes cours → Ma liste → Composer une liste (`MaListe.jsx`, `Composer`) ; `GET /mes-cours/:cours/listes`
+accepte `colonnes`, `vides`, `titre`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -5,6 +5,8 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { Dialogues } from './lib/dialogue.jsx';
 import './index.css';
+import { installerNumeros } from './lib/numeros.js';
+installerNumeros();
 // LES COULEURS DE SIGNIFICATION SE POSENT AVANT LE PREMIER RENDU : un badge
 // HELB qui change de couleur une seconde après l'affichage se remarque plus
 // qu'une couleur fausse.

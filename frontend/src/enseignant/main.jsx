@@ -6,6 +6,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import '../index.css';
+import { installerNumeros } from '../lib/numeros.js';
+installerNumeros();
 import EspaceEnseignant from './EspaceEnseignant.jsx';
 import { Dialogues } from '../lib/dialogue.jsx';
 import { ReponsesTypesHote } from '../lib/reponsesTypes.jsx';
