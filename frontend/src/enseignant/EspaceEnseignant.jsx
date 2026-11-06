@@ -12,6 +12,7 @@ const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
 const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
 const AgendaEcoleLucie = lazy(() => import('../pages/AgendaEcole.jsx'));
+const SemaineLucie = lazy(() => import('../components/MonHoraireSemaine.jsx'));
 const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
 const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
 const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
@@ -934,7 +935,9 @@ function MonAgenda({ moi, onPresences }) {
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('agenda')}><IconCalendarShare size={16} /> Dans l’agenda de mon téléphone</button>
       </div>
       {vue === 'dates' ? <MesDates moi={moi} />
-        : vue === 'semaine' ? <MonHoraire moi={moi} onPresences={onPresences} />
+        // MA SEMAINE À L'ÉCHELLE DES HEURES (3.5.150, Charles : « une structure par heures, comme dans l'horaire normal ») : la
+        // semaine de Lucie, avec l'agenda de l'école au-dessus de chaque jour ; une séance ouvre ses présences.
+        : vue === 'semaine' ? <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
         : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}

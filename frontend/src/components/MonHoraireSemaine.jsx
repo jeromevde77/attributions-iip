@@ -16,9 +16,10 @@ const hm = h => String(h || '').slice(0, 5).replace(':', ' h ');
 const decaler = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const jjmm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
 
-function Seance({ s, style }) {
+function Seance({ s, style, onClick = null }) {
+  const Balise = onClick && !s.annule && !s.visite ? 'button' : 'div';
   return (
-    <div className={`absolute left-1 right-1 rounded-r-champ px-2 py-1 overflow-hidden text-left
+    <Balise type={Balise === 'button' ? 'button' : undefined} onClick={Balise === 'button' ? () => onClick(s) : undefined} className={`absolute left-1 right-1 rounded-r-champ px-2 py-1 overflow-hidden text-left
                      ${s.annule ? 'bg-white border border-dashed border-slate-300 text-slate-400 line-through' : ''}`}
       /* Chaque cours sa couleur, bande plus foncée que le fond, sans filet (3.5.085) ; la visite garde l'accent. */
       style={{ ...style, ...(s.annule ? {} : s.visite ? { background: 'color-mix(in srgb, var(--c-accent) 16%, var(--blanc, #fff))', borderLeft: '4px solid var(--c-accent)' }
@@ -28,11 +29,16 @@ function Seance({ s, style }) {
       <div className="text-second font-semibold text-iip-texte leading-tight">{s.cours_nom || s.cours_code}</div>
       {s.matiere && <div className="text-mention text-slate-500 leading-tight">{s.matiere}{s.sous_groupe ? ` · gr. ${s.sous_groupe}` : ''}</div>}
       {s.local && <div className="text-mention text-slate-500 inline-flex items-center gap-0.5"><IconMapPin size={10} />{s.local}</div>}
-    </div>
+    </Balise>
   );
 }
 
-export default function MonHoraireSemaine({ onFermer }) {
+/* `enLigne` (3.5.150, l'espace enseignant : « une structure par heures, comme dans l'horaire normal ») : la même semaine, sans
+   fenêtre ; `onSeance(s)` ouvre les présences d'une séance ; `avecAgenda` pose au-dessus de chaque jour ce que dit l'agenda de
+   l'école (congé, fermeture, férié, grand moment, examens et délibérations) et grise un jour fermé. */
+const TEINTE_JOUR = { ferme: '#64748B', conge: '#94A3B8', ferie: '#94A3B8', moment: 'var(--c-disponible, #2F6FB0)', formation: 'var(--c-reussi, #3E7D5E)',
+  examen: 'var(--c-attente, #B45309)', deliberation: 'var(--c-principal, #19537E)' };
+export default function MonHoraireSemaine({ onFermer, enLigne = false, onSeance = null, avecAgenda = false }) {
   const [date, setDate] = useState(null);       // null : la semaine en cours
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -44,13 +50,22 @@ export default function MonHoraireSemaine({ onFermer }) {
       .catch(e => setErreur(e.message));
   }, [date]);
 
+  const [dates, setDates] = useState([]);
+  useEffect(() => {
+    if (!avecAgenda) return;
+    fetch('/api/mes-cours/dates', { headers: authHeaders() }).then(r => (r.ok ? r.json() : { items: [] })).then(j => setDates(j.items || [])).catch(() => setDates([]));
+  }, [avecAgenda]);
+  const duJour = j => dates.filter(x => x.date <= j && j <= (x.au || x.date));
+  const ferme = j => duJour(j).some(x => x.type === 'ferme' || x.type === 'ferie');
   const jours = data?.jours || [];
   const seances = data?.seances || [];
   // Le samedi et le dimanche ne paraissent que s'ils portent une séance.
-  const visibles = jours.filter((j, i) => i < 5 || seances.some(s => s.date === j));
+  const visibles = jours.filter((j, i) => i < 5 || seances.some(s => s.date === j) || duJour(j).some(x => !['conge', 'ferme'].includes(x.type)));
   const debut = Math.min(8 * 60, ...seances.map(s => min(s.heure_debut)));
   const fin = Math.max(18 * 60, ...seances.map(s => min(s.heure_fin)));
   const ppm = 0.75;                                   // pixels par minute
+  // La bande de l'agenda au-dessus des heures : la même hauteur pour tous les jours, selon le jour le plus chargé.
+  const hautAgenda = avecAgenda ? Math.max(22, 6 + 19 * Math.max(0, ...visibles.map(j => duJour(j).length))) : 0;
   const heures = []; for (let h = Math.ceil(debut / 60); h * 60 <= fin; h++) heures.push(h);
 
   const barre = (
@@ -64,9 +79,7 @@ export default function MonHoraireSemaine({ onFermer }) {
     </div>
   );
 
-  return (
-    <Fenetre icone={IconCalendarWeek} titre="Mon horaire de la semaine" sous="Vos séances dans l’horaire de Lucie" large="grande"
-      onFermer={onFermer} pied={<button className="bouton bouton-fort ml-auto" onClick={onFermer}>Fermer</button>}>
+  const contenu = (
       <div className="space-y-3">
         {barre}
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
@@ -79,13 +92,13 @@ export default function MonHoraireSemaine({ onFermer }) {
             Aucune séance de l’horaire ne vous nomme cette semaine. Essayez la semaine suivante, ou demandez au secrétariat de vérifier l’horaire.
           </Encadre>)}
 
-        {seances.length > 0 && (<>
+        {(seances.length > 0 || (avecAgenda && visibles.some(j => duJour(j).length))) && (<>
           {/* À L'ÉCHELLE DU TEMPS, sur un écran assez large. */}
           <div className="hidden md:flex">
-            <div className="relative flex-none w-10" style={{ height: (fin - debut) * ppm + 28 }}>
+            <div className="relative flex-none w-10" style={{ height: (fin - debut) * ppm + 28 + hautAgenda + (avecAgenda ? 1 : 0) }}>
               {heures.map(h => (
                 <div key={h} className="absolute right-1.5 text-mention text-slate-400 tabular-nums"
-                  style={{ top: 28 + (h * 60 - debut) * ppm - 6 }}>{h} h</div>))}
+                  style={{ top: 28 + hautAgenda + (avecAgenda ? 1 : 0) + (h * 60 - debut) * ppm - 6 }}>{h} h</div>))}
             </div>
             {/* Un seul cadre (3.5.085) : les jours sont des colonnes séparées par un filet, pas des cadres. */}
             <div className="flex-1 grid min-w-0 border border-slate-200 rounded-champ overflow-hidden divide-x divide-slate-200 bg-white" style={{ gridTemplateColumns: `repeat(${visibles.length}, minmax(0, 1fr))` }}>
@@ -96,10 +109,17 @@ export default function MonHoraireSemaine({ onFermer }) {
                   <div key={j} className="min-w-0">
                     <div className={`h-7 leading-7 text-center text-second font-semibold border-b border-slate-200 ${auj ? 'text-iip-blue' : 'text-slate-600'}`}>
                       {JOURS[i]} <span className="font-normal text-slate-400 tabular-nums">{jjmm(j)}</span></div>
-                    <div className="relative" style={{ height: (fin - debut) * ppm }}>
+                    {avecAgenda && (
+                      <div className="border-b border-slate-200 px-1 py-1 space-y-0.5" style={{ minHeight: hautAgenda }}>
+                        {duJour(j).map((x, k) => (
+                          <div key={k} className="text-mention leading-tight truncate px-1.5 py-0.5 rounded-r-champ" title={`${x.titre}${x.heure ? ` · ${String(x.heure).slice(0, 5)}` : ''}${x.lieu ? ` · ${x.lieu}` : ''}`}
+                            style={{ borderLeft: `3px solid ${TEINTE_JOUR[x.type] || '#94A3B8'}`, background: `color-mix(in srgb, ${TEINTE_JOUR[x.type] || '#94A3B8'} 10%, #fff)` }}>
+                            {x.heure ? `${String(x.heure).slice(0, 5)} ` : ''}{x.titre}</div>))}
+                      </div>)}
+                    <div className="relative" style={{ height: (fin - debut) * ppm, background: avecAgenda && ferme(j) ? '#F7F8FA' : undefined }}>
                       {heures.map(h => <div key={h} className="absolute left-0 right-0 border-t border-slate-200/70" style={{ top: (h * 60 - debut) * ppm }} />)}
                       {seances.filter(s => s.date === j).map(s => (
-                        <Seance key={s.id} s={s} style={{ top: (min(s.heure_debut) - debut) * ppm + 1,
+                        <Seance key={s.id} s={s} onClick={onSeance} style={{ top: (min(s.heure_debut) - debut) * ppm + 1,
                           height: Math.max(30, (min(s.heure_fin) - min(s.heure_debut)) * ppm - 2) }} />))}
                     </div>
                   </div>
@@ -115,12 +135,17 @@ export default function MonHoraireSemaine({ onFermer }) {
                 <div className="intertitre mb-1">{JOURS[jours.indexOf(j)]} {jjmm(j)}</div>
                 <div className="space-y-1.5">
                   {seances.filter(s => s.date === j).map(s => (
-                    <div key={s.id} className="relative" style={{ height: 74 }}><Seance s={s} style={{ top: 0, bottom: 0 }} /></div>))}
+                    <div key={s.id} className="relative" style={{ height: 74 }}><Seance s={s} onClick={onSeance} style={{ top: 0, bottom: 0 }} /></div>))}
                 </div>
               </div>))}
           </div>
         </>)}
-      </div>
+      </div>);
+  if (enLigne) return contenu;
+  return (
+    <Fenetre icone={IconCalendarWeek} titre="Mon horaire de la semaine" sous="Vos séances dans l’horaire de Lucie" large="grande"
+      onFermer={onFermer} pied={<button className="bouton bouton-fort ml-auto" onClick={onFermer}>Fermer</button>}>
+      {contenu}
     </Fenetre>
   );
 }
