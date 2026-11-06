@@ -677,6 +677,17 @@ r.get('/deliberations', authRequired, (req, res) => {
   res.json({ annee, seances });
 });
 
+/* MES DATES (3.5.142) : examens et délibérations de mes cours et unités, et l'agenda de l'école, dans l'ordre du temps. */
+r.get('/dates', authRequired, async (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const { examensEtDeliberations, agendaEcoleProf } = await import('../lib/datesEnseignant.js');
+  const profId = profDe(req);
+  const miennes = examensEtDeliberations(profId, annee);
+  const ecole = (await agendaEcoleProf(annee)).map(x => ({ type: x.type, date: x.du, au: x.au !== x.du ? x.au : null, heure: x.heure_debut || null,
+    titre: x.libelle, genre: x.genre || null, lieu: x.lieu || null }));
+  res.json({ annee, relie: !!profId, items: [...miennes, ...ecole].sort((a, b) => (a.date + (a.heure || '')).localeCompare(b.date + (b.heure || ''))) });
+});
+
 r.get('/semaine', authRequired, (req, res) => {
   const aujourdhui = aujourdhuiBruxelles();
   const ref = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date) : aujourdhui;

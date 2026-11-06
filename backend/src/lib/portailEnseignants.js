@@ -301,26 +301,9 @@ function accuseDepuisEspace(u, g) {
    l'école (une seule source) : semaines de congé du calendrier, fermetures de l'école, fériés et jours fermés, et les moments
    destinés aux enseignants (journées de formation, réunions, délibérations, rentrée…). */
 async function agendaEnseignant(annee) {
-  const out = [];
-  try {
-    const { semaines52, fermetures, plus } = await import('./agendaEcole.js');
-    const { moments } = await import('./ligneTemps.js');
-    const { joursFeries } = await import('../routes/horaire.js');
-    const sem = semaines52(annee);
-    const cal = db.prepare("SELECT date_debut, type, label FROM annee_calendrier WHERE annee_scolaire = ? AND type = 'vacances'").all(annee);
-    for (const c of cal) out.push({ type: 'conge', du: c.date_debut, au: plus(c.date_debut, 6), libelle: c.label || 'Congé scolaire' });
-    for (const [lundi, f] of fermetures(annee)) {
-      if (f.fermeture === 'totale') out.push({ type: 'ferme', du: lundi, au: plus(lundi, 6), libelle: f.libelle || 'École fermée' });
-    }
-    const ans = [...new Set([sem[0].slice(0, 4), sem[51].slice(0, 4)])].map(Number);
-    for (const an of ans) for (const [date, libelle] of joursFeries(an)) if (date >= sem[0] && date <= plus(sem[51], 6)) out.push({ type: 'ferie', du: date, au: date, libelle });
-    for (const m of moments(annee, { user: { role: 'professeur' } })) {
-      if (m.type === 'horaires') continue;
-      out.push({ type: m.type === 'formation' ? 'formation' : 'moment', du: m.du, au: m.au || m.du, libelle: m.titre || m.libelle_type, genre: m.libelle_type,
-        heure_debut: m.heure_debut || null, heure_fin: m.heure_fin || null, lieu: m.lieu || null });
-    }
-  } catch (e) { console.error('[espace enseignant] agenda :', e.message); }
-  return out.sort((a, b) => a.du.localeCompare(b.du));
+  // L'agenda de l'école d'un enseignant : une seule lecture, `lib/datesEnseignant.js` (3.5.142).
+  const { agendaEcoleProf } = await import('./datesEnseignant.js');
+  return agendaEcoleProf(annee);
 }
 /* CONTACTER / URGENCE (3.5.089) : qui est là au secrétariat, et la permanence du jour, avec leurs numéros — la même lecture
    que le bouton de Lucie (`etatMaintenant`). Déposé toutes les deux minutes. */

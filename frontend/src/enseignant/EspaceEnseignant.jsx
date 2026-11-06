@@ -869,22 +869,70 @@ function CeQuiMAttend({ moi, onPresences }) {
     </section>);
 }
 
+/* MES DATES (3.5.142, Charles : « un Mon agenda avec les dates des examens, des délibérations, etc., avec l'agenda de l'école »).
+   Dans l'ordre du temps, par mois : examens et délibérations de mes cours et unités, congés, fermetures, fériés, grands moments. */
+const TYPES_DATE = {
+  examen: ['Examen', 'var(--c-attente, #B45309)'], deliberation: ['Délibération', 'var(--c-principal, #19537E)'],
+  conge: ['Congé', '#94A3B8'], ferme: ['École fermée', '#64748B'], ferie: ['Férié', '#94A3B8'],
+  moment: ['École', 'var(--c-disponible, #2F6FB0)'], formation: ['Formation', 'var(--c-reussi, #3E7D5E)'],
+};
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function MesDates({ moi }) {
+  const [d, setD] = useState(null);
+  const [passees, setPassees] = useState(false);
+  const [filtre, setFiltre] = useState('tout');
+  let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
+  useEffect(() => {
+    fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
+      .then(setD).catch(() => setD({ items: [] }));
+  }, [annee]);
+  if (!d) return <p className="text-slate-500">Chargement…</p>;
+  const auj = moi.aujourdhui;
+  const l = (d.items || []).filter(x => (passees || (x.au || x.date) >= auj))
+    .filter(x => filtre === 'tout' || (filtre === 'miennes' ? ['examen', 'deliberation'].includes(x.type) : !['examen', 'deliberation'].includes(x.type)));
+  const parMois = [];
+  for (const x of l) { const k = x.date.slice(0, 7); let g = parMois.find(y => y.k === k); if (!g) parMois.push(g = { k, l: [] }); g.l.push(x); }
+  const jourCourt = iso => { const [a, m, j] = iso.split('-').map(Number); return `${['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'][new Date(a, m - 1, j).getDay()]} ${j}`; };
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="segments">{[['tout', 'Tout'], ['miennes', 'Examens et délibérations'], ['ecole', 'L’école']].map(([k, t]) => (
+          <button key={k} type="button" onClick={() => setFiltre(k)} className={filtre === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{t}</button>))}</div>
+        <label className="text-second text-slate-600 inline-flex items-center gap-1.5 ml-auto"><input type="checkbox" checked={passees} onChange={e => setPassees(e.target.checked)} /> Montrer les dates passées</label>
+      </div>
+      {!parMois.length && <p className="text-slate-500">Aucune date à venir{filtre !== 'tout' ? ' dans ce choix' : ''}.</p>}
+      {parMois.map(g => (
+        <section key={g.k} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+          <div className="entete-carte px-4 py-2 font-semibold text-iip-texte first-letter:uppercase">{MOIS_FR[Number(g.k.slice(5, 7)) - 1]} {g.k.slice(0, 4)}</div>
+          {g.l.map((x, i) => { const [lib, c] = TYPES_DATE[x.type] || ['Date', '#94A3B8'];
+            return (
+              <div key={i} className={`flex items-start gap-3 px-4 py-2 border-t border-slate-100 ${(x.au || x.date) < auj ? 'opacity-60' : ''}`}>
+                <span className="w-24 shrink-0 tabular-nums text-sm"><b>{jourCourt(x.date)}</b>{x.au ? <span className="text-slate-500"> → {court(x.au)}</span> : null}{x.heure ? <span className="block text-second text-slate-500">{String(x.heure).slice(0, 5)}</span> : null}</span>
+                <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: c }}>{lib}{x.session ? ` S${x.session}` : ''}</span>
+                <span className="flex-1 min-w-0 text-sm">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</span>
+              </div>); })}
+        </section>))}
+      <p className="m-0 text-mention text-slate-400">Les examens et les délibérations partent aussi dans l’agenda de votre téléphone (« Dans l’agenda de mon téléphone »).</p>
+    </div>);
+}
+
 /* MON AGENDA : la semaine (avec les journées de l'école), et deux portes — les visites de stage, l'horaire dans le téléphone. */
 function MonAgenda({ moi, onPresences }) {
   const [ouvert, setOuvert] = useState(null);
   // L'ANNÉE DE L'ÉCOLE (3.5.140, Charles : « l'agenda de l'année, basé sur ce qu'on a créé ») : l'agenda de l'école de Lucie, en lecture.
-  const [vue, setVue] = useState('semaine');
+  const [vue, setVue] = useState('dates');
   let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="segments">{[['semaine', 'Ma semaine'], ['annee', 'L’année de l’école']].map(([k, l]) => (
+        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['annee', 'L’année de l’école']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
         <span className="flex-1" />
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('agenda')}><IconCalendarShare size={16} /> Dans l’agenda de mon téléphone</button>
       </div>
-      {vue === 'semaine' ? <MonHoraire moi={moi} onPresences={onPresences} />
+      {vue === 'dates' ? <MesDates moi={moi} />
+        : vue === 'semaine' ? <MonHoraire moi={moi} onPresences={onPresences} />
         : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}

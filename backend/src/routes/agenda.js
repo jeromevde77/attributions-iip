@@ -8,6 +8,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { evenementsDesVisites } from '../lib/agendaIcs.js';
+import { examensEtDeliberations, evenementsDesDates } from '../lib/datesEnseignant.js';
 import { visitesDuProf } from '../lib/visitesStage.js';
 import { migrerAgenda, lienActif, nouveauLien, revoquerLien, utilisateurDuJeton, seancesDuProf, icsDesSeances } from '../lib/agendaIcs.js';
 
@@ -26,7 +27,16 @@ r.get('/flux/:fichier', (req, res) => {
   // Les séances, puis les visites de stage du professeur (3.5.057).
   let visites = [];
   try { visites = u.professeur_id ? evenementsDesVisites(visitesDuProf(u.professeur_id, depuis, '9999-12-31')) : []; } catch { /* table absente */ }
-  const ics = icsDesSeances([...seancesDuProf(u.professeur_id, depuis), ...visites], { domaine: new URL(base()).hostname });
+  // Les examens et les délibérations de ses cours et unités (3.5.142), de l'année en cours et de la suivante.
+  let dates = [];
+  try {
+    const an = db.prepare("SELECT code FROM annee_scolaire WHERE active = 1").get()?.code;
+    if (u.professeur_id && an) {
+      const suivante = `${Number(an.slice(0, 4)) + 1}-${Number(an.slice(0, 4)) + 2}`;
+      dates = evenementsDesDates([...examensEtDeliberations(u.professeur_id, an), ...examensEtDeliberations(u.professeur_id, suivante)].filter(x => x.date >= depuis));
+    }
+  } catch { dates = []; }
+  const ics = icsDesSeances([...seancesDuProf(u.professeur_id, depuis), ...visites, ...dates], { domaine: new URL(base()).hostname });
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Content-Disposition', 'inline; filename="lucie-horaire.ics"');
   res.setHeader('Cache-Control', 'private, max-age=900');

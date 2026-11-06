@@ -3731,6 +3731,13 @@ direction et la coordination).
 close ; une UE sans séance = « date à poser ») ; `components/DatesDeliberation.jsx` (tableau, `LigneDeliberation` pour une unité,
 `useDatesDeliberation`). Espace enseignant : Mes unités (tableau) et Mes étudiants (sous chaque UE).
 
+**MON AGENDA : MES DATES** (3.5.142, Charles : « un Mon agenda avec les dates des examens, des délibérations, avec l'agenda de
+l'école » ; et dans l'agenda du téléphone). `lib/datesEnseignant.js` : `examensEtDeliberations(profId, annee)` (examens de ses
+cours — `epreuve_session1` s1_*, `deliberation_session2` s2_*, cours vide = épreuve d'unité —, délibérations de ses unités —
+`deliberation_seance`), `agendaEcoleProf(annee)` (sorti de `portailEnseignants`), `evenementsDesDates` (iCal : 2 h si heure, sinon
+la journée). `GET /api/mes-cours/dates` ; flux `/api/agenda/flux/<jeton>.ics` les ajoute (année active et suivante). Espace :
+Mon agenda → Mes dates (par mois, filtre, dates passées au choix) · Ma semaine · L'année de l'école.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
