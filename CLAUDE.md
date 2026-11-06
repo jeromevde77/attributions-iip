@@ -3692,6 +3692,13 @@ une case = un geste « presences » d'une ligne par la porte de la séance ; exp
 les gestes des enseignants toutes les 3 s (`releverEnseignantsVite`, `portailSync.js`, son propre verrou) et redépose dans les
 10 s qui suivent.
 
+**LE QR DE PRÉSENCE SIGNÉ PAR L'ESPACE ENSEIGNANT** (3.5.136, Charles : « le prof sait-il déclencher le QR ? » ; tranché : une
+clé à part). `PRESENCE_QR_ESPACE_SECRET` (≥ 32 caractères), posé sur Lucie ET sur le portail (dev et prod) : l'espace signe
+`q.<séance>.<t>` (`GET /api/enseignant/seance/:id/qr`, jour de la séance, fonction `presence.qr` du compte déposée en `ens.qr`,
+jamais en aperçu) ; `verifierSigne` de Lucie accepte cette clé pour le type « q » SEULEMENT. L'URL scannée est celle de Lucie
+(`LUCIE_URL`/presence/…, déposée avec les réglages, `qr` de `ens_reglage`). Les présences du jour repartent vers l'espace toutes
+les ~10 s (`/interne/ens/presences-jour`) : le compteur suit. Mise en place : `scripts/vps/ESPACE-ENSEIGNANT.md`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

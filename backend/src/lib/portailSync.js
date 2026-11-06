@@ -424,7 +424,16 @@ export async function releverEnseignantsVite() {
   if (!portailActif() || ensEnCours) return;
   ensEnCours = true;
   // Des gestes repris : le passage suivant (dix secondes au plus) redépose, pour que l'espace voie ce que Lucie a gardé.
-  try { const x = await releverEnseignants(appel); if (x?.gestes) deposerBientot(); }
+  try {
+    const x = await releverEnseignants(appel); if (x?.gestes) deposerBientot();
+    // Les présences du jour (les scans du QR) toutes les dix secondes environ : le compteur de l'écran projeté suit (3.5.136).
+    if (ensTours % 3 === 0) {
+      const jour = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Brussels' }).format(new Date());
+      const presences = db.prepare(`SELECT p.seance_id, p.etudiant_id, p.statut, p.retard, p.motif FROM presence p
+        JOIN horaire_seance h ON h.id = p.seance_id WHERE h.date = ?`).all(jour);
+      if (presences.length) await appel('POST', '/interne/ens/presences-jour', { presences });
+    }
+  }
   catch (e) { if (ensTours % 100 === 0) console.error('[espace enseignant]', e.message); }
   finally { ensTours++; ensEnCours = false; }
 }

@@ -15,7 +15,7 @@ import db from '../db/index.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { fonctionPour } from './fonctions.js';
 import { seancesPourEspace, presencesDepuisEspace } from '../routes/mesCours.js';
-import { aujourdhuiBruxelles } from './presenceQr.js';
+import { aujourdhuiBruxelles, reglagesPresenceQr } from './presenceQr.js';
 import { MOTIFS_JUSTIFIES } from './cep.js';
 import { attributionsDe, etudiantsDuCours } from './etudiantsCours.js';
 import { ceQuiAttend } from './recapQuotidien.js';
@@ -201,7 +201,9 @@ export async function deposerEnseignants(appel) {
   const du = rentree < decaler(jour, -30) ? rentree : decaler(jour, -30), au = decaler(jour, 21);
   const enseignants = [], seances = [], etudiants = new Map(), presences = [];
   for (const u of aDeposer()) {
-    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul });
+    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul,
+      // LE QR DE PRÉSENCE (3.5.136) : la même fonction que dans Lucie (Mise en service → Présence par QR).
+      qr: u.id > 0 && fonctionPour('presence.qr', { userId: u.id }) });
     const x = seancesPourEspace(u, du, au);
     for (const s of x.seances) seances.push({ ...s, ens_id: u.id });
     for (const e of x.etudiants) etudiants.set(e.id, e);
@@ -220,7 +222,7 @@ export async function deposerEnseignants(appel) {
     catch (e) { console.error(`[espace enseignant] tableau ${u.id} :`, e.message); }
   }
   await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [], tableaux, textes: [...versionsTextes.values()], guide: guideEnseignant(),
-    agenda: annee ? await agendaEnseignant(annee) : [], contact: await contactMaintenant(),
+    agenda: annee ? await agendaEnseignant(annee) : [], contact: await contactMaintenant(), qr: reglagesQrEspace(),
     // La liste FERMÉE des motifs d'une absence justifiée : celle de Lucie, jamais une copie.
     motifs: Object.entries(MOTIFS_JUSTIFIES).map(([k, l]) => ({ k, l })) });
   return enseignants.length;
@@ -322,6 +324,15 @@ async function agendaEnseignant(annee) {
 }
 /* CONTACTER / URGENCE (3.5.089) : qui est là au secrétariat, et la permanence du jour, avec leurs numéros — la même lecture
    que le bouton de Lucie (`etatMaintenant`). Déposé toutes les deux minutes. */
+/** Les réglages du QR que l'espace doit connaître : rotation, fenêtre de scan, et l'adresse de Lucie où l'étudiant scanne. */
+function reglagesQrEspace() {
+  try {
+    const r = reglagesPresenceQr();
+    return { rotation_s: r.rotation_s, avant_min: r.avant_min, apres_min: r.apres_min,
+      url: String(process.env.LUCIE_URL || 'https://www.lucie-iip.be').replace(/\/+$/, '') };
+  } catch { return null; }
+}
+
 async function contactMaintenant() {
   try {
     const { etatMaintenant } = await import('../routes/equipe.js');

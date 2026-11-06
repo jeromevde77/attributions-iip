@@ -2,8 +2,9 @@ import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import { FriseJournee } from '../components/FriseJournee.jsx';
-import { useCallback, useEffect, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload } from '@tabler/icons-react';
+import QRCode from 'qrcode';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -451,7 +452,33 @@ function MesUE() {
     </div>);
 }
 
-function Presences({ seanceId, onRetour, motifs: MOTIFS = [] }) {
+/* LE QR PROJETÉ (3.5.136) : signé par l'espace, il change toutes les 15 s ; l'étudiant scanne vers Lucie. Le compteur suit les
+   présences que Lucie renvoie (toutes les dix secondes environ). */
+function EcranQR({ seanceId, titre, onFermer }) {
+  const [e, setE] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const toile = useRef(null);
+  useEffect(() => {
+    let minuterie = null, vivant = true;
+    const tourner = () => appel('GET', `/seance/${seanceId}/qr`).then(j => { if (!vivant) return; setE(j); setErreur(null); minuterie = setTimeout(tourner, (j.rotation_s || 15) * 1000); })
+      .catch(x => { if (vivant) setErreur(x.message); });
+    tourner();
+    return () => { vivant = false; clearTimeout(minuterie); };
+  }, [seanceId]);
+  useEffect(() => { if (e?.url && toile.current) QRCode.toCanvas(toile.current, e.url, { width: 420, margin: 1 }).catch(() => {}); }, [e]);
+  return (
+    <Volet titre={titre} sous="Présence par QR — les étudiants scannent avec leur téléphone" onFermer={onFermer}>
+      {erreur ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div> : !e ? <p className="text-slate-500">Chargement…</p> : (
+        <div className="flex flex-col items-center gap-4 py-2">
+          <canvas ref={toile} className="max-w-full" style={{ width: 'min(420px, 80vw)', height: 'auto' }} />
+          <div className="text-5xl font-bold tabular-nums text-iip-texte">{e.compteur.presents} / {e.compteur.attendus}</div>
+          <div className="text-sm text-slate-500">{e.fenetre.ouverte ? `Scan ouvert jusqu’à ${e.fenetre.ferme}` : e.fenetre.avant ? `Le scan ouvre à ${e.fenetre.ouvre}` : `Le scan est fermé depuis ${e.fenetre.ferme} : complétez à la main`}</div>
+        </div>)}
+    </Volet>);
+}
+
+function Presences({ seanceId, onRetour, motifs: MOTIFS = [], qr = false }) {
+  const [qrOuvert, setQrOuvert] = useState(false);
   const [d, setD] = useState(null);
   const [etats, setEtats] = useState({});
   const [motifs, setMotifs] = useState({});
@@ -486,6 +513,9 @@ function Presences({ seanceId, onRetour, motifs: MOTIFS = [] }) {
         <h1 className="m-0 text-2xl font-semibold text-iip-texte">Présences</h1>
         <p className="m-0 mt-1 text-slate-500">{s.cours_nom || s.cours_code} · <span className="first-letter:uppercase">{jourFr(s.date)}</span>, {h(s.heure_debut)}{s.local ? ` · ${s.local}` : ''}</p>
       </div>
+      {qr && s.date === d.aujourdhui && !s.annule && (
+        <button type="button" className="bouton bouton-fort controle inline-flex items-center gap-1.5" onClick={() => setQrOuvert(true)}><IconQrcode size={17} /> Afficher le QR</button>)}
+      {qrOuvert && <EcranQR seanceId={seanceId} titre={`${s.cours_nom || s.cours_code} · ${h(s.heure_debut)}`} onFermer={() => { setQrOuvert(false); charger(); }} />}
       {d.dernier_envoi?.erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">Lucie n’a pas repris le dernier envoi : {d.dernier_envoi.erreur}</div>}
       {avenir ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">Cette séance n’a pas encore eu lieu : ses présences se prennent le jour même ou après.</div> : (
         <>
@@ -826,7 +856,7 @@ export default function EspaceEnseignant() {
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
-        {seance ? <Presences seanceId={seance} motifs={moi.motifs} onRetour={() => setSeance(null)} />
+        {seance ? <Presences seanceId={seance} motifs={moi.motifs} qr={!!moi.qr && !moi.apercu} onRetour={() => setSeance(null)} />
           : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
           : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
           : face === 'presences' ? <GrillePresences moi={moi} />
