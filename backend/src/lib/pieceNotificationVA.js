@@ -83,9 +83,21 @@ function ligne(v) {
 }
 
 /** Ce qui manque pour que la pièce sorte. */
-export function manquesNotification(pretes) {
+export function manquesNotification(pretes, enCours = []) {
   const m = [];
-  if (!pretes.length) m.push('aucune décision validée par la direction pour cette année');
+  if (!pretes.length) {
+    /* Le message disait « il manque aucune décision validée » : on ne savait ni
+       quoi faire ni où (Charles, 6 novembre 2026). Il nomme désormais les
+       unités décidées qui attendent la validation, et la porte. */
+    const aValider = enCours.filter(v => v.decision_le && !v.valide_le).map(v => `UE ${v.ue_num}`);
+    if (aValider.length) {
+      m.push(`la validation de la direction — décidée${aValider.length > 1 ? 's' : ''}, pas encore validée${aValider.length > 1 ? 's' : ''} : ${aValider.join(', ')} (Étudiants → Valorisation → Valider)`);
+    } else if (enCours.length) {
+      m.push(`une décision du Conseil — demande${enCours.length > 1 ? 's' : ''} encore à l'examen : ${enCours.map(v => `UE ${v.ue_num}`).join(', ')}`);
+    } else {
+      m.push('une demande de valorisation pour cette année');
+    }
+  }
   for (const v of pretes) {
     if (v.decision === 'refusee' && !String(v.motif_refus || '').trim()) m.push(`le motif du refus (UE ${v.ue_num})`);
     if (v.recevable === 0 && !v.decision_le && !String(v.motif_irrecevabilite || '').trim()) m.push(`le motif de l'irrecevabilité (UE ${v.ue_num})`);
@@ -98,7 +110,7 @@ export function composerNotificationVA(etudId, annee) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return { code: 404, erreur: 'Étudiant introuvable.' };
   const { pretes, en_cours } = dossiersNotifiables(etudId, annee);
-  const manques = manquesNotification(pretes);
+  const manques = manquesNotification(pretes, en_cours);
   if (manques.length) {
     return { code: 409, manques, erreur: `La notification ne peut pas sortir : il manque ${manques.join(', ')}.` };
   }
