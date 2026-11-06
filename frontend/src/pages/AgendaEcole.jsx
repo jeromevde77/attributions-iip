@@ -9,6 +9,7 @@ import { authHeaders } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import AgendaLigne, { useAgenda } from '../components/AgendaLigne.jsx';
 import AgendaMois from '../components/AgendaMois.jsx';
+import AgendaDates from '../components/AgendaDates.jsx';
 
 const plus = (d, n) => new Date(new Date(`${d}T00:00:00Z`).getTime() + n * 864e5).toISOString().slice(0, 10);
 const fmt = d => `${d.slice(8)}/${d.slice(5, 7)}`;
@@ -17,6 +18,7 @@ export default function AgendaEcole({ annee, simple = false }) {
   const [ag, recharger] = useAgenda(annee);
   const [sel, setSel] = useState(null);
   const [vue, setVue] = useState('annee');
+  const [semaineDates, setSemaineDates] = useState(null);   // la semaine dont on pose les dates (3.5.149)
   const k = ag?.semaines?.indexOf(sel) ?? -1;
   /* LA FERMETURE FAIT FOI (3.5.148) : les semaines où le calendrier des cours contredit la fermeture se nomment, et s'alignent d'un
      geste — la liste d'abord, puis la confirmation. */
@@ -39,12 +41,14 @@ export default function AgendaEcole({ annee, simple = false }) {
           <span className="min-w-0 flex-1"><b>{ag.desaccords.length} semaine(s)</b> où le calendrier des cours contredit la fermeture de l’école : {ag.desaccords.slice(0, 3).map(x => `${fmt(x.lundi)} (${x.raison})`).join(' ; ')}{ag.desaccords.length > 3 ? '…' : ''}</span>
           {ag.peut?.etablissement && <button type="button" className="bouton" onClick={aligner}>Aligner sur la fermeture</button>}
         </div>)}
+      {semaineDates && ag && <AgendaDates annee={annee} lundi={semaineDates} ag={ag} onFermer={() => setSemaineDates(null)} onFait={recharger} />}
       <div className="carte overflow-hidden">
         <EnteteCarte icone={IconCalendarMonth} titre="L’année de l’école" sous={simple ? 'Les grands moments, les cours, les congés et les fermetures de l’école.' : 'Glissez sur des semaines (ou des jours, vue Mois) et choisissez quoi y mettre ; « Saisir » ouvre le mini calendrier.'}>
           <div className="segments">{[['annee', 'Année'], ['mois', 'Mois']].map(([v, l]) => <button key={v} type="button" onClick={() => setVue(v)} className={vue === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>)}</div>
         </EnteteCarte>
         {vue === 'mois' && <AgendaMois annee={annee} ag={ag} recharger={recharger} />}
-        {vue === 'annee' && <AgendaLigne simple={simple} annee={annee} ag={ag} recharger={recharger} droite="0.5rem" selSemaine={sel} onSemaine={l => setSel(x => (x === l ? null : l))} />}
+        {vue === 'annee' && <AgendaLigne simple={simple} annee={annee} ag={ag} recharger={recharger} droite="0.5rem" selSemaine={sel}
+          onDates={!simple && ag?.peut?.etablissement ? setSemaineDates : null} onSemaine={l => setSel(x => (x === l ? null : l))} />}
         {vue === 'annee' && sel && k >= 0 && !simple && (
           <div className="border-t px-4 py-3 text-sm space-y-1">
             <div className="flex items-center gap-2">

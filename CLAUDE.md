@@ -3775,6 +3775,18 @@ un congé simplement non peint) ; `POST /api/agenda-ecole/aligner` (`ecrire: fal
 (`unitesEtSessions`), un clic ouvre leur écran (planif-dates, planif-sessions). **À venir** : poser dates d'UE et sessions depuis
 l'agenda même ; l'agenda de l'étudiant (non tranché).
 
+**L'AGENDA, DEUXIÈME LOT : LES DATES SE POSENT DEPUIS L'AGENDA** (3.5.149, Charles : « continue l'agenda » ; l'agenda des étudiants
+plus tard). Un clic sur une semaine des rangées Unités ou Sessions (direction et secrétariat de l'établissement : `onDates`) ouvre
+`components/AgendaDates.jsx` : épreuves et délibérations de la semaine, unités qui ouvrent ou ferment, modifiables sur place ; « Poser »
+une délibération ou une épreuve. Écrit par les portes de toujours (`PUT /api/calendrier` — motif si séance close —, `PUT
+/api/annuel/dates-ue` — demande pour la coordination). `unitesEtSessions` rend des `items` (id, ue, session, cours, date, heure).
+Une délibération par organisation se règle dans la délibération (lecture ici).
+
+**MA SEMAINE À L'ÉCHELLE DES HEURES** (3.5.150, Charles : « une structure par heures, comme dans l'horaire normal »). L'espace enseignant
+monte `MonHoraireSemaine` de Lucie `enLigne avecAgenda onSeance` (la bande de l'agenda au-dessus de chaque jour, lue de
+`/api/mes-cours/dates` ; un jour fermé ou férié grisé ; une séance ouvre ses présences). L'ancienne semaine en colonnes de l'espace
+n'est plus appelée.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

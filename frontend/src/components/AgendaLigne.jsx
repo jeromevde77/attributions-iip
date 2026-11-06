@@ -57,7 +57,7 @@ export function GrilleAnnee({ children, className = '', droite = '5.5rem' }) {
  */
 /* `simple` (3.5.140, l'espace enseignant) : l'année telle qu'un enseignant a besoin de la lire — les moments, les cours, l'école ;
    ni la tension des semaines, ni les sections, ni les stages, qui sont des lectures de gestion. */
-export default function AgendaLigne({ annee, ag, recharger, apres = null, selSemaine = null, onSemaine = null, droite = '5.5rem', onChange = null, simple = false }) {
+export default function AgendaLigne({ annee, ag, recharger, apres = null, selSemaine = null, onSemaine = null, droite = '5.5rem', onChange = null, simple = false, onDates = null }) {
   const [pinceau, setPinceau] = useState(null);         // { cle, valeur, section? }
   const [debut, setDebut] = useState(null);             // première semaine touchée
   const [ouvertes, setOuvertes] = useState(false);      // sections dépliées
@@ -206,21 +206,21 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
           </GrilleAnnee>
           {/* LES UNITÉS ET LES SESSIONS (3.5.148, l'agenda comme seule porte) : par semaine, les ouvertures et fermetures d'unités,
               les épreuves et les délibérations ; un clic ouvre l'écran où elles se posent. */}
-          {!simple && ag.unites && ag.unites.some(x => x.ouvertures.length || x.fermetures.length) && (
+          {!simple && ag.unites && (onDates || ag.unites.some(x => x.ouvertures.length || x.fermetures.length)) && (
             <GrilleAnnee droite={droite}>
               <a href="/organisation?onglet=planif-dates" className="text-second text-slate-600 pr-2 self-center hover:underline">Unités</a>
               {ag.unites.map(x => { const n = x.ouvertures.length + x.fermetures.length;
-                return <a key={x.lundi} href="/organisation?onglet=planif-dates" title={n ? `${fmt(x.lundi)} · ${x.ouvertures.length ? `ouvrent : ${x.ouvertures.join(', ')}` : ''}${x.ouvertures.length && x.fermetures.length ? ' · ' : ''}${x.fermetures.length ? `ferment : ${x.fermetures.join(', ')}` : ''}` : fmt(x.lundi)}
+                return <a key={x.lundi} href="/organisation?onglet=planif-dates" onClick={onDates ? ev => { ev.preventDefault(); onDates(x.lundi); } : undefined} title={n ? `${fmt(x.lundi)} · ${x.ouvertures.length ? `ouvrent : ${x.ouvertures.join(', ')}` : ''}${x.ouvertures.length && x.fermetures.length ? ' · ' : ''}${x.fermetures.length ? `ferment : ${x.fermetures.join(', ')}` : ''}` : fmt(x.lundi)}
                   className="text-mention text-center tabular-nums self-center rounded-[2px] mx-px" style={n ? { background: 'color-mix(in srgb, var(--c-principal) 14%, transparent)', color: 'var(--c-principal)' } : undefined}>{n || ''}</a>; })}
               <div />
             </GrilleAnnee>)}
-          {!simple && ag.sessions && ag.sessions.some(x => x.epreuves.length || x.deliberations.length) && (
+          {!simple && ag.sessions && (onDates || ag.sessions.some(x => x.epreuves.length || x.deliberations.length)) && (
             <GrilleAnnee droite={droite}>
               <a href="/organisation?onglet=planif-sessions" className="text-second text-slate-600 pr-2 self-center hover:underline">Sessions</a>
               {ag.sessions.map(x => { const e = x.epreuves.length, d = x.deliberations.length;
-                return <a key={x.lundi} href="/organisation?onglet=planif-sessions" title={e || d ? `${fmt(x.lundi)}${e ? ` · épreuves : ${x.epreuves.join(', ')}` : ''}${d ? ` · délibérations : ${x.deliberations.join(', ')}` : ''}` : fmt(x.lundi)}
+                return <a key={x.lundi} href="/organisation?onglet=planif-sessions" onClick={onDates ? ev => { ev.preventDefault(); onDates(x.lundi); } : undefined} title={e || d ? `${fmt(x.lundi)}${e ? ` · épreuves : ${x.epreuves.join(', ')}` : ''}${d ? ` · délibérations : ${x.deliberations.join(', ')}` : ''}` : fmt(x.lundi)}
                   className="relative h-5 mx-px rounded-[3px] flex items-center justify-center text-[9px] tabular-nums text-white"
-                  style={{ background: d ? 'var(--c-principal)' : e ? 'var(--c-attente)' : 'transparent' }}>{e + d || ''}</a>; })}
+                  style={{ background: d ? 'var(--c-principal)' : e ? 'var(--c-attente)' : 'transparent', border: !d && !e && onDates ? '1px dotted var(--c-filet, #E2E8F0)' : 'none' }}>{e + d || ''}</a>; })}
               <div />
             </GrilleAnnee>)}
           {!simple && ag.sections.length > 0 && (
