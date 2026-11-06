@@ -1649,5 +1649,8 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
 table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-sans-numero]) > td:first-child::before {
   content: counter(lucie-num);
   display: inline-block; min-width: 1.9em; margin-right: .45em; text-align: right;
-  font-variant-numeric: tabular-nums; font-weight: 500; font-size: .92em; color: #64748B;
+  font-variant-numeric: tabular-nums; font-weight: 500; font-size: .92em; color: #64748B; vertical-align: middle;
 }
+/* Le numéro et la case à cocher sur la même ligne (3.5.155, Charles : « mise en page » — dans la liste des étudiants, la
+   colonne étroite de la case faisait passer le numéro au-dessus). */
+table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-sans-numero]) > td:first-child { white-space: nowrap; }

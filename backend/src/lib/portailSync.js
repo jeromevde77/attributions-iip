@@ -493,14 +493,27 @@ export async function ouvrirApercuEnseignant(profId, par) {
   const { migrerApercuEnseignant, identifiantEspace } = await import('./portailEnseignants.js');
   migrerApercuEnseignant();
   if (!db.prepare('SELECT 1 FROM professeur WHERE id = ?').get(Number(profId))) return { erreur: 'Fiche introuvable.' };
+  db.prepare('INSERT INTO ens_apercu (professeur_id, par) VALUES (?,?)').run(Number(profId), par);
+  /* LE LIEN D'ABORD (3.5.155, Charles en production : « L'espace enseignant ne répond pas ») : comme l'aperçu de l'étudiant
+     (3.5.128), on ne dépose tout avant le lien que si l'espace ne connaît pas encore ce professeur ; sinon le dépôt suit en
+     arrière-plan. Et l'échec dit sa cause : « ne répond pas » ne permettait pas de chercher. */
+  const lien = () => appel('POST', '/interne/ens/apercu', { ens_id: identifiantEspace(profId), par });
+  const deposer = async () => { await deposerEnseignants(appel); try { await deposerDocumentsEnseignants(appel); } catch { /* */ } };
   try {
-    db.prepare('INSERT INTO ens_apercu (professeur_id, par) VALUES (?,?)').run(Number(profId), par);
-    await deposerEnseignants(appel);
-    try { await deposerDocumentsEnseignants(appel); } catch { /* */ }
-    const r = await appel('POST', '/interne/ens/apercu', { ens_id: identifiantEspace(profId), par });
+    try {
+      const r = await lien();
+      deposer().catch(e => console.error('[espace enseignant] dépôt après aperçu :', e.message));
+      return { url: r.url };
+    } catch (e) {
+      if (!/404/.test(e.message)) throw e;
+    }
+    try { await deposer(); }
+    catch (e) { console.error('[espace enseignant] dépôt pour l’aperçu :', e); return { erreur: `L’espace enseignant n’a pas pu recevoir les données : ${e.message}` }; }
+    const r = await lien();
     return { url: r.url };
   } catch (e) {
-    return { erreur: /404/.test(e.message) ? 'L’espace enseignant n’a pas reçu ce professeur.' : 'L’espace enseignant ne répond pas.' };
+    console.error('[espace enseignant] aperçu :', e);
+    return { erreur: /404/.test(e.message) ? 'L’espace enseignant n’a pas reçu ce professeur.' : `L’espace enseignant ne répond pas (${e.message}).` };
   }
 }
 
