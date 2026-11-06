@@ -22,6 +22,7 @@ import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 import AtelierUE from './AtelierUE.jsx';
+import DatesDeliberation from '../components/DatesDeliberation.jsx';
 
 /**
  * MES COURS — la porte du professeur.
@@ -292,6 +293,7 @@ export default function MesCours({ espace = null }) {
             <button key={k} type="button" onClick={() => setFaceDue(k)} className={faceDue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
         </div>
       </div>)}
+    {vueDue && espace && <div className="px-4 md:px-6 pb-3"><DatesDeliberation annee={annee} /></div>}
     {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>

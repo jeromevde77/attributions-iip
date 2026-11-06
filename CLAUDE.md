@@ -3726,6 +3726,11 @@ mes-cours → Mes notes, agenda → Mon agenda ; sinon « cet écran est dans Lu
 `AgendaEcole simple` (sans tension, sections ni stages ; `AgendaLigne simple`), en lecture (le serveur ne laisse peindre que la
 direction et la coordination).
 
+**LES DATES DES DÉLIBÉRATIONS DE MES UNITÉS** (3.5.141, Charles : « la liste des dates de délibération, date et heure, S1 et S2 »).
+`GET /api/mes-cours/deliberations` (unités des attributions du compte ; `deliberation_seance` : session, organisation, date, heure,
+close ; une UE sans séance = « date à poser ») ; `components/DatesDeliberation.jsx` (tableau, `LigneDeliberation` pour une unité,
+`useDatesDeliberation`). Espace enseignant : Mes unités (tableau) et Mes étudiants (sous chaque UE).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -654,6 +654,29 @@ r.get('/journee', authRequired, (req, res) => {
 /* MON HORAIRE DE LA SEMAINE (3.1.464, Charles, 29 octobre 2026 : « je veux voir l'horaire »). Les séances
  * de la semaine qui contient `date` (lundi → dimanche), par la même règle que Ma journée et les présences
  * (`seancesDuCours` : celles qui nomment le professeur, ou toutes quand l'horaire ne nomme personne). */
+/* LES DATES DES DÉLIBÉRATIONS DE MES UNITÉS (3.5.141, Charles : « pour les UE, la liste des dates de délibération, date et heure,
+   S1 et S2 »). Les séances de `deliberation_seance` (une par session et par organisation) des unités où le compte a une attribution. */
+r.get('/deliberations', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const profId = profDe(req);
+  const ues = [...new Set((profId ? attributionsDe(profId, annee) : []).map(a => Number(a.ue_num)).filter(Boolean))];
+  if (!ues.length) return res.json({ annee, seances: [] });
+  let seances = [];
+  try {
+    seances = db.prepare(`SELECT s.ue_num, COALESCE(s.session, 1) session, COALESCE(s.num_organisation, 0) org, s.date_seance date, s.heure_seance heure,
+        COALESCE(s.cloturee, 0) close, (SELECT MAX(u.ue_nom) FROM ue u WHERE u.ue_num = s.ue_num AND u.annee_scolaire = s.annee_scolaire) ue_nom
+      FROM deliberation_seance s WHERE s.annee_scolaire = ? AND s.ue_num IN (${ues.map(() => '?').join(',')})
+      ORDER BY s.ue_num, session, org`).all(annee, ...ues).map(x => ({ ...x, close: !!x.close }));
+  } catch { seances = []; }
+  // Une UE sans séance enregistrée paraît quand même : « date à poser ».
+  for (const u of ues) if (!seances.some(x => x.ue_num === u)) {
+    const nom = db.prepare('SELECT MAX(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(u, annee)?.n || null;
+    seances.push({ ue_num: u, session: 1, org: 0, date: null, heure: null, close: false, ue_nom: nom });
+  }
+  seances.sort((a, b) => a.ue_num - b.ue_num || a.session - b.session || a.org - b.org);
+  res.json({ annee, seances });
+});
+
 r.get('/semaine', authRequired, (req, res) => {
   const aujourdhui = aujourdhuiBruxelles();
   const ref = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date) : aujourdhui;

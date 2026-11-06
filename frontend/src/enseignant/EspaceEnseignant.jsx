@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
 import { FournisseurRail } from '../components/ui.jsx';
 import { MemoryRouter, useLocation } from 'react-router-dom';
+import { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
@@ -423,6 +424,7 @@ function MesUE() {
   const [due, setDue] = useState(null);
   const [dp, setDp] = useState(null);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
+  const delibs = useDatesDeliberation(t?.annee || undefined);
   if (!t) return <p className="text-slate-500">Chargement…</p>;
   if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
   return (
@@ -431,7 +433,10 @@ function MesUE() {
       {t.ues.map(u => (
         <section key={u.ue_num} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
           <div className="entete-carte px-4 py-3 flex flex-wrap items-center gap-3">
-            <span className="flex-1 min-w-0 font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
+              <LigneDeliberation seances={delibs} ue={u.ue_num} />
+            </span>
             {u.a_dp && <button type="button" className="bouton controle" onClick={() => setDp(u.ue_num)}>Dossier pédagogique</button>}
             {/* LA DUE EST À L'ESSAI (3.5.133, Charles : « pour DUE tu mets un badge TEST »). */}
             {u.a_due && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setDue(u.ue_num)}
