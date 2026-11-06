@@ -16,6 +16,19 @@ mêmes secrets), derrière le même mur. Il a seulement **son adresse** : `ensei
 5. **Vérifier** : `https://enseignants-dev.lucie-iip.be` montre « Lucie · espace enseignant » ; `/api/enseignant/appareil`
    répond `{"reconnu":false}`.
 
+## Le QR de présence dans l'espace (3.5.136) — un secret de plus
+
+L'espace signe lui-même le QR de présence avec une clé **à part**, qui ne sert qu'à ce QR. Elle doit être **la même** sur le
+backend de Lucie et sur le backend du portail, une valeur pour la dev, une autre pour la production (32 caractères au moins) :
+
+```
+openssl rand -base64 48
+```
+
+Dans `/opt/lucie/.env` : `PRESENCE_QR_ESPACE_SECRET_DEV=…` et `PRESENCE_QR_ESPACE_SECRET_PROD=…` ; dans le docker-compose,
+`PRESENCE_QR_ESPACE_SECRET` aux quatre services, comme dans `docker-compose.vps.yml`. Sans elle, l'espace le dit (« le QR
+n'est pas encore installé ») et rien d'autre ne change. Ne jamais l'écrire dans le dépôt.
+
 ## Puis, dans Lucie (la direction)
 
 Configuration → Accès → **Mise en service** → « L'espace enseignant » : d'abord **en essai** pour quelques comptes, puis

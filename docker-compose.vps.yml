@@ -64,6 +64,7 @@ services:
       PORTAIL_URL_PUBLIQUE: https://etudiants-dev.lucie-iip.be
       ENSEIGNANTS_URL_PUBLIQUE: https://enseignants-dev.lucie-iip.be
       PORTAIL_JETON: ${PORTAIL_JETON_DEV:-}
+      PRESENCE_QR_ESPACE_SECRET: ${PRESENCE_QR_ESPACE_SECRET_DEV:-}   # le QR signé par l'espace enseignant (3.5.136)
       # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
       # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
       # pas accepter des enrôlements qu'il ne saurait pas relire.
@@ -126,6 +127,7 @@ services:
       PORTAIL_URL_PUBLIQUE: https://etudiants.lucie-iip.be
       ENSEIGNANTS_URL_PUBLIQUE: https://enseignants.lucie-iip.be
       PORTAIL_JETON: ${PORTAIL_JETON_PROD:-}
+      PRESENCE_QR_ESPACE_SECRET: ${PRESENCE_QR_ESPACE_SECRET_PROD:-}   # le QR signé par l'espace enseignant (3.5.136)
       # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
       # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
       # pas accepter des enrôlements qu'il ne saurait pas relire.
@@ -178,6 +180,7 @@ services:
       PORTAIL_JETON: ${PORTAIL_JETON_PROD:?PORTAIL_JETON_PROD manquant dans .env}
       PORTAIL_URL_PUBLIQUE: https://etudiants.lucie-iip.be
       ENSEIGNANTS_URL_PUBLIQUE: https://enseignants.lucie-iip.be
+      PRESENCE_QR_ESPACE_SECRET: ${PRESENCE_QR_ESPACE_SECRET_PROD:-}
       TZ: Europe/Brussels
     volumes:
       - ./portail/data:/app/data
@@ -205,6 +208,7 @@ services:
       PORTAIL_JETON: ${PORTAIL_JETON_DEV:?PORTAIL_JETON_DEV manquant dans .env}
       PORTAIL_URL_PUBLIQUE: https://etudiants-dev.lucie-iip.be
       ENSEIGNANTS_URL_PUBLIQUE: https://enseignants-dev.lucie-iip.be
+      PRESENCE_QR_ESPACE_SECRET: ${PRESENCE_QR_ESPACE_SECRET_DEV:-}
       TZ: Europe/Brussels
     volumes:
       - ./portail-dev/data:/app/data

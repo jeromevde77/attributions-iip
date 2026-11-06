@@ -28,7 +28,7 @@ import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.j
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
-import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants } from './portailEnseignants.js';
+import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants, relayerEnseignants } from './portailEnseignants.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -394,8 +394,8 @@ export async function passerPortail() {
     await relever();
     // L'ESPACE ENSEIGNANT (3.5.076) : relevé à chaque passage ; déposé toutes les deux minutes, et aussitôt après des
     // présences reprises (pour qu'il voie ce que Lucie a gardé). Une panne ici n'arrête pas l'espace des étudiants.
-    let ensDepot = tours % 12 === 0;
-    try { const x = await releverEnseignants(appel); if (x.gestes) ensDepot = true; } catch (e) { if (tours % 30 === 0) console.error('[espace enseignant]', e.message); }
+    // Le relevé de l'espace enseignant a sa propre boucle, rapide (3.5.135, `releverEnseignantsVite`).
+    const ensDepot = tours % 12 === 0;
     if (ensDepot) {
       try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); }
       try { await deposerDocumentsEnseignants(appel); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
@@ -413,6 +413,40 @@ export function planifierPortail() {
   migrerPortail();
   setInterval(passerPortail, 10_000).unref?.();
   setTimeout(passerPortail, 5_000).unref?.();
+  setInterval(releverEnseignantsVite, 3_000).unref?.();
+  setInterval(relayerVite, 700).unref?.();
+}
+
+/* LE RELAIS DE MES COURS (3.5.137) : toutes les 0,7 s, les requêtes de l'espace enseignant (son propre verrou). */
+let relaisEnCours = false, relaisTours = 0;
+async function relayerVite() {
+  if (relaisEnCours) return;
+  relaisEnCours = true;
+  try { await relayerEnseignants(appel); }
+  catch (e) { if (relaisTours % 300 === 0) console.error('[relais enseignant]', e.message); }
+  finally { relaisTours++; relaisEnCours = false; }
+}
+
+/* LE RELEVÉ RAPIDE DE L'ESPACE ENSEIGNANT (3.5.135, Charles, 6 novembre 2026 : « les enseignants encoderont dans leur espace »).
+   Toutes les trois secondes, Lucie relève les gestes des enseignants, les juge et rend « enregistré » ou le refus — sans
+   attendre le dépôt de l'école, qui reste toutes les deux minutes. Son propre verrou : un dépôt long ne la retarde pas. */
+let ensEnCours = false, ensTours = 0;
+export async function releverEnseignantsVite() {
+  if (!portailActif() || ensEnCours) return;
+  ensEnCours = true;
+  // Des gestes repris : le passage suivant (dix secondes au plus) redépose, pour que l'espace voie ce que Lucie a gardé.
+  try {
+    const x = await releverEnseignants(appel); if (x?.gestes) deposerBientot();
+    // Les présences du jour (les scans du QR) toutes les dix secondes environ : le compteur de l'écran projeté suit (3.5.136).
+    if (ensTours % 3 === 0) {
+      const jour = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Brussels' }).format(new Date());
+      const presences = db.prepare(`SELECT p.seance_id, p.etudiant_id, p.statut, p.retard, p.motif FROM presence p
+        JOIN horaire_seance h ON h.id = p.seance_id WHERE h.date = ?`).all(jour);
+      if (presences.length) await appel('POST', '/interne/ens/presences-jour', { presences });
+    }
+  }
+  catch (e) { if (ensTours % 100 === 0) console.error('[espace enseignant]', e.message); }
+  finally { ensTours++; ensEnCours = false; }
 }
 
 /** Pour la fiche : ce que l'étudiant a fait de l'autre côté du mur, tel que Lucie l'a relevé. */

@@ -356,6 +356,16 @@ export function verifyPendingToken(token) {
   } catch { return null; }
 }
 
+/** LE JETON DU RELAIS DE L'ESPACE ENSEIGNANT (3.5.137) : les droits du compte, deux minutes, marqué `relais`. Lucie le signe pour
+    elle-même, le temps d'exécuter une requête relevée de l'espace ; il ne quitte jamais le serveur. */
+export function signRelaisToken(user) {
+  return jwt.sign(
+    { id: user.id, email: user.email, role: normaliserRole(user.role), nom: user.nom_complet,
+      acces_recrutement: user.acces_recrutement ? 1 : 0, permissions_json: user.permissions_json || null,
+      peut_valider: peutValiderAttributions(user), relais: true },
+    JWT_SECRET, { expiresIn: '2m' });
+}
+
 export function signPreviewToken(target, admin) {
   return jwt.sign(
     { id: target.id, email: target.email, role: normaliserRole(target.role), nom: target.nom_complet,

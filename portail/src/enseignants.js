@@ -56,6 +56,10 @@ export function monterEnseignants(pub, int, o) {
 
   // L'APERÇU DE LA DIRECTION (3.5.084) : un professeur déposé pour le seul aperçu n'existe pour aucune porte de l'espace.
   try { db.exec('ALTER TABLE ens ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+  try { db.exec('ALTER TABLE ens ADD COLUMN qr INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+  db.exec(`CREATE TABLE IF NOT EXISTS ens_requete (id INTEGER PRIMARY KEY AUTOINCREMENT, ens_id INTEGER NOT NULL, apercu INTEGER NOT NULL DEFAULT 0,
+    methode TEXT NOT NULL, chemin TEXT NOT NULL, type TEXT, corps BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')), prise_le TEXT,
+    statut INTEGER, rep_type TEXT, rep_disposition TEXT, rep_corps BLOB, fini_le TEXT)`);
   const HORS = "Votre espace ne s'ouvre que depuis la Belgique, et pas au travers d'un VPN.";
   const permis = req => autorise(ipDe(req), false);
   const refuserHors = res => res.status(403).json({ hors_belgique: true, error: HORS });
@@ -215,6 +219,7 @@ export function monterEnseignants(pub, int, o) {
     let attente = []; try { attente = JSON.parse(db.prepare('SELECT contenu FROM ens_attente WHERE ens_id = ?').get(e.id)?.contenu || '[]'); } catch { attente = []; }
     let motifs = []; try { motifs = JSON.parse(db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'motifs'").get()?.valeur || '[]'); } catch { motifs = []; }
     res.json({ id: e.id, nom: e.nom, prenom: e.prenom, email: e.email, aujourdhui: aujourdhui(), apercu: req.apercu || null, attente, en_route: enAttente(e.id), motifs,
+      qr: !!e.qr && !!cleQr(),
       depose_le: db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'depose_le'").get()?.valeur || null });
   });
   pub.get('/api/enseignant/journee', connecte, (req, res) => {
@@ -242,7 +247,7 @@ export function monterEnseignants(pub, int, o) {
     if (!t) return res.json({ pret: false });
     const noms = new Map((t.etudiants || []).map(e => [e.id, e]));
     res.json({ pret: true, annee: t.annee, a_faire: t.a_faire || [],
-      ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, due_statut: u.due_statut, a_due: !!u.due_html,
+      ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, due_statut: u.due_statut, a_due: !!u.due_html, a_dp: !!u.dp_html,
         cours: u.cours.map(c => ({ code: c.code, nom: c.nom, etudiants: c.etudiants.map(e => ({ ...e, nom: noms.get(e.id)?.nom || '', prenom: noms.get(e.id)?.prenom || '' })) })) })) });
   });
   // ── LES TEXTES DE L'ÉCOLE (3.5.088) : les lire ici pose « présenté », « Je confirme » pose « confirmé » — Lucie les relève. ──
@@ -320,6 +325,11 @@ export function monterEnseignants(pub, int, o) {
     if (!u?.due_html) return res.status(404).json({ error: 'DUE introuvable pour cette unité.' });
     res.json({ ue_num: u.ue_num, ue_nom: u.ue_nom, statut: u.due_statut, html: u.due_html });
   });
+  pub.get('/api/enseignant/dp/:ue', connecte, (req, res) => {
+    const u = (tableau(req.ens.id)?.ues || []).find(x => Number(x.ue_num) === Number(req.params.ue));
+    if (!u?.dp_html) return res.status(404).json({ error: 'Aucun dossier pédagogique pour cette unité.' });
+    res.json({ ue_num: u.ue_num, ue_nom: u.ue_nom, html: u.dp_html });
+  });
   pub.get('/api/enseignant/etudiant/:id', connecte, (req, res) => {
     const e = (tableau(req.ens.id)?.etudiants || []).find(x => Number(x.id) === Number(req.params.id));
     if (!e) return res.status(404).json({ error: 'Cet étudiant ne figure dans aucune de vos listes.' });
@@ -359,6 +369,87 @@ export function monterEnseignants(pub, int, o) {
     res.json({ ok: true, n: lignes.length });
   });
 
+  /* LA GRILLE DES PRÉSENCES DE L'ANNÉE (3.5.135) : par cours, ses étudiants × ses séances depuis la rentrée. Une case se change
+     d'un clic ; elle part par la même porte que la séance (geste « presences »), Lucie la juge au relevé. */
+  pub.get('/api/enseignant/grille', connecte, (req, res) => {
+    const cours = db.prepare(`SELECT cours_code code, MAX(cours_nom) nom, MAX(ue_num) ue_num, COUNT(*) n FROM ens_seance
+      WHERE ens_id = ? AND visite = 0 AND cours_code IS NOT NULL GROUP BY cours_code ORDER BY MAX(ue_num), cours_code`).all(req.ens.id);
+    const code = String(req.query.cours || '');
+    if (!code) return res.json({ cours, aujourdhui: aujourdhui() });
+    const seances = db.prepare(`SELECT id, date, heure_debut, heure_fin, matiere, local, annule FROM ens_seance
+      WHERE ens_id = ? AND visite = 0 AND cours_code = ? ORDER BY date, heure_debut`).all(req.ens.id, code).map(x => ({ ...x, annule: !!x.annule }));
+    const ids = seances.map(x => x.id);
+    const marque = ids.map(() => '?').join(',');
+    const etudiants = ids.length ? db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.groupe FROM ens_inscrit i JOIN ens_etudiant e ON e.id = i.etudiant_id
+      WHERE i.seance_id IN (${marque}) ORDER BY e.nom, e.prenom`).all(...ids) : [];
+    const inscrits = ids.length ? db.prepare(`SELECT seance_id, etudiant_id FROM ens_inscrit WHERE seance_id IN (${marque})`).all(...ids) : [];
+    const presences = ids.length ? db.prepare(`SELECT seance_id, etudiant_id, statut, retard, motif FROM ens_presence WHERE seance_id IN (${marque})`).all(...ids)
+      .map(x => ({ ...x, retard: !!x.retard })) : [];
+    const refus = ids.length ? db.prepare(`SELECT seance_id, erreur, cree_le FROM ens_geste WHERE ens_id = ? AND erreur IS NOT NULL AND seance_id IN (${marque})
+      AND cree_le >= datetime('now', '-1 day') ORDER BY id DESC LIMIT 20`).all(req.ens.id, ...ids) : [];
+    const enRoute = db.prepare('SELECT COUNT(*) n FROM ens_geste WHERE ens_id = ? AND releve_le IS NULL').get(req.ens.id).n;
+    res.json({ cours, code, seances, etudiants, inscrits, presences, refus, en_route: enRoute, aujourdhui: aujourdhui() });
+  });
+
+  /* LE QR DE PRÉSENCE, SIGNÉ ICI (3.5.136, tranché : une clé à part pour l'espace). `PRESENCE_QR_ESPACE_SECRET` ne signe que des
+     jetons « q » ; l'étudiant scanne vers Lucie, qui les reconnaît. Le jour de la séance seulement ; jamais en aperçu. */
+  const cleQr = () => { const k = process.env.PRESENCE_QR_ESPACE_SECRET; return k && k.length >= 32 ? k : null; };
+  const reglageQr = () => { try { return JSON.parse(db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'qr'").get()?.valeur || 'null'); } catch { return null; } };
+  const hmBx = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Brussels', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+  const enMin = t => { const [a, b] = String(t || '0:0').split(':').map(Number); return (a || 0) * 60 + (b || 0); };
+  const versHm = m => `${String(Math.floor(((m % 1440) + 1440) % 1440 / 60)).padStart(2, '0')}:${String(((m % 60) + 60) % 60).padStart(2, '0')}`;
+  pub.get('/api/enseignant/seance/:id/qr', connecte, (req, res) => {
+    if (req.apercu) return res.status(403).json({ error: 'Aperçu de la direction : le QR ne se projette pas.' });
+    if (!req.ens.qr) return res.status(403).json({ error: 'La présence par QR n’est pas ouverte pour votre compte.' });
+    const k = cleQr(), r = reglageQr();
+    if (!k || !r?.url) return res.status(503).json({ error: 'Le QR n’est pas encore installé sur cet espace.' });
+    const s = maSeance(req, res); if (!s) return;
+    if (s.annule) return res.status(409).json({ error: 'Cette séance a été annulée.' });
+    if (s.date !== aujourdhui()) return res.status(409).json({ error: 'Le QR ne se projette que le jour de la séance.' });
+    const t = Math.floor(Date.now() / 1000);
+    const corps = `q.${s.id}.${t}`;
+    const jeton = `${corps}.${crypto.createHmac('sha256', Buffer.from(k)).update(corps).digest('base64url')}`;
+    const debut = enMin(s.heure_debut), n = enMin(hmBx());
+    const ouvre = debut - (r.avant_min ?? 10), ferme = debut + (r.apres_min ?? 20);
+    const attendus = db.prepare('SELECT COUNT(*) n FROM ens_inscrit WHERE seance_id = ?').get(s.id).n;
+    const presents = db.prepare("SELECT COUNT(*) n FROM ens_presence WHERE seance_id = ? AND statut = 'present'").get(s.id).n;
+    res.json({ jeton, url: `${r.url}/presence/${encodeURIComponent(jeton)}`, rotation_s: r.rotation_s || 15,
+      fenetre: { ouvre: versHm(ouvre), ferme: versHm(ferme), ouverte: n >= ouvre && n <= ferme, avant: n < ouvre, apres: n > ferme },
+      compteur: { presents, attendus } });
+  });
+
+  /* LE RELAIS DE MES COURS (3.5.137, Charles, 6 novembre 2026 : « TOUTES les fonctionnalités de Mes cours passent dans l'espace
+     enseignant »). Les écrans de Mes cours tournent ici tels quels ; chacune de leurs requêtes vers Lucie est NOTÉE ici, Lucie vient
+     la chercher (toutes les secondes), l'exécute avec les droits du compte de l'enseignant et dépose la réponse — le mur reste à
+     sens unique : Lucie n'est jamais appelée depuis l'espace. La réponse attend 25 s au plus. En aperçu : lecture seule. */
+  const lireCorps = req => new Promise((ok, ko) => {
+    const morceaux = []; let n = 0;
+    req.on('data', c => { n += c.length; if (n > 26 * 1024 * 1024) { ko(Object.assign(new Error('trop gros'), { trop: true })); req.destroy(); } else morceaux.push(c); });
+    req.on('end', () => ok(Buffer.concat(morceaux))); req.on('error', ko);
+  });
+  pub.all('/api/enseignant/relais/*', connecte, async (req, res) => {
+    const chemin = '/api/' + req.originalUrl.slice('/api/enseignant/relais/'.length);
+    if (req.apercu && req.method !== 'GET') return res.status(403).json({ error: 'Aperçu de la direction : lecture seule, rien ne s’enregistre.' });
+    let corps = null;
+    try { corps = ['GET', 'HEAD'].includes(req.method) ? null : await lireCorps(req); }
+    catch (e) { return res.status(413).json({ error: e.trop ? 'Fichier trop lourd (25 Mo au plus).' : 'Envoi interrompu.' }); }
+    const id = Number(db.prepare('INSERT INTO ens_requete (ens_id, apercu, methode, chemin, type, corps) VALUES (?,?,?,?,?,?)')
+      .run(req.ens.id, req.apercu ? 1 : 0, req.method, chemin.slice(0, 2000), String(req.headers['content-type'] || '').slice(0, 200) || null, corps).lastInsertRowid);
+    const fin = Date.now() + 25000;
+    while (Date.now() < fin) {
+      const r = db.prepare('SELECT statut, rep_type, rep_disposition, rep_corps FROM ens_requete WHERE id = ? AND fini_le IS NOT NULL').get(id);
+      if (r) {
+        db.prepare('DELETE FROM ens_requete WHERE id = ?').run(id);
+        if (r.rep_type) res.set('Content-Type', r.rep_type);
+        if (r.rep_disposition) res.set('Content-Disposition', r.rep_disposition);
+        return res.status(r.statut || 502).send(r.rep_corps || Buffer.alloc(0));
+      }
+      await new Promise(x => setTimeout(x, 150));
+    }
+    db.prepare('DELETE FROM ens_requete WHERE id = ? AND prise_le IS NULL').run(id);
+    res.status(504).json({ error: 'Lucie ne répond pas pour l’instant. Réessayez dans un moment.' });
+  });
+
   pub.post('/api/enseignant/apercu', (req, res) => {
     const j = db.prepare('SELECT * FROM ens_apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
     if (!j || j.utilise_le || j.expire_le < maintenant()) return res.status(400).json({ error: 'Lien d’aperçu expiré : rouvrez-le depuis la fiche dans Lucie.' });
@@ -381,15 +472,15 @@ export function monterEnseignants(pub, int, o) {
     const b = req.body || {};
     db.transaction(() => {
       db.exec('DELETE FROM ens; DELETE FROM ens_seance; DELETE FROM ens_inscrit; DELETE FROM ens_etudiant; DELETE FROM ens_attente; DELETE FROM ens_tableau;');
-      for (const [cle, val] of [['agenda', b.agenda], ['contact', b.contact]]) if (val !== undefined) db.prepare("INSERT INTO ens_reglage (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur").run(cle, JSON.stringify(val));
+      for (const [cle, val] of [['agenda', b.agenda], ['contact', b.contact], ['qr', b.qr]]) if (val !== undefined) db.prepare("INSERT INTO ens_reglage (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur").run(cle, JSON.stringify(val));
       if (b.guide) db.prepare("INSERT INTO ens_reglage (cle, valeur) VALUES ('guide', ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur").run(JSON.stringify(b.guide));
       db.exec('DELETE FROM ens_texte');
       const itx = db.prepare('INSERT OR REPLACE INTO ens_texte (version_id, titre, numero, publiee_le, html, source_url) VALUES (?,?,?,?,?,?)');
       for (const t of b.textes || []) if (Number(t.version_id)) itx.run(Number(t.version_id), String(t.titre || ''), Number(t.numero) || null, t.publiee_le || null, String(t.html || ''), t.source_url || null);
       const it = db.prepare('INSERT OR REPLACE INTO ens_tableau (ens_id, contenu) VALUES (?,?)');
       for (const t of b.tableaux || []) if (Number(t.ens_id)) it.run(Number(t.ens_id), JSON.stringify(t.contenu || {}));
-      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul) VALUES (?,?,?,?, datetime('now'), ?)");
-      for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email), e.apercu_seul ? 1 : 0);
+      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul, qr) VALUES (?,?,?,?, datetime('now'), ?, ?)");
+      for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email), e.apercu_seul ? 1 : 0, e.qr ? 1 : 0);
       const is = db.prepare(`INSERT OR REPLACE INTO ens_seance (id, ens_id, date, heure_debut, heure_fin, cours_code, cours_nom, ue_num, matiere, local, annule, visite)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
       const ii = db.prepare('INSERT OR IGNORE INTO ens_inscrit (seance_id, etudiant_id) VALUES (?,?)');
@@ -431,6 +522,41 @@ export function monterEnseignants(pub, int, o) {
       gestes: db.prepare('SELECT id, ens_id, type, seance_id, contenu FROM ens_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
       entrees: db.prepare('SELECT id, ens_id, le, ip FROM ens_entree WHERE releve_le IS NULL LIMIT 500').all(),
     });
+  });
+  /* LES PRÉSENCES DU JOUR, PLUS SOUVENT (3.5.136) : les scans du QR arrivent dans Lucie ; elle renvoie ici, toutes les dix secondes,
+     les présences des séances du jour, pour que le compteur « X / Y » de l'écran projeté suive. Une séance qu'un geste non relevé
+     vient de toucher garde ce que l'enseignant a posé. */
+  int.post('/interne/ens/presences-jour', (req, res) => {
+    const pendants = new Set(db.prepare('SELECT seance_id FROM ens_geste WHERE releve_le IS NULL AND seance_id IS NOT NULL').all().map(x => x.seance_id));
+    const ip = db.prepare(`INSERT INTO ens_presence (seance_id, etudiant_id, statut, retard, motif) VALUES (?,?,?,?,?)
+      ON CONFLICT(seance_id, etudiant_id) DO UPDATE SET statut = excluded.statut, retard = excluded.retard, motif = excluded.motif`);
+    let n = 0;
+    db.transaction(() => {
+      for (const p of Array.isArray(req.body?.presences) ? req.body.presences : []) {
+        if (pendants.has(Number(p.seance_id))) continue;
+        if (!db.prepare('SELECT 1 FROM ens_seance WHERE id = ?').get(Number(p.seance_id))) continue;
+        ip.run(Number(p.seance_id), Number(p.etudiant_id), p.statut || null, p.retard ? 1 : 0, p.motif || null); n++;
+      }
+    })();
+    res.json({ ok: true, n });
+  });
+  // Lucie vient chercher les requêtes du relais, puis dépose leurs réponses.
+  int.get('/interne/ens/requetes', (req, res) => {
+    db.prepare("DELETE FROM ens_requete WHERE cree_le < datetime('now', '-5 minutes')").run();
+    // Une requête prise mais jamais rendue (Lucie redémarrée) se reprend après 40 s.
+    const l = db.prepare(`SELECT id, ens_id, apercu, methode, chemin, type, corps FROM ens_requete WHERE fini_le IS NULL
+      AND (prise_le IS NULL OR prise_le < datetime('now', '-40 seconds')) ORDER BY id LIMIT 30`).all();
+    const prendre = db.prepare("UPDATE ens_requete SET prise_le = datetime('now') WHERE id = ?");
+    for (const x of l) prendre.run(x.id);
+    res.json({ requetes: l.map(x => ({ ...x, apercu: !!x.apercu, corps: x.corps ? Buffer.from(x.corps).toString('base64') : null })) });
+  });
+  int.post('/interne/ens/reponses', (req, res) => {
+    const up = db.prepare("UPDATE ens_requete SET statut = ?, rep_type = ?, rep_disposition = ?, rep_corps = ?, fini_le = datetime('now') WHERE id = ?");
+    for (const r of Array.isArray(req.body?.reponses) ? req.body.reponses : []) {
+      up.run(Number(r.statut) || 502, r.type ? String(r.type).slice(0, 200) : null, r.disposition ? String(r.disposition).slice(0, 400) : null,
+        r.corps ? Buffer.from(String(r.corps), 'base64') : null, Number(r.id));
+    }
+    res.json({ ok: true });
   });
   int.post('/interne/ens/acquitter', (req, res) => {
     const ids = k => (req.body?.[k] || []).map(Number).filter(Boolean);

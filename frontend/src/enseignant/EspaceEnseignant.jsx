@@ -1,8 +1,21 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
-import { useCallback, useEffect, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone } from '@tabler/icons-react';
+import { FriseJournee } from '../components/FriseJournee.jsx';
+import QRCode from 'qrcode';
+import { lazy, Suspense } from 'react';
+import { FournisseurRail } from '../components/ui.jsx';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeliberation.jsx';
+import { preparerLucie } from './relais.js';
+const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
+const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
+const AgendaEcoleLucie = lazy(() => import('../pages/AgendaEcole.jsx'));
+const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
+const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
+const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -394,12 +407,24 @@ function VoirDUE({ ue, onFermer }) {
       {d ? <iframe title="DUE" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
     </Volet>);
 }
+function VoirDP({ ue, onFermer }) {
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => { appel('GET', `/dp/${ue}`).then(setD).catch(e => setErreur(e.message)); }, [ue]);
+  return (
+    <Volet titre={d ? `Dossier pédagogique — UE ${d.ue_num} ${d.ue_nom || ''}` : 'Dossier pédagogique'} sous="le texte officiel de l’unité" onFermer={onFermer}>
+      {erreur && <p className="text-red-700">{erreur}</p>}
+      {d ? <iframe title="Dossier pédagogique" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
+    </Volet>);
+}
 function MesUE() {
   const [t, setT] = useState(null);
   const [ouvert, setOuvert] = useState({});
   const [fiche, setFiche] = useState(null);
   const [due, setDue] = useState(null);
+  const [dp, setDp] = useState(null);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
+  const delibs = useDatesDeliberation(t?.annee || undefined);
   if (!t) return <p className="text-slate-500">Chargement…</p>;
   if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
   return (
@@ -408,8 +433,15 @@ function MesUE() {
       {t.ues.map(u => (
         <section key={u.ue_num} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
           <div className="entete-carte px-4 py-3 flex flex-wrap items-center gap-3">
-            <span className="flex-1 min-w-0 font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
-            {u.a_due && <button type="button" className="bouton controle" onClick={() => setDue(u.ue_num)}>DUE{u.due_statut === 'validee' ? '' : ' (en préparation)'}</button>}
+            <span className="flex-1 min-w-0">
+              <span className="block font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
+              <LigneDeliberation seances={delibs} ue={u.ue_num} />
+            </span>
+            {u.a_dp && <button type="button" className="bouton controle" onClick={() => setDp(u.ue_num)}>Dossier pédagogique</button>}
+            {/* LA DUE EST À L'ESSAI (3.5.133, Charles : « pour DUE tu mets un badge TEST »). */}
+            {u.a_due && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setDue(u.ue_num)}
+              title={u.due_statut === 'validee' ? 'Version validée par la direction' : 'En préparation dans Lucie'}>
+              DUE <span className="px-1.5 py-px rounded-pastille text-[10px] font-bold tracking-wide text-white" style={{ background: 'var(--c-attente, #B45309)' }}>TEST</span></button>}
           </div>
           {u.cours.map(c => {
             const k = `${u.ue_num}|${c.code}`;
@@ -431,10 +463,37 @@ function MesUE() {
         </section>))}
       {fiche && <FicheEtudiant id={fiche} onFermer={() => setFiche(null)} />}
       {due && <VoirDUE ue={due} onFermer={() => setDue(null)} />}
+      {dp && <VoirDP ue={dp} onFermer={() => setDp(null)} />}
     </div>);
 }
 
-function Presences({ seanceId, onRetour, motifs: MOTIFS = [] }) {
+/* LE QR PROJETÉ (3.5.136) : signé par l'espace, il change toutes les 15 s ; l'étudiant scanne vers Lucie. Le compteur suit les
+   présences que Lucie renvoie (toutes les dix secondes environ). */
+function EcranQR({ seanceId, titre, onFermer }) {
+  const [e, setE] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const toile = useRef(null);
+  useEffect(() => {
+    let minuterie = null, vivant = true;
+    const tourner = () => appel('GET', `/seance/${seanceId}/qr`).then(j => { if (!vivant) return; setE(j); setErreur(null); minuterie = setTimeout(tourner, (j.rotation_s || 15) * 1000); })
+      .catch(x => { if (vivant) setErreur(x.message); });
+    tourner();
+    return () => { vivant = false; clearTimeout(minuterie); };
+  }, [seanceId]);
+  useEffect(() => { if (e?.url && toile.current) QRCode.toCanvas(toile.current, e.url, { width: 420, margin: 1 }).catch(() => {}); }, [e]);
+  return (
+    <Volet titre={titre} sous="Présence par QR — les étudiants scannent avec leur téléphone" onFermer={onFermer}>
+      {erreur ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div> : !e ? <p className="text-slate-500">Chargement…</p> : (
+        <div className="flex flex-col items-center gap-4 py-2">
+          <canvas ref={toile} className="max-w-full" style={{ width: 'min(420px, 80vw)', height: 'auto' }} />
+          <div className="text-5xl font-bold tabular-nums text-iip-texte">{e.compteur.presents} / {e.compteur.attendus}</div>
+          <div className="text-sm text-slate-500">{e.fenetre.ouverte ? `Scan ouvert jusqu’à ${e.fenetre.ferme}` : e.fenetre.avant ? `Le scan ouvre à ${e.fenetre.ouvre}` : `Le scan est fermé depuis ${e.fenetre.ferme} : complétez à la main`}</div>
+        </div>)}
+    </Volet>);
+}
+
+function Presences({ seanceId, onRetour, motifs: MOTIFS = [], qr = false }) {
+  const [qrOuvert, setQrOuvert] = useState(false);
   const [d, setD] = useState(null);
   const [etats, setEtats] = useState({});
   const [motifs, setMotifs] = useState({});
@@ -469,6 +528,9 @@ function Presences({ seanceId, onRetour, motifs: MOTIFS = [] }) {
         <h1 className="m-0 text-2xl font-semibold text-iip-texte">Présences</h1>
         <p className="m-0 mt-1 text-slate-500">{s.cours_nom || s.cours_code} · <span className="first-letter:uppercase">{jourFr(s.date)}</span>, {h(s.heure_debut)}{s.local ? ` · ${s.local}` : ''}</p>
       </div>
+      {qr && s.date === d.aujourdhui && !s.annule && (
+        <button type="button" className="bouton bouton-fort controle inline-flex items-center gap-1.5" onClick={() => setQrOuvert(true)}><IconQrcode size={17} /> Afficher le QR</button>)}
+      {qrOuvert && <EcranQR seanceId={seanceId} titre={`${s.cours_nom || s.cours_code} · ${h(s.heure_debut)}`} onFermer={() => { setQrOuvert(false); charger(); }} />}
       {d.dernier_envoi?.erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">Lucie n’a pas repris le dernier envoi : {d.dernier_envoi.erreur}</div>}
       {avenir ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">Cette séance n’a pas encore eu lieu : ses présences se prennent le jour même ou après.</div> : (
         <>
@@ -506,7 +568,8 @@ function Presences({ seanceId, onRetour, motifs: MOTIFS = [] }) {
   );
 }
 
-/* L'AGENDA DE L'ÉCOLE DANS L'HORAIRE (3.5.089) : un jour férié, fermé ou de congé est hachuré ; les moments s'y écrivent. */
+/* L'AGENDA DE L'ÉCOLE DANS L'HORAIRE (3.5.089) : un jour férié, fermé ou de congé est grisé d'un aplat (plus de hachures, 3.5.143 :
+   « moche ») ; les moments s'y écrivent. */
 const TEINTE_AGENDA = { ferie: '#9D4A38', ferme: '#9D4A38', conge: '#64748B', formation: '#6B46C1', moment: '#2F6FB0' };
 const MOT_AGENDA = { ferie: 'Férié', ferme: 'École fermée', conge: 'Congé', formation: 'Formation', moment: '' };
 function AgendaPastille({ a }) {
@@ -534,15 +597,14 @@ function BoutonContact() {
       <IconPhone size={16} /> {ok ? 'Contacter' : 'Urgence'}
     </button>
     {ouvert && (
-      <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} large="34rem" onFermer={() => setOuvert(false)}>
-        <div className="space-y-5 text-sm">
-          {c.presents.length > 0 && <section><div className="font-semibold mb-1">Là maintenant</div>
-            <ul className="m-0 pl-0 list-none divide-y divide-slate-100">{c.presents.map((p, i) => <li key={i} className="py-2 flex flex-wrap gap-x-3"><span className="flex-1 min-w-0">{p.nom} <span className="text-slate-500">· {p.role}{p.jusqu ? ` · jusqu’à ${p.jusqu}` : ''}</span></span><Tel p={p} /></li>)}</ul></section>}
-          {c.permanences.length > 0 && <section><div className="font-semibold mb-1">La permanence aujourd’hui</div>
-            <ul className="m-0 pl-0 list-none divide-y divide-slate-100">{c.permanences.map((p, i) => <li key={i} className="py-2">
-              <div className="flex flex-wrap gap-x-3"><span className="flex-1 min-w-0">{p.debut}–{p.fin} · {p.nom}{p.en_cours ? <b className="ml-1" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>en cours</b> : ''}</span><Tel p={p} /></div>
-              {p.secours.length > 0 && <div className="text-second text-slate-500 mt-0.5">En secours : {p.secours.map((x, k) => <span key={k}>{k ? ' · ' : ''}{x.nom} <Tel p={x} /></span>)}</div>}</li>)}</ul></section>}
-          {!c.presents.length && !c.permanences.length && <p className="m-0 text-slate-500">Personne n’est signalé pour l’instant.</p>}
+      <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} onFermer={() => setOuvert(false)}>
+        {/* LA FRISE DE LUCIE (3.5.134, Charles : « cela ne respecte pas la mise en page de Lucie, avec la ligne du temps de la
+            journée ») : le même dessin que « Qui est là ? », sans les crayons de la direction. */}
+        <div className="space-y-2 text-sm">
+          <div className="intertitre">La journée de l’équipe</div>
+          {c.journee?.length || c.permanences.length
+            ? <div className="overflow-x-auto"><div className="min-w-[640px]"><FriseJournee journee={c.journee || []} permanences={c.permanences} heure={c.heure} /></div></div>
+            : <p className="m-0 text-slate-500">Personne n’a d’horaire ni de permanence aujourd’hui.</p>}
           <p className="m-0 text-mention text-slate-400">Mis à jour à {c.heure}.</p>
         </div>
       </Volet>)}
@@ -574,7 +636,7 @@ function MonHoraire({ moi, onPresences }) {
           style={{ gridTemplateColumns: `repeat(auto-fit, minmax(10rem, 1fr))` }}>
           {jours.map(j => (
             <div key={j} className="p-3 flex flex-col gap-2 md:min-h-[12rem]"
-              style={duJour(j).some(a => ['ferie', 'ferme', 'conge'].includes(a.type)) ? { background: 'repeating-linear-gradient(45deg, transparent 0 8px, rgba(27,43,75,.045) 8px 16px)' } : undefined}>
+              style={duJour(j).some(a => ['ferie', 'ferme', 'conge'].includes(a.type)) ? { background: '#F7F8FA' } : undefined}>
               <span className={`font-semibold first-letter:uppercase ${j === d.aujourdhui ? 'text-iip-blue' : 'text-iip-texte'}`}>{jourFr(j)}{j === d.aujourdhui ? ' · aujourd’hui' : ''}</span>
               {duJour(j).map((a, i) => <AgendaPastille key={i} a={a} />)}
               {d.seances.filter(s => s.date === j).map(s => (
@@ -616,21 +678,321 @@ function MonCompte({ moi, onToken }) {
   );
 }
 
+/* LA GRILLE DES PRÉSENCES DE L'ANNÉE (3.5.135, Charles, 6 novembre 2026 : « les enseignants encoderont dans leur espace » ; lot 1).
+   Par cours : ses étudiants en lignes, ses séances depuis la rentrée en colonnes. Un clic sur une case ouvre le choix (P, P*, A,
+   J + motif, effacer) ; la case part par la porte de la séance, Lucie la juge au relevé (quelques secondes) et un refus se dit.
+   Export Excel : la grille telle qu'elle est à l'écran. */
+const LETTRE = { present: 'P', retard: 'P*', absent: 'A', justifie: 'J' };
+function GrillePresences({ moi }) {
+  const [d, setD] = useState(null);
+  const [code, setCode] = useState(() => { try { return localStorage.getItem('ens.grille.cours') || ''; } catch { return ''; } });
+  const [choix, setChoix] = useState(null);      // { s, e, x, y }
+  const [motif, setMotif] = useState('');
+  const [msg, setMsg] = useState(null);
+  const charger = useCallback(c => appel('GET', `/grille${c ? `?cours=${encodeURIComponent(c)}` : ''}`).then(j => {
+    setD(j);
+    if (!c && j.cours?.length) setCode(j.cours[0].code);
+  }).catch(e => setMsg(e.message)), []);
+  useEffect(() => { charger(code); try { localStorage.setItem('ens.grille.cours', code); } catch { /* */ } }, [code, charger]);
+  useEffect(() => { if (!d?.en_route) return undefined; const t = setTimeout(() => charger(code), 4000); return () => clearTimeout(t); }, [d, code, charger]);
+  if (!d) return <p className="text-slate-500">{msg || 'Chargement…'}</p>;
+  if (!d.cours?.length) return <p className="text-slate-500">Aucun cours avec des séances à l’horaire cette année.</p>;
+  const seances = d.seances || [];
+  const etudiants = d.etudiants || [];
+  const cle = (s, e) => `${s}|${e}`;
+  const pres = new Map((d.presences || []).map(p => [cle(p.seance_id, p.etudiant_id), p]));
+  const inscrit = new Set((d.inscrits || []).map(i => cle(i.seance_id, i.etudiant_id)));
+  const motifs = moi.motifs || [];
+  const libMotif = k => motifs.find(m => m.k === k)?.l || k;
+  async function poser(s, e, statut, mot) {
+    if (moi.apercu) { setMsg('Aperçu : rien ne s’enregistre.'); setChoix(null); return; }
+    const ligne = statut === 'retard' ? { etudiant_id: e, statut: 'present', retard: true }
+      : { etudiant_id: e, statut: statut || null, retard: false, motif: statut === 'justifie' ? mot : null };
+    try { await appel('POST', `/seance/${s}/presences`, { presences: [ligne] }); setMsg(null); } catch (x) { setMsg(x.message); }
+    setChoix(null); setMotif(''); charger(code);
+  }
+  function exporter() {
+    import('xlsx').then(XLSX => {
+      const c = d.cours.find(x => x.code === code);
+      const tete = ['Nom', 'Prénom', 'Groupe', ...seances.map(s => `${court(s.date)}${s.annule ? ' (annulée)' : ''}`), 'P', 'A', 'J'];
+      const lignes = etudiants.map(e => {
+        const cases = seances.map(s => { const p = pres.get(cle(s.id, e.id)); return !inscrit.has(cle(s.id, e.id)) ? '—' : LETTRE[cleDe(p)] || ''; });
+        return [String(e.nom || '').toUpperCase(), e.prenom, e.groupe || '', ...cases,
+          cases.filter(x => x === 'P' || x === 'P*').length, cases.filter(x => x === 'A').length, cases.filter(x => x === 'J').length];
+      });
+      const ws = XLSX.utils.aoa_to_sheet([[`${c?.nom || code} — présences ${seances[0] ? `du ${court(seances[0].date)} au ${court(seances[seances.length - 1].date)}` : ''}`], [], tete, ...lignes]);
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Présences');
+      XLSX.writeFile(wb, `Presences_${code}.xlsx`);
+    });
+  }
+  const passee = s => s.date <= d.aujourdhui;
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="m-0 text-2xl font-semibold text-iip-texte">Présences de l’année</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="controle" value={code} onChange={e => setCode(e.target.value)} aria-label="Cours">
+            {d.cours.map(c => <option key={c.code} value={c.code}>{c.ue_num ? `UE ${c.ue_num} · ` : ''}{c.nom || c.code}</option>)}
+          </select>
+          <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={exporter} disabled={!etudiants.length}><IconDownload size={16} /> Excel</button>
+        </div>
+      </header>
+      {msg && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{msg}</div>}
+      {(d.refus || []).length > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">Lucie a refusé : {d.refus[0].erreur}</div>}
+      {d.en_route > 0 && <p className="m-0 text-second text-slate-500">Envoi vers Lucie en cours…</p>}
+      {!seances.length ? <p className="text-slate-500">Aucune séance de ce cours à l’horaire.</p> : (
+        <div className="bg-white border border-slate-200 rounded-carte overflow-auto" style={{ maxHeight: '70vh' }}>
+          <table className="text-sm border-collapse">
+            <thead><tr>
+              <th className="sticky left-0 top-0 z-20 bg-white px-3 py-2 text-left border-b border-slate-200 min-w-[13rem]">Étudiant</th>
+              {seances.map(s => (
+                <th key={s.id} className={`sticky top-0 z-10 bg-white px-1 py-2 border-b border-slate-200 text-center font-semibold whitespace-nowrap ${s.annule ? 'line-through text-slate-400' : ''}`}
+                  title={`${court(s.date)} ${h(s.heure_debut)}–${h(s.heure_fin)}${s.local ? ` · ${s.local}` : ''}${s.annule ? ' · annulée' : ''}`}>
+                  <span className="text-mention">{court(s.date)}</span></th>))}
+              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">P</th>
+              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">A</th>
+              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">J</th>
+            </tr></thead>
+            <tbody>{etudiants.map(e => {
+              let nP = 0, nA = 0, nJ = 0;
+              return (
+                <tr key={e.id} className="border-t border-slate-100">
+                  <td className="sticky left-0 z-10 bg-white px-3 py-1 whitespace-nowrap">{String(e.nom || '').toUpperCase()} {e.prenom}{e.groupe ? <span className="text-second text-slate-400"> · {e.groupe}</span> : null}</td>
+                  {seances.map(s => {
+                    if (!inscrit.has(cle(s.id, e.id))) return <td key={s.id} className="text-center text-slate-300">—</td>;
+                    const p = pres.get(cle(s.id, e.id)); const k = cleDe(p); const st = STATUTS.find(x => x.k === k);
+                    if (k === 'present' || k === 'retard') nP++; else if (k === 'absent') nA++; else if (k === 'justifie') nJ++;
+                    const actif = passee(s) && !s.annule;
+                    return (
+                      <td key={s.id} className="p-0.5 text-center">
+                        <button type="button" disabled={!actif} onClick={ev => setChoix({ s: s.id, e: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom}`, date: s.date, x: ev.clientX, y: ev.clientY })}
+                          className="w-9 h-7 rounded text-xs font-bold disabled:opacity-40"
+                          style={st ? { background: st.c, color: '#fff' } : { border: '1px solid #E4E7EC', color: '#94a3b8' }}
+                          title={p?.statut === 'justifie' && p.motif ? libMotif(p.motif) : st?.titre || (actif ? 'Non encodé' : s.annule ? 'Séance annulée' : 'Séance à venir')}>
+                          {st ? st.l : actif ? '·' : ''}</button>
+                      </td>);
+                  })}
+                  <td className="text-center tabular-nums">{nP}</td><td className="text-center tabular-nums">{nA}</td><td className="text-center tabular-nums">{nJ}</td>
+                </tr>);
+            })}</tbody>
+          </table>
+        </div>)}
+      <p className="m-0 text-mention text-slate-400">P présent · P* en retard · A absent · J absence justifiée · — pas inscrit à cette séance. Les séances à venir ne s’encodent pas.</p>
+      {choix && (
+        <Volet titre={choix.nom} sous={`Séance du ${court(choix.date)}`} large="26rem" onFermer={() => { setChoix(null); setMotif(''); }}>
+          <div className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              {STATUTS.filter(x => x.k !== 'justifie').map(x => (
+                <button key={x.k} type="button" className="bouton controle font-bold" style={{ background: x.c, color: '#fff', borderColor: x.c }} onClick={() => poser(choix.s, choix.e, x.k)}>{x.l} · {x.titre}</button>))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="controle" value={motif} onChange={e => setMotif(e.target.value)} aria-label="Motif de l’absence justifiée">
+                <option value="">Absence justifiée — motif…</option>
+                {motifs.map(m => <option key={m.k} value={m.k}>{m.l}</option>)}
+              </select>
+              <button type="button" className="bouton controle" disabled={!motif} onClick={() => poser(choix.s, choix.e, 'justifie', motif)}>J · Justifiée</button>
+            </div>
+            <button type="button" className="bouton controle" onClick={() => poser(choix.s, choix.e, null)}>Effacer</button>
+          </div>
+        </Volet>)}
+    </div>);
+}
+
+/* MES COURS, TEL QUE DANS LUCIE (3.5.137) : l'écran de Lucie, ses requêtes passant par le relais. Ses entrées de rail remontent
+   dans la navigation de l'espace (`surSections`). */
+/* LE TABLEAU DE BORD DE LUCIE (3.5.140, Charles : « je veux aussi la page d'accueil, tableau de bord, avec les notifications, les
+   messages, etc. ») : la page « Ce qui m'attend » de Lucie elle-même, par le relais. Ses liens vers d'autres écrans de Lucie se
+   traduisent en entrées de l'espace (un texte → L'école, un cours → Mes notes) ; un écran qui n'existe pas ici le dit. */
+function SuivreLiens({ allerA }) {
+  const loc = useLocation();
+  useEffect(() => {
+    const p = loc.pathname;
+    if (p === '/' || p === '/accueil') return;
+    if (p.startsWith('/documentation')) allerA('ecole');
+    else if (p.startsWith('/mes-cours')) allerA('notes');
+    else if (p.startsWith('/agenda') || p.startsWith('/horaire')) allerA('agenda');
+    else import('../lib/dialogue.jsx').then(m => m.informer('Cet écran est dans Lucie, pas dans l’espace enseignant.')).catch(() => {});
+  }, [loc.key]);   // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+function TableauDeBord({ allerA }) {
+  return (
+    <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-8 -mt-4 md:-mt-8">
+      <MemoryRouter initialEntries={['/accueil']}>
+        <SuivreLiens allerA={allerA} />
+        <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
+          <Suspense fallback={<p className="text-slate-500 p-4">Chargement…</p>}><AccueilLucie /></Suspense>
+        </FournisseurRail>
+      </MemoryRouter>
+    </div>);
+}
+
+function MesCoursEspace({ vue, tic, allerA }) {
+  // Une seule instance pour Aujourd'hui, Mes notes, Mes présences, Mes unités et À rendre : un cours ouvert reste ouvert.
+  return (
+    // Pas de rail de Lucie ici : sa gouttière tombe à zéro (`--rail`), la navigation de l'espace en tient lieu.
+    <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-6">
+      <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
+        <Suspense fallback={<p className="text-slate-500 px-4">Chargement…</p>}><MesCoursLucie espace={{ vue, tic, retour: true, allerA }} /></Suspense>
+      </FournisseurRail>
+    </div>);
+}
+
+/* CE QUI M'ATTEND (sous la frise d'Aujourd'hui) : tâches, textes à lire, messages, DUE, séances sans présences. */
+function CeQuiMAttend({ moi, onPresences }) {
+  const [d, setD] = useState(null);
+  const [t, setT] = useState(null);
+  const [lire, setLire] = useState(null);
+  useEffect(() => { appel('GET', `/journee?date=${moi.aujourdhui}`).then(setD).catch(() => setD({ sans_presences: [] })); }, [moi.aujourdhui]);
+  useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
+  const aFaire = t?.a_faire || [];
+  const sans = d?.sans_presences || [];
+  return (
+    <section className="bg-white border border-slate-200 rounded-carte overflow-hidden mx-0">
+      <div className="entete-carte px-4 py-3 font-semibold text-iip-texte">Ce qui m’attend</div>
+      {d && t && !sans.length && !aFaire.length && <p className="m-0 px-4 py-3 text-slate-500">Rien en retard. Bonne journée.</p>}
+      {aFaire.map((x, i) => (
+        <div key={`f${i}`} role={x.version_id ? 'button' : undefined} tabIndex={x.version_id ? 0 : undefined}
+          onClick={x.version_id ? () => setLire(x.version_id) : undefined}
+          className={`flex items-center gap-3 px-4 py-3 border-t border-slate-100 ${x.version_id ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
+          <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: x.retard ? 'var(--c-refuse, #9D4A38)' : x.type === 'due' ? 'var(--c-attente, #B45309)' : 'var(--c-disponible, #2F6FB0)' }}>
+            {{ tache: 'tâche', texte: 'à lire', message: 'message', rappel: 'rappel', due: 'DUE' }[x.type] || 'à faire'}</span>
+          <span className="flex-1 min-w-0">{x.titre}{x.echeance ? ` — pour le ${court(x.echeance)}${x.retard ? ' (en retard)' : ''}` : ''}</span>
+          {x.version_id && <IconChevronRight size={16} className="text-slate-400" />}
+        </div>))}
+      {sans.map(s => (
+        <button key={s.id} type="button" onClick={() => onPresences(s.id)} className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white hover:bg-slate-50">
+          <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-attente, #B45309)' }}>présences</span>
+          <span className="flex-1 min-w-0">{s.cours_nom || s.cours_code} — séance du {court(s.date)} à {h(s.heure_debut)}</span>
+          <IconChevronRight size={16} className="text-slate-400" />
+        </button>))}
+      {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); appel('GET', '/tableau').then(setT).catch(() => {}); }} />}
+    </section>);
+}
+
+/* MES DATES (3.5.142, Charles : « un Mon agenda avec les dates des examens, des délibérations, etc., avec l'agenda de l'école »).
+   Dans l'ordre du temps, par mois : examens et délibérations de mes cours et unités, congés, fermetures, fériés, grands moments. */
+const TYPES_DATE = {
+  examen: ['Examen', 'var(--c-attente, #B45309)'], deliberation: ['Délibération', 'var(--c-principal, #19537E)'],
+  conge: ['Congé', '#94A3B8'], ferme: ['École fermée', '#64748B'], ferie: ['Férié', '#94A3B8'],
+  moment: ['École', 'var(--c-disponible, #2F6FB0)'], formation: ['Formation', 'var(--c-reussi, #3E7D5E)'],
+};
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function MesDates({ moi }) {
+  const [d, setD] = useState(null);
+  const [passees, setPassees] = useState(false);
+  const [filtre, setFiltre] = useState('tout');
+  let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
+  useEffect(() => {
+    fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
+      .then(setD).catch(() => setD({ items: [] }));
+  }, [annee]);
+  if (!d) return <p className="text-slate-500">Chargement…</p>;
+  const auj = moi.aujourdhui;
+  const l = (d.items || []).filter(x => (passees || (x.au || x.date) >= auj))
+    .filter(x => filtre === 'tout' || (filtre === 'miennes' ? ['examen', 'deliberation'].includes(x.type) : !['examen', 'deliberation'].includes(x.type)));
+  const parMois = [];
+  for (const x of l) { const k = x.date.slice(0, 7); let g = parMois.find(y => y.k === k); if (!g) parMois.push(g = { k, l: [] }); g.l.push(x); }
+  const jourCourt = iso => { const [a, m, j] = iso.split('-').map(Number); return `${['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'][new Date(a, m - 1, j).getDay()]} ${j}`; };
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="segments">{[['tout', 'Tout'], ['miennes', 'Examens et délibérations'], ['ecole', 'L’école']].map(([k, t]) => (
+          <button key={k} type="button" onClick={() => setFiltre(k)} className={filtre === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{t}</button>))}</div>
+        <label className="text-second text-slate-600 inline-flex items-center gap-1.5 ml-auto"><input type="checkbox" checked={passees} onChange={e => setPassees(e.target.checked)} /> Montrer les dates passées</label>
+      </div>
+      {!parMois.length && <p className="text-slate-500">Aucune date à venir{filtre !== 'tout' ? ' dans ce choix' : ''}.</p>}
+      {parMois.map(g => (
+        <section key={g.k} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+          <div className="entete-carte px-4 py-2 font-semibold text-iip-texte first-letter:uppercase">{MOIS_FR[Number(g.k.slice(5, 7)) - 1]} {g.k.slice(0, 4)}</div>
+          {g.l.map((x, i) => { const [lib, c] = TYPES_DATE[x.type] || ['Date', '#94A3B8'];
+            return (
+              <div key={i} className={`flex items-start gap-3 px-4 py-2 border-t border-slate-100 ${(x.au || x.date) < auj ? 'opacity-60' : ''}`}>
+                <span className="w-24 shrink-0 tabular-nums text-sm"><b>{jourCourt(x.date)}</b>{x.au ? <span className="text-slate-500"> → {court(x.au)}</span> : null}{x.heure ? <span className="block text-second text-slate-500">{String(x.heure).slice(0, 5)}</span> : null}</span>
+                <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: c }}>{lib}{x.session ? ` S${x.session}` : ''}</span>
+                <span className="flex-1 min-w-0 text-sm">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</span>
+              </div>); })}
+        </section>))}
+      <p className="m-0 text-mention text-slate-400">Les examens et les délibérations partent aussi dans l’agenda de votre téléphone (« Dans l’agenda de mon téléphone »).</p>
+    </div>);
+}
+
+/* MON AGENDA : la semaine (avec les journées de l'école), et deux portes — les visites de stage, l'horaire dans le téléphone. */
+function MonAgenda({ moi, onPresences }) {
+  const [ouvert, setOuvert] = useState(null);
+  // L'ANNÉE DE L'ÉCOLE (3.5.140, Charles : « l'agenda de l'année, basé sur ce qu'on a créé ») : l'agenda de l'école de Lucie, en lecture.
+  const [vue, setVue] = useState('dates');
+  let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['annee', 'L’année de l’école']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
+        <span className="flex-1" />
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('agenda')}><IconCalendarShare size={16} /> Dans l’agenda de mon téléphone</button>
+      </div>
+      {vue === 'dates' ? <MesDates moi={moi} />
+        : vue === 'semaine' ? <MonHoraire moi={moi} onPresences={onPresences} />
+        : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
+      <Suspense fallback={null}>
+        {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
+        {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
+      </Suspense>
+    </div>);
+}
+
+/* L'ÉCOLE : ce qu'elle envoie (textes à lire, documents), écrire aux étudiants, l'aide. Une face soulignée à la fois. */
+function LEcole() {
+  const [f, setF] = useState('textes');
+  const [ecrire, setEcrire] = useState(false);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200">
+        {[['textes', 'Textes à lire'], ['documents', 'Mes documents'], ['aide', 'Aide']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setF(k)} className={`onglet-page ${f === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
+        <span className="flex-1" />
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5 mb-1" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>
+      </div>
+      {f === 'textes' ? <TextesEcole /> : f === 'documents' ? <MesDocuments /> : <Aide />}
+      <Suspense fallback={null}>{ecrire && <MessagesEtudiantsLucie titre="Écrire à mes étudiants" onFermer={() => setEcrire(false)} />}</Suspense>
+    </div>);
+}
+
+function BoutonFace({ f, actif, onClick }) {
+  return (
+    <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined}
+      className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
+      style={actif ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
+      <f.I size={18} /> {f.l}
+    </button>);
+}
+
+/* LA STRUCTURE (3.5.138, Charles, 6 novembre 2026 : « c'est la structure que je veux changer » ; « mes notes, mes présences, mes
+   étudiants » ; Aujourd'hui garde la frise de Lucie). Les entrées de travail en haut ; l'école et le compte en bas. */
 const FACES = [
-  { k: 'journee', l: 'Ma journée', I: IconSun },
-  { k: 'horaire', l: 'Mon horaire', I: IconCalendarWeek },
-  { k: 'ues', l: 'Mes UE et étudiants', I: IconUsers },
-  { k: 'textes', l: 'Textes de l’école', I: IconBook },
-  { k: 'documents', l: 'Mes documents', I: IconFileText },
-  { k: 'aide', l: 'Aide', I: IconHelpCircle },
+  { k: 'tableau', l: 'Tableau de bord', I: IconLayoutDashboard },
+  { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
+  { k: 'notes', l: 'Mes notes', I: IconPencil },
+  { k: 'presences', l: 'Mes présences', I: IconUserCheck },
+  { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
+  { k: 'ue', l: 'Mes unités', I: IconFileText },
+  { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
+];
+const FACES_BAS = [
+  { k: 'ecole', l: 'L’école', I: IconBuilding },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
+const VUES_LUCIE = new Set(['aujourdhui', 'notes', 'presences', 'ue', 'rendre']);
 
 export default function EspaceEnseignant() {
   const [token, setToken] = useState(lire());
   const [definir, setDefinir] = useState(false);
   const [moi, setMoi] = useState(null);
-  const [face, setFace] = useState('journee');
+  const [face, setFace] = useState('tableau');
+  const [tic, setTic] = useState(0);
+  const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
   const [erreur, setErreur] = useState(null);
   const entrer = t => { poser(t); setToken(t); setDefinir(false); };
@@ -652,6 +1014,7 @@ export default function EspaceEnseignant() {
     if (!token || definir) return;
     appel('GET', '/moi').then(setMoi).catch(e => { if (e.session) setToken(null); else setErreur(e.message); });
   }, [token, definir]);
+  useEffect(() => { if (moi) preparerLucie().finally(() => setLucie(true)); }, [moi]);
   if (!token) return <>{erreur && <div className="bloc-etat px-3 py-2 text-sm m-4" data-etat="corriger">{erreur}</div>}<Entree onEntre={entrer} /></>;
   if (definir) {
     return (
@@ -665,7 +1028,7 @@ export default function EspaceEnseignant() {
   }
   if (!moi) return <p className="p-6 text-slate-500">{erreur || 'Chargement…'}</p>;
   const quitter = () => { poser(null); setToken(null); setMoi(null); };
-  const aller = k => { setFace(k); setSeance(null); };
+  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); };
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
@@ -674,13 +1037,9 @@ export default function EspaceEnseignant() {
         <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div></div>
         {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
         <div className="hidden md:block px-2 pb-3"><BoutonContact /></div>
-        {FACES.map(f => (
-          <button key={f.k} type="button" onClick={() => aller(f.k)} aria-current={face === f.k && !seance ? 'page' : undefined}
-            className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
-            style={face === f.k ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
-            <f.I size={18} /> {f.l}
-          </button>))}
+        {FACES.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
+        {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
           <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>
           <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0" onClick={quitter}><IconLogout size={15} /> Se déconnecter</button>
@@ -689,14 +1048,21 @@ export default function EspaceEnseignant() {
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
-        {seance ? <Presences seanceId={seance} motifs={moi.motifs} onRetour={() => setSeance(null)} />
-          : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
-          : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
-          : face === 'ues' ? <MesUE />
-          : face === 'textes' ? <TextesEcole />
-          : face === 'documents' ? <MesDocuments />
-          : face === 'aide' ? <Aide />
-          : <MonCompte moi={moi} onToken={entrer} />}
+        {seance ? <Presences seanceId={seance} motifs={moi.motifs} qr={!!moi.qr && !moi.apercu} onRetour={() => setSeance(null)} /> : null}
+        {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}
+        {lucie && (
+          <div hidden={!!seance || !VUES_LUCIE.has(face)} className="space-y-5">
+            <MesCoursEspace vue={face} tic={tic} allerA={k => setFace(k)} />
+            {face === 'aujourdhui' && <CeQuiMAttend moi={moi} onPresences={setSeance} />}
+          </div>)}
+        {!lucie && VUES_LUCIE.has(face) && !seance && <p className="text-slate-500">Ouverture…</p>}
+        {!seance && lucie && face === 'tableau' && <TableauDeBord allerA={k => aller(k)} />}
+        {!seance && !lucie && face === 'tableau' && <p className="text-slate-500">Ouverture…</p>}
+        {!seance && (face === 'etudiants' ? <MesUE />
+          : face === 'agenda' ? <MonAgenda moi={moi} onPresences={setSeance} />
+          : face === 'ecole' ? <LEcole />
+          : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
+          : null)}
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>
     </div>

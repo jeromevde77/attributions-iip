@@ -3666,6 +3666,78 @@ de l'écran ouvert se range sous la DERNIÈRE rubrique de l'axe ; depuis 3.5.119
 entrée à tiroir un « replier » — sur le tableau de bord, Communication (dernière rubrique) ne s'ouvrait plus depuis « Ce qui
 m'attend ». Le geste universel ne vaut désormais que pour l'entrée active ou dont un enfant est actif.
 
+**LE DOSSIER PÉDAGOGIQUE DANS L'ESPACE ENSEIGNANT, ET LA DUE « TEST »** (3.5.133, Charles, 6 novembre 2026). Mes UE et
+mes étudiants : bouton « Dossier pédagogique » par UE — `dossierPedagogiqueHtml(ue, annee)` (`lib/portailEnseignants.js` :
+`ue.ue_dp` rangé par `rubriquesDuDossier`, rendu par `texteVersHtml`), déposé avec le tableau (`dp_html`), servi par
+`GET /api/enseignant/dp/:ue`. Le bouton DUE porte un badge « TEST ».
+
+**L'ESPACE ENSEIGNANT VOIT LES DONNÉES DE LUCIE** (3.5.134, Charles, 6 novembre 2026 : « l'espace enseignant est une
+manière de VOIR les données de Lucie — pas toutes, certaines » ; « tout ce qui est dans Mes cours doit basculer à terme » ;
+tranché : lecture d'abord, écriture ensuite ; ordre : présences → notes et carnet → avis VA et AR → le reste). « Contacter »
+dessine la journée de l'équipe avec la frise de Lucie : `FriseJournee` sort de `TuileQuiEstLa` vers
+`components/FriseJournee.jsx` (avec `telAffiche`, `Appeler`, `LIEU_AGENDA`), et `contactMaintenant` dépose `journee`.
+
+**LUCIE EN TROIS : ADMIN, ÉTUDIANT, ENSEIGNANT** (Charles, 6 novembre 2026 : « les enseignants ne pourront plus se connecter
+à Lucie. Lucie est coupée en 3 : Admin, étudiant et enseignant, chacun évoluant dans sa partie, le tout centralisé dans Admin ;
+les enseignants encoderont dans leur espace, les étudiants liront dans le leur »). Tout ce que fait Mes cours passe dans
+l'espace enseignant, en ÉCRITURE. Tranché : le mur reste à sens unique — l'espace note le geste, Lucie le relève vite (2-3 s),
+le juge avec ses propres règles et rend « enregistré » ou le refus ; coordinations et direction qui enseignent gardent les deux
+accès ; la date où le rôle professeur cesse d'entrer dans Lucie sera décidée par Charles. Lots : présences de l'année →
+notes et carnet → avis VA et AR → indicateurs, DUE et croisement, messages, visites. **Toute fonction nouvelle pour les
+enseignants se construit dans l'espace, pas dans Mes cours.**
+
+**LOT 1 DE L'ESPACE ENSEIGNANT : LES PRÉSENCES DE L'ANNÉE** (3.5.135). Espace → *Présences de l'année* (`GrillePresences`,
+`GET /api/enseignant/grille`) : par cours, étudiants × séances depuis la rentrée (le dépôt part du 15 août de l'année active),
+une case = un geste « presences » d'une ligne par la porte de la séance ; export Excel (xlsx, dans le navigateur). Lucie relève
+les gestes des enseignants toutes les 3 s (`releverEnseignantsVite`, `portailSync.js`, son propre verrou) et redépose dans les
+10 s qui suivent.
+
+**LE QR DE PRÉSENCE SIGNÉ PAR L'ESPACE ENSEIGNANT** (3.5.136, Charles : « le prof sait-il déclencher le QR ? » ; tranché : une
+clé à part). `PRESENCE_QR_ESPACE_SECRET` (≥ 32 caractères), posé sur Lucie ET sur le portail (dev et prod) : l'espace signe
+`q.<séance>.<t>` (`GET /api/enseignant/seance/:id/qr`, jour de la séance, fonction `presence.qr` du compte déposée en `ens.qr`,
+jamais en aperçu) ; `verifierSigne` de Lucie accepte cette clé pour le type « q » SEULEMENT. L'URL scannée est celle de Lucie
+(`LUCIE_URL`/presence/…, déposée avec les réglages, `qr` de `ens_reglage`). Les présences du jour repartent vers l'espace toutes
+les ~10 s (`/interne/ens/presences-jour`) : le compteur suit. Mise en place : `scripts/vps/ESPACE-ENSEIGNANT.md`.
+
+**TOUT MES COURS DANS L'ESPACE ENSEIGNANT : LE RELAIS** (3.5.137, Charles : « TOUTES les fonctionnalités de Mes cours passent dans
+l'espace enseignant, tu DOIS TOUT bouger »). L'espace monte la page de Lucie elle-même (`pages/MesCours.jsx`, face « Mes cours »,
+`MesCoursEspace` ; ses entrées de rail remontent dans la navigation de l'espace par `FournisseurRail` → `SousNav`, en rangée sur
+téléphone ; `--rail: 0`). `enseignant/relais.js` détourne tout `fetch('/api/…')` vers `/api/enseignant/relais/…` avec la session
+de l'espace. Le portail NOTE la requête (`ens_requete`, corps brut jusqu'à 25 Mo, hors limite JSON de 50 Ko) et attend 25 s ;
+Lucie la relève toutes les 0,7 s (`relayerEnseignants`, `relayerVite`), l'exécute sur elle-même (127.0.0.1:PORT) avec
+`signRelaisToken` (les droits du compte, 2 min ; aperçu = `signPreviewToken`, lecture seule) et dépose la réponse (statut, type,
+pièce jointe, corps en base64). Le mur reste à sens unique. Jamais relayé : `/api/auth/*` (sauf `me`, `droits`), `/api/users`,
+`/api/sauvegardes`, `/api/historique/backup`, `/api/profils-acces`. **Un écran de Lucie ajouté à Mes cours passe donc tout seul
+dans l'espace** ; une nouvelle porte d'API qu'il appelle passe par le même relais, avec les droits du professeur. nginx du site :
+`/api/enseignant/relais/` à 26 Mo, 60 s.
+
+**L'ESPACE ENSEIGNANT RANGÉ PAR CE QU'ON Y FAIT** (3.5.138, Charles : « j'aime le design actuel, c'est la structure que je veux
+changer » ; « mes notes, mes présences, mes étudiants » ; la frise de Lucie pour la journée). Navigation : Aujourd'hui · Mes notes ·
+Mes présences · Mes étudiants · Mes unités · À rendre · Mon agenda ; en bas L'école (textes, documents, aide, écrire aux étudiants) et
+Mon compte. `MesCours` prend `espace={ vue, tic, allerA }` : il cache son rail, montre la frise (`aujourdhui`), la liste puis notes /
+carnet / indicateurs / le cours (`notes`), ou les seules présences (`presences`), les étapes de l'unité en segments (`ue`), les avis
+(`rendre`). UNE instance montée pour ces cinq vues (un cours reste ouvert entre notes et présences, se ferme ailleurs, re-cliquer
+ramène à la liste). Mes étudiants = `MesUE` de l'espace ; Mon agenda = l'horaire de l'espace + visites et agenda (fenêtres de Lucie).
+
+**LE TABLEAU DE BORD ET L'ANNÉE DE L'ÉCOLE DANS L'ESPACE ENSEIGNANT** (3.5.140, Charles : « la page d'accueil tableau de bord, avec
+les notifications, les messages » ; « l'agenda de l'année basé sur ce qu'on a créé »). Première entrée « Tableau de bord » =
+`pages/Accueil.jsx` de Lucie par le relais, dans un `MemoryRouter` ; `SuivreLiens` traduit ses liens (documentation → L'école,
+mes-cours → Mes notes, agenda → Mon agenda ; sinon « cet écran est dans Lucie »). Mon agenda → « L'année de l'école » =
+`AgendaEcole simple` (sans tension, sections ni stages ; `AgendaLigne simple`), en lecture (le serveur ne laisse peindre que la
+direction et la coordination).
+
+**LES DATES DES DÉLIBÉRATIONS DE MES UNITÉS** (3.5.141, Charles : « la liste des dates de délibération, date et heure, S1 et S2 »).
+`GET /api/mes-cours/deliberations` (unités des attributions du compte ; `deliberation_seance` : session, organisation, date, heure,
+close ; une UE sans séance = « date à poser ») ; `components/DatesDeliberation.jsx` (tableau, `LigneDeliberation` pour une unité,
+`useDatesDeliberation`). Espace enseignant : Mes unités (tableau) et Mes étudiants (sous chaque UE).
+
+**MON AGENDA : MES DATES** (3.5.142, Charles : « un Mon agenda avec les dates des examens, des délibérations, avec l'agenda de
+l'école » ; et dans l'agenda du téléphone). `lib/datesEnseignant.js` : `examensEtDeliberations(profId, annee)` (examens de ses
+cours — `epreuve_session1` s1_*, `deliberation_session2` s2_*, cours vide = épreuve d'unité —, délibérations de ses unités —
+`deliberation_seance`), `agendaEcoleProf(annee)` (sorti de `portailEnseignants`), `evenementsDesDates` (iCal : 2 h si heure, sinon
+la journée). `GET /api/mes-cours/dates` ; flux `/api/agenda/flux/<jeton>.ics` les ajoute (année active et suivante). Espace :
+Mon agenda → Mes dates (par mois, filtre, dates passées au choix) · Ma semaine · L'année de l'école.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

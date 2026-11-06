@@ -132,6 +132,13 @@ function cle() {
   return crypto.createHmac('sha256', base).update('presence-qr').digest();
 }
 export const secretDisponible = () => !!cle();
+/* LA CLÉ DE L'ESPACE ENSEIGNANT (3.5.136, Charles, 6 novembre 2026 : « le prof sait-il déclencher le QR ? » ; tranché : une clé à
+   part pour l'espace). `PRESENCE_QR_ESPACE_SECRET`, posé sur Lucie ET sur le portail (32 caractères au moins), ne sert qu'au QR de
+   présence (« q ») : l'espace le signe lui-même, Lucie l'accepte comme le sien. Jamais pour le ticket, l'appairage ni rien d'autre. */
+function cleEspace() {
+  const k = process.env.PRESENCE_QR_ESPACE_SECRET;
+  return k && k.length >= 32 ? Buffer.from(k) : null;
+}
 
 /* LE MODE ESSAI (Charles, 28 octobre 2026 : « fais un mode essai ») : sur la
    DEV seulement, le QR se projette pour n'importe quelle séance, quel que soit
@@ -155,9 +162,10 @@ export function verifierSigne(jeton, type, dureeS, maintenantS = Math.floor(Date
   if (!k) return { erreur: 'secret' };
   const p = String(jeton || '').split('.');
   if (p.length !== 4 || p[0] !== type || !/^\d{1,10}$/.test(p[1]) || !/^\d{1,12}$/.test(p[2])) return { erreur: 'format' };
-  const attendu = Buffer.from(signature(k, `${p[0]}.${p[1]}.${p[2]}`));
   const recu = Buffer.from(p[3]);
-  if (attendu.length !== recu.length || !crypto.timingSafeEqual(attendu, recu)) return { erreur: 'falsifie' };
+  const vaut = cle_ => { const a = Buffer.from(signature(cle_, `${p[0]}.${p[1]}.${p[2]}`)); return a.length === recu.length && crypto.timingSafeEqual(a, recu); };
+  const ke = type === 'q' ? cleEspace() : null;
+  if (!vaut(k) && !(ke && vaut(ke))) return { erreur: 'falsifie' };
   const t = Number(p[2]);
   // Cinq secondes d'avance tolérées : deux horloges ne s'accordent jamais tout à fait.
   if (t > maintenantS + 5 || maintenantS - t > dureeS) return { erreur: 'expire' };

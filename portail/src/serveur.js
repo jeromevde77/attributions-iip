@@ -162,7 +162,9 @@ const egal = (a, b) => { const h = x => crypto.createHash('sha256').update(Strin
 const pub = express();
 pub.disable('x-powered-by');
 pub.set('trust proxy', 2);
-pub.use(express.json({ limit: '50kb' }));
+// Le relais de Mes cours (3.5.137) lit lui-même son corps, brut, jusqu'à 25 Mo : il ne passe pas par la limite de 50 Ko.
+const json50 = express.json({ limit: '50kb' });
+pub.use((req, res, next) => (req.path.startsWith('/api/enseignant/relais/') ? next() : json50(req, res, next)));
 pub.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 const essais = new Map();

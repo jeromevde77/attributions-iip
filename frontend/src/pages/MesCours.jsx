@@ -3,7 +3,7 @@ import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
@@ -22,6 +22,7 @@ import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 import AtelierUE from './AtelierUE.jsx';
+import DatesDeliberation from '../components/DatesDeliberation.jsx';
 
 /**
  * MES COURS — la porte du professeur.
@@ -48,7 +49,12 @@ function allerA(id) {
   window.scrollTo({ top: window.scrollY + r.top - barre - 16, behavior: 'smooth' });
 }
 
-export default function MesCours() {
+/* LE MODE « ESPACE » (3.5.138, Charles, 6 novembre 2026 : « j'aime le design actuel, c'est la structure que je veux changer »).
+   Dans l'espace enseignant, la navigation de l'espace choisit ce que montre cette page — `espace.vue` : 'aujourdhui' (la frise de
+   Ma journée), 'notes' (la liste des cours, puis notes, carnet, indicateurs, le cours), 'presences' (la liste, puis les présences
+   du cours), 'ue' (dossier, croisement, DUE), 'rendre' (avis VA et AR) —, et le rail de Lucie disparaît. `espace.retour` : un clic
+   sur l'entrée où l'on est déjà ramène à la liste des cours. */
+export default function MesCours({ espace = null }) {
   /* L'ANNÉE SE CHOISIT ICI (Charles, 26 septembre 2026 : « on a importé 61
      étudiants pour le stage B1 en 25-26, et ils sont 155 dans la liste de
      Véronique »). La porte montrait l'année de travail — 2026-2027 — sans
@@ -92,6 +98,7 @@ export default function MesCours() {
     setSeanceChoisie(action === 'presences' ? s.id : null);
     setFace(action === 'presences' ? 'presences' : 'notes');
     ouvrir(s.cours_code);
+    espace?.allerA?.(action === 'presences' ? 'presences' : 'notes');
   };
   useEffect(() => {
     if (!aOuvrir || aOuvrir.seance.annee !== annee) return;
@@ -99,6 +106,19 @@ export default function MesCours() {
     setAOuvrir(null);
     agir(action, seance);
   }, [annee, aOuvrir]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const vueEspace = espace?.vue || null;
+  const vuePrecedente = useRef(null);
+  useEffect(() => {
+    if (!espace) return;
+    if (vueEspace === 'ue') setVueDue(true); else setVueDue(false);
+    const coursVue = vueEspace === 'notes' || vueEspace === 'presences';
+    // Hors des notes et des présences, le cours se ferme ; re-cliquer l'entrée où l'on est ramène à la liste ; passer des
+    // notes aux présences garde le même cours ouvert.
+    if (!coursVue || vueEspace === vuePrecedente.current) { setOuvert(null); setFeuille(null); }
+    vuePrecedente.current = vueEspace;
+    if (vueEspace === 'presences') setFace('presences');
+    else if (vueEspace === 'notes' && face === 'presences') setFace('notes');
+  }, [vueEspace, espace?.tic]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
   /* LE GROUPE QU'ON A DEVANT SOI (1er octobre 2026, UE 333 AESI : « il ne
      semble pas faire Mes cours par groupes »). Un professeur qui porte les
@@ -235,7 +255,7 @@ export default function MesCours() {
     {messages && <MessagesEtudiants titre="Écrire à mes étudiants" onFermer={() => setMessages(false)} />}
     {semaine && <MonHoraireSemaine onFermer={() => setSemaine(false)} />}
     {visites && <VisitesStage onFermer={() => setVisites(false)} />}
-    <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
+    {!espace && <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
         { key: 'liste', label: 'Mes cours de l’année', icon: IconBook2, actif: !ouvert && !vueDue,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); } },
@@ -264,12 +284,21 @@ export default function MesCours() {
           // EN SERVICE DEPUIS « MA JOURNÉE » (28 octobre 2026) — bloquée depuis le 11 octobre.
           { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
         ] : []),
-      ] }]} />
+      ] }]} />}
+    {vueDue && espace && (
+      <div className="px-4 md:px-6 pt-1 pb-3 flex flex-wrap items-center gap-2">
+        <h1 className="text-lg font-semibold text-iip-blue m-0 mr-2">Mes unités</h1>
+        <div className="segments">
+          {[['dossier', '0. Dossier pédagogique'], ['croisement', '1. Croiser acquis et programme'], ['descriptif', '2. La DUE']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setFaceDue(k)} className={faceDue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        </div>
+      </div>)}
+    {vueDue && espace && <div className="px-4 md:px-6 pb-3"><DatesDeliberation annee={annee} /></div>}
     {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
-      <div className="flex items-center gap-2">
+      <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>
         <IconBooks size={20} className="text-iip-turquoise" />
-        <h1 className="text-lg font-semibold text-iip-blue m-0">Mes cours</h1>
+        <h1 className="text-lg font-semibold text-iip-blue m-0">{{ aujourdhui: 'Ma journée', rendre: 'À rendre', notes: 'Mes notes', presences: 'Mes présences' }[vueEspace] || 'Mes cours'}</h1>
         <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
           title="L'année des cours affichés — sans changer l'année de travail du reste de Lucie"
           className="controle border border-slate-300 rounded-champ bg-white text-sm font-semibold">
@@ -277,8 +306,8 @@ export default function MesCours() {
         </select>
         {/* MON HORAIRE, À LA VUE (3.1.480, Charles : « je ne vois pas où le prof voit son horaire ») : il n'était que
             dans le rail, une icône nommée au survol — qui n'existe pas au doigt. */}
-        <button type="button" className="bouton bouton-fort ml-auto inline-flex items-center gap-1.5" onClick={() => setSemaine(true)}>
-          <IconCalendarWeek size={16} /> Mon horaire de la semaine</button>
+        {!espace && <button type="button" className="bouton bouton-fort ml-auto inline-flex items-center gap-1.5" onClick={() => setSemaine(true)}>
+          <IconCalendarWeek size={16} /> Mon horaire de la semaine</button>}
       </div>
 
       {erreur && (
@@ -288,13 +317,13 @@ export default function MesCours() {
       )}
 
       {/* LES PRÉSENCES DU JOUR, EN TÊTE : le QR de la séance en cours, sans rien chercher. */}
-      {!ouvert && <MaJournee onAgir={agir} onSemaine={() => setSemaine(true)} />}
+      {!ouvert && (!espace || vueEspace === 'aujourdhui') && <MaJournee onAgir={agir} onSemaine={() => (espace ? espace.allerA?.('agenda') : setSemaine(true))} />}
 
       {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
-      {!ouvert && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}
-      {!ouvert && <div id="avis-ar"><AvisAmenagementProf annee={annee} /></div>}
+      {!ouvert && (!espace || vueEspace === 'rendre') && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}
+      {!ouvert && (!espace || vueEspace === 'rendre') && <div id="avis-ar"><AvisAmenagementProf annee={annee} /></div>}
 
-      {!ouvert && cours && (() => {
+      {!ouvert && cours && (!espace || vueEspace === 'notes' || vueEspace === 'presences') && (() => {
         /* DEUX LISTES : mes cours, puis ceux de ma section (coordination —
            Charles, 26 septembre 2026). La seconde se lit par UNITÉ et se
            filtre : une section, ce sont des dizaines de cours. */
@@ -547,9 +576,10 @@ export default function MesCours() {
             {/* DEUX FACES DU MÊME COURS (29 septembre 2026) : les notes, et les
                 présences séance par séance — celles-ci partent sur les
                 attestations du congé-éducation payé. */}
-            <div className="flex items-center gap-1 border-b border-slate-200">
+            <div className={`${vueEspace === 'presences' ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200`}>
               {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
-              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
+              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
+                .filter(([k]) => !espace || (vueEspace === 'presences' ? k === 'presences' : k !== 'presences')).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
               ))}

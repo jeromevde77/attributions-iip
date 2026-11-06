@@ -11,24 +11,24 @@ import AgendaMois from '../components/AgendaMois.jsx';
 const plus = (d, n) => new Date(new Date(`${d}T00:00:00Z`).getTime() + n * 864e5).toISOString().slice(0, 10);
 const fmt = d => `${d.slice(8)}/${d.slice(5, 7)}`;
 
-export default function AgendaEcole({ annee }) {
+export default function AgendaEcole({ annee, simple = false }) {
   const [ag, recharger] = useAgenda(annee);
   const [sel, setSel] = useState(null);
   const [vue, setVue] = useState('annee');
   const k = ag?.semaines?.indexOf(sel) ?? -1;
   return (
     <div className="space-y-4">
-      <div>
+      {!simple && <div>
         <h1 className="titre-ecran">Agenda de l’école</h1>
         <p className="text-second text-slate-500">L’année {annee} en une ligne : les grands moments, la chaleur des semaines, les cours, la fermeture de l’école, les sections et ce qu’elles demandent de personnel. On peint, ou on saisit au calendrier.</p>
-      </div>
+      </div>}
       <div className="carte overflow-hidden">
-        <EnteteCarte icone={IconCalendarMonth} titre="L’année de l’école" sous="Glissez sur des semaines (ou des jours, vue Mois) et choisissez quoi y mettre ; « Saisir » ouvre le mini calendrier.">
+        <EnteteCarte icone={IconCalendarMonth} titre="L’année de l’école" sous={simple ? 'Les grands moments, les cours, les congés et les fermetures de l’école.' : 'Glissez sur des semaines (ou des jours, vue Mois) et choisissez quoi y mettre ; « Saisir » ouvre le mini calendrier.'}>
           <div className="segments">{[['annee', 'Année'], ['mois', 'Mois']].map(([v, l]) => <button key={v} type="button" onClick={() => setVue(v)} className={vue === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>)}</div>
         </EnteteCarte>
         {vue === 'mois' && <AgendaMois annee={annee} ag={ag} recharger={recharger} />}
-        {vue === 'annee' && <AgendaLigne annee={annee} ag={ag} recharger={recharger} droite="0.5rem" selSemaine={sel} onSemaine={l => setSel(x => (x === l ? null : l))} />}
-        {vue === 'annee' && sel && k >= 0 && (
+        {vue === 'annee' && <AgendaLigne simple={simple} annee={annee} ag={ag} recharger={recharger} droite="0.5rem" selSemaine={sel} onSemaine={l => setSel(x => (x === l ? null : l))} />}
+        {vue === 'annee' && sel && k >= 0 && !simple && (
           <div className="border-t px-4 py-3 text-sm space-y-1">
             <div className="flex items-center gap-2">
               <span className="titre-carte">Semaine du {fmt(sel)} au {fmt(plus(sel, 4))}</span>
