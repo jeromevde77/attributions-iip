@@ -568,7 +568,8 @@ function Presences({ seanceId, onRetour, motifs: MOTIFS = [], qr = false }) {
   );
 }
 
-/* L'AGENDA DE L'ÉCOLE DANS L'HORAIRE (3.5.089) : un jour férié, fermé ou de congé est hachuré ; les moments s'y écrivent. */
+/* L'AGENDA DE L'ÉCOLE DANS L'HORAIRE (3.5.089) : un jour férié, fermé ou de congé est grisé d'un aplat (plus de hachures, 3.5.143 :
+   « moche ») ; les moments s'y écrivent. */
 const TEINTE_AGENDA = { ferie: '#9D4A38', ferme: '#9D4A38', conge: '#64748B', formation: '#6B46C1', moment: '#2F6FB0' };
 const MOT_AGENDA = { ferie: 'Férié', ferme: 'École fermée', conge: 'Congé', formation: 'Formation', moment: '' };
 function AgendaPastille({ a }) {
@@ -635,7 +636,7 @@ function MonHoraire({ moi, onPresences }) {
           style={{ gridTemplateColumns: `repeat(auto-fit, minmax(10rem, 1fr))` }}>
           {jours.map(j => (
             <div key={j} className="p-3 flex flex-col gap-2 md:min-h-[12rem]"
-              style={duJour(j).some(a => ['ferie', 'ferme', 'conge'].includes(a.type)) ? { background: 'repeating-linear-gradient(45deg, transparent 0 8px, rgba(27,43,75,.045) 8px 16px)' } : undefined}>
+              style={duJour(j).some(a => ['ferie', 'ferme', 'conge'].includes(a.type)) ? { background: '#F7F8FA' } : undefined}>
               <span className={`font-semibold first-letter:uppercase ${j === d.aujourdhui ? 'text-iip-blue' : 'text-iip-texte'}`}>{jourFr(j)}{j === d.aujourdhui ? ' · aujourd’hui' : ''}</span>
               {duJour(j).map((a, i) => <AgendaPastille key={i} a={a} />)}
               {d.seances.filter(s => s.date === j).map(s => (
