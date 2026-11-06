@@ -3699,6 +3699,18 @@ jamais en aperçu) ; `verifierSigne` de Lucie accepte cette clé pour le type «
 (`LUCIE_URL`/presence/…, déposée avec les réglages, `qr` de `ens_reglage`). Les présences du jour repartent vers l'espace toutes
 les ~10 s (`/interne/ens/presences-jour`) : le compteur suit. Mise en place : `scripts/vps/ESPACE-ENSEIGNANT.md`.
 
+**TOUT MES COURS DANS L'ESPACE ENSEIGNANT : LE RELAIS** (3.5.137, Charles : « TOUTES les fonctionnalités de Mes cours passent dans
+l'espace enseignant, tu DOIS TOUT bouger »). L'espace monte la page de Lucie elle-même (`pages/MesCours.jsx`, face « Mes cours »,
+`MesCoursEspace` ; ses entrées de rail remontent dans la navigation de l'espace par `FournisseurRail` → `SousNav`, en rangée sur
+téléphone ; `--rail: 0`). `enseignant/relais.js` détourne tout `fetch('/api/…')` vers `/api/enseignant/relais/…` avec la session
+de l'espace. Le portail NOTE la requête (`ens_requete`, corps brut jusqu'à 25 Mo, hors limite JSON de 50 Ko) et attend 25 s ;
+Lucie la relève toutes les 0,7 s (`relayerEnseignants`, `relayerVite`), l'exécute sur elle-même (127.0.0.1:PORT) avec
+`signRelaisToken` (les droits du compte, 2 min ; aperçu = `signPreviewToken`, lecture seule) et dépose la réponse (statut, type,
+pièce jointe, corps en base64). Le mur reste à sens unique. Jamais relayé : `/api/auth/*` (sauf `me`, `droits`), `/api/users`,
+`/api/sauvegardes`, `/api/historique/backup`, `/api/profils-acces`. **Un écran de Lucie ajouté à Mes cours passe donc tout seul
+dans l'espace** ; une nouvelle porte d'API qu'il appelle passe par le même relais, avec les droits du professeur. nginx du site :
+`/api/enseignant/relais/` à 26 Mo, 60 s.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

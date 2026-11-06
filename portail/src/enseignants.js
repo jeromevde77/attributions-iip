@@ -57,6 +57,9 @@ export function monterEnseignants(pub, int, o) {
   // L'APERÇU DE LA DIRECTION (3.5.084) : un professeur déposé pour le seul aperçu n'existe pour aucune porte de l'espace.
   try { db.exec('ALTER TABLE ens ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
   try { db.exec('ALTER TABLE ens ADD COLUMN qr INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+  db.exec(`CREATE TABLE IF NOT EXISTS ens_requete (id INTEGER PRIMARY KEY AUTOINCREMENT, ens_id INTEGER NOT NULL, apercu INTEGER NOT NULL DEFAULT 0,
+    methode TEXT NOT NULL, chemin TEXT NOT NULL, type TEXT, corps BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')), prise_le TEXT,
+    statut INTEGER, rep_type TEXT, rep_disposition TEXT, rep_corps BLOB, fini_le TEXT)`);
   const HORS = "Votre espace ne s'ouvre que depuis la Belgique, et pas au travers d'un VPN.";
   const permis = req => autorise(ipDe(req), false);
   const refuserHors = res => res.status(403).json({ hors_belgique: true, error: HORS });
@@ -415,6 +418,38 @@ export function monterEnseignants(pub, int, o) {
       compteur: { presents, attendus } });
   });
 
+  /* LE RELAIS DE MES COURS (3.5.137, Charles, 6 novembre 2026 : « TOUTES les fonctionnalités de Mes cours passent dans l'espace
+     enseignant »). Les écrans de Mes cours tournent ici tels quels ; chacune de leurs requêtes vers Lucie est NOTÉE ici, Lucie vient
+     la chercher (toutes les secondes), l'exécute avec les droits du compte de l'enseignant et dépose la réponse — le mur reste à
+     sens unique : Lucie n'est jamais appelée depuis l'espace. La réponse attend 25 s au plus. En aperçu : lecture seule. */
+  const lireCorps = req => new Promise((ok, ko) => {
+    const morceaux = []; let n = 0;
+    req.on('data', c => { n += c.length; if (n > 26 * 1024 * 1024) { ko(Object.assign(new Error('trop gros'), { trop: true })); req.destroy(); } else morceaux.push(c); });
+    req.on('end', () => ok(Buffer.concat(morceaux))); req.on('error', ko);
+  });
+  pub.all('/api/enseignant/relais/*', connecte, async (req, res) => {
+    const chemin = '/api/' + req.originalUrl.slice('/api/enseignant/relais/'.length);
+    if (req.apercu && req.method !== 'GET') return res.status(403).json({ error: 'Aperçu de la direction : lecture seule, rien ne s’enregistre.' });
+    let corps = null;
+    try { corps = ['GET', 'HEAD'].includes(req.method) ? null : await lireCorps(req); }
+    catch (e) { return res.status(413).json({ error: e.trop ? 'Fichier trop lourd (25 Mo au plus).' : 'Envoi interrompu.' }); }
+    const id = Number(db.prepare('INSERT INTO ens_requete (ens_id, apercu, methode, chemin, type, corps) VALUES (?,?,?,?,?,?)')
+      .run(req.ens.id, req.apercu ? 1 : 0, req.method, chemin.slice(0, 2000), String(req.headers['content-type'] || '').slice(0, 200) || null, corps).lastInsertRowid);
+    const fin = Date.now() + 25000;
+    while (Date.now() < fin) {
+      const r = db.prepare('SELECT statut, rep_type, rep_disposition, rep_corps FROM ens_requete WHERE id = ? AND fini_le IS NOT NULL').get(id);
+      if (r) {
+        db.prepare('DELETE FROM ens_requete WHERE id = ?').run(id);
+        if (r.rep_type) res.set('Content-Type', r.rep_type);
+        if (r.rep_disposition) res.set('Content-Disposition', r.rep_disposition);
+        return res.status(r.statut || 502).send(r.rep_corps || Buffer.alloc(0));
+      }
+      await new Promise(x => setTimeout(x, 150));
+    }
+    db.prepare('DELETE FROM ens_requete WHERE id = ? AND prise_le IS NULL').run(id);
+    res.status(504).json({ error: 'Lucie ne répond pas pour l’instant. Réessayez dans un moment.' });
+  });
+
   pub.post('/api/enseignant/apercu', (req, res) => {
     const j = db.prepare('SELECT * FROM ens_apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
     if (!j || j.utilise_le || j.expire_le < maintenant()) return res.status(400).json({ error: 'Lien d’aperçu expiré : rouvrez-le depuis la fiche dans Lucie.' });
@@ -504,6 +539,24 @@ export function monterEnseignants(pub, int, o) {
       }
     })();
     res.json({ ok: true, n });
+  });
+  // Lucie vient chercher les requêtes du relais, puis dépose leurs réponses.
+  int.get('/interne/ens/requetes', (req, res) => {
+    db.prepare("DELETE FROM ens_requete WHERE cree_le < datetime('now', '-5 minutes')").run();
+    // Une requête prise mais jamais rendue (Lucie redémarrée) se reprend après 40 s.
+    const l = db.prepare(`SELECT id, ens_id, apercu, methode, chemin, type, corps FROM ens_requete WHERE fini_le IS NULL
+      AND (prise_le IS NULL OR prise_le < datetime('now', '-40 seconds')) ORDER BY id LIMIT 30`).all();
+    const prendre = db.prepare("UPDATE ens_requete SET prise_le = datetime('now') WHERE id = ?");
+    for (const x of l) prendre.run(x.id);
+    res.json({ requetes: l.map(x => ({ ...x, apercu: !!x.apercu, corps: x.corps ? Buffer.from(x.corps).toString('base64') : null })) });
+  });
+  int.post('/interne/ens/reponses', (req, res) => {
+    const up = db.prepare("UPDATE ens_requete SET statut = ?, rep_type = ?, rep_disposition = ?, rep_corps = ?, fini_le = datetime('now') WHERE id = ?");
+    for (const r of Array.isArray(req.body?.reponses) ? req.body.reponses : []) {
+      up.run(Number(r.statut) || 502, r.type ? String(r.type).slice(0, 200) : null, r.disposition ? String(r.disposition).slice(0, 400) : null,
+        r.corps ? Buffer.from(String(r.corps), 'base64') : null, Number(r.id));
+    }
+    res.json({ ok: true });
   });
   int.post('/interne/ens/acquitter', (req, res) => {
     const ids = k => (req.body?.[k] || []).map(Number).filter(Boolean);

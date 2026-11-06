@@ -28,7 +28,7 @@ import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.j
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
-import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants } from './portailEnseignants.js';
+import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants, relayerEnseignants } from './portailEnseignants.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -414,6 +414,17 @@ export function planifierPortail() {
   setInterval(passerPortail, 10_000).unref?.();
   setTimeout(passerPortail, 5_000).unref?.();
   setInterval(releverEnseignantsVite, 3_000).unref?.();
+  setInterval(relayerVite, 700).unref?.();
+}
+
+/* LE RELAIS DE MES COURS (3.5.137) : toutes les 0,7 s, les requêtes de l'espace enseignant (son propre verrou). */
+let relaisEnCours = false, relaisTours = 0;
+async function relayerVite() {
+  if (relaisEnCours) return;
+  relaisEnCours = true;
+  try { await relayerEnseignants(appel); }
+  catch (e) { if (relaisTours % 300 === 0) console.error('[relais enseignant]', e.message); }
+  finally { relaisTours++; relaisEnCours = false; }
 }
 
 /* LE RELEVÉ RAPIDE DE L'ESPACE ENSEIGNANT (3.5.135, Charles, 6 novembre 2026 : « les enseignants encoderont dans leur espace »).

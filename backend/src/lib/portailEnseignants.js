@@ -410,3 +410,37 @@ export async function releverEnseignants(appel) {
   if (ok.demandes.length || ok.entrees.length || ok.gestes.length) await appel('POST', '/interne/ens/acquitter', ok);
   return { gestes: ok.gestes.length, ecrites };
 }
+
+
+/* LE RELAIS DE MES COURS (3.5.137, Charles : « TOUTES les fonctionnalités de Mes cours passent dans l'espace enseignant »).
+   Lucie relève les requêtes notées par l'espace, les exécute sur elle-même avec un jeton du compte de l'enseignant (ses droits,
+   ni plus ni moins : les règles de Lucie restent les seules) et dépose les réponses. Un aperçu de la direction s'exécute en
+   lecture seule (jeton « voir comme »). Quelques portes ne se relaient jamais : la connexion, les comptes, les sauvegardes. */
+const RELAIS_INTERDIT = [/^\/api\/auth\/(?!me$|droits$)/, /^\/api\/users/, /^\/api\/sauvegardes/, /^\/api\/historique\/backup/, /^\/api\/profils-acces/];
+export async function relayerEnseignants(appel) {
+  const r = await appel('GET', '/interne/ens/requetes');
+  const l = r?.requetes || [];
+  if (!l.length) return 0;
+  const { signRelaisToken, signPreviewToken } = await import('../middleware/auth.js');
+  const port = process.env.PORT || 3001;
+  const reponses = await Promise.all(l.map(async q => {
+    const fin = (statut, corps, type = 'application/json; charset=utf-8', disposition = null) =>
+      ({ id: q.id, statut, type, disposition, corps: Buffer.from(typeof corps === 'string' ? corps : JSON.stringify(corps)).toString('base64') });
+    try {
+      const chemin = String(q.chemin || '');
+      if (!chemin.startsWith('/api/') || chemin.includes('..') || RELAIS_INTERDIT.some(x => x.test(chemin.split('?')[0]))) return fin(403, { error: 'Cette fonction n’est pas disponible dans l’espace enseignant.' });
+      const u = q.ens_id > 0 ? db.prepare('SELECT * FROM utilisateur WHERE id = ? AND COALESCE(actif, 1) = 1').get(q.ens_id) : null;
+      if (!u) return fin(403, { error: 'Compte introuvable dans Lucie.' });
+      if (!q.apercu && !fonctionPour('enseignant.espace', { userId: u.id })) return fin(403, { error: 'L’espace enseignant n’est pas ouvert pour votre compte.' });
+      const jeton = q.apercu ? signPreviewToken(u, { id: null, nom: 'Aperçu de l’espace enseignant' }) : signRelaisToken(u);
+      const h = { Authorization: `Bearer ${jeton}` };
+      if (q.type) h['Content-Type'] = q.type;
+      const rep = await fetch(`http://127.0.0.1:${port}${chemin}`, { method: q.methode, headers: h,
+        body: q.corps && !['GET', 'HEAD'].includes(q.methode) ? Buffer.from(q.corps, 'base64') : undefined, signal: AbortSignal.timeout(22000) });
+      const buf = Buffer.from(await rep.arrayBuffer());
+      return { id: q.id, statut: rep.status, type: rep.headers.get('content-type'), disposition: rep.headers.get('content-disposition'), corps: buf.toString('base64') };
+    } catch (e) { return fin(502, { error: 'Lucie n’a pas pu répondre : ' + e.message }); }
+  }));
+  await appel('POST', '/interne/ens/reponses', { reponses });
+  return reponses.length;
+}

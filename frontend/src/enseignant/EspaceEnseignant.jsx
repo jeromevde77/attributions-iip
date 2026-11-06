@@ -3,6 +3,10 @@ import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import { FriseJournee } from '../components/FriseJournee.jsx';
 import QRCode from 'qrcode';
+import { lazy, Suspense } from 'react';
+import { FournisseurRail } from '../components/ui.jsx';
+import { preparerLucie } from './relais.js';
+const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode } from '@tabler/icons-react';
 
@@ -782,8 +786,50 @@ function GrillePresences({ moi }) {
     </div>);
 }
 
+/* MES COURS, TEL QUE DANS LUCIE (3.5.137) : l'écran de Lucie, ses requêtes passant par le relais. Ses entrées de rail remontent
+   dans la navigation de l'espace (`surSections`). */
+function MesCoursEspace({ surSections, mobile = null }) {
+  const [pret, setPret] = useState(false);
+  useEffect(() => { preparerLucie().finally(() => setPret(true)); }, []);
+  if (!pret) return <p className="text-slate-500">Ouverture de vos cours…</p>;
+  return (
+    // Pas de rail de Lucie ici : sa gouttière tombe à zéro (`--rail`), la navigation de l'espace en tient lieu.
+    <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-6">
+      {mobile && <SousNav sections={mobile} ligne />}
+      <FournisseurRail valeur={surSections} panneau={null} echanges={() => {}}>
+        <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><MesCoursLucie /></Suspense>
+      </FournisseurRail>
+    </div>);
+}
+function SousNav({ sections, ligne = false }) {
+  const items = (sections || []).flatMap(sec => sec.items || []);
+  if (!items.length) return null;
+  // Sur téléphone : une rangée qui défile, sous la bande d'onglets de l'espace.
+  if (ligne) {
+    return (
+      <div className="md:hidden flex gap-1.5 overflow-x-auto px-4 pb-3">
+        {items.flatMap(it => [it, ...(it.sous || [])]).map(it => (
+          <button key={it.key} type="button" onClick={it.onClick} disabled={it.bloque}
+            className="shrink-0 min-h-10 px-3 rounded-pastille border text-second inline-flex items-center gap-1.5"
+            style={it.actif ? { background: 'var(--c-principal, #19537E)', color: '#fff', borderColor: 'transparent' } : { borderColor: '#E4E7EC' }}>
+            {it.icon ? <it.icon size={14} /> : null}{it.label}</button>))}
+      </div>);
+  }
+  const Entree = ({ it, retrait = 0 }) => (
+    <>
+      <button type="button" onClick={it.onClick} disabled={it.bloque} aria-current={it.actif ? 'page' : undefined}
+        className="shrink-0 min-h-9 pr-2 rounded-champ inline-flex items-center gap-2 text-second text-left w-full"
+        style={{ paddingLeft: `${1.6 + retrait}rem`, ...(it.actif ? { color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600, background: 'var(--menu-actif, #E3ECF5)' } : {}) }}>
+        {it.icon ? <it.icon size={15} className="flex-none" /> : null}<span className="min-w-0">{it.label}</span>
+      </button>
+      {(it.sous || []).map(x => <Entree key={x.key} it={x} retrait={retrait + 0.9} />)}
+    </>);
+  return <div className="hidden md:flex flex-col gap-0.5 pb-1">{items.map(it => <Entree key={it.key} it={it} />)}</div>;
+}
+
 const FACES = [
   { k: 'journee', l: 'Ma journée', I: IconSun },
+  { k: 'cours', l: 'Mes cours', I: IconBook },
   { k: 'horaire', l: 'Mon horaire', I: IconCalendarWeek },
   { k: 'presences', l: 'Présences de l’année', I: IconTable },
   { k: 'ues', l: 'Mes UE et étudiants', I: IconUsers },
@@ -798,6 +844,7 @@ export default function EspaceEnseignant() {
   const [definir, setDefinir] = useState(false);
   const [moi, setMoi] = useState(null);
   const [face, setFace] = useState('journee');
+  const [sectionsCours, setSectionsCours] = useState(null);
   const [seance, setSeance] = useState(null);
   const [erreur, setErreur] = useState(null);
   const entrer = t => { poser(t); setToken(t); setDefinir(false); };
@@ -846,7 +893,7 @@ export default function EspaceEnseignant() {
             className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
             style={face === f.k ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
             <f.I size={18} /> {f.l}
-          </button>))}
+          </button>)).flatMap((b, i) => (FACES[i].k === 'cours' && face === 'cours' && !seance ? [b, <SousNav key="sous-cours" sections={sectionsCours} />] : [b]))}
         <div className="hidden md:block flex-1" />
         <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
           <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>
@@ -859,6 +906,7 @@ export default function EspaceEnseignant() {
         {seance ? <Presences seanceId={seance} motifs={moi.motifs} qr={!!moi.qr && !moi.apercu} onRetour={() => setSeance(null)} />
           : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
           : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
+          : face === 'cours' ? <MesCoursEspace surSections={setSectionsCours} mobile={sectionsCours} />
           : face === 'presences' ? <GrillePresences moi={moi} />
           : face === 'ues' ? <MesUE />
           : face === 'textes' ? <TextesEcole />
