@@ -3738,6 +3738,16 @@ cours — `epreuve_session1` s1_*, `deliberation_session2` s2_*, cours vide = é
 la journée). `GET /api/mes-cours/dates` ; flux `/api/agenda/flux/<jeton>.ics` les ajoute (année active et suivante). Espace :
 Mon agenda → Mes dates (par mois, filtre, dates passées au choix) · Ma semaine · L'année de l'école.
 
+**AUJOURD'HUI = TABLEAU DE BORD + FRISE ; UN SEUL ÉCRAN DE PRÉSENCES ; LE RÉFÉRENT DE L'UNITÉ RÉDIGE** (3.5.144, Charles : « tableau de
+bord fusionné avec aujourd'hui » ; « les présences se font à plusieurs endroits » ; « si référent UE, coordination ou rôle qui le
+permet : toutes les étapes ; sinon toutes les étapes en lecture »). (1) Espace : Aujourd'hui = `Accueil` de Lucie avec `apresEntete`
+= la frise (`MaJournee`) ; la frise et la semaine envoient une `demande` { action, s, n } à l'unique `MesCours` de l'espace (prop
+`espace.demande`), qui ouvre les présences ou les notes du cours — l'écran de présences de l'espace n'est plus appelé. (2) DUE :
+`droitsSurLUE` — un professeur écrit s'il est COORDINATION ou RÉFÉRENT (`referentDe` : le responsable choisi dans la DUE, à défaut
+celui qui porte le plus de périodes) ; un titulaire lit. `AtelierUE` : qui ne peut écrire passe les verrous de l'ordre du travail
+et lit chaque étape (bandeau « Lecture seule »). (3) `GET /api/acquis/ue/:n/(structure|liens)` se lit par tout compte (l'étape
+« Pondérer » en lecture) ; écrire reste gardé par le module.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

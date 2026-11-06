@@ -3221,7 +3221,10 @@ app.use('/api/etudiants', garderModule('etudiants'), etudiantsRoutes);
 app.use('/api/capitalisation', garderModule('capitalisation'), capitalisationRoutes);
 app.use('/api/assistants', garderModule('assistants'), assistantsRoutes);
 app.use('/api/rentree', garderModule('rentree'), rentreeRoutes);
-app.use('/api/acquis', garderModule('acquis'), acquisRoutes);
+// LIRE LES POIDS DE SON UNITÉ (3.5.144, Charles : « si pas référent, voir toutes les étapes en lecture ») : la structure et les liens
+// d'une unité (acquis, cours, poids) se LISENT par tout compte — l'étape « Pondérer » de Mes unités. Écrire reste gardé.
+const gardeAcquis = garderModule('acquis');
+app.use('/api/acquis', (req, res, next) => (req.method === 'GET' && /^\/ue\/\d+\/(structure|liens)\/?$/.test(req.path) ? next() : gardeAcquis(req, res, next)), acquisRoutes);
 app.use('/api/calendrier', garderModule('calendrier'), calendrierRoutes);
 app.use('/api/import-suivi', garderModule('import-suivi'), importSuiviRoutes);
 app.use('/api/doublons-etudiants', garderModule('doublons-etudiants'), doublonsEtudiantsRoutes);

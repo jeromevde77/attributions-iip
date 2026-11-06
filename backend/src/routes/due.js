@@ -90,7 +90,12 @@ function droitsSurLUE(user, ueNum, annee) {
   }
   if (user?.role === 'professeur') {
     const coord = estCoordinationDe(user, ueNum, annee);
-    return { lire: titulaire || coord, ecrire: peutRediger && (titulaire || coord), valider: peutValider, titulaire, coordination: coord };
+    /* LE RÉFÉRENT DE L'UNITÉ ÉCRIT, LES AUTRES LISENT (3.5.144, Charles, 6 novembre 2026 : « si la personne est référent UE,
+       coordination ou rôle qui le permet, elle fait toutes les étapes ; sinon, elle voit toutes les étapes en lecture »). Le
+       référent est le « responsable de l'unité » choisi dans la DUE ; tant qu'il n'est pas choisi, celui que Lucie propose
+       (l'enseignant qui porte le plus de périodes). Un titulaire qui n'est ni l'un ni l'autre lit. */
+    const referent = titulaire && u?.professeur_id && referentDe(ueNum, annee) === Number(u.professeur_id);
+    return { lire: titulaire || coord, ecrire: peutRediger && (referent || coord), valider: peutValider, titulaire, coordination: coord, referent: !!referent };
   }
 
   /* Les autres lisent selon leur périmètre : la gestion de la section OU une
@@ -430,6 +435,16 @@ function partieAutomatique(ueNum, annee) {
     enseignants,
     etablissement: identiteEtablissement(),
   };
+}
+
+/** Le référent de l'unité : le responsable choisi dans la DUE, sinon l'enseignant qui porte le plus de périodes. */
+export function referentDe(ueNum, annee) {
+  try {
+    const r = lireDUE(ueNum, annee).contenu?.responsable;
+    if (r != null && /^\d+$/.test(String(r))) return Number(r);
+    return db.prepare(`SELECT a.professeur_id id FROM attribution a WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL
+      GROUP BY a.professeur_id ORDER BY SUM(COALESCE(a.periodes_attribuees, 0)) DESC, COUNT(DISTINCT a.code_cours) DESC LIMIT 1`).get(ueNum, annee)?.id ?? null;
+  } catch { return null; }
 }
 
 function lireDUE(ueNum, annee) {

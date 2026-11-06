@@ -108,6 +108,9 @@ export default function MesCours({ espace = null }) {
   }, [annee, aOuvrir]);   // eslint-disable-line react-hooks/exhaustive-deps
   const vueEspace = espace?.vue || null;
   const vuePrecedente = useRef(null);
+  /* UNE DEMANDE VENUE D'AILLEURS DANS L'ESPACE (3.5.144) : la frise d'Aujourd'hui ou la semaine de Mon agenda ouvrent ici les
+     présences (ou les notes) d'une séance — un seul écran de présences, celui-ci. */
+  useEffect(() => { if (espace?.demande?.s) agir(espace.demande.action, espace.demande.s); }, [espace?.demande?.n]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!espace) return;
     if (vueEspace === 'ue') setVueDue(true); else setVueDue(false);
@@ -289,12 +292,12 @@ export default function MesCours({ espace = null }) {
       <div className="px-4 md:px-6 pt-1 pb-3 flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold text-iip-blue m-0 mr-2">Mes unités</h1>
         <div className="segments">
-          {[['dossier', '0. Dossier pédagogique'], ['croisement', '1. Croiser acquis et programme'], ['descriptif', '2. La DUE']].map(([k, l]) => (
+          {[['dossier', '0. Dossier pédagogique'], ['croisement', '1. Croiser acquis et programme'], ['ponderation', '2. Pondérer'], ['descriptif', '3. La DUE']].map(([k, l]) => (
             <button key={k} type="button" onClick={() => setFaceDue(k)} className={faceDue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
         </div>
       </div>)}
     {vueDue && espace && <div className="px-4 md:px-6 pb-3"><DatesDeliberation annee={annee} /></div>}
-    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
+    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={espace ? ['dossier', 'croisement', 'ponderation', 'descriptif'] : ['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>
         <IconBooks size={20} className="text-iip-turquoise" />
