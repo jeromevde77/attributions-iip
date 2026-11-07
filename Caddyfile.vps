@@ -102,6 +102,14 @@ http://:8444 {
 	reverse_proxy lucie-portail-backend-dev:3102
 }
 
+# ------------------------------------------------------------ SURVEILLANCE
+# Beszel (RAM, disque, réseau, CPU) : sa propre authentification, compte admin
+# créé au premier accès. Voir docker-compose.vps.yml.
+monitor.lucie-iip.be {
+	import commun
+	reverse_proxy beszel:8090
+}
+
 # Ancien nom, redirige vers le nouveau. À retirer plus tard.
 vps-7c1bfaa0.vps.ovh.net {
 	redir https://dev.lucie-iip.be{uri} permanent

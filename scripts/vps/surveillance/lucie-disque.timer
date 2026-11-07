@@ -1,0 +1,10 @@
+# /etc/systemd/system/lucie-disque.timer — toutes les 30 minutes
+[Unit]
+Description=Lucie : surveillance du disque toutes les 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+
+[Install]
+WantedBy=timers.target

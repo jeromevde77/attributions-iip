@@ -1,0 +1,62 @@
+#!/bin/sh
+# /usr/local/bin/lucie-disque — prévient sur le téléphone (ntfy) quand le disque
+# du VPS se remplit. Lancé toutes les 30 minutes par /etc/cron.d/lucie-disque.
+#
+# Réglages dans /etc/lucie-disque.conf (root seul, chmod 600) :
+#   SUJET=<sujet-ntfy>     le sujet ntfy auquel le téléphone est abonné (secret)
+#   SEUIL_ALERTE=80        en % d'occupation de /
+#   SEUIL_CRITIQUE=90
+#
+# Une notification part quand le niveau CHANGE (ok → alerte → critique, et le
+# retour à ok), puis une fois par jour tant que le disque reste critique : pas
+# de rafale toutes les 30 minutes.
+#
+# Essai : lucie-disque --essai  (envoie une notification de test)
+
+CONF=${LUCIE_DISQUE_CONF:-/etc/lucie-disque.conf}
+[ -r "$CONF" ] && . "$CONF"
+SEUIL_ALERTE=${SEUIL_ALERTE:-80}
+SEUIL_CRITIQUE=${SEUIL_CRITIQUE:-90}
+ETAT=${LUCIE_DISQUE_ETAT:-/var/lib/lucie-disque/etat}
+
+envoyer() { # $1 titre (ASCII), $2 priorité, $3 message
+  [ -n "$SUJET" ] || { printf '%s\n%s\n' "$1" "$3"; return; }
+  curl -fsS -m 30 -H "Title: $1" -H "Priority: $2" -H "Tags: floppy_disk" \
+       --data-binary "$3" "https://ntfy.sh/$SUJET" >/dev/null \
+    || logger -t lucie-disque "notification ntfy non envoyée"
+}
+
+if [ "$1" = "--essai" ]; then
+  envoyer "Lucie - essai disque" default "La surveillance du disque de Lucie est en place."
+  exit 0
+fi
+
+pct=$(df -P / | awk 'NR==2 { gsub("%", "", $5); print $5 }')
+libre=$(df -Ph / | awk 'NR==2 { print $4 }')
+taille=$(df -Ph / | awk 'NR==2 { print $2 }')
+
+niveau=ok
+[ "$pct" -ge "$SEUIL_ALERTE" ] && niveau=alerte
+[ "$pct" -ge "$SEUIL_CRITIQUE" ] && niveau=critique
+
+aujourdhui=$(date +%F)
+avant=ok; jour_avant=
+[ -r "$ETAT" ] && read -r avant jour_avant < "$ETAT"
+
+if [ "$niveau" = "$avant" ] && { [ "$niveau" != critique ] || [ "$jour_avant" = "$aujourdhui" ]; }; then
+  exit 0
+fi
+
+mkdir -p "$(dirname "$ETAT")"
+echo "$niveau $aujourdhui" > "$ETAT"
+
+# Ce qui se récupère le plus souvent : les anciennes images après les « pull »
+images=$(docker system df 2>/dev/null | awk '$1 == "Images" { print $(NF-1), $NF }')
+detail="Disque / : ${pct} % occupé, ${libre} libres sur ${taille}."
+[ -n "$images" ] && detail="$detail Images Docker récupérables : $images."
+
+case "$niveau" in
+  critique) envoyer "Lucie - disque presque plein" urgent "$detail" ;;
+  alerte)   envoyer "Lucie - disque a surveiller" high "$detail" ;;
+  ok)       envoyer "Lucie - disque revenu a la normale" low "$detail" ;;
+esac
