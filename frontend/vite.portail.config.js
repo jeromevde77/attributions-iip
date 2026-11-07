@@ -13,6 +13,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const copierGuide = () => ({ name: 'copier-guide', closeBundle() {
   const src = resolve(__dirname, 'public/guide');
   if (existsSync(src)) cpSync(src, resolve(__dirname, 'dist-portail/guide'), { recursive: true });
+  // Et pdf.js (3.5.162) : un PDF joint à un message se dessine page par page, comme dans Lucie — sans lui, la case restait blanche.
+  const pdf = resolve(__dirname, 'public/vendor');
+  if (existsSync(pdf)) cpSync(pdf, resolve(__dirname, 'dist-portail/vendor'), { recursive: true });
 } });
 export default defineConfig({
   plugins: [react(), copierGuide()],
