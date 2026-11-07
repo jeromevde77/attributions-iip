@@ -13,6 +13,7 @@
 // redirige tout vers une boîte) ; l'essai « m'envoyer mes rappels » reste ouvert partout.
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { lienPour } from './bascule.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { prenomDuCompte } from './nom.js';
 
@@ -183,10 +184,11 @@ export async function envoyerUrgents({ seul = null } = {}) {
   for (const [, rs] of parPersonne) {
     const u = rs[0];
     const prenom = prenomDuCompte({ nom_complet: u.nom_complet, email: u.email });
+    const espace = await lienPour({ id: u.utilisateur_id, role: u.role });   // un professeur : vers son espace (3.5.212)
     const html = templateNotif({ titre: rs.length > 1 ? 'Des rappels pour vous' : 'Un rappel pour vous',
       corps: `<p>Bonjour${prenom ? ` ${esc(prenom)}` : ''},</p><ul style="margin:0;padding-left:18px">${rs.map(ligne).join('')}</ul>
         <p style="color:#64748B;font-size:12px;margin-top:18px">Rappel automatique de Lucie. Le détail est dans Lucie.</p>`,
-      lien: rs[0].lien || '/', lienTexte: 'Ouvrir Lucie' });
+      lien: espace ? '/' : (rs[0].lien || '/'), lienTexte: espace ? 'Ouvrir mon espace' : 'Ouvrir Lucie', base: espace });
     const r = await envoyerEmail({ to: u.email, subject: `Lucie — ${rs.length > 1 ? `${rs.length} rappels` : rs[0].titre}`, html });
     marquerEnvoyes(rs.map(x => x.id), !r.ok ? 'echec' : r.simule ? 'simule' : 'envoye');
     if (r.ok) envoyes++;

@@ -1,5 +1,6 @@
 /** Configuration → Fonctions (3.5.001) : lire et régler l'état de chaque fonction ; savoir ce qui vaut pour moi. */
 import { Router } from 'express';
+import { lireBascule, ecrireBascule, URL_ESPACE } from '../lib/bascule.js';
 import { authRequired } from '../middleware/auth.js';
 import { litLaConfiguration } from '../middleware/permissions.js';
 import { reglagesFonctions, reglerFonctions, fonctionPour, CATALOGUE } from '../lib/fonctions.js';
@@ -41,5 +42,20 @@ r.post('/historique', authRequired, direction, (req, res) => {
     deposerBientot();
     res.json(b);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// LA BASCULE DES PROFESSEURS (3.5.212) : la date à partir de laquelle le rôle « professeur » n'entre plus dans Lucie.
+r.get('/bascule', authRequired, direction, (req, res) => {
+  const etat = reglagesFonctions().etats?.['enseignant.espace'] || 'eteinte';
+  const n = db.prepare(`SELECT COUNT(*) n FROM utilisateur WHERE role = 'professeur' AND COALESCE(actif, 1) = 1`).get().n;
+  const relies = db.prepare(`SELECT COUNT(*) n FROM utilisateur WHERE role = 'professeur' AND COALESCE(actif, 1) = 1 AND professeur_id IS NOT NULL`).get().n;
+  res.json({ bascule: lireBascule(), espace: etat, url: URL_ESPACE(), professeurs: n, relies });
+});
+r.put('/bascule', authRequired, direction, (req, res) => {
+  const date = req.body?.date || null;
+  if (date && (reglagesFonctions().etats?.['enseignant.espace'] || 'eteinte') !== 'allumee') {
+    return res.status(409).json({ error: 'L’espace enseignant doit d’abord être allumé pour tous (Mise en service → « L’espace enseignant ») : sinon des professeurs perdraient toute porte.' });
+  }
+  try { res.json({ bascule: ecrireBascule(date, req.user?.nom || req.user?.email || null) }); }
+  catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 export default r;

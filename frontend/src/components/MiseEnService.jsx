@@ -16,6 +16,43 @@ const COULEUR = { eteinte: 'var(--c-indisponible, #94A3B8)', essai: 'var(--c-att
 /* LES ANNÉES PASSÉES DANS LES ESPACES (3.5.027, Charles : « pour tous les résultats antérieurs, toutes les attestations
    de réussite, de VA… dans les espaces des étudiants »). Compter d'abord, puis déposer ; aucun courriel. */
 const NATURES_HIST = { hist_reussite: 'attestations de réussite', hist_va: 'attestations de VA', hist_recap: 'documents « toutes les années »' };
+/* LA BASCULE DES PROFESSEURS (3.5.212) : la date à partir de laquelle le rôle « professeur » n'entre plus dans Lucie — il
+   travaille dans son espace. La coordination et la direction qui enseignent gardent Lucie. Seulement quand l'espace enseignant
+   est allumé pour tous. */
+function BasculeProfesseurs() {
+  const [b, setB] = useState(null);
+  const [date, setDate] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const charger = () => fetch('/api/fonctions/bascule', { headers: authHeaders() }).then(r => r.json()).then(j => { setB(j); setDate(j.bascule?.date || ''); }).catch(e => setErreur(e.message));
+  useEffect(() => { charger(); }, []);
+  const poser = async valeur => {
+    setErreur(null);
+    if (valeur && !(await demander(`À partir du ${valeur.split('-').reverse().join('/')}, les ${b.professeurs} comptes « professeur » n’entreront plus dans Lucie : ils seront renvoyés vers ${b.url}. Confirmer ?`))) return;
+    try {
+      const r = await fetch('/api/fonctions/bascule', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ date: valeur || null }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || 'refus du serveur');
+      charger();
+    } catch (e) { setErreur(e.message); }
+  };
+  if (!b) return null;
+  const fixee = b.bascule?.date;
+  return (
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconSchool} titre="La bascule des professeurs vers leur espace" />
+      <div className="px-4 py-3 space-y-3">
+        <p className="text-second text-slate-500">À partir de la date choisie, un compte au rôle « professeur » n’entre plus dans Lucie : la connexion le renvoie vers son espace ({b.url}), et une session déjà ouverte s’arrête. La coordination et la direction qui enseignent gardent Lucie. {b.professeurs} compte(s) « professeur » actif(s), dont {b.relies} relié(s) à une fiche du personnel{b.professeurs > b.relies ? ' — les autres n’auront rien dans leur espace tant que le lien n’est pas fait' : ''}.</p>
+        {b.espace !== 'allumee' && <p className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">L’espace enseignant n’est pas allumé pour tous (état : {b.espace}) : la date ne peut pas encore être fixée.</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="date" className="controle" value={date} onChange={e => setDate(e.target.value)} disabled={b.espace !== 'allumee'} aria-label="Date de la bascule" />
+          <button type="button" className="bouton bouton-fort" disabled={!date || date === fixee || b.espace !== 'allumee'} onClick={() => poser(date)}>Fixer la date</button>
+          {fixee && <button type="button" className="bouton" onClick={() => poser(null)}>Retirer la date</button>}
+          {fixee && <span className="text-second text-slate-500">Fixée au {fixee.split('-').reverse().join('/')}{b.bascule.pose_par ? ` par ${b.bascule.pose_par}` : ''}.</span>}
+        </div>
+        {erreur && <p className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</p>}
+      </div>
+    </section>);
+}
+
 function AnneesPassees() {
   const [b, setB] = useState(null);
   const [encours, setEncours] = useState(false);
@@ -157,6 +194,7 @@ export default function MiseEnService() {
       {erreur && <p className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</p>}
       {groupe('espace', 'L’espace des étudiants')}
       {groupe('personnel', 'Le personnel')}
+      <BasculeProfesseurs />
       <AnneesPassees />
       <section className="carte px-4 py-3 space-y-5">
         <Personnes titre="Étudiants d’essai" icone={IconSchool} l={r.etudiants} nom={nomEtudiant}

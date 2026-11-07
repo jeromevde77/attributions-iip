@@ -18,7 +18,7 @@ import * as gConfig from './guide/config.js';
 import * as gEcole from './guide/ecole.js';
 import * as gNouveautes from './guide/nouveautes.js';
 
-export const VERSION_DECRITE = '3.5.211';
+export const VERSION_DECRITE = '3.5.212';
 
 export const RUBRIQUES = [
   {
@@ -1768,7 +1768,8 @@ const ORDRE_CHAPITRES = ['ensemble', 'demarrage', 'moi', 'accueil', 'equipe',
   'personnel', 'organisation', 'gestion', 'dotation', 'frais',
   'documentation', 'config'];
 const RETRAITS = ['gestion|Rapport ETP et ratio étudiants / ETP'];
-const RESUMES = { gestion: 'Le budget des sections, les présences et la PEP estimée, le plan d’action qualité.' };
+const RESUMES = { gestion: 'Le budget des sections, les présences et la PEP estimée, le plan d’action qualité.',
+  mescours: 'Pour les enseignants : l’espace enseignant — notes, carnet, présences, supports, TFE, avis, agenda, absences. Les coordinations et la direction y lisent aussi Mes cours de Lucie.' };
 /* L'ordre des points de Configuration suit les familles de son rail : Établissement · Enseignement · Documents et
    envois · Accès · Système. Un point absent de la liste garde sa place, à la fin. */
 const ORDRE_CONFIG = ['Les cinq familles', 'Identité fait foi', 'Plusieurs établissements', 'Années et calendrier', 'Le calendrier des sessions',
@@ -1788,7 +1789,9 @@ const ORDRE_CONFIG = ['Les cinq familles', 'Identité fait foi', 'Plusieurs éta
   for (const [id, t] of Object.entries(RESUMES)) if (chap(id)) chap(id).resume = t;
   for (const c of COMPLEMENTS) for (const r of c.chapitres || []) if (!chap(r.id)) RUBRIQUES.push(r);
   for (const c of COMPLEMENTS) for (const [id, pts] of Object.entries(c.ajouts || {})) {
-    if (chap(id)) chap(id).points.push(...pts); else console.warn('[mode d’emploi] ajout sans chapitre :', id);
+    // Un point `enTete` ouvre son chapitre (3.5.212 : « l'espace enseignant, où trouver quoi » avant les points de Mes cours).
+    if (chap(id)) { chap(id).points.push(...pts.filter(p => !p.enTete)); chap(id).points.unshift(...pts.filter(p => p.enTete)); }
+    else console.warn('[mode d’emploi] ajout sans chapitre :', id);
   }
   const rang = id => { const i = ORDRE_CHAPITRES.indexOf(id); return i < 0 ? 999 : i; };
   RUBRIQUES.sort((a, b) => rang(a.id) - rang(b.id));

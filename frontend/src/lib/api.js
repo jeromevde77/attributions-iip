@@ -33,6 +33,10 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   }
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const data = isJson ? await res.json() : await res.blob();
+  // LA BASCULE (3.5.212) : un professeur dont la date est passée travaille dans son espace ; une session ouverte y part.
+  if (res.status === 403 && isJson && data?.bascule && data.url && !path.startsWith('/auth/login')) {
+    clearToken(); window.location.href = data.url; return;
+  }
   if (!res.ok) {
     const err = new Error((isJson && data?.error) || res.statusText || 'Erreur réseau');
     err.status = res.status;

@@ -352,14 +352,15 @@ export const ajouts = {
       ],
     },
     {
-      titre: "L'espace enseignant : un site à part, plus simple",
-      pour: 'ens coo dir',
-      ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur.",
-      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie. Il s'ouvre sur Ma journée : les séances du jour avec [[Prendre les présences|IconUserCheck|fort]], et « Ce qui m'attend » (les séances passées dont les présences manquent). Les présences se prennent d'un toucher par étudiant — P présent, P* en retard, A absent, J absence justifiée avec son motif —, [[Tous présents]] d'abord pour aller vite. Mon horaire montre la semaine, visites de stage comprises ; Mon compte, ses appareils et son mot de passe. La première fois : « Première visite » → un lien arrive à votre adresse de l'institut → vous choisissez un mot de passe pour cet espace (celui de Lucie ne change pas) ; sur un nouvel appareil, un code à six chiffres en plus.",
+      titre: "L'espace enseignant : où trouver quoi",
+      pour: 'ens coo dir', enTete: true,
+      ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur ; installable sur l'écran d'accueil.",
+      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie ; tout ce que faisait Mes cours y est. À gauche (en haut sur téléphone) : Aujourd'hui — votre tableau de bord et la frise de la journée (présences, QR, ticket de sortie) ; Mes notes — vos cours, et pour chacun Le cours, Notes, Carnet, Supports, Indicateurs ; Mes présences — la grille de chaque cours ; Mes étudiants — vos unités, leurs étudiants et leur fiche, « Écrire à mes étudiants » ; Mes unités — dossier pédagogique, croisement, pondération, DUE ; À rendre — les avis de valorisation et d'aménagement ; Mes TFE — vos jurys et vos fiches ; Mon agenda — Mes dates (examens, délibérations), Ma semaine, l'année de l'école, Signaler une absence, Mes visites de stage, l'agenda du téléphone. En bas : Ma fiche, Aide, L'école (textes à lire, documents reçus), Mon compte. La première fois : « Première visite », votre adresse de l'institut, un lien arrive, vous choisissez un mot de passe pour cet espace ; sur un nouvel appareil, un code à six chiffres en plus.",
       savoir: [
-        "Ce que vous enregistrez dans l'espace part dans Lucie en quelques secondes, à votre nom ; si Lucie refuse (séance qui ne vous appartient plus, par exemple), l'espace le dit sur la séance.",
+        "Ce que vous enregistrez part dans Lucie en quelques secondes, à votre nom ; si Lucie refuse (une séance close, par exemple), l'écran le dit.",
         "Il ne s'ouvre que depuis la Belgique, comme l'espace des étudiants.",
-        "La direction l'ouvre dans Configuration → Accès → Mise en service, d'abord en essai pour quelques comptes. Les notes, le carnet, les TFE, les stages et les avis y viendront ensuite ; en attendant, ils restent dans Mes cours.",
+        "Le bouton Contacter, en haut, montre qui est à l'école aujourd'hui et comment le joindre.",
+        "À partir de la date fixée par la direction, un compte « professeur » n'entre plus dans Lucie : la connexion renvoie vers l'espace. La coordination et la direction qui enseignent gardent les deux.",
       ],
     },
     {

@@ -17,6 +17,7 @@
 import db from '../db/index.js';
 import { prenomDuCompte } from './nom.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import { lienPour } from './bascule.js';
 import { etatLecture, derniereVersion } from '../routes/documentation.js';
 import { messagesRecus } from '../routes/communication.js';
 import { rappelsEnAttente, rubriqueRappels, marquerEnvoyes } from './rappels.js';
@@ -105,7 +106,7 @@ function section(titre, lignes, rendu) {
       ? `<li style="color:#64748B">… et ${lignes.length - 12} autre(s)</li>` : ''}</ul>`;
 }
 
-export function composerRecap(u, a) {
+export function composerRecap(u, a, espace = null) {
   const prenom = prenomDuCompte(u);
   const corps = `<p>Bonjour${prenom ? ` ${esc(prenom)}` : ''},</p>
     <p>Voici ce qui vous attend dans Lucie${a.nouveaux ? ` — dont <b>${a.nouveaux} nouveau${a.nouveaux > 1 ? 'x' : ''}</b> depuis le dernier récapitulatif` : ''}.</p>
@@ -115,7 +116,8 @@ export function composerRecap(u, a) {
     ${section('Messages non lus', a.messages, m => esc(m.titre))}
     ${section('Idées d’amélioration', a.idees, i => esc(i.titre))}
     <p style="color:#64748B;font-size:12px;margin-top:18px">Ce courriel ne part que lorsqu'une chose nouvelle vous attend. Le détail est dans Lucie, sur votre tableau de bord.</p>`;
-  return templateNotif({ titre: 'Ce qui vous attend dans Lucie', corps, lien: '/', lienTexte: 'Ouvrir mon tableau de bord' });
+  // Un professeur dont l'espace est ouvert y est envoyé (3.5.212).
+  return templateNotif({ titre: 'Ce qui vous attend dans Lucie', corps, lien: '/', lienTexte: espace ? 'Ouvrir mon espace' : 'Ouvrir mon tableau de bord', base: espace });
 }
 
 /** Le passage du matin. `force` : envoyer pour `seul` même hors des heures ou déjà fait (essai). */
@@ -136,7 +138,7 @@ export async function passerRecap({ seul = null, force = false } = {}) {
       continue;
     }
     const r = await envoyerEmail({ to: u.email, subject: `Lucie — ce qui vous attend (${a.nouveaux} nouveau${a.nouveaux > 1 ? 'x' : ''})`,
-      html: composerRecap(u, a) });
+      html: composerRecap(u, a, await lienPour(u)) });
     const statut = !r.ok ? 'echec' : r.simule ? 'simule' : 'envoye';
     db.prepare(`INSERT INTO recap_envoi (utilisateur_id, jour, statut, resume) VALUES (?,?,?,?)
       ON CONFLICT(utilisateur_id, jour) DO UPDATE SET statut = excluded.statut, resume = excluded.resume, envoye_le = datetime('now')`)

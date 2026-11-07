@@ -9,6 +9,7 @@ import { prenomDuCompte } from '../lib/nom.js';
 import { GESTES, cleDe, gesteAutorise } from '../lib/gestes.js';
 import { peut as peutModule } from '../middleware/permissions.js';
 import { verifierTotp } from '../lib/totp.js';
+import { estBascule, refusBascule } from '../lib/bascule.js';
 import { consommerCodeRecuperation, journaliser } from './mfa.js';
 import { etatBlocage, noterEchec, oublierEchecs, direDelai,
          ESSAIS_AVANT_BLOCAGE } from '../lib/tentatives.js';
@@ -157,6 +158,8 @@ r.post('/login', (req, res) => {
       essais_restants: apres.restants,
     });
   }
+  // LA BASCULE (3.5.212) : le mot de passe est juste, mais un professeur travaille désormais dans son espace.
+  if (estBascule({ role: user.role })) return res.status(403).json(refusBascule());
 
   // Le mot de passe est bon : la série d'échecs n'a plus lieu d'être.
   oublierEchecs(user.id);
