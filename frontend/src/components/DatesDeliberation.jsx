@@ -59,3 +59,51 @@ export default function DatesDeliberation({ annee = getAnnee() }) {
       </table>
     </div>);
 }
+
+/* ÉVALUATIONS ET DÉLIBÉRATIONS (3.5.176, Charles : « ceci doit devenir : Évaluations et délibérations »). Par unité, une colonne
+   par session : les épreuves de MES cours (date, heure, local — calendrier des sessions) puis la délibération. Lu de
+   `GET /api/mes-cours/dates` (épreuves) et `/deliberations` (séances, organisation comprise). */
+export function EvaluationsDeliberations({ annee = getAnnee() }) {
+  const delibs = useDatesDeliberation(annee);
+  const [items, setItems] = useState(null);
+  useEffect(() => {
+    fetch(`/api/mes-cours/dates?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : { items: [] })).then(j => setItems((j.items || []).filter(x => x.type === 'examen'))).catch(() => setItems([]));
+  }, [annee]);
+  if (!delibs || !items) return <p className="text-slate-500">Chargement…</p>;
+  const noms = new Map(delibs.map(s => [s.ue_num, s.ue_nom]));
+  const ues = [...new Set([...delibs.map(s => s.ue_num), ...items.map(x => x.ue_num)])].sort((a, b) => a - b);
+  if (!ues.length) return <p className="text-slate-500">Aucune épreuve ni délibération pour vos unités en {annee}.</p>;
+  const cellule = (u, session) => {
+    const ep = items.filter(x => x.ue_num === u && x.session === session);
+    const de = delibs.filter(s => s.ue_num === u && s.session === session);
+    return (
+      <div className="space-y-1">
+        {ep.map(x => (
+          <div key={x.uid} className="flex gap-2">
+            <span className="text-mention font-semibold uppercase tracking-wide text-slate-500 w-20 shrink-0 pt-0.5">Épreuve</span>
+            <span><span className="text-slate-700">{x.cours_code ? x.cours_code : 'toute l’unité'}</span> · {quand(x)}{x.lieu ? <span className="text-slate-500"> · {x.lieu}</span> : null}</span>
+          </div>))}
+        {(de.length ? de : [null]).map((s, i) => (
+          <div key={`d${i}`} className="flex gap-2">
+            <span className="text-mention font-semibold uppercase tracking-wide text-slate-500 w-20 shrink-0 pt-0.5">Délibération</span>
+            <span>{s?.org ? <span className="text-slate-500">org. {s.org} · </span> : null}{quand(s)}</span>
+          </div>))}
+      </div>);
+  };
+  return (
+    <div className="carte overflow-hidden">
+      <EnteteCarte icone={IconGavel} titre="Évaluations et délibérations" sous={`Les épreuves de mes cours et les délibérations de mes unités, ${annee}`} />
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr><th className="px-3 py-1.5 text-left">Unité</th><th className="px-3 py-1.5 text-left">1re session</th><th className="px-3 py-1.5 text-left">2e session</th></tr></thead>
+          <tbody>{ues.map(u => (
+            <tr key={u} className="border-t border-slate-100 align-top">
+              <td className="px-3 py-2"><b>UE {u}</b>{noms.get(u) ? <div className="text-slate-500 text-second">{noms.get(u)}</div> : null}</td>
+              <td className="px-3 py-2">{cellule(u, 1)}</td>
+              <td className="px-3 py-2">{cellule(u, 2)}</td>
+            </tr>))}</tbody>
+        </table>
+      </div>
+    </div>);
+}
