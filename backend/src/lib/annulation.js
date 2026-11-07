@@ -33,7 +33,9 @@ const TROP = 20000;                                  // au-delà : un import, qu
 const NON_TRACEES = new Set(['annulation_trace', 'annulation_geste', 'journal_modification', 'modification_log',
   'mfa_journal', 'mfa_recuperation', 'connexion_blocage', 'mot_de_passe_jeton', 'migration_faite', 'lucie_changelog',
   'sauvegarde', 'labo_sauvegarde', 'reglage_historique', 'rappel_envoye', 'lucie_notification', 'document_archive',
-  'attribution_snapshot', 'envoi_copie']);
+  'attribution_snapshot', 'envoi_copie',
+  // MES FRAIS (3.5.197) : confidentiels, à leur titulaire seul — aucune copie dans les traces d'annulation.
+  'frais_profil', 'frais_piece', 'frais_trajet', 'frais_justificatif']);
 
 /* LES ACTES OFFICIELS : un geste qui en touche un ne s'annule pas par le bouton. */
 const OFFICIELS = {

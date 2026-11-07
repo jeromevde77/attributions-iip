@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette } from '@tabler/icons-react';
 import { droitEffectif } from '../lib/modules.js';
@@ -516,6 +517,7 @@ function DotationComparaison({ civil }) {
 }
 
 import StatsDeliberation from '../components/StatsDeliberation.jsx';
+const MesFrais = lazy(() => import('../components/MesFrais.jsx'));
 
 export default function Pilotage({ vue = 'tout' }) {
   const [centreImpression, setCentreImpression] = useState(false);
@@ -1597,7 +1599,9 @@ export default function Pilotage({ vue = 'tout' }) {
     { key: 'g-qualite', label: 'Qualité', icon: IconRosette, faces: [
       ['qualite', 'Plan d’action']] },
     { key: 'g-finances', label: 'Finances', icon: IconCoin, faces: [
-      !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget']] },
+      !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget'],
+      // MES FRAIS (3.5.197) : les notes de frais de la personne connectée, à elle seule.
+      ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role) && ['mes-frais', 'Mes frais']] },
   ].map(r => ({ ...r, faces: r.faces.filter(Boolean) })).filter(r => r.faces.length);
   const rubriqueActive = RUBRIQUES.find(r => r.faces.some(f => f[0] === tab)) || null;
   const railGestion = [{
@@ -1617,6 +1621,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'distributions' ? <Distributions annee={anneeActive} />
     : k === 'population' ? <Population annee={anneeActive} />
     : k === 'budget' ? <Budget />
+    : k === 'mes-frais' ? <Suspense fallback={<div className="text-gray-400 py-4">Chargement…</div>}><MesFrais /></Suspense>
     : k === 'synthese' ? renderSynthese()
     : k === 'etp' ? (etpData ? renderETP() : <div className="text-gray-400 py-4">Chargement…</div>)
     : k === 'dotation' ? <DotationComparaison civil={civil} />
