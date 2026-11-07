@@ -3,7 +3,7 @@ import {
   IconCalendarEvent, IconDeviceFloppy, IconCopy, IconHistory, IconPlus,
   IconAlertTriangle, IconCheck, IconEye, IconRefresh, IconX, IconCalendarCheck,
 } from '@tabler/icons-react';
-import { Btn, KpiCard, Fenetre } from './ui.jsx';
+import { Btn, KpiCard, Fenetre, TuileEtat, PastilleEtat, Tableau } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PlanificateurUE from './PlanificateurUE.jsx';
 import ComparerHoraire from './ComparerHoraire.jsx';
@@ -233,14 +233,13 @@ export default function DatesUE({ annee, sansTitre = false }) {
       </div>
 
       {message && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3
-          ${message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
-                                  : 'bg-red-500 text-white border border-red-500'}`}>
+        <div data-etat={message.type === 'ok' ? 'reussi' : 'corriger'}
+          className="bloc-etat px-4 py-2.5 text-sm text-slate-800 flex items-center justify-between gap-3">
           <span className="flex items-center gap-2">
-            {message.type === 'ok' ? <IconCheck size={16} /> : <IconAlertTriangle size={16} />}
+            {message.type === 'ok' ? <IconCheck size={16} style={{ color: 'var(--e)' }} /> : <IconAlertTriangle size={16} style={{ color: 'var(--e)' }} />}
             {message.texte}
           </span>
-          <button onClick={() => setMessage(null)}><IconX size={15} /></button>
+          <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-700"><IconX size={15} /></button>
         </div>
       )}
 
@@ -250,21 +249,20 @@ export default function DatesUE({ annee, sansTitre = false }) {
         <KpiCard label="Datées" valeur={data?.datees ?? '—'} ton="good" />
         <KpiCard label="Sans dates" valeur={data?.manquantes ?? '—'}
                  ton={data?.manquantes ? 'bad' : 'neutral'} />
-        <div onClick={() => incoherentes && setFiltreIncoherentes(v => !v)}
-          className={incoherentes ? 'cursor-pointer' : ''}
-          title={incoherentes ? 'Cliquer pour n\u2019afficher que ces organisations' : ''}>
-          <KpiCard label={filtreIncoherentes ? 'Incohérentes (filtre actif)' : 'Incohérentes'}
-                   valeur={incoherentes} ton={incoherentes ? 'bad' : 'neutral'} />
-        </div>
+        <TuileEtat libelle={filtreIncoherentes ? 'Incohérentes (filtre actif)' : 'Incohérentes'}
+                   valeur={incoherentes} etat={incoherentes ? 'corriger' : 'neutre'}
+                   actif={filtreIncoherentes}
+                   onClick={incoherentes ? () => setFiltreIncoherentes(v => !v) : undefined}
+                   title={incoherentes ? 'Cliquer pour n\u2019afficher que ces organisations' : undefined} />
       </div>
 
       {incoherentes > 0 && (
-        <div className="bloc-etat etat-corriger px-4 py-3">
-          <div className="text-sm font-semibold text-red-900 mb-1">
+        <div data-etat="corriger" className="bloc-etat px-4 py-3">
+          <div className="text-sm font-semibold text-iip-texte mb-1">
             {incoherentes === 1 ? 'Une organisation a ses dates inversées'
                                 : `${incoherentes} organisations ont leurs dates inversées`}
           </div>
-          <div className="text-second text-red-800 space-y-0.5">
+          <div className="text-second text-slate-700 space-y-0.5">
             {lignesIncoherentes.slice(0, 8).map((l, i) => (
               <div key={i}>
                 <b>UE {l.ue_num}</b> {l.ue_nom ? '— ' + l.ue_nom : ''} :
@@ -274,7 +272,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
             ))}
             {incoherentes > 8 && <div>… et {incoherentes - 8} autre(s)</div>}
           </div>
-          <div className="text-xs text-red-700 mt-1.5">
+          <div className="text-xs text-slate-500 mt-1.5">
             La date de fin précède celle de début. Ces dates commandent les comptages
             au premier dixième : corrigez-les avant la transmission.
           </div>
@@ -282,11 +280,11 @@ export default function DatesUE({ annee, sansTitre = false }) {
       )}
 
       {/* Filtres et saisie groupée */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-end gap-3">
+      <div className="carte p-3 flex flex-wrap items-end gap-3">
         <div>
           <label className="intertitre block mb-1">Section</label>
           <select value={section} onChange={e => setSection(e.target.value)}
-                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+                  className="controle">
             <option value="">Toutes</option>
             {(data?.sections || []).map(s => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -307,7 +305,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
         <div>
           <label className="intertitre block mb-1">Affichage</label>
           <select value={affichage} onChange={e => setAffichage(e.target.value)}
-                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+                  className="controle">
             <option value="section">Par section</option>
             <option value="ue">Par n° d'UE</option>
             <option value="quadri">Par quadrimestre</option>
@@ -330,10 +328,10 @@ export default function DatesUE({ annee, sansTitre = false }) {
             <div className="flex gap-2">
               <input type="date" value={groupe.date_debut}
                      onChange={e => setGroupe(g => ({ ...g, date_debut: e.target.value }))}
-                     className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                     className="controle" />
               <input type="date" value={groupe.date_fin}
                      onChange={e => setGroupe(g => ({ ...g, date_fin: e.target.value }))}
-                     className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                     className="controle" />
               <Btn variant="accent" icon={IconCopy} onClick={appliquerAuGroupe} disabled={!selection.size}>
                 Appliquer
               </Btn>
@@ -346,9 +344,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
       {vue === 'timeline' ? (
         <PlanificateurUE items={lignesAffichees} annee={annee} val={val} editer={editer} modifs={modifs} />
       ) : (
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <Tableau>
             <thead>
               <tr className="tab-entete">
                 <th className="px-3 py-2 w-9">
@@ -378,8 +374,8 @@ export default function DatesUE({ annee, sansTitre = false }) {
               {lignesAffichees.map((item, idx) => {
                 if (item.type === 'groupe') {
                   return (
-                    <tr key={`g-${idx}`} className="bg-slate-50/80">
-                      <td colSpan={9} className="intertitre px-3 py-1.5 border-y border-slate-200">
+                    <tr key={`g-${idx}`} className="tab-repere">
+                      <td colSpan={9} className="intertitre px-3 py-1.5">
                         {item.libelle}
                       </td>
                     </tr>
@@ -392,8 +388,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                 const vide = !d || !f;
                 return (
                   <tr key={l.id}
-                      className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/60
-                        ${modifiee ? 'bg-cyan-50/50' : ''} ${incoherente ? 'bg-red-50' : ''}`}>
+                      className={`ligne-maison ${modifiee ? 'ligne-active' : ''}`}>
                     <td className="px-3 py-1.5">
                       <input type="checkbox" checked={selection.has(l.id)}
                         onChange={e => setSelection(s => {
@@ -405,7 +400,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                     <td className="px-3 py-1.5">
                       <span className="font-semibold text-iip-blue">{l.ue_num}</span>
                       {l.is_epreuve_integree === 1 && (
-                        <span className="ml-1.5 text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/15 text-iip-blue">EI</span>
+                        <PastilleEtat etat="neutre" className="ml-1.5">EI</PastilleEtat>
                       )}
                       <div className="text-xs text-slate-500 truncate max-w-[260px]">{l.ue_nom || '—'}</div>
                     </td>
@@ -415,14 +410,14 @@ export default function DatesUE({ annee, sansTitre = false }) {
                       <input type="date" value={d}
                         onChange={e => editer(l.id, 'date_debut', e.target.value)}
                         className={`border rounded-lg px-2 py-1 text-sm w-full
-                          ${vide ? 'border-amber-300 bg-amber-50/50' : 'border-slate-300'}`} />
+                          ${vide ? 'border-amber-400' : 'border-slate-300'}`} />
                     </td>
                     <td className="px-3 py-1.5">
                       <input type="date" value={f}
                         onChange={e => editer(l.id, 'date_fin', e.target.value)}
                         className={`border rounded-lg px-2 py-1 text-sm w-full
-                          ${incoherente ? 'border-red-400 bg-red-50'
-                            : vide ? 'border-amber-300 bg-amber-50/50' : 'border-slate-300'}`} />
+                          ${incoherente ? 'border-red-500'
+                            : vide ? 'border-amber-400' : 'border-slate-300'}`} />
                     </td>
                     <td className="px-3 py-1.5">
                       <input type="number" min="1" value={val(l, 'nb_semaines')}
@@ -447,9 +442,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                 );
               })}
             </tbody>
-          </table>
-        </div>
-      </div>
+      </Tableau>
       )}
 
       {/* Aperçu des jalons */}
@@ -470,9 +463,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                       <div className="text-xs text-slate-400 mt-0.5">{j.base_legale}</div>
                     )}
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-champ bg-slate-100 text-slate-600 flex-none">
-                    {j.responsable || '—'}
-                  </span>
+                  <PastilleEtat etat="neutre" className="flex-none">{j.responsable || '—'}</PastilleEtat>
                 </div>
               ))}
             </div>

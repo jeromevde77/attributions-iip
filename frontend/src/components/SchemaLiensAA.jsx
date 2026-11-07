@@ -3,7 +3,7 @@ import { IconAlertTriangle, IconCheck, IconEqual, IconDeviceFloppy }
   from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { demander } from '../lib/dialogue.jsx';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, PastilleEtat, Tableau } from './ui.jsx';
 
 /**
  * Relier les acquis aux cours — au tracé, comme le schéma de capitalisation.
@@ -365,13 +365,13 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
           {message && <Bandeau ton="ok">{message}</Bandeau>}
 
           {/* Le mode d'évaluation de l'unité, décidé avant tout encodage. */}
-          <label className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
-            ${integree ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200'}`}>
+          <label data-etat={integree ? 'fort' : 'neutre'}
+            className="bloc-etat flex items-start gap-2.5 px-3 py-2 cursor-pointer">
             <input type="checkbox" checked={integree} disabled={enCours}
               onChange={e => basculerIntegree(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-violet-600" />
+              className="mt-0.5 w-4 h-4 accent-iip-blue" />
             <span className="text-sm">
-              <b className={integree ? 'text-violet-900' : 'text-slate-700'}>
+              <b className={integree ? 'text-iip-texte' : 'text-slate-700'}>
                 Épreuve intégrée d'unité
               </b>
               <span className="block text-second text-slate-600">
@@ -384,9 +384,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
           </label>
 
           {!integree && (
-            <label className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
-              ${unique ? 'border-iip-blue/40' : 'bg-slate-50 border-slate-200'}`}
-              style={unique ? { background: 'var(--blanc)' } : undefined}>
+            <label data-etat={unique ? 'fort' : 'neutre'}
+              className="bloc-etat flex items-start gap-2.5 px-3 py-2 cursor-pointer">
               <input type="checkbox" checked={unique} disabled={enCours}
                 onChange={e => basculerUnique(e.target.checked)} className="mt-0.5 w-4 h-4" />
               <span className="text-sm">
@@ -408,18 +407,18 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
             !data.acquis.length ? (
               <Bandeau ton="alerte">Aucun acquis d'apprentissage au référentiel de cette unité.</Bandeau>
             ) : (
-              <div className="border border-violet-200 rounded-xl bg-white overflow-hidden">
-                <div className="px-3 py-2 bg-violet-50 border-b border-violet-200 text-second text-violet-900 border-l-4 border-l-violet-500">
+              <div className="carte overflow-hidden">
+                <div className="entete-carte text-second text-slate-700">
                   Épreuve commune : les acquis ne sont <b>pas rattachés aux cours</b>. Répartissez
                   <b> dix points</b> entre les acquis de l'unité (ou cent) — seul le rapport entre les
                   poids compte. Chaque acquis doit atteindre le seuil, quel que soit son poids.
                 </div>
-                <table className="w-full text-sm">
+                <Tableau className="!border-0 !rounded-none">
                   <tbody>
                     {data.acquis.map(a => {
                       const v = Number(String(poidsEI[a.aa_code] ?? '').replace(',', '.')) || 0;
                       return (
-                        <tr key={a.aa_code} className="border-t border-slate-100 first:border-t-0">
+                        <tr key={a.aa_code} className="ligne-maison">
                           <td className="px-3 py-1.5 w-24 font-semibold text-iip-blue whitespace-nowrap">{a.aa_code}</td>
                           <td className="px-2 py-1.5 text-slate-700">{a.description}</td>
                           <td className="px-3 py-1.5 w-28">
@@ -434,21 +433,20 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                       );
                     })}
                   </tbody>
-                </table>
-                <div className="px-3 py-2 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-                  <span className={`text-second font-semibold tabular-nums ${
-                    Math.abs(sommeEI - 10) < 0.001 || Math.abs(sommeEI - 100) < 0.01
-                      ? 'text-emerald-700' : 'text-amber-700'}`}>
+                </Tableau>
+                <div className="px-3 py-2 border-t border-slate-200 flex items-center gap-2 flex-wrap">
+                  <PastilleEtat etat={Math.abs(sommeEI - 10) < 0.001 || Math.abs(sommeEI - 100) < 0.01
+                      ? 'reussi' : 'surveiller'} className="tabular-nums">
                     Total : {Math.round(sommeEI * 100) / 100} / 10
-                  </span>
+                  </PastilleEtat>
                   <span className="flex-1" />
                   <button onClick={() => enregistrerEI(true)} disabled={enCours}
                     title="Tous les acquis pèsent autant dans l'épreuve"
-                    className="flex items-center gap-1 px-3 py-1.5 text-second border border-slate-300 rounded-lg">
+                    className="bouton">
                     <IconEqual size={14} /> Poids égaux
                   </button>
                   <button onClick={() => enregistrerEI(false)} disabled={enCours}
-                    className="flex items-center gap-1 px-3 py-1.5 text-second font-semibold text-white bg-iip-blue rounded-lg disabled:opacity-40">
+                    className="bouton bouton-fort">
                     <IconDeviceFloppy size={14} /> Enregistrer la pondération
                   </button>
                 </div>
@@ -471,7 +469,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                 </Bandeau>
               )}
 
-              <div className="border border-slate-200 rounded-xl bg-white overflow-x-auto">
+              <div className="carte overflow-x-auto" style={{ background: 'var(--blanc, #fff)' }}>
                 <svg ref={svgRef}
                   viewBox={`0 0 ${LARGEUR} ${layout.hauteur}`}
                   onPointerMove={lienMove} onPointerUp={lienUp} onPointerLeave={lienUp}
@@ -621,16 +619,16 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                 {data.cours.map(c => {
                   const et = etatCours(c.cours_code);
                   const relie = data.acquis.some(a => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0);
-                  const ton = et.non_evalue ? 'border-slate-300 bg-slate-50 text-slate-600'
-                    : !et.ok ? 'border-red-500 bg-red-500 text-white'
-                    : et.modifie ? 'border-amber-500 bg-amber-500 text-white'
-                    : 'border-emerald-500 bg-emerald-500 text-white';
+                  const etatPuce = et.non_evalue ? 'indisponible'
+                    : !et.ok ? 'corriger'
+                    : et.modifie ? 'surveiller'
+                    : 'reussi';
                   /* « PAS ÉVALUÉ » se coche sur le cours lui-même : des périodes
                      Z, un accompagnement — le cours existe, rien n'y est noté. */
                   const caseEval = (
                     <label title="Ce cours n'est pas évalué : aucun acquis ne s'y note (périodes Z, accompagnement…)"
                       className="px-2 text-second font-semibold flex items-center gap-1 cursor-pointer
-                                 border-r border-current/20">
+                                 border-r border-slate-200">
                       <input type="checkbox" checked={!!et.non_evalue} disabled={enCours}
                         onChange={e => basculerEvalue(c.cours_code, e.target.checked)}
                         className="w-3.5 h-3.5 accent-slate-600" />
@@ -640,8 +638,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   if (et.non_evalue) {
                     return (
                       <span key={c.cours_code}
-                        className={`inline-flex items-stretch rounded-lg overflow-hidden border ${ton}`}>
-                        <span className="px-2.5 py-1 border-r border-current/20">
+                        data-etat={etatPuce} className="bloc-etat inline-flex items-stretch overflow-hidden text-slate-800">
+                        <span className="px-2.5 py-1 border-r border-slate-200">
                           <span className="block text-second font-bold font-mono leading-tight">
                             {c.cours_code}
                           </span>
@@ -653,8 +651,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   }
                   return (
                     <span key={c.cours_code}
-                      className={`inline-flex items-stretch rounded-lg overflow-hidden border ${ton}`}>
-                      <span className="px-2.5 py-1 border-r border-current/20">
+                      data-etat={etatPuce} className="bloc-etat inline-flex items-stretch overflow-hidden text-slate-800">
+                      <span className="px-2.5 py-1 border-r border-slate-200">
                         <span className="block text-second font-bold font-mono leading-tight">
                           {c.cours_code}
                         </span>
@@ -665,7 +663,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         disabled={enCours || !et.ok || !et.modifie}
                         title={!et.ok ? et.quoi
                           : et.modifie ? 'Enregistrer ce cours' : 'Déjà enregistré'}
-                        className="px-2.5 text-second font-semibold border-r border-current/20
+                        className="px-2.5 text-second font-semibold border-r border-slate-200
                                    disabled:opacity-45 flex items-center gap-1">
                         {et.ok && !et.modifie
                           ? <><IconCheck size={13} /> enregistré</>
@@ -716,12 +714,10 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 }
 
 function Bandeau({ ton, children }) {
-  const c = ton === 'err' ? 'bg-red-500 border-red-500 text-white'
-    : ton === 'ok' ? 'bg-emerald-500 border-emerald-500 text-white'
-    : 'bg-amber-500 border-amber-500 text-white';
+  const etat = ton === 'err' ? 'corriger' : ton === 'ok' ? 'reussi' : 'surveiller';
   return (
-    <div className={`px-3 py-2 rounded-lg border text-sm flex items-start gap-1.5 ${c}`}>
-      {ton === 'alerte' && <IconAlertTriangle size={15} className="mt-0.5 flex-none" />}
+    <div data-etat={etat} className="bloc-etat px-3 py-2 text-sm text-slate-800 flex items-start gap-1.5">
+      {ton === 'alerte' && <IconAlertTriangle size={15} className="mt-0.5 flex-none" style={{ color: 'var(--e)' }} />}
       <span>{children}</span>
     </div>
   );

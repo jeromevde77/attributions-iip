@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { getAnnee } from '../lib/api.js';
-import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle, IconDownload, IconSparkles } from '@tabler/icons-react';
+import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle, IconDownload, IconSparkles, IconCircleCheck, IconBox } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
-import { Fenetre } from '../components/ui.jsx';
+import { Fenetre, PastilleEtat, TuileEtat, Encadre, Tableau } from '../components/ui.jsx';
 import { informer } from '../lib/dialogue.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -117,7 +117,7 @@ function Cellule({ groupeId, semaineId, semaineType, value, onChange, warning })
 
   if (semaineType === 'vacances' || semaineType === 'ferie') {
     return (
-      <td className="border border-gray-200 text-center text-xs w-10 h-8 bg-gray-100 text-gray-300 select-none">—</td>
+      <td className="border border-slate-200 text-center text-xs w-10 h-8 text-slate-300 select-none" style={{ background: 'rgb(var(--gris-100))' }}>—</td>
     );
   }
 
@@ -144,7 +144,7 @@ function Cellule({ groupeId, semaineId, semaineType, value, onChange, warning })
             if (e.key === 'Delete' || e.key === 'Backspace') setDraft('');
           }}
           style={{ MozAppearance: 'textfield', appearance: 'textfield' }}
-          className="w-9 h-7 text-center text-xs border-0 bg-yellow-500 outline outline-2 outline-iip-gold rounded p-0"
+          className="w-9 h-7 text-center text-xs border-0 bg-white outline outline-2 outline-iip-blue rounded p-0"
           autoFocus
         />
       ) : (
@@ -168,31 +168,25 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
   const warnSet = new Set((warnings || []).map(w => w.semaineId));
 
   return (
-    <tr className="hover:bg-gray-50/50 group">
+    <tr className="ligne-maison group">
       {/* Nom : badge UE + nom UE + groupe + prof */}
       <td className="sticky left-0 z-10 bg-white border border-gray-200 px-2 py-1 min-w-[260px] max-w-[260px]">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="inline-flex items-center bg-iip-mauve/10 text-iip-mauve text-mention font-bold px-1.5 py-0.5 rounded">
-            UE {groupe.ue_num}
-          </span>
+          <PastilleEtat etat="neutre">UE {groupe.ue_num}</PastilleEtat>
           {groupe.ue_niv && (
-            <span className="text-mention font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
-              {groupe.ue_niv}
-            </span>
+            <PastilleEtat etat="neutre">{groupe.ue_niv}</PastilleEtat>
           )}
           {groupe.ue_quad && (
-            <span className="text-mention font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">
+            <PastilleEtat etat="neutre">
               {String(groupe.ue_quad).replace(/\s/g,'').toUpperCase() === 'Q1Q2' ? 'Q1/Q2' : groupe.ue_quad}
-            </span>
+            </PastilleEtat>
           )}
           <span className="text-xs text-gray-600 truncate max-w-[120px]"
             title={groupe.cours_nom || groupe.ue_nom}>
             {groupe.cours_nom || groupe.ue_nom || `UE ${groupe.ue_num}`}
           </span>
           {groupe.activite_nom && (
-            <span className="text-mention bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded font-medium">
-              {groupe.activite_nom}
-            </span>
+            <PastilleEtat etat="neutre">{groupe.activite_nom}</PastilleEtat>
           )}
           <span className="text-mention text-gray-400">· Gr.{groupe.nom}</span>
           {groupe.prof_nom && (
@@ -201,12 +195,12 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
             </span>
           )}
           <button onClick={() => onEditGroupe(groupe)}
-            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-iip-gold text-xs transition ml-1"><IconPencil size={13} /></button>
+            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-iip-blue text-xs transition ml-1"><IconPencil size={13} /></button>
         </div>
       </td>
       {/* Total — bordure colorée à gauche = repère visuel du niveau */}
-      <td className={`sticky left-[260px] z-10 border border-gray-200 text-center text-xs w-24 font-mono
-        ${over ? 'bg-red-500 text-white' : done ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-500'}`}
+      <td className={`sticky left-[260px] z-10 border border-slate-200 text-center text-xs w-24 font-mono bg-white
+        ${over ? 'text-red-700' : done ? 'text-emerald-700' : 'text-slate-500'}`}
         style={nivBorderColor ? { borderLeft: `3px solid ${nivBorderColor}` } : {}}>
         <div className="font-semibold text-xs">{Math.round(hPlanif * 10) / 10}h</div>
         <div className="text-mention opacity-70">/{groupe.heures_attribuees}h · {pct}%</div>
@@ -256,13 +250,13 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
   return (
     <>
       {/* Header section */}
-      <tr className="bg-iip-gold/10 cursor-pointer select-none" onClick={() => setOpen(v => !v)}>
-        <td colSpan={2} className="sticky left-0 z-10 border border-gray-300 px-3 py-2" style={{ backgroundColor: '#E8EAEF' }}>
+      <tr className="tab-repere cursor-pointer select-none" onClick={() => setOpen(v => !v)}>
+        <td colSpan={2} className="sticky left-0 z-10 border border-slate-300 px-3 py-2 bande-entete">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-sm text-iip-gold">{open ? <IconChevronDown size={14} className="inline align-[-2px]" /> : <IconChevronRight size={14} className="inline align-[-2px]" />} {section}</span>
+            <span className="font-bold text-sm text-iip-blue">{open ? <IconChevronDown size={14} className="inline align-[-2px]" /> : <IconChevronRight size={14} className="inline align-[-2px]" />} {section}</span>
             <span className="text-xs text-gray-500">{groupes.length} groupe{groupes.length > 1 ? 's' : ''}</span>
             {totalWarnings > 0 && (
-              <span className="text-xs text-red-500 font-medium">⚠ {totalWarnings} alerte{totalWarnings > 1 ? 's' : ''}</span>
+              <PastilleEtat etat="corriger"><IconAlertTriangle size={11} /> {totalWarnings} alerte{totalWarnings > 1 ? 's' : ''}</PastilleEtat>
             )}
             <span className={`ml-auto text-xs font-semibold ${pct >= 100 ? 'text-green-600' : 'text-gray-500'}`}>
               {Math.round(hPlanif * 10) / 10}h / {Math.round(hAttrib * 10) / 10}h ({pct}%)
@@ -274,8 +268,8 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
           return (
             <td key={sem.id} className={`border border-gray-200 text-center text-mention w-10
               ${TYPE_STYLE[sem.type]?.header || 'bg-gray-50'}
-              ${hSem > 0 ? 'text-iip-gold font-semibold' : 'text-transparent'}`}
-              style={{ backgroundColor: hSem > 0 ? '#E8EAEF' : undefined }}>
+              ${hSem > 0 ? 'text-iip-blue font-semibold' : 'text-transparent'}`}
+              style={{ backgroundColor: hSem > 0 ? 'rgb(var(--gris-100))' : undefined }}>
               {hSem > 0 ? hSem : '·'}
             </td>
           );
@@ -311,7 +305,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
           const ligneTotal = (
             <tr key={`total-${niv}`} className="select-none">
               <td colSpan={2} className="sticky left-0 z-10 border border-gray-200 px-3 py-1 text-mention font-semibold"
-                style={{ backgroundColor: col.hex || '#f9fafb', borderLeft: `3px solid ${borderColor}` }}>
+                style={{ backgroundColor: col.hex || 'rgb(var(--gris-50))', borderLeft: `3px solid ${borderColor}` }}>
                 <span style={{ color: borderColor }}>Σ {niv}</span>
                 <span className="ml-2 font-normal text-gray-400">
                   {Math.round(grpsNiv.reduce((s,g) => s + semaines.reduce((ss,sem) => ss + cellHeures(cellules[`${g.id}_${sem.id}`]), 0), 0) * 10) / 10}h planifiées
@@ -321,12 +315,12 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
                 const hSem = grpsNiv.reduce((s, g) => s + cellHeures(cellules[`${g.id}_${sem.id}`]), 0);
                 return (
                   <td key={sem.id} className="border border-gray-200 text-center text-mention w-10"
-                    style={{ backgroundColor: col.hex || '#f9fafb', color: hSem > 0 ? borderColor : 'transparent', fontWeight: hSem > 0 ? 600 : 400 }}>
+                    style={{ backgroundColor: col.hex || 'rgb(var(--gris-50))', color: hSem > 0 ? borderColor : 'transparent', fontWeight: hSem > 0 ? 600 : 400 }}>
                     {hSem > 0 ? arrondir(hSem) : '·'}
                   </td>
                 );
               })}
-              <td className="border border-gray-200 w-14" style={{ backgroundColor: col.hex || '#f9fafb' }} />
+              <td className="border border-slate-200 w-14" style={{ backgroundColor: col.hex || 'rgb(var(--gris-50))' }} />
             </tr>
           );
 
@@ -335,9 +329,9 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
       })()}
       {open && (
         <tr>
-          <td colSpan={semaines.length + 3} className="border border-gray-100 bg-gray-50/50 px-3 py-1">
+          <td colSpan={semaines.length + 3} className="border border-slate-100 px-3 py-1">
             <button onClick={() => onAddGroupe(null, null, section)}
-              className="text-xs text-gray-400 hover:text-iip-gold transition">+ Ajouter un groupe dans {section}</button>
+              className="text-xs text-slate-400 hover:text-iip-blue transition">+ Ajouter un groupe dans {section}</button>
           </td>
         </tr>
       )}
@@ -382,42 +376,42 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
         <div className="grid grid-cols-2 gap-3">
           {!initial?.id && (
             <div className="col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">UE *</label>
+              <label className="block text-xs text-slate-500 mb-1">UE *</label>
               <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+                className="controle w-full">
                 <option value="">— Choisir une UE —</option>
                 {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Groupe *</label>
+            <label className="block text-xs text-slate-500 mb-1">Groupe *</label>
             <input value={nom} onChange={e => setNom(e.target.value)} placeholder="A, B, 1…"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" autoFocus />
+              className="controle w-full" autoFocus />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Nb étudiants</label>
+            <label className="block text-xs text-slate-500 mb-1">Nb étudiants</label>
             <input type="number" value={nbEtu} onChange={e => setNbEtu(e.target.value)} min="0"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">Professeur</label>
+            <label className="block text-xs text-slate-500 mb-1">Professeur</label>
             <select value={profId} onChange={e => setProfId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full">
               <option value="">— Aucun / À définir —</option>
               {profs.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Heures attribuées (60 min)</label>
+            <label className="block text-xs text-slate-500 mb-1">Heures attribuées (60 min)</label>
             <input type="number" step="0.5" value={heures} onChange={e => setHeures(e.target.value)} min="0"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
             {heures > 0 && <p className="text-mention text-gray-400 mt-0.5">= {hToPer(Number(heures))} périodes de 50 min</p>}
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Notes</label>
+            <label className="block text-xs text-slate-500 mb-1">Notes</label>
             <input value={notes} onChange={e => setNotes(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
           </div>
         </div>
     </Fenetre>
@@ -464,19 +458,19 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
           Appliquer à {selected.size} sem.
         </button>
       </>}>
-        <div className="pb-4 mb-4 border-b space-y-3">
+        <div className="pb-4 mb-4 border-b border-slate-200 space-y-3">
           <div className="flex gap-3 items-end flex-wrap">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Type</label>
+              <label className="block text-xs text-slate-500 mb-1">Type</label>
               <select value={type} onChange={e => setType(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
+                className="controle">
                 {TYPES.map(t => <option key={t.k} value={t.k}>{t.l}</option>)}
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-xs text-gray-500 mb-1">Label (optionnel)</label>
+              <label className="block text-xs text-slate-500 mb-1">Label (optionnel)</label>
               <input value={label} onChange={e => setLabel(e.target.value)} placeholder="ex. Vacances Noël"
-                className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
+                className="controle w-full" />
             </div>
           </div>
         </div>
@@ -488,10 +482,10 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
               return (
                 <button key={sem.id} onClick={() => setSelected(prev => { const n = new Set(prev); n.has(sem.id) ? n.delete(sem.id) : n.add(sem.id); return n; })}
                   className={`text-left p-2 rounded border-2 transition text-xs
-                    ${isSel ? 'border-iip-gold shadow-pose' : 'border-gray-200 hover:border-gray-400'}
+                    ${isSel ? 'border-iip-blue' : 'border-slate-200 hover:border-slate-400'}
                     ${style.header}`}>
                   <div className={`font-semibold ${style.text}`}>S{sem.semaine_num}</div>
-                  <div className="text-gray-500 text-mention">{fmtDate(sem.date_debut)}</div>
+                  <div className="text-slate-500 text-mention">{fmtDate(sem.date_debut)}</div>
                   {sem.label && <div className={`text-mention mt-0.5 ${style.text}`}>{sem.label}</div>}
                 </button>
               );
@@ -543,34 +537,28 @@ function ModalImport({ annee, onImported, onClose }) {
       </>}>
         <div className="space-y-4">
           {loading ? (
-            <div className="text-center text-gray-400 py-8">Analyse des attributions…</div>
+            <div className="text-center text-slate-400 py-8">Analyse des attributions…</div>
           ) : result ? (
             <div className="text-center space-y-3 py-8">
-              <p className="text-4xl">✅</p>
-              <p className="font-semibold text-gray-800">Import terminé</p>
-              <div className="flex justify-center gap-6 text-sm">
-                <div><span className="text-2xl font-bold text-green-600">{result.created}</span><p className="text-gray-500">groupes créés</p></div>
-                <div><span className="text-2xl font-bold text-gray-400">{result.skipped}</span><p className="text-gray-500">déjà existants</p></div>
+              <IconCircleCheck size={40} className="mx-auto" style={{ color: 'var(--c-reussi)' }} />
+              <p className="font-semibold text-slate-800">Import terminé</p>
+              <div className="flex justify-center gap-3 text-sm">
+                <TuileEtat etat="reussi" valeur={result.created} libelle="groupes créés" />
+                <TuileEtat etat="neutre" valeur={result.skipped} libelle="déjà existants" />
               </div>
-              <p className="text-xs text-gray-400">Le nombre d'étudiants reste à 0 — à compléter via le crayon de chaque ligne.</p>
+              <p className="text-xs text-slate-400">Le nombre d'étudiants reste à 0 — à compléter via le crayon de chaque ligne.</p>
             </div>
           ) : (
             <>
-              <div className="flex gap-4">
-                <div className="bg-iip-gold/10 rounded-lg px-4 py-3 text-center">
-                  <p className="text-2xl font-bold text-iip-gold">{preview?.groupes?.length || 0}</p>
-                  <p className="text-xs text-gray-500">groupes à importer</p>
-                </div>
+              <div className="flex gap-3">
+                <TuileEtat etat="neutre" valeur={preview?.groupes?.length || 0} libelle="groupes à importer" />
                 {preview?.existants > 0 && (
-                  <div className="bg-orange-50 rounded-lg px-4 py-3 text-center border-l-4 border-l-orange-500">
-                    <p className="text-2xl font-bold text-orange-500">{preview.existants}</p>
-                    <p className="text-xs text-gray-500">déjà en base</p>
-                  </div>
+                  <TuileEtat etat="surveiller" valeur={preview.existants} libelle="déjà en base" />
                 )}
               </div>
               {preview?.existants > 0 && (
-                <div className="bloc-etat etat-surveiller p-3 space-y-2">
-                  <p className="text-xs font-medium text-orange-800">Des groupes existent déjà. Comment procéder ?</p>
+                <div data-etat="surveiller" className="bloc-etat p-3 space-y-2">
+                  <p className="text-xs font-medium text-iip-texte">Des groupes existent déjà. Comment procéder ?</p>
                   <div className="flex flex-col gap-2">
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
                       <input type="radio" value="skip" checked={mode==='skip'} onChange={() => setMode('skip')} />
@@ -583,10 +571,10 @@ function ModalImport({ annee, onImported, onClose }) {
                   </div>
                 </div>
               )}
-              <div className="border border-gray-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead className="tab-entete intertitre sticky top-0">
-                    <tr>
+              <div className="max-h-64 overflow-y-auto">
+                <Tableau dense>
+                  <thead className="sticky top-0">
+                    <tr className="tab-entete">
                       <th className="px-3 py-2 text-left">Section</th>
                       <th className="px-3 py-2 text-left">UE</th>
                       <th className="px-3 py-2 text-left">Cours</th>
@@ -595,10 +583,10 @@ function ModalImport({ annee, onImported, onClose }) {
                       <th className="px-3 py-2 text-left">Notes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody>
                     {(preview?.groupes || []).map((g, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-1.5 h-9 font-medium text-iip-mauve">{g.section || '—'}</td>
+                      <tr key={i} className="ligne-maison">
+                        <td className="px-3 py-1.5 h-9 font-medium text-iip-blue">{g.section || '—'}</td>
                         <td className="px-3 py-1.5 h-9 text-gray-600">UE {g.ue_num} <span className="text-gray-400">{g.ue_nom?.slice(0,20)}</span></td>
                         <td className="px-3 py-1.5 h-9 text-gray-500 text-mention">{g.code_cours || '—'}</td>
                         <td className="px-3 py-1.5 h-9 text-center font-bold">{g.nom}</td>
@@ -607,9 +595,9 @@ function ModalImport({ annee, onImported, onClose }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Tableau>
               </div>
-              <p className="text-xs text-gray-400">⚠ Le nombre d'étudiants restera à 0 — à compléter via le crayon.</p>
+              <p className="text-xs text-slate-400">Le nombre d'étudiants restera à 0 — à compléter via le crayon.</p>
             </>
           )}
         </div>
@@ -655,7 +643,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
   const nbCellules = preview ? Object.values(preview.proposition).reduce((s, c) => s + Object.keys(c).length, 0) : 0;
 
   return (
-    <Fenetre titre={`✨ Planification IA — ${section}`} sous={annee} large="moyenne" onFermer={onClose}
+    <Fenetre icone={IconSparkles} titre={`Planification IA — ${section}`} sous={annee} large="moyenne" onFermer={onClose}
       pied={(step === 'config' || step === 'preview') ? (<>
         <span />
         {step === 'config' && (
@@ -682,9 +670,9 @@ function ModalIA({ annee, section, onApplied, onClose }) {
           {/* Step : config */}
           {step === 'config' && (
             <>
-              <div className="bg-iip-mauve/5 border border-iip-mauve/20 rounded-lg p-4 text-sm text-gray-700 space-y-2">
-                <p className="font-medium text-iip-mauve">Ce que Lucie IA va faire :</p>
-                <ul className="space-y-1 text-xs text-gray-600 list-disc list-inside">
+              <div className="carte p-4 text-sm text-slate-700 space-y-2">
+                <p className="font-medium text-iip-blue">Ce que Lucie IA va faire :</p>
+                <ul className="space-y-1 text-xs text-slate-600 list-disc list-inside">
                   <li>Respecter l'ordre des prérequis UE (organigramme)</li>
                   <li>Distribuer les heures uniformément selon le quadrimestre de chaque UE</li>
                   <li>Placer EV1, VC et EV2 automatiquement aux bonnes semaines</li>
@@ -692,12 +680,12 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                 </ul>
               </div>
 
-              <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <label className="carte flex items-center gap-3 cursor-pointer p-3">
                 <input type="checkbox" checked={preserverManuel} onChange={e => setPreserver(e.target.checked)}
                   className="w-4 h-4 accent-iip-blue" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Préserver mes saisies manuelles</p>
-                  <p className="text-xs text-gray-400">Les cellules que tu as saisies toi-même ne seront pas écrasées</p>
+                  <p className="text-sm font-medium text-slate-700">Préserver mes saisies manuelles</p>
+                  <p className="text-xs text-slate-400">Les cellules que tu as saisies toi-même ne seront pas écrasées</p>
                 </div>
               </label>
 
@@ -708,46 +696,33 @@ function ModalIA({ annee, section, onApplied, onClose }) {
           {/* Step : preview */}
           {step === 'preview' && preview && (
             <>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-iip-mauve/5 rounded-lg p-3">
-                  <p className="text-2xl font-bold text-iip-mauve">{preview.meta.groupes_traites}</p>
-                  <p className="text-xs text-gray-500">groupes planifiés</p>
-                </div>
-                <div className="bg-iip-gold/10 rounded-lg p-3">
-                  <p className="text-2xl font-bold text-iip-gold">{nbCellules}</p>
-                  <p className="text-xs text-gray-500">cellules à créer</p>
-                </div>
-                <div className={`rounded-lg p-3 ${preview.alertes.length ? 'bg-red-50 border-l-4 border-l-red-500' : 'bg-green-50'}`}>
-                  <p className={`text-2xl font-bold ${preview.alertes.length ? 'text-red-600' : 'text-green-600'}`}>
-                    {preview.alertes.length}
-                  </p>
-                  <p className="text-xs text-gray-500">alertes</p>
-                </div>
+              <div className="grid grid-cols-3 gap-3">
+                <TuileEtat etat="neutre" valeur={preview.meta.groupes_traites} libelle="groupes planifiés" />
+                <TuileEtat etat="neutre" valeur={nbCellules} libelle="cellules à créer" />
+                <TuileEtat etat={preview.alertes.length ? 'corriger' : 'reussi'} valeur={preview.alertes.length} libelle="alertes" />
               </div>
 
               {/* Ordre des UE */}
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">Ordre de planification (prérequis respectés)</p>
+                <p className="text-xs font-medium text-slate-500 mb-2">Ordre de planification (prérequis respectés)</p>
                 <div className="flex flex-wrap gap-1">
                   {preview.meta.ue_ordre.map((n, i) => (
-                    <span key={n} className="text-mention bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                      {i+1}. UE{n}
-                    </span>
+                    <PastilleEtat key={n} etat="neutre">{i+1}. UE{n}</PastilleEtat>
                   ))}
                 </div>
               </div>
 
               {/* Note évaluations */}
-              <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded p-3 text-xs text-iip-blue">
-                <IconCalendar size={13} className="inline align-[-2px] mr-1" />EV1, VC et EV2 sont placés automatiquement après les derniers cours de chaque groupe
-              </div>
+              <Encadre etat="disponible" icone={IconCalendar}>
+                EV1, VC et EV2 sont placés automatiquement après les derniers cours de chaque groupe
+              </Encadre>
 
               {/* Alertes */}
               {preview.alertes.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-red-600">⚠ Alertes ({preview.alertes.length})</p>
+                  <p className="text-xs font-medium text-slate-600 flex items-center gap-1"><IconAlertTriangle size={13} style={{ color: 'var(--c-refuse)' }} /> Alertes ({preview.alertes.length})</p>
                   {preview.alertes.map((a, i) => (
-                    <div key={i} className="text-xs bg-red-500 border border-red-500 rounded p-2 text-white">{a.msg}</div>
+                    <div key={i} data-etat="corriger" className="bloc-etat text-xs p-2 text-slate-800">{a.msg}</div>
                   ))}
                 </div>
               )}
@@ -759,17 +734,17 @@ function ModalIA({ annee, section, onApplied, onClose }) {
           {/* Step : applying */}
           {step === 'applying' && (
             <div className="text-center py-8 space-y-3">
-              <p className="text-3xl animate-pulse">✨</p>
-              <p className="font-medium text-gray-700">Application en cours…</p>
+              <IconSparkles size={32} className="mx-auto animate-pulse text-iip-blue" />
+              <p className="font-medium text-slate-700">Application en cours…</p>
             </div>
           )}
 
           {/* Step : done */}
           {step === 'done' && (
             <div className="text-center py-8 space-y-3">
-              <p className="text-3xl">✅</p>
-              <p className="font-medium text-gray-700">Planification appliquée !</p>
-              <p className="text-xs text-gray-400">La grille s'actualise…</p>
+              <IconCircleCheck size={32} className="mx-auto" style={{ color: 'var(--c-reussi)' }} />
+              <p className="font-medium text-slate-700">Planification appliquée !</p>
+              <p className="text-xs text-slate-400">La grille s'actualise…</p>
             </div>
           )}
         </div>
@@ -788,15 +763,13 @@ function ModalSequence({ annee, section, groupes, onClose }) {
           ce cadre leur donne la hauteur utile de la fenêtre, sous son en-tête. */}
       <div className="-mx-5 -my-4 flex flex-col" style={{ height: 'calc(88vh - 4.25rem)' }}>
         {/* Onglets */}
-        <div className="flex border-b px-6">
+        <div className="flex gap-4 border-b border-slate-200 px-6">
           <button onClick={() => setOnglet('prereqs')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition
-              ${onglet === 'prereqs' ? 'border-iip-mauve text-iip-mauve' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`onglet-page ${onglet === 'prereqs' ? 'onglet-page-actif' : ''}`}>
             <IconSitemap size={14} className="inline align-[-2px] mr-1" />Structure des UE
           </button>
           <button onClick={() => setOnglet('cours')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition
-              ${onglet === 'cours' ? 'border-iip-mauve text-iip-mauve' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`onglet-page ${onglet === 'cours' ? 'onglet-page-actif' : ''}`}>
             <IconBook size={14} className="inline align-[-2px] mr-1" />Séquencer les cours
           </button>
         </div>
@@ -829,7 +802,7 @@ const NIV_COLORS = [
   { bg: 'bg-iip-turquoise/10',   text: 'text-iip-blue',   border: 'var(--c-disponible)', hex: 'rgb(var(--e-disponible-100))' },
   { bg: 'bg-iip-blue',   text: 'text-iip-blue',   border: 'var(--c-texte)', hex: 'var(--c-texte)' },
   { bg: 'bg-purple-100', text: 'text-purple-700', border: 'var(--c-faveur)', hex: 'rgb(var(--e-faveur-100))' },
-  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'var(--c-helb)', hex: '#fdf2f8' },
+  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'var(--c-helb)', hex: 'rgb(var(--e-helb-50, var(--gris-50)))' },
 ];
 function getNivColor(niv, niveauxListe) {
   const idx = niveauxListe.indexOf(niv);
@@ -940,15 +913,15 @@ function StructureUE({ annee, section, groupes }) {
         onDragStart={() => onDragStart(u.ue_num)}
         onClick={() => setSelected(isSel ? null : u.ue_num)}
         className={`rounded-lg p-2 cursor-pointer border-2 transition select-none mb-1.5
-          ${isSel ? 'border-iip-mauve bg-iip-mauve/10 shadow-flottant' :
-            isPrereqOfSel ? `${col.border} ${col.bg}` :
-            isDepOfSel ? 'border-orange-400 bg-orange-50' :
-            'border-gray-200 hover:border-gray-400 bg-white'}`}>
+          ${isSel ? 'border-iip-blue bg-white' :
+            isPrereqOfSel ? 'border-sky-500 bg-white' :
+            isDepOfSel ? 'border-amber-500 bg-white' :
+            'border-slate-200 hover:border-slate-400 bg-white'}`}>
         <div className="flex items-center gap-1.5">
-          <span className="text-mention font-bold text-iip-mauve">UE{u.ue_num}</span>
+          <span className="text-mention font-bold text-iip-blue">UE{u.ue_num}</span>
           {saving === u.ue_num && <span className="text-mention text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
-          {nbPre > 0 && <span className="text-mention bg-iip-turquoise/10 text-iip-blue px-1 rounded">{nbPre}↑</span>}
-          {nbDep > 0 && <span className="text-mention bg-orange-500 text-white px-1 rounded">{nbDep}↓</span>}
+          {nbPre > 0 && <PastilleEtat etat="disponible">{nbPre}↑</PastilleEtat>}
+          {nbDep > 0 && <PastilleEtat etat="surveiller">{nbDep}↓</PastilleEtat>}
         </div>
         <p className="text-mention text-gray-600 leading-tight mt-0.5">{u.ue_nom?.slice(0, 40)}</p>
       </div>
@@ -988,7 +961,7 @@ function StructureUE({ annee, section, groupes }) {
                       onDragLeave={() => setDragOverCell(null)}
                       onDrop={() => onDropCell(niv, q.key)}
                       className={`align-top p-2 border border-dashed transition min-w-[180px]
-                        ${dragOverCell === cellKey ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
+                        ${dragOverCell === cellKey ? 'border-iip-blue ligne-active' : 'border-slate-200'}`}>
                       {list.map(u => <BadgeUE key={u.ue_num} u={u} />)}
                       {list.length === 0 && <p className="text-mention text-gray-300 italic text-center py-2">—</p>}
                     </td>
@@ -1002,7 +975,7 @@ function StructureUE({ annee, section, groupes }) {
 
       {/* Panneau prérequis */}
       {selected && selUE && (
-        <div className="w-72 border-l overflow-auto p-4 bg-gray-50 flex-shrink-0">
+        <div className="w-72 border-l border-slate-200 overflow-auto p-4 flex-shrink-0">
           <div className="mb-4">
             <p className="font-semibold text-sm text-gray-800">UE {selected}</p>
             <p className="text-xs text-gray-500">{selUE.ue_nom}</p>
@@ -1023,7 +996,7 @@ function StructureUE({ annee, section, groupes }) {
               );
             })}
           </div>
-          <button onClick={() => setSelected(null)} className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded py-1.5 h-9">Fermer</button>
+          <button onClick={() => setSelected(null)} className="bouton mt-4 w-full justify-center">Fermer</button>
         </div>
       )}
     </div>
@@ -1116,12 +1089,12 @@ function SeqCours({ annee, section, groupes }) {
     if (!g) return null;
     return (
       <div draggable onDragStart={() => onDragStart(groupe_id, from)}
-        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-grab shadow-pose hover:border-iip-mauve transition select-none">
-        <span className="text-xs font-bold text-iip-mauve">UE{g.ue_num}</span>
+        className="flex items-center gap-2 bg-white border border-slate-200 rounded-champ px-3 py-2 cursor-grab hover:border-iip-blue transition select-none">
+        <span className="text-xs font-bold text-iip-blue">UE{g.ue_num}</span>
         <span className="text-xs text-gray-600 truncate max-w-[150px]" title={g.cours_nom || g.ue_nom}>
           {g.cours_nom || g.ue_nom}
         </span>
-        {g.activite_nom && <span className="text-mention bg-iip-gold/10 text-iip-gold px-1 rounded">{g.activite_nom}</span>}
+        {g.activite_nom && <PastilleEtat etat="neutre">{g.activite_nom}</PastilleEtat>}
         <span className="text-mention text-gray-400">Gr.{g.nom}</span>
       </div>
     );
@@ -1130,14 +1103,14 @@ function SeqCours({ annee, section, groupes }) {
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar UE */}
-      <div className="w-48 border-r bg-gray-50 overflow-auto flex-shrink-0">
+      <div className="w-48 border-r border-slate-200 overflow-auto flex-shrink-0">
         {ues.map(u => (
           <button key={u.ue_num} onClick={() => setUeSelectionnee(u.ue_num)}
             className={`w-full text-left px-4 py-3 text-sm border-b transition
-              ${ueSelectionnee === u.ue_num ? 'bg-iip-mauve text-white' : 'hover:bg-gray-100 text-gray-700'}`}>
+              ${ueSelectionnee === u.ue_num ? 'ligne-active text-iip-blue font-semibold' : 'hover:bg-slate-50 text-slate-700'}`}>
             <p className="font-medium">UE {u.ue_num}</p>
-            <p className={`text-mention truncate ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.ue_nom}</p>
-            <p className={`text-mention ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.groupes.length} cours</p>
+            <p className="text-mention truncate text-slate-400 font-normal">{u.ue_nom}</p>
+            <p className="text-mention text-slate-400 font-normal">{u.groupes.length} cours</p>
           </button>
         ))}
       </div>
@@ -1148,9 +1121,9 @@ function SeqCours({ annee, section, groupes }) {
           <>
             <div onDragOver={e => { e.preventDefault(); setDragOver('pool'); }}
               onDragLeave={() => setDragOver(null)} onDrop={() => onDrop('pool')}
-              className={`rounded-lg border-2 border-dashed p-3 min-h-[60px] transition
-                ${dragOver === 'pool' ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
-              <p className="text-xs text-gray-400 mb-2">📦 Cours non séquencés</p>
+              className={`rounded-carte border-2 border-dashed p-3 min-h-[60px] transition
+                ${dragOver === 'pool' ? 'border-iip-blue ligne-active' : 'border-slate-200'}`}>
+              <p className="text-xs text-slate-400 mb-2 flex items-center gap-1"><IconBox size={13} /> Cours non séquencés</p>
               <div className="flex flex-wrap gap-2">
                 {nonSequences.map(g => <BadgeGroupe key={g.id} groupe_id={g.id} from="pool" />)}
                 {nonSequences.length === 0 && <p className="text-xs text-gray-300 italic">Tous les cours sont séquencés</p>}
@@ -1173,8 +1146,8 @@ function SeqCours({ annee, section, groupes }) {
                 )}
                 <div onDragOver={e => { e.preventDefault(); setDragOver(idx); }}
                   onDragLeave={() => setDragOver(null)} onDrop={() => onDrop(idx)}
-                  className={`rounded-lg border-2 p-3 min-h-[70px] transition
-                    ${dragOver === idx ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
+                  className={`carte p-3 min-h-[70px] transition
+                    ${dragOver === idx ? '!border-iip-blue ligne-active' : ''}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-gray-500">
                       {idx === 0 ? '▶ Démarre en premier' : `▶ Rang ${idx + 1}`}
@@ -1191,7 +1164,7 @@ function SeqCours({ annee, section, groupes }) {
             ))}
 
             <button onClick={ajouterRang}
-              className="w-full border-2 border-dashed border-gray-200 rounded-lg py-3 text-sm text-gray-400 hover:border-iip-mauve hover:text-iip-mauve transition">
+              className="w-full border-2 border-dashed border-slate-200 rounded-carte py-3 text-sm text-slate-400 hover:border-iip-blue hover:text-iip-blue transition">
               + Ajouter un rang
             </button>
           </>
@@ -1201,7 +1174,7 @@ function SeqCours({ annee, section, groupes }) {
       {/* Footer sauvegarde */}
       <div className="absolute bottom-0 right-0 p-4">
         <button onClick={sauvegarder} disabled={saving}
-          className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50 shadow-flottant">
+          className="bouton bouton-fort shadow-flottant">
           {saving ? 'Sauvegarde…' : saved ? '✓ Sauvegardé' : 'Enregistrer'}
         </button>
       </div>
@@ -1254,14 +1227,14 @@ function ModalReset({ annee, section, onReset, onClose }) {
                 Section <strong>{section}</strong> — Année <strong>{annee}</strong>
               </p>
               <div className="space-y-2">
-                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                  <input type="radio" name="mode" value="cellules" checked={mode==='cellules'} onChange={()=>setMode('cellules')} className="mt-0.5 accent-iip-gold" />
+                <label className="carte flex items-start gap-3 p-3 cursor-pointer">
+                  <input type="radio" name="mode" value="cellules" checked={mode==='cellules'} onChange={()=>setMode('cellules')} className="mt-0.5 accent-iip-blue" />
                   <div>
                     <p className="text-sm font-medium text-gray-700">Effacer uniquement les cellules</p>
                     <p className="text-xs text-gray-400">Les groupes sont conservés, seule la planification est effacée. Utile pour régénérer avec l'IA.</p>
                   </div>
                 </label>
-                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="carte flex items-start gap-3 p-3 cursor-pointer">
                   <input type="radio" name="mode" value="tout" checked={mode==='tout'} onChange={()=>setMode('tout')} className="mt-0.5 accent-red-500" />
                   <div>
                     <p className="text-sm font-medium text-gray-700">Effacer groupes + cellules</p>
@@ -1273,8 +1246,8 @@ function ModalReset({ annee, section, onReset, onClose }) {
           )}
 
           {etape === 'confirm' && (
-            <div className="bloc-etat etat-corriger p-4 text-sm text-red-700">
-              <p className="font-medium mb-1">⚠ Confirmation requise</p>
+            <div data-etat="corriger" className="bloc-etat p-4 text-sm text-slate-800">
+              <p className="font-medium mb-1 flex items-center gap-1.5"><IconAlertTriangle size={15} style={{ color: 'var(--e)' }} /> Confirmation requise</p>
               <p>{mode === 'tout'
                 ? `Tous les groupes et cellules de ${section} seront supprimés définitivement.`
                 : `Toutes les cellules de planification de ${section} seront effacées.`}
@@ -1291,7 +1264,7 @@ function ModalReset({ annee, section, onReset, onClose }) {
 
           {etape === 'done' && (
             <div className="text-center py-6">
-              <p className="text-green-600 font-medium">✓ Planification réinitialisée</p>
+              <p className="text-slate-800 font-medium flex items-center justify-center gap-1.5"><IconCircleCheck size={16} style={{ color: 'var(--c-reussi)' }} /> Planification réinitialisée</p>
             </div>
           )}
         </div>
@@ -1397,19 +1370,19 @@ export default function Planification() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Barre d'outils */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 bg-white border-b border-gray-200 flex-wrap">
-        <h1 className="font-title text-iip-blue font-semibold text-sm flex items-center gap-1.5"><IconCalendarStats size={16} className="text-iip-turquoise"/>Planification — {annee}</h1>
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-slate-200 flex-wrap">
+        <h1 className="titre-ecran flex items-center gap-1.5"><IconCalendarStats size={16} className="text-iip-turquoise"/>Planification — {annee}</h1>
         <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)}
-          className="border border-gray-300 rounded px-2 py-1 text-xs bg-white">
+          className="controle">
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
         <div className="flex-1" />
         {/* Légende */}
         <div className="flex gap-1.5 items-center text-mention">
-          <span className="px-1.5 py-0.5 rounded bg-orange-500 text-white font-bold">EV1 = 2h</span>
-          <span className="px-1.5 py-0.5 rounded bg-red-500 text-white font-bold">EV2 = 0h</span>
-          <span className="px-1.5 py-0.5 rounded bg-purple-500 text-white font-bold">VC = 1h</span>
+          <span className="px-1.5 py-0.5 rounded border bg-orange-100 text-orange-800 border-orange-300 font-bold">EV1 = 2h</span>
+          <span className="px-1.5 py-0.5 rounded border bg-red-100 text-red-800 border-red-300 font-bold">EV2 = 0h</span>
+          <span className="px-1.5 py-0.5 rounded border bg-purple-100 text-purple-800 border-purple-300 font-bold">VC = 1h</span>
         </div>
         <button onClick={() => setShowImport(true)}
           className="bouton flex items-center gap-1">
@@ -1441,13 +1414,13 @@ export default function Planification() {
           className="bouton flex items-center gap-1">
           <IconCalendar size={14} />Calendrier
         </button>
-        {saving && <span className="text-xs text-iip-gold animate-pulse"><IconDeviceFloppy size={12} className="inline" /></span>}
-        {!saving && Object.keys(pendingCells).length === 0 && grille && <span className="text-xs text-green-500">✓</span>}
+        {saving && <span className="text-xs text-iip-blue animate-pulse"><IconDeviceFloppy size={12} className="inline" /></span>}
+        {!saving && Object.keys(pendingCells).length === 0 && grille && <IconCircleCheck size={15} title="Enregistré" style={{ color: 'var(--c-reussi)' }} />}
       </div>
 
       {/* Bandeau synthèse */}
       {grille && (
-        <div className="flex-shrink-0 flex gap-6 px-4 py-1.5 h-9 bg-iip-gold/5 border-b border-iip-gold/20 text-xs">
+        <div className="flex-shrink-0 flex gap-6 px-4 py-1.5 h-9 bande-entete border-b border-slate-200 text-xs items-center">
           <span className="text-gray-500">Heures planifiées <strong className="text-gray-800">{Math.round(totalH * 10) / 10} h</strong></span>
           <span className="text-gray-500">PEP générées <strong className="text-iip-blue">{Math.round(totalPEP)}</strong></span>
           <span className="text-gray-500">Groupes <strong className="text-gray-800">{grille.groupes?.length || 0}</strong></span>
@@ -1464,7 +1437,7 @@ export default function Planification() {
               {/* Mois */}
               <tr>
                 <th className="sticky left-0 z-30 bande-entete border border-gray-300 w-[260px]"></th>
-                <th className="sticky left-[260px] z-30 bg-white border border-gray-300 w-24 text-center text-mention text-gray-400">Total</th>
+                <th className="sticky left-[260px] z-30 bande-entete border border-slate-300 w-24 text-center text-mention text-slate-500">Total</th>
                 {semaines.map((sem, i) => {
                   const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;
                   const mois = new Date(sem.date_debut + 'T12:00:00').toLocaleDateString('fr-BE', { month: 'short' });
@@ -1480,8 +1453,8 @@ export default function Planification() {
               </tr>
               {/* N° semaine + date */}
               <tr>
-                <th className="sticky left-0 z-30 bg-gray-50 border border-gray-300 text-left px-2 text-mention text-gray-400 font-normal">Attribution</th>
-                <th className="sticky left-[260px] z-30 bg-gray-50 border border-gray-300 text-center text-mention text-gray-400 font-normal">planif./attr.</th>
+                <th className="sticky left-0 z-30 bande-entete border border-slate-300 text-left px-2 text-mention text-slate-500 font-normal">Attribution</th>
+                <th className="sticky left-[260px] z-30 bande-entete border border-slate-300 text-center text-mention text-slate-500 font-normal">planif./attr.</th>
                 {semaines.map(sem => {
                   const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;
                   return (

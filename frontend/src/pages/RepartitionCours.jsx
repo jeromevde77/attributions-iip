@@ -4,7 +4,7 @@ import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { demander, saisir, informer } from '../lib/dialogue.jsx';
 import { peutGeste, ecritModule } from '../lib/droits.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
-import { BadgePrimo } from '../components/ui.jsx';
+import { BadgePrimo, PastilleEtat } from '../components/ui.jsx';
 
 /**
  * RÉPARTITION DES ÉTUDIANTS — le croisement attributions × PAE.
@@ -469,7 +469,7 @@ export default function RepartitionCours() {
         <IconUsersGroup size={18} className="text-iip-turquoise" />
         <span className="font-semibold text-iip-blue text-base">Répartition des étudiants</span>
         <select value={section} onChange={e => setSection(e.target.value)}
-          className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm bg-white">
+          className="controle">
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.libelle}</option>)}
         </select>
@@ -496,7 +496,7 @@ export default function RepartitionCours() {
         {ues && (
           <select value={ueNum ?? ''}
             onChange={e => e.target.value && ouvrirUE(Number(e.target.value))}
-            className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm bg-white max-w-[440px]">
+            className="controle max-w-[440px]">
             <option value="">— Choisir une UE ({ues.length}) —</option>
             {ues.map(u => (
               <option key={u.ue_num} value={u.ue_num}>
@@ -505,11 +505,11 @@ export default function RepartitionCours() {
             ))}
           </select>
         )}
-        <span className="text-xs font-bold text-iip-blue bg-iip-light rounded-full px-3 py-1">{annee}</span>
+        <PastilleEtat etat="neutre">{annee}</PastilleEtat>
         {data && (
           <span className="ml-auto flex gap-2 flex-wrap">
             <label title="Un classeur Excel : « Groupe 1 », « Groupe 2 »… puis Nom, Prénom, Mail, Cours suivis"
-              className="px-3 py-1.5 text-second font-semibold rounded-champ border border-slate-300 text-slate-600 inline-flex items-center gap-1.5 cursor-pointer hover:bg-slate-50">
+              className="bouton cursor-pointer">
               <IconFileSpreadsheet size={14} /> Importer des groupes
               <input type="file" accept=".xlsx,.xls" className="hidden"
                 onChange={e => { chargerClasseur(e.target.files?.[0]); e.target.value = ''; }} />
@@ -529,11 +529,11 @@ export default function RepartitionCours() {
       </div>
 
       {erreur && (
-        <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-700">{erreur}</div>
+        <div data-etat="corriger" className="bloc-etat px-3 py-2 text-sm text-slate-800">{erreur}</div>
       )}
 
       {apercu && (
-        <div className="border border-iip-turquoise/40 bg-iip-turquoise/5 rounded-carte px-3 py-2.5 text-second space-y-1.5">
+        <div className="carte px-3 py-2.5 text-second space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <IconFileSpreadsheet size={15} className="text-iip-turquoise" />
             <b className="text-iip-blue">{classeur.nom}</b>
@@ -561,7 +561,7 @@ export default function RepartitionCours() {
               <IconAlertTriangle size={14} />
               {code} se coupe en groupes dans plusieurs activités : lesquelles reçoivent ce classeur ?
               <select value={choixBloc[code] || ''} onChange={e => setChoixBloc(p => ({ ...p, [code]: e.target.value }))}
-                className="border border-amber-300 rounded px-2 py-0.5 bg-white">
+                className="border border-slate-300 rounded px-2 py-0.5 bg-white">
                 <option value="">— {cands[0].activite_libelle || 'sans activité'} (par défaut) —</option>
                 {cands.map(c => <option key={c.cle} value={c.cle}>{c.activite_libelle || 'sans activité'}</option>)}
               </select>
@@ -617,7 +617,7 @@ export default function RepartitionCours() {
       {data && (<>
         <div className="flex items-center gap-2 flex-wrap">
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un étudiant…"
-            className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm w-56" />
+            className="controle w-56" />
           <select value={fPrimo} onChange={e => setFPrimo(e.target.value)} className="controle"
             title="Primo : aucune inscription ni valorisation dans une année antérieure. « Tout cocher » ne coche que ce qui est affiché.">
             <option value="">Tous les étudiants ({(data.etudiants || []).length})</option>
@@ -637,7 +637,7 @@ export default function RepartitionCours() {
               </select>);
           })()}
           {coches.size > 0 && (
-            <span className="text-second font-semibold text-iip-blue bg-iip-turquoise/10 border border-iip-turquoise/40 rounded-champ px-3 py-1.5 inline-flex items-center gap-2">
+            <span data-etat="disponible" className="bloc-etat text-second font-semibold text-iip-blue px-3 py-1.5 inline-flex items-center gap-2">
               {coches.size} coché(s) — cliquez l'en-tête d'un groupe pour les y placer
               <i className="not-italic font-normal text-slate-500">(la sélection reste : enchaînez 333.1·A, 333.2·B…)</i>
               <button onClick={() => setCoches(new Set())}
@@ -660,7 +660,7 @@ export default function RepartitionCours() {
             </div>
           </>
         )}
-        <div className="overflow-x-auto border border-slate-200 rounded-carte bg-white">
+        <div className="carte overflow-x-auto" style={{ background: 'var(--c-fond_ligne, var(--blanc, #fff))' }}>
           <table className="w-full text-second" style={{ minWidth: 760 }}>
             <thead>
               <tr>
@@ -672,7 +672,7 @@ export default function RepartitionCours() {
                 </th>
                 {(data.cours || []).map(c => (
                   <th key={c.cle} colSpan={c.sans_groupe ? 1 : c.groupes.length}
-                    className="px-2 py-1.5 bg-slate-50 border-b border-l-2 border-slate-200 text-iip-blue">
+                    className="px-2 py-1.5 bande-entete border-b border-l-2 border-slate-200 text-iip-blue">
                     {c.cours_code} · {c.cours_nom}
                     {peutRenommer && !c.sans_groupe && (
                       <button type="button" title="Renuméroter les groupes de ce cours (A, B… · A1, A2… · 1, 2…)"
@@ -682,9 +682,7 @@ export default function RepartitionCours() {
                     {/* CE SONT LES ACTIVITÉS QUI SE COUPENT EN GROUPES : la
                         théorie avec tous, le laboratoire en huit groupes. */}
                     {c.activite_libelle && (
-                      <span className="ml-1.5 text-mention font-bold px-1.5 py-0.5 rounded bg-violet-500 text-white">
-                        {c.activite_libelle}
-                      </span>
+                      <PastilleEtat etat="neutre" className="ml-1.5">{c.activite_libelle}</PastilleEtat>
                     )}
                     <span className="block text-mention font-normal text-slate-400">
                       {c.cours_per ? `${c.cours_per} pér.` : ''}
@@ -704,7 +702,7 @@ export default function RepartitionCours() {
               </tr>
               <tr>
                 {(data.cours || []).map(c => c.sans_groupe ? (
-                  <th key={c.cle} className="px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-mention text-emerald-700">
+                  <th key={c.cle} className="px-2 py-1 bande-entete border-b border-l border-dashed border-slate-200 text-mention text-emerald-700">
                     Tous{c.groupes[0]?.professeurs ? <span className="block font-normal text-slate-400">{c.groupes[0].professeurs}</span> : null}
                     <Supervision c={c} g={c.groupes[0]} />
                   </th>
@@ -717,7 +715,7 @@ export default function RepartitionCours() {
                     title={coches.size
                       ? `Placer les ${coches.size} coché(s) dans ${etiquette(g)} — ${c.cours_nom}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''}`
                       : ''}
-                    className={`px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-mention text-iip-turquoise-dark min-w-[92px]
+                    className={`px-2 py-1 bande-entete border-b border-l border-dashed border-slate-200 text-mention text-iip-turquoise-dark min-w-[92px]
                       ${coches.size ? 'cursor-pointer hover:bg-iip-turquoise/15 select-none' : ''}`}>
                     {etiquette(g)}
                     {peutRenommer && !coches.size && g.groupe && (
@@ -738,7 +736,7 @@ export default function RepartitionCours() {
               {etudiants.map(e => {
                 const manque = manquants(e);
                 return (
-                  <tr key={e.id} className={`border-b border-slate-100 ${manque ? 'bg-amber-50/60' : ''}`}>
+                  <tr key={e.id} className="ligne-maison">
                     {/* LA COLONNE FIGÉE A UN FOND PLEIN : transparente et floutée, elle
                         laissait voir en tache les ronds qui défilent dessous. Et la
                         pastille ne se coupe jamais en deux (Charles, 4 octobre 2026). */}
@@ -753,25 +751,24 @@ export default function RepartitionCours() {
                         </span>
                         {e.primo && <BadgePrimo />}
                         {data.tronc_commun && (e.section
-                          ? <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full border border-iip-blue text-iip-blue"
-                              title={`Section de l'étudiant : ${e.section}`}>{abregeSection(e.section)}</span>
-                          : <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full border border-amber-500 text-amber-700"
-                              title="Aucune section posée ni déduite pour cet étudiant">sans section</span>)}
+                          ? <PastilleEtat etat="neutre" className="flex-none whitespace-nowrap"
+                              title={`Section de l'étudiant : ${e.section}`}>{abregeSection(e.section)}</PastilleEtat>
+                          : <PastilleEtat etat="surveiller" className="flex-none whitespace-nowrap"
+                              title="Aucune section posée ni déduite pour cet étudiant">sans section</PastilleEtat>)}
                         {e.num_organisation != null
-                          ? <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
-                          : <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
+                          ? <PastilleEtat etat="neutre" className="flex-none whitespace-nowrap">Org {e.num_organisation}</PastilleEtat>
+                          : <PastilleEtat etat="surveiller" className="flex-none whitespace-nowrap">non réparti</PastilleEtat>}
                       </div>
                       {manque > 0 && (
                         <span className="block text-mention text-iip-texte">
-                          <IconAlertTriangle size={10} className="inline -mt-0.5" /> {manque} cours sans groupe
+                          <IconAlertTriangle size={10} className="inline -mt-0.5" style={{ color: 'var(--c-attente)' }} /> {manque} cours sans groupe
                         </span>
                       )}
                     </td>
                     {(data.cours || []).map(c => dispense(e, c) ? (
                       (c.sans_groupe ? [null] : c.groupes).map((g, gi) => (
-                        <td key={c.cle + (g ? cleGroupe(g) : '') + gi} className="text-center border-l border-dashed border-slate-100 bg-slate-50">
-                          {gi === 0 && <span title={`${e.nom} ${e.prenom} est dispensé(e) de ce cours — ${dispense(e, c)}`}
-                            className="inline-block px-1 h-[15px] rounded bg-slate-300 text-white text-mention font-bold leading-[15px]">D</span>}
+                        <td key={c.cle + (g ? cleGroupe(g) : '') + gi} className="text-center border-l border-dashed border-slate-100">
+                          {gi === 0 && <PastilleEtat etat="indisponible" title={`${e.nom} ${e.prenom} est dispensé(e) de ce cours — ${dispense(e, c)}`}>D</PastilleEtat>}
                         </td>))
                     ) : c.sans_groupe ? (
                       <td key={c.cle} className="text-center border-l border-dashed border-slate-100">
@@ -803,8 +800,8 @@ export default function RepartitionCours() {
               )}
             </tbody>
             <tfoot>
-              <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-xs text-iip-blue">
-                <td className="px-3 py-1.5 text-left sticky left-0 bg-slate-50">
+              <tr className="ligne-total font-bold text-xs text-iip-blue">
+                <td className="px-3 py-1.5 text-left sticky left-0" style={{ background: 'var(--c-tableau_total, rgb(var(--gris-100)))' }}>
                   Effectif par groupe
                   <span className="font-normal text-slate-400"> · {data.etudiants.length} inscrit{data.etudiants.length > 1 ? 's' : ''}</span>
                 </td>
