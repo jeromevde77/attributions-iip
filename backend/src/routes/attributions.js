@@ -7,10 +7,24 @@ import { saveSnapshot } from '../helpers/snapshot.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { peutPoserSupervision } from '../lib/supervisionGroupes.js';
+import { importerAttributions } from '../lib/importAttributions.js';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const r = Router();
+
+/* LES ATTRIBUTIONS DES ANNÉES PASSÉES (3.5.195) : un fichier, une simulation, puis l'écriture — tout ou rien. Moteur :
+   lib/importAttributions.js. Direction et secrétariat. */
+r.post('/import-historique', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const texte = String(req.body?.texte || '');
+  if (!texte.trim()) return res.status(400).json({ error: 'Fichier vide.' });
+  try {
+    const r2 = importerAttributions(texte, { ecrire: req.body?.ecrire === true, parId: req.user?.id ?? null });
+    if (r2.erreur) return res.status(400).json({ error: r2.erreur });
+    if (req.body?.ecrire === true && r2.bloque) return res.status(409).json({ error: `Rien n'a été écrit : ${r2.bloque}.`, ...r2 });
+    res.json(r2);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ── Analyse de l'autonomie d'une UE (intervalle min/max) ─────────────────────
 // Borne MIN = ue_aut (DP)
