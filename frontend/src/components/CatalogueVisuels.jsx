@@ -4,7 +4,7 @@ import { Anneau, Barres, Repartition, Jauge, TrVolet, PastilleEtape, LienEtape }
 import { Etendue } from './statsUi.jsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 import { IconPlus, IconSend, IconTrash } from '@tabler/icons-react';
-import { TuileEtat, PastilleEtat, Encadre, Fenetre, Tableau, TableauEntete, Th, Td, Tr, TrTotal, TrGroupe } from './ui.jsx';
+import { TuileEtat, PastilleEtat, Encadre, Fenetre, Tableau, TableauEntete, Th, Td, Tr, TrTotal, TrGroupe, ListeEtats, LigneEtat } from './ui.jsx';
 import AgendaSemaine from './AgendaSemaine.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { reglagesGraphique } from '../lib/design.js';
@@ -45,6 +45,10 @@ const FAMILLES = [
   { nom: 'Encadrés', role: 'Une phrase qui porte un état — la même forme que la tuile.',
     formes: [R('tuile_lisere', 'liseré'), R('rayon_tuile', 'rayon')], couleurs: [R('fond_tuile', 'fond'), ETATS],
     specimen: () => <Encadre etat="surveiller" titre="Un encadré">Trois recevabilités restent à contrôler.</Encadre> },
+  // LA LISTE À LISERÉ (3.5.202, Charles : « une carte, des lignes à liseré » — documents, messages, textes, ce qui m'attend).
+  { nom: 'Listes à liseré', role: 'Une carte, une ligne par élément, le liseré de l’état à gauche, un filet entre les lignes. Pour les documents, messages, textes à lire, ce qui m’attend — dans Lucie et dans les deux espaces.',
+    formes: [R('tuile_lisere', 'liseré'), R('rayon_carte', 'rayon')], couleurs: [R('fond_tuile', 'fond'), R('filet', 'filets'), ETATS],
+    specimen: () => <ListeEtats><LigneEtat etat="surveiller" titre="Règlement des études 2026-2027" sous="à lire et à confirmer" onClick={() => {}} /><LigneEtat etat="reussi" titre="Attestation de réussite — UE 333" sous="reçue le 04/11/2026" onClick={() => {}} /><LigneEtat etat="disponible" titre="Message de la coordination" sous="non lu" onClick={() => {}} /></ListeEtats> },
   { nom: 'Pastilles', role: 'Un état en ligne, plein, texte blanc.',
     formes: [R('rayon_pastille', 'rayon')], couleurs: [ETATS],
     specimen: () => <div className="flex gap-2"><PastilleEtat etat="reussi">réussi</PastilleEtat><PastilleEtat etat="faveur">faveur</PastilleEtat><PastilleEtat etat="surveiller">ajourné</PastilleEtat><PastilleEtat etat="corriger">refusé</PastilleEtat></div> },

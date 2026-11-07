@@ -500,7 +500,7 @@ export default function MesCours({ espace = null }) {
                 <div className="carte overflow-x-auto">
                   <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 text-second text-slate-500">
                     <button type="button" onClick={() => setVoletAcquis(v => !v)} aria-pressed={voletAcquis}
-                      className={`order-last shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-champ border ${voletAcquis ? 'border-iip-blue text-iip-blue bg-white' : 'border-slate-200 text-slate-600 hover:border-iip-blue'}`}>
+                      className={`order-last shrink-0 bouton bouton-compact ${voletAcquis ? 'bouton-sortir' : ''}`}>
                       <IconListDetails size={15} /> Acquis évalués</button>
                     <span className="min-w-0 flex-1">
                       {caseActive ? <>Dans la case active :</> : <>Cliquez une case, puis :</>}
@@ -556,17 +556,17 @@ export default function MesCours({ espace = null }) {
                     </thead>
                     <tbody>
                       {vus.map((e, r) => (
-                        <tr key={e.id} className="border-t border-slate-100 bg-white">
+                        <tr key={e.id} className="ligne-maison">
                           <td className="py-0.5 px-3 whitespace-nowrap"><b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
                             <span className="text-slate-400 text-xs"> · {e.id_ecampus || '—'}</span>
-                            {e.report && <span className="ml-2 text-mention px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
+                            {e.report && <span data-etat="neutre" className="ml-2 pastille-etat"
                               title="Tous les acquis de ce cours ont été maîtrisés l'an passé : le cours est dispensé et ses notes sont reprises">
                               reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}
-                            {e.dispense && <span className="ml-2 text-mention px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
+                            {e.dispense && <span data-etat="neutre" className="ml-2 pastille-etat"
                               title="Dispensé de ce cours par la valorisation des acquis : il ne se note pas ici">dispensé · {e.dispense}</span>}
                             {/* Les mesures accordées, et elles seules : le survol les
                                 énumère, la nature de la situation n'est jamais là. */}
-                            {e.amenagements?.length > 0 && <span className="ml-2 text-mention px-1.5 py-0.5 rounded border border-iip-blue/30 text-[color:var(--c-texte)] cursor-help"
+                            {e.amenagements?.length > 0 && <span data-etat="disponible" className="ml-2 pastille-etat cursor-help"
                               title={`Aménagements raisonnables accordés :\n${e.amenagements.map(m =>
                                 `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`}>
                               AR · {e.amenagements.length}</span>}</td>
@@ -712,7 +712,7 @@ export default function MesCours({ espace = null }) {
                                         : (t.trim() ? `${t.trim()} ${m.texte}` : m.texte);
                                       return { ...j, [actifEtu.id]: { ...(j[actifEtu.id] || {}), [caseActive.k]: v } };
                                     })}
-                                    className={`block w-full text-left px-1.5 py-1 rounded border mt-0.5 ${pris ? 'border-iip-blue bg-white text-slate-800' : 'border-transparent hover:border-slate-200 text-slate-600'}`}>
+                                    className={`block w-full text-left px-1.5 py-1 rounded-champ border mt-0.5 ${pris ? 'border-iip-blue text-iip-texte' : 'border-transparent hover:border-slate-200 text-slate-600'}`}>
                                     {pris ? '✓ ' : ''}{m.texte}
                                   </button>
                                 );
@@ -725,7 +725,7 @@ export default function MesCours({ espace = null }) {
                         onChange={ev => { const val = ev.target.value;
                           setJustifs(j => ({ ...j, [actifEtu.id]: { ...(j[actifEtu.id] || {}), [caseActive.k]: val } })); }}
                         placeholder="Choisissez dans la liste, ou écrivez ce que l'étudiant n'a pas démontré pour cet acquis"
-                        className="w-full border border-slate-300 rounded-champ bg-white text-second p-1.5" />
+                        className="controle w-full !h-auto py-1.5" />
                       <div className="text-mention text-slate-500 leading-snug">
                         Il accompagne la note et sera proposé au Conseil des études comme motivation de l'échec ; le Conseil le garde ou le réécrit.
                       </div>
@@ -834,7 +834,7 @@ export default function MesCours({ espace = null }) {
         <h1 className="titre-ecran !mb-0">{{ aujourdhui: 'Ma journée', rendre: 'À rendre', notes: 'Mes notes', presences: 'Mes présences' }[vueEspace] || 'Mes cours'}</h1>
         <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
           title="L'année des cours affichés — sans changer l'année de travail du reste de Lucie"
-          className="controle border border-slate-300 rounded-champ bg-white text-sm font-semibold">
+          className="controle text-sm font-semibold">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         {/* MON HORAIRE, À LA VUE (3.1.480, Charles : « je ne vois pas où le prof voit son horaire ») : il n'était que
@@ -844,9 +844,7 @@ export default function MesCours({ espace = null }) {
       </div>
 
       {erreur && (
-        <div className="bloc-etat etat-corriger px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-          <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
-        </div>
+        <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur} />
       )}
 
       {/* LES PRÉSENCES DU JOUR, EN TÊTE : le QR de la séance en cours, sans rien chercher. */}
@@ -889,8 +887,8 @@ export default function MesCours({ espace = null }) {
         }
         const carte = x => (
           <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-            style={{ borderLeftColor: couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }}
-            className="w-full text-left bg-white border border-slate-200 border-l-[5px] rounded-l-none rounded-r-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
+            style={{ '--e': couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }}
+            className="bloc-etat w-full text-left px-3 py-2 hover:brightness-[.98] flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>
               <div className="text-second text-slate-500 truncate">
@@ -915,7 +913,7 @@ export default function MesCours({ espace = null }) {
               <div className="flex flex-wrap items-center gap-2">
                 {sectionsDispo.length > 1 && (
                   <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)} aria-label="Section"
-                    className="controle border border-slate-300 rounded-champ bg-white">
+                    className="controle">
                     <option value="">Toutes mes sections</option>
                     {sectionsDispo.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
                   </select>
@@ -923,7 +921,7 @@ export default function MesCours({ espace = null }) {
                 {aSection && (
                   <input value={filtre} onChange={e => setFiltre(e.target.value)}
                     placeholder="Chercher un cours, une unité, un enseignant…"
-                    className="controle w-72 max-w-full border border-slate-300 rounded-champ bg-white" />
+                    className="controle w-72 max-w-full" />
                 )}
               </div>
             )}
@@ -940,9 +938,9 @@ export default function MesCours({ espace = null }) {
                     if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
                   }
                   return parUnite.map(u => (
-                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[3px] rounded-carte"
-                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
-                      <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
+                    <section key={`${u.ue_num}|${u.section}`} className="bloc-etat overflow-hidden"
+                      style={couleurBloc(u.ue_niv) ? { '--e': couleurBloc(u.ue_niv) } : undefined}>
+                      <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
                         <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
                           {u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
                         <TrainUE section={u.section} niveau={u.ue_niv} ects={u.ects} nbCours={u.cours.length}

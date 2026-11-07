@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { IconGavel } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { EnteteCarte } from './ui.jsx';
+import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 
 const JOURS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 const quand = s => {
@@ -44,19 +44,19 @@ export default function DatesDeliberation({ annee = getAnnee() }) {
   return (
     <div className="carte overflow-hidden">
       <EnteteCarte icone={IconGavel} titre="Les délibérations de mes unités" sous={`Date et heure de chaque séance, ${annee}`} />
-      <table className="w-full text-sm">
-        <thead><tr><th className="px-3 py-1.5 text-left">Unité</th><th className="px-3 py-1.5 text-left">1re session</th><th className="px-3 py-1.5 text-left">2e session</th></tr></thead>
+      <Tableau className="!border-0 !rounded-none">
+        <TableauEntete><Th>Unité</Th><Th>1re session</Th><Th>2e session</Th></TableauEntete>
         <tbody>{ues.map(([u, nom]) => {
           const s1 = l.filter(s => s.ue_num === u && s.session === 1), s2 = l.filter(s => s.ue_num === u && s.session === 2);
           const cel = arr => (arr.length ? arr.map((s, i) => <div key={i}>{s.org ? <span className="text-slate-500">org. {s.org} · </span> : null}{quand(s)}</div>) : <span className="text-slate-400">date à poser</span>);
           return (
-            <tr key={u} className="border-t border-slate-100 align-top">
-              <td className="px-3 py-1.5"><b>UE {u}</b>{nom ? <span className="text-slate-500"> — {nom}</span> : null}</td>
-              <td className="px-3 py-1.5">{cel(s1)}</td>
-              <td className="px-3 py-1.5">{cel(s2)}</td>
-            </tr>);
+            <Tr key={u} className="align-top">
+              <Td><b>UE {u}</b>{nom ? <span className="text-slate-500"> — {nom}</span> : null}</Td>
+              <Td>{cel(s1)}</Td>
+              <Td>{cel(s2)}</Td>
+            </Tr>);
         })}</tbody>
-      </table>
+      </Tableau>
     </div>);
 }
 
