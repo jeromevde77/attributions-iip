@@ -422,15 +422,28 @@ export default function MesCours({ espace = null }) {
                     ))}
                   </div>
                 )}
-                {groupesDispo.length > 0 && (
-                  <div className="segments">
-                    {[['', `Tous (${feuille.etudiants.length})`], ...groupesDispo.map(g => [g,
-                      `${g} (${feuille.etudiants.filter(e => groupesDe(e).includes(g)).length})`])].map(([g, l]) => (
-                      <button key={g || 'tous'} type="button" onClick={() => setGroupeVu(g)}
-                        className={`px-2.5 py-1 text-second ${groupeVu === g ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
-                    ))}
-                  </div>
-                )}
+                {/* LES GROUPES, COURTS (3.5.165, Charles : « pas très clair ni design ») : ce que tous les groupes ont en commun
+                    (« Anatomie topographique 1 (TP) · Org 1 ») se dit une fois, devant ; chaque bouton ne porte que sa lettre et son
+                    nombre. */}
+                {groupesDispo.length > 0 && (() => {
+                  const parts = groupesDispo.map(g => g.split(' · '));
+                  let n = 0;
+                  while (parts.every(p => p.length > n + 1 && p[n] === parts[0][n])) n++;
+                  const commun = parts[0].slice(0, n).filter(x => !/^Org 1$/.test(x)).join(' · ');
+                  const court = g => g.split(' · ').slice(n).join(' · ').replace(/^Gr\.\s*/, '') || g;
+                  const nb = g => feuille.etudiants.filter(e => groupesDe(e).includes(g)).length;
+                  return (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-second text-slate-500">{commun ? `${commun} — groupe` : 'Groupe'}</span>
+                      <div className="segments">
+                        {[['', 'Tous', feuille.etudiants.length], ...groupesDispo.map(g => [g, court(g), nb(g)])].map(([g, l, k]) => (
+                          <button key={g || 'tous'} type="button" onClick={() => setGroupeVu(g)} title={g || 'Tous les étudiants'}
+                            className={`px-3 py-1 text-second ${groupeVu === g ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                            {l} <span className={groupeVu === g ? 'text-white/70' : 'text-slate-400'}>{k}</span></button>
+                        ))}
+                      </div>
+                    </div>);
+                })()}
                 <span className="ml-auto" />
                 <MaListe cours={ouvert} groupe={groupeVu} occupe={!!impression} onImprimer={imprimerGroupes}
                   etudiants={groupeVu ? feuille.etudiants.filter(e => groupesDe(e).includes(groupeVu)) : feuille.etudiants} />
