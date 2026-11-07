@@ -60,7 +60,8 @@ export default function MaJournee({ onAgir, onSemaine }) {
     const lire = () => fetch(`/api/mes-cours/journee${jour ? `?date=${jour}` : ''}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null))
       .then(j => {
-        if (!vivant || !j) return;
+        // Une réponse d'une autre forme (relais, refus) ne fait pas tomber la page (3.5.185).
+        if (!vivant || !j || !Array.isArray(j.seances)) return;
         setData(j); setMaintenant(maintenantMin());
         // Par défaut, la séance en cours, sinon la prochaine du jour.
         setChoisie(c => (j.seances.some(s => s.id === c) ? c
