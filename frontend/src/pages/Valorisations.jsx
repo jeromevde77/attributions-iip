@@ -4490,6 +4490,9 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
   const prets0 = lignes.filter(d => aEcrire(d) && !manqueDe(d));
   const prets = prets0;
   const aValider = lignes.filter(d => d.pret_a_valider && !aEcrire(d));
+  // TOUT CE QUI EST ARRÊTÉ, EN UNE FOIS (3.5.186, Charles : « je ne fais que valider alors que je l'ai déjà fait ») : les dossiers
+  // de la section dont la décision est arrêtée et complète, validés en un geste — par séance (section + date), comme le serveur l'exige.
+  const tousAValider = (dossiers || []).filter(d => (!section || d.section === section) && d.pret_a_valider && d.decision_le && !d.valide_le);
   const fait = x => x.lignes.every(d => d.valide_le || (d.decision_le && !aEcrire(d)) || MOTS_ETAT_BLOQUANT(d));
 
   // AU CAS PAR CAS OU EN UNE FOIS (2 octobre 2026) : `seules` restreint le
@@ -4504,7 +4507,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
       // deux sections part en deux lots, sans qu'on ait à y penser.
       const parSection = new Map();
       for (const d of prets) { const k = d.section || ''; if (!parSection.has(k)) parSection.set(k, []); parSection.get(k).push(d); }
-      let n = 0;
+      let n = 0, valides = 0;
       for (const lot of parSection.values()) {
         const corps = lot.map(d => {
           const c = choix[d.id];
@@ -4520,11 +4523,29 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
           body: JSON.stringify({ decision_ce_date: dateCE, lignes: corps }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) { setErreur(j.error || 'Enregistrement refusé.'); if (Array.isArray(j.bloquants)) setBloquants(j.bloquants); await charger(); return; }
-        n += lot.length;
+        n += lot.length; valides += j.valides || 0;
       }
-      setInfo(`${n} décision(s) arrêtée(s) — séance du ${dateCE.split('-').reverse().join('/')}.`);
+      setInfo(`${n} décision(s) arrêtée(s)${valides ? ` et validée(s)` : ''} — séance du ${dateCE.split('-').reverse().join('/')}.`);
       await charger(); await onChange?.();
       if (suivant && iCur < groupes.length - 1) setCle(groupes[iCur + 1].cle);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
+  async function validerTout() {
+    setEnCours(true); setErreur(null); setBloquants(null); setInfo(null);
+    try {
+      const lots = new Map();
+      for (const d of tousAValider) { const k = `${d.section || ''}|${d.decision_ce_date || ''}`; if (!lots.has(k)) lots.set(k, []); lots.get(k).push(d.id); }
+      let n = 0; const refus = [];
+      for (const ids of lots.values()) {
+        const r = await fetch('/api/etudiants/valorisations/lot/validation', {
+          method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok) n += j.valides ?? ids.length; else refus.push(...(j.bloquants || [{ qui: '', pourquoi: j.error }]));
+      }
+      setInfo(`${n} dossier(s) validé(s).`);
+      if (refus.length) setBloquants(refus);
+      await charger(); await onChange?.();
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
@@ -4599,6 +4620,11 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                     style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}
                     title="Geste de la direction : les décisions arrêtées et complètes">
                     <IconCheck size={14} className="inline -mt-0.5 mr-1" />Valider {aValider.length} dossier(s)</button>
+                )}
+                {peutValider && tousAValider.length > aValider.length && (
+                  <button className="bouton bouton-fort" disabled={enCours} onClick={validerTout}
+                    title="Toutes les décisions arrêtées et complètes de la section, en un geste">
+                    <IconCheck size={14} className="inline -mt-0.5 mr-1" />Valider tout ce qui est arrêté ({tousAValider.length})</button>
                 )}
                 <button className="bouton" disabled={iCur <= 0} onClick={() => setCle(groupes[iCur - 1].cle)}>◀ Précédent</button>
                 <button className="bouton" disabled={iCur >= groupes.length - 1} onClick={() => setCle(groupes[iCur + 1].cle)}>Passer ▶</button>

@@ -9369,7 +9369,25 @@ r.post('/valorisations/lot/decisions', authRequired, gesteRequis('valorisation.i
                : `${corps.type} · base ${corps.base_code}`));
     rafraichirEtat(v.id);
   }
-  res.json({ ok: true, decides: cibles.length, ids: cibles.map(c => c.v.id) });
+  /* LA DIRECTION QUI ARRÊTE, VALIDE DANS LE MÊME GESTE (3.5.186, Charles : « j'en ai marre, je ne fais que valider alors que je
+     l'ai déjà fait ; j'ai déjà arrêté les décisions »). Quand c'est la direction (geste « valorisation.valider ») qui arrête la
+     décision en séance, la validation suit d'office, pour chaque dossier complet : deux lignes de journal, à son nom. Une
+     coordination qui arrête ne valide toujours pas — la règle des deux mains reste pour elle. */
+  let valides = 0;
+  if (req.body?.valider !== false && gesteAutorise(req, 'valorisation.valider') === 'oui') {
+    const maj = db.prepare(`UPDATE etudiant_valorisation
+      SET valide_le = datetime('now'), valide_par = ?, valide_par_id = ?, valide_role = ? WHERE id = ? AND valide_le IS NULL`);
+    for (const { v } of cibles) {
+      const d = lireDossierComplet(v.id);
+      if (!d || d.valide_le) continue;
+      if (manquesDossier(d).filter(m => !m.startsWith('Le dossier n’a pas été validé')).length) continue;
+      if (maj.run(nom, req.user?.id ?? null, req.user?.role || null, v.id).changes) {
+        journaliser(v.id, 'validation', req, 'validée en arrêtant la décision (direction)');
+        rafraichirEtat(v.id); valides++;
+      }
+    }
+  }
+  res.json({ ok: true, decides: cibles.length, valides, ids: cibles.map(c => c.v.id) });
 });
 
 /**
