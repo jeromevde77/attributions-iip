@@ -11,9 +11,10 @@
  * Serveur : `routes/carnet.js`, calcul dans `lib/carnet.js`.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { IconPlus, IconHistory, IconFileSpreadsheet, IconArrowBarToRight, IconClipboardText, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconAdjustmentsHorizontal, IconHistory, IconFileSpreadsheet, IconArrowBarToRight, IconClipboardText, IconTrash } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Encadre, Fenetre } from './ui.jsx';
+import PlanEvaluation from './PlanEvaluation.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().slice(0, 2).join('/') : '');
@@ -45,6 +46,7 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
   const [enCours, setEnCours] = useState(false);
   const [fait, setFait] = useState(null);
   const [session, setSession] = useState(sessionFeuille);
+  const [planOuvert, setPlanOuvert] = useState(false);
 
   const charger = () => appel(`${base}?annee=${encodeURIComponent(annee)}`)
     .then(j => { setD(j); setSaisie({}); setErreur(null); })
@@ -139,7 +141,12 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
 
   return (
     <div className="space-y-2">
+      {planOuvert && <PlanEvaluation coursCode={coursCode} annee={annee} d={d} onFermer={() => setPlanOuvert(false)}
+        onEnregistre={m => { setPlanOuvert(false); setFait(m); charger(); }} />}
       <div className="flex flex-wrap items-center gap-2">
+        {/* GÉRER MON ÉVALUATION (3.5.189) : le plan d'abord — comment se calcule la note, quelles évaluations, d'après la DUE. */}
+        <button type="button" className="bouton" onClick={() => setPlanOuvert(true)} style={{ borderColor: 'var(--c-principal)', color: 'var(--c-principal)' }}>
+          <IconAdjustmentsHorizontal size={15} /> Gérer mon évaluation</button>
         <button type="button" className="bouton" onClick={() => setFiche({ intitule: '', date: '', sur: 20, poids: 1, session: sessionFeuille, aa: [] })}>
           <IconPlus size={15} /> Évaluation</button>
         {d.precedent && (
@@ -160,6 +167,12 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
         <button type="button" className="bouton bouton-fort" disabled={!sales.length || invalides.length > 0 || enCours} onClick={enregistrer}>
           Enregistrer{sales.length ? ` (${sales.length})` : ''}</button>
       </div>
+      {d.plans?.[session] && (
+        <div className="text-second text-slate-600">
+          <b>Calcul{aS2 ? ` (${session === 2 ? '2ᵉ' : '1ʳᵉ'} session)` : ''} :</b> {(d.modes?.[d.plans[session].mode] || '').split(' — ')[0]}
+          {d.plans[session].mode === 'continu_examen' ? ` — ${nb(d.plans[session].part_continue)} % continu, ${nb(100 - Number(d.plans[session].part_continue))} % examen` : ''}
+          {!d.plans[session].regle && <span className="text-slate-400"> (par défaut — réglez-le dans « Gérer mon évaluation »)</span>}
+        </div>)}
       <div className="text-second min-h-[1.2rem]">
         {invalides.length ? <span style={{ color: 'var(--c-refuse)' }}>{invalides.length} case(s) invalide(s) : des points (12,5) jusqu’au maximum, ou PP · NP · CM.</span>
           : fait ? <span style={{ color: 'var(--c-reussi)' }}>✓ {fait}</span>
@@ -169,7 +182,7 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
 
       {!evals.length ? (
         <Encadre etat="neutre" titre="Le carnet est vide">
-          Ajoutez vos évaluations — tests, interrogations, travaux — avec leur maximum et leur poids. Rattachez-les aux acquis
+          Commencez par « Gérer mon évaluation » : la façon de calculer la note, et vos évaluations, proposées d’après la DUE. Ou ajoutez-les une à une — tests, interrogations, travaux — avec leur maximum et leur poids. Rattachez-les aux acquis
           qu’elles évaluent : Lucie en tire une proposition de note par acquis, que vous reprenez dans la feuille de notes.
           Sans rattachement, l’évaluation reste dans votre carnet.
         </Encadre>
