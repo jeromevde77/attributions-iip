@@ -10,7 +10,7 @@ import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents, IconArrowsExchange, IconPower } from '@tabler/icons-react';
 import CatalogueVisuels from '../components/CatalogueVisuels.jsx';
 import ReglageDesign from '../components/ReglageDesign.jsx';
-import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre, EnteteCarte } from '../components/ui.jsx';
+import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre, EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, TrGroupe, TrTotal } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const RegistreTransferts = lazy(() => import('../components/RegistreTransferts.jsx'));
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -67,7 +67,7 @@ function PurgeAnnee() {
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Année à purger</label>
                 <select value={annee} onChange={e => setAnnee(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm w-44 bg-white">
+                  className="controle w-44">
                   <option value="">— Choisir —</option>
                   {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
                 </select>
@@ -82,10 +82,10 @@ function PurgeAnnee() {
         )}
         {etape === 2 && (
           <div className="bloc-etat etat-corriger p-4 space-y-3">
-            <p className="text-sm font-semibold text-red-700">
-              ⚠️ Confirmer la suppression de l'année <strong>{annee}</strong> ?
+            <p className="text-sm font-semibold">
+              Confirmer la suppression de l'année <strong>{annee}</strong> ?
             </p>
-            <p className="text-xs text-red-600">
+            <p className="text-second text-slate-700">
               Toutes les attributions, UE, cours, organisations et EA12 de cette année
               seront définitivement supprimés. Cette action est irréversible.
             </p>
@@ -104,14 +104,14 @@ function PurgeAnnee() {
         )}
         {etape === 3 && result && (
           <div className="bloc-etat etat-reussi p-4 space-y-2">
-            <p className="text-sm font-semibold text-green-700">✓ Année {annee} purgée</p>
-            <div className="text-xs text-green-600 space-y-0.5">
+            <p className="text-sm font-semibold">✓ Année {annee} purgée</p>
+            <div className="text-second text-slate-700 space-y-0.5">
               {Object.entries(result.details || result.supprime || {}).map(([t, n]) => (
                 <div key={t}>{t} : {n} ligne(s) supprimée(s)</div>
               ))}
             </div>
             <button onClick={() => { setEtape(1); setAnnee(''); setResult(null); }}
-              className="text-xs text-green-700 underline mt-2">Recommencer</button>
+              className="bouton mt-2">Recommencer</button>
           </div>
         )}
       </div>
@@ -154,10 +154,10 @@ function RegenererDonneesDev() {
         )}
         {etape === 2 && (
           <div className="bloc-etat etat-surveiller p-4 space-y-3">
-            <p className="text-sm font-semibold text-amber-700">
+            <p className="text-sm font-semibold">
               Confirmer l'anonymisation de tous les professeurs et de tous les étudiants ?
             </p>
-            <p className="text-xs text-amber-600">
+            <p className="text-second text-slate-700">
               Tous les noms, prénoms, adresses, emails, dates de naissance, matricules
               et diplômes seront remplacés par de nouvelles données fictives. Les
               attributions, UE et cours ne sont pas touchés.
@@ -177,17 +177,17 @@ function RegenererDonneesDev() {
         )}
         {etape === 3 && stats && (
           <div className="bloc-etat etat-reussi p-4 space-y-2">
-            <p className="text-sm font-semibold text-green-700">
+            <p className="text-sm font-semibold">
               ✓ {stats.total} professeurs et {stats.etudiants ?? 0} étudiants anonymisés
             </p>
-            <div className="text-xs text-green-600 space-y-0.5">
+            <div className="text-second text-slate-700 space-y-0.5">
               <div>CAPAES : {stats.capaes} · CAP : {stats.cap} · AESS : {stats.aess} · sans titre péda : {stats.sans}</div>
             </div>
             <p className="text-xs text-gray-500">
               Rechargez les pages Professeurs pour voir les nouvelles données.
             </p>
             <button onClick={() => { setEtape(1); setStats(null); }}
-              className="text-xs text-green-700 underline mt-1">Recommencer</button>
+              className="bouton mt-1">Recommencer</button>
           </div>
         )}
       </div>
@@ -415,7 +415,7 @@ function GestionParametres({ groupes = null }) {
                   <div key={p.cle} className={`flex items-center gap-x-4 gap-y-2 px-5 py-3 ${t.type === 'texte' ? 'flex-wrap' : ''}`}>
                     {/* Le nom technique du réglage ne s'affiche plus : il reste au survol, pour qui le cherche. */}
                     <div className="flex-1 min-w-0" title={p.cle}>
-                      <p className="text-sm font-medium text-iip-texte m-0">{p.label}{modified && <span className="ml-2 text-mention text-amber-700">modifié</span>}</p>
+                      <p className="text-sm font-medium text-iip-texte m-0">{p.label}{modified && <PastilleEtat etat="surveiller" className="ml-2">modifié</PastilleEtat>}</p>
                     </div>
                     <div className={`flex items-center gap-2 ${t.type === 'texte' ? 'basis-full' : ''}`}>
                       {/* UN OUI/NON SE COCHE. Il se tapait « 0 » ou « 1 » dans un
@@ -424,8 +424,8 @@ function GestionParametres({ groupes = null }) {
                       {t.type === 'texte' ? (
                         <textarea value={val} rows={6}
                           onChange={e => handleChange(p.cle, e.target.value)}
-                          className={`border rounded-champ px-3 py-2 text-sm w-full leading-relaxed bg-white
-                            ${modified ? 'border-amber-500' : 'border-slate-200'}`} />
+                          className={`controle w-full !h-auto py-2 leading-relaxed
+                            ${modified ? '!border-amber-500' : ''}`} />
                       ) : t.type === 'booleen' ? (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <span className={`text-second ${val === '1' ? 'text-slate-700' : 'text-slate-400'}`}>
@@ -587,11 +587,11 @@ function GestionPrerequis() {
     <div className={`space-y-4 ${vue === 'schema' ? 'max-w-none' : ''}`}>
       <div className="flex items-center gap-3 flex-wrap">
         <select value={section} onChange={e => setSection(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+          className="controle">
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
-        <div className="segments h-9">
+        <div className="segments">
           {[['schema', 'Schéma'], ['liste', 'Liste']].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
               className={`px-3 text-sm ${vue === v
@@ -603,7 +603,7 @@ function GestionPrerequis() {
         {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
       </div>
 
-      <div className="bloc-etat etat-surveiller px-3 py-2 text-second text-amber-900">
+      <div className="bloc-etat etat-surveiller px-3 py-2 text-second">
         Les prérequis constituent la bibliothèque : ils viennent du dossier pédagogique et
         valent pour <b>toutes les années</b>. Les modifier fait bouger les grilles de parcours
         et les PAE déjà établis. Réservé aux administrateurs.
@@ -636,7 +636,7 @@ function GestionPrerequis() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">UE qui dépend de…</label>
                 <select value={newUe} onChange={e => setNewUe(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white w-72">
+                  className="controle w-72">
                   <option value="">— Choisir l'UE —</option>
                   {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE{u.ue_num} — {u.ue_nom?.slice(0,40)}</option>)}
                 </select>
@@ -644,7 +644,7 @@ function GestionPrerequis() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">…doit être terminée après</label>
                 <select value={newPre} onChange={e => setNewPre(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white w-72">
+                  className="controle w-72">
                   <option value="">— Choisir le prérequis —</option>
                   {ues.filter(u => String(u.ue_num) !== newUe).map(u => <option key={u.ue_num} value={u.ue_num}>UE{u.ue_num} — {u.ue_nom?.slice(0,40)}</option>)}
                 </select>
@@ -664,32 +664,30 @@ function GestionPrerequis() {
               Aucun prérequis défini pour {section}
             </div>
           ) : (
-            <div className="carte overflow-hidden bg-white">
-              <table className="w-full text-sm">
-                <thead className="tab-entete intertitre">
-                  <tr>
-                    <th className="px-4 py-3 text-left">UE</th>
-                    <th className="px-4 py-3 text-left">Dépend de (prérequis)</th>
-                    <th className="px-4 py-3 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
+            <div className="carte overflow-hidden">
+              <Tableau className="!border-0 !rounded-none">
+                <TableauEntete>
+                  <Th>UE</Th>
+                  <Th>Dépend de (prérequis)</Th>
+                  <Th largeur="w-10"></Th>
+                </TableauEntete>
+                <tbody>
                   {Object.entries(parUE).sort(([a],[b]) => Number(a)-Number(b)).map(([ue, pres]) => (
                     pres.map((p, i) => (
-                      <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 font-medium text-iip-mauve">
+                      <Tr key={p.id}>
+                        <Td className="font-medium">
                           {i === 0 ? ueLabel(Number(ue)) : ''}
-                        </td>
-                        <td className="px-4 py-2 text-gray-600">{ueLabel(p.prerequis_num)}</td>
-                        <td className="px-4 py-2">
-                          <button onClick={() => supprimer(p.id)}
-                            className="text-gray-300 hover:text-red-500 transition text-xs"><IconX size={13} /></button>
-                        </td>
-                      </tr>
+                        </Td>
+                        <Td>{ueLabel(p.prerequis_num)}</Td>
+                        <Td>
+                          <button onClick={() => supprimer(p.id)} title="Supprimer"
+                            className="text-slate-400 hover:text-[color:var(--c-refuse)] transition text-xs"><IconX size={13} /></button>
+                        </Td>
+                      </Tr>
                     ))
                   ))}
                 </tbody>
-              </table>
+              </Tableau>
             </div>
           )}
 
@@ -774,7 +772,7 @@ function ConfigContrat() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="titre-carte">Template du contrat de travail</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Éditez le HTML du contrat. Utilisez les variables <code className="bg-gray-100 px-1 rounded">{"{{variable}}"}</code> pour les données dynamiques.</p>
+          <p className="text-second text-slate-500 mt-0.5">Éditez le HTML du contrat. Utilisez les variables <code className="bg-slate-100 px-1 rounded">{"{{variable}}"}</code> pour les données dynamiques.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={reinitialiser} className="bouton">Réinitialiser</button>
@@ -792,7 +790,7 @@ function ConfigContrat() {
         <div className="flex flex-wrap gap-1.5">
           {VARS.map(({ v, desc }) => (
             <button key={v} onClick={() => inserer(v)} title={desc}
-              className="text-xs font-mono bg-white border border-slate-200 text-iip-texte hover:border-iip-blue px-2 py-0.5 rounded-champ transition">
+              className="bouton bouton-compact font-mono !text-xs">
               {v}
             </button>
           ))}
@@ -801,7 +799,7 @@ function ConfigContrat() {
 
       {/* Éditeur / Prévisualisation */}
       {preview ? (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden" style={{ height: '70vh' }}>
+        <div className="carte overflow-hidden" style={{ height: '70vh' }}>
           <iframe srcDoc={template} className="w-full h-full border-0" aria-label="Aperçu contrat" />
         </div>
       ) : (
@@ -810,7 +808,7 @@ function ConfigContrat() {
           value={template}
           onChange={e => setTemplate(e.target.value)}
           spellCheck={false}
-          className="w-full font-mono text-xs bg-gray-950 text-green-300 rounded-xl p-4 border border-gray-800 focus:outline-none focus:border-iip-turquoise resize-none"
+          className="controle w-full !p-4 font-mono !text-xs !leading-relaxed resize-none"
           style={{ height: '70vh', lineHeight: '1.6', tabSize: 2 }}
           placeholder="Le template HTML du contrat s'affiche ici…"
         />
@@ -877,7 +875,7 @@ function ConfigAttestation() {
         <div className="space-y-3">
           <div className="text-xs text-gray-500 mb-2">Chaque section correspond à un diplôme délivrable. Renseignez le code Gouvernement exact.</div>
           {sections.map((s, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+            <div key={i} className="carte p-4 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 {[
                   ['section',  'Intitulé section (majuscules)'],
@@ -896,19 +894,19 @@ function ConfigAttestation() {
                     <div className="text-xs text-gray-500 mb-0.5">{label}</div>
                     {k === 'ue_section' ? (
                       <select value={s[k]||''} onChange={e => majSection(i, k, e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs h-8 bg-white">
+                        className="controle w-full">
                         <option value="">— aucune —</option>
                         {s[k] && !ueSections.includes(s[k]) && <option value={s[k]}>{s[k]} (hors liste)</option>}
                         {ueSections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
                       </select>
                     ) : (
                       <input value={s[k]||''} onChange={e => majSection(i, k, e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs h-8" />
+                        className="controle w-full" />
                     )}
                   </div>
                 ))}
               </div>
-              <button onClick={() => supprimerSection(i)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
+              <button onClick={() => supprimerSection(i)} className="bouton bouton-compact bouton-detruire">
                 <IconTrash size={12}/> Supprimer
               </button>
             </div>
@@ -1403,7 +1401,7 @@ export default function Configuration() {
             <div className="flex items-center gap-3 flex-wrap">
               <input type="file" accept=".db,application/octet-stream"
                 onChange={e => { setRestoreFile(e.target.files?.[0] || null); setRestoreStatus(''); }}
-                className="text-sm text-gray-600 file:mr-3 file:py-1.5 h-9 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                className="text-sm text-gray-600 file:mr-3 file:py-1.5 h-9 file:px-3 file:rounded file:border-0 file:text-sm file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" />
               <button onClick={restaurerBase} disabled={!restoreFile || restoring}
                 className="bouton bouton-detruire whitespace-nowrap">
                 {restoring ? 'Restauration…' : 'Restaurer cette base'}
@@ -1411,13 +1409,13 @@ export default function Configuration() {
             </div>
             {restoreFile && <div className="text-xs text-gray-500">Fichier : {restoreFile.name} ({(restoreFile.size/1024/1024).toFixed(2)} Mo)</div>}
             {restoreStatus && <div className="text-xs text-gray-700 whitespace-pre-wrap">{restoreStatus}</div>}
-            <p className="text-xs text-red-600">
-              ⚠ Action irréversible sur les données actuelles. Un garde-fou vérifie la base restaurée et remet
+            <Encadre etat="corriger">
+              Action irréversible sur les données actuelles. Un garde-fou vérifie la base restaurée et remet
               automatiquement l'ancienne en place si elle est illisible (le serveur ne redémarre alors pas).
-            </p>
+            </Encadre>
             <details className="text-xs text-gray-500">
               <summary className="cursor-pointer hover:text-gray-700">🆘 Procédure d'urgence manuelle (si le serveur ne redémarre pas)</summary>
-              <div className="mt-2 bg-gray-900 text-gray-100 rounded p-3 font-mono text-mention leading-relaxed overflow-x-auto whitespace-pre">{`sudo -i
+              <div className="mt-2 bg-slate-900 text-slate-100 rounded-champ p-3 font-mono text-mention leading-relaxed overflow-x-auto whitespace-pre">{`sudo -i
 # 1. Lister les backups auto (le plus récent = avant la dernière restauration)
 ls -lht /volume1/@docker/volumes/attributions-data-dev/_data/backups-auto/
 # 2. Arrêter le conteneur qui boucle
@@ -1439,9 +1437,9 @@ docker start attributions-backend-dev`}</div>
       <section className="carte overflow-hidden">
         <EnteteCarte titre="À propos" />
         <div className="px-4 py-4 text-xs text-gray-500 space-y-1">
-        <div>Base de données : SQLite (fichier <code className="bg-gray-100 px-1 rounded">attributions.db</code>)</div>
+        <div>Base de données : SQLite (fichier <code className="bg-slate-100 px-1 rounded">attributions.db</code>)</div>
         <div>Le fichier de sauvegarde peut être restauré directement sur la Synology en remplaçant
-          <code className="bg-gray-100 px-1 rounded mx-1">/volume1/docker/attributions-app/backend/data/attributions.db</code>
+          <code className="bg-slate-100 px-1 rounded mx-1">/volume1/docker/attributions-app/backend/data/attributions.db</code>
           et en redémarrant le container.
         </div>
         </div>
@@ -1471,7 +1469,7 @@ const PNCC_CATS = [
   { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: 'var(--c-texte)', desc: '' },
   { value: 'direction',            label: 'Direction',             color: 'var(--c-texte)', desc: '' },
   { value: 'economat',             label: 'Économat',              color: 'var(--c-texte)', desc: '' },
-  { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
+  { value: 'autre',                label: 'Autre',                 color: 'rgb(var(--gris-500))', desc: '' },
 ];
 
 function PnccSection({ annee }) {
@@ -1544,7 +1542,7 @@ function PnccSection({ annee }) {
           return (
             <div key={cat.value} className="px-5 py-3">
               <div className="flex items-center gap-2 mb-2">
-                <span style={{background: cat.color}} className="text-white text-xs font-bold px-2 py-0.5 rounded">{cat.label}</span>
+                <PastilleEtat etat={cat.value === 'autre' ? 'neutre' : 'disponible'}>{cat.label}</PastilleEtat>
                 <span className="text-xs text-gray-400">{totCat.toFixed(1)} ETP</span>
                 {cat.desc && <span className="text-xs text-gray-400 italic">· {cat.desc}</span>}
               </div>
@@ -1558,10 +1556,10 @@ function PnccSection({ annee }) {
                     <input type="number" min="0" max="2" step="0.1"
                       defaultValue={p.etp}
                       onBlur={e => updateEtp(p.id, e.target.value)}
-                      className="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-right font-semibold text-iip-blue"
+                      className="controle w-20 text-right font-semibold"
                     />
                     <span className="text-xs text-gray-400">ETP</span>
-                    <button onClick={() => supprimer(p.id)} className="text-red-400 hover:text-red-600 ml-1">
+                    <button onClick={() => supprimer(p.id)} title="Supprimer" className="text-slate-400 hover:text-[color:var(--c-refuse)] ml-1">
                       <IconTrash size={14} />
                     </button>
                   </div>
@@ -1573,23 +1571,23 @@ function PnccSection({ annee }) {
       </div>
 
       {/* Formulaire ajout */}
-      <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
-        <div className="text-xs font-semibold text-gray-600 mb-2">Ajouter un poste</div>
+      <div className="px-5 py-4 border-t border-slate-100">
+        <div className="intertitre mb-2">Ajouter un poste</div>
         <div className="flex flex-wrap gap-2 items-end">
           <select value={form.categorie} onChange={e => setForm(f => ({...f, categorie: e.target.value}))}
-            className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm bg-white">
+            className="controle">
             {PNCC_CATS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
           <input value={form.libelle_fonction} onChange={e => setForm(f => ({...f, libelle_fonction: e.target.value}))}
             placeholder="Fonction (ex: Secrétaire étudiant)" onKeyDown={e => e.key === 'Enter' && ajouter()}
-            className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm flex-1 min-w-[180px]" />
+            className="controle flex-1 min-w-[180px]" />
           <input value={form.nom_personne} onChange={e => setForm(f => ({...f, nom_personne: e.target.value}))}
             placeholder="Personne (optionnel)"
-            className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm w-40" />
+            className="controle w-40" />
           <div className="flex items-center gap-1.5">
             <input type="number" min="0" max="2" step="0.1" value={form.etp}
               onChange={e => setForm(f => ({...f, etp: e.target.value}))}
-              className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm w-20 text-right" />
+              className="controle w-20 text-right" />
             <span className="text-xs text-gray-500">ETP</span>
           </div>
           <button onClick={ajouter} disabled={saving || !form.libelle_fonction.trim()}
@@ -1709,9 +1707,9 @@ function OngletProcedures() {
               onChange={e => modifier(i, e.target.value)}
               onBlur={() => sauvegarder(justifs)}
               rows={2}
-              className="flex-1 border border-gray-200 rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-iip-turquoise"
+              className="controle flex-1 !h-auto py-2 resize-none"
             />
-            <button onClick={() => supprimer(i)} className="text-red-400 hover:text-red-600 pt-1 flex-shrink-0">
+            <button onClick={() => supprimer(i)} title="Supprimer" className="text-slate-400 hover:text-[color:var(--c-refuse)] pt-1 flex-shrink-0">
               <IconTrash size={15} />
             </button>
           </div>
@@ -1719,12 +1717,12 @@ function OngletProcedures() {
       </div>
 
       {/* Ajouter une justification */}
-      <div className="border-t border-gray-100 pt-3 space-y-2">
-        <div className="text-xs font-semibold text-gray-600">Ajouter une justification</div>
+      <div className="border-t border-slate-100 pt-3 space-y-2">
+        <div className="intertitre">Ajouter une justification</div>
         <div className="flex gap-2">
           <textarea value={nouveau} onChange={e => setNouveau(e.target.value)} rows={2}
             placeholder="Rédigez la nouvelle justification…"
-            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm resize-none" />
+            className="controle flex-1 !h-auto py-2 resize-none" />
           <button onClick={ajouter} disabled={!nouveau.trim()}
             className="bouton bouton-fort flex-shrink-0 flex items-center gap-1">
             <IconPlus size={14} /> Ajouter
@@ -1733,7 +1731,7 @@ function OngletProcedures() {
       </div>
 
       {saved && (
-        <p className="text-xs text-green-600 flex items-center gap-1">
+        <p className="text-second flex items-center gap-1" style={{ color: 'var(--c-reussi)' }}>
           <IconCheck size={13} /> Sauvegardé
         </p>
       )}
@@ -1877,14 +1875,14 @@ export function OngletStatistiques() {
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-gray-600">Année</span>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white min-w-[130px]">
+            className="controle min-w-[130px]">
             {annees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-gray-600">Section</span>
           <select value={section} onChange={e => setSection(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white min-w-[100px]">
+            className="controle min-w-[100px]">
             {sections.map(s => {
               const code = typeof s === 'string' ? s : (s.code ?? s.section ?? '');
               if (!code) return null;
@@ -1896,13 +1894,13 @@ export function OngletStatistiques() {
         {/* Mode de saisie */}
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-gray-600">Mode de saisie</span>
-          <div className="flex gap-1 h-9 items-center">
-            <button onClick={() => setModeSaisie('ue')}
-              className={`px-3 h-9 rounded-l border text-xs font-medium transition-colors ${modeSaisie==='ue' ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+          <div className="segments">
+            <button type="button" onClick={() => setModeSaisie('ue')}
+              className={modeSaisie==='ue' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>
               Par UE
             </button>
-            <button onClick={() => setModeSaisie('section')}
-              className={`px-3 h-9 rounded-r border-t border-b border-r text-xs font-medium transition-colors ${modeSaisie==='section' ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+            <button type="button" onClick={() => setModeSaisie('section')}
+              className={modeSaisie==='section' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>
               Par section
             </button>
           </div>
@@ -1915,7 +1913,7 @@ export function OngletStatistiques() {
             <div className="flex gap-2 items-center">
               <input type="number" min="0" value={totalSection} onChange={e => setTotalSection(e.target.value)}
                 placeholder="ex: 120"
-                className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm w-24" />
+                className="controle w-24" />
               <button onClick={appliquerTotal}
                 title="Répartir proportionnellement aux périodes de chaque UE"
                 className="bouton bouton-fort">
@@ -1932,7 +1930,7 @@ export function OngletStatistiques() {
         )}
 
         <div className="flex-1" />
-        {saved && <span className="text-xs text-green-600 flex items-center gap-1"><IconCheck size={13} /> Sauvegardé</span>}
+        {saved && <span className="text-second flex items-center gap-1" style={{ color: 'var(--c-reussi)' }}><IconCheck size={13} /> Sauvegardé</span>}
       </div>
       </div>
 
@@ -1952,54 +1950,52 @@ export function OngletStatistiques() {
           </EnteteCarte>
 
           {/* Tableau par niveau */}
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-iip-blue text-white text-xs">
-                <th className="px-4 py-2 text-left font-semibold">UE</th>
-                <th className="px-4 py-2 text-left font-semibold">Intitulé</th>
-                <th className="px-3 py-2 text-right font-semibold w-24">Nb étudiants</th>
-              </tr>
-            </thead>
+          <Tableau className="!border-0 !rounded-none">
+            <TableauEntete>
+              <Th>UE</Th>
+              <Th>Intitulé</Th>
+              <Th align="droite" largeur="w-24">Nb étudiants</Th>
+            </TableauEntete>
             <tbody>
               {niveaux.map(niv => {
                 const uesNiv = ues.filter(u => (u.ue_niv || 'Autres') === niv);
                 const totalNiv = uesNiv.reduce((s, u) => s + (parseInt(u.nb_etudiants) || 0), 0);
                 return (
                   <>
-                    <tr key={`niv-${niv}`} className="bg-slate-100 border-t-2 border-slate-200">
-                      <td colSpan={2} className="intertitre px-4 py-1.5">
+                    <TrGroupe key={`niv-${niv}`}>
+                      <Td colSpan={2} className="intertitre">
                         {niv}
-                      </td>
-                      <td className="px-3 py-1.5 text-right text-xs font-bold text-iip-blue">
+                      </Td>
+                      <Td align="droite" className="font-bold">
                         {totalNiv > 0 ? `${totalNiv} étu.` : '—'}
-                      </td>
-                    </tr>
+                      </Td>
+                    </TrGroupe>
                     {uesNiv.map((u, i) => (
-                      <tr key={u.ue_num} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50/30 transition-colors`}>
-                        <td className="px-4 py-2 text-gray-500 font-mono text-xs whitespace-nowrap">UE {u.ue_num}</td>
-                        <td className="px-4 py-2 text-gray-700 text-xs">{u.ue_nom || '—'}</td>
-                        <td className="px-3 py-1.5 text-right">
+                      <Tr key={u.ue_num}>
+                        <Td ton="secondaire" className="font-mono whitespace-nowrap">UE {u.ue_num}</Td>
+                        <Td>{u.ue_nom || '—'}</Td>
+                        <Td align="droite">
                           <input type="number" min="0" step="1"
                             value={u.nb_etudiants}
                             onChange={e => setNbForUe(u.ue_num, e.target.value)}
                             onBlur={() => sauvegarder(ues)}
                             placeholder="—"
-                            className="w-20 border border-gray-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:border-iip-turquoise text-iip-blue font-semibold"
+                            className="controle w-20 text-right font-semibold"
                           />
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
                   </>
                 );
               })}
             </tbody>
             <tfoot>
-              <tr className="bg-iip-blue text-white font-semibold">
-                <td colSpan={2} className="px-4 py-2 text-sm">Total — {section}</td>
-                <td className="px-3 py-2 text-right text-sm">{totalReel > 0 ? `${totalReel} étu.` : '—'}</td>
-              </tr>
+              <TrTotal>
+                <Td colSpan={2}>Total — {section}</Td>
+                <Td align="droite">{totalReel > 0 ? `${totalReel} étu.` : '—'}</Td>
+              </TrTotal>
             </tfoot>
-          </table>
+          </Tableau>
         </div>
       )}
 
@@ -2272,7 +2268,7 @@ function ReglageCouleurs() {
                   .map((c, i) => <i key={i} className="w-4 h-2.5 rounded-pastille" style={{ background: `rgb(${c})` }} />)}
               </span>
             </span>
-            <div className="segments h-8">
+            <div className="segments">
               {[['ardoise', 'Ardoise'], ['neutre', 'Neutre'], ['apple', 'Apple']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => changer(() => setGris(k))}
                   className={`px-3 text-second ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
@@ -2284,7 +2280,7 @@ function ReglageCouleurs() {
             <input type="color" title="Choisir la teinte des gris"
               value={/^#/.test(gris) ? gris : (gris === 'neutre' ? '#6E727A' : '#64748B')}
               onChange={e => { const v = e.target.value; changer(() => setGris(v)); }}
-              className={`w-10 h-8 rounded-champ border bg-white p-0.5 ${/^#/.test(gris) ? 'border-iip-blue' : 'border-slate-300'}`} />
+              className={`w-10 h-8 rounded-champ border p-0.5 ${/^#/.test(gris) ? 'border-iip-blue' : 'border-slate-200'}`} />
           </div>
           {GROUPES_COULEURS.map(([g, titre, sous]) => {
             const cles = Object.entries(catalogue).filter(([, d]) => (d.groupe || 'sens') === g);
@@ -2298,7 +2294,7 @@ function ReglageCouleurs() {
                     <span className="text-xs tabular-nums text-slate-400 w-16 text-right">{v(cle).toUpperCase()}</span>
                     <input type="color" value={v(cle)}
                       onChange={e => { const v = e.target.value; changer(() => setValeurs(x => ({ ...x, [cle]: v }))); }}
-                      className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" title={d.libelle} />
+                      className="w-10 h-7 rounded-champ border border-slate-200 p-0.5" title={d.libelle} />
                     <button onClick={() => changer(() => setValeurs(x => ({ ...x, [cle]: d.valeur || null })))}
                       className={`text-xs w-16 text-left ${regle(cle) ? 'text-slate-400 hover:text-iip-blue' : d.suit ? 'text-slate-400' : 'invisible'}`}
                       disabled={!regle(cle)} title={d.suit ? `Sans réglage, suit : ${catalogue[d.suit]?.libelle || d.suit}` : 'Revenir à la couleur d’origine'}>
@@ -2402,7 +2398,7 @@ function AnneeDuReferentiel({ onglet }) {
     <label className="flex items-center gap-2 text-xs text-slate-500">
       Année de travail
       <select value={annee} onChange={e => changerAnnee(e.target.value)}
-        className="bg-white border border-slate-300 rounded-champ px-2 h-8 text-sm min-w-[8rem]">
+        className="controle min-w-[8rem]">
         {(annees.length ? annees : [annee]).map(a => (
           <option key={a} value={a}>{a}</option>
         ))}
@@ -2490,7 +2486,7 @@ export function ClotureReprise() {
         <label className="block text-xs text-slate-500">
           Année à clôturer
           <select value={annee} onChange={e => { setAnnee(e.target.value); setPlan(null); setFait(null); }}
-            className="block w-64 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-sm">
+            className="controle flex w-64 mt-1">
             <option value="">—</option>
             {annees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
@@ -2499,19 +2495,19 @@ export function ClotureReprise() {
         <label className="block text-xs text-slate-500">
           Énoncé écrit là où aucune motivation n'existe
           <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
-            className="block w-full mt-1 bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-sm" />
+            className="controle flex w-full !h-auto mt-1 py-1.5" />
           <span className="text-mention text-slate-400">
             Volontairement uniforme : une phrase individualisée laisserait croire à un
             examen individuel qui n'a pas eu lieu sous cette forme.
           </span>
         </label>
 
-        <button onClick={simuler} disabled={!annee || occupe} className="bouton controle px-3">
+        <button onClick={simuler} disabled={!annee || occupe} className="bouton">
           {occupe ? 'Calcul…' : 'Voir ce qui serait écrit'}
         </button>
       </div>
 
-      {err && <div className="carte p-3 text-sm text-[color:var(--c-refuse,var(--c-refuse))]">{err}</div>}
+      {err && <Encadre etat="corriger">{err}</Encadre>}
 
       {fait && (
         <div className="carte p-4 text-sm">
@@ -2550,34 +2546,34 @@ export function ClotureReprise() {
                 </div>
               )}
               <div className={`max-h-72 overflow-auto${plan.nb_motivations ? '' : ' hidden'}`}>
-                <table className="w-full text-second">
-                  <thead className="tab-entete sticky top-0">
-                    <tr><th className="text-left px-2 py-1">Étudiant</th>
-                        <th className="text-left px-2 py-1">UE</th>
-                        <th className="text-left px-2 py-1">Décision</th>
-                        <th className="text-left px-2 py-1">Acquis motivés</th></tr>
-                  </thead>
+                <Tableau dense>
+                  <TableauEntete className="sticky top-0">
+                    <Th>Étudiant</Th>
+                    <Th>UE</Th>
+                    <Th>Décision</Th>
+                    <Th>Acquis motivés</Th>
+                  </TableauEntete>
                   <tbody>
                     {plan.motivations.map((m, i) => (
-                      <tr key={i} className="border-t border-slate-100">
-                        <td className="px-2 py-1">{m.nom} {m.prenom}</td>
-                        <td className="px-2 py-1">{m.ue_num}</td>
-                        <td className="px-2 py-1">{m.resultat}</td>
-                        <td className="px-2 py-1">{m.acquis.join(', ')}</td>
-                      </tr>
+                      <Tr key={i}>
+                        <Td>{(m.nom || '').toUpperCase()} {m.prenom}</Td>
+                        <Td>{m.ue_num}</Td>
+                        <Td>{m.resultat}</Td>
+                        <Td>{m.acquis.join(', ')}</Td>
+                      </Tr>
                     ))}
                   </tbody>
-                </table>
+                </Tableau>
               </div>
 
               <label className="block text-xs text-slate-500">
                 Pour appliquer, retapez l'année : <b>{plan.annee}</b>
                 <input value={confirm} onChange={e => setConfirm(e.target.value)}
-                  className="block w-48 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-sm" />
+                  className="controle flex w-48 mt-1" />
               </label>
 
               <button onClick={appliquer} disabled={confirm !== plan.annee || occupe}
-                className="bouton-fort controle px-3">
+                className="bouton bouton-fort">
                 Écrire et clôturer {plan.annee}
               </button>
             </>

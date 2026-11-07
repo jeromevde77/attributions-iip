@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconAlertTriangle, IconSearch, IconCheck, IconLink } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, PastilleEtat } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PanneauAcquis from './PanneauAcquis.jsx';
 import ClasseurNotes from './ClasseurNotes.jsx';
@@ -39,38 +39,13 @@ const SEUIL = 10;
  *   10 et 11       orange   au seuil, mais de justesse
  *   12 et plus     vert     acquis
  */
-const tonNote = n => {
-  if (n == null || n === '') return 'border-slate-300';
-  const v = Number(n);
-  if (!Number.isFinite(v)) return 'border-slate-300';
-  if (v < SEUIL) return 'border-red-300 bg-red-50 text-red-900';
-  if (v < 12) return 'border-amber-300 bg-amber-50 text-amber-900';
-  return 'border-emerald-300 bg-emerald-50 text-emerald-900';
-};
-
-/** La même échelle, pour une cote qui s'affiche au lieu de s'éditer. */
-const tonCote = n => {
-  if (n == null) return 'text-slate-300';
-  const v = Number(n);
-  if (!Number.isFinite(v)) return 'text-slate-300';
-  if (v < SEUIL) return 'text-red-700 bg-red-50';
-  if (v < 12) return 'text-amber-800 bg-amber-50';
-  return 'text-emerald-800 bg-emerald-50';
-};
+// Les états d'une note se peignent par la pastille pleine (`Pastille`) et le chiffre en brique sous 10.
 
 // LA COTE S'ÉCRIT COMME ELLE EST RETENUE. « toFixed(1) » imposait un décimal
 // à des cotes que la maison arrondit à l'unité : la colonne affichait « 14,0 »
 // là où le Conseil retient « 14 ». On écrit le nombre tel qu'il est.
 const fmtCote = n => (n == null ? '—'
   : String(Math.round(Number(n) * 100) / 100).replace('.', ','));
-
-// Les cours se distinguent par une teinte d'en-tête : sans elle, quinze
-// colonnes d'acquis se ressemblent toutes et l'on ne sait plus où l'on est.
-const TEINTES = [
-  'bg-iip-blue/5 border-iip-blue/20', 'bg-emerald-50 border-emerald-200',
-  'bg-amber-50 border-amber-200', 'bg-violet-50 border-violet-200',
-  'bg-sky-50 border-sky-200', 'bg-rose-50 border-rose-200',
-];
 
 export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onParametrer }) {
   // LA GRILLE SE PARCOURT AU CLAVIER — le conteneur écoute les flèches, et
@@ -118,7 +93,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
   // Une colonne par acquis, mais on garde son cours : c'est lui qui porte la
   // note, et c'est sous lui que la colonne se range.
   const colonnes = useMemo(() => (data?.cours || []).flatMap((c, i) =>
-    (c.acquis || []).map(a => ({ ...a, cours: c, teinte: TEINTES[i % TEINTES.length] }))),
+    (c.acquis || []).map(a => ({ ...a, cours: c }))),
   [data]);
 
   const etudiants = useMemo(() => {
@@ -283,7 +258,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       <div className="text-xs text-slate-400">{e.id_ecampus || ''}</div>
     </td>);
 
-  const couleurRepere = data?.epreuve_integree ? 'var(--c-epreuve, #C9A227)' : (couleurBloc(niv) || 'var(--c-principal, #16406A)');
+  const couleurRepere = data?.epreuve_integree ? 'var(--c-epreuve, #C9A227)' : (couleurBloc(niv) || 'var(--c-principal)');
 
   return (
     <Fenetre titre={`UE ${ueNum}${data?.ue?.ue_nom ? ` — ${data.ue.ue_nom}` : ''}`}
@@ -324,7 +299,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                 <div className="flex flex-col items-end gap-1">
                   <div className="text-second text-slate-500"><b className="text-base text-iip-blue tabular-nums">{avancement.faites}</b> / {avancement.total} notes encodées</div>
                   <div className="jauge w-48">
-                    <div className="h-full" style={{ width: `${(avancement.faites / avancement.total) * 100}%`, background: 'var(--c-principal, #19537E)' }} />
+                    <div className="h-full" style={{ width: `${(avancement.faites / avancement.total) * 100}%`, background: 'var(--c-principal)' }} />
                   </div>
                 </div>)}
               <span className="text-second whitespace-nowrap">
@@ -403,7 +378,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </div>
           )}
           {data?.a_representer && !data.etudiants.length && (
-            <div className="py-10 text-center text-sm text-slate-500 border-2 border-dashed rounded-xl">
+            <div className="carte py-10 text-center text-sm text-slate-500">
               Aucun étudiant ajourné en première session : il n'y a pas de seconde session
               à encoder pour cette unité.
             </div>
@@ -436,7 +411,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </div>
           ) : vue === 'acquis' ? (
             /* ── TOUS LES ACQUIS DE L'UE — la vue du Conseil, en lecture. ── */
-            <div className="rounded-carte border border-slate-200 bg-white overflow-hidden inline-block min-w-full">
+            <div className="carte overflow-hidden inline-block min-w-full" style={{ background: 'var(--c-fond_ligne, #fff)' }}>
             <table className="border-separate border-spacing-0 text-sm">
               <thead>
                 <tr>
@@ -451,7 +426,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                     </th>))}
                   <th className="px-3 pb-2 border-b border-l border-slate-200 align-bottom text-xs font-bold">Acquis<br />en défaut</th>
                   <th className="px-3 pb-2 border-b border-slate-200 align-bottom text-xs font-bold bg-slate-50"
-                    style={{ borderLeft: '2px solid var(--c-principal, #16406A)', borderTop: '4px solid var(--c-principal, #16406A)' }}>Note d'unité<div className="text-mention text-slate-400 font-normal">/20</div></th>
+                    style={{ borderLeft: '2px solid var(--c-principal)', borderTop: '4px solid var(--c-principal)' }}>Note d'unité<div className="text-mention text-slate-400 font-normal">/20</div></th>
                   <th className="px-3 pb-2 border-b border-l border-slate-200 align-bottom text-left text-xs font-bold min-w-[150px]">Décision proposée</th>
                 </tr>
               </thead>
@@ -473,15 +448,14 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       <td className="px-3 text-center border-b border-l border-slate-100 text-second font-semibold" style={{ color: b.defaut.length ? 'var(--c-refuse)' : 'rgb(var(--gris-300))' }}>
                         {b.defaut.length ? `${b.defaut.length} · ${b.defaut.slice(0, 2).map(c => c.replace(/^AA/, '')).join(', ')}${b.defaut.length > 2 ? '…' : ''}` : '—'}
                       </td>
-                      <td className="px-3 text-center border-b border-slate-100 bg-slate-50" style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
+                      <td className="px-3 text-center border-b border-slate-100 bg-slate-50" style={{ borderLeft: '2px solid var(--c-principal)' }}>
                         <Pastille n={data.cotes?.[e.id]?.ue} ajourne={!!b.defaut.length} large
                           titre="Note de l’unité, calculée depuis les cours et leurs poids — elle ne se saisit pas" />
                       </td>
                       <td className="px-3 border-b border-l border-slate-100">
-                        {b.manque ? <span className="inline-block text-second font-semibold text-slate-500 border border-slate-300 rounded-md px-2.5 py-0.5">Incomplète</span>
-                          : <span className="inline-block text-second font-semibold text-white rounded-md px-2.5 py-1"
-                              style={{ background: b.defaut.length ? (session === 2 ? 'var(--c-refuse)' : 'var(--c-attente)') : 'var(--c-reussi)' }}>
-                              {b.defaut.length ? (session === 2 ? 'Refusée' : 'Ajournée') : 'Réussie'}</span>}
+                        {b.manque ? <PastilleEtat etat="neutre" className="text-second px-2.5 py-0.5">Incomplète</PastilleEtat>
+                          : <PastilleEtat etat={b.defaut.length ? (session === 2 ? 'corriger' : 'surveiller') : 'reussi'} className="text-second px-2.5 py-0.5">
+                              {b.defaut.length ? (session === 2 ? 'Refusée' : 'Ajournée') : 'Réussie'}</PastilleEtat>}
                       </td>
                     </tr>);
                 })}
@@ -492,7 +466,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </div>
           ) : (
             /* ── PAR COURS — la saisie. ── */
-            <div className="rounded-carte border border-slate-200 bg-white overflow-hidden inline-block min-w-full">
+            <div className="carte overflow-hidden inline-block min-w-full" style={{ background: 'var(--c-fond_ligne, #fff)' }}>
             <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
               className="text-sm border-separate border-spacing-0">
               <thead>
@@ -510,7 +484,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                     </th>
                   ))}
                   <th rowSpan={2} className="px-3 pb-2 align-bottom text-center bg-slate-50 border-b border-slate-200 min-w-[110px]"
-                    style={{ borderLeft: '2px solid var(--c-principal, #16406A)', borderTop: '4px solid var(--c-principal, #16406A)' }}>
+                    style={{ borderLeft: '2px solid var(--c-principal)', borderTop: '4px solid var(--c-principal)' }}>
                     <div className="text-sm font-semibold">UE {ueNum}</div>
                     <div className="text-xs font-bold mt-2">Note d'unité</div>
                     <div className="text-mention text-slate-400 font-normal">/20</div>
@@ -563,7 +537,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                                   : undefined}
                                 onBlur={ev => sortieCase(e, c, a, ev.target.value, v, m)}
                                 className={`w-14 h-8 text-center rounded-lg bg-transparent border border-transparent outline-none tabular-nums
-                                  placeholder:text-slate-300 focus:bg-white focus:border-[var(--c-principal,#19537E)] focus:ring-1 focus:ring-[var(--c-principal,#19537E)]
+                                  placeholder:text-slate-300 focus:bg-white focus:border-[var(--c-principal)] focus:ring-1 focus:ring-[var(--c-principal)]
                                   disabled:text-slate-300 ${m ? 'text-xs font-bold tracking-wide text-slate-500' : sous ? 'font-semibold' : 'text-iip-blue'}`}
                                 style={sous && !m ? { color: 'var(--c-refuse)' } : undefined} />
                             </td>
@@ -579,7 +553,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                     })}
                     {/* LA NOTE DE L'UNITÉ — vue, jamais saisie ; un acquis sous 10 l'ajourne. */}
                     <td className="px-2 py-1 border-b border-slate-100 text-center bg-slate-50"
-                      style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
+                      style={{ borderLeft: '2px solid var(--c-principal)' }}>
                       <Pastille n={data.cotes?.[e.id]?.ue} ajourne={!!b.defaut.length} large
                         titre={data.cotes?.[e.id]?.ue == null ? 'Non calculable : un cours est non acquis, ou tout n’est pas encodé'
                           : 'Note de l’unité, calculée depuis les cours et leurs poids — elle ne se saisit pas'} />
@@ -604,7 +578,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                   ])}
                   {(() => { const r = resume(etudiants.map(e => data.cotes?.[e.id]?.ue)); return (
                     <td className="bg-slate-50 py-2 text-center text-xs leading-tight font-semibold border-t border-slate-200"
-                      style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
+                      style={{ borderLeft: '2px solid var(--c-principal)' }}>
                       {r.moy}<div className="text-slate-400 font-normal">{etudiants.filter(e => motUE(bilanUE(e)) === 'réussie').length} réussie(s)</div></td>); })()}
                 </tr>
               </tfoot>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { IconAlertTriangle, IconUpload } from '@tabler/icons-react';
-import { Fenetre, EnteteCarte } from './ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, TuileEtat } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { CHAMPS, reconnaitreColonnes, construireUnites, construirePlanning, estPlanning }
   from '../lib/lireTableauPlat.js';
@@ -149,15 +149,11 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   les dates du jury sont reprises <b>telles quelles</b> : aucun recalcul.</>}
           </p>
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-sm text-red-800 flex items-start gap-2">
-              <IconAlertTriangle size={15} className="mt-px shrink-0" /> {erreur}
-            </div>
+            <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur} />
           )}
 
           {!lignes ? (
-            <label className="block border-2 border-dashed border-slate-300 rounded-xl
-                              px-6 py-10 text-center cursor-pointer hover:border-iip-blue">
+            <label className="carte block border-dashed px-6 py-10 text-center cursor-pointer hover:border-iip-blue">
               <IconUpload size={22} className="mx-auto text-slate-400" />
               <div className="mt-2 text-sm font-semibold text-iip-blue">
                 Choisir le fichier de reprise
@@ -208,9 +204,8 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                           setColonnes(suite);
                           setManquants(manquantsDe(suite, type));
                         }}
-                        className={`block mt-0.5 w-full px-2 py-1 border rounded-lg text-second
-                          ${manquants.includes(c.libelle)
-                            ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}>
+                        className={`controle block mt-0.5 w-full text-second
+                          ${manquants.includes(c.libelle) ? '!border-red-400' : ''}`}>
                         <option value="">— aucune —</option>
                         {entetes.map((h, i) => (
                           <option key={i} value={i}>{String(h ?? `colonne ${i + 1}`)}</option>
@@ -220,8 +215,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   ))}
                 </div>
                 {!!manquants.length && (
-                  <div className="px-3 py-2 bg-red-50 border-t border-red-200
-                                  text-second text-red-800">
+                  <div className="px-3 py-2 border-t border-slate-200 text-second text-red-700">
                     Colonnes indispensables non reconnues : <b>{manquants.join(', ')}</b>.
                     Désignez-les ci-dessus.{type === 'decisions'
                       ? ' Sans elles, une ligne ne peut pas être rattachée à un étudiant '
@@ -247,7 +241,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                       {unites.map(u => (
                         <label key={u.ue_num}
                           className="px-3 py-1.5 flex items-center gap-2 text-sm
-                                     cursor-pointer hover:bg-slate-50">
+                                     cursor-pointer ligne-maison">
                           <input type="checkbox" checked={choisies.has(u.ue_num)}
                             onChange={() => setChoisies(s => {
                               const t = new Set(s);
@@ -280,9 +274,8 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   </section>
 
                   {!!rejets.length && (
-                    <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200
-                                    text-second text-amber-900">
-                      <b>{rejets.length} ligne(s) écartée(s)</b> — une décision qu'on ne sait
+                    <Encadre etat="surveiller" titre={`${rejets.length} ligne(s) écartée(s)`}>
+                      Une décision qu'on ne sait
                       pas lire n'est pas rangée dans la catégorie la plus fréquente :
                       <div className="mt-1 max-h-24 overflow-y-auto">
                         {rejets.slice(0, 12).map((x, i) => (
@@ -292,7 +285,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                         ))}
                         {rejets.length > 12 && <div>… et {rejets.length - 12} autres.</div>}
                       </div>
-                    </div>
+                    </Encadre>
                   )}
 
                   {/* ── CE QUI S'ÉCRIT ───────────────────────────────────── */}
@@ -315,8 +308,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                       <textarea value={justifDefaut} onChange={e => setJustifDefaut(e.target.value)}
                         rows={2}
                         placeholder="ex. Décision du jury ; motivation non consignée — reprise d'historique."
-                        className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg
-                                   text-second" />
+                        className="controle mt-1 w-full !h-auto !whitespace-pre-wrap !leading-normal py-1.5 text-second" />
                     </label>)}
                     {!planning && (
                     <p className="text-xs text-slate-500">
@@ -327,11 +319,9 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   </div>
 
                   {rapport && (
-                    <div className={`rounded-xl border p-3 ${applique
-                      ? 'border-emerald-200 bg-emerald-50' : 'border-sky-200 bg-sky-50'}`}>
-                      <div className="text-sm font-semibold mb-2 text-slate-800">
-                        {applique ? 'Import appliqué' : 'Simulation — rien n’a été écrit'}
-                      </div>
+                    <Encadre etat={applique ? 'reussi' : 'disponible'}
+                      titre={applique ? 'Import appliqué' : 'Simulation — rien n’a été écrit'}>
+                      <div className="mt-2" />
                       {/* POURQUOI UNE UNITÉ N'A RIEN REÇU. Le serveur le dit,
                           unité par unité — « inconnue en 2025-2026 », « hors de
                           votre périmètre » — et l'écran ne le montrait pas : on
@@ -340,26 +330,24 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                           import qui ne dit pas pourquoi il n'a rien fait est un
                           import qu'on refait au hasard. */}
                       {!!(rapport.unites || []).filter(u => u.ignoree).length && (
-                        <div className="mb-2 px-3 py-2 rounded-lg bg-red-50 border
-                                        border-red-200 text-second text-red-800">
-                          <b>{rapport.unites.filter(u => u.ignoree).length} unité(s) écartée(s)
-                          — rien ne leur a été écrit :</b>
+                        <Encadre etat="corriger" className="mb-2"
+                          titre={`${rapport.unites.filter(u => u.ignoree).length} unité(s) écartée(s) — rien ne leur a été écrit :`}>
                           <div className="mt-1 max-h-28 overflow-y-auto">
                             {rapport.unites.filter(u => u.ignoree).map(u => (
                               <div key={u.ue_num}>UE {u.ue_num} — {u.ignoree}</div>
                             ))}
                           </div>
                           {rapport.unites.some(u => /inconnue en/.test(u.ignoree || '')) && (
-                            <div className="mt-1.5 pt-1.5 border-t border-red-200">
+                            <div className="mt-1.5 pt-1.5 border-t border-slate-200">
                               « Inconnue en … » veut dire que l'unité n'existe pas dans
                               l'année affichée en haut de Lucie. Vérifiez le sélecteur
                               d'année : un planning de 2025-2026 importé en 2026-2027
                               ne trouve rien.
                             </div>
                           )}
-                        </div>
+                        </Encadre>
                       )}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {[['décisions', rapport.total.decisions],
                           ['cotes', rapport.total.cotes || 0],
                           ['motifs repris', rapport.total.motifs || 0],
@@ -370,13 +358,10 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                           ['non rapprochés', rapport.total.inconnus
                             + rapport.total.hors_inscription + rapport.total.collisions],
                         ].map(([l, n]) => (
-                          <div key={l} className="bg-white/70 rounded-lg px-2 py-1.5">
-                            <div className="text-lg font-bold tabular-nums text-iip-blue">{n}</div>
-                            <div className="text-xs text-slate-600">{l}</div>
-                          </div>
+                          <TuileEtat key={l} valeur={n} libelle={l} taille="compacte" />
                         ))}
                       </div>
-                    </div>
+                    </Encadre>
                   )}
                 </>
               )}

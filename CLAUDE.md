@@ -3787,6 +3787,20 @@ monte `MonHoraireSemaine` de Lucie `enLigne avecAgenda onSeance` (la bande de l'
 `/api/mes-cours/dates` ; un jour fermé ou férié grisé ; une séance ouvre ses présences). L'ancienne semaine en colonnes de l'espace
 n'est plus appelée.
 
+**TROIS LUCIE, UN SEUL DESSIN ET UNE CHOSE PAR PLACE** (3.5.199 → 3.5.202, Charles, 7 novembre 2026 : « beaucoup de styles
+différents partout ; plus d'unicité entre Lucie admin, prof et étudiants ; TOUT doit être semblable » ; tranché : appliquer ce que
+Configuration définit — Formes et composants, Thèmes et couleurs, Catalogue des éléments — et adapter ce qui a été dessiné autrement).
+(1) **Une seule fenêtre** : `Fenetre` (ui.jsx) partout ; `FenetreEspace` n'est plus qu'un nom qui l'appelle. (2) **Une seule liste à
+liseré** : `ListeEtats` + `LigneEtat` (une carte, une ligne par élément, liseré d'état à gauche, filet, chevron si la ligne s'ouvre ;
+`.pile-etats` dans index.css) — documents, messages, textes à lire, ce qui m'attend ; au Catalogue des éléments. (3) Toute carte titrée
+= `.carte` + `EnteteCarte` ; tout tableau = `Tableau` (dans une carte : `className="!border-0 !rounded-none"`, jamais un cadre dans un
+cadre) ; tout état = `PastilleEtat` / `Encadre` / `TuileEtat` ; aucune couleur en dur (variables `--c-*`, `rgb(var(--gris-N))`).
+(4) **Espace étudiant** : Aujourd'hui · Mon parcours (schéma et unités, résultats, PAE) · Mes documents (pièces et règlements à signer)
+· Messages · Mes démarches (VA, TFE, stage, absences) · Mes frais · Aide · Mon compte ; même page d'entrée que l'enseignant.
+(5) **Espace enseignant, une chose une place** : dates et délibérations dans Mon agenda, dossier pédagogique et DUE dans Mes unités,
+« Écrire à mes étudiants » dans Mes étudiants, l'année de l'école une fois (la frise). Rail étroit, info-bulle immédiate, dans les deux.
+**Un écran nouveau n'écrit ni carte, ni liste, ni pastille, ni fenêtre à la main.**
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -27,7 +27,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
-import { EnteteCarte } from './ui.jsx';
+import { EnteteCarte, Tableau, Th, Tr, TrTotal, TableauVide } from './ui.jsx';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
 const majuscule = t => String(t ?? '').replace(/^([«"“(\s]*)(\p{Ll})/u, (m, a, b) => a + b.toUpperCase());
 
@@ -306,25 +306,24 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         return (
           <section key={co} className="carte overflow-hidden">
             <EnteteCarte titre={`${co} — ${String(x.cours_nom || '').replace(/^\d+(\.\d+)+\.?\s*/, '')}`} sous={`${pts.length} point(s) du programme · ${total} croix`} />
-            <div className="overflow-x-auto">
-              <table className="w-full text-second border-collapse">
+            <Tableau dense className="!border-0 !rounded-none">
                 <thead><tr className="tab-entete">
-                  <th className="w-10 px-2 py-1 text-right font-semibold text-slate-600">N°</th>
-                  <th className="text-left px-3 py-1 font-semibold text-slate-600">Point du programme</th>
+                  <Th align="droite" className="w-10 !px-2">N°</Th>
+                  <Th>Point du programme</Th>
                   {acquis.map(a => (
-                    <th key={a.aa_code} title={a.description} className={`px-1.5 py-1 w-16 text-center ${lies.has(a.aa_code) ? 'text-iip-blue' : 'text-slate-500 font-normal'}`}>
+                    <Th key={a.aa_code} align="centre" title={a.description} className={`!px-1.5 w-16 ${lies.has(a.aa_code) ? 'text-iip-blue' : 'text-slate-500 !font-normal'}`}>
                       {a.aa_code}
-                    </th>))}
+                    </Th>))}
                 </tr></thead>
                 <tbody>
                   {!pts.length && (
-                    <tr><td colSpan={acquis.length + 2} className="px-3 py-2 text-slate-400">
+                    <TableauVide colonnes={acquis.length + 2}>
                       Le programme ne nomme aucun point pour ce cours. Ajoutez-les ci-dessous : ils rejoindront le descriptif.
-                    </td></tr>)}
+                    </TableauVide>)}
                   {/* NUMÉROTÉS, ET UNE MAJUSCULE À CHAQUE POINT (3.5.165, Charles : « il faut que cela soit clair, numéroté ») : le
                       numéro est celui du point dans le cours (250.1 · 3) ; le texte du dossier n'est pas modifié, seul l'affichage. */}
                   {pts.map((pt, ip) => (
-                    <tr key={pt} className="border-t border-slate-100 bg-white align-top">
+                    <Tr key={pt} className="align-top">
                       <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">{ip + 1}</td>
                       <td className="px-3 py-1.5 text-slate-800">
                         {(() => {
@@ -346,14 +345,14 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                             <button type="button" disabled={lecture} onClick={() => basculer(co, pt, a.aa_code)}
                               aria-label={`${a.aa_code} — ${pt}`} aria-pressed={on}
                               className={`w-6 h-6 rounded-md border inline-grid place-items-center ${on ? 'text-white border-transparent' : 'border-slate-300 text-transparent'} ${lecture ? '' : 'hover:border-iip-blue'}`}
-                              style={on ? { background: 'var(--c-principal, #19537E)' } : undefined}>
+                              style={on ? { background: 'var(--c-principal)' } : undefined}>
                               <IconCheck size={14} />
                             </button>
                           </td>);
                       })}
-                    </tr>))}
+                    </Tr>))}
                   {!lecture && (
-                    <tr className="border-t border-slate-100">
+                    <tr>
                       <td />
                       <td colSpan={acquis.length + 1} className="px-3 py-1">
                         <div className="flex items-center gap-2">
@@ -366,24 +365,23 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                     </tr>)}
                 </tbody>
                 <tfoot className="text-slate-600">
-                  <tr className="border-t border-slate-200">
-                    <td colSpan={2} className="px-3 py-1 text-right">Croix</td>
-                    {acquis.map(a => <td key={a.aa_code} className="text-center font-semibold">{n[a.aa_code] || ''}</td>)}
-                  </tr>
-                  <tr>
-                    <td colSpan={2} className="px-3 py-1 text-right">Pondération qui en découle (sur 10)</td>
-                    {acquis.map(a => <td key={a.aa_code} className="text-center font-semibold text-iip-blue">{prop[a.aa_code] ? fr(prop[a.aa_code]) : ''}</td>)}
-                  </tr>
+                  <TrTotal>
+                    <td colSpan={2} className="cellule px-3 text-right font-normal">Croix</td>
+                    {acquis.map(a => <td key={a.aa_code} className="cellule text-center">{n[a.aa_code] || ''}</td>)}
+                  </TrTotal>
+                  <TrTotal>
+                    <td colSpan={2} className="cellule px-3 text-right font-normal">Pondération qui en découle (sur 10)</td>
+                    {acquis.map(a => <td key={a.aa_code} className="cellule text-center text-iip-blue">{prop[a.aa_code] ? fr(prop[a.aa_code]) : ''}</td>)}
+                  </TrTotal>
                   {aActuel && (
-                    <tr>
-                      <td colSpan={2} className="px-3 py-1 text-right">Pondération enregistrée ({annee})</td>
-                      {acquis.map(a => <td key={a.aa_code} className="text-center text-slate-500">{actuel[co]?.[a.aa_code] ? fr(actuel[co][a.aa_code]) : ''}</td>)}
-                    </tr>)}
+                    <TrTotal>
+                      <td colSpan={2} className="cellule px-3 text-right font-normal">Pondération enregistrée ({annee})</td>
+                      {acquis.map(a => <td key={a.aa_code} className="cellule text-center text-slate-500 font-normal">{actuel[co]?.[a.aa_code] ? fr(actuel[co][a.aa_code]) : ''}</td>)}
+                    </TrTotal>)}
                 </tfoot>
-              </table>
-            </div>
+            </Tableau>
             {orph.length > 0 && (
-              <p className="text-xs text-slate-500 m-0 px-3 py-1.5 border-t border-slate-100">
+              <p className="text-second text-slate-500 m-0 px-3 py-1.5 border-t border-slate-200">
                 {orph.length} point(s) coché(s) n’existent plus au programme (texte modifié) : leurs croix seront retirées à l’enregistrement.
               </p>)}
           </section>);

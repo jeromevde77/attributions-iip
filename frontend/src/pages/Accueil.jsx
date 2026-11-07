@@ -16,7 +16,8 @@ import {
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake, IconSpeakerphone,
   IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck, IconWriting } from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
-import { Fenetre } from '../components/ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, PastilleEtat, ListeEtats, LigneEtat,
+  Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
 import ConventionsASigner from '../components/ConventionsASigner.jsx';
 import MesPropositions from '../components/MesPropositions.jsx';
 import PresencesACompleter from '../components/PresencesACompleter.jsx';
@@ -32,61 +33,55 @@ const LIBELLES_FILTRE = {
 const LIBELLES_PERIODE = { 7: '7 derniers jours', 90: '3 derniers mois' };
 
 // ── Config visuelle par type d'événement ──────────────────────────────────────
+/* LA RÈGLE DES COULEURS (29 septembre 2026) : une information d'état est une
+   PASTILLE PLEINE — la couleur du réglage, l'icône blanche ; aucun fond pâle.
+   Le violet ne dit que la faveur : le recrutement prend le principal. */
+const BLANC = 'var(--blanc, #fff)';
 const TYPE_CONFIG = {
   attribution: {
-    create: { label: 'Nouvelle attribution', color: '#FFFFFF', bg: 'var(--c-reussi)', icon: IconUserPlus },
-    delete: { label: 'Attribution retirée',  color: '#FFFFFF', bg: 'var(--c-refuse)', icon: IconClipboardList },
-    update: { label: 'Modification',         color: '#FFFFFF', bg: 'var(--c-disponible)', icon: IconClipboardList },
+    create: { label: 'Nouvelle attribution', color: BLANC, bg: 'var(--c-reussi)', icon: IconUserPlus },
+    delete: { label: 'Attribution retirée',  color: BLANC, bg: 'var(--c-refuse)', icon: IconClipboardList },
+    update: { label: 'Modification',         color: BLANC, bg: 'var(--c-disponible)', icon: IconClipboardList },
   },
   // UN COURS DONT LES NOTES SONT COMPLÈTES (8 octobre 2026) : pour le secrétariat.
   notes: {
-    info: { label: 'Notes complètes', color: '#FFFFFF', bg: 'var(--c-reussi)', icon: IconClipboardCheck },
+    info: { label: 'Notes complètes', color: BLANC, bg: 'var(--c-reussi)', icon: IconClipboardCheck },
     // NOTES ENCODÉES (8 octobre 2026) : un professeur a encodé, le cours n'est
     // pas forcément complet — bleu « disponible », la plume de l'encodage.
-    encodage: { label: 'Notes encodées', color: '#FFFFFF', bg: 'var(--c-disponible)', icon: IconWriting },
+    encodage: { label: 'Notes encodées', color: BLANC, bg: 'var(--c-disponible)', icon: IconWriting },
   },
   recrutement: {
-    info: { label: 'Recrutement', color: 'var(--c-texte)', bg: 'rgb(var(--e-faveur-100))', icon: IconUserPlus },
+    info: { label: 'Recrutement', color: BLANC, bg: 'var(--c-principal)', icon: IconUserPlus },
   },
   systeme: {
-    info: { label: 'Lucie',       color: 'var(--c-texte)', bg: 'rgb(var(--e-disponible-100))', icon: IconSettings },
+    info: { label: 'Lucie',       color: BLANC, bg: 'var(--c-disponible)', icon: IconSettings },
   },
   // LES MESSAGES DE LA COMMUNICATION (3.1.278) : quelqu'un de l'école vous écrit.
   communication: {
-    message: { label: 'Message', color: 'var(--c-principal)', bg: 'rgb(var(--e-principal-100))', icon: IconSpeakerphone },
+    message: { label: 'Message', color: BLANC, bg: 'var(--c-principal)', icon: IconSpeakerphone },
   },
   anniversaire: {
-    // La veille en teinte sourde, le jour même en ambre : l'un prépare,
-    // l'autre appelle.
-    demain:     { label: 'Demain',      color: '#FFFFFF', bg: 'var(--c-attente)', icon: IconCake },
-    aujourdhui: { label: "Aujourd'hui", color: 'var(--c-attente)', bg: 'rgb(var(--e-attente-100))', icon: IconCake },
-    voeux:      { label: 'Vos vœux',    color: 'var(--c-attente)', bg: 'rgb(var(--e-attente-100))', icon: IconCake },
+    // La veille et le jour même en ambre : l'un prépare, l'autre appelle.
+    demain:     { label: 'Demain',      color: BLANC, bg: 'var(--c-attente)', icon: IconCake },
+    aujourdhui: { label: "Aujourd'hui", color: BLANC, bg: 'var(--c-attente)', icon: IconCake },
+    voeux:      { label: 'Vos vœux',    color: BLANC, bg: 'var(--c-attente)', icon: IconCake },
   },
 };
 
 function getConfig(type, action) {
-  return TYPE_CONFIG[type]?.[action] || { label: 'Info', color: 'rgb(var(--gris-500))', bg: 'rgb(var(--gris-100))', icon: IconBell };
+  return TYPE_CONFIG[type]?.[action] || { label: 'Info', color: BLANC, bg: 'rgb(var(--gris-500))', icon: IconBell };
 }
 
-/* LA PASTILLE DE NOTIFICATION — demandée par Jérôme (29 septembre 2026) : un
-   petit logo à gauche sur fond de couleur, et la couleur DIT le genre. Bleu :
-   information. Ambre, avec une horloge : un délai approche. Brique, avec un
-   point d'exclamation : urgent ou dépassé. Une seule palette pour tous les
-   rectangles de l'Accueil — trois genres, et rien entre eux. */
+/* LE GENRE D'UNE LIGNE — demandé par Jérôme (29 septembre 2026) : la couleur
+   DIT le genre. Bleu : information. Ocre, avec une horloge : un délai approche.
+   Brique, avec un point d'exclamation : urgent ou dépassé. Depuis la liste à
+   liseré (3.5.199), c'est le LISERÉ qui porte la couleur ; l'icône reste grise. */
 const GENRES_NOTIF = {
-  info:   { bg: 'var(--c-disponible)', fg: '#FFFFFF', Icone: IconInfoCircle },
-  delai:  { bg: 'rgb(var(--e-attente-100))', fg: 'var(--c-attente)', Icone: IconClock },
-  urgent: { bg: 'var(--c-refuse)', fg: '#FFFFFF', Icone: IconExclamationCircle },
+  info:   { etat: 'disponible', Icone: IconInfoCircle },
+  delai:  { etat: 'surveiller', Icone: IconClock },
+  urgent: { etat: 'corriger',   Icone: IconExclamationCircle },
 };
-function PastilleNotif({ genre }) {
-  const g = GENRES_NOTIF[genre] || GENRES_NOTIF.info;
-  return (
-    <span className="w-7 h-7 flex-none grid place-items-center rounded-lg"
-      style={{ background: g.bg, color: g.fg }}>
-      <g.Icone size={16} stroke={2} />
-    </span>
-  );
-}
+const genreNotif = (genre) => GENRES_NOTIF[genre] || GENRES_NOTIF.info;
 /** Le genre d'une échéance : urgent quand elle presse ou est dépassée,
     délai quand elle approche, information sinon. */
 const genreDe = (u) => (u?.niveau === 'depasse' || u?.niveau === 'presse') ? 'urgent'
@@ -230,184 +225,122 @@ function MesTaches({ signal = 0 }) {
           return n === 'presse' || n === 'depasse';
         }).length;
         return urgentes > 0 ? (
-          <div className="bloc-etat mb-2 px-3 py-2 text-sm font-semibold flex items-center gap-2" data-etat="corriger">
-            <span className="w-6 h-6 flex-none grid place-items-center rounded-lg bg-red-500 text-white font-bold">!</span>
-            Urgent — vous avez {urgentes} tâche{urgentes > 1 ? 's' : ''} importante{urgentes > 1 ? 's' : ''} à
-            échéance immédiate ou dépassée.
-          </div>
+          <Encadre etat="corriger" icone={IconExclamationCircle} className="mb-2"
+            titre={`Urgent — vous avez ${urgentes} tâche${urgentes > 1 ? 's' : ''} importante${urgentes > 1 ? 's' : ''} à échéance immédiate ou dépassée.`} />
         ) : null;
       })()}
 
-      <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="titre-carte">Ce qui m’attend</h2>
-        <span className="text-xs text-slate-400">
-          {taches.length} tâche(s) — décidées en réunion
-        </span>
-      </div>
-      {!!taches.length && (
-      <div className="carte overflow-hidden">
-        {taches.map(t => {
-          // TROIS SEUILS, ET RIEN ENTRE EUX : ocre à sept jours, brique à
-          // trois, brique encore une fois dépassée. Le jugement vit dans
-          // lib/urgence.js — deux écrans qui le referaient chacun de leur côté
-          // finiraient par ne plus dire la même chose.
-          const u = urgence(t.echeance);
-          return (
-            /* LE CERCLAGE D'UNE TÂCHE JAMAIS LUE.
-               Il entoure — il ne remplit pas : la couleur de la ligne reste
-               celle de son échéance, et deux signaux superposés n'en feraient
-               plus aucun. Marine lumineux, parce que le marine est la couleur
-               de la maison et que « nouveau » n'est ni une alerte ni un
-               retard. */
-            /* LE « NOUVEAU » EST DANS LA LIGNE, PAS AU-DESSUS. L'étiquette
-               flottante chevauchait la ligne du dessus dès que deux nouveautés
-               se suivaient, et le cerclage découpait la carte en bulles
-               (constaté par Jérôme, capture du 30 septembre). Un badge en
-               ligne et un fond légèrement teinté disent la même chose sans
-               rien casser. */
-            <div key={t.id} className={`px-3 py-2 flex items-center gap-3
-                                       border-t border-slate-100 first:border-t-0
-                                       ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
-              <PastilleNotif genre={genreDe(u)} />
-              {t.nouveau && (
-                <span className="intertitre flex-none px-1.5 py-0.5 rounded-full bg-iip-blue text-white">
-                  nouveau
-                </span>
-              )}
-              <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
-                {t.titre}
-              </span>
-              {/* CE QUE L'ACTION SERT : l'obligation l'emporte sur la réunion.
-                  Savoir qu'une tâche tient une échéance de la circulaire change
-                  l'ordre dans lequel on la fait. */}
-              {(t.obligation_libelle || t.reunion_date) && (
-                <span className="text-xs text-slate-400 hidden sm:inline truncate max-w-[18rem]">
-                  {t.obligation_libelle
+      {/* CE QUI M'ATTEND — la liste à liseré (3.5.199) : une carte, une ligne
+          par tâche, le liseré de l'échéance à gauche. TROIS SEUILS, ET RIEN
+          ENTRE EUX : le jugement vit dans lib/urgence.js. Le « nouveau » est
+          dans la ligne, en pastille, jamais au-dessus. */}
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Ce qui m’attend" sous={`${taches.length} tâche(s) — décidées en réunion`} />
+        {!!taches.length && (
+        <ListeEtats className="!border-0 !rounded-none !py-0">
+          {taches.map(t => {
+            const u = urgence(t.echeance);
+            const g = genreNotif(genreDe(u));
+            return (
+              <LigneEtat key={t.id} etat={g.etat} icone={g.Icone}
+                titre={t.titre}
+                meta={t.nouveau ? <PastilleEtat etat="disponible">nouveau</PastilleEtat> : null}
+                /* CE QUE L'ACTION SERT : l'obligation l'emporte sur la réunion. */
+                sous={(t.obligation_libelle || t.reunion_date)
+                  ? (t.obligation_libelle
                     ? `pour : ${t.obligation_libelle}${t.obligation_base ? ` — ${t.obligation_base}` : ''}`
-                    : `décidée le ${fr(t.reunion_date)}`}
-                </span>
-              )}
-              {t.echeance && (
-                <span className={`text-xs font-semibold tabular-nums flex-none
-                  ${u.pastille}`}>
-                  {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
-                </span>
-              )}
-              {/* Le signal « pas encore fait » : proposé quand la date est
-                  proche ou dépassée ; une fois posé, il s'affiche et se retire
-                  d'un clic. */}
-              {t.pas_fait_le ? (
-                <button onClick={() => pointer(t, false)}
-                  title={`Signalé « pas encore fait » le ${fr(t.pas_fait_le)} — cliquer pour retirer`}
-                  className="flex-none text-mention font-bold px-2 py-0.5 rounded-full
-                             bg-amber-100 text-amber-800 border border-amber-300">
-                  pas encore fait
-                </button>
-              ) : (u.niveau && u.niveau !== 'calme') ? (
-                <button onClick={() => pointer(t, true)}
-                  title="Signaler que ce n'est pas encore fait — daté, signé, visible dans le suivi"
-                  className="flex-none text-mention font-semibold px-2 py-0.5 rounded-full
-                             border border-slate-300 text-slate-500 hover:border-amber-400
-                             hover:text-amber-800 hover:bg-amber-50 bg-white">
-                  pas encore fait ?
-                </button>
-              ) : null}
-              <button onClick={() => cocher(t)} title="Marquer comme faite"
-                className="w-5 h-5 flex-none grid place-items-center rounded-champ border
-                           border-slate-300 text-transparent hover:border-emerald-500
-                           hover:text-emerald-600 bg-white">
-                <IconCheck size={13} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      )}
-
-      {/* CE QUE J'AI CONFIÉ — chez l'organisateur de la séance et chez la
-          direction. Sans cela, le suivi reposait sur la mémoire de celui qui
-          présidait : au point suivant, on redemandait « où en est-on ? ». */}
-      {/* POUR INFORMATION — on m'a tenu au courant, je n'en réponds pas. Pas
-          de case à cocher : ce n'est pas à moi de dire que c'est fait. */}
-      {!!informe.length && (
-        <div className="mt-3">
-          <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="titre-carte">Pour information</h2>
-            <span className="text-xs text-slate-400">
-              {informe.length} tâche(s) confiée(s) à d’autres, dont on vous tient au courant
-            </span>
-          </div>
-          <div className="carte overflow-hidden">
-            {informe.map(t => {
-              const u = urgence(t.echeance);
-              return (
-                <div key={t.id} className={`px-3 py-2 flex items-center gap-3
-                                           border-t border-slate-100 first:border-t-0
-                                           ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
-                  <PastilleNotif genre={genreDe(u)} />
-                  {t.nouveau && (
-                    <span className="intertitre flex-none px-1.5 py-0.5 rounded-full bg-iip-blue text-white">
-                      nouveau
-                    </span>
-                  )}
-                  <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
-                    {t.titre}
-                  </span>
-                  <span className="text-xs text-slate-500 truncate max-w-[14rem]">
-                    {(t.responsables || []).map(x => x.nom || x.role).filter(Boolean).join(', ')
-                      || t.responsable_nom || 'sans responsable'}
-                  </span>
+                    : `décidée le ${fr(t.reunion_date)}`)
+                  : null}
+                droite={<>
                   {t.echeance && (
                     <span className={`text-xs font-semibold tabular-nums flex-none ${u.pastille}`}>
                       {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                     </span>
                   )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                  {/* Le signal « pas encore fait » : proposé quand la date est
+                      proche ou dépassée ; une fois posé, il s'affiche et se retire
+                      d'un clic. */}
+                  {t.pas_fait_le ? (
+                    <button type="button" onClick={() => pointer(t, false)} className="flex-none"
+                      title={`Signalé « pas encore fait » le ${fr(t.pas_fait_le)} — cliquer pour retirer`}>
+                      <PastilleEtat etat="surveiller">pas encore fait</PastilleEtat>
+                    </button>
+                  ) : (u.niveau && u.niveau !== 'calme') ? (
+                    <button type="button" onClick={() => pointer(t, true)}
+                      title="Signaler que ce n'est pas encore fait — daté, signé, visible dans le suivi"
+                      className="flex-none text-mention font-semibold px-2 py-0.5 rounded-full
+                                 border border-slate-300 text-slate-500 hover:border-amber-500
+                                 hover:text-amber-700">
+                      pas encore fait ?
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={() => cocher(t)} title="Marquer comme faite"
+                    className="w-5 h-5 flex-none grid place-items-center rounded-champ border
+                               border-slate-300 text-transparent hover:border-emerald-500
+                               hover:text-emerald-600 bg-white">
+                    <IconCheck size={13} />
+                  </button>
+                </>} />
+            );
+          })}
+        </ListeEtats>
+        )}
+      </section>
 
-      {!!confiees.length && (
-        <div className="mt-3">
-          <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="titre-carte">Ce que j’ai confié</h2>
-            <span className="text-xs text-slate-400">
-              {confiees.length} action(s) chez d’autres
-            </span>
-          </div>
-          <div className="carte overflow-hidden">
-            {confiees.map(t => {
+      {/* POUR INFORMATION — on m'a tenu au courant, je n'en réponds pas. Pas
+          de case à cocher : ce n'est pas à moi de dire que c'est fait. */}
+      {!!informe.length && (
+        <section className="carte overflow-hidden mt-3">
+          <EnteteCarte titre="Pour information"
+            sous={`${informe.length} tâche(s) confiée(s) à d’autres, dont on vous tient au courant`} />
+          <ListeEtats className="!border-0 !rounded-none !py-0">
+            {informe.map(t => {
               const u = urgence(t.echeance);
+              const g = genreNotif(genreDe(u));
               return (
-                <div key={t.id} className={`px-3 py-2 flex items-center gap-3
-                                           border-t border-slate-100 first:border-t-0`}>
-                  <PastilleNotif genre={genreDe(u)} />
-                  <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
-                    {t.titre}
-                  </span>
-                  {t.pas_fait_le && (
-                    <span title={`Signalé par ${t.pas_fait_par || 'le responsable'}`}
-                      className="flex-none text-mention font-bold px-2 py-0.5 rounded-full
-                                 bg-amber-100 text-amber-800 border border-amber-300">
-                      pas encore fait · {fr(t.pas_fait_le)}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500 truncate max-w-[12rem]">
-                    {t.responsable_nom || t.responsable_role || 'sans responsable'}
-                  </span>
-                  {t.echeance && (
-                    <span className={`text-xs font-semibold tabular-nums flex-none
-                      ${u.pastille}`}>
+                <LigneEtat key={t.id} etat={g.etat} icone={g.Icone}
+                  titre={t.titre}
+                  meta={t.nouveau ? <PastilleEtat etat="disponible">nouveau</PastilleEtat> : null}
+                  sous={(t.responsables || []).map(x => x.nom || x.role).filter(Boolean).join(', ')
+                    || t.responsable_nom || 'sans responsable'}
+                  droite={t.echeance ? (
+                    <span className={`text-xs font-semibold tabular-nums flex-none ${u.pastille}`}>
                       {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                     </span>
-                  )}
-                </div>
+                  ) : null} />
               );
             })}
-          </div>
-        </div>
+          </ListeEtats>
+        </section>
+      )}
+
+      {/* CE QUE J'AI CONFIÉ — chez l'organisateur de la séance et chez la
+          direction. Sans cela, le suivi reposait sur la mémoire de celui qui
+          présidait : au point suivant, on redemandait « où en est-on ? ». */}
+      {!!confiees.length && (
+        <section className="carte overflow-hidden mt-3">
+          <EnteteCarte titre="Ce que j’ai confié" sous={`${confiees.length} action(s) chez d’autres`} />
+          <ListeEtats className="!border-0 !rounded-none !py-0">
+            {confiees.map(t => {
+              const u = urgence(t.echeance);
+              const g = genreNotif(genreDe(u));
+              return (
+                <LigneEtat key={t.id} etat={g.etat} icone={g.Icone}
+                  titre={t.titre}
+                  meta={t.pas_fait_le ? (
+                    <PastilleEtat etat="surveiller" title={`Signalé par ${t.pas_fait_par || 'le responsable'}`}>
+                      pas encore fait · {fr(t.pas_fait_le)}
+                    </PastilleEtat>) : null}
+                  sous={t.responsable_nom || t.responsable_role || 'sans responsable'}
+                  droite={t.echeance ? (
+                    <span className={`text-xs font-semibold tabular-nums flex-none ${u.pastille}`}>
+                      {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
+                    </span>
+                  ) : null} />
+              );
+            })}
+          </ListeEtats>
+        </section>
       )}
     </div>
   );
@@ -450,23 +383,19 @@ function DemandesAValider() {
   useEffect(() => { charger(); }, [charger]);
   if (!tranche || (!n && !ouvert)) return null;
   return (
-    <div className="mb-5">
-      <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="titre-carte">À valider</h2>
-        <span className="text-xs text-slate-400">modifications proposées par les coordinations et par les enseignants (leur fiche)</span>
-      </div>
-      <button type="button" onClick={() => setOuvert(true)}
-        className="carte w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
-        <PastilleNotif genre="delai" />
-        <span className="flex-1 text-sm text-slate-800">{n} demande{n > 1 ? 's' : ''} en attente de décision</span>
-        <span className="text-second text-iip-blue font-semibold">Ouvrir</span>
-      </button>
+    <section className="carte overflow-hidden mb-5">
+      <EnteteCarte titre="À valider" sous="modifications proposées par les coordinations et par les enseignants (leur fiche)" />
+      <ListeEtats className="!border-0 !rounded-none !py-0">
+        <LigneEtat etat="surveiller" icone={IconClock} onClick={() => setOuvert(true)}
+          titre={`${n} demande${n > 1 ? 's' : ''} en attente de décision`}
+          droite={<span className="text-second text-iip-blue font-semibold">Ouvrir</span>} />
+      </ListeEtats>
       {ouvert && (
         <Fenetre titre="Demandes à valider" large="pleine" onFermer={() => { setOuvert(false); charger(); }}>
           <Suspense fallback={<p className="text-sm text-slate-400">Chargement…</p>}><Demandes /></Suspense>
         </Fenetre>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -483,45 +412,35 @@ function TextesAConfirmer() {
 
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
   return (
-    <div className="mb-5">
-      <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="titre-carte">À confirmer</h2>
-        <span className="text-xs text-slate-400">
-          {attente.length} texte{attente.length > 1 ? 's' : ''} publié
-          {attente.length > 1 ? 's' : ''} par la direction — prise de connaissance demandée
-        </span>
-      </div>
-      <div className="carte overflow-hidden">
+    <section className="carte overflow-hidden mb-5">
+      <EnteteCarte titre="À confirmer"
+        sous={`${attente.length} texte${attente.length > 1 ? 's' : ''} publié${attente.length > 1 ? 's' : ''} par la direction — prise de connaissance demandée`} />
+      <ListeEtats className="!border-0 !rounded-none !py-0">
+        {/* Un texte imposé avec signature : le genre est « délai » tant
+            qu'il attend — il ne devient jamais bleu tout seul. */}
         {attente.map(d => (
-          <button key={d.cle}
+          <LigneEtat key={d.cle} etat="surveiller" icone={IconClock}
             onClick={() => navigate(`/documentation?doc=${encodeURIComponent(d.cle)}`)}
-            className="group w-full text-left px-3 py-2 flex items-center gap-3
-                       border-t border-slate-100 first:border-t-0 hover:bg-slate-100">
-            {/* Un texte imposé avec signature : le genre est « délai » tant
-                qu'il attend — il ne devient jamais bleu tout seul. */}
-            <PastilleNotif genre="delai" />
-            <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
-              {d.titre}
-            </span>
-            {/* LE NUMÉRO DE VERSION DIT POURQUOI ON REVIENT. Une personne qui a
-                déjà confirmé la v1 et voit reparaître le texte doit comprendre
-                qu'il a changé, pas croire à une erreur. */}
-            <span className="text-xs text-slate-400 tabular-nums flex-none">
-              {d.numero > 1 ? `version ${d.numero} · ` : ''}publié le {fr(d.publiee_le)}
-            </span>
-            {/* LA CASE OUVRE LE DOCUMENT, elle ne confirme pas : l'accusé de
-                réception ne se coche qu'une fois le texte servi, dans le
-                document lui-même — la règle d'opposabilité ne plie pas. */}
-            <span title="Ouvrir le document — la confirmation se coche une fois le texte affiché"
-              className="w-5 h-5 flex-none grid place-items-center rounded-champ border
-                         border-slate-300 text-transparent group-hover:border-iip-blue
-                         group-hover:text-iip-blue/40 bg-white">
-              <IconCheck size={13} />
-            </span>
-          </button>
+            titre={d.titre}
+            /* LE NUMÉRO DE VERSION DIT POURQUOI ON REVIENT. Une personne qui a
+               déjà confirmé la v1 et voit reparaître le texte doit comprendre
+               qu'il a changé, pas croire à une erreur. */
+            droite={<>
+              <span className="text-xs text-slate-400 tabular-nums flex-none">
+                {d.numero > 1 ? `version ${d.numero} · ` : ''}publié le {fr(d.publiee_le)}
+              </span>
+              {/* LA CASE OUVRE LE DOCUMENT, elle ne confirme pas : l'accusé de
+                  réception ne se coche qu'une fois le texte servi, dans le
+                  document lui-même — la règle d'opposabilité ne plie pas. */}
+              <span title="Ouvrir le document — la confirmation se coche une fois le texte affiché"
+                className="w-5 h-5 flex-none grid place-items-center rounded-champ border
+                           border-slate-300 text-transparent bg-white">
+                <IconCheck size={13} />
+              </span>
+            </>} />
         ))}
-      </div>
-    </div>
+      </ListeEtats>
+    </section>
   );
 }
 
@@ -624,7 +543,13 @@ export default function Accueil({ apresEntete = null }) {
       {filtres && (
         <Fenetre icone={IconFilter} large="petite" titre="Filtrer le journal"
           sous="Ce qu'on regarde, et sur quelle durée"
-          onFermer={() => setFiltres(false)}>
+          onFermer={() => setFiltres(false)}
+          pied={<>
+            <button onClick={() => { setFiltre('tout'); setJours(30); }}
+              className="bouton">Tout revoir</button>
+            <button onClick={() => setFiltres(false)}
+              className="bouton bouton-fort ml-auto">Fermer</button>
+          </>}>
           <div className="space-y-4">
             <div>
               <div className="intertitre mb-1.5">Quels événements</div>
@@ -660,13 +585,6 @@ export default function Accueil({ apresEntete = null }) {
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button onClick={() => { setFiltre('tout'); setJours(30); }}
-                className="bouton">Tout revoir</button>
-              <button onClick={() => setFiltres(false)}
-                className="bouton bouton-fort ml-auto">Fermer</button>
             </div>
           </div>
         </Fenetre>
@@ -730,7 +648,7 @@ export default function Accueil({ apresEntete = null }) {
                filtre === 'recrutement' ? 'Recrutement' : filtre === 'notes' ? 'Notes' : 'Système'}
             </h2>
             {nbNonLus > 0 && (
-              <span className="text-xs bg-iip-turquoise text-white rounded-champ px-2 py-0.5 font-bold">{nbNonLus} non lu{nbNonLus > 1 ? 's' : ''}</span>
+              <PastilleEtat etat="disponible">{nbNonLus} non lu{nbNonLus > 1 ? 's' : ''}</PastilleEtat>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -769,16 +687,14 @@ export default function Accueil({ apresEntete = null }) {
                   const Icon = cfg.icon;
                   return (
                     <div key={item.id}
-                      className={`relative overflow-hidden border rounded-xl p-3.5 flex items-start gap-3 transition ${
-                        item.lue
-                          ? 'border-gray-100 bg-white/60'
-                          : 'border-gray-200 bg-white shadow-pose'
+                      className={`carte relative overflow-hidden p-3.5 flex items-start gap-3 transition ${
+                        item.lue ? 'opacity-75' : ''
                       }`}>
 
                       {/* La fête, derrière la carte d'un anniversaire du jour (3.1.271). */}
                       {item.type === 'anniversaire' && (item.action === 'aujourdhui' || item.action === 'voeux') && <FeteAnniversaire />}
                       {/* Icône colorée */}
-                      <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
+                      <div className="flex-shrink-0 w-8 h-8 rounded-champ flex items-center justify-center mt-0.5"
                         style={{ background: cfg.bg }}>
                         <Icon size={16} style={{ color: cfg.color }} />
                       </div>
@@ -787,8 +703,7 @@ export default function Accueil({ apresEntete = null }) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className="intertitre mr-2"
-                              style={{ color: cfg.color }}>{cfg.label}</span>
+                            <span className="intertitre mr-2">{cfg.label}</span>
                             <span className={`text-sm font-medium ${item.lue ? 'text-gray-500' : 'text-gray-800'}`}>
                               {item.titre}
                             </span>
@@ -803,7 +718,7 @@ export default function Accueil({ apresEntete = null }) {
                           <div className="text-xs text-gray-400 mt-0.5">par {item.auteur}</div>
                         )}
                         {item.corps && (
-                          <div className={`text-xs text-gray-600 mt-1.5 leading-relaxed rounded-lg px-3 py-2 ${item.type === 'anniversaire' ? '' : 'bg-gray-50'}`}
+                          <div className={`text-xs text-gray-600 mt-1.5 leading-relaxed px-3 py-1 ${item.type === 'anniversaire' ? '' : 'border-l-2 border-slate-200'}`}
                             dangerouslySetInnerHTML={{ __html: item.corps }} />
                         )}
 
@@ -860,62 +775,60 @@ function TableauNotes({ items, marquerLu, navigate }) {
   const totalNotes = lignes.reduce((t, l) => t + (Number(l.notes) || 0), 0);
   let precedent = null;
   return (
-    <div className="mb-3 border border-gray-200 rounded-carte overflow-hidden bg-white">
-      <table className="w-full text-second">
-        <thead>
-          <tr className="tab-entete text-left">
-            <th className="px-3 py-1.5 font-semibold">
-              <span className="inline-flex items-center gap-1.5">
-                <IconWriting size={14} style={{ color: 'var(--c-disponible)' }} /> Notes encodées
-              </span>
-            </th>
-            <th className="px-3 py-1.5 font-semibold">Professeur</th>
-            <th className="px-3 py-1.5 font-semibold text-right">Notes</th>
-            <th className="px-3 py-1.5 font-semibold text-right">Étudiants</th>
-            <th className="px-3 py-1.5 font-semibold text-right">Quand</th>
-            <th className="px-3 py-1.5 w-[5.5rem]"></th>
-          </tr>
-          <tr className="tab-repere font-semibold">
-            <td className="px-3 py-1">{new Set(lignes.map(l => l.cours)).size} cours · {lignes.length} encodage(s)</td>
-            <td className="px-3 py-1">{nonLus.length ? `${nonLus.length} non lu(s)` : 'tout est lu'}</td>
-            <td className="px-3 py-1 text-right tabular-nums">{totalNotes || ''}</td>
-            <td></td><td></td>
-            <td className="px-3 py-1 text-right">
-              {nonLus.length > 0 && (
-                <button type="button" className="text-xs text-gray-500 hover:text-iip-blue"
-                  onClick={async () => { for (const l of nonLus) await marquerLu(l); }}>tout lu</button>)}
-            </td>
-          </tr>
-        </thead>
-        <tbody>
-          {lignes.map(l => {
-            const memeCours = l.cours === precedent; precedent = l.cours;
-            return (
-              <tr key={l.id} className={`border-t border-gray-100 ${l.lue ? 'text-gray-500' : 'text-gray-800'}`}>
-                <td className="px-3 py-1.5">
-                  {!memeCours && (
-                    <span className="inline-flex items-center gap-1.5">
-                      {!l.lue && <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: 'var(--c-disponible)' }} />}
-                      <span className={l.lue ? '' : 'font-medium'}>{l.cours}</span>
-                    </span>)}
-                </td>
-                <td className="px-3 py-1.5">{l.auteur}{l.complet && <span className="ml-1.5 text-mention text-gray-400">complet</span>}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{l.notes}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{l.etud}</td>
-                <td className="px-3 py-1.5 text-right text-gray-400 whitespace-nowrap">{timeAgo(l.date)}</td>
-                <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                  {l.lien && (
-                    <button type="button" title="Ouvrir le cours" className="text-iip-blue hover:underline inline-flex items-center"
-                      onClick={() => { if (!l.lue) marquerLu(l); navigate(l.lien); }}>Voir <IconChevronRight size={12} /></button>)}
-                  {!l.lue && (
-                    <button type="button" title="Marquer comme lu" className="ml-2 text-gray-400 hover:text-green-600 align-middle"
-                      onClick={() => marquerLu(l)}><IconCheck size={13} /></button>)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <Tableau dense className="mb-3">
+      <TableauEntete>
+        <Th>
+          <span className="inline-flex items-center gap-1.5">
+            <IconWriting size={14} style={{ color: 'var(--c-disponible)' }} /> Notes encodées
+          </span>
+        </Th>
+        <Th>Professeur</Th>
+        <Th align="droite">Notes</Th>
+        <Th align="droite">Étudiants</Th>
+        <Th align="droite">Quand</Th>
+        <Th largeur="w-[5.5rem]"></Th>
+      </TableauEntete>
+      <tbody>
+        {/* LE TOTAL EN TÊTE, sous l'en-tête. */}
+        <TrTotal>
+          <Td>{new Set(lignes.map(l => l.cours)).size} cours · {lignes.length} encodage(s)</Td>
+          <Td>{nonLus.length ? `${nonLus.length} non lu(s)` : 'tout est lu'}</Td>
+          <Td align="droite" className="tabular-nums">{totalNotes || ''}</Td>
+          <Td></Td><Td></Td>
+          <Td align="droite">
+            {nonLus.length > 0 && (
+              <button type="button" className="text-xs text-gray-500 hover:text-iip-blue"
+                onClick={async () => { for (const l of nonLus) await marquerLu(l); }}>tout lu</button>)}
+          </Td>
+        </TrTotal>
+        {lignes.map(l => {
+          const memeCours = l.cours === precedent; precedent = l.cours;
+          const ton = l.lue ? 'text-gray-500' : '';
+          return (
+            <Tr key={l.id}>
+              <Td className={ton}>
+                {!memeCours && (
+                  <span className="inline-flex items-center gap-1.5">
+                    {!l.lue && <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: 'var(--c-disponible)' }} />}
+                    <span className={l.lue ? '' : 'font-medium'}>{l.cours}</span>
+                  </span>)}
+              </Td>
+              <Td className={ton}>{l.auteur}{l.complet && <span className="ml-1.5 text-mention text-gray-400">complet</span>}</Td>
+              <Td align="droite" className={`tabular-nums ${ton}`}>{l.notes}</Td>
+              <Td align="droite" className={`tabular-nums ${ton}`}>{l.etud}</Td>
+              <Td align="droite" ton="secondaire" className="whitespace-nowrap">{timeAgo(l.date)}</Td>
+              <Td align="droite" className="whitespace-nowrap">
+                {l.lien && (
+                  <button type="button" title="Ouvrir le cours" className="text-iip-blue hover:underline inline-flex items-center"
+                    onClick={() => { if (!l.lue) marquerLu(l); navigate(l.lien); }}>Voir <IconChevronRight size={12} /></button>)}
+                {!l.lue && (
+                  <button type="button" title="Marquer comme lu" className="ml-2 text-gray-400 hover:text-green-600 align-middle"
+                    onClick={() => marquerLu(l)}><IconCheck size={13} /></button>)}
+              </Td>
+            </Tr>
+          );
+        })}
+      </tbody>
+    </Tableau>
   );
 }

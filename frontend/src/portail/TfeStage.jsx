@@ -11,7 +11,7 @@ const jourFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') :
 function Fiches({ fiches }) {
   if (!fiches?.length) return null;
   return (
-    <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-3">
+    <section className="carte p-4 space-y-3">
       <h2 className="titre-carte flex items-center gap-2"><IconClipboardList size={17} className="text-slate-400" /> Comment vous serez évalué</h2>
       {fiches.map(f => (
         <details key={f.intitule} className="border-t border-slate-100 pt-2 first:border-t-0 first:pt-0">
@@ -55,7 +55,7 @@ function UnTfe({ t, enAttente, appel, jeton, onFait, onErreur }) {
   };
   return (
     <div className="space-y-4">
-      <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-2">
+      <section className="carte p-4 space-y-2">
         <div className="text-xs text-slate-500">UE {t.ue_num}{t.ue_nom ? ` — ${t.ue_nom}` : ''}</div>
         <h2 className="titre-carte">{t.titre}</h2>
         {t.jury?.length > 0 && <div className="text-sm space-y-0.5">{t.jury.map((m, i) => <div key={i}><span className="text-slate-500">{m.role} :</span> {m.nom}</div>)}</div>}
@@ -63,7 +63,7 @@ function UnTfe({ t, enAttente, appel, jeton, onFait, onErreur }) {
           Défense le <b>{jourFr(t.defense.date)}</b>{t.defense.heure ? ` à ${t.defense.heure}` : ''}{t.defense.local ? `, local ${t.defense.local}` : ''}.</div>}
       </section>
 
-      <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-2">
+      <section className="carte p-4 space-y-2">
         <h2 className="titre-carte">Ma question de recherche</h2>
         {t.question ? <p className="text-sm m-0 whitespace-pre-wrap">{t.question}</p>
           : <p className="text-sm text-slate-500 m-0">Pas encore de question retenue.</p>}
@@ -86,7 +86,7 @@ function UnTfe({ t, enAttente, appel, jeton, onFait, onErreur }) {
       </section>
 
       {t.remises?.length > 0 && (
-        <section className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+        <section className="carte divide-y divide-slate-100">
           <h2 className="titre-carte px-4 py-2.5">Mes remises</h2>
           {t.remises.map(r => <Remise key={r.jalon_id} t={t} r={r} enCours={enAttente.some(g => g.type === 'remise' && Number(g.jalon_id) === r.jalon_id)}
             jeton={jeton} onFait={onFait} onErreur={onErreur} />)}
@@ -116,7 +116,7 @@ function Remise({ t, r, enCours, jeton, onFait, onErreur }) {
   };
   return (
     <div className="px-4 py-3 flex flex-wrap items-center gap-3">
-      <span className={`flex-none ${etat === 'reussi' ? 'text-emerald-700' : etat === 'corriger' ? 'text-red-700' : 'text-slate-400'}`}>
+      <span className={`flex-none ${etat === 'reussi' ? 'text-[color:var(--c-reussi)]' : etat === 'corriger' ? 'text-[color:var(--c-refuse)]' : 'text-slate-400'}`}>
         {r.recu_le ? <IconCheck size={18} /> : etat === 'corriger' ? <IconAlertTriangle size={18} /> : <IconClock size={18} />}</span>
       <div className="flex-1 min-w-[11rem] text-sm">
         <div className="font-semibold">{r.libelle}</div>
@@ -144,7 +144,7 @@ export function MonStage({ appel, onErreur }) {
     <div className="space-y-4">
       {p.stage.map(s => (
         <div key={s.id} className="space-y-4">
-          <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-2">
+          <section className="carte p-4 space-y-2">
             <div className="text-xs text-slate-500">{s.ue_num ? `UE ${s.ue_num}${s.ue_nom ? ` — ${s.ue_nom}` : ''}` : 'Stage'}</div>
             <h2 className="titre-carte">{s.lieu ? s.lieu.nom : 'Lieu de stage à fixer'}</h2>
             {s.lieu && <div className="text-sm text-slate-600 flex gap-1.5"><IconMapPin size={15} className="text-slate-400 mt-0.5 flex-none" />
@@ -163,7 +163,7 @@ export function MonStage({ appel, onErreur }) {
               <div className="text-xs text-slate-600 mt-1">Sans ces pièces (art. 51 et 55 du règlement), le stage ne peut pas commencer. Remettez-les au secrétariat.</div>
             </div>)}
           {s.visites?.length > 0 && (
-            <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-1">
+            <section className="carte p-4 space-y-1">
               <h2 className="titre-carte">Les visites de votre superviseur</h2>
               {s.visites.map((v, i) => <div key={i} className="text-sm flex gap-2"><span className="w-24 tabular-nums">{jourFr(v.date)}</span>
                 <span className="flex-1">{v.heure ? `à ${v.heure}` : ''}</span><span className="text-slate-500">{v.faite ? 'faite' : v.date < auj ? 'passée' : 'prévue'}</span></div>)}

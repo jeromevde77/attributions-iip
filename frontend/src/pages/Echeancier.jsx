@@ -3,7 +3,8 @@ import {
   IconCalendarStats, IconCheck, IconRefresh,
   IconScale, IconFilter, IconX, IconBooks, IconPlayerPlay,
 } from '@tabler/icons-react';
-import { PageHeader, Tabs, Btn, KpiCard, RailLateral, Fenetre, EnteteCarte } from '../components/ui.jsx';
+import { PageHeader, Tabs, Btn, TuileEtat, RailLateral, Fenetre, EnteteCarte, Encadre, PastilleEtat,
+  ListeEtats, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { nomDuCompte } from '../lib/nom.js';
@@ -32,16 +33,39 @@ function resteJours(iso) {
   return Math.round((j - auj) / 86400000);
 }
 
+/** L'état d'une échéance, dans les sept états de la maison (lib/etats.js). */
+function etatEcheance({ statut, date_due }) {
+  if (statut === 'fait') return 'reussi';
+  if (statut === 'sans_objet' || statut === 'annule') return 'neutre';
+  const n = resteJours(date_due);
+  if (statut === 'en_retard' || n < 0) return 'corriger';
+  if (n <= 7) return 'surveiller';
+  return 'neutre';
+}
+
 function Pastille({ echeance }) {
   const { statut, date_due } = echeance;
-  if (statut === 'fait')       return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-emerald-500 text-white">Fait</span>;
-  if (statut === 'sans_objet') return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-slate-100 text-slate-500">Sans objet</span>;
-  if (statut === 'annule')     return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-slate-100 text-slate-500">Annulé</span>;
+  if (statut === 'fait')       return <PastilleEtat etat="reussi">Fait</PastilleEtat>;
+  if (statut === 'sans_objet') return <PastilleEtat etat="neutre">Sans objet</PastilleEtat>;
+  if (statut === 'annule')     return <PastilleEtat etat="neutre">Annulé</PastilleEtat>;
   const n = resteJours(date_due);
-  if (n < 0)   return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-red-500 text-white">En retard ({-n} j)</span>;
-  if (n === 0) return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-amber-500 text-white">Aujourd'hui</span>;
-  if (n <= 7)  return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-amber-500 text-white">J-{n}</span>;
-  return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-slate-100 text-slate-600">J-{n}</span>;
+  if (n < 0)   return <PastilleEtat etat="corriger">En retard ({-n} j)</PastilleEtat>;
+  if (n === 0) return <PastilleEtat etat="surveiller">Aujourd'hui</PastilleEtat>;
+  if (n <= 7)  return <PastilleEtat etat="surveiller">J-{n}</PastilleEtat>;
+  return <PastilleEtat etat="neutre">J-{n}</PastilleEtat>;
+}
+
+/** La case « fait » : un contrôle, pas un état — la coche porte la couleur de « réussi ». */
+function CaseFait({ e, onClick }) {
+  const fait = e.statut === 'fait';
+  return (
+    <button onClick={onClick} title={fait ? 'Marquer à faire' : 'Marquer fait'}
+      className="w-[18px] h-[18px] rounded border flex-none flex items-center justify-center"
+      style={fait ? { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }
+                  : { borderColor: 'var(--c-filet, rgb(var(--gris-300)))' }}>
+      {fait && <IconCheck size={13} stroke={3} />}
+    </button>
+  );
 }
 
 export default function Echeancier() {
@@ -183,20 +207,20 @@ export default function Echeancier() {
         </div>
 
         {message && (
-          <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3
-            ${message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
-                                    : 'bg-red-500 text-white border border-red-500'}`}>
-            <span>{message.texte}</span>
-            <button onClick={() => setMessage(null)}><IconX size={15} /></button>
-          </div>
+          <Encadre etat={message.type === 'ok' ? 'reussi' : 'corriger'}>
+            <div className="flex items-center justify-between gap-3">
+              <span>{message.texte}</span>
+              <button onClick={() => setMessage(null)} title="Fermer"><IconX size={15} /></button>
+            </div>
+          </Encadre>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <KpiCard label="En retard"        valeur={c.en_retard ?? 0} ton={c.en_retard ? 'bad' : 'neutral'} />
-          <KpiCard label="Dans 7 jours"     valeur={c.semaine ?? 0}   ton={c.semaine ? 'warn' : 'neutral'} />
-          <KpiCard label="Dans 30 jours"    valeur={c.mois ?? 0} />
-          <KpiCard label="Faites"           valeur={c.faites ?? 0}    ton="good" />
-          <KpiCard label="Total de l'année" valeur={c.total ?? 0} />
+          <TuileEtat libelle="En retard"        valeur={c.en_retard ?? 0} etat={c.en_retard ? 'corriger' : 'neutre'} />
+          <TuileEtat libelle="Dans 7 jours"     valeur={c.semaine ?? 0}   etat={c.semaine ? 'surveiller' : 'neutre'} />
+          <TuileEtat libelle="Dans 30 jours"    valeur={c.mois ?? 0} />
+          <TuileEtat libelle="Faites"           valeur={c.faites ?? 0}    etat="reussi" />
+          <TuileEtat libelle="Total de l'année" valeur={c.total ?? 0}   etat="fort" />
         </div>
 
         <Tabs value={tab} onChange={setTab} items={[
@@ -257,29 +281,25 @@ export default function Echeancier() {
         {!chargement && tab === 'timeline' && (
           <div className="space-y-5">
             {!parMois.length && (
-              <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500 text-sm">
+              <div className="carte p-8 text-center text-slate-500 text-sm">
                 Aucune échéance. Vérifiez que les dates des UE sont encodées
                 (Organisation → Planification → Dates des UE), puis cliquez sur « Régénérer ».
               </div>
             )}
             {parMois.map(([cle, items]) => (
               <div key={cle}>
-                <div className="text-xs font-bold text-iip-blue uppercase tracking-widest mb-2">
+                <div className="intertitre mb-2">
                   {MOIS[Number(cle.slice(5, 7)) - 1]} {cle.slice(0, 4)}
                 </div>
-                <div className="space-y-1.5">
+                <ListeEtats>
                   {items.map(e => {
-                    const n = resteJours(e.date_due);
-                    const bord = e.statut === 'fait' ? 'border-l-emerald-500'
-                      : e.statut === 'en_retard' || n < 0 ? 'border-l-red-500'
-                      : n <= 7 ? 'border-l-amber-500' : 'border-l-slate-200';
                     return (
                       /* DEUX TABLES, DEUX NUMÉROTATIONS : l'échéance 12 et la
                          tâche 12 existent toutes les deux. Sans préfixe, React
                          les confond et recycle la mauvaise ligne. */
                       <div key={`${e.origine || 'ech'}-${e.id}`}
-                        className={`bg-white border border-slate-200 border-l-[3px] ${bord} rounded-lg
-                          px-3.5 py-2.5 flex items-center gap-3 ${e.statut === 'fait' ? 'opacity-60' : ''}`}>
+                        data-etat={etatEcheance(e)}
+                        className={`bloc-etat px-3.5 py-2.5 flex items-center gap-3 ${e.statut === 'fait' ? 'opacity-60' : ''}`}>
                         <div className="text-sm font-bold text-iip-blue w-12 flex-none">{jourMois(e.date_due)}</div>
                         <button onClick={() => setDetail(e)} className="flex-1 text-left min-w-0">
                           <div className="text-sm font-medium text-slate-800 truncate">
@@ -292,25 +312,20 @@ export default function Echeancier() {
                           </div>
                         </button>
                         {e.origine === 'tache' && (
-                          <span className="text-mention px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold flex-none"
+                          <PastilleEtat etat="neutre" className="flex-none"
                                 title={e.reunion_titre ? `Décidé en séance : ${e.reunion_titre}` : 'Action de suivi'}>
                             suivi
-                          </span>
+                          </PastilleEtat>
                         )}
                         {e.genere_auto === 1 && (
-                          <span className="text-mention px-1.5 py-0.5 rounded bg-iip-turquoise/12 text-iip-blue font-semibold flex-none">auto</span>
+                          <PastilleEtat etat="disponible" className="flex-none">auto</PastilleEtat>
                         )}
                         <Pastille echeance={e} />
-                        <button onClick={() => basculer(e)} title={e.statut === 'fait' ? 'Marquer à faire' : 'Marquer fait'}
-                          className={`w-[18px] h-[18px] rounded border flex-none flex items-center justify-center
-                            ${e.statut === 'fait' ? 'bg-emerald-500 border-emerald-500 text-white'
-                                                  : 'border-slate-300 hover:border-iip-turquoise'}`}>
-                          {e.statut === 'fait' && <IconCheck size={13} stroke={3} />}
-                        </button>
+                        <CaseFait e={e} onClick={() => basculer(e)} />
                       </div>
                     );
                   })}
-                </div>
+                </ListeEtats>
               </div>
             ))}
           </div>
@@ -329,47 +344,43 @@ export default function Echeancier() {
           <section className="carte overflow-hidden">
             <EnteteCarte icone={IconBooks} titre="Référentiel légal des échéances"
               sous={`${types.length} types — modifiable par l'administrateur à la lecture d'une circulaire`} />
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="intertitre bande-entete border-b border-slate-200">
-                    <th className="px-3 py-2 text-left">Échéance</th>
-                    <th className="px-3 py-2 text-left w-40">Zone</th>
-                    <th className="px-3 py-2 text-left w-52">Règle de date</th>
-                    <th className="px-3 py-2 text-left w-44">Responsable</th>
-                    <th className="px-3 py-2 text-left w-56">Base légale</th>
-                    <th className="px-3 py-2 text-left w-20">Instances</th>
-                  </tr>
-                </thead>
+            <Tableau className="!border-0 !rounded-none">
+                <TableauEntete>
+                    <Th>Échéance</Th>
+                    <Th largeur="w-40">Zone</Th>
+                    <Th largeur="w-52">Règle de date</Th>
+                    <Th largeur="w-44">Responsable</Th>
+                    <Th largeur="w-56">Base légale</Th>
+                    <Th largeur="w-20">Instances</Th>
+                </TableauEntete>
                 <tbody>
                   {types.map(t => (
-                    <tr key={t.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                      <td className="px-3 py-2">
+                    <Tr key={t.id}>
+                      <td className="cellule px-3 py-2">
                         <div className="font-medium text-slate-800">{t.libelle}</div>
                         {t.description && (
                           <div className="text-xs text-slate-500 mt-0.5 line-clamp-2 max-w-xl">{t.description}</div>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-slate-600">{ZONES[t.zone] || t.zone || '—'}</td>
-                      <td className="px-3 py-2">
-                        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{t.regle_date}</code>
+                      <td className="cellule px-3 py-2 text-slate-600">{ZONES[t.zone] || t.zone || '—'}</td>
+                      <td className="cellule px-3 py-2">
+                        <code className="text-xs text-slate-700">{t.regle_date}</code>
                       </td>
-                      <td className="px-3 py-2 text-slate-600">
+                      <td className="cellule px-3 py-2 text-slate-600">
                         {peutRegler && comptes.length ? (
-                          <select className="border border-slate-300 rounded-champ text-xs px-1 py-0.5 max-w-[11rem]" value={t.responsable_user_id || ''} onChange={e => choisirResponsable(t, e.target.value)}
+                          <select className="controle text-xs max-w-[11rem]" value={t.responsable_user_id || ''} onChange={e => choisirResponsable(t, e.target.value)}
                             title="La personne qui répond de ce type d’échéance : ses échéances ouvertes et les suivantes vont à elle, avec leurs rappels.">
                             <option value="">{t.responsable_defaut ? `Rôle : ${t.responsable_defaut}` : '—'}</option>
                             {comptes.map(u => <option key={u.id} value={u.id}>{nomDuCompte(u.nom_complet, u.email)}</option>)}
                           </select>
                         ) : (t.responsable_nom || t.responsable_defaut || '—')}
                       </td>
-                      <td className="px-3 py-2 text-xs text-slate-500">{t.base_legale || '—'}</td>
-                      <td className="px-3 py-2 text-slate-600">{t.nb_instances}</td>
-                    </tr>
+                      <td className="cellule px-3 py-2 text-xs text-slate-500">{t.base_legale || '—'}</td>
+                      <td className="cellule px-3 py-2 text-slate-600">{t.nb_instances}</td>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+            </Tableau>
           </section>
         )}
       </div>
@@ -404,10 +415,12 @@ export default function Echeancier() {
                 {detail.fait_le && <Info label="Fait le" valeur={`${fr(detail.fait_le)} par ${detail.fait_par}`} />}
               </div>
               {detail.base_legale && (
-                <div className="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2.5">
-                  <IconScale size={15} className="text-iip-turquoise mt-0.5 flex-none" />
-                  <span className="text-second text-slate-600">{detail.base_legale}</span>
-                </div>
+                <Encadre etat="neutre">
+                  <span className="flex items-start gap-2">
+                    <IconScale size={15} className="mt-0.5 flex-none text-slate-400" />
+                    <span>{detail.base_legale}</span>
+                  </span>
+                </Encadre>
               )}
             </div>
         </Fenetre>
@@ -428,57 +441,45 @@ function Info({ label, valeur }) {
 function ListeEcheances({ lignes, onBasculer, onDetail, mien }) {
   if (!lignes.length) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500 text-sm">
+      <div className="carte p-8 text-center text-slate-500 text-sm">
         {mien ? "Rien à traiter pour vous." : 'Aucune échéance pour ces critères.'}
       </div>
     );
   }
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="tab-entete">
-              <th className="px-3 py-2 text-left w-24">Date</th>
-              <th className="px-3 py-2 text-left">Échéance</th>
-              <th className="px-3 py-2 text-left w-40">Zone</th>
-              <th className="px-3 py-2 text-left w-32">Responsable</th>
-              <th className="px-3 py-2 text-left w-32">Statut</th>
-              <th className="px-3 py-2 w-10"></th>
-            </tr>
-          </thead>
+    <Tableau>
+          <TableauEntete>
+              <Th largeur="w-24">Date</Th>
+              <Th>Échéance</Th>
+              <Th largeur="w-40">Zone</Th>
+              <Th largeur="w-32">Responsable</Th>
+              <Th largeur="w-32">Statut</Th>
+              <Th largeur="w-10"></Th>
+          </TableauEntete>
           <tbody>
             {lignes.map(e => (
-              <tr key={`${e.origine || 'ech'}-${e.id}`} className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/60
-                ${e.statut === 'fait' ? 'opacity-60' : ''}`}>
-                <td className="px-3 py-2 font-medium text-iip-blue whitespace-nowrap">{fr(e.date_due)}</td>
-                <td className="px-3 py-2">
+              <Tr key={`${e.origine || 'ech'}-${e.id}`} className={e.statut === 'fait' ? 'opacity-60' : ''}>
+                <td className="cellule px-3 py-2 font-medium text-iip-blue whitespace-nowrap">{fr(e.date_due)}</td>
+                <td className="cellule px-3 py-2">
                   <button onClick={() => onDetail(e)} className="text-left">
                     <div className="text-slate-800">
                       {e.libelle}
                       {e.origine === 'tache' && (
-                        <span className="text-mention ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">suivi</span>
+                        <PastilleEtat etat="neutre" className="ml-2">suivi</PastilleEtat>
                       )}
                     </div>
                     {e.libelle_override && <div className="text-xs text-slate-500">{e.libelle_override}</div>}
                   </button>
                 </td>
-                <td className="px-3 py-2 text-slate-600">{ZONES[e.zone] || e.zone || '—'}</td>
-                <td className="px-3 py-2 text-slate-600">{e.responsable_nom || e.responsable_role || '—'}</td>
-                <td className="px-3 py-2"><Pastille echeance={e} /></td>
-                <td className="px-3 py-2">
-                  <button onClick={() => onBasculer(e)}
-                    className={`w-[18px] h-[18px] rounded border flex items-center justify-center
-                      ${e.statut === 'fait' ? 'bg-emerald-500 border-emerald-500 text-white'
-                                            : 'border-slate-300 hover:border-iip-turquoise'}`}>
-                    {e.statut === 'fait' && <IconCheck size={13} stroke={3} />}
-                  </button>
+                <td className="cellule px-3 py-2 text-slate-600">{ZONES[e.zone] || e.zone || '—'}</td>
+                <td className="cellule px-3 py-2 text-slate-600">{e.responsable_nom || e.responsable_role || '—'}</td>
+                <td className="cellule px-3 py-2"><Pastille echeance={e} /></td>
+                <td className="cellule px-3 py-2">
+                  <CaseFait e={e} onClick={() => onBasculer(e)} />
                 </td>
-              </tr>
+              </Tr>
             ))}
           </tbody>
-        </table>
-      </div>
-    </div>
+    </Tableau>
   );
 }

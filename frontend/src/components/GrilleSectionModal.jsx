@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconPrinter, IconWand } from '@tabler/icons-react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from './PreviewModal.jsx';
-import { Fenetre, OutilFenetre } from './ui.jsx';
+import { Fenetre, OutilFenetre, PastilleEtat, Tableau } from './ui.jsx';
 import { informer } from '../lib/dialogue.jsx';
 
 // Conversion heures (×60 min) → périodes (50 min) : ×1.2
@@ -221,8 +221,8 @@ export default function GrilleSectionModal({ section, onClose }) {
     setPrintHtml({ html, nom: `Grille_${section}_${annee}` });
   }
 
-  const inp = 'w-14 text-center border border-gray-300 rounded px-1 py-1 text-sm focus:outline-none focus:border-iip-mauve';
-  const inpRO = 'w-14 text-center border border-gray-200 rounded px-1 py-1 text-sm bg-gray-50 text-gray-500';
+  const inp = 'w-14 text-center border border-slate-300 rounded px-1 py-1 text-sm focus:outline-none focus:border-iip-mauve';
+  const inpRO = 'w-14 text-center border border-slate-200 rounded px-1 py-1 text-sm bg-transparent text-slate-500';
 
   return (
     <>
@@ -236,28 +236,28 @@ export default function GrilleSectionModal({ section, onClose }) {
           Fermer
         </button>
       </>}>
-        <div className="-mx-5 -mt-4 mb-4 px-5 py-2 border-b border-gray-100 flex items-center gap-3">
-          <span className="text-sm text-gray-600">Mode :</span>
-          <div className="inline-flex rounded-lg bg-gray-100 p-0.5">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="text-sm text-slate-600">Mode :</span>
+          <div className="segments">
             <button onClick={() => setMode('grille')}
-              className={`px-3 py-1 text-sm rounded-md transition ${mode === 'grille' ? 'bg-white shadow text-iip-mauve font-medium' : 'text-gray-500'}`}>
+              className={`px-3 py-1.5 text-sm ${mode === 'grille' ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
               Grille étudiant (heures)
             </button>
             <button onClick={() => setMode('manuel')}
-              className={`px-3 py-1 text-sm rounded-md transition ${mode === 'manuel' ? 'bg-white shadow text-iip-mauve font-medium' : 'text-gray-500'}`}>
+              className={`px-3 py-1.5 text-sm ${mode === 'manuel' ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
               Autonomie directe
             </button>
           </div>
-          <span className="text-xs text-gray-400 ml-auto">
+          <span className="text-xs text-slate-400 ml-auto">
             {mode === 'grille' ? "Classe + EV1 + VC1 -> l'autonomie se calcule" : "Saisissez directement les periodes d'autonomie"}
           </span>
         </div>
 
         <div className="space-y-5">
           {loading ? (
-            <div className="p-12 text-center text-gray-400">Chargement…</div>
+            <div className="p-12 text-center text-slate-400">Chargement…</div>
           ) : ues.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">Aucune UE dans cette section.</div>
+            <div className="p-8 text-center text-slate-400">Aucune UE dans cette section.</div>
           ) : ues.map(ue => {
             const depasse = ue.autonomie_restante < 0;
             // Besoin total = somme des besoins (objectifs) ; insuffisant si > enveloppe
@@ -265,39 +265,36 @@ export default function GrilleSectionModal({ section, onClose }) {
               s + Math.max(0, h2p(n(c.heures) + n(c.cours_ev1) + n(c.cours_vc1)) - n(c.cours_per)), 0);
             const insuffisant = besoinTotal > n(ue.ue_aut);
             return (
-              <div key={ue.ue_num} className={`border rounded-lg overflow-hidden ${insuffisant ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'} ${ue.ue_tc === 'x' ? 'border-t-2 border-t-blue-900' : ''}`}>
-                <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200 border-l-4 border-l-red-500' : 'bg-gray-50 border-gray-200'}`}>
+              <div key={ue.ue_num} className={`carte overflow-hidden ${insuffisant ? '!border-red-500' : ''}`}>
+                <div className="entete-carte">
                   <div className="flex items-center gap-2">
                     <button onClick={() => baguette(ue)} title="Répartir l'autonomie automatiquement (prorata des besoins)"
                       className="text-slate-500 hover:text-iip-blue transition" ><IconWand size={16} /></button>
-                    <div className="font-semibold text-iip-gold text-sm">
-                      UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
+                    <div className="font-semibold text-iip-blue text-sm">
+                      UE {ue.ue_num} <span className="text-slate-600 font-normal">· {ue.ue_nom}</span>
                       {ue.ue_tc === 'x' && (
-                        <span className="ml-2 text-mention px-1.5 py-0.5 rounded bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise font-bold align-middle" title="Unité du tronc commun">TC</span>
+                        <PastilleEtat etat="neutre" className="ml-2 align-middle" title="Unité du tronc commun">TC</PastilleEtat>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="text-gray-500">DP : <strong>{ue.somme_dp}</strong> pér.</span>
-                    <span className="text-gray-500">Enveloppe : <strong>{ue.ue_aut}</strong></span>
-                    <span className="px-2 py-0.5 rounded bg-iip-mauve/10 text-iip-mauve font-medium"
+                    <span className="text-slate-500">DP : <strong>{ue.somme_dp}</strong> pér.</span>
+                    <span className="text-slate-500">Enveloppe : <strong>{ue.ue_aut}</strong></span>
+                    <PastilleEtat etat="neutre"
                       title={`Cours ${ue.autonomie_placee || 0} + complément ${ue.autonomie_complement || 0}`}>
                       Utilisé {ue.autonomie_utilisee || 0}/{ue.ue_aut}
-                    </span>
+                    </PastilleEtat>
                     {insuffisant
-                      ? <span className="px-2 py-0.5 rounded font-medium bg-red-500 text-white">Besoin {besoinTotal} &gt; enveloppe {ue.ue_aut} · il manque {besoinTotal - n(ue.ue_aut)}</span>
-                      : <span className={`px-2 py-0.5 rounded font-medium ${
-                          depasse ? 'bg-red-500 text-white'
-                            : ue.autonomie_restante === 0 ? 'bg-green-500 text-white'
-                            : 'bg-amber-500 text-white'}`}>
+                      ? <PastilleEtat etat="corriger">Besoin {besoinTotal} &gt; enveloppe {ue.ue_aut} · il manque {besoinTotal - n(ue.ue_aut)}</PastilleEtat>
+                      : <PastilleEtat etat={depasse ? 'corriger' : ue.autonomie_restante === 0 ? 'reussi' : 'surveiller'}>
                           {depasse ? `Dépassement de ${-ue.autonomie_restante} pér.` : `Reste ${ue.autonomie_restante} à placer`}
-                        </span>}
+                        </PastilleEtat>}
                   </div>
                 </div>
 
-                <table className="w-full text-sm">
+                <Tableau className="!border-0 !rounded-none">
                   <thead>
-                    <tr className="text-xs uppercase text-gray-500 bande-entete border-b border-gray-100">
+                    <tr className="tab-entete">
                       <th className="text-left px-3 py-1.5 h-9 font-medium">Code</th>
                       <th className="text-left px-3 py-1.5 h-9 font-medium">Cours</th>
                       <th className="px-2 py-1.5 h-9 font-medium text-center">DP</th>
@@ -319,7 +316,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                       const totalPer = h2p(totalH);
                       const grille = mode === 'grille';
                       return (
-                        <tr key={c.cours_code} className={idx % 2 ? 'bg-gray-50/50' : 'bg-white'}>
+                        <tr key={c.cours_code} className="ligne-maison">
                           <td className="px-3 py-1.5 h-9 font-medium text-gray-700">{c.cours_code}</td>
                           <td className="px-3 py-1.5 h-9 text-gray-600 truncate max-w-[200px]" title={c.cours_nom}>{c.cours_nom}</td>
                           <td className="px-2 py-1.5 h-9 text-center text-gray-500">{dp || '—'}</td>
@@ -349,9 +346,9 @@ export default function GrilleSectionModal({ section, onClose }) {
                               onBlur={e => blurComplement(c.cours_code, e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5 h-9 text-center font-medium text-gray-700">{totalH || '—'}</td>
-                          <td className="px-2 py-1.5 h-9 text-center font-semibold text-violet-600">{totalPer || '—'}</td>
+                          <td className="px-2 py-1.5 h-9 text-center font-semibold text-iip-blue">{totalPer || '—'}</td>
                           <td className="px-2 py-1.5 h-9 text-center">
-                            <input type="number" min="0" className={`${grille ? inpRO : inp} ${saving[c.cours_code] ? 'opacity-50' : ''} ${grille ? '' : 'text-amber-700 font-medium'}`}
+                            <input type="number" min="0" className={`${grille ? inpRO : inp} ${saving[c.cours_code] ? 'opacity-50' : ''} ${grille ? '' : 'text-iip-blue font-medium'}`}
                               value={auto}
                               readOnly={grille}
                               onChange={e => majChamp(ue.ue_num, c.cours_code, { cours_autonomie: e.target.value })}
@@ -362,7 +359,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                       );
                     })}
                   </tbody>
-                </table>
+                </Tableau>
               </div>
             );
           })}

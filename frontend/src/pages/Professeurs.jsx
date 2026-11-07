@@ -12,7 +12,7 @@ import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4, IconEye } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
-import { RailLateral, OuvrirEditions, Fenetre, Encadre, OutilFenetre, EnteteCarte } from '../components/ui.jsx';
+import { RailLateral, OuvrirEditions, Fenetre, Encadre, OutilFenetre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
    « Besoins & offres » et « Classement & prioritaires » étaient des entrées de
@@ -332,23 +332,23 @@ function AccesLuciePanel({ profId, detail }) {
         <div className="flex items-center gap-2 px-3 py-2">
           <span className="text-base w-5 flex-shrink-0"><m.Icone size={14} stroke={1.6} className="text-slate-400" /></span>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-gray-700">{m.label}</div>
+            <div className="text-xs font-semibold text-slate-700">{m.label}</div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button onClick={() => togglePerm(m.key, 'lire')}
-              className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.lire ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'}`}>
+              className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.lire ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-400 hover:border-iip-blue'}`}>
               Lecture</button>
             <button onClick={() => togglePerm(m.key, 'ecrire')}
-              className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.ecrire ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'}`}>
+              className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.ecrire ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-400 hover:border-iip-blue'}`}>
               Écriture</button>
             {hasScope && (
               <button onClick={() => togglePerm(m.key, 'voir_tout')}
-                className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.voir_tout ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-400 hover:border-amber-400'}`}
+                className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.voir_tout ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-400 hover:border-iip-blue'}`}
                 title="Tout voir = toutes sections">Tout</button>
             )}
             {m.key === 'attributions' && (
               <button onClick={() => togglePerm(m.key, 'valider')}
-                className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.valider ? 'bg-green-600 text-white border-green-600' : 'border-gray-300 text-gray-400 hover:border-green-500'}`}
+                className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.valider ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-400 hover:border-iip-blue'}`}
                 title="Peut valider les attributions encodées par les coordinations (direction / direction adjointe)">Valider</button>
             )}
           </div>
@@ -371,7 +371,7 @@ function AccesLuciePanel({ profId, detail }) {
      puis les sections à cocher quand on en choisit. */
   const BlocPerimetre = (
     <div className="space-y-1.5">
-      <div className="text-xs text-gray-500 font-medium">Sections</div>
+      <div className="text-xs text-slate-500 font-medium">Sections</div>
       <div className="segments">
         {[[1, 'Toutes'], [2, 'Ces sections'], [0, 'Aucune']].map(([val, titre]) => {
           const actif = toutes ? val === 1 : ((sections.length > 0 || choixSections) ? val === 2 : val === 0);
@@ -394,29 +394,29 @@ function AccesLuciePanel({ profId, detail }) {
               {s.code}
             </button>))}
         </div>)}
-      {!toutes && !sections.length && <div className="text-mention text-amber-700">Aucune section : ce compte ne verra rien.</div>}
+      {!toutes && !sections.length && <div className="text-mention" style={{ color: 'var(--c-attente)' }}>Aucune section : ce compte ne verra rien.</div>}
     </div>
   );
 
   const FormCreer = (
     <>
-      <div className="text-xs text-gray-500">Aucun compte Lucie lié à ce membre.</div>
+      <div className="text-xs text-slate-500">Aucun compte Lucie lié à ce membre.</div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <div className="text-xs text-gray-500 mb-1">E-mail de connexion</div>
+          <div className="text-xs text-slate-500 mb-1">E-mail de connexion</div>
           <input type="email" value={emailCompte} onChange={e => setEmailCompte(e.target.value)} disabled={busy}
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" />
-          {!(detail.adresse_mail || '').trim() && <div className="text-xs text-amber-700 mt-1">La fiche ne porte pas d'adresse : celle-ci est déduite du nom, à vérifier.</div>}
+            className="controle w-full" />
+          {!(detail.adresse_mail || '').trim() && <div className="text-xs mt-1" style={{ color: 'var(--c-attente)' }}>La fiche ne porte pas d'adresse : celle-ci est déduite du nom, à vérifier.</div>}
         </div>
         <div>
-          <div className="text-xs text-gray-500 mb-1">Rôle</div>
-          <select value={role} onChange={e => changerRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+          <div className="text-xs text-slate-500 mb-1">Rôle</div>
+          <select value={role} onChange={e => changerRole(e.target.value)} className="controle w-full">
             {rolesDispo.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
       </div>
       {profils.length > 0 && (
-        <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50">
+        <div>
           {/* UN SEUL GESTE : LE RÔLE (Charles, 4 octobre 2026 : « pourquoi après
               on applique un rôle ? »). Les boutons « Appliquer un profil »
               répétaient le choix du rôle — chaque profil est celui d'un rôle,
@@ -460,16 +460,16 @@ function AccesLuciePanel({ profId, detail }) {
     <>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <div className="text-xs text-gray-500 mb-1">E-mail de connexion</div>
+          <div className="text-xs text-slate-500 mb-1">E-mail de connexion</div>
           <input type="email" value={emailCompte} onChange={e => setEmailCompte(e.target.value)} disabled={busy}
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" />
+            className="controle w-full" />
           {(detail.adresse_mail || '').trim() && account.email !== (detail.adresse_mail || '').trim().toLowerCase() && (
             <button type="button" onClick={() => setEmailCompte((detail.adresse_mail || '').trim().toLowerCase())}
-              className="text-xs text-amber-700 mt-1 underline text-left">La fiche porte {detail.adresse_mail} — reprendre cette adresse</button>)}
+              className="text-xs mt-1 underline text-left" style={{ color: 'var(--c-attente)' }}>La fiche porte {detail.adresse_mail} — reprendre cette adresse</button>)}
         </div>
         <div>
-          <div className="text-xs text-gray-500 mb-1">Rôle</div>
-          <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+          <div className="text-xs text-slate-500 mb-1">Rôle</div>
+          <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy} className="controle w-full">
             {rolesDispo.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
@@ -538,13 +538,13 @@ function AccesLuciePanel({ profId, detail }) {
     <section className="carte overflow-hidden">
       <EnteteCarte icone={IconLock} titre="Accès Lucie">
         {account && (
-          <span className={`text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+          <PastilleEtat etat={account.actif ? 'reussi' : 'indisponible'}>
             {account.actif ? 'Actif' : 'Désactivé'}
-          </span>
+          </PastilleEtat>
         )}
       </EnteteCarte>
       <div className="p-4 space-y-3">
-        {err && <div className="text-xs text-white bg-red-500 border border-red-500 rounded px-3 py-2">{err}</div>}
+        {err && <Encadre etat="corriger">{err}</Encadre>}
         {lienRes && (
           <div className="text-second text-slate-600">
             {lienRes.envoye ? `Lien envoyé à ${lienRes.email} (valable ${lienRes.duree}).`
@@ -552,13 +552,12 @@ function AccesLuciePanel({ profId, detail }) {
           </div>
         )}
         {pwd && (
-          <div className="bloc-etat etat-surveiller px-3 py-2">
-            <div className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1"><IconKey size={14} /> Mot de passe — à noter maintenant</div>
-            <div className="font-mono text-base bg-white border border-amber-200 rounded px-2 py-1 inline-block select-all mr-2">{pwd}</div>
-            <button onClick={() => setPwd(null)} className="text-xs text-amber-700 hover:underline">masquer</button>
-          </div>
+          <Encadre etat="surveiller" icone={IconKey} titre="Mot de passe — à noter maintenant">
+            <div className="font-mono text-base border border-slate-200 rounded px-2 py-1 inline-block select-all mr-2" style={{ background: 'var(--blanc, #fff)' }}>{pwd}</div>
+            <button onClick={() => setPwd(null)} className="text-xs text-slate-600 hover:underline">masquer</button>
+          </Encadre>
         )}
-        {account === undefined && <div className="text-xs text-gray-400">Chargement…</div>}
+        {account === undefined && <div className="text-xs text-slate-400">Chargement…</div>}
         {account === null && FormCreer}
         {account && FormEditer}
       </div>
@@ -679,7 +678,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
 
   if (!detail) return (
     <Fenetre titre="Chargement…" large="petite" onFermer={onClose}>
-      <div className="p-4 text-gray-400">Chargement…</div>
+      <div className="p-4 text-slate-400">Chargement…</div>
     </Fenetre>
   );
 
@@ -757,7 +756,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
         <span className="inline-flex items-center gap-3">
           {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}
           {detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
-          {detail.capaes === 'x' && <span className="bg-green-500 text-green-200 text-mention px-1.5 rounded">CAPAES</span>}
+          {detail.capaes === 'x' && <span className="bg-white/20 text-white/90 text-mention px-1.5 rounded">CAPAES</span>}
           {detail.statut && <span className="bg-white/20 text-white/90 text-mention px-1.5 rounded">{detail.statut}</span>}
         </span>
       }
@@ -781,9 +780,9 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
             {/* Charge — du plus synthétique au plus détaillé, l'un sous l'autre */}
             <div className="px-4 pt-2 pb-3 space-y-0">
               <div className="px-1 py-2 text-center border-b border-slate-200">
-                <div className="text-xs text-gray-500 mb-0.5">Charge totale</div>
-                <div className="text-xl font-semibold text-iip-turquoise">{etpTotal.toFixed(4)}</div>
-                <div className="text-mention text-gray-400">ETP{heuresHELB > 0 ? ' — IIP + HELB' : ''}</div>
+                <div className="text-xs text-slate-500 mb-0.5">Charge totale</div>
+                <div className="text-xl font-semibold text-iip-blue">{etpTotal.toFixed(4)}</div>
+                <div className="text-mention text-slate-400">ETP{heuresHELB > 0 ? ' — IIP + HELB' : ''}</div>
               </div>
 
               {/* Le DÉTAIL par type : les dénominateurs diffèrent — 800
@@ -792,7 +791,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                   incluent l'autonomie, qui compte dans la charge. */}
               {detail?.detail_etp && (
                 <div className="px-1 py-2 border-b border-slate-200">
-                  <div className="text-xs text-gray-500 mb-1.5 text-center">
+                  <div className="text-xs text-slate-500 mb-1.5 text-center">
                     Détail — autonomie comprise
                   </div>
                   <table className="w-full text-second">
@@ -800,9 +799,9 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                       {[['CT', detail.detail_etp.ct], ['PP', detail.detail_etp.pp]].map(
                         ([lib, d]) => (
                         <tr key={lib}>
-                          <td className="text-gray-500">{lib}</td>
+                          <td className="text-slate-500">{lib}</td>
                           <td className="text-right font-semibold">{d.periodes}</td>
-                          <td className="text-right text-gray-400 text-mention px-1">
+                          <td className="text-right text-slate-400 text-mention px-1">
                             /{d.diviseur}
                           </td>
                           <td className="text-right font-bold text-iip-blue">
@@ -810,13 +809,13 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                           </td>
                         </tr>
                       ))}
-                      <tr className="border-t border-gray-200">
-                        <td className="text-gray-600 font-semibold pt-1">Total</td>
+                      <tr className="border-t border-slate-200">
+                        <td className="text-slate-600 font-semibold pt-1">Total</td>
                         <td className="text-right font-bold pt-1">
                           {detail.detail_etp.total.periodes}
                         </td>
                         <td />
-                        <td className="text-right font-bold text-iip-turquoise pt-1">
+                        <td className="text-right font-bold text-iip-blue pt-1">
                           {detail.detail_etp.total.etp.toFixed(4)}
                         </td>
                       </tr>
@@ -826,35 +825,35 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
               )}
 
               <div className="px-1 py-2 text-center border-b border-slate-200">
-                <div className="text-xs text-gray-500 mb-0.5">Périodes IIP</div>
+                <div className="text-xs text-slate-500 mb-0.5">Périodes IIP</div>
                 <div className="text-lg font-semibold text-iip-blue">{totalIIP}</div>
-                <div className="text-mention text-gray-400">
+                <div className="text-mention text-slate-400">
                   per. + aut. · {enHeures(totalIIP)} h
                 </div>
               </div>
 
               {heuresHELB > 0 && (
                 <div className="px-1 py-2 text-center border-b border-slate-200">
-                  <div className="text-xs text-gray-500 mb-0.5">Heures HELB</div>
-                  <div className="text-lg font-semibold text-purple-600">{heuresHELB} h</div>
+                  <div className="text-xs text-slate-500 mb-0.5">Heures HELB</div>
+                  <div className="text-lg font-semibold" style={{ color: 'var(--c-helb)' }}>{heuresHELB} h</div>
                 </div>
               )}
 
               <div className="px-1 py-2 text-center">
-                <div className="text-mention text-gray-400">Ancienneté PO</div>
-                <div className="text-base font-bold text-gray-700">{detail.anciennete_25_26_po ?? 0}</div>
+                <div className="text-mention text-slate-400">Ancienneté PO</div>
+                <div className="text-base font-bold text-slate-700">{detail.anciennete_25_26_po ?? 0}</div>
               </div>
             </div>
 
             {/* Fonctions & missions */}
             {detail.missions?.length > 0 && (
-              <div className="p-4 border-b border-gray-100">
+              <div className="p-4 border-b border-slate-100">
                 <div className="intertitre mb-2">Fonctions</div>
                 <div className="space-y-1.5">
                   {detail.missions.map((m, i) => (
                     <div key={i} className="text-xs">
-                      <div className="font-medium text-gray-700">{m.fonction}</div>
-                      {m.section && <span className="text-mention bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-0.5 inline-block">{m.section}</span>}
+                      <div className="font-medium text-slate-700">{m.fonction}</div>
+                      {m.section && <PastilleEtat etat="neutre" className="mt-0.5">{m.section}</PastilleEtat>}
                     </div>
                   ))}
                 </div>
@@ -862,7 +861,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
             )}
 
             {/* Actions et documents — à portée de main, sans quitter l'onglet courant */}
-            <div className="p-4 border-b border-gray-100 space-y-3">
+            <div className="p-4 border-b border-slate-100 space-y-3">
               {((peutGeste('personnel.fiche') && ecritModule('organisation'))
                 || String(getUser()?.professeur_id ?? '') === String(profId)) && (
               <button onClick={() => onEdit(detail)}
@@ -879,14 +878,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
           {/* ── Colonne droite — onglets ── */}
           <div className="flex-1 flex flex-col min-w-0">
             {/* Onglets */}
-            <div className="flex border-b border-gray-100 px-4 flex-shrink-0 bg-white">
+            <div className="flex gap-4 border-b border-slate-200 px-4 flex-shrink-0">
               {ONGLETS.map(o => (
                 <button key={o.key} onClick={() => setOnglet(o.key)}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition -mb-px ${
-                    onglet === o.key
-                      ? 'border-iip-turquoise text-iip-blue'
-                      : 'border-transparent text-gray-400 hover:text-gray-600'
-                  }`}>
+                  className={onglet === o.key ? 'onglet-page onglet-page-actif' : 'onglet-page'}>
                   {o.label}
                 </button>
               ))}
@@ -898,7 +893,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
               {onglet === 'attributions' && (
                 <div>
                   {detail.attributions?.length === 0
-                    ? <div className="text-sm text-gray-400 text-center py-12">Aucune attribution pour cette année.</div>
+                    ? <div className="text-sm text-slate-400 text-center py-12">Aucune attribution pour cette année.</div>
                     : (() => {
                       // Regrouper par (section, ue_num, code_cours) et sommer
                       const grouped = [];
@@ -922,53 +917,52 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                         }
                       }
                       return (
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Contrat</th>
-                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Section</th>
-                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">UE</th>
-                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Cours</th>
-                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Activité</th>
-                              <th className="text-center pb-2 text-xs text-gray-400 font-medium">Type</th>
-                              <th className="text-center pb-2 text-xs text-gray-400 font-medium">Gr.</th>
-                              <th className="text-right pb-2 text-xs text-gray-400 font-medium">Total pér.</th>
-                              <th className="text-right pb-2 text-xs text-gray-400 font-medium">Heures</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50">
+                        <Tableau>
+                          <TableauEntete>
+                              <Th>Contrat</Th>
+                              <Th>Section</Th>
+                              <Th>UE</Th>
+                              <Th>Cours</Th>
+                              <Th>Activité</Th>
+                              <Th align="centre">Type</Th>
+                              <Th align="centre">Gr.</Th>
+                              <Th align="droite">Total pér.</Th>
+                              <Th align="droite">Heures</Th>
+                              <Th></Th>
+                          </TableauEntete>
+                          <tbody>
                             {grouped.map((a, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50/80 group">
-                                <td className="py-2">
+                              <Tr key={idx} className="group">
+                                <td className="px-3 py-2">
                                   <span className={`inline-flex items-center justify-center px-1.5 h-5 rounded text-mention font-bold ${estHELB(a) ? 'badge-helb' : 'badge-iip'}`}>
                                     {estHELB(a) ? 'HELB' : 'IIP'}
                                   </span>
                                 </td>
-                                <td className="py-2 text-xs font-medium text-gray-600">{a.section}</td>
-                                <td className="py-2 font-mono text-xs text-gray-400">{a.ue_num}</td>
-                                <td className="py-2 text-xs max-w-[220px] truncate" title={a.nom_cours}>
-                                  {a.code_cours && <span className="font-mono text-gray-400 mr-1.5">{a.code_cours}</span>}
+                                <td className="px-3 py-2 text-xs font-medium text-slate-600">{a.section}</td>
+                                <td className="px-3 py-2 font-mono text-xs text-slate-400">{a.ue_num}</td>
+                                <td className="px-3 py-2 text-xs max-w-[220px] truncate" title={a.nom_cours}>
+                                  {a.code_cours && <span className="font-mono text-slate-400 mr-1.5">{a.code_cours}</span>}
                                   {a.nom_cours}
                                 </td>
-                                <td className="py-2 text-xs text-gray-400">{a.activite_nom || '—'}</td>
-                                <td className="py-2 text-center">{badge(a.type_cours)}</td>
-                                <td className="py-2 text-center text-xs text-gray-500">
+                                <td className="px-3 py-2 text-xs text-slate-400">{a.activite_nom || '—'}</td>
+                                <td className="px-3 py-2 text-center">{badge(a.type_cours)}</td>
+                                <td className="px-3 py-2 text-center text-xs text-slate-500">
                                   {a.nb_groupes > 1
-                                    ? <span className="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5 font-semibold">{a.nb_groupes}</span>
+                                    ? <PastilleEtat etat="neutre">{a.nb_groupes}</PastilleEtat>
                                     : a.code || '—'}
                                 </td>
-                                <td className="py-2 text-right font-bold text-sm">{a.periodes_total}</td>
+                                <td className="px-3 py-2 text-right font-bold text-sm">{a.periodes_total}</td>
                                 {/* Le HELB se compte en heures réelles, pas en périodes converties. */}
-                                <td className={`py-2 text-right text-xs ${estHELB(a) ? 'text-purple-700 font-semibold' : 'text-gray-500'}`}
+                                <td className={`px-3 py-2 text-right text-xs ${estHELB(a) ? 'font-semibold' : 'text-slate-500'}`}
+                                  style={estHELB(a) ? { color: 'var(--c-helb)' } : undefined}
                                   title={estHELB(a) ? 'Heures HELB attribuées' : 'Périodes de 50 minutes, converties en heures'}>
                                   {estHELB(a) ? Math.round(a.heures_helb * 10) / 10 : enHeures(a.periodes_total)} h
                                 </td>
-                                <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <td className="px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <div className="flex items-center gap-0.5">
                                     {a.code_cours && ecritModule('organisation') && passeRole(['admin', 'editeur']) && (
                                       <button title="Éditer" onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
-                                        className="text-iip-gold hover:text-iip-amber p-1 rounded"><IconEdit size={13}/></button>
+                                        className="text-slate-500 hover:text-iip-blue p-1 rounded"><IconEdit size={13}/></button>
                                     )}
                                     <button title="Désattribuer tous les groupes" onClick={async () => {
                                         if (!await demander(`Retirer toutes les attributions de ${a.nom_cours} (${a.nb_groupes} groupe${a.nb_groupes>1?'s':''})?`)) return;
@@ -978,13 +972,13 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                                         }
                                         setDetail(d => ({ ...d, attributions: d.attributions.filter(x => !a.ids.includes(x.id)) }));
                                       }}
-                                      className="text-orange-400 hover:text-orange-600 p-1 rounded"><IconRefresh size={13}/></button>
+                                      className="text-slate-500 hover:text-[color:var(--c-attente)] p-1 rounded"><IconRefresh size={13}/></button>
                                   </div>
                                 </td>
-                              </tr>
+                              </Tr>
                             ))}
                           </tbody>
-                        </table>
+                        </Tableau>
                       );
                     })()
                   }
@@ -1020,7 +1014,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-iip-blue">Plan de développement des compétences professionnelles</span>
                   </div>
-                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">
+                  <div className="carte p-8 text-center text-sm text-slate-500">
                     <div className="font-semibold text-slate-600 mb-1">Module PDCP</div>
                     La maquette de ce module a été conçue (auto-analyse, observation en classe, plan de développement).
                     Il sera intégré ici dans un prochain cycle de développement.
@@ -1082,22 +1076,22 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
             <span />
             <button onClick={() => setShowContratModal(false)} className="bouton">Annuler</button>
           </>}>
-            <p className="text-sm text-gray-600 mb-4">Contrat CDD — <strong>{detail.nom_prenom}</strong></p>
+            <p className="text-sm text-slate-600 mb-4">Contrat CDD — <strong>{detail.nom_prenom}</strong></p>
             <div className="space-y-4">
               <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date de signature</div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Date de signature</div>
                 <input type="date" value={dateContrat} onChange={e => setDateContrat(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"/>
+                  className="controle w-full"/>
                 {dateContrat && (
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     {['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][new Date(dateContrat+'T12:00').getDay()]} {new Date(dateContrat+'T12:00').toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}
                   </p>
                 )}
               </label>
               <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Représentant·e du PO</div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Représentant·e du PO</div>
                 <input value={representant} onChange={e => setRepresentant(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"/>
+                  className="controle w-full"/>
               </label>
             </div>
         </Fenetre>
@@ -1121,7 +1115,7 @@ const MOTIFS_FIN = [
 ];
 
 const ETAPES_DISC = [
-  { val: 'ouverture',   label: 'Ouverture du dossier',   color: '#6b7280' },
+  { val: 'ouverture',   label: 'Ouverture du dossier',   color: 'rgb(var(--gris-500))' },
   { val: 'convocation', label: 'Convocation',             color: 'var(--c-texte)' },
   { val: 'audition',    label: 'Audition',                color: 'var(--c-texte)' },
   { val: 'decision',    label: 'Décision',                color: 'var(--c-texte)' },
@@ -1192,7 +1186,7 @@ function DossiersRH({ profId, profNom }) {
     <div className="space-y-4">
       {/* En-tête confidentiel */}
       <div className="flex items-center justify-between">
-        <div className="text-xs text-gray-400 flex items-center gap-1.5">
+        <div className="text-xs text-slate-400 flex items-center gap-1.5">
           <IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /> Confidentiel — visible uniquement par les administrateurs
         </div>
         <div className="flex gap-2">
@@ -1209,48 +1203,49 @@ function DossiersRH({ profId, profNom }) {
 
       {/* Formulaire nouveau dossier */}
       {nouveauType && (
-        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50">
-          <div className="text-sm font-semibold text-gray-700 mb-3">
-            {nouveauType === 'fin_contrat' ? '📋 Nouveau dossier fin de contrat' : '⚠️ Ouverture dossier disciplinaire'} — {profNom}
-          </div>
+        <div className="carte">
+          <EnteteCarte icone={nouveauType === 'fin_contrat' ? IconFileText : IconAlertTriangle}
+            titre={`${nouveauType === 'fin_contrat' ? 'Nouveau dossier fin de contrat' : 'Ouverture dossier disciplinaire'} — ${profNom}`} />
+          <div className="p-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="text-xs text-gray-500 mb-1">Date d'ouverture</div>
+              <div className="text-xs text-slate-500 mb-1">Date d'ouverture</div>
               <input type="date" value={form.date_ouverture}
                 onChange={e => setForm(f => ({ ...f, date_ouverture: e.target.value }))}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5" />
+                className="controle w-full" />
             </div>
             {nouveauType === 'fin_contrat' && (
               <div>
-                <div className="text-xs text-gray-500 mb-1">Motif</div>
+                <div className="text-xs text-slate-500 mb-1">Motif</div>
                 <select value={form.motif} onChange={e => setForm(f => ({ ...f, motif: e.target.value }))}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5">
+                  className="controle w-full">
                   <option value="">— choisir —</option>
                   {MOTIFS_FIN.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
                 </select>
               </div>
             )}
             <div className="col-span-2">
-              <div className="text-xs text-gray-500 mb-1">Notes internes</div>
+              <div className="text-xs text-slate-500 mb-1">Notes internes</div>
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 rows={3} placeholder="Contexte, circonstances, remarques…"
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
+                className="controle w-full h-auto py-2 resize-none" />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-3">
-            <button onClick={() => setNouveauType(null)} className="text-sm text-gray-500 px-3 py-1.5">Annuler</button>
+            <button onClick={() => setNouveauType(null)} className="bouton">Annuler</button>
             <button onClick={creerDossier} disabled={saving}
               className="bouton bouton-fort">
               {saving ? 'Création…' : 'Ouvrir le dossier'}
             </button>
           </div>
+          </div>
         </div>
       )}
 
       {/* Liste des dossiers */}
-      {loading ? <div className="text-sm text-gray-400">Chargement…</div> :
+      {loading ? <div className="text-sm text-slate-400">Chargement…</div> :
        dossiers.length === 0 ? (
-        <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">
+        <div className="carte text-sm text-slate-400 text-center py-8">
           Aucun dossier RH pour ce membre.
         </div>
       ) : (
@@ -1260,19 +1255,22 @@ function DossiersRH({ profId, profNom }) {
             const motif = MOTIFS_FIN.find(m => m.val === d.motif);
             const isClos = d.statut === 'clos';
             return (
-              <div key={d.id} className={`border-2 rounded-xl overflow-hidden ${isClos ? 'border-gray-200 opacity-75' : isFinContrat ? 'border-red-200' : 'border-orange-200'}`}>
+              <div key={d.id} className={`carte overflow-hidden ${isClos ? 'opacity-75' : ''}`}
+                style={{ borderLeft: `4px solid ${isClos ? 'rgb(var(--gris-300))' : isFinContrat ? 'var(--c-refuse)' : 'var(--c-attente)'}` }}>
                 {/* En-tête dossier */}
-                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50 border-l-4 border-l-red-500' : 'bg-orange-50'}`}>
+                <div className="entete-carte">
                   <div className="flex items-center gap-3">
-                    <span className="text-lg">{isFinContrat ? '📋' : '⚠️'}</span>
+                    {isFinContrat
+                      ? <IconFileText size={18} style={{ color: 'var(--c-refuse)' }} />
+                      : <IconAlertTriangle size={18} style={{ color: 'var(--c-attente)' }} />}
                     <div>
-                      <div className="text-sm font-bold text-gray-800">
+                      <div className="text-sm font-bold text-iip-texte">
                         {isFinContrat ? 'Fin de contrat' : 'Dossier disciplinaire'}
-                        {isClos && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-champ">Clos</span>}
+                        {isClos && <PastilleEtat etat="indisponible" className="ml-2">Clos</PastilleEtat>}
                       </div>
-                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <div className="text-xs text-slate-500 flex items-center gap-2">
                         <span>Ouvert le {new Date(d.date_ouverture).toLocaleDateString('fr-BE')}</span>
-                        {motif && <span className="bg-red-500 text-white px-1.5 rounded">{motif.label}</span>}
+                        {motif && <PastilleEtat etat="corriger">{motif.label}</PastilleEtat>}
                         {d.date_cloture && <span>· Clos le {new Date(d.date_cloture).toLocaleDateString('fr-BE')}</span>}
                       </div>
                     </div>
@@ -1284,7 +1282,7 @@ function DossiersRH({ profId, profNom }) {
                         <IconPlus size={13} /> Étape
                       </button>
                     )}
-                    <button onClick={() => supprimerDossier(d.id)} className="text-gray-300 hover:text-red-500 p-1">
+                    <button onClick={() => supprimerDossier(d.id)} title="Supprimer" className="text-slate-400 hover:text-[color:var(--c-refuse)] p-1">
                       <IconTrash size={14} />
                     </button>
                   </div>
@@ -1292,29 +1290,29 @@ function DossiersRH({ profId, profNom }) {
 
                 {/* Notes */}
                 {d.notes && (
-                  <div className="px-4 py-2 bg-white border-t border-gray-100 text-xs text-gray-600 italic">
+                  <div className="px-4 py-2 border-t border-slate-100 text-xs text-slate-600 italic">
                     {d.notes}
                   </div>
                 )}
 
                 {/* Étapes (disciplinaire) */}
                 {!isFinContrat && d.etapes?.length > 0 && (
-                  <div className="border-t border-gray-100">
+                  <div className="border-t border-slate-100">
                     {d.etapes.map((e, idx) => {
                       const etape = ETAPES_DISC.find(x => x.val === e.type_etape);
                       return (
-                        <div key={e.id} className="flex items-start gap-3 px-4 py-2.5 border-b border-gray-50 last:border-0 bg-white hover:bg-gray-50 group">
-                          <div className="flex-shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: etape?.color || '#9ca3af' }} />
+                        <div key={e.id} className="flex items-start gap-3 px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 group">
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: etape?.color || 'rgb(var(--gris-400))' }} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-gray-700">{etape?.label || e.type_etape}</span>
-                              <span className="text-xs text-gray-400">{e.date_etape ? new Date(e.date_etape).toLocaleDateString('fr-BE') : ''}</span>
-                              {e.auteur && <span className="text-xs text-gray-400">— {e.auteur}</span>}
+                              <span className="text-xs font-semibold text-slate-700">{etape?.label || e.type_etape}</span>
+                              <span className="text-xs text-slate-400">{e.date_etape ? new Date(e.date_etape).toLocaleDateString('fr-BE') : ''}</span>
+                              {e.auteur && <span className="text-xs text-slate-400">— {e.auteur}</span>}
                             </div>
-                            {e.notes && <div className="text-xs text-gray-500 mt-0.5 italic">{e.notes}</div>}
+                            {e.notes && <div className="text-xs text-slate-500 mt-0.5 italic">{e.notes}</div>}
                           </div>
                           <button onClick={() => supprimerEtape(e.id)}
-                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 flex-shrink-0">
+                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-[color:var(--c-refuse)] flex-shrink-0">
                             <IconX size={12} />
                           </button>
                         </div>
@@ -1325,40 +1323,40 @@ function DossiersRH({ profId, profNom }) {
 
                 {/* Formulaire ajout étape */}
                 {etapeForm?.dossier_id === d.id && (
-                  <div className="border-t border-orange-200 bg-orange-50/50 px-4 py-3 space-y-2 border-l-4 border-l-orange-500">
+                  <div className="border-t border-slate-200 px-4 py-3 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Type d'étape</div>
+                        <div className="text-xs text-slate-500 mb-1">Type d'étape</div>
                         <select value={etapeForm.type_etape}
                           onChange={e => setEtapeForm(f => ({ ...f, type_etape: e.target.value }))}
-                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5">
+                          className="controle w-full">
                           <option value="">— choisir —</option>
                           {ETAPES_DISC.map(e => <option key={e.val} value={e.val}>{e.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Date</div>
+                        <div className="text-xs text-slate-500 mb-1">Date</div>
                         <input type="date" value={etapeForm.date_etape}
                           onChange={e => setEtapeForm(f => ({ ...f, date_etape: e.target.value }))}
-                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5" />
+                          className="controle w-full" />
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Auteur / Décideur</div>
+                        <div className="text-xs text-slate-500 mb-1">Auteur / Décideur</div>
                         <input value={etapeForm.auteur || ''}
                           onChange={e => setEtapeForm(f => ({ ...f, auteur: e.target.value }))}
                           placeholder="Nom, fonction"
-                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5" />
+                          className="controle w-full" />
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Notes</div>
+                        <div className="text-xs text-slate-500 mb-1">Notes</div>
                         <input value={etapeForm.notes || ''}
                           onChange={e => setEtapeForm(f => ({ ...f, notes: e.target.value }))}
                           placeholder="Résumé, décision…"
-                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5" />
+                          className="controle w-full" />
                       </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => setEtapeForm(null)} className="text-xs text-gray-500 px-3 py-1">Annuler</button>
+                      <button onClick={() => setEtapeForm(null)} className="bouton">Annuler</button>
                       <button onClick={ajouterEtape} disabled={!etapeForm.type_etape || saving}
                         className="bouton bouton-fort">
                         {saving ? 'Ajout…' : 'Ajouter l\'étape'}
@@ -2142,7 +2140,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   function Th({ k, children, num }) {
     const arrow = sortBy.key === k ? (sortBy.dir === 'asc' ? ' ▲' : ' ▼') : '';
     return (
-      <th className={`cursor-pointer select-none hover:bg-iip-amber/10 ${num ? 'text-right' : ''}`}
+      <th className={`cursor-pointer select-none hover:bg-slate-100 ${num ? 'text-right' : ''}`}
         onClick={() => toggleSort(k)}>
         {children}{arrow}
       </th>
@@ -2153,7 +2151,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
     const designer = isDesigner(p);
     const nouveau  = isNew(p);
     return (
-      <tr key={p.id} className="bg-white hover:bg-slate-50">
+      <tr key={p.id} className="hover:bg-slate-50">
         <td className="text-center">
           <input type="checkbox" checked={selection.has(p.id)} onChange={() => toggleSelect(p.id)} />
         </td>
@@ -2163,12 +2161,12 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
               {/* UN MÊME RAYON POUR TOUT — une pastille pleinement ronde ici,
                   des coins de huit partout ailleurs : c'est le genre d'écart
                   qu'on ne sait pas nommer mais qu'on voit. */}
-              <span className="bg-orange-500 text-white border border-orange-500 rounded-champ px-2.5 py-0.5 text-xs font-bold">
+              <PastilleEtat etat="surveiller">
                 À désigner
-              </span>
+              </PastilleEtat>
             </span>
           ) : (
-            <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left flex items-center gap-2">
+            <button onClick={() => setDetailId(p.id)} className="hover:text-iip-blue hover:underline text-left flex items-center gap-2">
               {nomDepuisChaine(p.nom_prenom)}
               {/* LE PLAFOND DES EXPERTS (A.E. 26-01-1993, art. 2) : au-delà de
                   260 périodes, il faut une dérogation ; au-delà de 360, c'est hors cadre. */}
@@ -2176,14 +2174,15 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 <span title={p.plafond_expert === 'au-dela'
                     ? `${Math.round(p.per_iip_annee)} périodes : au-delà du plafond avec dérogation (${p.plafond_valeurs?.derogation})`
                     : `${Math.round(p.per_iip_annee)} périodes : au-delà de ${p.plafond_valeurs?.plafond}, une dérogation ministérielle est nécessaire`}
-                  className={`text-white text-mention font-bold px-1.5 py-0.5 rounded-champ flex-shrink-0 ${p.plafond_expert === 'au-dela' ? 'bg-red-600' : 'bg-amber-600'}`}>
+                  data-etat={p.plafond_expert === 'au-dela' ? 'corriger' : 'surveiller'}
+                  className="pastille-etat flex-shrink-0">
                   {Math.round(p.per_iip_annee)} pér.
                 </span>
               )}
               {nouveau && (
-                <span className="intertitre bg-emerald-600 text-white px-1.5 py-0.5 rounded-champ flex-shrink-0">
+                <PastilleEtat etat="disponible" className="flex-shrink-0">
                   NEW
-                </span>
+                </PastilleEtat>
               )}
             </button>
           )}
@@ -2236,21 +2235,21 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
             {ficheMenu === p.id && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />
-                <div className="absolute z-50 bottom-full right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-dessus py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
+                <div className="absolute z-50 bottom-full right-0 mb-1 border border-slate-200 rounded-carte shadow-dessus py-1.5 px-1.5 w-40 flex flex-col gap-1" style={{ background: 'var(--blanc, #fff)' }} onClick={e => e.stopPropagation()}>
                   <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
-                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
-                    <span className="text-gray-600 text-xs">IIP + HELB</span>
+                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                    <span className="badge badge-z">Global</span>
+                    <span className="text-slate-600 text-xs">IIP + HELB</span>
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
-                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
-                    <span className="text-gray-600 text-xs">Contrat IIP</span>
+                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                    <span className="badge badge-iip">IIP</span>
+                    <span className="text-slate-600 text-xs">Contrat IIP</span>
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
-                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span>
-                    <span className="text-gray-600 text-xs">Contrat HELB</span>
+                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                    <span className="badge badge-helb">HELB</span>
+                    <span className="text-slate-600 text-xs">Contrat HELB</span>
                   </button>
                 </div>
               </>
@@ -2258,15 +2257,15 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
             {/* L'ŒIL DANS LA LISTE (3.5.174, Charles : « le petit œil pour aller voir l'espace ici aussi, plus rapide ») : la direction. */}
             {passeRole('admin') && (
               <button onClick={() => voirEspaceEnseignant(p.id)}
-                className="text-iip-blue hover:text-iip-turquoise text-sm" title="Voir son espace enseignant (lecture seule)" aria-label="Voir son espace enseignant"><IconEye size={15}/></button>
+                className="text-iip-blue hover:text-iip-texte text-sm" title="Voir son espace enseignant (lecture seule)" aria-label="Voir son espace enseignant"><IconEye size={15}/></button>
             )}
             {canEdit && (
               <button onClick={() => setEditProf(p)}
-                className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier"><IconEdit size={15}/></button>
+                className="text-slate-500 hover:text-iip-blue text-sm" title="Modifier"><IconEdit size={15}/></button>
             )}
             {canDelete && (
               <button onClick={() => handleDelete(p)} disabled={deleting === p.id}
-                className="text-red-400 hover:text-red-600 text-sm disabled:opacity-30" title="Supprimer"><IconTrash size={15}/></button>
+                className="text-slate-500 hover:text-[color:var(--c-refuse)] text-sm disabled:opacity-30" title="Supprimer"><IconTrash size={15}/></button>
             )}
           </div>
         </td>
@@ -2353,15 +2352,15 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
               data-1p-ignore="true"
               data-lpignore="true"
               data-form-type="other"
-              className="border border-gray-300 rounded-lg pl-3 pr-8 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold w-48"
+              className="controle w-48 !pr-8"
             />
             {search && (
               <button onClick={() => setSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">​<IconX size={13}/></button>
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" aria-label="Effacer"><IconX size={13}/></button>
             )}
           </div>
           <select value={fSection} onChange={e => setFSection(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
+            className="controle">
             <option value="">Toutes sections</option>
             {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -2388,16 +2387,16 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 {printSelMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setPrintSelMenu(false)} />
-                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-dessus py-1.5 px-1.5 w-44 flex flex-col gap-1">
-                      <div className="text-mention text-gray-400 uppercase px-2 pt-0.5 pb-1">PDF combiné</div>
-                      <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
+                    <div style={{ background: 'var(--blanc, #fff)' }} className="absolute z-50 top-full right-0 mt-1 border border-slate-200 rounded-carte shadow-dessus py-1.5 px-1.5 w-44 flex flex-col gap-1">
+                      <div className="intertitre px-2 pt-0.5 pb-1">PDF combiné</div>
+                      <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                        <span className="badge badge-z">Global</span><span className="text-slate-600 text-xs">IIP + HELB</span>
                       </button>
-                      <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                      <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                        <span className="badge badge-iip">IIP</span><span className="text-slate-600 text-xs">Contrat IIP</span>
                       </button>
-                      <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                      <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                        <span className="badge badge-helb">HELB</span><span className="text-slate-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>
@@ -2414,16 +2413,16 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 {zipMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setZipMenu(false)} />
-                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-dessus py-1.5 px-1.5 w-48 flex flex-col gap-1">
-                      <div className="text-mention text-gray-400 uppercase px-2 pt-0.5 pb-1">1 fichier par prof</div>
-                      <button onClick={() => exporterZip('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
+                    <div style={{ background: 'var(--blanc, #fff)' }} className="absolute z-50 top-full right-0 mt-1 border border-slate-200 rounded-carte shadow-dessus py-1.5 px-1.5 w-48 flex flex-col gap-1">
+                      <div className="intertitre px-2 pt-0.5 pb-1">1 fichier par prof</div>
+                      <button onClick={() => exporterZip('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                        <span className="badge badge-z">Global</span><span className="text-slate-600 text-xs">IIP + HELB</span>
                       </button>
-                      <button onClick={() => exporterZip('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                      <button onClick={() => exporterZip('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                        <span className="badge badge-iip">IIP</span><span className="text-slate-600 text-xs">Contrat IIP</span>
                       </button>
-                      <button onClick={() => exporterZip('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                      <button onClick={() => exporterZip('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-slate-50 text-sm flex items-center gap-2">
+                        <span className="badge badge-helb">HELB</span><span className="text-slate-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>
@@ -2451,11 +2450,11 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
       <div className="-mt-2 mb-3"><PastillesFiltres filtres={filtresPersonnel} toutEffacer={effacerFiltresPersonnel} /></div>
       {accesLot && <AccesLot ids={[...selection]} onFermer={() => setAccesLot(false)} />}
       {importFiches && <ImportPersonnelFwb onClose={() => setImportFiches(false)} onTermine={() => load()} />}
-      {loading ? <p className="text-gray-400 p-4">Chargement…</p> : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-180px)]">
+      {loading ? <p className="text-slate-400 p-4">Chargement…</p> : (
+        <div className="carte overflow-auto max-h-[calc(100vh-180px)]">
           <table className="grid-excel-soft w-full">
             <thead>
-              <tr>
+              <tr className="tab-entete">
                 <th className="text-center" style={{ width: '32px' }}>
                   <input type="checkbox"
                     checked={filtered.length > 0 && selection.size === filtered.length}
@@ -2473,10 +2472,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
               {listePrincipale.map(renderRow)}
               {fCharge !== 'sans' && sansCharge.length > 0 && (
                 <>
-                  <tr className="bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => setShowSansCharge(v => !v)}>
-                    <td colSpan={10} className="py-2 px-3 text-sm text-gray-600 font-medium select-none">
+                  <tr className="tab-repere cursor-pointer" onClick={() => setShowSansCharge(v => !v)}>
+                    <td colSpan={10} className="py-2 px-3 text-sm text-slate-600 font-medium select-none">
                       <IconChevronRight size={14} className="inline-block transition-transform" style={{ transform: showSansCharge ? 'rotate(90deg)' : 'none' }} />
-                      {' '}Sans charge cette année <span className="text-gray-400 font-normal">({sansCharge.length})</span>
+                      {' '}Sans charge cette année <span className="text-slate-400 font-normal">({sansCharge.length})</span>
                     </td>
                   </tr>
                   {showSansCharge && sansCharge.map(renderRow)}
@@ -2570,7 +2569,7 @@ function AccesLot({ ids, onFermer }) {
         {!fait && <button className="bouton bouton-fort" disabled={enCours || !n} onClick={() => appeler(false)}>
           {enCours ? '…' : r?.resume?.nouveaux ? `Créer ${r.resume.nouveaux} compte(s) et envoyer ${n} lien(s)` : `Envoyer ${n} lien(s)`}</button>}
       </>}>
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 mb-2 text-sm">{erreur}</div>}
+      {erreur && <Encadre etat="corriger" className="mb-2">{erreur}</Encadre>}
       {!r ? <p className="text-sm text-slate-400">Vérification…</p> : (
         <div className="space-y-2 text-sm">
           <div className="text-second text-slate-600">
@@ -2587,13 +2586,11 @@ function AccesLot({ ids, onFermer }) {
               ({r.resume.jamais_connectes + r.resume.renvois}) — leur compte n'est pas touché
             </label>
           )}
-          <div className="border border-slate-200 rounded-carte overflow-hidden">
-            <table className="w-full text-second">
-              <thead><tr className="tab-entete text-left text-mention uppercase tracking-[.08em] text-slate-500">
-                <th className="px-3 py-1.5">Membre</th><th className="px-3 py-1.5">Adresse</th><th className="px-3 py-1.5">Ce qui se passe</th></tr></thead>
+          <Tableau dense>
+              <TableauEntete><Th>Membre</Th><Th>Adresse</Th><Th>Ce qui se passe</Th></TableauEntete>
               <tbody>
                 {r.lignes.map(l => (
-                  <tr key={l.professeur_id} className="border-t border-slate-100 align-top">
+                  <Tr key={l.professeur_id} className="align-top">
                     <td className="px-3 py-1.5 font-semibold">{l.nom}</td>
                     <td className="px-3 py-1.5">{l.email || '—'}{l.prive && <span className="ml-1 text-xs text-slate-500">(privée)</span>}</td>
                     <td className="px-3 py-1.5">
@@ -2601,11 +2598,10 @@ function AccesLot({ ids, onFermer }) {
                         ? (l.envoye ? (l.etat === 'renvoi' ? 'Lien renvoyé' : 'Compte créé, lien envoyé') : <span>Compte créé — lien NON envoyé ({l.raison}) : <span className="select-all break-all text-xs text-slate-500">{l.lien}</span></span>)
                         : <span className={l.etat === 'nouveau' || l.etat === 'renvoi' ? '' : 'text-slate-500'}>{ETAT[l.etat]}{l.etat === 'deja' && l.role ? ` (${l.role}${l.actif ? '' : ', désactivé'}${l.jamais_connecte ? ', jamais connecté' : ''})` : ''}{l.etat === 'adresse_prise' && l.par ? ` : ${l.par}` : ''}</span>}
                     </td>
-                  </tr>
+                  </Tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </Tableau>
         </div>
       )}
     </Fenetre>

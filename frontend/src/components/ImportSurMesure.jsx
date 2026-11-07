@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
   IconUpload, IconCheck, IconAlertTriangle, IconDeviceFloppy,
-  IconArrowRight, IconTrash,
+  IconArrowRight, IconTrash, IconChevronLeft, IconChevronRight,
 } from '@tabler/icons-react';
-import { Fenetre, EnteteCarte } from './ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, TuileEtat } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -195,34 +195,30 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
         <div className="space-y-4">
 
         {erreur && (
-          <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                          text-sm text-red-800">{erreur}</div>
+          <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur} />
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {cible?.portee === 'annee' && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-sky-50 border border-sky-200
-                            text-second text-sky-900">
+            <Encadre etat="disponible" className="mb-3">
               Cette cible existe une fois par millésime : l'import portera sur
               l'année <b>{annee || '— non déterminée'}</b>.
               {!annee && " Fermez et choisissez d'abord une année de travail."}
-            </div>
+            </Encadre>
           )}
           {cibles.map(c => (
             <button key={c.cle}
               onClick={() => { setCible(c); setCleChoisie(c.cles[0]?.champ || '');
                                setCorresp({}); setRapport(null); }}
-              className={`text-left px-3 py-2.5 rounded-xl border ${
-                cible.cle === c.cle ? 'border-iip-blue bg-iip-blue/5'
-                                    : 'border-slate-200 hover:bg-slate-50'}`}>
+              data-etat={cible.cle === c.cle ? 'fort' : 'neutre'}
+              className={`bloc-etat text-left px-3 py-2.5 ${cible.cle === c.cle ? '' : 'hover:brightness-[.98]'}`}>
               <div className="text-sm font-semibold text-iip-blue">{c.libelle}</div>
               <div className="text-xs text-slate-500">{c.description}</div>
             </button>
           ))}
         </div>
 
-        <label className="inline-flex items-center gap-2 px-3 py-2 text-sm border
-                          border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+        <label className="bouton controle cursor-pointer">
           <IconUpload size={15} /> Choisir un classeur
           <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
             onChange={e => e.target.files[0] && lire(e.target.files[0])} />
@@ -245,7 +241,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 } catch { /* rien */ }
                 return (
                   <button key={n} type="button" onClick={() => lireOnglet(classeur, n)}
-                    className="text-left border border-slate-300 rounded-lg px-3 py-2 hover:border-iip-blue">
+                    className="bloc-etat text-left px-3 py-2 hover:brightness-[.98]" data-etat="neutre">
                     <div className="font-semibold text-iip-texte">{n}</div>
                     <div className="text-second text-slate-500">{lignes} ligne(s) · {cols.length} colonne(s)</div>
                     <div className="text-mention text-slate-400 truncate">{cols.slice(0, 8).join(' · ')}{cols.length > 8 ? ' …' : ''}</div>
@@ -261,12 +257,11 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               Profils
             </span>
             {profils.map(p => (
-              <span key={p.id} className="inline-flex items-center gap-1 border
-                                          border-slate-300 rounded-lg overflow-hidden">
+              <span key={p.id} className="segments !h-7">
                 <button onClick={() => appliquerProfil(p)}
-                  className="px-2.5 py-1 text-second hover:bg-slate-50">{p.nom}</button>
+                  className="text-second text-slate-700 hover:bg-slate-50">{p.nom}</button>
                 <button onClick={() => supprimerProfil(p.id)} title="Supprimer"
-                  className="px-1.5 py-1 text-slate-300 hover:text-red-500">
+                  className="!px-1.5 text-slate-300 hover:text-red-500">
                   <IconTrash size={12} />
                 </button>
               </span>
@@ -290,12 +285,12 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 Colonne qui identifie la ligne
               </span>
               <select value={cleChoisie} onChange={e => setCleChoisie(e.target.value)}
-                className="border border-amber-300 rounded-lg px-2 py-1 text-second bg-white">
+                className="controle text-second">
                 {cible.cles.map(k => (
                   <option key={k.champ} value={k.champ}>{k.libelle}</option>
                 ))}
               </select>
-              <span className="block text-xs text-amber-800 mt-1">
+              <span className="block text-xs text-slate-600 mt-1">
                 C'est elle qui retrouve le dossier à compléter. Le numéro national est le
                 plus sûr : le matricule change à chaque rentrée.
               </span>
@@ -304,25 +299,23 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             {/* La navigation entre lignes : une correspondance juste sur la
                 première ligne peut être fausse sur la dixième. */}
             <div className="flex items-center justify-between gap-3 flex-wrap
-                            px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                            py-1.5 border-y border-slate-200">
               <span className="text-second text-slate-500">
                 Exemple pris sur la ligne <b className="text-slate-700">{ligne + 1}</b> sur {brut.length}
               </span>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => setLigne(i => Math.max(0, i - 1))}
                   disabled={ligne === 0}
-                  className="px-2 h-6 rounded border border-slate-300 text-slate-600
-                             text-second disabled:opacity-40">◀</button>
+                  className="bouton bouton-compact" title="Ligne précédente"><IconChevronLeft size={14} /></button>
                 <input type="number" min={1} max={brut.length} value={ligne + 1}
                   onChange={e => {
                     const v = Number(e.target.value);
                     if (Number.isFinite(v)) setLigne(Math.min(brut.length, Math.max(1, v)) - 1);
                   }}
-                  className="w-16 border border-slate-300 rounded px-1 py-0.5 text-second text-center" />
+                  className="controle !h-7 w-16 text-second text-center" />
                 <button type="button" onClick={() => setLigne(i => Math.min(brut.length - 1, i + 1))}
                   disabled={ligne >= brut.length - 1}
-                  className="px-2 h-6 rounded border border-slate-300 text-slate-600
-                             text-second disabled:opacity-40">▶</button>
+                  className="bouton bouton-compact" title="Ligne suivante"><IconChevronRight size={14} /></button>
               </div>
             </div>
 
@@ -338,9 +331,8 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                     <IconArrowRight size={13} className="text-slate-300 flex-none" />
                     <select value={corresp[ch.champ] || ''}
                       onChange={e => setCorresp(m => ({ ...m, [ch.champ]: e.target.value || undefined }))}
-                      className={`flex-1 border rounded-lg px-2 py-1 text-second ${
-                        estCle && !corresp[ch.champ]
-                          ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}>
+                      className={`controle !h-8 flex-1 text-second ${
+                        estCle && !corresp[ch.champ] ? '!border-red-400' : ''}`}>
                       <option value="">— ne pas importer —</option>
                       {entetes.map(col => <option key={col} value={col}>{col}</option>)}
                     </select>
@@ -366,7 +358,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             </div>
 
             {corresp[cleChoisie] && (
-              <div className="text-second text-slate-600 bg-slate-50 rounded-lg p-2.5">
+              <div className="bloc-etat text-second text-slate-600 p-2.5" data-etat="neutre">
                 <b>Ligne {ligne + 1} telle qu'elle sera lue :</b>
                 <div className="mt-1 space-y-0.5">
                   {cible.champs.filter(ch => corresp[ch.champ]).map(ch => (
@@ -380,13 +372,12 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             )}
 
             {cible.creation && (
-              <label className="flex items-center gap-2 text-sm text-slate-700
-                                px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+              <label className="bloc-etat flex items-center gap-2 text-sm text-slate-700 px-3 py-2" data-etat="surveiller">
                 <input type="checkbox" checked={creer}
                   onChange={e => setCreer(e.target.checked)} />
                 <span>
                   <b>Créer les lignes sans correspondance</b>
-                  <span className="block text-xs text-amber-900">
+                  <span className="block text-xs text-slate-600">
                     Un dossier sera ouvert pour chaque ligne inconnue portant un
                     nom et un prénom. Simulez d'abord : une clé mal choisie crée
                     des doublons au lieu de compléter les dossiers existants.
@@ -407,11 +398,10 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               <span className="flex-1" />
               <input value={nomProfil} onChange={e => setNomProfil(e.target.value)}
                 placeholder="Nom du profil"
-                className="border border-slate-300 rounded-lg px-2 py-1.5 text-second w-40" />
+                className="controle text-second w-40" />
               <button onClick={enregistrerProfil} disabled={!nomProfil.trim()}
                 title="Enregistrer ces correspondances pour tout l'établissement"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
-                           border-slate-300 text-slate-600 rounded-lg disabled:opacity-40">
+                className="bouton controle">
                 <IconDeviceFloppy size={14} /> Enregistrer
               </button>
             </div>
@@ -426,10 +416,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 ['À compléter', rapport.nb_modifications],
                 ...(rapport.nb_crees ? [['À créer', rapport.nb_crees]] : []),
                 ['Sans correspondance', rapport.nb_inconnus]].map(([l, v]) => (
-                <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                  <div className="intertitre">{l}</div>
-                  <div className="text-lg font-bold text-iip-blue">{v}</div>
-                </div>
+                <TuileEtat key={l} valeur={v} libelle={l} />
               ))}
             </div>
 
@@ -450,12 +437,11 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             )}
 
             {rapport.nb_crees > 0 && (
-              <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                              text-second text-emerald-900">
+              <Encadre etat="reussi">
                 <b>{rapport.nb_crees} dossier(s)</b> {rapport.simulation ? 'seraient créés' : 'créés'} :
                 {' '}{rapport.crees.slice(0, 12).map(c => c.libelle).join(' · ')}
                 {rapport.nb_crees > 12 && ` … et ${rapport.nb_crees - 12} autre(s)`}
-              </div>
+              </Encadre>
             )}
 
             {rapport.nb_inconnus > 0 && (
@@ -465,16 +451,12 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             )}
 
             {!rapport.simulation && (
-              <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                              text-sm text-emerald-800">
-                {rapport.nb_modifications} dossier(s) complété(s).
-              </div>
+              <Encadre etat="reussi" icone={IconCheck} titre={`${rapport.nb_modifications} dossier(s) complété(s).`} />
             )}
 
 
             {rapport.modifications.length > 0 && (
-              <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl
-                              divide-y divide-slate-100">
+              <div className="carte max-h-48 overflow-y-auto divide-y divide-slate-100">
                 {rapport.modifications.map(m => (
                   <div key={m.id} className="flex items-center gap-3 px-3 py-1.5 text-second">
                     <span className="flex-1 truncate">{m.libelle}</span>

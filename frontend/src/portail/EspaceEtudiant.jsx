@@ -5,7 +5,8 @@ import MesAbsences from './MesAbsences.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope } from '@tabler/icons-react';
+import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -38,27 +39,16 @@ async function appel(methode, chemin, corps, brut = false) {
   return j;
 }
 
-const Tete = ({ sous, onQuitter }) => (
-  <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-3">
-    <LogoLucie hauteur={28} className="shrink-0" />
-    <div className="leading-tight flex-1 min-w-0 border-l border-slate-200 pl-3">
-      <div className="text-sm font-bold text-iip-texte">Institut Ilya Prigogine</div>
-      <div className="text-xs text-slate-500 truncate">{sous || 'Mon espace étudiant'}</div>
-    </div>
-    {onQuitter && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={onQuitter}><IconLogout size={15} /> Quitter</button>}
-  </div>
-);
 
 // Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
-const COURT = { resultats: 'Résultats', messages: 'Messages', parcours: 'Parcours', pae: 'PAE', tfe: 'TFE', stage: 'Stage', certificats: 'Absences', documents: 'Documents', va: 'VA / VAE', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
-const ETAT_COULEUR = { reussi: 'var(--c-reussi, #3E7D5E)', surveiller: 'var(--c-attente, #B45309)', corriger: 'var(--c-refuse, #9D4A38)' };
+const COURT = { aujourdhui: 'Aujourd’hui', messages: 'Messages', parcours: 'Parcours', documents: 'Documents', demarches: 'Démarches', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
 
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
 function Accuse({ type, id, presente, signe, onFait, onErreur }) {
   const [etape, setEtape] = useState(null);   // null | 'code'
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState(null);
-  if (signe) return <span className="inline-flex items-center gap-1 text-second" style={{ color: ETAT_COULEUR.reussi }}><IconCheck size={15} /> Accusé signé le {jourFr(signe)}</span>;
+  if (signe) return <span className="inline-flex items-center gap-1 text-second" style={{ color: 'var(--c-reussi)' }}><IconCheck size={15} /> Accusé signé le {jourFr(signe)}</span>;
   if (!presente) return <span className="text-second text-slate-500">Ouvrez la pièce pour pouvoir en accuser réception.</span>;
   const demanderCode = async () => {
     try { const j = await appel('POST', '/code', { objet_type: type, objet_id: id }); setMsg(j.message); setEtape('code'); }
@@ -145,9 +135,9 @@ function Verification({ reference }) {
   const Ligne = ({ l, v }) => v ? <div className="grid grid-cols-[8rem_1fr] gap-3 py-1.5 border-t border-slate-100 first:border-t-0">
     <span className="text-second text-slate-500">{l}</span><span className="text-sm text-iip-texte">{v}</span></div> : null;
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Tete sous="Vérification d’une pièce" />
-      <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
+    <div className="min-h-screen px-4 py-8" style={{ background: 'var(--page-fond)' }}>
+      <div className="max-w-[560px] mx-auto space-y-4">
+        <div className="flex items-center gap-3"><LogoLucie hauteur={30} className="" /><div className="text-second text-slate-500">Vérification d’une pièce · Institut Ilya Prigogine</div></div>
         {!r ? <p className="text-sm text-slate-500">Vérification…</p> : r.trouve ? (
           <div className="bloc-etat px-5 py-4 space-y-3" data-etat="reussi">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldCheck size={22} style={{ color: 'var(--c-reussi, #3E7D5E)' }} /> Pièce authentique</h1>
@@ -216,19 +206,19 @@ function Etapes({ faits }) {
       {noms.map((n, i) => {
         const fait = faits[i], actif = i === courant;
         return (
-          <div key={n} className="flex-1 text-center relative text-xs" style={{ color: actif ? 'var(--c-principal, #16406A)' : '#64748b', fontWeight: actif ? 600 : 400 }}>
-            {i > 0 && <span className="absolute top-[13px] right-1/2 w-full h-0.5" style={{ background: fait || actif ? ETAT_COULEUR.reussi : '#E2E8F0' }} />}
+          <div key={n} className="flex-1 text-center relative text-xs" style={{ color: actif ? 'var(--c-principal)' : 'rgb(var(--gris-500))', fontWeight: actif ? 600 : 400 }}>
+            {i > 0 && <span className="absolute top-[13px] right-1/2 w-full h-0.5" style={{ background: fait || actif ? 'var(--c-reussi)' : 'rgb(var(--gris-200))' }} />}
             <span className="relative z-10 mx-auto mb-1 w-7 h-7 rounded-full grid place-items-center font-bold border-2"
-              style={fait ? { background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }
+              style={fait ? { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }
                 : actif ? { background: 'var(--c-principal, #16406A)', borderColor: 'var(--c-principal, #16406A)', color: '#fff' }
-                  : { background: '#fff', borderColor: '#CBD5E1' }}>{fait ? <IconCheck size={15} /> : i + 1}</span>
+                  : { background: 'var(--c-fond_tuile, #fff)', borderColor: 'rgb(var(--gris-300))' }}>{fait ? <IconCheck size={15} /> : i + 1}</span>
             {n}
           </div>);
       })}
     </div>);
 }
 const Zone = ({ n, titre, children, pale }) => (
-  <section className={`bg-white border border-slate-200 rounded-carte p-4 space-y-2 ${pale ? 'opacity-60' : ''}`}>
+  <section className={`carte p-4 space-y-2 ${pale ? 'opacity-60' : ''}`}>
     <h3 className="text-sm font-semibold text-iip-texte flex items-center gap-2">
       <span className="w-6 h-6 rounded-full grid place-items-center text-xs text-white flex-none" style={{ background: 'var(--c-principal, #16406A)' }}>{n}</span>{titre}</h3>
     {children}
@@ -341,7 +331,7 @@ function MesValorisations({ onErreur }) {
             </div>))}
           <CarteAdmission adm={v.offre?.admission} />
         </div>
-        <div className="bg-white border border-slate-200 rounded-carte px-4 py-1">
+        <div className="carte px-4 py-1">
           <Plus titre="Ce que le Conseil peut décider"><ul className="pl-4 list-disc space-y-1">
             <li><b>Dispense complète</b> : vous maîtrisez de façon globale et suffisante <b>tous</b> les acquis de l’unité. Vous ne la suivez pas et recevez une attestation de réussite « valorisation », avec des points en pourcentage.</li>
             <li><b>Dispense partielle</b> : vous maîtrisez certains acquis ; vous êtes dispensé des activités qui y correspondent, mais vous restez inscrit à l’unité et présentez l’évaluation que le Conseil précise.</li>
@@ -401,7 +391,7 @@ function MesValorisations({ onErreur }) {
           <div key={d.ue_num} className="space-y-2 border-l-4 pl-3" style={{ borderColor: 'var(--c-disponible, #2F6FB0)' }}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold text-iip-texte flex-1 min-w-0">UE {d.ue_num} {d.ue_nom || ''}</span>
-              <span className="pastille-etat" style={{ background: 'var(--c-disponible, #2F6FB0)', color: '#fff' }}>{PORTE[d.porte] || d.porte}</span>
+              <PastilleEtat etat="disponible">{PORTE[d.porte] || d.porte}</PastilleEtat>
               {!d.attente && d.en_ligne && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
                 onClick={() => geste('/va/retirer', { ue_num: d.ue_num })}>Retirer cette demande</button>}
             </div>
@@ -451,7 +441,7 @@ function MesValorisations({ onErreur }) {
                 return (
                   <div key={a.code} className="border-t border-slate-100 pt-2 space-y-1">
                     <div className="text-sm"><b className="text-iip-texte">{a.code}</b> <span className="text-slate-700">{a.libelle}</span>
-                      {enreg.texte.trim() && !change && <IconCheck size={14} className="inline ml-1" style={{ color: ETAT_COULEUR.reussi }} />}</div>
+                      {enreg.texte.trim() && !change && <IconCheck size={14} className="inline ml-1" style={{ color: 'var(--c-reussi)' }} />}</div>
                     <textarea rows={3} className="controle w-full !h-auto py-1.5 leading-snug" disabled={!d.modifiable || d.attente} value={cur.texte}
                       placeholder="Où et comment avez-vous acquis cet acquis ?" onChange={e => poser({ texte: e.target.value })} />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-second text-slate-600">
@@ -475,7 +465,7 @@ function MesValorisations({ onErreur }) {
                   {d.frise.map(e => (
                     <span key={e.cle} className="text-xs px-2 py-0.5 rounded-full border"
                       style={e.refus ? { background: 'var(--c-refuse, #9D4A38)', color: '#fff', borderColor: 'transparent' }
-                        : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: '#64748b' }}>
+                        : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: 'rgb(var(--gris-500))' }}>
                       {e.fait ? '✓ ' : ''}{e.libelle}{e.le && e.fait ? ` · ${jourFr(e.le)}` : ''}</span>))}
                 </div>
               </div>)}
@@ -495,7 +485,7 @@ function MesValorisations({ onErreur }) {
             {/* Sur téléphone, le libellé passe à la ligne : `.bouton` ne le permet pas (3.5.022). */}
             <button type="button" className="bouton w-full inline-flex items-center justify-center gap-2 font-semibold disabled:opacity-50 !whitespace-normal !h-auto py-2 text-center leading-snug"
               disabled={enCours || attend || !certifie || incomplets.length > 0}
-              style={{ background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }}
+              style={{ background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }}
               onClick={() => geste('/va/terminer', null, () => { setCertifie(false); setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute. Il reste dans vos documents.'); })}>
               <IconCheck size={17} /> J’ai terminé — envoyer et recevoir l’accusé de réception</button>
             <p className="text-xs text-slate-500">Vous pouvez encore compléter tant que le secrétariat n’a pas examiné la demande.</p>
@@ -506,11 +496,11 @@ function MesValorisations({ onErreur }) {
 }
 
 const PARCOURS_ETAT = {
-  acquise: ['var(--c-reussi, #3E7D5E)', '#fff', 'acquise'],
-  programme: ['var(--c-disponible, #2F6FB0)', '#fff', 'à mon programme'],
-  accessible: ['#fff', 'var(--c-disponible, #2F6FB0)', 'accessible'],
-  attente: ['var(--c-attente, #B45309)', '#fff', 'en attente d’une délibération'],
-  pas_encore: ['#EEF1F5', '#64748b', 'pas encore accessible'],
+  acquise: ['var(--c-reussi)', 'var(--blanc, #fff)', 'acquise'],
+  programme: ['var(--c-disponible)', 'var(--blanc, #fff)', 'à mon programme'],
+  accessible: ['var(--c-fond_tuile, #fff)', 'var(--c-disponible)', 'accessible'],
+  attente: ['var(--c-attente)', 'var(--blanc, #fff)', 'en attente d’une délibération'],
+  pas_encore: ['rgb(var(--gris-100))', 'rgb(var(--gris-500))', 'pas encore accessible'],
 };
 
 /** LE SCHÉMA DE CAPITALISATION (3.5.010) : le dessin de la fiche, déposé par Lucie, montré comme une image (aucun script
@@ -521,10 +511,10 @@ const PARCOURS_ETAT = {
 function SchemaParcours({ schema, onNoeud = null }) {
   if (typeof schema === 'string') {
     const src = `data:image/svg+xml;utf8,${encodeURIComponent(schema)}`;
-    return <section className="bg-white border border-slate-200 rounded-carte p-3"><div className="overflow-x-auto"><img src={src} alt="Schéma de capitalisation" style={{ maxWidth: 'none' }} /></div></section>;
+    return <section className="carte p-3"><div className="overflow-x-auto"><img src={src} alt="Schéma de capitalisation" style={{ maxWidth: 'none' }} /></div></section>;
   }
   return (
-    <section className="bg-white border border-slate-200 rounded-carte p-3">
+    <section className="carte p-3">
       <p className="sm:hidden text-xs text-slate-500 mb-1">Faites glisser le schéma de côté ; « + » l’agrandit.</p>
       <SchemaCapitalisation data={schema} mode="etudiant" titre="Mon schéma de capitalisation" onNoeud={onNoeud} />
     </section>
@@ -630,12 +620,12 @@ function MesFrais({ onErreur }) {
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2">
         {[['Total', f.total, 'neutre'], ['Versé', f.verse, 'reussi'], ['Reste à payer', f.restant, f.restant > 0 ? 'corriger' : 'reussi']].map(([l, m, e]) => (
-          <div key={l} className="bloc-etat px-3 py-2" data-etat={e}><div className="text-lg font-bold text-iip-texte tabular-nums">{eur(m)}</div><div className="text-xs text-slate-500">{l}</div></div>))}
+          <TuileEtat key={l} etat={e} valeur={eur(m)} libelle={l} taille="compacte" />))}
       </div>
       <div className="text-sm text-slate-600">{f.acompte_verse ? <>Acompte de {eur(f.acompte)} versé.</> : <>Acompte de <b>{eur(f.acompte)}</b> à verser dès l’inscription.</>}
         {f.restant > 0 && f.echeance_solde && <> Le solde est à payer avant le <b>{jourFr(f.echeance_solde)}</b>.</>}</div>
       {f.virement && (
-        <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-3">
+        <section className="carte p-4 space-y-3">
           <h2 className="titre-carte">Payer par virement</h2>
           <div className="flex flex-wrap gap-4 items-start">
             {f.virement.qr && <img alt="QR de paiement" className="w-40 h-40 border border-slate-200 rounded-champ"
@@ -652,7 +642,7 @@ function MesFrais({ onErreur }) {
           <p className="text-xs text-slate-500">Scannez le QR avec l’application de votre banque : bénéficiaire, montant et communication s’y remplissent seuls.
             Gardez la communication telle quelle : c’est elle qui rattache votre paiement à votre dossier.</p>
         </section>)}
-      <section className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+      <section className="carte divide-y divide-slate-100">
         {f.lignes.map(l => <div key={l.libelle} className="px-4 py-2 text-sm flex gap-2"><span className="flex-1">{l.libelle}</span>
           <span className="tabular-nums">{l.note || eur(l.montant)}</span></div>)}
         <div className="px-4 py-2 text-sm flex gap-2 font-semibold"><span className="flex-1">Total {f.annee}</span><span className="tabular-nums">{eur(f.total)}</span></div>
@@ -670,13 +660,11 @@ function MesFrais({ onErreur }) {
 /** AIDE ET RÈGLES (3.1.517) : un petit mode d'emploi, la grille de lecture des résultats, puis les règlements. */
 const GUIDE = [
   ['Entrer', "Votre adresse de l'institut et votre mot de passe. Sur un appareil que vous n'avez pas fait reconnaître, un code reçu par courriel est demandé en plus. Mot de passe oublié : « Première visite, ou mot de passe oublié ? ». L'espace s'ouvre depuis la Belgique ; en stage ou en Erasmus à l'étranger, le secrétariat peut vous l'ouvrir pour la durée du séjour."],
-  ['Mes résultats', 'Les décisions du Conseil des études, une fois la délibération close et publiée. La grille ci-dessous dit comment les lire.'],
+  ['Aujourd’hui', "Ce qui vous attend : documents et règlements à signer, messages non lus, et les raccourcis vers votre PAE, vos résultats, vos frais."],
+  ['Mon parcours', "Trois onglets. « Schéma et unités » : votre schéma de capitalisation, puis chaque unité, ses cours, sa DUE et son dossier pédagogique. « Mes résultats » : les décisions du Conseil des études, une fois la délibération close (la grille ci-dessous dit comment les lire). « Mon PAE » : pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige ; une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
+  ['Mes documents', "Vos attestations, les décisions qui vous concernent et les règlements de l'école. Ouvrez-les, puis signez l'accusé de réception (un code reçu par courriel). Téléchargement libre pendant 90 jours ; ensuite, un code est demandé."],
   ['Messages', "Ce que l'école vous écrit. Vous pouvez répondre : votre réponse va à la personne qui a écrit."],
-  ['Mon PAE', "Pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige. Sous la liste, les frais estimés suivent vos choix. Une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
-  ['Mes documents', "Vos attestations et les décisions qui vous concernent. Ouvrez-les, puis signez l'accusé de réception (un code reçu par courriel). Téléchargement libre pendant 90 jours ; ensuite, un code est demandé."],
-  ['Valorisation', "Faire reconnaître des études ou une expérience pour une unité : une demande par unité, avec vos pièces. Vous complétez tant que le secrétariat ne l'a pas examinée. L'admission se demande au secrétariat."],
-  ['Mon TFE', "Le titre, le jury, les remises attendues et la défense. Proposez votre question de recherche : votre promoteur ou votre coordination l'accepte, ou vous la renvoie avec un mot. Déposez chaque remise (PDF, Word ou image, 25 Mo au plus) : elle est reçue au jour du dépôt. Les fiches d'évaluation disent ce qui sera regardé."],
-  ['Mon stage', "Où, quand, qui vous encadre ; les pièces qui manquent encore avant de commencer ; les visites de votre superviseur ; les fiches d'évaluation du stage."],
+  ['Mes démarches', "Valorisation (faire reconnaître des études ou une expérience, une demande par unité, avec vos pièces), Mon TFE (question de recherche, remises, défense), Mon stage (lieu, pièces, visites), Mes absences (déposer un certificat médical)."],
   ['Mes frais', 'Ce qui est dû, versé, ce qui reste ; et le QR à scanner pour payer avec la bonne communication.'],
   ['Mon compte', 'Changer votre mot de passe ; voir et oublier vos appareils reconnus (trois au plus).'],
 ];
@@ -688,34 +676,17 @@ const GRILLE = [
   ['10 (faveur)', "Le Conseil des études a accordé l'unité : elle vaut 10 partout, chaque acquis compris."],
   ['VA', 'Unité valorisée : vous en êtes dispensé, sur la base de vos études ou de votre expérience.'],
 ];
-function AideRegles({ reglements, onLire, Accuse: Acc, onFait, onErreur }) {
+function AideRegles() {
   return (
     <div className="space-y-5">
       <section className="space-y-2">
-        <h2 className="titre-carte flex items-center gap-2"><IconHelpCircle size={16} /> Votre espace, en bref</h2>
-        <div className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
-          {GUIDE.map(([t, x]) => <div key={t} className="px-4 py-2.5 text-sm"><div className="font-semibold text-iip-texte">{t}</div><div className="text-slate-600">{x}</div></div>)}
-        </div>
+        <h2 className="intertitre flex items-center gap-2">Votre espace, en bref</h2>
+        <ListeEtats>{GUIDE.map(([t, x]) => <LigneEtat key={t} titre={t} sous={null}><div className="text-sm text-slate-600 -mt-1">{x}</div></LigneEtat>)}</ListeEtats>
       </section>
       <section className="space-y-2">
-        <h2 className="titre-carte">Lire vos résultats</h2>
-        <div className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
-          {GRILLE.map(([t, x]) => <div key={t} className="px-4 py-2.5 text-sm flex gap-3"><b className="w-24 flex-none text-iip-texte">{t}</b><span className="text-slate-600">{x}</span></div>)}
-        </div>
-        <p className="text-xs text-slate-500">Pas de compensation entre acquis : une unité s'acquiert quand tous ses acquis sont maîtrisés. Ce qui fait foi reste la pièce que l'école vous remet.</p>
-      </section>
-      <section className="space-y-2">
-        <h2 className="titre-carte flex items-center gap-2"><IconBook size={16} /> Les règlements</h2>
-        {reglements.length ? reglements.map(reg => (
-          <div key={reg.cle} className="bloc-etat px-4 py-3 flex flex-wrap items-center gap-3" data-etat={reg.signe_le ? 'reussi' : 'disponible'}>
-            <IconBook size={18} className="text-slate-400 flex-none" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-iip-texte">{reg.titre}</div>
-              <div className="text-xs text-slate-500">Version {reg.numero} · publiée le {jourFr(reg.publiee_le)}</div>
-            </div>
-            <button type="button" className="bouton" onClick={() => onLire(reg)}>Lire</button>
-            <div className="w-full"><Acc type="reglement" id={reg.version_id} presente={reg.presente_le} signe={reg.signe_le} onFait={onFait} onErreur={onErreur} /></div>
-          </div>)) : <p className="text-sm text-slate-500">Aucun règlement à lire pour l’instant.</p>}
+        <h2 className="intertitre">Lire vos résultats</h2>
+        <ListeEtats>{GRILLE.map(([t, x]) => <LigneEtat key={t} titre={t}><div className="text-sm text-slate-600 -mt-1">{x}</div></LigneEtat>)}</ListeEtats>
+        <p className="text-xs text-slate-500">Pas de compensation entre acquis : une unité s'acquiert quand tous ses acquis sont maîtrisés. Ce qui fait foi reste la pièce que l'école vous remet. Les règlements de l'école sont dans « Mes documents ».</p>
       </section>
     </div>
   );
@@ -795,7 +766,7 @@ function FraisEstimes({ tarif, ues }) {
     [`Frais administratifs (${f.periodes} périodes)`, f.variables],
   ].filter(([, m, note]) => m > 0 || note);
   return (
-    <div className="bg-white border border-slate-200 rounded-carte px-4 py-3 text-sm space-y-1.5">
+    <div className="carte px-4 py-3 text-sm space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-semibold text-iip-texte">Frais estimés pour {tarif.annee}</span>
         <span className="text-lg font-semibold tabular-nums text-iip-texte">{eur(f.total)}</span>
@@ -868,7 +839,7 @@ function MonPAE({ onErreur, email }) {
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
             : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut (ou à votre adresse privée tant que vous entrez par un code d’accès).</div>}
         </div>
-        <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+        <ul className="carte divide-y divide-slate-100">
           {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
@@ -900,7 +871,7 @@ function MonPAE({ onErreur, email }) {
           <div className="text-slate-600">Pas encore confirmé par l’école. Pour le modifier, adressez-vous à votre coordination
             {o.du && o.au && o.du > new Date().toISOString().slice(0, 10) ? `, ou proposez vos unités en ligne du ${jourFr(o.du)} au ${jourFr(o.au)}` : ''}.</div>
         </div>
-        {prog.length ? <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+        {prog.length ? <ul className="carte divide-y divide-slate-100">
           {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
@@ -919,7 +890,7 @@ function MonPAE({ onErreur, email }) {
       {etatProp && <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={etatProp[0]}><div>{etatProp[1]}</div>
         {prop.message && <div className="text-slate-600">« {prop.message} »</div>}</div>}
       {attend && <p className="text-sm text-slate-500">Envoi en cours d’enregistrement…</p>}
-      <div className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+      <div className="carte divide-y divide-slate-100">
         {(o.unites || []).map(u => (
           <label key={u.ue_num} className={`flex items-start gap-3 px-4 py-2.5 text-sm ${u.cochable && o.ouvert ? 'cursor-pointer' : 'opacity-60'}`}>
             <input type="checkbox" className="mt-0.5" disabled={!u.cochable || !o.ouvert} checked={u.verrouillee || !!choix?.has(u.ue_num)}
@@ -957,7 +928,7 @@ function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
     } catch (e) { setErreur(e.message); }
   };
   return (
-    <form onSubmit={valider} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+    <form onSubmit={valider} className="carte p-5 space-y-3">
       <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} />
         {avecActuel ? 'Changer mon mot de passe' : nouveauCompte ? 'Choisissez votre mot de passe' : 'Choisissez un nouveau mot de passe'}</h1>
       <p className="text-sm text-slate-600">Dix caractères au moins. Une phrase courte que vous retenez fait un bon mot de passe ; évitez
@@ -975,12 +946,14 @@ function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
 }
 
 /* Hors du composant : défini dedans, il serait un nouveau composant à chaque frappe, et le champ perdrait le focus. */
+/* LA MÊME ENTRÉE QUE L'ESPACE ENSEIGNANT (3.5.202, Charles : « tout doit être semblable ») : une carte blanche au milieu de la
+   page, le logo et le nom de l'espace en tête ; les formulaires s'y posent sans cadre à eux (`.entree-espace`). */
 const Cadre = ({ horsBe, erreur, children }) => (
-  <div className="min-h-screen bg-slate-100">
-    <Tete />
-    <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
+  <div className="min-h-screen grid place-items-center px-4 py-8" style={{ background: 'var(--page-fond)' }}>
+    <div className="entree-espace w-full max-w-md bg-white border border-slate-200 rounded-carte p-6 space-y-4">
+      <div className="flex items-center gap-3"><LogoLucie hauteur={30} className="" /><div className="text-second text-slate-500">Espace étudiant · Institut Ilya Prigogine</div></div>
       {horsBe && <HorsBelgique texte={horsBe} />}
-      {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+      {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
       {children}
     </div>
   </div>);
@@ -1004,7 +977,8 @@ function Espace() {
   const [erreur, setErreur] = useState(null);
   const [horsBe, setHorsBe] = useState(null);
   const [d, setD] = useState(null);
-  const [face, setFace] = useState('resultats');
+  const [face, setFace] = useState('aujourdhui');
+  const [sous, setSous] = useState({});
   const [texte, setTexte] = useState(null);   // règlement ouvert
   const [nonLus, setNonLus] = useState(0);
   // Les messages non lus se voient dès l'entrée, sur l'onglet.
@@ -1078,7 +1052,7 @@ function Espace() {
     try { const j = await appel('POST', '/lien', { identifiant: ident.trim() }); setMessage(j.message); } catch (e) { echec(e); }
   };
   const quitter = () => {
-    poser(null); marquerQuitte(true); setConnecte(false); setD(null); setFace('resultats'); setIdent('');
+    poser(null); marquerQuitte(true); setConnecte(false); setD(null); setFace('aujourdhui'); setIdent('');
     appel('GET', '/appareil').then(j => { if (j.reconnu) setIdent(j.identifiant); }).catch(() => {});
   };
 
@@ -1106,7 +1080,7 @@ function Espace() {
   if (lien && !connecte) {
     return (
       <Cadre horsBe={horsBe} erreur={erreur}>
-        <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+        <div className="carte p-5 space-y-3">
           {!lien.appareils ? <>
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Cet appareil est-il le vôtre ?</h1>
             <p className="text-sm text-slate-600">Reconnu, il ne vous demandera que votre mot de passe pendant 90 jours ; un autre appareil
@@ -1122,7 +1096,7 @@ function Espace() {
   if (!connecte && defi) {
     return (
       <Cadre horsBe={horsBe} erreur={erreur}>
-        <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+        <div className="carte p-5 space-y-3">
           {!defi.appareils ? <>
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldCheck size={18} /> Un nouvel appareil</h1>
             <p className="text-sm text-slate-600">Un code à six chiffres part dans la minute vers <b>{defi.adresse}</b>. Il est valable 10 minutes.</p>
@@ -1143,7 +1117,7 @@ function Espace() {
     return (
       <Cadre horsBe={horsBe} erreur={erreur}>
         {modeCandidat ? (
-          <form onSubmit={entrerCandidat} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          <form onSubmit={entrerCandidat} className="carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Pas encore d’adresse de l’institut</h1>
             <p className="text-sm text-slate-600">Votre dossier vient d’être ouvert : un <b>code d’accès</b> vous a été envoyé à votre adresse
               privée. Il ouvre votre espace jusqu’à ce que vous receviez votre adresse de l’institut.</p>
@@ -1156,7 +1130,7 @@ function Espace() {
             <button type="button" className="text-second text-iip-blue underline" onClick={() => { setModeCandidat(false); setErreur(null); }}>J’ai mon adresse de l’institut</button>
           </form>
         ) : !modeLien ? (
-          <form onSubmit={seConnecter} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          <form onSubmit={seConnecter} className="carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconLock size={18} /> Mon espace étudiant</h1>
             <p className="text-sm text-slate-600">Vos résultats délibérés, vos documents, vos accusés de réception.</p>
             <input value={ident} onChange={e => setIdent(e.target.value)} placeholder="Adresse de l'institut (ou matricule)" autoComplete="username"
@@ -1170,7 +1144,7 @@ function Espace() {
               Pas encore d’adresse de l’institut ? Entrer avec mon code d’accès</button>
           </form>
         ) : (
-          <form onSubmit={demanderLien} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          <form onSubmit={demanderLien} className="carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Première visite ou mot de passe oublié</h1>
             <p className="text-sm text-slate-600">Tapez votre adresse de l'institut (ou votre matricule) : un lien, valable 30 minutes et à usage
               unique, part à votre adresse électronique <b>de l'institut</b>. Il vous mène à choisir votre mot de passe.</p>
@@ -1187,29 +1161,49 @@ function Espace() {
   }
 
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
-  const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
-  const msg = ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages];
-  const FACES = ([['resultats', 'Mes résultats', IconCertificate], msg, ['parcours', 'Mon parcours', IconRoute], ['pae', 'Mon PAE', IconListCheck],
-      ['tfe', 'Mon TFE', IconSchool], ['stage', 'Mon stage', IconBriefcase], ['certificats', 'Mes absences', IconStethoscope], ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['frais', 'Mes frais', IconCash], ['aide', 'Aide et règles', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle]])
-    // LES FONCTIONS OUVERTES (3.5.001) : seuls les onglets que Lucie a ouverts pour cet étudiant ; l'aide et le compte, toujours.
-    .filter(([k]) => ['aide', 'compte'].includes(k) || (d?.fonctions || []).includes(k));
-  if (d && FACES.length && !FACES.some(([k]) => k === face)) setTimeout(() => setFace(FACES[0][0]), 0);
+  const docsASigner = d ? d.documents.filter(x => !x.signe_le) : [];
+  const reglASigner = d ? d.reglements.filter(x => !x.signe_le) : [];
+  const aSigner = docsASigner.length + reglASigner.length;
+  /* LA STRUCTURE DE L'ESPACE ENSEIGNANT (3.5.201, Charles, 7 novembre 2026 : « comme l'enseignant » ; dix entrées qui se
+     recoupaient). Aujourd'hui · Mon parcours (schéma et unités, résultats, PAE) · Mes documents (pièces et règlements à signer)
+     · Messages · Mes démarches (VA, TFE, stage, absences) · Mes frais — puis Aide et Mon compte. Une face n'existe que si
+     Lucie a ouvert au moins une de ses fonctions pour cet étudiant (3.5.001). */
+  const ouvertes = d?.fonctions || [];
+  const a_ = k => ouvertes.includes(k);
+  const SOUS = {
+    parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences']].filter(([k]) => a_(k)),
+  };
+  const FACES = [
+    ['aujourdhui', 'Aujourd’hui', IconHome],
+    SOUS.parcours.length && ['parcours', 'Mon parcours', IconRoute],
+    (a_('documents') || (d?.reglements || []).length) && ['documents', 'Mes documents', IconFileText],
+    a_('messages') && ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages],
+    SOUS.demarches.length && ['demarches', 'Mes démarches', IconListCheck],
+    a_('frais') && ['frais', 'Mes frais', IconCash],
+    ['aide', 'Aide', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle],
+  ].filter(Boolean);
+  if (d && !FACES.some(([k]) => k === face)) setTimeout(() => setFace('aujourdhui'), 0);
+  const sousActif = SOUS[face] ? (SOUS[face].some(([k]) => k === sous[face]) ? sous[face] : SOUS[face][0]?.[0]) : null;
+  const aller = (f, s2 = null) => { setFace(f); if (s2) setSous(x => ({ ...x, [f]: s2 })); };
+  const Onglets = ({ f }) => (SOUS[f].length > 1 ? (
+    <div className="flex gap-5 border-b border-slate-200 mb-4 overflow-x-auto">
+      {SOUS[f].map(([k, l]) => (
+        <button key={k} type="button" onClick={() => setSous(x => ({ ...x, [f]: k }))}
+          className={sousActif === k ? 'onglet-page onglet-page-actif' : 'onglet-page'}>{l}</button>))}
+    </div>) : null);
 
   return (
-    /* LE MÊME DESSIN QUE L'ESPACE ENSEIGNANT (3.5.090, Charles : « tu me fais le même espace pour les étudiants ») : la
-       navigation à gauche sur ordinateur et iPad, une bande d'onglets qui défile sur téléphone, le logo de Lucie. */
-    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
-      {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
+    /* LE MÊME DESSIN QUE L'ESPACE ENSEIGNANT : le rail étroit à gauche (icônes, bulle au survol), une bande sur téléphone. */
+    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond)' }}>
       <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}</span></div>
-      {/* LE MÊME RAIL QUE L'ESPACE ENSEIGNANT (3.5.184) : étroit, icônes et bulles, le logo seul ; les onglets du bas (aide,
-          compte) au pied, comme chez les enseignants. */}
       <nav aria-label="Mon espace" className="md:w-14 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:px-1.5 md:py-4 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen">
         <div className="hidden md:flex justify-center pb-4"><LogoLucie hauteur={26} sansTexte className="" /></div>
         {FACES.filter(([k]) => !['aide', 'compte'].includes(k)).map(([k, l, I]) => (
           <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (k === 'messages' ? l : COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
         <div className="hidden md:block flex-1" />
         {FACES.filter(([k]) => ['aide', 'compte'].includes(k)).map(([k, l, I]) => (
-          <BoutonRail key={k} etroit f={{ k, l, I }} actif={face === k} onClick={() => setFace(k)} />))}
+          <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
         <div className="md:border-t border-slate-200 md:pt-3 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
           <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0 md:justify-center" onClick={quitter}
             title="Se déconnecter"><IconLogout size={15} /><span className="md:hidden"> Se déconnecter</span></button>
@@ -1217,60 +1211,84 @@ function Espace() {
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">
       <div className="space-y-4">
-        {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
-        {d?.apercu && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
-          Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</div>}
-        {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
-        <h1 className="titre-ecran">{(FACES.find(([k]) => k === face) || [])[1] || 'Mon espace'}{nom ? <span className="compte">{nom}</span> : null}</h1>
+        {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
+        {d?.apercu && <Encadre etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
+          Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</Encadre>}
+        {d?.candidat && <Encadre etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou jusqu’à votre adresse de l’institut.</Encadre>}
+        <h1 className="titre-ecran">{face === 'aujourdhui' ? `Bonjour ${d?.etudiant?.prenom || ''}` : (FACES.find(([k]) => k === face) || [])[1] || 'Mon espace'}
+          {face !== 'aujourdhui' && nom ? <span className="compte">{nom}</span> : null}</h1>
 
-        {d && face === 'resultats' && (d.resultats.length ? d.resultats.map(a => (
-          <section key={a.annee} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-            <h2 className="titre-carte px-4 py-2.5 border-b border-slate-100">{a.annee.replace('-', ' – ')}</h2>
-            <table className="w-full text-sm">
-              <tbody>
-                {a.ues.map(u => (
-                  <tr key={`${u.ue_num}-${u.decision}`} className="border-t border-slate-100 first:border-t-0">
-                    <td className="px-4 py-2 tabular-nums text-slate-500 w-20 whitespace-nowrap">UE {u.ue_num}</td>
-                    <td className="px-2 py-2">{u.ue_nom}</td>
-                    <td className="px-2 py-2 whitespace-nowrap"><span className="pastille-etat" style={{ background: ETAT_COULEUR[u.etat], color: '#fff' }}>{u.decision}</span></td>
-                    <td className="px-4 py-2 text-right font-semibold tabular-nums w-20">{u.note}{typeof u.note === 'number' ? ' /20' : ''}</td>
-                  </tr>))}
-              </tbody>
-            </table>
-          </section>))
-          : <p className="text-sm text-slate-500">Aucun résultat délibéré pour l’instant. Un résultat paraît ici quand la délibération de l’unité est close.</p>)}
-        {d && face === 'resultats' && d.resultats.length > 0 && (
-          <p className="text-xs text-slate-500">« NA » : non acquis. Seuls les résultats des délibérations closes paraissent ici ; ce qui fait foi reste la pièce que l’école vous remet.</p>)}
+        {/* AUJOURD'HUI : ce qui attend, une ligne par chose, qui mène où la faire. */}
+        {d && face === 'aujourdhui' && (() => {
+          const lignes = [
+            docsASigner.length > 0 && { k: 'docs', etat: 'surveiller', I: IconSignature, t: `${docsASigner.length} document(s) à ouvrir et à signer`, s: docsASigner.slice(0, 3).map(x => x.sujet).join(' · '), go: () => aller('documents') },
+            reglASigner.length > 0 && { k: 'regl', etat: 'surveiller', I: IconBook, t: `${reglASigner.length} règlement(s) à lire et à signer`, s: reglASigner.map(x => x.titre).join(' · '), go: () => aller('documents') },
+            nonLus > 0 && { k: 'msg', etat: 'disponible', I: IconMessages, t: `${nonLus} message(s) non lu(s)`, s: 'De l’école, de votre coordination, de vos enseignants', go: () => aller('messages') },
+            a_('pae') && { k: 'pae', etat: 'neutre', I: IconListCheck, t: 'Mon PAE', s: 'Les unités de mon programme, et ma proposition quand la fenêtre est ouverte', go: () => aller('parcours', 'pae') },
+            a_('resultats') && { k: 'res', etat: 'neutre', I: IconCertificate, t: 'Mes résultats', s: 'Les décisions des délibérations closes', go: () => aller('parcours', 'resultats') },
+            a_('frais') && { k: 'frais', etat: 'neutre', I: IconCash, t: 'Mes frais', s: 'Ce qui est dû, versé, ce qui reste — et le QR pour payer', go: () => aller('frais') },
+          ].filter(Boolean);
+          return lignes.length ? (
+            <ListeEtats>{lignes.map(l => <LigneEtat key={l.k} etat={l.etat} icone={l.I} titre={l.t} sous={l.s} onClick={l.go} />)}</ListeEtats>
+          ) : <p className="text-sm text-slate-500">Rien ne vous attend pour l’instant.</p>;
+        })()}
 
-        {d && face === 'documents' && (d.documents.length ? (
-          <div className="space-y-2">
-            {d.documents.map(doc => (
-              <div key={doc.id} className="bloc-etat px-4 py-3 flex flex-wrap items-center gap-3" data-etat={doc.signe_le ? 'reussi' : 'disponible'}>
-                <IconFileText size={18} className="text-slate-400 flex-none" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-iip-texte break-words">{doc.sujet}</div>
-                  <div className="text-xs text-slate-500 break-words">mis à disposition le {jourFr(doc.envoye_le)}{doc.reference ? ` · réf. ${doc.reference}` : ''}
-                    {doc.libre && doc.libre_jusqu_au ? ` · téléchargeable librement jusqu’au ${jourFr(doc.libre_jusqu_au)}` : ''}
-                    {!doc.libre ? ' · plus de 90 jours : un code est demandé' : ''}</div>
-                </div>
-                {doc.libre ? <button type="button" className="bouton" onClick={() => ouvrir(doc)}>Ouvrir</button>
-                  : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}
-                <div className="w-full"><Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} /></div>
-              </div>))}
-          </div>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.</p>)}
+        {/* MON PARCOURS : schéma et unités · résultats · PAE. */}
+        {face === 'parcours' && <Onglets f="parcours" />}
+        {face === 'parcours' && sousActif === 'parcours' && <MonParcours onErreur={echec} />}
+        {d && face === 'parcours' && sousActif === 'resultats' && (d.resultats.length ? (<>
+          {d.resultats.map(a => (
+            <section key={a.annee} className="carte overflow-hidden">
+              <EnteteCarte titre={a.annee.replace('-', ' – ')} />
+              <Tableau className="!border-0 !rounded-none">
+                <TableauEntete><Th>Unité</Th><Th>Intitulé</Th><Th>Décision</Th><Th align="droite">Note</Th></TableauEntete>
+                <tbody>{a.ues.map(u => (
+                  <Tr key={`${u.ue_num}-${u.decision}`}>
+                    <Td className="tabular-nums whitespace-nowrap">UE {u.ue_num}</Td><Td>{u.ue_nom}</Td>
+                    <Td><PastilleEtat etat={u.etat === 'reussi' ? 'reussi' : u.etat === 'surveiller' ? 'surveiller' : u.etat === 'corriger' ? 'corriger' : 'neutre'}>{u.decision}</PastilleEtat></Td>
+                    <Td align="droite" className="font-semibold tabular-nums">{u.note}{typeof u.note === 'number' ? ' /20' : ''}</Td>
+                  </Tr>))}</tbody>
+              </Tableau>
+            </section>))}
+          <p className="text-xs text-slate-500">« NA » : non acquis. Seuls les résultats des délibérations closes paraissent ici ; ce qui fait foi reste la pièce que l’école vous remet.</p>
+        </>) : <p className="text-sm text-slate-500">Aucun résultat délibéré pour l’instant. Un résultat paraît ici quand la délibération de l’unité est close.</p>)}
+        {face === 'parcours' && sousActif === 'pae' && <MonPAE onErreur={echec} email={d?.etudiant?.email} />}
 
-        {d && face === 'aide' && <AideRegles reglements={d.reglements} onLire={lireTexte} Accuse={Accuse} onFait={charger} onErreur={echec} />}
-        {face === 'parcours' && <MonParcours onErreur={echec} />}
-        {face === 'frais' && <MesFrais onErreur={echec} />}
-        {face === 'tfe' && <MonTfe appel={appel} jeton={lire} onErreur={echec} />}
-        {face === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
-        {face === 'stage' && <MonStage appel={appel} onErreur={echec} />}
+        {/* MES DOCUMENTS : les pièces de l'école, puis les règlements — tout ce qui se signe au même endroit. */}
+        {d && face === 'documents' && (<>
+          {a_('documents') && (d.documents.length ? (
+            <ListeEtats>
+              {d.documents.map(doc => (
+                <LigneEtat key={doc.id} etat={doc.signe_le ? 'reussi' : 'disponible'} icone={IconFileText} titre={doc.sujet}
+                  sous={`mis à disposition le ${jourFr(doc.envoye_le)}${doc.reference ? ` · réf. ${doc.reference}` : ''}${doc.libre && doc.libre_jusqu_au ? ` · libre jusqu’au ${jourFr(doc.libre_jusqu_au)}` : ''}${!doc.libre ? ' · plus de 90 jours : un code est demandé' : ''}`}
+                  droite={doc.libre ? <button type="button" className="bouton flex-none" onClick={() => ouvrir(doc)}>Ouvrir</button>
+                    : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}>
+                  <Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} />
+                </LigneEtat>))}
+            </ListeEtats>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.</p>)}
+          {d.reglements.length > 0 && (<>
+            <h2 className="intertitre pt-2">Les règlements</h2>
+            <ListeEtats>
+              {d.reglements.map(reg => (
+                <LigneEtat key={reg.cle} etat={reg.signe_le ? 'reussi' : 'disponible'} icone={IconBook} titre={reg.titre}
+                  sous={`Version ${reg.numero} · publiée le ${jourFr(reg.publiee_le)}`}
+                  droite={<button type="button" className="bouton flex-none" onClick={() => lireTexte(reg)}>Lire</button>}>
+                  <Accuse type="reglement" id={reg.version_id} presente={reg.presente_le} signe={reg.signe_le} onFait={charger} onErreur={echec} />
+                </LigneEtat>))}
+            </ListeEtats></>)}
+        </>)}
 
-        {d?.candidat && <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou
-          jusqu’à votre adresse de l’institut.</div>}
-        {face === 'va' && <MesValorisations onErreur={echec} />}
-        {face === 'pae' && <MonPAE onErreur={echec} email={d?.etudiant?.email} />}
         {face === 'messages' && <MesMessages onErreur={echec} onLus={setNonLus} />}
+
+        {/* MES DÉMARCHES : valorisation, TFE, stage, absences. */}
+        {face === 'demarches' && <Onglets f="demarches" />}
+        {face === 'demarches' && sousActif === 'va' && <MesValorisations onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'tfe' && <MonTfe appel={appel} jeton={lire} onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'stage' && <MonStage appel={appel} onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
+
+        {face === 'frais' && <MesFrais onErreur={echec} />}
+        {d && face === 'aide' && <AideRegles />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>
@@ -1280,7 +1298,9 @@ function Espace() {
         {texte && (
           <FenetreEspace titre={texte.titre} sous={`Version ${texte.numero}`} onFermer={() => setTexte(null)}
             pied={texte.source_url ? <a href={texte.source_url} target="_blank" rel="noreferrer" className="text-second text-iip-blue underline">Le texte officiel</a> : null}>
-            <div className="texte-corpus" dangerouslySetInnerHTML={{ __html: texte.contenu }} />
+            {/* Le texte, mis en page par Lucie, dans son cadre (3.5.203) : ses styles ne débordent pas sur l'espace. */}
+            <iframe title={texte.titre} sandbox="" className="w-full border-0" style={{ height: '70vh' }}
+              srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${texte.contenu || ''}`} />
           </FenetreEspace>)}
       </div>
       </main>

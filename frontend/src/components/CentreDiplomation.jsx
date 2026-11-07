@@ -7,7 +7,7 @@ import {
   IconSquareMinus, IconCertificate, IconEye, IconFileTypePdf, IconMail,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Fenetre, EnteteCarte } from './ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, PastilleEtat } from './ui.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import PreviewModal from './PreviewModal.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
@@ -248,7 +248,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
             <div className="font-semibold mb-0.5">Section</div>
             <select value={section}
               onChange={e => { setSection(e.target.value); if (e.target.value) charger(e.target.value); }}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm min-w-[200px]">
+              className="controle min-w-[200px]">
               <option value="">— choisir —</option>
               {sections.map(s => (
                 <option key={s.code || s} value={s.code || s}>
@@ -260,7 +260,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           <label className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Date de délibération</div>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+              className="controle" />
           </label>
           <div className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Pièces</div>
@@ -268,9 +268,9 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               {[['diplome', 'Diplôme'], ['provisoire', 'Attestation provisoire'], ['attestation', 'Attestation de section'],
                 ['supplement', 'Supplément au diplôme'], ['liste', 'Liste des diplômés'], ['pv', 'PV de section']].map(([k, l]) => (
                 <button key={k} onClick={() => setVeut(v => ({ ...v, [k]: !v[k] }))}
-                  className={`px-2 py-1.5 text-second rounded-lg border font-medium
-                    ${veut[k] ? 'bg-iip-blue border-iip-blue text-white'
-                      : 'bg-white border-slate-300 text-slate-600'}`}>
+                  aria-pressed={!!veut[k]}
+                  style={veut[k] ? { background: 'var(--c-principal)', borderColor: 'var(--c-principal)', color: '#fff' } : undefined}
+                  className="bouton bouton-compact">
                   {l}
                 </button>
               ))}
@@ -300,8 +300,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   const corps = (
         <div className={integre ? 'flex-1 overflow-y-auto px-5 py-3 space-y-3 text-sm' : 'space-y-3 text-sm'}>
           {erreur && (
-            <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
-                            text-rose-900">{erreur}</div>
+            <Encadre etat="corriger">{erreur}</Encadre>
           )}
           {!!produits?.length && (
             <section className="carte overflow-hidden">
@@ -316,11 +315,11 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                       <div className="text-xs text-slate-500">{p.detail}</div>
                     </div>
                     <button onClick={() => setApercu(p)}
-                      className="bouton controle px-3 flex items-center gap-1.5">
+                      className="bouton flex items-center gap-1.5">
                       <IconEye size={15} /> Aperçu et impression
                     </button>
                     <button onClick={() => enPdf(p)} disabled={!!pdfEnCours}
-                      className="bouton-sortir controle px-3 flex items-center gap-1.5
+                      className="bouton bouton-sortir flex items-center gap-1.5
                                  disabled:opacity-40">
                       <IconFileTypePdf size={15} />
                       {pdfEnCours === p.cle ? 'Rendu…' : 'PDF'}
@@ -328,7 +327,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                     {p.envoi && envoiMail?.actif && peutGeste('envois.envoyer') && (
                       <button onClick={() => setEnvoi(p)} disabled={!p.envoi.length}
                         title="Chaque étudiant reçoit SA pièce, à son adresse de l'école"
-                        className="bouton controle px-3 flex items-center gap-1.5
+                        className="bouton flex items-center gap-1.5
                                    disabled:opacity-40">
                         <IconMail size={15} /> Envoyer aux étudiants
                       </button>
@@ -337,9 +336,8 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                 ))}
               </div>
               {!!manques.length && (
-                <div className="px-3 py-2 border-t border-amber-200 bg-amber-50
-                                text-second text-amber-900 flex items-start gap-2">
-                  <IconAlertTriangle size={14} className="mt-px flex-none" />
+                <div data-etat="surveiller" className="bloc-etat !rounded-none border-x-0 border-b-0 px-3 py-2 text-second flex items-start gap-2">
+                  <IconAlertTriangle size={14} className="mt-px flex-none" style={{ color: 'var(--c-attente)' }} />
                   <span>
                     <b>{manques.length} champ(s) à compléter</b> avant signature :{' '}
                     {manques.slice(0, 4).join(' · ')}{manques.length > 4 ? ' …' : ''}
@@ -359,9 +357,8 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           {d && !enCours && (
             <>
               {!!d.determinantes_sans_periodes?.length && (
-                <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
-                                text-amber-900 flex items-start gap-2">
-                  <IconAlertTriangle size={15} className="mt-px flex-none" />
+                <div data-etat="surveiller" className="bloc-etat px-3 py-2 flex items-start gap-2">
+                  <IconAlertTriangle size={15} className="mt-px flex-none" style={{ color: 'var(--c-attente)' }} />
                   <span>
                     <b>Unité(s) déterminante(s) sans périodes</b> :{' '}
                     {d.determinantes_sans_periodes.join(', ')}. Elles pèsent alors
@@ -383,7 +380,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                   Personne n'est en conditions dans cette section.
                 </p>
               ) : (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="carte overflow-hidden">
                   <div className="px-3 py-1.5 tab-entete flex items-center gap-2.5
                                   text-second text-slate-600">
                     <button onClick={tous ? decocherTout : cocherTout}
@@ -422,16 +419,12 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                                 {nomPropre(x.nom, x.prenom)}
                               </span>
                               {x.mention.mention ? (
-                                <span className="text-xs px-1.5 py-px rounded
-                                                 bg-slate-100 text-slate-700 font-medium">
+                                <PastilleEtat etat="neutre">
                                   {x.mention.mention} ·{' '}
                                   {String(x.mention.pourcent).replace('.', ',')} %
-                                </span>
+                                </PastilleEtat>
                               ) : (
-                                <span className="text-xs px-1.5 py-px rounded
-                                                 bg-red-50 text-red-700 font-medium">
-                                  sans mention
-                                </span>
+                                <PastilleEtat etat="corriger">sans mention</PastilleEtat>
                               )}
                               {x.annee_fin !== annee && (
                                 <span className="text-xs text-slate-400">
@@ -447,26 +440,23 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {x.determinantes.map(u => (
-                                <span key={u.ue_num}
-                                  title={`${u.ue_nom || ''} · ${u.periodes || '?'} périodes`}
-                                  className={`text-mention px-1.5 py-px rounded border
-                                    ${u.cote == null
-                                      ? 'bg-red-500 border-red-500 text-white'
-                                      : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                                <PastilleEtat key={u.ue_num} etat={u.cote == null ? 'corriger' : 'neutre'}
+                                  title={`${u.ue_nom || ''} · ${u.periodes || '?'} périodes`}>
                                   {u.ue_num} : {u.cote == null ? '—'
                                     : `${Math.round(u.cote)}/20`}
-                                </span>
+                                </PastilleEtat>
                               ))}
                               {x.epreuve && (
-                                <span className="text-mention px-1.5 py-px rounded border
-                                                 bg-violet-50 border-violet-200 text-violet-800">
+                                <span className="pastille-etat" data-etat="neutre"
+                                  style={{ boxShadow: 'inset 3px 0 0 var(--c-epreuve, #C9A227)' }}
+                                  title="Épreuve intégrée">
                                   EI {x.epreuve.ue_num} : {x.epreuve.cote == null ? '—'
                                     : `${Math.round(x.epreuve.cote)}/20`}
                                 </span>
                               )}
                             </div>
                             {!!x.reserves.length && (
-                              <ul className="mt-1 text-xs text-amber-800">
+                              <ul className="mt-1 text-xs" style={{ color: 'var(--c-attente)' }}>
                                 {x.reserves.map((r, i) => (
                                   <li key={i} className="flex items-start gap-1">
                                     <IconClock size={11} className="mt-0.5 flex-none" />
@@ -496,7 +486,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
              s'imprime par le PDF du serveur, qui posait le pied de Lucie faute qu'on lui dise le contraire. */
           pdf={apercu.paysage ? { orientation: 'paysage', pied: false, page_css: true } : undefined}
           astuceImpression={apercu.paysage
-            ? "⊞ « Paysage », marges « Aucune », sur le papier à diplôme" : null}
+            ? "« Paysage », marges « Aucune », sur le papier à diplôme" : null}
           onClose={() => setApercu(null)} />
       )}
       {envoi && (
@@ -512,17 +502,17 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   if (integre) {
     return (
       <div>
-      <div className="flex flex-col border border-slate-200 rounded-carte">
+      <div className="carte flex flex-col">
         {/* LE BOUTON EN HAUT, JAMAIS AU BAS DE CE QUI DÉFILE (Charles, 2 octobre
             2026 : « jamais un bouton ne doit être en bas d'une fenêtre, il faut
             dérouler pour le trouver »). */}
         {d && (
-          <div className="flex-none px-5 py-3 border-b border-slate-100 bg-white flex items-center
+          <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-center
                           justify-between gap-3">
             <p className="text-xs text-slate-500">
               <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
               {d.total.provisoires > 0 && (
-                <span className="text-amber-700">
+                <span style={{ color: 'var(--c-attente)' }}>
                   {' '}· {d.total.provisoires} dossier(s) dont une séance reste ouverte
                 </span>
               )}
@@ -549,7 +539,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           <span className="text-xs text-slate-500">
             <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
             {d.total.provisoires > 0 && (
-              <span className="text-amber-700">
+              <span style={{ color: 'var(--c-attente)' }}>
                 {' '}· {d.total.provisoires} dossier(s) dont une séance reste ouverte
               </span>
             )}

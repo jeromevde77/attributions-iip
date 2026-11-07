@@ -3,7 +3,7 @@ import { couleurBloc } from '../lib/blocs.js';
 import { codeGroupe, suiteGroupes, trierCodes, rangCouleur } from '../lib/groupes.js';
 import { estDirection } from '../lib/modules.js';
 import { useDroits } from '../lib/droits.js';
-import { VoletRail, Fenetre, Chevron, Encadre } from '../components/ui.jsx';
+import { VoletRail, Fenetre, Chevron, Encadre, PastilleEtat, Tableau, TableauEntete, Th, Tr } from '../components/ui.jsx';
 import ImportAttributionsHistorique from '../components/ImportAttributionsHistorique.jsx';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
@@ -328,7 +328,7 @@ const DEFAULT_COLS = [
   { key: 'bloc',                  label: 'Bloc',       width: 70,  rowClickable: true, flatOnly: true },
   { key: 'num_organisation',      label: 'Org.',       width: 60,  num: true, edit: 'select', flatOnly: true,
     options: [['1','1'],['2','2'],['3','3'],['4','4']],
-    render: v => v && v > 1 ? <span className="bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-400">{v || 1}</span> },
+    render: v => v && v > 1 ? <PastilleEtat etat="neutre">{v}</PastilleEtat> : <span className="text-gray-400">{v || 1}</span> },
   { key: 'quadrimestre_attribue', label: 'Quadri',     width: 110, edit: 'select', flatOnly: true,
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
   { key: 'code_cours',            label: 'Code',       width: 70,  rowClickable: true, coursOnly: true },
@@ -353,7 +353,7 @@ const DEFAULT_COLS = [
     options: [['','—'],['CC','CC'],['EXP','EXP']] },
   { key: 'titre_rtf',             label: 'Titre',      width: 64, edit: 'select',
     options: [['','—'],['R','R — Titre requis'],['TR','TR — Titre requis (RTF)'],['TS','TS — Titre suffisant'],['TPL','TPL — Pénurie listé'],['TPNL','TPNL — Pénurie non listé'],['ATS','ATS — Assim. suffisant'],['ATP','ATP — Assim. pénurie listé'],['A','A — Suffisant gr. A'],['3B','3B — Suffisant gr. B (3 déc.)'],['Art. 20','Art. 20 (WBE)']],
-    render: v => v ? <span className="bg-indigo-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
+    render: v => v ? <PastilleEtat etat="fort">{v}</PastilleEtat> : <span className="text-gray-300">—</span> },
   { key: 'type_cours_helb',       label: 'HELB',       width: 60, edit: 'select', helbOnly: true,
     options: [['','—'],['MFP','MFP'],['MA','MA']],
     render: v => v ? <span className="bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
@@ -869,8 +869,8 @@ export default function Attributions() {
      l'alerte — alors qu'aucun des deux ne signale rien : tout passe en gris,
      et le quadrimestre non défini, lui seul, se voit en pointillé. */
   function quadriStyle(q) {
-    return q ? 'bg-white border border-slate-200 text-slate-600'
-             : 'bg-white border border-dashed border-slate-300 text-slate-400';
+    return q ? 'border border-[color:var(--c-filet)] text-slate-600'
+             : 'border border-dashed border-slate-300 text-slate-400';
   }
   async function changeQuadri(ue, sec, org, q) {
     setQuadriMenu(null);
@@ -1194,9 +1194,9 @@ export default function Attributions() {
     A: { bg: 'var(--c-disponible)', color: '#FFFFFF', border: 'var(--c-disponible)' },
     B: { bg: 'var(--c-reussi)', color: '#FFFFFF', border: 'var(--c-reussi)' },
     C: { bg: 'var(--c-attente)', color: '#FFFFFF', border: 'var(--c-attente)' },
-    D: { bg: '#FCE7F3', color: 'var(--c-texte)', border: 'rgb(var(--gris-200))' },
+    D: { bg: 'var(--c-helb)', color: '#FFFFFF', border: 'var(--c-helb)' },
     E: { bg: 'var(--c-faveur)', color: '#FFFFFF', border: 'var(--c-faveur)' },
-    F: { bg: 'var(--c-refuse)', color: '#FFFFFF', border: 'rgb(var(--gris-200))' },
+    F: { bg: 'var(--c-refuse)', color: '#FFFFFF', border: 'var(--c-refuse)' },
   };
 
   // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
@@ -1394,7 +1394,7 @@ export default function Attributions() {
     const isHelb = row.contrat_mdp === 'HELB';
     const isZ = row.is_z === true;
     const aValider = !isZ && (row.valide === 0 || row.valide === '0' || row.valide === false);
-    const rowBg = isZ ? 'text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50/60' : (row.en_conge ? 'opacity-50 bg-gray-50' : (aValider ? 'bg-orange-50' : ''));
+    const rowBg = isZ ? 'text-gray-500 italic' : selected.has(row.id) ? 'ligne-active' : (row.en_conge ? 'opacity-50' : (aValider ? 'bg-orange-50' : ''));
     // Ligne Z : synthétique (activités 7.3), non éditable, sans prof ni charge.
     if (isZ) {
       return (
@@ -1419,7 +1419,7 @@ export default function Attributions() {
         {colSet.map(c => {
           const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
-          const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
+          const cClass = c.rowClickable ? 'cursor-pointer' : '';
           if (c.key==='__select') return <td key={c.key} className="text-center" style={sty}><input type="checkbox" checked={selected.has(row.id)} onChange={()=>toggleSelect(row.id)} className="cursor-pointer"/></td>;
           if (c.key==='__valide') {
             const ok = !!row.valide && row.valide !== '0';
@@ -1469,14 +1469,14 @@ export default function Attributions() {
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
                 {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-mention text-iip-blue font-bold">R</span>}
                 {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-mention px-1 py-0 rounded font-bold text-iip-texte border border-[color:var(--c-attente)]">RT</span>}
-                {badge === 'EXT' && <span className="text-mention px-1 py-0 rounded font-bold bg-teal-500 text-white border border-teal-500 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
-                {badge === 'DOT' && <span className="text-mention px-1 py-0 rounded font-bold bg-orange-500 text-white border border-orange-500 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
-                {badge === 'EXT+DOT' && <span className="text-mention px-1 py-0 rounded font-bold bg-purple-500 text-white border border-purple-500 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
+                {badge === 'EXT' && <PastilleEtat etat="reussi" className="shrink-0" title="Couvert par l'enveloppe externe">EXT</PastilleEtat>}
+                {badge === 'DOT' && <PastilleEtat etat="surveiller" className="shrink-0" title="Dépasse le plafond → dotation organique">DOT</PastilleEtat>}
+                {badge === 'EXT+DOT' && <PastilleEtat etat="neutre" className="shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</PastilleEtat>}
                 <div className="flex-1 min-w-0">{select}</div>
                 {peutEcrireAttr && (!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
                   <button onClick={e=>{e.stopPropagation(); if(recrutMenu?.rowId===row.id){setRecrutMenu(null);}else{const r=e.currentTarget.getBoundingClientRect(); ouvrirRecrut(row, {top:r.bottom+4, right:window.innerWidth-r.right});}}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
                 )}
-                {peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-mention font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}
+                {peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-mention font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'text-amber-700 border-amber-500' : 'text-gray-400 border-[color:var(--c-filet)] hover:border-amber-400 hover:text-amber-600'}`}>C</button>}
               </div>
 
               {!verrous[row.id] && alertesCours[row.id] && <div className="text-mention text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
@@ -1512,13 +1512,13 @@ export default function Attributions() {
             return <td key={c.key} style={sty} className="text-center">
               <button onClick={e=>{e.stopPropagation(); saveCell(row.id,'helb_nature', nat==='CT'?'TP':'CT');}}
                 title={nat==='CT' ? 'Théorie (cliquer pour travaux pratiques)' : 'Travaux pratiques (cliquer pour théorie)'}
-                className={`text-mention font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-indigo-500 text-white border-indigo-500'}`}>
+                className="pastille-etat cursor-pointer" data-etat={nat==='TP' ? 'disponible' : 'fort'}>
                 {nat==='TP' ? 'TP' : 'TH'}
               </button>
             </td>;
           }
           const v = row[c.key]; const display = c.render ? c.render(v,row) : v;
-          if (c.readonly) return <td key={c.key} style={sty} onClick={click} className={`${c.num?'num':''} bg-gray-100 text-gray-500 ${cClass}`} title={c.tooltip}>{v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):<span className="text-gray-300">—</span>}</td>;
+          if (c.readonly) return <td key={c.key} style={sty} onClick={click} className={`${c.num?'num':''} text-gray-500 ${cClass}`} title={c.tooltip}>{v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):<span className="text-gray-300">—</span>}</td>;
           if (c.edit==='number') {
             /* LE PLAFOND EST UNE PROPRIÉTÉ DU COURS, PAS DE CHAQUE LIGNE.
                « /120 » et « /40 » viennent de la table cours (cours_per,
@@ -1561,8 +1561,8 @@ export default function Attributions() {
             const lettre    = estGroupe ? codeVal : 'Ts';
             // BADGE_COLORS défini au niveau composant
             const badgeStyle = estGroupe
-              ? (badge(lettre) || { bg: '#F3F4F6', color: 'var(--c-texte)', border: '#E5E7EB' })
-              : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
+              ? (badge(lettre) || { bg: 'rgb(var(--gris-100))', color: 'var(--c-texte)', border: 'var(--c-filet, rgb(var(--gris-200)))' })
+              : { bg: 'rgb(var(--gris-50))', color: 'rgb(var(--gris-400))', border: 'var(--c-filet, rgb(var(--gris-200)))' };
 
             // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
             const freres = data.filter(r =>
@@ -1646,14 +1646,14 @@ export default function Attributions() {
                 {menuOuvert && (
                   <>
                     <div style={{position:'fixed',inset:0,zIndex:998}} onClick={e=>{e.stopPropagation();setBadgeMenuOpen(null);}} />
-                    <div style={{position:'fixed',zIndex:999,background:'var(--blanc)',border:'1px solid #E2E8F0',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.15)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,
+                    <div style={{position:'fixed',zIndex:999,background:'var(--blanc)',border:'1px solid var(--c-filet, rgb(var(--gris-200)))',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.15)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,
                       top: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.bottom + 4; })(),
                       left: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.left; })(),
                     }}>
                       {toutesLettres.map(l => {
                         const prise = !!lettreAFrere[l];
                         const courante = l === lettre;
-                        const bs = badge(l) || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
+                        const bs = badge(l) || { bg:'rgb(var(--gris-100))', color:'var(--c-texte)', border:'var(--c-filet, rgb(var(--gris-200)))' };
                         return (
                           <span key={l}
                             onClick={e => { e.stopPropagation(); assignerLettre(l); }}
@@ -1677,15 +1677,15 @@ export default function Attributions() {
                 {/* Toggle split / groupe */}
                 {!row.is_z && <>
                   <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? 'var(--c-texte)' : '#D1D5DB' }}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? 'var(--c-texte)' : 'rgb(var(--gris-300))' }}
                     onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='var(--c-reussi)';}}
-                    onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='#D1D5DB';}}>
+                    onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='rgb(var(--gris-300))';}}>
                     <IconScissors size={13}/>
                   </button>
                   <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? 'var(--c-texte)' : '#D1D5DB' }}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? 'var(--c-texte)' : 'rgb(var(--gris-300))' }}
                     onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='var(--c-reussi)';}}
-                    onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='#D1D5DB';}}>
+                    onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='rgb(var(--gris-300))';}}>
                     <IconUsersGroup size={13}/>
                   </button>
                 </>}
@@ -1704,7 +1704,7 @@ export default function Attributions() {
           if (c.key==='type_cours_helb') {
             if (row.contrat_mdp !== 'HELB') {
               // Non applicable hors HELB : cellule grisée, non éditable
-              return <td key={c.key} style={sty} className="bg-gray-100 text-gray-300 text-center" title="Réservé au contrat HELB">—</td>;
+              return <td key={c.key} style={sty} className="text-gray-300 text-center" title="Réservé au contrat HELB">—</td>;
             }
             return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
           }
@@ -1725,7 +1725,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-mention text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>{peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-mention font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}</div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-mention text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-mention text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>{peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-mention font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'text-amber-700 border-amber-500' : 'text-gray-400 border-[color:var(--c-filet)] hover:border-amber-400 hover:text-amber-600'}`}>C</button>}</div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-mention text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           /* LE STATUT SE DEMANDE, IL NE SE DEVINE PAS.
              Une liste déroulante invisible posée sur le badge écrivait dans la
              fiche du MDP sans jamais le dire : on croyait corriger une ligne,
@@ -1768,8 +1768,8 @@ export default function Attributions() {
                 ) : (
                   <button onClick={ouvrir} title="Aucun statut défini pour ce membre du personnel — cliquer pour le définir"
                     className="inline-flex items-center justify-center min-w-[2rem] h-5 px-1 rounded-md
-                               text-mention font-bold leading-none bg-amber-100 text-amber-800
-                               ring-1 ring-inset ring-amber-500/40">?</button>
+                               text-mention font-bold leading-none text-white
+                               bg-[color:var(--c-attente)]">?</button>
                 )}
               </div>
             </td>;
@@ -1819,15 +1819,15 @@ export default function Attributions() {
       const memePer  = lignes.every(l => Number(l.periodes_attribuees) === Number(lignes[0].periodes_attribuees));
       const tPer = lignes.reduce((s,l)=>s+(Number(l.periodes_attribuees)||0),0);
       out.push(
-        <tr key={voletKey} className="bg-iip-gold/5 border-y border-iip-gold/20 cursor-pointer hover:bg-iip-gold/10"
+        <tr key={voletKey} className="tab-repere cursor-pointer"
             onClick={()=>setOpenActs(s=>{const n=new Set(s);n.has(voletKey)?n.delete(voletKey):n.add(voletKey);return n;})}>
           <td className="text-center"><Chevron ouvert={ouvert} size={14} className="text-gray-400 text-xs" /></td>
           <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5 h-9">
             <span className="inline-flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-xs font-bold">{lignes.length}</span>
+              <PastilleEtat etat="fort">{lignes.length}</PastilleEtat>
               <span className="text-sm font-medium text-gray-700">{nom}</span>
               <span className="text-xs text-gray-400">· {tPer}p sur {lignes.length} groupes</span>
-              {!memeProf && <span className="text-mention text-white bg-amber-500 px-1.5 py-0.5 rounded">profs différents</span>}
+              {!memeProf && <PastilleEtat etat="surveiller">profs différents</PastilleEtat>}
               {!memePer && <span className="text-mention text-gray-400">périodes variables</span>}
             </span>
           </td>
@@ -1858,7 +1858,7 @@ export default function Attributions() {
       <div key={key} id={'cours-'+cg.code_cours} className="border-t border-gray-100">
         {/* Ouverte, la bande prend le fond de son en-tête : les deux ne font
             plus qu'un bloc, et c'est ce bloc qui dit « ce cours ». */}
-        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 transition text-left text-sm ${open ? 'bg-slate-50' : 'hover:bg-gray-100/60'} ${isZCours ? 'opacity-70' : ''}`}>
+        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 transition text-left text-sm ${open ? 'tab-repere' : 'ligne-maison !border-b-0'} ${isZCours ? 'opacity-70' : ''}`}>
           <Chevron ouvert={open} size={14} className="text-gray-400" />
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
           <span className={`truncate ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
@@ -1871,7 +1871,7 @@ export default function Attributions() {
             </span>;
           })()}
           <span className="flex-1"></span>
-          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-iip-turquoise/10 text-iip-blue':'bg-purple-500 text-white'}`}>{cg.type_cours}</span>}
+          {cg.type_cours && <PastilleEtat etat={isZCours ? 'indisponible' : cg.type_cours==='CT' ? 'disponible' : 'neutre'}>{cg.type_cours}</PastilleEtat>}
           {isZCours
             ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
             : <>
@@ -1881,9 +1881,9 @@ export default function Attributions() {
                   const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
                   if (!cc || !cc.dp) return null;
                   if (cc.est_multiple) {
-                    return <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white border border-green-500" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
+                    return <PastilleEtat etat="reussi" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</PastilleEtat>;
                   }
-                  return <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500 text-white border border-orange-500" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
+                  return <PastilleEtat etat="surveiller" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</PastilleEtat>;
                 })()}
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
                 {/* « 159p sur 120 » dit d'un coup d'œil qu'on a dépassé — ce que
@@ -1901,7 +1901,7 @@ export default function Attributions() {
           }
         </button>
         {open && (
-          <div className="overflow-y-auto overflow-x-hidden max-h-[40vh] bg-white fusion-cours">
+          <div className="overflow-y-auto overflow-x-hidden max-h-[40vh] fusion-cours" style={{ background: 'var(--blanc)' }}>
             <table className="grid-excel-soft w-full" style={{tableLayout:'fixed'}}>
               {montrerHeader && (<thead><tr>
                 {COLS_COURS.map(c => c.key==='__select'
@@ -1969,7 +1969,7 @@ export default function Attributions() {
               : isTC ? 'border-b border-gray-100 border-l-2 border-l-[color:var(--c-accent)]'
               : 'border-b border-gray-100')
       }`}>
-        <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
+        <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? 'ligne-active' : 'ligne-maison !border-b-0'}`}>
           <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 200px 1fr auto' }}>
             <Chevron ouvert={open} size={14} className="text-iip-gold" />
@@ -1982,7 +1982,7 @@ export default function Attributions() {
                 sont des mentions, aucun ne signale un état. */}
             <span className="min-w-0 overflow-hidden" onClick={e=>e.stopPropagation()}>
               <span className="bloc-etat etat-neutre relative inline-flex items-stretch whitespace-nowrap text-xs text-slate-600 divide-x divide-slate-200"
-                style={{ borderLeftColor: couleurBloc(ue.bloc) || '#D8DCE4' }}>
+                style={{ borderLeftColor: couleurBloc(ue.bloc) || 'var(--c-filet, rgb(var(--gris-200)))' }}>
                 {ue.bloc && <span className="px-1.5 py-0.5 font-semibold text-iip-blue">{ue.bloc}</span>}
                 <button disabled={!peutEcrireAttr} onClick={(e)=>{
                     const r = e.currentTarget.getBoundingClientRect();
@@ -2012,19 +2012,19 @@ export default function Attributions() {
               </span>
                 {quadriMenu===key && createPortal(
                   <div style={{ position:'fixed', top: quadriMenuPos.top, left: quadriMenuPos.left, transform:'translateY(-100%)' }}
-                    className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-28">
+                    className="z-[9999] carte !bg-[var(--blanc)] shadow-dessus py-1 w-28">
                     {[['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']].map(([val,lbl])=>(
                       <button key={val} onClick={()=>changeQuadri(ue, sec, org, val)}
-                        className="w-full text-left px-3 py-1 text-sm hover:bg-iip-gold/10">{lbl}</button>
+                        className="ligne-maison !border-b-0 w-full text-left px-3 py-1 text-sm">{lbl}</button>
                     ))}
                   </div>, document.body
                 )}
                   {orgMenu===key && createPortal(
                   <div style={{ position:'fixed', top: orgMenuPos.top, left: orgMenuPos.left, transform:'translateY(-100%)' }}
-                    className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-32">
+                    className="z-[9999] carte !bg-[var(--blanc)] shadow-dessus py-1 w-32">
                     {[1,2,3,4].filter(n=>n!==org).map(n => (
                       <button key={n} onClick={()=>renumeroterOrg(ue, sec, org, n)}
-                        className="w-full flex items-center gap-1.5 text-left px-3 py-1 text-sm hover:bg-amber-50">
+                        className="ligne-maison !border-b-0 w-full flex items-center gap-1.5 text-left px-3 py-1 text-sm">
                         <IconChevronRight size={12} className="text-amber-500 flex-shrink-0"/> Orga {n}
                       </button>
                     ))}
@@ -2036,14 +2036,14 @@ export default function Attributions() {
               {ctrlPourUE(ue.ue_num, ue.num_organisation) && (() => {
                 const a = ctrlPourUE(ue.ue_num, ue.num_organisation);
                 if (a.ok) {
-                  return <span className="text-mention px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-reussi, #3E7D5E)' }} title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
+                  return <PastilleEtat etat="reussi" className="flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</PastilleEtat>;
                 }
                 const msg = a.multiple_obligatoire
                   ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
                   : a.depasse_max
                     ? `Autonomie ${a.aut_attribuee} > max ${a.max} → utiliser EPT ligne 96`
                     : `Autonomie ${a.aut_attribuee} hors intervalle [${a.min} ; ${a.max}]`;
-                return <span className="text-mention px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-attente, #E8890C)' }} title={msg}>aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
+                return <PastilleEtat etat="surveiller" className="flex-shrink-0" title={msg}>aut. {a.aut_attribuee}/[{a.min}–{a.max}]</PastilleEtat>;
               })()}
             </span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
@@ -2060,27 +2060,27 @@ export default function Attributions() {
           {/* Bouton Organiser les groupes (Ts / A,B,C… par cours) — cette UE seule */}
           <button onClick={(e)=>{ e.stopPropagation(); setGroupesUE({ portee:'ue', section: sec, ues:[{ ...ue, section: sec }] }); }}
                   title="Organiser les groupes des cours de cette UE"
-                  className="flex-shrink-0 ml-2 px-2 h-7 flex items-center gap-1 justify-center rounded-champ text-xs font-medium transition bg-gray-100 text-gray-500 hover:bg-iip-mauve/15 hover:text-iip-mauve">
+                  className="bouton flex-shrink-0 ml-2 !h-7 !px-2 text-xs">
                   <IconUsersGroup size={14}/>Groupes
           </button>
           {/* Bouton Réouvrir : crée une nouvelle organisation */}
           {viewMode!=='coord' && peutEcrireAttr && (
           <button onClick={(e)=>{e.stopPropagation(); reouvrirUE(ue, sec);}}
                   title="Réouvrir cette UE (nouvelle organisation)"
-                  className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-mauve/10 hover:bg-iip-mauve hover:text-white text-iip-mauve transition" style={{fontSize:'0.9rem'}}>⧉</button>
+                  className="bouton flex-shrink-0 ml-2 !w-7 !h-7 !px-0" style={{fontSize:'0.9rem'}}>⧉</button>
           )}
           {/* Bouton + : ajouter une ligne / un cours */}
           {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
-                  className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>}
+                  className="bouton flex-shrink-0 ml-2 !w-7 !h-7 !px-0 font-bold">+</button>}
           {addMenuUE?.key===key && (
-            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-64"
+            <div className="fixed z-50 carte !bg-[var(--blanc)] shadow-dessus py-1 w-64"
               style={{top: menuPos.top, right: menuPos.right}}
               onClick={e=>e.stopPropagation()}>
               <div className="px-3 py-1.5 h-9 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
               {ue.cours.filter(cg => cg.type_cours !== 'Z').map(cg => (
                 <button key={cg.code_cours} onClick={()=>{ setEditRow({section: sec, code_cours: cg.code_cours}); setAddMenuUE(null); }}
-                        className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
+                        className="ligne-maison !border-b-0 w-full text-left px-3 py-1.5 h-9 text-sm flex items-center gap-2">
                   <span className="text-iip-gold">＋</span>
                   <span className="truncate">Ligne sur <b>{cg.code_cours}</b> — {cg.nom_cours}</span>
                 </button>
@@ -2088,7 +2088,7 @@ export default function Attributions() {
               {/* Cours du référentiel (DP) sans aucune ligne d'attribution — re-créables */}
               {coursManquants.length > 0 && (
                 <>
-                  <div className="px-3 py-1.5 h-9 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50 border-l-4 border-l-amber-500">Cours du DP sans ligne (à rétablir)</div>
+                  <div className="bloc-etat px-3 py-1.5 text-xs font-semibold" data-etat="surveiller">Cours du DP sans ligne (à rétablir)</div>
                   {coursManquants.map(cm => (
                     <button key={cm.cours_code} onClick={async ()=>{
                         try {
@@ -2097,7 +2097,7 @@ export default function Attributions() {
                           load();
                         } catch(err){ informer('Erreur : ' + err.message); }
                       }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-amber-100 flex items-center gap-2">
+                      className="ligne-maison !border-b-0 w-full text-left px-3 py-1.5 h-9 text-sm flex items-center gap-2">
                       <span className="text-amber-600">↻</span>
                       <span className="truncate">Rétablir <b>{cm.cours_code}</b> — {cm.cours_nom} <span className="text-gray-400">({cm.cours_per}p {cm.ct_pp})</span></span>
                     </button>
@@ -2105,32 +2105,32 @@ export default function Attributions() {
                 </>
               )}
               <button onClick={()=>{ setNewCoursForm({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom, num_organisation: org}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
+                      className="ligne-maison !border-b-0 w-full text-left px-3 py-1.5 h-9 text-sm text-iip-texte border-t border-gray-100 flex items-center gap-2">
                 <span>＋</span><span>Nouveau cours dans cette UE</span>
               </button>
               <button onClick={()=>{ setEptModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-iip-turquoise/5 text-iip-blue border-t border-gray-100 flex items-center gap-2">
+                      className="ligne-maison !border-b-0 w-full text-left px-3 py-1.5 h-9 text-sm text-iip-texte border-t border-gray-100 flex items-center gap-2">
                 <IconClipboardText size={15}/><span>Lignes EPT (95-99)</span>
               </button>
               <button onClick={()=>{ setOrgModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-teal-500">
+                      className="ligne-maison !border-b-0 w-full text-left px-3 py-1.5 h-9 text-sm text-iip-texte border-t border-gray-100 flex items-center gap-2">
                 <IconCalendar size={15}/><span>Organisations (Doc A)</span>
               </button>
               {/* LA BASCULE (30 septembre 2026) : les lignes cochées passent dans
                   une autre organisation — l'Orthoptie pour le tronc commun. */}
               <button onClick={()=>{ setBasculeUE(ue.ue_num); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-slate-50 text-iip-blue border-t border-gray-100 flex items-center gap-2">
+                      className="ligne-maison !border-b-0 w-full text-left px-3 py-1.5 h-9 text-sm text-iip-texte border-t border-gray-100 flex items-center gap-2">
                 <IconArrowsSplit size={15}/><span>Répartir entre organisations</span>
               </button>
               <button onClick={()=>{ setDoc23Modal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-purple-500">
+                      className="ligne-maison !border-b-0 w-full text-left px-3 py-1.5 h-9 text-sm text-iip-texte border-t border-gray-100 flex items-center gap-2">
                 <IconFileText size={15}/><span>DOC2 / DOC3</span>
               </button>
             </div>
           )}
         </div>
         {open && (
-          <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
+          <div className={activeUE === key ? 'ligne-active' : ''}>
             {(() => {
               const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
               /* QUAND TOUT VA BIEN, RIEN (Charles, 3 octobre 2026 : « la barre n'a
@@ -2138,12 +2138,13 @@ export default function Attributions() {
                  de la ligne d'UE le dit. Le bandeau ne paraît que pour un écart,
                  blanc à liseré, texte lisible — « on ne sait pas lire le gris ». */
               if (!ctrl || !ctrl.message || ctrl.etat === 'ok') return null;
-              const liseré = { sous: 'var(--c-attente, #E8890C)', 'dépassement': 'var(--c-refuse, #9D4A38)', cours: 'var(--c-attente, #E8890C)' }[ctrl.etat] || '#94A3B8';
+              const etatAut = { sous: 'surveiller', 'dépassement': 'corriger', cours: 'surveiller' }[ctrl.etat] || 'neutre';
               return (
-                <div className="bloc-etat etat-neutre mx-6 my-2 px-3 py-2 rounded-r-carte text-second text-iip-texte"
-                  style={{ borderLeftColor: liseré }}>
-                  <b className="mr-1">Autonomie</b>{ctrl.message}
-                  <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
+                <div className="mx-6 my-2">
+                  <Encadre etat={etatAut}>
+                    <b className="mr-1">Autonomie</b>{ctrl.message}
+                    <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
+                  </Encadre>
                 </div>
               );
             })()}
@@ -2242,17 +2243,17 @@ export default function Attributions() {
       </div>
 
       {/* Filtres (mobile uniquement — desktop : dans le panneau latéral) */}
-      <div className={`bg-white rounded-lg border border-gray-200 p-3 mb-3 flex flex-wrap items-end gap-2 md:hidden ${filtersOpenMobile?'':'hidden'}`}>
+      <div className={`carte p-3 mb-3 flex flex-wrap items-end gap-2 md:hidden ${filtersOpenMobile?'':'hidden'}`}>
         <div><label className="block text-xs text-gray-600 mb-0.5">Section</label>
-          <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></div>
+          <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="controle text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">UE</label>
-          <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[180px]"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></div>
+          <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="controle text-sm min-w-[180px]"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">Professeur</label>
           <select value={filters.prof_id} onChange={e=>{const f={...filters,prof_id:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[200px]"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">Contrat</label>
-          <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></div>
+          <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="controle text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">Type</label>
-          <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></div>
+          <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="controle text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></div>
         <div className="flex-1"><label className="block text-xs text-gray-600 mb-0.5">Recherche libre</label>
           <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full"/></div>
         <button onClick={applyFilters} className="bouton bouton-fort">Filtrer</button>
@@ -2357,7 +2358,7 @@ export default function Attributions() {
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
       {viewMode!=='flat' && <div className="hidden md:block">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
-         : sectionGroups.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-carte border">Aucune attribution</div>
+         : sectionGroups.length===0 ? <div className="carte p-8 text-center text-gray-400">Aucune attribution</div>
          /* UNE CARTE A LE RAYON D'UNE CARTE — quatorze, celui du rail et des
             fenêtres. Écrite en « rounded-lg », elle prenait huit : le rayon
             des CHAMPS. Deux objets côte à côte, deux arrondis, et l'oeil le
@@ -2389,7 +2390,7 @@ export default function Attributions() {
       {/* VUE MOBILE */}
       <div className="md:hidden">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
-         : sortedData.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-carte border">Aucune attribution</div>
+         : sortedData.length===0 ? <div className="carte p-8 text-center text-gray-400">Aucune attribution</div>
          : <div className="pb-24 space-y-4">
              {sectionGroups.map(sg => {
                const secKey = 'mobsec:' + sg.section;
@@ -2416,7 +2417,7 @@ export default function Attributions() {
       </div>
 
       {/* FAB mobile */}
-      {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="md:hidden fixed bottom-6 right-6 bg-iip-gold hover:bg-iip-amber text-white rounded-full w-14 h-14 shadow-dessus flex items-center justify-center text-3xl z-30">+</button>}
+      {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="bouton bouton-fort md:hidden fixed bottom-6 right-6 !rounded-full !w-14 !h-14 !px-0 shadow-dessus text-3xl z-30">+</button>}
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
@@ -2508,59 +2509,55 @@ export default function Attributions() {
           </>}>
             <div className="mb-3">
               {a.activite && <div className="text-xs text-gray-400">Activité : {a.activite}</div>}
-              <div className="text-xs text-amber-700 mt-1 font-medium">{a.probleme}</div>
+              <Encadre etat="surveiller" className="mt-1">{a.probleme}</Encadre>
             </div>
             {/* Corps — tableau des attributions du cours */}
             <div>
               {toutesLignes.length === 0 ? (
                 <p style={{color:'var(--c-texte)', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
               ) : (
-                <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
-                  <thead>
-                    <tr style={{borderBottom:'2px solid #E2E8F0', background:'#F8FAFC'}}>
-                      <th style={{padding:'6px 8px', textAlign:'left', color:'var(--c-texte)', fontWeight:600}}>Activité</th>
-                      <th style={{padding:'6px 8px', textAlign:'left', color:'var(--c-texte)', fontWeight:600}}>Professeur</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Split</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Groupe</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Corriger</th>
-                    </tr>
-                  </thead>
+                <Tableau dense>
+                  <TableauEntete>
+                      <Th>Activité</Th>
+                      <Th>Professeur</Th>
+                      <Th align="centre">Split</Th>
+                      <Th align="centre">Groupe</Th>
+                      <Th align="centre">Corriger</Th>
+                  </TableauEntete>
                   <tbody>
                     {toutesLignes.map(r => {
                       const code = (r.code||'').toUpperCase() || 'Ts';
                       const enErreur = lignesErreur.has(r.id);
                       const isSplit = r.split_groupe === 'O';
-                      const bs = badge(code) || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
+                      const bs = badge(code) || { bg:'rgb(var(--gris-100))', color:'var(--c-texte)', border:'var(--c-filet, rgb(var(--gris-200)))' };
                       const peerLines = toutesLignes.filter(p =>
                         (p.activite_id||null) === (r.activite_id||null) && p.split_groupe !== 'O'
                       );
                       const peerCodes = peerLines.map(p => (p.code||'').toUpperCase());
                       const peerAttendu = groupCodeSeq(peerLines.length, r);
                       return (
-                        <tr key={r.id} style={{
-                          background: enErreur ? 'rgb(var(--e-refuse-100))' : '#fff',
-                          borderBottom: '1px solid #F1F5F9',
-                          borderLeft: enErreur ? '3px solid var(--c-refuse)' : '3px solid transparent',
+                        <Tr key={r.id} style={{
+                          boxShadow: enErreur ? 'inset 3px 0 0 var(--c-refuse)' : undefined,
                         }}>
-                          <td style={{padding:'6px 8px', color:'#64748B', fontSize:11}}>
-                            {r.activite_nom || <span style={{color:'#CBD5E1'}}>—</span>}
+                          <td className="cellule px-3 text-second text-slate-500">
+                            {r.activite_nom || <span className="text-slate-300">—</span>}
                           </td>
-                          <td style={{padding:'6px 8px', fontWeight: enErreur ? 600 : 400, color: enErreur ? 'var(--c-texte)' : 'var(--c-principal)'}}>
-                            {r.prof_nom || r.prof_prenom ? `${r.prof_nom||''} ${r.prof_prenom||''}`.trim() : <span style={{color:'#CBD5E1'}}>À désigner</span>}
+                          <td className="cellule px-3" style={{fontWeight: enErreur ? 600 : 400, color: enErreur ? 'var(--c-texte)' : 'var(--c-principal)'}}>
+                            {r.prof_nom || r.prof_prenom ? `${r.prof_nom||''} ${r.prof_prenom||''}`.trim() : <span className="text-slate-300">À désigner</span>}
                           </td>
-                          <td style={{padding:'6px 8px', textAlign:'center'}}>
-                            {isSplit && <span style={{fontSize:10, background:'#EEF2FF', color:'var(--c-texte)', padding:'1px 5px', borderRadius:4, fontWeight:600}}>Split</span>}
+                          <td className="cellule px-3 text-center">
+                            {isSplit && <PastilleEtat etat="neutre">Split</PastilleEtat>}
                           </td>
-                          <td style={{padding:'6px 8px', textAlign:'center'}}>
+                          <td className="cellule px-3 text-center">
                             <span style={{
                               display:'inline-flex', alignItems:'center', justifyContent:'center',
                               minWidth:22, height:20, paddingInline:5, borderRadius:5, fontSize:11, fontWeight:700,
-                              background: enErreur ? 'rgb(var(--e-refuse-100))' : bs.bg,
-                              color: enErreur ? 'var(--c-texte)' : bs.color,
-                              border: `1px solid ${enErreur ? 'rgb(var(--e-refuse-100))' : bs.border}`,
+                              background: enErreur ? 'var(--c-refuse)' : bs.bg,
+                              color: enErreur ? '#fff' : bs.color,
+                              border: `1px solid ${enErreur ? 'var(--c-refuse)' : bs.border}`,
                             }}>{code}</span>
                           </td>
-                          <td style={{padding:'6px 8px', textAlign:'center'}}>
+                          <td className="cellule px-3 text-center">
                             {!isSplit && (
                               <div style={{display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap', alignItems:'center'}}>
                                 {/* Bouton Ts — toujours disponible si la ligne a une lettre */}
@@ -2571,14 +2568,14 @@ export default function Attributions() {
                                     style={{
                                       display:'inline-flex', alignItems:'center', justifyContent:'center',
                                       height:20, paddingInline:5, borderRadius:5, fontSize:10, fontWeight:700,
-                                      background:'#F9FAFB', color:'#6B7280', border:'1px solid #D1D5DB',
+                                      background:'rgb(var(--gris-50))', color:'rgb(var(--gris-500))', border:'1px solid rgb(var(--gris-300))',
                                       cursor:'pointer',
                                     }}>Ts</span>
                                 )}
                                 {peerAttendu.length > 1 && peerAttendu.map(l => {
                                   const estCourante = l === code;
                                   const dejaPrise = peerCodes.includes(l) && !estCourante;
-                                  const bs2 = badge(l) || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
+                                  const bs2 = badge(l) || { bg:'rgb(var(--gris-100))', color:'var(--c-texte)', border:'var(--c-filet, rgb(var(--gris-200)))' };
                                   return (
                                     <span key={l}
                                       onClick={e => { e.stopPropagation(); if (!estCourante) corrigerIci(r.id, l); }}
@@ -2597,11 +2594,11 @@ export default function Attributions() {
                               </div>
                             )}
                           </td>
-                        </tr>
+                        </Tr>
                       );
                     })}
                   </tbody>
-                </table>
+                </Tableau>
               )}
             </div>
 
@@ -2688,15 +2685,15 @@ export default function Attributions() {
             <p className="text-sm text-gray-500 mb-4">Quel périmètre souhaitez-vous inclure&nbsp;?</p>
             <div className="space-y-2">
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, ''); }}
-                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-mauve hover:bg-iip-mauve/5 text-sm font-medium">
+                className="bouton w-full !justify-start text-left text-sm font-medium">
                 L'ensemble <span className="text-gray-400 font-normal">— toutes les UE de la section</span>
               </button>
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, 'tc'); }}
-                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-turquoise hover:bg-iip-turquoise/5 text-sm font-medium">
+                className="bouton w-full !justify-start text-left text-sm font-medium">
                 <span className="text-iip-blue font-bold">TC</span> uniquement <span className="text-gray-400 font-normal">— tronc commun</span>
               </button>
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, 'hors'); }}
-                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-gold hover:bg-iip-gold/5 text-sm font-medium">
+                className="bouton w-full !justify-start text-left text-sm font-medium">
                 Hors TC <span className="text-gray-400 font-normal">— cours propres à la section</span>
               </button>
             </div>
@@ -2719,17 +2716,17 @@ export default function Attributions() {
               La section et les cours restent dans le référentiel ; seules les attributions sont effacées.
             </p>
             <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
-            <div className="border border-gray-200 rounded-lg overflow-auto mb-3 max-h-[40vh]" style={{minHeight:'80px'}}>
-              <table className="w-full text-xs">
-                <thead className="tab-entete sticky top-0"><tr>
-                  <th className="text-left px-2 py-1 text-gray-500">UE</th>
-                  <th className="text-left px-2 py-1 text-gray-500">Cours</th>
-                  <th className="text-left px-2 py-1 text-gray-500">Prof</th>
-                  <th className="text-right px-2 py-1 text-gray-500">Pér.</th>
-                </tr></thead>
+            <div className="overflow-auto mb-3 max-h-[40vh]" style={{minHeight:'80px'}}>
+              <Tableau dense>
+                <TableauEntete className="sticky top-0">
+                  <Th>UE</Th>
+                  <Th>Cours</Th>
+                  <Th>Prof</Th>
+                  <Th align="droite">Pér.</Th>
+                </TableauEntete>
                 <tbody>
                   {secDel.lignes.map(l => (
-                    <tr key={l.id} className="border-t border-gray-100">
+                    <tr key={l.id} className="ligne-maison">
                       <td className="px-2 py-1 text-gray-600">{l.ue_num} · {l.code_cours}</td>
                       <td className="px-2 py-1 text-gray-700 truncate max-w-[160px]">{l.cours_nom || '—'}</td>
                       <td className="px-2 py-1 text-gray-600">{l.prof_prenom || ''} {l.prof_nom || '—'}</td>
@@ -2738,10 +2735,10 @@ export default function Attributions() {
                   ))}
                   {secDel.count===0 && <tr><td colSpan={4} className="px-2 py-3 text-center text-gray-400">Aucune attribution.</td></tr>}
                 </tbody>
-              </table>
+              </Tableau>
             </div>
-            <label className="block text-xs text-gray-600 mb-1">Tapez le nom de la section <code className="bg-gray-100 px-1 rounded font-mono">{secDel.section}</code> pour confirmer :</label>
-            <input value={secDelText} onChange={e=>setSecDelText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" placeholder={secDel.section}/>
+            <label className="block text-xs text-gray-600 mb-1">Tapez le nom de la section <code className="font-mono font-semibold">{secDel.section}</code> pour confirmer :</label>
+            <input value={secDelText} onChange={e=>setSecDelText(e.target.value)} autoFocus className="controle w-full text-sm font-mono" placeholder={secDel.section}/>
         </Fenetre>
       )}
 
@@ -2759,8 +2756,8 @@ export default function Attributions() {
               {bulkDeleteModal==='all'&&<>Supprimer <b className="text-iip-texte">TOUTES les {bulkPreview?.count??'…'} attributions</b> ?</>}
             </p>
             <p className="text-xs text-gray-500 mb-3">Planning supprimé en cascade. <b>Irréversible.</b></p>
-            <label className="block text-xs text-gray-600 mb-1">Tapez <code className="bg-gray-100 px-1 rounded font-mono">SUPPRIMER</code> :</label>
-            <input value={bulkConfirmText} onChange={e=>setBulkConfirmText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" placeholder="SUPPRIMER"/>
+            <label className="block text-xs text-gray-600 mb-1">Tapez <code className="font-mono font-semibold">SUPPRIMER</code> :</label>
+            <input value={bulkConfirmText} onChange={e=>setBulkConfirmText(e.target.value)} autoFocus className="controle w-full text-sm font-mono" placeholder="SUPPRIMER"/>
         </Fenetre>
       )}
 
@@ -2776,7 +2773,7 @@ export default function Attributions() {
           </p>
           <div className="space-y-1">
             {pertesCharge.map(p => (
-              <div key={p.professeur_id} className="flex items-center justify-between border border-slate-200 rounded px-2.5 py-1.5 h-9 text-second">
+              <div key={p.professeur_id} className="flex items-center justify-between border-b border-slate-200 last:border-0 py-1.5 text-second">
                 <span className="text-slate-800"><strong>{p.prof}</strong></span>
                 <span className="text-slate-800 font-semibold whitespace-nowrap ml-2">
                   manque {p.etp_manque} ETP (~{p.equiv_periodes_ct} pér. CT)
@@ -2807,7 +2804,7 @@ export default function Attributions() {
           bouton est DANS la bulle, jamais sous un contenu qui défile — et
           « Effacer » ne paraît que s'il y a quelque chose à effacer. */}
       {noteMenu && (
-        <div className="fixed z-50 carte bg-white w-80 shadow-flottant"
+        <div className="fixed z-50 carte w-80 shadow-flottant" style={{ background: 'var(--blanc)' }}
           style={{top: noteMenu.top, right: noteMenu.right}} onClick={e=>e.stopPropagation()}>
           <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 border-b
                           border-slate-200 flex items-center justify-between">
@@ -2818,7 +2815,7 @@ export default function Attributions() {
             <textarea rows={4} autoFocus value={noteMenu.texte}
               onChange={e=>setNoteMenu(m=>({ ...m, texte: e.target.value }))}
               placeholder="Ce qu'il faut savoir sur cette attribution : un accord, une réserve, ce qui reste à confirmer"
-              className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm"/>
+              className="controle w-full !h-auto py-1.5 text-sm"/>
           </div>
           <div className="px-2.5 pb-2.5 flex items-center gap-2">
             <button onClick={async()=>{
@@ -2840,7 +2837,7 @@ export default function Attributions() {
         </div>
       )}
       {recrutMenu && (
-        <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-dessus w-64 max-h-72 overflow-auto"
+        <div className="fixed z-50 carte !bg-[var(--blanc)] shadow-dessus w-64 max-h-72 overflow-auto"
           style={{top: recrutMenu.top, right: recrutMenu.right}} onClick={e=>e.stopPropagation()}>
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b flex items-center justify-between">
             <span>Candidats — {recrutMenu.row?.code_cours}</span>
@@ -2854,7 +2851,7 @@ export default function Attributions() {
           )}
           {recrutCands && recrutCands.map(cd => (
             <button key={cd.id} onClick={()=>assignerCandidat(recrutMenu.row, cd.id)}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700 border-l-4 border-l-green-500">
+              className="bloc-etat ligne-maison w-full text-left px-3 py-1.5 text-sm flex items-center justify-between" data-etat="reussi">
               <span className="truncate">{(cd.nom || '').toUpperCase()} {cd.prenom}</span>
               <span className="text-mention text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
             </button>

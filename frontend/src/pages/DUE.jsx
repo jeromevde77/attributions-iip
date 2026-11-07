@@ -1,7 +1,7 @@
 import { FriseEtapes } from '../components/graphiques.jsx';
 import { demander } from '../lib/dialogue.jsx';
 import { useEffect, useMemo, useState } from 'react';
-import { OuvrirEditions } from '../components/ui.jsx';
+import { OuvrirEditions, Tableau, TableauEntete, Th, Td, Tr, TableauVide, PastilleEtat, ListeEtats, LigneEtat } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
@@ -82,13 +82,12 @@ function DuDossier({ texte, valeur, onChange, lecture,
         </button>
         <button disabled={dejaLa}
           onClick={() => onChange(valeur ? `${valeur.trim()}\n\n${texte}` : texte)}
-          className="text-xs px-2 py-1 rounded-lg border border-iip-gold/60 text-iip-blue
-                     hover:bg-amber-50 disabled:opacity-40 disabled:hover:bg-transparent">
+          className="bouton disabled:opacity-40">
           {dejaLa ? 'déjà repris' : valeur ? 'Ajouter à la suite' : 'Reprendre ce texte'}
         </button>
       </div>
       {ouvert && (
-        <pre className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-second
+        <pre className="mt-2 pl-3 border-l-2 border-slate-200 text-second
                         text-slate-600 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto">
           {texte}
         </pre>
@@ -119,8 +118,7 @@ function Zone({ valeur, onChange, lignes = 4, lecture, placeholder }) {
   return (
     <textarea rows={lignes} value={valeur || ''} placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
-      className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-2
-                 focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />
+      className="controle w-full h-auto py-2" />
   );
 }
 
@@ -132,8 +130,7 @@ function Champ({ label, valeur, onChange, lecture, placeholder }) {
         ? <span className="text-sm text-slate-700">{valeur || '—'}</span>
         : <input value={valeur || ''} placeholder={placeholder}
           onChange={e => onChange(e.target.value)}
-          className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-1.5
-                     focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />}
+          className="controle w-full" />}
     </label>
   );
 }
@@ -186,8 +183,7 @@ function Responsable({ c, d, lecture, onChange }) {
         Responsable de l'unité
       </span>
       <select value={String(choisi)} onChange={e => onChange(e.target.value)}
-        className="w-full text-sm border border-slate-300 rounded-lg px-2 py-1.5
-                   focus:outline-none focus:ring-2 focus:ring-iip-blue/30">
+        className="controle w-full">
         {liste.map(e => (
           <option key={e.id} value={String(e.id)}>
             {(e.nom || '').toUpperCase()} {e.prenom}{e.periodes ? ` — ${e.periodes} p.` : ''}
@@ -230,7 +226,7 @@ function Riche({ valeur, onChange, lecture }) {
       : <div className="text-sm text-slate-700 whitespace-pre-wrap">{valeur}</div>;
   }
   return (
-    <div className="border border-slate-300 rounded-lg overflow-hidden bg-white">
+    <div className="border border-slate-300 rounded-champ overflow-hidden" style={{ background: 'var(--c-fond_champ, #fff)' }}>
       <EditeurDUE valeur={enHtml(valeur)} onChange={onChange} />
     </div>);
 }
@@ -384,7 +380,7 @@ function Situation({ d }) {
       <p className="m-0">{S.suites?.length ? <>L'UE {n} <b>est prérequise à</b> {lien(S.suites)}.</> : <>L'UE {n} n'est prérequise à aucune autre unité.</>}</p>
       {S.schema && <>
         {/* Le dessin vient du serveur (lib/schemaSvg.js) : le même que la fiche de l'étudiant. */}
-        <div className="inline-block border border-slate-200 rounded-lg p-1.5 bg-white max-w-full overflow-x-auto" dangerouslySetInnerHTML={{ __html: S.schema }} />
+        <div className="inline-block max-w-full overflow-x-auto" dangerouslySetInnerHTML={{ __html: S.schema }} />
         <p className="text-xs text-slate-500 m-0">En bleu plein, cette unité ; cerclées de bleu, ses prérequis et ses suites ; en bleu, les flèches qui la touchent ; pastille marine : unité déterminante. Les liens se règlent dans les référentiels (prérequis).</p>
       </>}
     </div>);
@@ -442,42 +438,26 @@ function Liste({ onOuvrir }) {
           <label className="flex items-center gap-2 text-second text-slate-500">
             Section
             <select value={fSection} onChange={e => setFSection(e.target.value)}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+              className="controle">
               <option value="">— Toutes —</option>
               {etat.sections.map(sx => <option key={sx} value={sx}>{sx}</option>)}
             </select>
           </label>
         )}
       </div>
-      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+      {/* UNE LISTE À LISERÉ (standard 3.5.199) : une ligne par unité, l'état au liseré — validée, en cours, jamais complétée. */}
+      <ListeEtats>
         {visibles.map(u => (
-          <button key={u.ue_num} onClick={() => onOuvrir(u.ue_num)}
-            className="text-left px-3 py-2.5 rounded-xl border border-slate-200 bg-white
-                       hover:border-iip-blue/40 hover:shadow-pose transition">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-iip-blue truncate">
-                  UE {u.ue_num} — {u.ue_nom}
-                  {String(u.ue_tc || '').trim().toLowerCase() === 'x' && (
-                    <span className="ml-1.5 align-middle text-mention font-bold px-1.5 py-0.5
-                                     rounded bg-iip-blue text-white">TC</span>
-                  )}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {u.section}{u.ects ? ` · ${u.ects} ECTS` : ''}{u.ue_quad ? ` · ${u.ue_quad}` : ''}
-                </div>
-              </div>
-            </div>
-            {/* L'AVANCEMENT, D'UN COUP D'ŒIL : rédaction · pondérations · validation. */}
-            {u.etapes && <div className="mt-2"><FriseEtapes etapes={u.etapes} compacte /></div>}
-            <div className="text-xs text-slate-400 mt-1">
-              {u.valide_le ? `Validée le ${u.valide_le}`
-                : u.maj_le ? `Modifiée le ${String(u.maj_le).slice(0, 10)}`
-                  : 'Jamais complétée'}
-            </div>
-          </button>
+          <LigneEtat key={u.ue_num} onClick={() => onOuvrir(u.ue_num)}
+            etat={u.valide_le ? 'reussi' : u.maj_le ? 'disponible' : 'neutre'}
+            titre={`UE ${u.ue_num} — ${u.ue_nom}`}
+            meta={String(u.ue_tc || '').trim().toLowerCase() === 'x' ? <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-iip-blue text-white" title="Tronc commun">TC</span> : null}
+            sous={`${u.section}${u.ects ? ` · ${u.ects} ECTS` : ''}${u.ue_quad ? ` · ${u.ue_quad}` : ''} · ${u.valide_le ? `Validée le ${u.valide_le}`
+              : u.maj_le ? `Modifiée le ${String(u.maj_le).slice(0, 10)}` : 'Jamais complétée'}`}
+            /* L'AVANCEMENT, D'UN COUP D'ŒIL : rédaction · pondérations · validation. */
+            droite={u.etapes ? <div className="hidden sm:block w-64 flex-none"><FriseEtapes etapes={u.etapes} compacte /></div> : null} />
         ))}
-      </div>
+      </ListeEtats>
     </div>
   );
 }
@@ -552,21 +532,21 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
             {/* L'ACQUIS SUR TOUTE LA LARGEUR (3.1.387, Charles : « mets l'AA sur la largeur totale au-dessus, sinon
                 pas clair ») : une ligne d'acquis — code, énoncé, contexte en petit —, ses critères dessous. */}
             <div className="text-sm font-semibold text-iip-blue mt-4 mb-1">{t.titre}</div>
-            <table className="w-full text-second">
-              <thead><tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-                {COLONNES_CRIT.map(([k, l, def]) => <th key={k} className={`px-2 py-1 align-top ${k === 'point' ? 'w-1/2' : ''}`}>{l}
-                  {def && <div className="font-normal italic normal-case text-mention text-slate-500 leading-snug">{def}</div>}</th>)}
-                {!lecture && <th className="w-10" />}
-              </tr></thead>
+            <Tableau dense>
+              <TableauEntete>
+                {COLONNES_CRIT.map(([k, l, def]) => <Th key={k} className={`align-top ${k === 'point' ? 'w-1/2' : ''}`}>{l}
+                  {def && <div className="font-normal italic normal-case text-mention text-slate-500 leading-snug">{def}</div>}</Th>)}
+                {!lecture && <Th className="w-10" />}
+              </TableauEntete>
               <tbody>
                 {!lignes.length && (
-                  <tr><td colSpan={3} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</td></tr>
+                  <TableauVide colonnes={3}>Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</TableauVide>
                 )}
                 {lignes.map((l, i) => {
                   const premier = i === 0 || lignes[i - 1].aa_code !== l.aa_code;
                   return [
                     premier && (
-                      <tr key={`aa${i}`} className="border-t border-slate-200" style={{ background: 'var(--s-entete, #F3F6FA)' }}>
+                      <tr key={`aa${i}`} className="tab-repere">
                         <td colSpan={lecture ? 2 : 3} className="px-2 py-1.5">
                           {lecture || l.aa_code
                             ? <><b className="text-iip-blue mr-1.5">{l.aa_code || '—'}</b>{descr[l.aa_code]}</>
@@ -577,7 +557,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                           {contexte[l.aa_code] && <span className="block text-xs italic text-slate-500 mt-0.5 whitespace-pre-line">{contexte[l.aa_code]}</span>}
                         </td>
                       </tr>),
-                    <tr key={i} className="align-top border-t border-slate-100">
+                    <Tr key={i} className="align-top">
                       {COLONNES_CRIT.map(([k]) => (
                         <td key={k} className="px-1 py-1">
                           {lecture ? <span className="whitespace-pre-line">{avecGras(l[k])}</span>
@@ -600,11 +580,11 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                             onClick={() => poser(t.cle, lignes.filter((_, j) => j !== i))}>×</button>
                         </td>
                       )}
-                    </tr>,
+                    </Tr>,
                   ];
                 })}
               </tbody>
-            </table>
+            </Tableau>
             {!lecture && (
               <div className="px-2 py-1.5 flex flex-wrap items-center gap-2 text-second">
                 <span className="text-slate-500">Ajouter un acquis :</span>
@@ -777,12 +757,9 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
               circuit (rédaction, pondérations, validation) se lit dans la frise de l'atelier. */}
           {d.etapes && !integree && <div className="my-2 max-w-xl"><FriseEtapes etapes={d.etapes} /></div>}
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-xs px-2 py-0.5 rounded-champ font-semibold ${
-              d.statut === 'validee'
-                ? 'bg-emerald-500 text-white border border-emerald-500'
-                : 'bg-amber-500 text-white border border-amber-500'}`}>
+            <PastilleEtat etat={d.statut === 'validee' ? 'reussi' : 'surveiller'}>
               {d.statut === 'validee' ? `validée le ${d.valide_le || ''}` : 'en préparation'}
-            </span>
+            </PastilleEtat>
             <span className="text-xs text-slate-400 flex items-center gap-1">
               {lecture ? <><IconEye size={12} /> lecture seule</>
                 : <><IconPencil size={12} /> vous pouvez modifier</>}
@@ -862,7 +839,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       })()}
 
       {vue === 'apercu' ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-100 p-3">
+        <div className="rounded-carte bg-slate-100 p-3">
           {apercu.enCours && <p className="text-sm text-slate-500 m-0 p-6 text-center">Composition de la pièce…</p>}
           {apercu.erreur && <p className="text-sm text-red-700 m-0 p-4">{apercu.erreur}</p>}
           {apercu.url && !apercu.enCours && (
@@ -952,8 +929,8 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
                 des acquis, où ils serviront aussi à l'encodage et à la délibération :
                 {/* Mis en page comme dans la fiche d'UE (3.1.382). */}
                 {/<[a-z]/i.test(d.dp.acquis)
-                  ? <div className="texte-dossier mt-1 p-2 border border-slate-200 rounded-lg text-second max-h-56 overflow-y-auto" dangerouslySetInnerHTML={{ __html: d.dp.acquis }} />
-                  : <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg
+                  ? <div className="texte-dossier mt-1 pl-3 border-l-2 border-slate-200 text-second max-h-56 overflow-y-auto" dangerouslySetInnerHTML={{ __html: d.dp.acquis }} />
+                  : <pre className="mt-1 pl-3 border-l-2 border-slate-200
                                 text-second whitespace-pre-wrap font-sans max-h-56
                                 overflow-y-auto">{d.dp.acquis}</pre>}
               </div>
@@ -963,26 +940,24 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       </Bloc>
 
       <Bloc titre="Activités d'apprentissage">
-        <table className="w-full text-second">
-          <thead>
-            <tr className="text-left text-xs uppercase text-slate-400">
-              <th className="pb-1">Code</th><th>Intitulé</th>
-              <th className="text-right">Périodes</th><th className="text-right">Heures</th>
-              <th className="pl-3">Acquis évalués</th>
-            </tr>
-          </thead>
+        <Tableau dense>
+          <TableauEntete>
+            <Th>Code</Th><Th>Intitulé</Th>
+            <Th align="droite">Périodes</Th><Th align="droite">Heures</Th>
+            <Th>Acquis évalués</Th>
+          </TableauEntete>
           <tbody>
             {d.cours.map(x => (
-              <tr key={x.cours_code} className="border-t border-slate-100">
-                <td className="py-1 text-slate-500">{x.cours_code}</td>
-                <td className="text-slate-800">{x.cours_nom}</td>
-                <td className="text-right">{x.cours_per ?? '—'}</td>
-                <td className="text-right">{x.heures ?? '—'}</td>
-                <td className="pl-3 text-slate-500">{(x.acquis || []).join(', ') || '—'}</td>
-              </tr>
+              <Tr key={x.cours_code}>
+                <Td ton="secondaire">{x.cours_code}</Td>
+                <Td>{x.cours_nom}</Td>
+                <Td align="droite">{x.cours_per ?? '—'}</Td>
+                <Td align="droite">{x.heures ?? '—'}</Td>
+                <Td ton="secondaire">{(x.acquis || []).join(', ') || '—'}</Td>
+              </Tr>
             ))}
           </tbody>
-        </table>
+        </Tableau>
       </Bloc>
 
       {/* ── Ce que l'enseignant et la coordination rédigent ── */}
@@ -1023,7 +998,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
                 onClick={() => majSous('methodes', k, !on)}
                 className={`px-2.5 py-1 rounded-champ text-second border ${on
                   ? 'bg-iip-blue text-white border-iip-blue'
-                  : 'bg-white text-slate-600 border-slate-300 hover:border-iip-blue/50'}`}>
+                  : 'text-slate-600 border-slate-300 hover:border-iip-blue/50'}`} style={on ? undefined : { background: 'var(--c-fond_champ, #fff)' }}>
                 {on && <IconCheck size={11} className="inline mr-1" />}{l}
               </button>
             );
@@ -1047,36 +1022,34 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
 
       <Bloc titre="Supports de cours"
         aide="Un support obligatoire doit être déposé sur eCampus, sauf ouvrage protégé.">
-        <table className="w-full text-second">
-          <thead>
-            <tr className="text-left text-xs uppercase text-slate-400">
-              <th className="pb-1">Activité</th><th>Type de support</th>
-              <th className="text-right">Obligatoire</th>
-            </tr>
-          </thead>
+        <Tableau dense>
+          <TableauEntete>
+            <Th>Activité</Th><Th>Type de support</Th>
+            <Th align="droite">Obligatoire</Th>
+          </TableauEntete>
           <tbody>
             {d.cours.map(x => {
               const s = c.supports?.[x.cours_code] || {};
               const poser = v => majSous('supports', x.cours_code, { ...s, ...v });
               return (
-                <tr key={x.cours_code} className="border-t border-slate-100">
-                  <td className="py-1 text-slate-800"><b className="text-iip-blue">{x.cours_code}</b> — {x.cours_nom}</td>
-                  <td>
+                <Tr key={x.cours_code}>
+                  <Td><b className="text-iip-blue">{x.cours_code}</b> — {x.cours_nom}</Td>
+                  <Td>
                     {lecture ? (s.type || '—')
                       : <input value={s.type || ''} placeholder="Syllabus, PowerPoint, ouvrage…"
                         onChange={e => poser({ type: e.target.value })}
-                        className="w-full text-second border border-slate-300 rounded px-2 py-1" />}
-                  </td>
-                  <td className="text-right">
+                        className="controle w-full !h-8 text-second" />}
+                  </Td>
+                  <Td align="droite">
                     <input type="checkbox" disabled={lecture} checked={!!s.obligatoire}
                       onChange={e => poser({ obligatoire: e.target.checked })}
                       className="w-4 h-4 accent-iip-blue" />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
           </tbody>
-        </table>
+        </Tableau>
       </Bloc>
 
       {d.note_supports && <p className="-mt-2 mb-4 text-second text-slate-600 italic">{d.note_supports}</p>}
@@ -1087,13 +1060,11 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             <div className="text-xs font-semibold text-slate-500 mb-1">
               {sess === 's1' ? 'Première session' : 'Seconde session'}
             </div>
-            <table className="w-full text-second">
-              <thead>
-                <tr className="text-mention uppercase text-slate-400">
-                  <th className="text-left pb-1">Activité</th>
-                  {EPREUVES.map(([k, l]) => <th key={k} className="text-center">{l}</th>)}
-                </tr>
-              </thead>
+            <Tableau dense>
+              <TableauEntete>
+                <Th>Activité</Th>
+                {EPREUVES.map(([k, l]) => <Th key={k} align="centre">{l}</Th>)}
+              </TableauEntete>
               <tbody>
                 {d.cours.map(x => {
                   const e = c.evaluation?.[x.cours_code]?.[sess] || {};
@@ -1103,20 +1074,20 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
                     majSous('evaluation', x.cours_code, parCours);
                   };
                   return (
-                    <tr key={x.cours_code} className="border-t border-slate-100">
-                      <td className="py-1 text-slate-800"><b className="text-iip-blue">{x.cours_code}</b> — {x.cours_nom}</td>
+                    <Tr key={x.cours_code}>
+                      <Td><b className="text-iip-blue">{x.cours_code}</b> — {x.cours_nom}</Td>
                       {EPREUVES.map(([k]) => (
-                        <td key={k} className="text-center">
+                        <Td key={k} align="centre">
                           <input type="checkbox" disabled={lecture} checked={!!e[k]}
                             onChange={ev => poser(k, ev.target.checked)}
                             className="w-4 h-4 accent-iip-blue" />
-                        </td>
+                        </Td>
                       ))}
-                    </tr>
+                    </Tr>
                   );
                 })}
               </tbody>
-            </table>
+            </Tableau>
           </div>
         ))}
         <div className="mt-2">

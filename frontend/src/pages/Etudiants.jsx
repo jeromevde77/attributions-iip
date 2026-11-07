@@ -48,7 +48,8 @@ const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
 const NationalitesNormaliser = lazy(() => import('../components/NationalitesNormaliser.jsx'));
 import { voirEspaceEtudiant } from '../lib/voirEspace.js';
-import { useEchangesDuRail, Fenetre, Encadre, BulleAide, OuvrirEditions, IconeFaveur, OutilFenetre } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre, BulleAide, OuvrirEditions, IconeFaveur, OutilFenetre,
+  EnteteCarte, PastilleEtat, ListeEtats, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -113,11 +114,11 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
   const actif = tri.champ === champ;
   return (
     <th onClick={() => onTri(champ)}
-      className={`px-4 py-2.5 cursor-pointer select-none hover:bg-slate-100 transition ${className}`}
+      className={`cellule px-3 cursor-pointer select-none transition ${className}`}
       title="Trier sur cette colonne">
       <span className="inline-flex items-center gap-1">
         {children}
-        <span className={`text-mention leading-none ${actif ? 'text-[color:var(--c-principal,_#1B2B4B)]' : 'text-slate-300'}`}>
+        <span className={`text-mention leading-none ${actif ? 'text-iip-blue' : 'text-slate-300'}`}>
           {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
         </span>
       </span>
@@ -127,14 +128,12 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
 
 function BadgeNiveau({ niveau, libelle, className = '' }) {
   if (!libelle) return null;
-  const cls = niveau === 'MIXTE' ? 'bg-amber-500 text-white border-amber-500'
-    : niveau === 'BA3'          ? 'bg-violet-500 text-white border-violet-500'
-    : 'bg-sky-500 text-white border-sky-500';
-  return (
-    <span className={`text-mention font-semibold px-1.5 py-0.5 rounded border ${cls} ${className}`}>
-      {libelle}
-    </span>
+  /* LA PASTILLE PLEINE (règle du 29 septembre 2026) : ocre pour un niveau mixte,
+     bleu sinon ; BA3 au principal — le violet ne dit que la faveur. */
+  if (niveau === 'BA3') return (
+    <span className={`pastille-etat ${className}`} style={{ '--e': 'var(--c-principal)' }}>{libelle}</span>
   );
+  return <PastilleEtat etat={niveau === 'MIXTE' ? 'surveiller' : 'disponible'} className={className}>{libelle}</PastilleEtat>;
 }
 
 /* LA FRISE DU PARCOURS, SUR LA LIGNE DE LA LISTE (Charles, 26 septembre
@@ -191,7 +190,7 @@ function FriseParcours({ ues, codes, ects = null }) {
           title={ects > 60 ? "Au-delà de 60 ECTS : plus qu'une année à temps plein" : 'Crédits des unités inscrites cette année'}>
           {/* Au-delà de 60, une pastille orange (3 octobre 2026). */}
           {ects > 60
-            ? <b className="text-white rounded px-1" style={{ background: 'var(--c-attente, #E8890C)' }}>{ects}</b>
+            ? <b className="pastille-etat !text-xs" data-etat="surveiller">{ects}</b>
             : <b className="text-iip-texte">{ects}</b>} ECTS
         </span>
       )}
@@ -534,20 +533,20 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             <span className="block text-sm font-semibold text-iip-texte tabular-nums">{v}</span>
             {l && <span className="block text-mention text-slate-500">{l}</span>}
             {ligne && <span className={`absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full ${ligne === 'vert' ? 'bg-emerald-700' : ligne === 'orange' ? '' : 'bg-blue-700'}`}
-              style={ligne === 'orange' ? { background: 'var(--c-attente, #E8890C)' } : undefined} />}
+              style={ligne === 'orange' ? { background: 'var(--c-attente)' } : undefined} />}
           </span>
         );
         const BadgeUE = ({ u }) => {
-          if (u.nature_totale) return <span className="text-xs font-semibold text-emerald-800 bg-white border-2 border-emerald-600 rounded px-1.5 py-px">{u.nature_totale}</span>;
+          if (u.nature_totale) return <PastilleEtat etat="reussi">{u.nature_totale}</PastilleEtat>;
           const out = [];
-          if (u.reports) out.push(<span key="r" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
-          if (u.va) out.push(<span key="v" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
-          if (u.deja) out.push(<span key="d" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>);
+          if (u.reports) out.push(<PastilleEtat key="r" etat="reussi">{u.reports} report{u.reports > 1 ? 's' : ''}</PastilleEtat>);
+          if (u.va) out.push(<PastilleEtat key="v" etat="neutre">{u.nature_partielle || 'VAP'}</PastilleEtat>);
+          if (u.deja) out.push(<PastilleEtat key="d" etat="surveiller">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</PastilleEtat>);
           // Réussie cette année : verte, ou violette avec le cadeau quand c'est une faveur.
-          if (u.etat === 'reussie') out.push(<span key="ok" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-emerald-700">réussie</span>);
-          if (u.etat === 'faveur') out.push(<span key="fv" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-violet-700 inline-flex items-center gap-1"><IconGift size={11} stroke={2.2} />réussie par faveur</span>);
-          if (u.etat === 'reprendre') out.push(<span key="p" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-amber-700">à reprendre</span>);
-          if (!out.length) out.push(<span key="a" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-blue-700">au programme</span>);
+          if (u.etat === 'reussie') out.push(<PastilleEtat key="ok" etat="reussi">réussie</PastilleEtat>);
+          if (u.etat === 'faveur') out.push(<PastilleEtat key="fv" etat="faveur">réussie par faveur</PastilleEtat>);
+          if (u.etat === 'reprendre') out.push(<PastilleEtat key="p" etat="surveiller">à reprendre</PastilleEtat>);
+          if (!out.length) out.push(<PastilleEtat key="a" etat="disponible">au programme</PastilleEtat>);
           return <span className="inline-flex gap-1 flex-wrap">{out}</span>;
         };
         return (
@@ -596,7 +595,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                     ligne par UE, une bande à la couleur du bloc le long du groupe. */}
                 {blocs.map(g => (
                   <div key={g.k} className="flex mb-3">
-                    <div className="w-[5px] rounded-full flex-none" style={{ background: g.k === 'EI' ? 'var(--c-epreuve, #C9A227)' : (couleurBloc(g.k) || 'rgb(var(--gris-300))') }} />
+                    <div className="w-[5px] rounded-full flex-none" style={{ background: g.k === 'EI' ? 'var(--c-epreuve)' : (couleurBloc(g.k) || 'rgb(var(--gris-300))') }} />
                     <div className="flex-1 min-w-0 pl-2.5">
                       <div className="intertitre pb-1">
                         {g.k === 'EI' ? 'Épreuve intégrée' : g.k} · {g.ues.length} UE · {g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</div>
@@ -648,12 +647,12 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                       <span className="text-xs text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
                                       <span className="text-second flex flex-wrap items-center gap-1.5">
                                         {c.statut === 'report' && <>
-                                          <span className={`rounded px-1.5 py-px text-white font-semibold ${vaReprise ? 'bg-teal-800' : 'bg-emerald-700'}`}
+                                          <span className="pastille-etat" data-etat={vaReprise ? 'neutre' : 'reussi'}
                                             title={vaReprise ? `${c.nature} reprise sans dossier${c.par ? ` — posée par ${c.par}` : ''}` : (c.par ? `Posé par ${c.par}` : '')}>
                                             {vaReprise ? (c.nature === 'DISPENSE' ? 'Dispense' : c.nature) : 'Report'} {String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}{c.note != null ? ` · ${Math.round(c.note)}/20` : ''}</span>
                                           {peutReporter && <button type="button" disabled={occupe} className="underline text-slate-500" onClick={() => retirer(u.ue_num, c.code)}>retirer</button>}
                                         </>}
-                                        {c.statut === 'va' && <span className="rounded px-1.5 py-px bg-white border-2 border-emerald-600 text-emerald-800 font-semibold">{c.nature || 'VAP'}</span>}
+                                        {c.statut === 'va' && <PastilleEtat etat="reussi">{c.nature || 'VAP'}</PastilleEtat>}
                                         {c.statut === 'suivre' && saisieVAIci && <>
                                           <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisieVA.nature} onChange={ev => setSaisieVA({ ...saisieVA, nature: ev.target.value })}>
                                             {[['VAP', 'VAP'], ['VAEP', 'VAEP'], ['DISPENSE', 'Dispense']].map(([x, l]) => <option key={x} value={x}>{l}</option>)}
@@ -896,18 +895,18 @@ const KINDS_CELLULE = [
   // LES ÉTATS DE LUCIE (2.12.211) : bleu inscrite, vert réussie — la VA
   // aussi, avec sa mention —, ocre ajournée, brique refusée. Le violet ne dit
   // que la faveur.
-  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-iip-texte' },
-  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-white border-2 border-[color:var(--c-reussi)] text-[color:var(--c-texte)]' },   // VA : contour vert (7 octobre 2026)
+  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color:var(--c-disponible)] border-[color:var(--c-disponible)] text-white' },
+  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color:var(--c-reussi)] border-[color:var(--c-reussi)] text-white' },
   // LA FAVEUR DU CONSEIL (5 octobre 2026) : l'unité vaut 10, réussie ; violet
   // et cadeau, la seule couleur qui la dise.
-  { val: 'faveur',  label: 'Réussi par faveur', short: '10', cls: 'bg-[color-mix(in_srgb,var(--c-faveur)_11%,#fff)] border-[color-mix(in_srgb,var(--c-faveur)_32%,#fff)] text-[color:var(--c-texte)]' },
-  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
+  { val: 'faveur',  label: 'Réussi par faveur', short: '10', cls: 'bg-[color:var(--c-faveur)] border-[color:var(--c-faveur)] text-white' },
+  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color:var(--c-reussi)] border-[color:var(--c-reussi)] text-white' },
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
   // libellé privait le Conseil des études d'une de ses trois décisions.
-  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[color:var(--c-texte)]' },
-  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-iip-texte' },
-  { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color:var(--c-attente)] border-[color:var(--c-attente)] text-white' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color:var(--c-refuse)] border-[color:var(--c-refuse)] text-white' },
+  { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-100 text-slate-600 border-slate-100' },
 ];
 
 /* L'ANNÉE EST UNE DONNÉE, PAS UNE SUPPOSITION. La grille affichait
@@ -1087,7 +1086,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
   if (!data) return <div className="py-6 text-sm text-slate-400">Chargement…</div>;
   if (!data.ues.length) return (
-    <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
+    <div className="carte text-center py-8 text-slate-400 text-sm">
       Aucune UE trouvée pour la section de cet étudiant.
     </div>
   );
@@ -1166,15 +1165,15 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
         <div className="ml-auto flex gap-1">
           {nbHistorique > 0 && (
             <button onClick={() => setNbHistorique(0)} title="Masquer les années antérieures vides"
-              className="px-2 py-0.5 text-xs border border-slate-300 rounded-md hover:bg-slate-50">» masquer</button>
+              className="bouton bouton-compact">» masquer</button>
           )}
           <button onClick={() => setNbHistorique(n => (n === 0 ? 5 : n + 3))}
             title="Afficher les années antérieures pour encoder l'historique"
-            className="px-2 py-0.5 text-xs border border-slate-300 rounded-md hover:bg-slate-50">
+            className="bouton bouton-compact">
             « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
           <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2 py-0.5 text-xs border border-[color:var(--c-attente)] text-iip-texte rounded-md hover:bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))]">Purger…</button>
+            className="bouton bouton-compact bouton-detruire">Purger…</button>
         </div>
       </div>
 
@@ -1221,18 +1220,18 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                       <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
                       {verrou && <span className="ml-1.5 text-xs"
                         title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}
-                      {u.suggeree && <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                      {u.suggeree && <PastilleEtat etat="disponible" className="ml-1.5" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</PastilleEtat>}
                       {u.hors_referentiel && (
-                        <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-amber-500 text-white border border-amber-500"
+                        <PastilleEtat etat="surveiller" className="ml-1.5"
                           title="Cette unité appartient à une autre section, ou sa section est inconnue">
                           autre section
-                        </span>
+                        </PastilleEtat>
                       )}
                       {u.hors_millesime && (
-                        <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-slate-100 text-slate-500"
+                        <PastilleEtat etat="neutre" className="ml-1.5"
                           title="Unité de la section, absente du programme de l'année en cours">
                           hors programme {annee}
-                        </span>
+                        </PastilleEtat>
                       )}
                     </td>
                     {anneesAffichees.map((a, iCol) => {
@@ -1291,7 +1290,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                               ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                             title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
                             {kind
-                              ? (kind.val === 'faveur' ? <span className="inline-flex items-center gap-0.5">10<IconeFaveur size={10} /></span>
+                              ? (kind.val === 'faveur' ? <span className="inline-flex items-center gap-0.5">10<IconGift size={10} stroke={2} /></span>
                                  : kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
                                  : kind.val === 'va' ? `${cl.sigle || 'VA'}${cl.points != null ? ' ' + cl.points : ''}`
                                  : kind.short)
@@ -1334,7 +1333,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             pied={<>
               {raison && <span className="text-second text-slate-500 min-w-0 flex-1">{raison}</span>}
               <button className="bouton" onClick={() => setDepl(null)}>Annuler</button>
-              <button className="bouton-fort" disabled={!!raison || depl.enCours} onClick={confirmerDeplacement}>
+              <button className="bouton bouton-fort" disabled={!!raison || depl.enCours} onClick={confirmerDeplacement}>
                 {depl.enCours ? 'Déplacement…' : 'Déplacer'}
               </button>
             </>}>
@@ -1347,11 +1346,10 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 </Encadre>
               )}
               {(rp.plan || []).length > 0 && (
-                <table className="w-full text-second">
-                  <thead><tr className="tab-entete text-left">
-                    <th className="px-2 py-1">UE</th><th className="px-2 py-1">De</th><th className="px-2 py-1">Vers</th>
-                    <th className="px-2 py-1">Résultat</th><th className="px-2 py-1">Ce qui suit</th>
-                  </tr></thead>
+                <Tableau dense>
+                  <TableauEntete>
+                    <Th>UE</Th><Th>De</Th><Th>Vers</Th><Th>Résultat</Th><Th>Ce qui suit</Th>
+                  </TableauEntete>
                   <tbody>
                     {rp.plan.map(m => {
                       const t = m.traces || {};
@@ -1359,28 +1357,28 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                         t.decisions && `${t.decisions} décision(s)`, t.ajustements && `${t.ajustements} faveur(s)/ajournement(s)`,
                         t.motivations && `${t.motivations} motivation(s)`, t.reports && `${t.reports} report(s)`].filter(Boolean);
                       return (
-                        <tr key={m.ue_num} className="border-t border-slate-100 align-top">
-                          <td className="px-2 py-1 font-semibold text-iip-blue">{m.ue_num}</td>
-                          <td className="px-2 py-1">{m.de}</td>
-                          <td className="px-2 py-1">{m.vers}{m.remplace && <span className="block text-xs text-slate-400">remplace une inscription vide</span>}</td>
-                          <td className="px-2 py-1">{m.resultat || 'inscrit'}{m.points != null ? ` · ${m.points}/20` : ''}</td>
-                          <td className="px-2 py-1 text-slate-600">
+                        <Tr key={m.ue_num} className="align-top">
+                          <Td ton="fort">{m.ue_num}</Td>
+                          <Td>{m.de}</Td>
+                          <Td>{m.vers}{m.remplace && <span className="block text-xs text-slate-400">remplace une inscription vide</span>}</Td>
+                          <Td>{m.resultat || 'inscrit'}{m.points != null ? ` · ${m.points}/20` : ''}</Td>
+                          <Td className="!text-slate-600">
                             {suit.length ? suit.join(' · ') : '—'}
                             {m.seance_close && <span className="block text-xs text-iip-texte">délibération close en {m.de} : décision déjà notifiée</span>}
                             {m.stage_reste > 0 && <span className="block text-xs text-slate-400">le stage reste en {m.de}</span>}
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       );
                     })}
                   </tbody>
-                </table>
+                </Tableau>
               )}
               <label className="block">
                 <span className="text-second font-semibold text-iip-blue">Motif du déplacement</span>
                 <textarea value={depl.motif} rows={2} autoFocus
                   onChange={ev => { const v = ev.target.value; setDepl(d => ({ ...d, motif: v })); }}
                   placeholder="ex. import de l’historique rangé dans la mauvaise année"
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                  className="mt-1 w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm" />
                 <span className="text-xs text-slate-400">Il est conservé avec votre nom, l’heure, et chaque case déplacée.</span>
               </label>
               {depl.erreur && <Encadre etat="corriger">{depl.erreur}</Encadre>}
@@ -1396,30 +1394,28 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
           {/* DEUX FENÊTRES EN UNE : la largeur suit ce qu'on y fait — petite
               pour la poignée de boutons, moyenne pour la grille du détail. */}
             {popover.verrou && (
-              <div className="bloc-etat text-xs px-2 py-1 mb-2" data-etat="surveiller">
-                Dérogation — sera tracée comme telle
-              </div>
+              <Encadre etat="surveiller" className="mb-2">Dérogation — sera tracée comme telle</Encadre>
             )}
             {popover.sousReserve && (
-              <div className="text-xs text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1 mb-2">
+              <Encadre etat="disponible" className="mb-2">
                 Inscription sous réserve — l'accès effectif dépend de la réussite de
                 l'UE {popover.sousReserve.join(', ')} en cours d'année (cas type : épreuve intégrée).
-              </div>
+              </Encadre>
             )}
             <input type="number" min="0" max="20" step="0.1" placeholder="Note /20 (optionnel)"
               value={pts} onChange={e => setPts(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm mb-3" />
+              className="controle w-full mb-3" />
             <div className="grid grid-cols-2 gap-1.5">
               {KINDS_CELLULE.map(k => (
                 <button key={k.val}
                   onClick={() => ecrire(k.val, { points: pts !== '' ? Number(pts) : undefined })}
-                  className={`text-second px-2 py-1.5 rounded-lg border font-medium ${k.cls}`}>
+                  className={`text-second px-2 py-1.5 rounded-champ border font-medium ${k.cls}`}>
                   {k.label}
                 </button>
               ))}
               <button onClick={() => ecrire('effacer_resultat')}
                 title="L'inscription demeure ; sa note et ses acquis sont effacés"
-                className="text-second px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600">
+                className="bouton">
                 Effacer le résultat
               </button>
               <button onClick={async () => {
@@ -1427,13 +1423,13 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     ecrire('effacer');
                 }}
                 title="Supprime l'inscription et tout ce qui s'y rattache"
-                className="bloc-etat etat-corriger text-second px-2 py-1.5 text-red-600 hover:bg-red-50">
+                className="bouton bouton-detruire">
                 Supprimer l'inscription
               </button>
             </div>
 
             <button onClick={() => detailOuvert ? setDetailOuvert(false) : chargerDetail()}
-              className="mt-3 w-full text-second px-2 py-1.5 rounded-lg border border-iip-blue/30 text-iip-blue hover:bg-iip-blue/5">
+              className="bouton mt-3 w-full justify-center">
               {detailOuvert ? 'Masquer le détail' : 'Notes par cours & AA…'}
             </button>
 
@@ -1444,12 +1440,9 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
               <div className="mt-3 border-t border-slate-100 pt-3 flex flex-col flex-1 min-h-0">
                 {/* Note calculée depuis les acquis d'apprentissage */}
                 {detail.calcul && (
-                  <div className={`rounded-xl px-3 py-2.5 mb-3 border ${
-                    detail.calcul.pourcentage == null
-                      ? 'bg-slate-50 border-slate-200'
-                      : detail.calcul.sur20 >= 10
-                        ? 'bg-emerald-50 border-emerald-200'
-                        : 'bg-red-50 border-red-200'}`}>
+                  <div className="bloc-etat px-3 py-2.5 mb-3" data-etat={
+                    detail.calcul.pourcentage == null ? 'neutre'
+                      : detail.calcul.sur20 >= 10 ? 'reussi' : 'corriger'}>
                     {detail.calcul.sur20 == null ? (
                       <div className="text-second text-slate-500">
                         Aucun acquis coté, ou pondérations non encodées pour cette UE.
@@ -1490,24 +1483,24 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
                   <div className="bloc-etat etat-disponible mb-3 px-3 py-2.5">
-                    <div className="text-second font-semibold text-sky-900 mb-1.5">
+                    <div className="text-second font-semibold text-iip-texte mb-1.5">
                       Report de note possible
                     </div>
                     <div className="space-y-1">
                       {detail.candidats_report.map(cd => (
                         <div key={cd.cours_code} className="flex items-center gap-2">
-                          <div className="flex-1 text-xs text-sky-900 truncate" title={cd.cours_nom}>
+                          <div className="flex-1 text-xs text-iip-texte truncate" title={cd.cours_nom}>
                             <b>{cd.cours_code}</b> {cd.cours_nom}
-                            <span className="text-sky-700"> — {cd.note_affichee}/20 en {cd.annee_origine}</span>
+                            <span className="text-slate-500"> — {cd.note_affichee}/20 en {cd.annee_origine}</span>
                           </div>
                           <button onClick={() => poserReport(cd)}
-                            className="flex-none text-xs px-2 py-0.5 rounded-lg bg-sky-600 text-white font-semibold">
+                            className="bouton bouton-fort bouton-compact flex-none">
                             Reporter
                           </button>
                         </div>
                       ))}
                     </div>
-                    <p className="text-mention text-sky-700 mt-1.5">
+                    <p className="text-mention text-slate-500 mt-1.5">
                       Cours validés alors que l'UE n'était pas réussie. Le report relève du Conseil des études.
                     </p>
                   </div>
@@ -1520,8 +1513,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     reste maintenant sous les yeux. */}
                 {detail.decision && (detail.decision.s1 || detail.decision.s2
                   || detail.decision.finale || detail.decision.motivation) && (
-                    <div className="mb-2 px-3 py-2 rounded-lg bg-slate-50 border
-                                    border-slate-200 text-second">
+                    <div className="bloc-etat mb-2 px-3 py-2 text-second" data-etat="fort">
                       <span className="font-semibold text-iip-blue">Décision</span>
                       {detail.decision.s1 && (
                         <span className="ml-2">1<sup>re</sup> session :
@@ -1547,8 +1539,8 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 {/* LA GRILLE, ELLE, DÉFILE — et elle seule. */}
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
                   {(detail.structure || []).map(co => (
-                    <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
-                      <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
+                    <div key={co.cours_code} className="carte overflow-hidden">
+                      <div className="flex items-center gap-2 px-2 py-1.5 tab-repere">
                         <div className="flex-1 text-second text-slate-700 truncate" title={co.cours_nom}>
                           <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
                         </div>
@@ -1557,10 +1549,10 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                           {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '— %'}
                         </span>
                         {!co.complet && (
-                          <span className="text-mention px-1.5 py-0.5 rounded bg-amber-500 text-white border border-amber-500 flex-none"
+                          <PastilleEtat etat="surveiller" className="flex-none"
                             title={`Somme des pondérations : ${co.somme_poids} au lieu de 100`}>
                             pondérations {co.somme_poids}
-                          </span>
+                          </PastilleEtat>
                         )}
                       </div>
 
@@ -1568,16 +1560,14 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                         (() => {
                           const rn = detail.reports.find(r0 => r0.cours_code === co.cours_code);
                           return (
-                            <div className="px-3 py-2 flex items-center gap-2 bg-sky-50/60 border-l-4 border-l-sky-500">
-                              <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
-                                RN
-                              </span>
-                              <div className="flex-1 text-second text-sky-900">
+                            <div className="bloc-etat !rounded-none !border-0 px-3 py-2 flex items-center gap-2" data-etat="disponible">
+                              <PastilleEtat etat="disponible" className="flex-none">RN</PastilleEtat>
+                              <div className="flex-1 text-second text-iip-texte">
                                 Note reportée : <b>{Math.round(rn.note)}/20</b>
-                                {rn.annee_origine ? <span className="text-sky-700"> (validé en {rn.annee_origine})</span> : null}
+                                {rn.annee_origine ? <span className="text-slate-500"> (validé en {rn.annee_origine})</span> : null}
                               </div>
                               <button onClick={() => retirerReport(co.cours_code)}
-                                className="flex-none text-xs px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
+                                className="bouton bouton-compact flex-none">
                                 Retirer
                               </button>
                             </div>
@@ -1625,7 +1615,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                                   onBlur={e => ecrireDetail(co.cours_code, aa.aa_code,
                                     e.target.value !== '' ? Number(e.target.value) : null,
                                     { va: n.va, non_evalue: n.non_evalue })}
-                                  className="w-14 border border-slate-200 rounded-lg px-1.5 py-0.5 text-xs text-right disabled:bg-slate-100" />
+                                  className="w-14 border border-slate-200 rounded-champ px-1.5 py-0.5 text-xs text-right disabled:bg-slate-100" />
                                 <label className="flex items-center gap-1 text-mention text-slate-500 flex-none"
                                   title="Dispensé : cet acquis sort du calcul, sans pénaliser l\u2019étudiant">
                                   <input type="checkbox" checked={!!n.non_evalue}
@@ -1804,7 +1794,7 @@ function Valorisations({ etudId, annee }) {
       </div>
 
       {demande && (
-        <div className="border border-slate-200 rounded-xl p-3 mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <div className="carte p-3 mb-3 flex flex-wrap items-center gap-2 text-sm">
           {/* LES TROIS PORTES DE LA MATRICE, ici aussi (3.1.429) : l'admission
               se demande pour une SECTION (ue_num = 0), pas pour une unité. */}
           {/* La section d'abord : elle borne les unités proposées et porte l'admission.
@@ -1848,7 +1838,7 @@ function Valorisations({ etudId, annee }) {
             }}>Introduire</button>
           <button className="bouton" onClick={() => setDemande(null)}>Annuler</button>
           <span className="text-second text-slate-500 basis-full">La demande s'ouvre sans décision ; elle s'instruit ensuite dans « Instruire et décider » : dates, recevabilité, avis, décision, validation.</span>
-          {demandeErr && <span className="text-second basis-full" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{demandeErr}</span>}
+          {demandeErr && <span className="text-second basis-full" style={{ color: 'var(--c-refuse)' }}>{demandeErr}</span>}
         </div>
       )}
 
@@ -1860,13 +1850,13 @@ function Valorisations({ etudId, annee }) {
       )}
 
       {!valos.length ? (
-        <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
+        <div className="carte text-center py-8 text-slate-400 text-sm">
           Aucune valorisation enregistrée
         </div>
       ) : (
-        <div className="space-y-2">
+        <ListeEtats>
           {valos.map(v => (
-            <div key={v.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
+            <div key={v.id} data-etat="neutre" className="bloc-etat flex items-center justify-between gap-3 px-4 py-2.5">
               <div className="min-w-0">
                 {/* LA MÊME LECTURE QUE L'ÉCRAN VALORISATION (3.1.429) : la porte,
                     la frise du circuit, et la décision SEULEMENT quand le Conseil
@@ -1903,7 +1893,7 @@ function Valorisations({ etudId, annee }) {
                   {(v.fichiers || []).map(f => (
                     <span key={f.id}
                       className="inline-flex items-center gap-1 text-xs border
-                                 border-slate-200 rounded-lg pl-2 pr-1 py-0.5 bg-white">
+                                 border-slate-200 rounded-champ pl-2 pr-1 py-0.5">
                       <button type="button" onClick={() => telecharger(f)}
                         className="hover:underline text-iip-blue max-w-[220px] truncate"
                         title={`${f.nom} · ${Math.round((f.taille || 0) / 1024)} Ko`}>
@@ -1925,20 +1915,18 @@ function Valorisations({ etudId, annee }) {
                   ))}
                   {estAdmin && depot?.vid !== v.id && (
                     <button type="button" onClick={() => setDepot({ vid: v.id, nature: '' })}
-                      className="inline-flex items-center gap-1 text-xs text-slate-500 border border-dashed border-slate-300
-                                 rounded-lg px-2 py-0.5 hover:border-iip-blue hover:text-iip-blue">
+                      className="bouton bouton-compact inline-flex items-center gap-1">
                       <IconUpload size={12} /> Déposer une pièce justificative
                     </button>)}
                   {estAdmin && depot?.vid === v.id && (
                     <span className="inline-flex flex-wrap items-center gap-1.5 text-xs">
                       <select value={depot.nature} autoFocus onChange={e => setDepot(d => ({ ...d, nature: e.target.value }))}
-                        className="text-xs border border-slate-300 rounded-lg px-1.5 py-0.5">
+                        className="controle !h-8 text-xs">
                         <option value="">— quelle pièce ? —</option>
                         {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
                       </select>
                       {depot.nature && (
-                        <label className="inline-flex items-center gap-1 text-slate-600 border border-slate-300 rounded-lg px-2 py-0.5
-                                          cursor-pointer hover:border-iip-blue hover:text-iip-blue">
+                        <label className="bouton bouton-compact inline-flex items-center gap-1 cursor-pointer">
                           <IconUpload size={12} /> Choisir le fichier
                           <input type="file" className="hidden"
                             accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.tif,.tiff,.doc,.docx,.odt,.xls,.xlsx,.ods,.txt,.eml"
@@ -1965,7 +1953,7 @@ function Valorisations({ etudId, annee }) {
               </div>
             </div>
           ))}
-        </div>
+        </ListeEtats>
       )}
 
       <p className="text-xs text-slate-400 mt-3">
@@ -2004,14 +1992,15 @@ function DossierApprenant({ etudId }) {
         Dossier individuel de l'apprenant — {recues}/{pieces.length} pièces traitées
         <span className="text-slate-400"> · circulaire n° 9764 du 13/07/2026</span>
       </p>
-      <div className="space-y-2">
+      <ListeEtats>
         {pieces.map(p => (
-          <div key={p.type} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
+          <div key={p.type} data-etat={p.statut === 'manquant' ? 'corriger' : p.statut === 'recu' ? 'reussi' : 'neutre'}
+            className="bloc-etat flex items-center justify-between gap-3 px-4 py-2.5">
             <div className="text-sm text-slate-700">{p.libelle}</div>
             <div className="flex gap-1 flex-none">
               {STATUTS_PIECE.filter(s => peutPieces || p.statut === s.val).map(s => (
                 <button key={s.val} disabled={!peutPieces} onClick={() => setStatut(p.type, s.val)}
-                  className={`text-xs px-2 py-1 rounded-lg border transition ${
+                  className={`text-xs px-2 py-1 rounded-champ border transition ${
                     p.statut === s.val ? s.cls + ' font-semibold' : 'border-transparent text-slate-400 hover:bg-slate-50'}`}>
                   {s.label}
                 </button>
@@ -2019,7 +2008,7 @@ function DossierApprenant({ etudId }) {
             </div>
           </div>
         ))}
-      </div>
+      </ListeEtats>
     </div>
   );
 }
@@ -2117,12 +2106,12 @@ function NavFiche({ position, onPrec, onSuiv }) {
   return (
     <div className="flex items-center gap-1 mr-3 pr-3 border-r border-slate-200">
       <button onClick={onPrec} disabled={i <= 1} title="Dossier précédent (flèche gauche)"
-        className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
+        className="bouton bouton-compact !px-1.5 disabled:opacity-30">
         <IconChevronLeft size={14} />
       </button>
       <span className="text-second text-slate-600 tabular-nums min-w-[4.5rem] text-center">{n ? `${i} / ${n}` : '—'}</span>
       <button onClick={onSuiv} disabled={!n || i >= n} title="Dossier suivant (flèche droite)"
-        className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
+        className="bouton bouton-compact !px-1.5 disabled:opacity-30">
         <IconChevronRight size={14} />
       </button>
     </div>
@@ -2508,7 +2497,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               fenêtre que la Revue des PAE. */}
           <button type="button" onClick={() => setRevueFiche(true)}
             title="Parcourir et valider le PAE — la revue, sur cet étudiant"
-            className="w-8 h-8 flex-none grid place-items-center rounded-champ border border-slate-300 bg-white text-iip-blue hover:bg-slate-50">
+            className="bouton bouton-compact !px-1.5 flex-none text-iip-blue">
             <IconEyeCheck size={20} />
           </button>
           {(onPrec || onSuiv) && portee && (
@@ -2550,34 +2539,26 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             <div className="p-5 space-y-5">
               <DroitInscription etudId={id} annee={annee} />
 
-              <div className="border-t border-slate-200 pt-4">
-                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-                  <div>
-                    <h3 className="titre-carte">
-                      Frais de scolarité
-                    </h3>
-                    <p className="text-second text-slate-500">
-                      Document distinct du droit d'inscription : la Fédération
-                      n'en connaît pas.
-                    </p>
-                  </div>
+              <section className="carte overflow-hidden">
+                <EnteteCarte titre="Frais de scolarité"
+                  sous="Document distinct du droit d'inscription : la Fédération n'en connaît pas.">
                   <button onClick={ouvrirFraisScolarite}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
-                               border-iip-blue text-iip-blue font-semibold rounded-lg">
+                    className="bouton bouton-sortir inline-flex items-center gap-1.5">
                     <IconFileText size={14} /> Produire le document
                   </button>
-                </div>
+                </EnteteCarte>
+                <div className="p-4">
 
                 {/* Le calcul À L'ÉCRAN, et pas seulement dans le document
                     imprimé : le secrétariat doit pouvoir répondre à un
                     étudiant sans générer un PDF. */}
                 <FraisScolarite etudId={id} annee={annee} />
-              </div>
+                </div>
+              </section>
 
               <div className="border-t border-slate-200 pt-4">
                 <button onClick={ouvrirFicheInscription}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
-                             border-slate-300 text-slate-600 font-semibold rounded-lg">
+                  className="bouton bouton-sortir inline-flex items-center gap-1.5">
                   <IconFileText size={14} /> Fiche d'inscription / reçu
                 </button>
                 <p className="text-second text-slate-500 mt-1">
@@ -2672,9 +2653,9 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               <div className="border-t border-slate-200 mt-4 pt-3 flex flex-wrap items-center gap-2 text-sm">
                 <b>PAE {annee}</b>
                 {paeValide
-                  ? <span className="text-xs font-semibold text-white rounded-full px-2 py-px" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
-                      validé le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'}</span>
-                  : <span className="text-xs font-semibold text-white rounded-full px-2 py-px bg-slate-400">pas encore validé</span>}
+                  ? <PastilleEtat etat="reussi">
+                      validé le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'}</PastilleEtat>
+                  : <PastilleEtat etat="neutre">pas encore validé</PastilleEtat>}
                 <span className="text-second text-slate-500">{paeConfirme ? 'programme confirmé' : 'programme proposé'}</span>
                 <button type="button" className="text-second underline text-iip-blue" onClick={() => setRevueFiche(true)}>ouvrir la revue</button>
               </div>
@@ -2757,7 +2738,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         )}
                         {(pae.sections_scores || []).length > 1 && (
                           <select value={sectionForcee} onChange={e => setSectionForcee(e.target.value)}
-                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-second">
+                            className="controle !h-8 text-second">
                             <option value="">Section détectée</option>
                             {pae.sections_scores.map(s => (
                               <option key={s.section} value={s.section}>{s.section} ({s.n} UE)</option>
@@ -2825,50 +2806,48 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
 
                   {!retenues.length ? (
-                    <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
+                    <div className="carte text-center py-8 text-slate-400 text-sm">
                       Aucune UE retenue — utilisez « Ajouter une UE » ci-dessous.
                     </div>
                   ) : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="intertitre border-b">
-                          <th className="py-2 w-8"></th>
-                          <th className="py-2 text-left">UE proposée</th>
-                          <th className="py-2 text-left w-20">Niv.</th>
-                          <th className="py-2 text-left w-64">Statut</th>
-                        </tr>
-                      </thead>
+                    <Tableau>
+                      <TableauEntete>
+                        <Th largeur="w-8"></Th>
+                        <Th>UE proposée</Th>
+                        <Th largeur="w-20">Niv.</Th>
+                        <Th largeur="w-64">Statut</Th>
+                      </TableauEntete>
                       <tbody>
                         {retenues.map(u => (
-                          <tr key={u.ue_num} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                            <td className="py-2">
+                          <tr key={u.ue_num} className="ligne-maison">
+                            <td className="cellule px-3">
                               <input type="checkbox" checked readOnly
                                 onClick={() => basculerUE(u)}
                                 className="cursor-pointer accent-[color:var(--c-accent)]" />
                             </td>
-                            <td className="py-2">
+                            <td className="cellule px-3">
                               <span className="font-medium text-iip-blue">{u.ue_num}</span>
                               <span className="text-slate-600 ml-1.5 text-sm">{u.ue_nom}</span>
-                              {u.inscrite && <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
+                              {u.inscrite && <PastilleEtat etat="neutre" className="ml-1.5">déjà inscrite</PastilleEtat>}
                             </td>
-                            <td className="py-2">
+                            <td className="cellule px-3">
                               <BadgeUeNiveau niveau={u.ue_niv} />
                             </td>
-                            <td className="py-2">{ligneStatut(u)}</td>
+                            <td className="cellule px-3">{ligneStatut(u)}</td>
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </Tableau>
                   )}
 
                   {acquises.length > 0 && (
-                    <details className="mt-4 border border-emerald-200 bg-emerald-50/40 rounded-xl">
-                      <summary className="px-3 py-2 text-sm font-semibold text-emerald-900 cursor-pointer">
+                    <details className="bloc-etat mt-4" data-etat="reussi">
+                      <summary className="px-3 py-2 text-sm font-semibold text-iip-texte cursor-pointer">
                         {acquises.length} UE déjà acquise(s)
-                        <span className="font-normal text-emerald-700"> — hors programme</span>
+                        <span className="font-normal text-slate-500"> — hors programme</span>
                       </summary>
                       <div className="px-3 pb-2.5">
-                        <p className="text-xs text-emerald-800 mb-1.5">
+                        <p className="text-xs text-slate-600 mb-1.5">
                           Réussies ou valorisées lors d'une année antérieure. Une réinscription
                           reste possible, mais suppose une décision favorable du Conseil des études.
                         </p>
@@ -2876,7 +2855,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                           {acquises.map(u => (
                             <button key={u.ue_num} onClick={() => basculerUE(u)}
                               title={`${u.ue_nom || ''} — cliquer pour réinscrire`}
-                              className="text-xs px-2 py-0.5 rounded-lg border border-emerald-500 bg-white text-iip-texte hover:bg-emerald-500 hover:text-white">
+                              className="bouton bouton-compact">
                               {u.ue_num}
                               {u.va_complete ? ' · VA' : ''}
                             </button>
@@ -2887,12 +2866,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   )}
 
                   <button onClick={() => setCatalogueOuvert(o => !o)}
-                    className="mt-4 flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+                    className="bouton mt-4 inline-flex items-center gap-1.5">
                     <IconPlus size={14} /> {catalogueOuvert ? 'Masquer les autres UE' : `Ajouter une UE (${autres.length} disponibles)`}
                   </button>
 
                   {catalogueOuvert && (
-                    <div className="mt-3 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                    <div className="carte mt-3 p-3">
                       <p className="text-xs text-slate-500 mb-2">
                         UE organisées en {pae.annee} dans la ou les sections de l'étudiant, hors proposition.
                         Ajouter une UE dont les prérequis ne sont pas acquis demande une confirmation — la dérogation est tracée.
@@ -2900,10 +2879,10 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                       {!autres.length ? (
                         <div className="text-second text-slate-400 py-2 text-center">Toutes les UE organisées sont déjà retenues.</div>
                       ) : (
-                        <table className="w-full text-sm">
+                        <table className="tableau-maison w-full text-sm">
                           <tbody>
                             {autres.map(u => (
-                              <tr key={u.ue_num} className="border-b border-slate-100 last:border-0">
+                              <tr key={u.ue_num} className="ligne-maison">
                                 <td className="py-1.5 w-8">
                                   <input type="checkbox" checked={false} readOnly
                                     onClick={() => basculerUE(u)}
@@ -3822,7 +3801,7 @@ export default function Etudiants() {
                 <button type="button" onClick={() => setFiltresOuverts(o => !o)} aria-expanded={filtresOuverts}
                   className={`controle inline-flex items-center gap-2 font-semibold ${actifs.length ? 'border-iip-blue text-iip-blue' : ''}`}>
                   <IconAdjustmentsHorizontal size={16} /> Filtres
-                  {actifs.length > 0 && <span className="px-1.5 rounded-full text-white text-xs" style={{ background: 'var(--c-principal)' }}>{actifs.length}</span>}
+                  {actifs.length > 0 && <span className="pastille-etat" style={{ '--e': 'var(--c-principal)' }}>{actifs.length}</span>}
                 </button>
                 {filtresOuverts && (<>
                   <div className="fixed inset-0 z-30" onClick={() => setFiltresOuverts(false)} />
@@ -3900,7 +3879,7 @@ export default function Etudiants() {
               <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
                 {actifs.length > 0 && <span>Filtres actifs :</span>}
                 {actifs.map(f => (
-                  <span key={f.k} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 rounded-full bg-white border border-slate-300 text-iip-texte">
+                  <span key={f.k} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 rounded-full border border-slate-300 text-iip-texte">
                     {f.l}
                     <button type="button" onClick={f.off} title={`Retirer « ${f.l} »`} className="text-slate-400 hover:text-slate-700"><IconX size={13} /></button>
                   </span>))}
@@ -3911,10 +3890,7 @@ export default function Etudiants() {
         );
       })()}
       {erreurListe && (
-        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm
-                        text-red-800 mb-3">
-          <b>La liste n'a pas pu être chargée.</b> {erreurListe}
-        </div>
+        <Encadre etat="corriger" titre="La liste n'a pas pu être chargée." className="mb-3">{erreurListe}</Encadre>
       )}
 
       {/* La sélection doit se voir : sinon on l'oublie, et on s'étonne
@@ -3925,8 +3901,8 @@ export default function Etudiants() {
            laissait passer les lignes et son texte devenait illisible. Marine
            pâle et opaque, comme les bandeaux depuis 2.12.274. */
         <div className="sticky top-2 z-20 flex items-center justify-between gap-3 flex-wrap
-                        px-4 py-2 rounded-xl shadow-pose"
-          style={{ background: 'var(--blanc)', border: '1px solid #fff' }}>
+                        px-4 py-2 rounded-carte shadow-pose"
+          style={{ background: 'var(--blanc)', border: '1px solid var(--c-filet, rgb(var(--gris-200)))' }}>
           {/* LE COMPTEUR DIT CE QU'ON VOIT, ET CE QU'ON NE VOIT PAS. La sélection
               survit aux filtres — c'est voulu —, mais « 204 sélectionnés » au
               milieu d'une liste filtrée à trente a été lu, à juste titre, comme
@@ -3962,14 +3938,12 @@ export default function Etudiants() {
                 sections: [...new Set(etudiants.filter(e => selEtudiants.has(e.id)).map(e => e.section_rattachement).filter(Boolean))] }} />
             {ecritModule('etudiants') && <button onClick={imprimerCoordonnees}
               title="La liste imprimable des emails, GSM et adresses des étudiants cochés"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
-                         text-iip-blue font-semibold rounded-lg">
+              className="bouton bouton-sortir inline-flex items-center gap-1.5">
               <IconAddressBook size={14} /> Coordonnées
             </button>}
             <button onClick={() => setComposer('selection')}
               title="Ouvrir la composition des PAE avec les étudiants retenus déjà cochés"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
-                         text-iip-blue font-semibold rounded-lg">
+              className="bouton inline-flex items-center gap-1.5">
               <IconChecklist size={14} /> Composer les PAE
             </button>
             {['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination']
@@ -3995,21 +3969,19 @@ export default function Etudiants() {
               && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && (
               <button onClick={fusionnerSelection}
                 title="Réunir deux fiches du même étudiant : tout le parcours passe sur la fiche conservée, l'autre disparaît"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
-                           text-iip-blue font-semibold rounded-lg">
+                className="bouton inline-flex items-center gap-1.5">
                 <IconUserPlus size={14} /> Fusionner
               </button>
             )}
             {['admin', 'directeur', 'directeur_adjoint', 'secretariat'].includes(getUser()?.role) && (
               <button onClick={supprimerSelection}
                 title="Supprimer les étudiants cochés — les dossiers non vides demandent confirmation, avec l'inventaire de ce qui serait emporté"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-300
-                           text-red-700 font-semibold rounded-lg hover:bg-red-50">
+                className="bouton bouton-detruire inline-flex items-center gap-1.5">
                 <IconTrash size={14} /> Supprimer
               </button>
             )}
             <button onClick={() => setSelEtudiants(new Set())}
-              className="px-3 py-1.5 text-sm border border-slate-300 text-slate-600 rounded-lg">
+              className="bouton">
               Vider
             </button>
           </div>
@@ -4017,29 +3989,26 @@ export default function Etudiants() {
       )}
 
       {!filtres.length ? (
-        <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 text-sm">
+        <div className="carte text-center py-16 text-slate-500 text-sm">
           {chargement ? 'Chargement…' : 'Aucun étudiant — importez les données depuis eCampus.'}
         </div>
       ) : (
         /* LE BLANC EST RÉSERVÉ AUX CHAMPS : la liste prend le ton de la page,
            et le filet sépare. */
-        <div className="carte overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="tab-entete">
-                <th className="px-3 py-2.5 w-10">
+        <Tableau>
+            <TableauEntete>
+                <th className="cellule px-3 w-10">
                   <input type="checkbox" checked={tousAffichesCoches}
                     onChange={() => cocherAffiches(!tousAffichesCoches)}
                     title="Cocher les étudiants affichés"
                     onClick={e => e.stopPropagation()} />
                 </th>
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
-                <th className="px-2 py-2.5 text-left w-12 text-xs font-semibold" title="Programme validé">PAE</th>
+                <Th largeur="w-12" title="Programme validé">PAE</Th>
                 <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-28">Niveau</ThTri>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold">Parcours <span className="font-normal text-slate-400">— dans l'ordre du cursus</span></th>
-                <th className="px-2 py-2.5 w-8"></th>
-              </tr>
-            </thead>
+                <Th>Parcours <span className="font-normal text-slate-400 normal-case">— dans l'ordre du cursus</span></Th>
+                <Th largeur="w-8"></Th>
+            </TableauEntete>
             <tbody>
               {parSection.map(([sec, liste]) => {
                 // FERMÉS PAR DÉFAUT. Toutes les sections dépliées, c'était
@@ -4100,8 +4069,7 @@ export default function Etudiants() {
                     )}
                     {ouverte && liste.map(e => (
                 <tr key={`${e.id}-${e._second || ''}`} onClick={() => setSelId(e.id)}
-                  className={`border-b border-slate-100 last:border-0 cursor-pointer
-                    ${selEtudiants.has(e.id) ? 'bg-[color:var(--c-principal)]/[0.04]' : 'hover:bg-slate-50/60'}`}>
+                  className={`ligne-maison cursor-pointer ${selEtudiants.has(e.id) ? 'ligne-active' : ''}`}>
                   <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
                     <input type="checkbox" checked={selEtudiants.has(e.id)}
                       onChange={() => basculerSelection(e.id)} />
@@ -4114,9 +4082,9 @@ export default function Etudiants() {
                     <span className="font-semibold text-iip-blue">{nomPropre(e.nom, '')}</span>
                     <span className="text-slate-700 ml-1">{nomPropre('', e.prenom)}</span>
                     <span className="text-xs text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
-                    {e._second && <span className="ml-1.5 text-mention font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
+                    {e._second && <span className="ml-1.5 pastille-etat" data-etat="neutre"
                       title={`Second cursus : rattaché à ${e.section_rattachement}, suit aussi ${e._second}`}>2e cursus · {e.section_rattachement}</span>}
-                    {e.primo && <span className="ml-1.5 text-mention font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
+                    {e.primo && <span className="ml-1.5 pastille-etat" data-etat="neutre"
                       title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
                     {fManque && (e.manques || []).length > 0 && (
                       <span className="ml-2 text-xs text-slate-500"
@@ -4134,7 +4102,7 @@ export default function Etudiants() {
                         section: e.section_rattachement || null, niveau: e.niveau || null }])}
                       title={e.pae_valide ? `PAE validé le ${quandLocal(e.pae_valide.le)} par ${e.pae_valide.par || '—'} — ouvrir la revue`
                         : e.pae_confirme ? 'Programme confirmé, PAE pas encore validé — ouvrir la revue' : 'PAE pas encore validé — ouvrir la revue'}>
-                      <IconWritingSign size={15} style={{ color: e.pae_valide ? 'var(--c-reussi, #3E7D5E)' : 'rgb(var(--gris-300))' }} />
+                      <IconWritingSign size={15} style={{ color: e.pae_valide ? 'var(--c-reussi)' : 'rgb(var(--gris-300))' }} />
                     </button>
                     {/* L'ŒIL DANS LA LISTE (3.5.174, Charles : « plus rapide ») : voir son espace étudiant — la direction. */}
                     {passeRole('admin') && (
@@ -4147,13 +4115,11 @@ export default function Etudiants() {
                         question — où en est cette personne. */}
                     {e.sortie_statut === 'archive' && (
                       <span title={`Archivé le ${e.sortie_le || '?'} — hors des listes de travail`}
-                        className="intertitre ml-1.5 bg-slate-100 border border-slate-300 rounded px-1.5 py-px">archivé</span>
+                        className="ml-1.5 pastille-etat" data-etat="neutre">archivé</span>
                     )}
                     {e.sortie_statut === 'sorti' && (
                       <span title={`Sorti le ${e.sortie_le || '?'}${e.sortie_motif ? ` — ${e.sortie_motif}` : ''}`}
-                        className="ml-1.5 text-mention font-semibold uppercase tracking-wide
-                                   text-amber-800 bg-amber-50 border border-amber-200
-                                   rounded px-1.5 py-px">sorti</span>
+                        className="ml-1.5 pastille-etat" data-etat="surveiller">sorti</span>
                     )}
                     {e.diplome && (
                       <span title={e.diplome_declare
@@ -4161,9 +4127,7 @@ export default function Etudiants() {
                         : `Épreuve intégrée réussie${
                         e.diplome_annee ? ` en ${e.diplome_annee}` : ''}${
                         e.diplome_ue ? ` (UE ${e.diplome_ue})` : ''} — diplôme acquis`}
-                        className="ml-1.5 text-mention font-semibold uppercase tracking-wide
-                                   text-emerald-800 bg-emerald-50 border border-emerald-200
-                                   rounded px-1.5 py-px">
+                        className="ml-1.5 pastille-etat" data-etat="reussi">
                         diplômé{e.diplome_annee ? ` ${e.diplome_annee.slice(-4)}` : ''}
                       </span>
                     )}
@@ -4183,8 +4147,7 @@ export default function Etudiants() {
                 );
               })}
             </tbody>
-          </table>
-        </div>
+        </Tableau>
       )}
 
       {controles && (

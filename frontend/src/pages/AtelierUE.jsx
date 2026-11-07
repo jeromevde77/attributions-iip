@@ -19,7 +19,7 @@ import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fiche } from './DUE.jsx';
 import { UEModal } from './Referentiels.jsx';
 import ApercuDossier from '../components/ApercuDossier.jsx';
-import { RailLateral } from '../components/ui.jsx';
+import { RailLateral, Encadre } from '../components/ui.jsx';
 import PonderationsUE from './PonderationsUE.jsx';
 import CroisementUE, { proposer } from '../components/CroisementUE.jsx';
 
@@ -236,17 +236,19 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
       {dp && <UEModal ue={dp.ue} sections={dp.sections} ongletInitial="contenu" lecture onClose={() => setDp(null)} onSaved={() => setDp(null)} />}
 
       <Frise faces={FACES} ouvertes={ouvertes.map(f => f[0])} face={face} onFace={setFace} et={suivi} passe={lecture} />
-      {ue && lecture && <div className="bloc-etat px-3 py-2 text-sm" data-etat="neutre">Lecture seule : le référent de l’unité (le responsable choisi dans la DUE) et la coordination rédigent ; vous voyez chaque étape.</div>}
+      {ue && lecture && <Encadre etat="neutre">Lecture seule : le référent de l’unité (le responsable choisi dans la DUE) et la coordination rédigent ; vous voyez chaque étape.</Encadre>}
 
       {railPropre && (
         <RailLateral titre="Unité" sections={[{ items: ouvertes.map(([k, l, I, n]) => (
           { key: `face-${k}`, label: `${n}. ${l}${verrouDe(k, suivi) ? ' (verrouillée)' : ''}`, icon: I, actif: face === k, onClick: () => setFace(k) })) }]} />)}
 
       {ue && !lecture && verrouDe(face, suivi) && (
-        <div className="bloc-etat px-3 py-2 text-sm flex items-center gap-2" data-etat="surveiller">
-          <IconLock size={15} /> {verrouDe(face, suivi)}{passeLesVerrous() ? ' Vous la consultez en tant que direction : rien n’est validé pour autant.' : ''}
-          <button type="button" className="bouton ml-auto" onClick={() => setFace('croisement')}>Aller à l'étape 1</button>
-        </div>)}
+        <Encadre etat="surveiller">
+          <div className="flex items-center gap-2">
+            <IconLock size={15} /> {verrouDe(face, suivi)}{passeLesVerrous() ? ' Vous la consultez en tant que direction : rien n’est validé pour autant.' : ''}
+            <button type="button" className="bouton ml-auto" onClick={() => setFace('croisement')}>Aller à l'étape 1</button>
+          </div>
+        </Encadre>)}
       {ue && face === 'dossier' && <ApercuDossier key={ue} ueNum={ue} onSuivante={() => setFace('croisement')} />}
       {ue && face === 'croisement' && <CroisementUE key={ue} ueNum={ue} onEnregistre={() => lireSuivi(ue)}
         suivante={ouvertes.find(f => f[3] === 2) ? () => setFace('ponderation') : ouvertes.find(f => f[3] === 3) ? () => setFace('descriptif') : null} />}

@@ -5,7 +5,7 @@ import ImportAcquisCours from './ImportAcquisCours.jsx';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
 import PanneauAcquis from './PanneauAcquis.jsx';
 import ClasseurNotes from './ClasseurNotes.jsx';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, Encadre, PastilleEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 
 /**
  * Saisie des notes D'UN COURS — l'écran du professeur.
@@ -32,13 +32,14 @@ const SEUIL = 10;
  * Deux écrans qui peignent la même note de deux couleurs différentes
  * apprennent à se méfier des deux.
  */
+// L'état se lit au LISERÉ de la case, dans les couleurs réglées (Thèmes et couleurs) : jamais un fond pâle.
 const tonNote = n => {
-  if (n == null || n === '') return 'border-slate-300';
+  const neutre = { borderColor: 'rgb(var(--gris-300))' };
+  if (n == null || n === '') return neutre;
   const v = Number(n);
-  if (!Number.isFinite(v)) return 'border-slate-300';
-  if (v < SEUIL) return 'border-red-300 bg-red-50 text-red-900';
-  if (v < 12) return 'border-amber-300 bg-amber-50 text-amber-900';
-  return 'border-emerald-300 bg-emerald-50 text-emerald-900';
+  if (!Number.isFinite(v)) return neutre;
+  const c = v < SEUIL ? 'var(--c-refuse)' : v < 12 ? 'var(--c-attente)' : 'var(--c-reussi)';
+  return { borderColor: c, borderLeftWidth: 4 };
 };
 
 export default function EncodageCours({ coursCode, annee, onClose, onEnregistre, onParametrer }) {
@@ -186,15 +187,14 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
             {/* Les acquis viennent d'un tableur : autant les y lire. */}
             <button onClick={() => setImporter(true)}
               title="Importer les acquis de ce cours depuis un classeur Excel"
-              className="px-2.5 py-1 text-second rounded-lg border border-slate-300
-                         text-slate-600 flex items-center gap-1.5">
+              className="bouton bouton-compact flex items-center gap-1.5">
               <IconFileSpreadsheet size={14} /> Importer les acquis
             </button>
             <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => setSession(s)}
-                  className={`px-3 py-1 text-second font-semibold ${session === s
-                    ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
+                  className={`px-3 py-1 text-second ${session === s
+                    ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600'}`}>
                   Session {s}
                 </button>
               ))}
@@ -212,12 +212,11 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           description: a.description, poids: a.poids }))} />
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-sm text-red-800">{erreur}</div>
+            <Encadre etat="corriger">{erreur}</Encadre>
           )}
 
           {propositions.length > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-iip-turquoise/10 border border-iip-turquoise/40 text-second text-iip-blue">
+            <div data-etat="disponible" className="bloc-etat px-3 py-2 text-second">
               <div className="flex items-center gap-2 flex-wrap">
                 <b>{propositions.length} note(s) proposée(s) par le professeur</b>
                 <span className="text-slate-500">(depuis « Mes cours »)</span>
@@ -225,7 +224,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   {repriseEnCours ? '…' : 'Reprendre les propositions'}
                 </button>
               </div>
-              {repriseFaite && <div className="text-second text-emerald-800 mt-1">Reprises : {repriseFaite.a_poser} posée(s), {repriseFaite.remplacees} remplacée(s), {repriseFaite.identiques} déjà identique(s).</div>}
+              {repriseFaite && <div className="text-second mt-1"><PastilleEtat etat="reussi">repris</PastilleEtat> Reprises : {repriseFaite.a_poser} posée(s), {repriseFaite.remplacees} remplacée(s), {repriseFaite.identiques} déjà identique(s).</div>}
               <span className="block mt-0.5">
                 {Object.values(propositions.reduce((m, p) => {
                   const k = p.etudiant_id;
@@ -261,15 +260,15 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                 {!!reprise.differentes.length && (
                   <div>
                     <div className="text-second font-semibold mb-1">Notes qui diffèrent — cochez celles à remplacer par la proposition</div>
-                    <table className="w-full text-second">
-                      <thead className="tab-entete"><tr className="text-left text-xs text-slate-500"><th className="px-2 py-1 w-8"></th><th className="px-2 py-1">Étudiant</th><th className="px-2 py-1">Acquis</th><th className="px-2 py-1 text-right">Officiel</th><th className="px-2 py-1 text-right">Proposé</th></tr></thead>
+                    <Tableau dense>
+                      <TableauEntete><Th largeur="w-8"></Th><Th>Étudiant</Th><Th>Acquis</Th><Th align="droite">Officiel</Th><Th align="droite">Proposé</Th></TableauEntete>
                       <tbody>{reprise.differentes.map(d => { const k = `${d.etudiant_id}|${d.aa_code}`; return (
-                        <tr key={k} className="border-t border-slate-100">
-                          <td className="px-2 py-1"><input type="checkbox" checked={aRemplacer.has(k)} onChange={() => setARemplacer(s0 => { const n = new Set(s0); n.has(k) ? n.delete(k) : n.add(k); return n; })} /></td>
-                          <td className="px-2 py-1">{d.etudiant}</td><td className="px-2 py-1">{d.aa_code}</td>
-                          <td className="px-2 py-1 text-right tabular-nums">{d.officiel}</td><td className="px-2 py-1 text-right tabular-nums font-semibold">{d.propose}</td>
-                        </tr>); })}</tbody>
-                    </table>
+                        <Tr key={k}>
+                          <Td><input type="checkbox" checked={aRemplacer.has(k)} onChange={() => setARemplacer(s0 => { const n = new Set(s0); n.has(k) ? n.delete(k) : n.add(k); return n; })} /></Td>
+                          <Td>{d.etudiant}</Td><Td>{d.aa_code}</Td>
+                          <Td align="droite" className="tabular-nums">{d.officiel}</Td><Td align="droite" className="tabular-nums font-semibold">{d.propose}</Td>
+                        </Tr>); })}</tbody>
+                    </Tableau>
                   </div>
                 )}
                 {!!reprise.ignorees.length && (
@@ -286,8 +285,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           ) : data.epreuve_integree ? (
             /* L'unité est évaluée par une épreuve commune : encoder ici, cours
                par cours, n'aurait pas de sens — la note est celle de l'unité. */
-            <div className="px-4 py-6 rounded-xl bg-violet-50 border border-violet-200
-                            text-sm text-violet-900 space-y-1">
+            <div data-etat="disponible" className="bloc-etat px-4 py-4 text-sm space-y-1">
               <div className="font-semibold">Épreuve intégrée d'unité</div>
               <p>
                 Cette unité est évaluée par une épreuve commune à ses professeurs.
@@ -299,10 +297,9 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           ) : data.sans_acquis ? (
             /* Le cas de vos UE actuelles : sans lien cours↔acquis, il n'y a
                rien à saisir, et le dire vaut mieux qu'une grille vide. */
-            <div className="px-4 py-6 rounded-xl bg-amber-50 border border-amber-200
-                            text-sm text-amber-900 space-y-1">
+            <div data-etat="surveiller" className="bloc-etat px-4 py-4 text-sm space-y-1">
               <div className="font-semibold flex items-center gap-1.5">
-                <IconAlertTriangle size={16} /> Aucun acquis rattaché à ce cours
+                <IconAlertTriangle size={16} style={{ color: 'var(--c-attente)' }} /> Aucun acquis rattaché à ce cours
               </div>
               <p>
                 La saisie par cours suppose de savoir quels acquis ce cours évalue.
@@ -311,14 +308,12 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
                 <button onClick={() => setImporter(true)}
-                  className="px-3 py-1.5 text-sm rounded-lg bg-iip-blue
-                             text-white font-semibold flex items-center gap-1.5">
+                  className="bouton bouton-fort flex items-center gap-1.5">
                   <IconFileSpreadsheet size={14} /> Importer les acquis depuis Excel
                 </button>
                 {onParametrer && (
                   <button onClick={() => onParametrer(data.cours.ue_num)}
-                    className="px-3 py-1.5 text-sm rounded-lg border border-iip-blue
-                               text-iip-blue font-semibold">
+                    className="bouton">
                     Les relier à la main
                   </button>
                 )}
@@ -327,11 +322,10 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           ) : (
             <>
               {data.sans_ponderation && (
-                <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-second text-amber-900">
+                <Encadre etat="surveiller">
                   Ces acquis n'ont pas de pondération dans ce cours : la note du cours
                   sera la moyenne simple de ses acquis.
-                </div>
+                </Encadre>
               )}
 
               <div className="flex items-center gap-2">
@@ -339,15 +333,15 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   <IconSearch size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input value={recherche} onChange={e => setRecherche(e.target.value)}
                     placeholder="Filtrer un étudiant…"
-                    className="w-full border border-slate-300 rounded-lg pl-7 pr-2 py-1 text-sm" />
+                    className="controle controle-icone w-full" />
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="carte overflow-x-auto">
                 <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
-                  className="text-second border-collapse">
+                  className="tableau-maison text-second border-collapse">
                   <thead>
-                    <tr>
+                    <tr className="tab-entete">
                       <th className="sticky left-0 bande-entete text-left px-3 py-1.5
                                      border-b border-r border-slate-200 min-w-[180px]">Étudiant</th>
                       <th className="intertitre px-2 py-1.5 border-b border-r border-slate-200 w-24" title="Épreuve non présentée">
@@ -374,7 +368,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                         || `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase()
                              .includes(recherche.trim().toLowerCase()))
                       .map((e, ligne) => (
-                      <tr key={e.id} className="hover:bg-slate-50/60">
+                      <tr key={e.id} className="ligne-maison">
                         <td className="sticky left-0 bg-white px-3 py-1
                                        border-b border-r border-slate-100">
                           <div className="font-semibold text-iip-blue truncate">{e.nom}</div>
@@ -392,9 +386,10 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                   title={m === 'NP'
                                     ? 'Note de présence — présent, rien qui vaille un point. Zéro, seconde session ouverte.'
                                     : "Pas présenté — absent à l'épreuve. Zéro ; le Conseil appréciera la justification."}
+                                  style={actif ? { background: m === 'NP' ? 'var(--c-attente)' : 'var(--c-refuse)' } : undefined}
                                   className={`px-1.5 py-0.5 text-xs font-bold
                                     ${actif
-                                      ? (m === 'NP' ? 'bg-amber-500 text-white' : 'bg-red-600 text-white')
+                                      ? 'text-white'
                                       : 'bg-white text-slate-400 hover:text-slate-600'}`}>
                                   {m}
                                 </button>
@@ -409,12 +404,10 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                           return (
                             <td key={a.aa_code} className="px-1 py-1 border-b border-slate-100 text-center">
                               {men ? (
-                                <span className={`inline-block w-16 py-1 rounded-lg text-second
-                                  font-bold ${men === 'NP'
-                                    ? 'bg-amber-500 text-white border border-amber-500'
-                                    : 'bg-red-500 text-white border border-red-500'}`}>
+                                <PastilleEtat etat={men === 'NP' ? 'surveiller' : 'corriger'}
+                                  className="w-16 justify-center py-0.5 text-second">
                                   {men}
-                                </span>
+                                </PastilleEtat>
                               ) : (
                                 <input {...caseGrille(ligne, nc)}
                                   defaultValue={v ?? ''}
@@ -424,8 +417,9 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                     const avant = v == null ? '' : String(v);
                                     if (brut !== avant) poser(e.id, a.aa_code, brut);
                                   }}
-                                  className={`w-16 border rounded-lg px-1.5 py-1 text-sm
-                                              text-center tabular-nums ${tonNote(v)}`} />
+                                  style={tonNote(v)}
+                                  className="w-16 border rounded-lg bg-white px-1.5 py-1 text-sm
+                                              text-center tabular-nums" />
                               )}
                             </td>
                           );

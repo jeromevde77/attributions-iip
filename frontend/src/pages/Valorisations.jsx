@@ -6,7 +6,7 @@ import {
   IconRubberStamp, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison, EnteteCarte } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison, EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat, Encadre, BadgePrimo } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import NotificationVA from '../components/NotificationVA.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
@@ -273,11 +273,9 @@ export default function Valorisations() {
             ['2', 'Instruire en série', 'Dates, recevabilité, avis : en lot, sur les demandes cochées. Les chargés de cours rendent leur avis dans Mes cours.', () => setAnalyse(true), false],
             ['3', 'Séance du conseil', 'Par étudiant ou par UE — une décision par UE, la même pour plusieurs si le Conseil l’a dit. Puis la validation.', () => setDeciderEtudiant(true), true],
           ].map(([n, t, sous, go, fort]) => (
-            <button key={n} type="button" onClick={go}
-              className="text-left flex items-start gap-2.5 bg-white border rounded-carte px-3 py-2.5 hover:bg-slate-50"
-              style={{ borderColor: fort ? 'var(--c-principal, #16406A)' : '#D8DCE4' }}>
-              <span className="flex-none w-6 h-6 rounded-full grid place-items-center text-second font-bold"
-                style={fort ? { background: 'var(--c-principal, #16406A)', color: '#fff' } : { background: '#E8EEF6', color: 'var(--c-principal, #16406A)' }}>{n}</span>
+            <button key={n} type="button" onClick={go} data-etat={fort ? 'fort' : 'neutre'}
+              className="bloc-etat text-left flex items-start gap-2.5 px-3 py-2.5 hover:brightness-[.98]">
+              <span className={`flex-none w-6 h-6 rounded-full grid place-items-center text-second font-bold border border-iip-blue ${fort ? 'bg-iip-blue text-white' : 'text-iip-blue'}`}>{n}</span>
               <span><b className="block text-sm">{t}</b><span className="text-second text-slate-600">{sous}</span></span>
             </button>
           ))}
@@ -624,7 +622,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
         </button>
         <span className="font-mono text-xs text-slate-500 w-10">{va.ue_num}</span>
         <span className="flex-1 min-w-0 text-sm truncate">{va.ue_nom || ''}</span>
-        <span className={`text-xs ${refuse ? 'text-[#9D4A38] font-semibold' : 'text-slate-500'}`}>
+        <span className={`text-xs ${refuse ? 'font-semibold' : 'text-slate-500'}`} style={refuse ? { color: 'var(--c-refuse)' } : undefined}>
           {refuse ? 'Refusée' : va.type === 'admission' ? 'Admission' : va.type === 'complete' ? 'Totale' : 'Partielle'}
         </span>
         {/* LE DOSSIER AVANT LA PIÈCE. On ouvrait directement sur l'impression,
@@ -1445,23 +1443,20 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                 va chercher les étudiants dans le fichier ci-dessous.
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="tab-entete">
-                  <tr>
-                    <th className="w-8 px-3 py-1.5"></th>
-                    <th className="text-left px-2 py-1.5 font-medium">Étudiant</th>
-                    <th className="text-left px-2 py-1.5 font-medium">Section</th>
-                    <th className="text-left px-2 py-1.5 font-medium">Origine</th>
-                    <th className="text-left px-2 py-1.5 font-medium">Déjà décidé</th>
-                  </tr>
-                </thead>
+              <Tableau className="!border-0 !rounded-none">
+                <TableauEntete>
+                  <Th className="w-8" />
+                  <Th>Étudiant</Th>
+                  <Th>Section</Th>
+                  <Th>Origine</Th>
+                  <Th>Déjà décidé</Th>
+                </TableauEntete>
                 <tbody>
                   {tousCandidats.map(e => {
                     const pris = !!e.valorisation;
                     return (
-                      <tr key={e.id}
-                        className={`border-b border-slate-100 ${pris ? 'opacity-50'
-                          : coches.has(e.id) ? 'bg-iip-blue/5' : ''}`}>
+                      <Tr key={e.id} actif={!pris && coches.has(e.id)}
+                        className={pris ? 'opacity-50' : ''}>
                         <td className="px-3 py-1.5">
                           <input type="checkbox" disabled={pris}
                             checked={coches.has(e.id)}
@@ -1487,11 +1482,11 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                             </span>
                           ) : <span className="text-slate-300">—</span>}
                         </td>
-                      </tr>
+                      </Tr>
                     );
                   })}
                 </tbody>
-              </table>
+              </Tableau>
             )}
 
             {/* CHERCHER DANS LE FICHIER, SANS OUVRIR UNE SECONDE FENÊTRE.
@@ -1740,12 +1735,8 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
 
         {/* LE LOT EST TOUT OU RIEN, ET ON DIT QUI L'A ARRÊTÉ. */}
         {doublons?.length > 0 && (
-          <section className="carte p-3">
-            <div className="flex items-center gap-1.5 text-sm text-amber-800">
-              <IconAlertTriangle size={15} />
-              Rien n'a été enregistré : ces étudiants portent déjà une décision
-              sur cette unité.
-            </div>
+          <Encadre etat="surveiller" icone={IconAlertTriangle}
+            titre="Rien n'a été enregistré : ces étudiants portent déjà une décision sur cette unité.">
             <ul className="mt-2 space-y-0.5">
               {doublons.map(d => (
                 <li key={d.etudiant_id} className="text-second text-slate-600">
@@ -1759,7 +1750,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
               Décoche-les pour enregistrer les autres, ou corrige leur décision
               sur leur ligne : une décision du Conseil ne s'écrase pas.
             </p>
-          </section>
+          </Encadre>
         )}
       </div>
     </Fenetre>
@@ -1892,17 +1883,20 @@ function FenetreDossier({ vid, onClose, onChange }) {
             </p>
             {d.demande_etudiant.pieces.length > 0 && (
               <div className="text-second text-slate-600">Pièces : {d.demande_etudiant.pieces.map(p => `n° ${p.numero} ${p.nom}`).join(' · ')}</div>)}
-            <table className="w-full text-second">
+            </div>
+            <Tableau dense className="!border-0 !rounded-none">
+              <TableauEntete>
+                <Th className="w-1/3">Acquis</Th><Th>Motivation</Th><Th>Pièces</Th>
+              </TableauEntete>
               <tbody>
                 {d.demande_etudiant.acquis.map(a => (
-                  <tr key={a.code} className="border-t border-slate-100 align-top">
-                    <td className="py-1.5 pr-2 w-1/3"><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span></td>
-                    <td className="py-1.5 pr-2 whitespace-pre-wrap">{a.texte || <span className="text-slate-400">non motivé</span>}</td>
-                    <td className="py-1.5 whitespace-nowrap text-slate-500">{a.pieces.length ? a.pieces.map(n => `n° ${n}`).join(', ') : ''}</td>
-                  </tr>))}
+                  <Tr key={a.code} className="align-top">
+                    <Td><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span></Td>
+                    <Td className="whitespace-pre-wrap">{a.texte || <span className="text-slate-400">non motivé</span>}</Td>
+                    <Td ton="secondaire" className="whitespace-nowrap">{a.pieces.length ? a.pieces.map(n => `n° ${n}`).join(', ') : ''}</Td>
+                  </Tr>))}
               </tbody>
-            </table>
-            </div>
+            </Tableau>
           </section>
         )}
 
@@ -1966,20 +1960,23 @@ function FenetreDossier({ vid, onClose, onChange }) {
               Aucun geste enregistré : ce dossier est antérieur au suivi du circuit.
             </div>
           ) : (
-            <table className="w-full text-second">
+            <Tableau dense className="!border-0 !rounded-none">
+              <TableauEntete>
+                <Th>Quand</Th><Th>Étape</Th><Th>Qui</Th><Th>Détail</Th>
+              </TableauEntete>
               <tbody>
                 {d.journal.map(l => (
-                  <tr key={l.id} className="border-b border-slate-100">
-                    <td className="px-3 py-1 text-slate-500 whitespace-nowrap">{l.horodatage}</td>
-                    <td className="px-2 py-1 font-medium">{l.etape}</td>
-                    <td className="px-2 py-1">{l.acteur_nom || '—'}
+                  <Tr key={l.id}>
+                    <Td ton="secondaire" className="whitespace-nowrap">{l.horodatage}</Td>
+                    <Td className="font-medium">{l.etape}</Td>
+                    <Td>{l.acteur_nom || '—'}
                       {l.acteur_role ? <span className="text-slate-400"> ({l.acteur_role})</span> : null}
-                    </td>
-                    <td className="px-2 py-1 text-slate-600">{l.detail || ''}</td>
-                  </tr>
+                    </Td>
+                    <Td ton="secondaire">{l.detail || ''}</Td>
+                  </Tr>
                 ))}
               </tbody>
-            </table>
+            </Tableau>
           )}
         </section>
       </div>
@@ -2029,7 +2026,7 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
             style={porte === v
               ? { color: TEINTE_PORTE[v].t, background: TEINTE_PORTE[v].f,
                   borderColor: TEINTE_PORTE[v].b }
-              : { borderColor: '#E2E8F0' }}>
+              : { borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }}>
             <input type="radio" checked={porte === v}
               onChange={() => { setPorte(v); if (v === 'admission') setType('admission');
                                 else if (type === 'admission') setType('partielle'); }}
@@ -3060,10 +3057,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
       <div className="space-y-3">
 
         {erreur && (
-          <div className="carte p-3 text-second text-rose-700 space-y-1">
-            <div className="flex items-start gap-1.5">
-              <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
-            </div>
+          <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur}>
             {/* LES DOSSIERS QUI BLOQUENT SONT NOMMÉS : on les décoche, on ne
                 devine pas lesquels. */}
             {bloquants?.map(b => (
@@ -3071,7 +3065,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                 {b.qui} — {b.pourquoi}
               </div>
             ))}
-          </div>
+          </Encadre>
         )}
 
         {/* 1 — LE GESTE, ET OÙ L'ON EN EST.
@@ -3421,11 +3415,10 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
 
         {/* 2 — LES FILTRES ET LA LISTE. */}
         <section className="carte p-0 overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2 px-3 py-2
-                          border-b border-slate-200">
-            <span className="intertitre">
+          <div className="entete-carte !justify-start flex-wrap !items-center !gap-2">
+            <h3 className="titre-carte">
               2 · Les demandes
-            </span>
+            </h3>
             <div className="relative">
               <IconSearch size={14} className="absolute left-2 top-1/2 -translate-y-1/2
                                                text-slate-400 pointer-events-none" />
@@ -3471,26 +3464,24 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
               Aucune demande ne répond à ces filtres en {annee}.
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="tab-entete">
-                <tr>
-                  <th className="w-8 px-3 py-1.5"></th>
-                  <th className="text-left px-2 py-1.5 font-medium">Étudiant</th>
-                  <th className="text-left px-2 py-1.5 font-medium">Unité</th>
-                  <th className="text-left px-2 py-1.5 font-medium">Nature</th>
-                  <th className="text-left px-2 py-1.5 font-medium">État</th>
-                  <th className="text-left px-2 py-1.5 font-medium">Preuves</th>
-                  <th className="text-left px-2 py-1.5 font-medium">Ce qui manque</th>
-                </tr>
-              </thead>
+            <Tableau className="!border-0 !rounded-none">
+              <TableauEntete>
+                <Th className="w-8" />
+                <Th>Étudiant</Th>
+                <Th>Unité</Th>
+                <Th>Nature</Th>
+                <Th>État</Th>
+                <Th>Preuves</Th>
+                <Th>Ce qui manque</Th>
+              </TableauEntete>
               <tbody>
                 {vues.map(d => {
                   const ok = eligible(d);
                   const teinte = TEINTE_PORTE[d.porte] || TEINTE_PORTE.va;
                   const empeche = pourquoiPas(d);
                   return (
-                    <tr key={d.id}
-                      className={`border-t border-slate-100 ${ok ? '' : 'opacity-60'}`}>
+                    <Tr key={d.id}
+                      className={ok ? '' : 'opacity-60'}>
                       <td className="px-3 py-1.5 align-top">
                         <input type="checkbox" checked={coches.has(d.id)}
                           disabled={!ok} onChange={() => basculer(d.id)} />
@@ -3536,11 +3527,11 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                       <td className="px-2 py-1.5 align-top text-second text-slate-500">
                         {empeche || d.manques?.[0] || '—'}
                       </td>
-                    </tr>
+                    </Tr>
                   );
                 })}
               </tbody>
-            </table>
+            </Tableau>
           )}
         </section>
       </div>
@@ -3623,8 +3614,7 @@ function EtapeValidation({ dossier, peutValider, peutDevalider, manques,
   const valide = !!dossier.valide_le;
 
   return (
-    <section className={`carte p-3 space-y-2
-      ${valide ? 'border-l-[3px] border-l-emerald-700' : ''}`}>
+    <section data-etat={valide ? 'reussi' : undefined} className={`${valide ? 'bloc-etat' : 'carte'} p-3 space-y-2`}>
       <div className="flex items-center gap-2 flex-wrap">
         <span className="intertitre">
           6 bis — La validation par la direction
@@ -4140,10 +4130,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                       <span className="text-sm font-medium">
                         {(e.nom || '').toUpperCase()} {e.prenom}
                       </span>
-                      {e.primo && (
-                        <span className="ml-1.5 text-mention font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/10 text-iip-turquoise-dark"
-                          title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>
-                      )}
+                      {e.primo && <BadgePrimo className="ml-1.5" />}
                       {e.niveau && (
                         <span className="ml-1 text-mention text-slate-400">{e.niveau}</span>
                       )}
@@ -4168,7 +4155,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                           style={adCoches.has(e.id) ? {
                             color: TEINTE.admission.t, background: TEINTE.admission.f,
                             borderColor: TEINTE.admission.b,
-                          } : { color: '#CBD5E1', borderColor: '#E2E8F0' }}>
+                          } : { color: 'rgb(var(--gris-300))', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }}>
                           {adCoches.has(e.id) ? 'AD' : '—'}
                         </button>
                       )}
@@ -4185,7 +4172,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                               style={existante.porte ? {
                                 color: TEINTE[existante.porte].t,
                                 background: TEINTE[existante.porte].f,
-                              } : { color: '#64748B', background: '#F1F5F9' }}
+                              } : { color: 'rgb(var(--gris-500))', background: 'rgb(var(--gris-100))' }}
                               title={`${existante.porte ? COURT[existante.porte] + ' · ' : ''}${existante.etat}`}>
                               {existante.porte ? COURT[existante.porte] : '•'}
                             </span>
@@ -4200,7 +4187,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                             style={pose ? {
                               color: TEINTE[pose].t, background: TEINTE[pose].f,
                               borderColor: TEINTE[pose].b,
-                            } : { color: '#CBD5E1', borderColor: '#E2E8F0' }}>
+                            } : { color: 'rgb(var(--gris-300))', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }}>
                             {pose ? COURT[pose] : '—'}
                           </button>
                         </td>
@@ -4356,11 +4343,13 @@ function InstruireUnite({ vid, onChange, freres = [] }) {
  * motif) reste ouverte et ne retient pas les autres.
  */
 const TEINTE_DECISION = {
-  totale: 'var(--c-reussi, #3E7D5E)',
+  totale: 'var(--c-reussi)',
   partielle: 'var(--c-attente)',
   refusee: 'var(--c-refuse)',
-  '': 'var(--c-indisponible-bord, #94A3B8)',
+  '': 'var(--c-indisponible-bord)',
 };
+/* La même décision, dite en état de la maison : une pastille pleine (PastilleEtat). */
+const ETAT_DECISION = { totale: 'reussi', partielle: 'surveiller', refusee: 'corriger', '': 'neutre' };
 const LIB_DECISION = { totale: 'Totale', partielle: 'Partielle', refusee: 'Refusée' };
 const LIB_PORTE = { va: 'VA', vae: 'VAE', admission: 'AD' };
 const SENS_AVIS = { favorable: ['favorable', 'totale'], partiel: ['partiel', 'partielle'], defavorable: ['défavorable', 'refusee'] };
@@ -4660,7 +4649,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                   <NotificationVA etudId={g.d0.etudiant_id} annee={annee} nom={`${(g.d0.nom || '').toUpperCase()} ${g.d0.prenom || ''}`} onFait={charger} />)}
                 {peutValider && aValider.length > 0 && (
                   <button className="bouton font-semibold" disabled={enCours} onClick={() => valider()}
-                    style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}
+                    style={{ borderColor: 'var(--c-reussi)', color: 'var(--c-reussi)' }}
                     title="Geste de la direction : les décisions arrêtées et complètes">
                     <IconCheck size={14} className="inline -mt-0.5 mr-1" />Valider {aValider.length} dossier(s)</button>
                 )}
@@ -4673,14 +4662,14 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                 <button className="bouton" disabled={iCur >= groupes.length - 1} onClick={() => setCle(groupes[iCur + 1].cle)}>Passer ▶</button>
                 <button className="bouton font-semibold disabled:opacity-40" disabled={enCours || (!prets.length && iCur >= groupes.length - 1)}
                   onClick={() => arreter(true)}
-                  style={prets.length ? { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' } : undefined}>
+                  style={prets.length ? { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: 'var(--blanc, #fff)' } : undefined}>
                   {enCours ? 'Enregistrement…' : prets.length
                     ? `✓ Arrêter ${prets.length} décision(s)${iCur < groupes.length - 1 ? ' · suivant ▶' : ''}`
                     : 'Rien à arrêter · suivant ▶'}</button>
               </div>
               {/* Le constat s'écrit, il ne se cadre pas : un bandeau à liseré posé
                   sur le tableau se confondait avec le liseré de la première ligne. */}
-              {info && <p className="text-second font-semibold mb-2" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>✓ {info}</p>}
+              {info && <p className="text-second font-semibold mb-2" style={{ color: 'var(--c-reussi)' }}>✓ {info}</p>}
               {erreur && (
                 <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second mb-2">
                   {erreur}
@@ -4688,15 +4677,13 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                 </div>
               )}
 
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="tab-entete text-left">
-                    <th className="px-2 py-1.5 w-[190px]">{mode === 'etudiant' ? 'Unité' : 'Étudiant'}</th>
-                    <th className="px-2 py-1.5">Avis du chargé de cours</th>
-                    <th className="px-2 py-1.5 w-[360px]">Décision du Conseil</th>
-                    <th className="px-2 py-1.5 w-[170px]">Complet ?</th>
-                  </tr>
-                </thead>
+              <Tableau>
+                <TableauEntete>
+                  <Th className="w-[190px]">{mode === 'etudiant' ? 'Unité' : 'Étudiant'}</Th>
+                  <Th>Avis du chargé de cours</Th>
+                  <Th className="w-[360px]">Décision du Conseil</Th>
+                  <Th className="w-[170px]">Complet ?</Th>
+                </TableauEntete>
                 <tbody>
                   {lignes.map(d => {
                     const c = choix[d.id] || {};
@@ -4709,7 +4696,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                     const sens = SENS_AVIS[d.avis_sens];
                     return (
                       <Fragment key={d.id}>
-                        <tr className="border-b border-slate-100 align-top">
+                        <Tr className="align-top">
                           <td className="px-2 py-2" style={{ borderLeft: `5px solid ${TEINTE_DECISION[d.valide_le || !bloque ? (c.branche || '') : '']}` }}>
                             {mode === 'etudiant' ? (
                               <><b>UE {d.ue_num}</b> {d.porte && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">{LIB_PORTE[d.porte] || String(d.porte).toUpperCase()}</span>}
@@ -4722,17 +4709,15 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                           <td className="px-2 py-2 text-second text-slate-700">
                             {d.avis_le ? (
                               <>
-                                <span className="inline-block text-xs font-semibold text-white rounded-full px-2 mr-1.5"
-                                  style={{ background: TEINTE_DECISION[sens?.[1] || ''] }}>{sens?.[0] || d.avis_sens}</span>
+                                <PastilleEtat etat={ETAT_DECISION[sens?.[1] || '']} className="mr-1.5">{sens?.[0] || d.avis_sens}</PastilleEtat>
                                 {d.avis_texte || <i className="text-slate-400">(sans texte)</i>}
                                 <div className="text-xs text-slate-500 mt-0.5">{d.avis_par || '—'} · {String(d.avis_le).slice(0, 10).split('-').reverse().join('/')}</div>
                               </>
-                            ) : <span className="inline-block text-xs font-semibold text-white rounded-full px-2" style={{ background: TEINTE_DECISION[''] }}>pas d’avis</span>}
+                            ) : <PastilleEtat etat="neutre">pas d’avis</PastilleEtat>}
                           </td>
                           <td className="px-2 py-2">
                             {d.valide_le ? (
-                              <span className="text-second"><span className="inline-block text-xs font-semibold text-white rounded-full px-2 mr-1.5"
-                                style={{ background: TEINTE_DECISION[choixInitial(d).branche] }}>{LIB_DECISION[choixInitial(d).branche] || '—'}</span>
+                              <span className="text-second"><PastilleEtat etat={ETAT_DECISION[choixInitial(d).branche] || 'neutre'} className="mr-1.5">{LIB_DECISION[choixInitial(d).branche] || '—'}</PastilleEtat>
                                 validée le {String(d.valide_le).slice(0, 10).split('-').reverse().join('/')}{d.valide_par ? ` par ${d.valide_par}` : ''}
                                 {/* ROUVRIR, LÀ OÙ L'ON VOIT LA DÉCISION (Charles, 7 octobre 2026 : « si
                                     le CDE a validé, on ne peut pas revenir en arrière »). Direction,
@@ -4748,13 +4733,12 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                   }}>rouvrir le dossier</button>)}</span>
                             ) : bloque ? <span className="text-second text-slate-500">{bloque}</span> : (
                               <div className="space-y-1.5">
-                                <div className="inline-flex border border-slate-300 rounded-champ overflow-hidden">
+                                <div className="segments !h-8" role="group" aria-label="Décision">
                                   {['totale', 'partielle', 'refusee'].map(v => (
                                     <button key={v} type="button"
                                       onClick={() => poser(d.id, { branche: v, ...(v !== 'partielle' ? { coches: [] } : {}),
                                         ...(v === 'refusee' ? { motif: c.motif || '' } : { motif: '' }) })}
-                                      className="px-3 py-1 text-second font-semibold border-r border-slate-200 last:border-r-0"
-                                      style={c.branche === v ? { background: TEINTE_DECISION[v], color: '#fff' } : { color: '#475569' }}>
+                                      className={c.branche === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>
                                       {LIB_DECISION[v]}</button>
                                   ))}
                                 </div>
@@ -4779,7 +4763,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                   <>
                                     {/* LE MOTIF SE CHOISIT, PUIS SE COMPLÈTE (2 octobre 2026). */}
                                     <select value="" onChange={e => e.target.value && poser(d.id, { motif: c.motif?.trim() ? `${c.motif.trim()} ${e.target.value}` : e.target.value })}
-                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-second bg-white">
+                                      className="controle w-full !h-7 !px-1.5 text-second">
                                       <option value="">Motif type du refus…</option>
                                       {(motifs.refus || []).map(g => (
                                         <optgroup key={g.titre} label={g.titre}>
@@ -4789,14 +4773,14 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                     </select>
                                     <textarea rows={2} value={c.motif || ''} placeholder="Motif du refus — obligatoire, à compléter"
                                       onChange={e => poser(d.id, { motif: e.target.value })}
-                                      className="w-full border border-slate-300 rounded px-2 py-1 text-second" />
+                                      className="controle w-full h-auto py-1 text-second" />
                                   </>
                                 )}
                                 {/* LA BASE SE CHOISIT UE PAR UE (2 octobre 2026) : celle de la
                                     séance n'est qu'un défaut. */}
                                 {(c.branche === 'totale' || c.branche === 'partielle') && (
                                   <select value={c.base || ''} onChange={e => poser(d.id, { base: e.target.value })}
-                                    className="w-full border border-slate-300 rounded h-7 px-1.5 text-second bg-white">
+                                    className="controle w-full !h-7 !px-1.5 text-second">
                                     <option value="">Base : {baseCommune ? `${baseCommune} (celle de la séance)` : '— à choisir —'}</option>
                                     {bases.map(x => <option key={x.code} value={x.code}>Base : {x.code} — {x.libelle}</option>)}
                                   </select>
@@ -4804,11 +4788,10 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                 {c.branche === 'partielle' && (
                                   <div className="text-second">
                                     {/* PAR COURS OU PAR ACQUIS — les deux portées de la partielle. */}
-                                    <div className="inline-flex border border-slate-300 rounded overflow-hidden mb-1 mr-2 align-middle">
+                                    <div className="segments !h-7 mb-1 mr-2 align-middle" role="group" aria-label="Portée de la dispense partielle">
                                       {[['cours', 'Par cours'], ['acquis', 'Par acquis']].map(([v, l]) => (
                                         <button key={v} type="button" onClick={() => poser(d.id, { cible: v, coches: [] })}
-                                          className="px-2 py-0.5 text-second font-semibold border-r border-slate-200 last:border-r-0"
-                                          style={c.cible === v ? { background: TEINTE_DECISION.partielle, color: '#fff' } : { color: '#475569' }}>{l}</button>
+                                          className={c.cible === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
                                       ))}
                                     </div>
                                     <span className="text-slate-500">{c.cible === 'acquis' ? 'acquis reconnus :' : 'cours dispensés :'}</span>
@@ -4821,7 +4804,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                             <button key={code} type="button" title={titre}
                                               onClick={() => poser(d.id, { coches: on ? c.coches.filter(x => x !== code) : [...(c.coches || []), code] })}
                                               className="inline-block rounded border px-1.5 mr-1 mt-1 text-second"
-                                              style={on ? { borderColor: TEINTE_DECISION.partielle, color: TEINTE_DECISION.partielle, fontWeight: 600 } : { borderColor: '#CBD5E1', color: '#475569' }}>
+                                              style={on ? { borderColor: TEINTE_DECISION.partielle, color: TEINTE_DECISION.partielle, fontWeight: 600 } : { borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-600))' }}>
                                               {on ? '✓ ' : ''}{lib}</button>
                                           );
                                         })}
@@ -4838,7 +4821,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                             const sansStage = String(c.remarque || '').replace(/Stage [^:]+ : \d+ h dispensées sur [^;]+; l’évaluation du stage reste due\.\s*/g, '').trim();
                                             poser(d.id, { heures: h, remarque: [phrase, sansStage].filter(Boolean).join(' ') });
                                           }}
-                                          className="border border-slate-300 rounded h-7 px-1.5 w-20 text-second" />
+                                          className="controle !h-7 !px-1.5 w-20 text-second" />
                                         <span className="text-slate-500">
                                           {k.heures_etudiant ? `sur ${k.heures_etudiant} h de stage prévues pour l'étudiant`
                                             : "heures de stage de l'étudiant inconnues — à compléter sur la fiche de l'unité"}
@@ -4846,7 +4829,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                       </div>
                                     ))}
                                     <select value="" onChange={e => e.target.value && poser(d.id, { remarque: e.target.value })}
-                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-second bg-white mt-1.5">
+                                      className="controle w-full !h-7 !px-1.5 text-second mt-1.5">
                                       <option value="">Remarque du Conseil, type…</option>
                                       {(motifs.partiel || []).map(g => (
                                         <optgroup key={g.titre} label={g.titre}>
@@ -4856,26 +4839,26 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                     </select>
                                     <input value={c.remarque || ''} onChange={e => poser(d.id, { remarque: e.target.value })}
                                       placeholder="Remarque du Conseil (facultative) — « dispensé des heures de stage, doit présenter l’examen »"
-                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-second mt-1" />
+                                      className="controle w-full !h-7 !px-1.5 text-second mt-1" />
                                   </div>
                                 )}
                               </div>
                             )}
                           </td>
                           <td className="px-2 py-2 text-second">
-                            {d.valide_le ? <span className="font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>✓ validé</span>
-                              : !manque ? <span className="font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>{aEcrire(d) ? '✓ prêt' : '✓ arrêtée'}</span>
+                            {d.valide_le ? <span className="font-semibold" style={{ color: 'var(--c-reussi)' }}>✓ validé</span>
+                              : !manque ? <span className="font-semibold" style={{ color: 'var(--c-reussi)' }}>{aEcrire(d) ? '✓ prêt' : '✓ arrêtée'}</span>
                                 : <span className="font-semibold" style={{ color: TEINTE_DECISION.refusee }}>{manque}</span>}
                             {/* LE GESTE SUR CETTE UE SEULE. */}
                             {!d.valide_le && aEcrire(d) && !manque && (
                               <button type="button" disabled={enCours} onClick={() => arreter(false, [d])}
-                                className="block mt-1 rounded border border-slate-300 bg-white h-7 px-2 text-second font-semibold hover:bg-slate-50">
+                                className="bouton block mt-1 !h-7 text-second font-semibold">
                                 Arrêter cette UE</button>
                             )}
                             {peutValider && d.pret_a_valider && !aEcrire(d) && (
                               <button type="button" disabled={enCours} onClick={() => valider([d])}
-                                className="block mt-1 rounded border h-7 px-2 text-second font-semibold"
-                                style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}>
+                                className="bouton block mt-1 !h-7 text-second font-semibold"
+                                style={{ borderColor: 'var(--c-reussi)', color: 'var(--c-reussi)' }}>
                                 ✓ Valider cette UE</button>
                             )}
                             {!d.valide_le && (bloque || !d.avis_le) && (
@@ -4884,9 +4867,9 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                 {instruits.has(d.id) ? 'refermer' : 'instruire : recevabilité, avis'}</button>
                             )}
                           </td>
-                        </tr>
+                        </Tr>
                         {instruits.has(d.id) && (
-                          <tr className="border-b border-slate-100"><td colSpan={4} className="px-2 py-2 bg-slate-50">
+                          <tr><td colSpan={4} className="px-2 py-2 pl-6 border-l-2 border-slate-200">
                             <InstruireUnite vid={d.id} onChange={async () => { await charger(); await onChange?.(); }}
                               freres={(dossiers || []).filter(x => x.etudiant_id === d.etudiant_id && x.id !== d.id && !x.valide_le && !x.decision_le).map(x => x.id)} />
                           </td></tr>
@@ -4895,7 +4878,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                     );
                   })}
                 </tbody>
-              </table>
+              </Tableau>
 
               {/* LA SÉANCE ENTIÈRE, D'UN COUP D'ŒIL : qui est passé, qui reste. */}
               <div className="flex flex-wrap items-center gap-1.5 mt-4 text-second text-slate-500">
@@ -4903,8 +4886,8 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                 {groupes.map(x => (
                   <button key={x.cle} type="button" onClick={() => setCle(x.cle)}
                     className="rounded border px-2 py-0.5"
-                    style={x.cle === cle ? { background: 'var(--c-principal, #16406A)', borderColor: 'var(--c-principal, #16406A)', color: '#fff', fontWeight: 600 }
-                      : fait(x) ? { borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)', fontWeight: 600 } : { borderColor: '#CBD5E1', color: '#475569' }}>
+                    style={x.cle === cle ? { background: 'var(--c-principal)', borderColor: 'var(--c-principal)', color: 'var(--blanc, #fff)', fontWeight: 600 }
+                      : fait(x) ? { borderColor: 'var(--c-reussi)', color: 'var(--c-reussi)', fontWeight: 600 } : { borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-600))' }}>
                     {fait(x) && x.cle !== cle ? '✓ ' : ''}{nomGroupe(x)}</button>
                 ))}
               </div>

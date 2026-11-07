@@ -5,7 +5,8 @@ import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconEye, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup, IconUserCheck, IconListCheck } from '@tabler/icons-react';
-import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre, EnteteCarte, OutilFenetre } from '../components/ui.jsx';
+import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre, EnteteCarte, OutilFenetre, PastilleEtat, Encadre,
+  Tableau, TableauEntete, Th as ThM } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
@@ -61,7 +62,7 @@ const sign = (v) => (v > 0 ? '+' : '');
      cours · sous 85 % à surveiller (des périodes restent sur la table) ·
      au-delà de 100 % à corriger (le dépassement, seul vrai problème). */
 export function tonDotation(p) {
-  const blanc = { fond: '#FFFFFF', bord: 'rgb(var(--gris-200))' };
+  const blanc = { fond: 'var(--blanc)', bord: 'var(--c-filet, rgb(var(--gris-200)))' };
   if (p == null) return { teinte: 'rgb(var(--gris-300))', ...blanc, rang: null, etat: 'neutre' };
   if (p > 100)   return { teinte: 'var(--c-refuse)', ...blanc, rang: 'dépassement', etat: 'corriger' };
   if (p >= 95)   return { teinte: 'var(--c-reussi)', ...blanc, rang: 'or', etat: 'reussi' };
@@ -72,7 +73,6 @@ export function tonDotation(p) {
 function trafficColor(p) {
   return tonDotation(p).rang === 'dépassement' ? 'text-iip-texte font-bold' : 'text-iip-texte';
 }
-function trafficBg() { return ''; }
 
 // ── KPI card ─────────────────────────────────────────────────────────────────
 // LE STANDARD (3.1.249) : la tuile de la maison ; la couleur devient un état.
@@ -119,12 +119,12 @@ function ExtDotPanel({ annee }) {
               <div key={pot} data-etat="reussi" className="bloc-etat p-3">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-sm">{pot}</span>
-                  <span className="text-mention bg-teal-500 text-white px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
+                  <PastilleEtat etat="reussi">∞ Illimité</PastilleEtat>
                 </div>
                 <div className="text-xs text-gray-600 mb-2">
                   Enveloppe <b>illimitée</b> · Consommé : <b>{v.consomme}</b> pér. B
                 </div>
-                <div className="text-xs text-teal-700 mt-1">Aucune charge sur la dotation organique.</div>
+                <div className="text-xs text-slate-600 mt-1">Aucune charge sur la dotation organique.</div>
               </div>
             );
           }
@@ -132,17 +132,17 @@ function ExtDotPanel({ annee }) {
             <div key={pot} data-etat={depasse ? 'corriger' : 'reussi'} className="bloc-etat p-3">
               <div className="flex justify-between items-center mb-1">
                 <span className="font-bold text-sm">{pot}</span>
-                {depasse && <span className="text-mention bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
+                {depasse && <PastilleEtat etat="surveiller">⚠ DOT {v.dot} pér. B</PastilleEtat>}
               </div>
               <div className="text-xs text-gray-600 mb-2">
                 Plafond EXT : <b>{v.plafond}</b> pér. B · Consommé : <b>{v.consomme}</b> pér. B
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className={`h-2 rounded-full ${depasse ? 'bg-orange-500' : 'bg-teal-500'}`} style={{ width: `${Math.min(100,pct)}%` }} />
+              <div className="jauge w-full">
+                <div style={{ width: `${Math.min(100,pct)}%`, background: depasse ? 'var(--c-attente)' : 'var(--c-reussi)' }} />
               </div>
               <div className="text-mention text-gray-500 mt-1 text-right">{pct}% du plafond</div>
               {depasse && (
-                <div className="text-xs text-orange-700 mt-2 font-medium">
+                <div className="text-xs text-slate-700 mt-2 font-medium">
                   ⚠ {v.dot} pér. B au-delà du plafond → à charge de la dotation organique
                 </div>
               )}
@@ -187,9 +187,9 @@ function EnvCard({ env }) {
       </div>
       {/* Badge dépassement */}
       {depasse && (
-        <span className="text-mention bg-orange-500 text-white border border-orange-500 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
+        <PastilleEtat etat="surveiller" className="flex-shrink-0 whitespace-nowrap">
           ⚠ +{fmt(dot)}
-        </span>
+        </PastilleEtat>
       )}
     </div>
   );
@@ -199,7 +199,7 @@ function EnvCard({ env }) {
 function ChartTip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-flottant text-xs">
+    <div className="rounded-champ p-3 shadow-flottant text-xs border" style={{ background: 'var(--blanc)', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }}>
       <div className="font-semibold mb-1">Civile {label}</div>
       {payload.map(p => (
         <div key={p.name} className="flex items-center gap-2">
@@ -225,7 +225,7 @@ function DotSectionSelect({ value, onChange }) {
     <div>
       <label className="block text-xs text-gray-500 mb-1">Section</label>
       <select value={value} onChange={e => onChange(e.target.value)}
-        className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white w-52">
+        className="controle text-sm w-52">
         <option value="">— Choisir une section —</option>
         {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
       </select>
@@ -276,7 +276,7 @@ function DotationComparaison({ civil }) {
           <span onMouseDown={e => startResize(col, e)}
             onClick={e => e.stopPropagation()}
             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 transition-opacity"
-            style={{ background: 'rgba(255,255,255,.35)', zIndex: 1 }} />
+            style={{ background: 'var(--c-filet, rgb(var(--gris-300)))', zIndex: 1 }} />
         )}
       </th>
     );
@@ -329,7 +329,7 @@ function DotationComparaison({ civil }) {
   const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
   const niveaux = data ? [...new Set(data.sections.flatMap(s => s.ues.map(u => u.ue_niv).filter(Boolean)))]
     .sort((a,b) => parseInt(a.match(/\d+$/)?.[0]??99) - parseInt(b.match(/\d+$/)?.[0]??99)) : [];
-  const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
+  const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || 'rgb(var(--gris-500))';
 
   const fmt = n => n > 0 ? n : <span className="text-gray-300 text-xs">—</span>;
   const delta = (d) => {
@@ -351,7 +351,7 @@ function DotationComparaison({ civil }) {
           <div key={k}>
             <label className="block text-xs text-gray-500 mb-1">{lbl}</label>
             <select value={val} onChange={e => set(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white w-36">
+              className="controle text-sm w-36">
               <option value="">— Choisir —</option>
               {optionsAnnees.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -359,26 +359,26 @@ function DotationComparaison({ civil }) {
         ))}
         <div>
           <label className="block text-xs text-gray-500 mb-1">Période</label>
-          <div className="flex rounded border border-gray-300 overflow-hidden text-sm">
+          <div className="segments">
             <button onClick={() => { setMode('scolaire'); setAnnee1(''); setAnnee2(''); }}
-              className={`px-3 py-1.5 ${mode === 'scolaire' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              className={mode === 'scolaire' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Scolaire
             </button>
             <button onClick={() => { setMode('civil'); setAnnee1(''); setAnnee2(''); }}
-              className={`px-3 py-1.5 border-l border-gray-300 ${mode === 'civil' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              className={mode === 'civil' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Civile
             </button>
           </div>
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Mode</label>
-          <div className="flex rounded border border-gray-300 overflow-hidden text-sm">
+          <div className="segments">
             <button onClick={() => setPondere(true)}
-              className={`px-3 py-1.5 ${pondere ? 'bg-iip-gold text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              className={pondere ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Pér. B pondérées
             </button>
             <button onClick={() => setPondere(false)}
-              className={`px-3 py-1.5 border-l border-gray-300 ${!pondere ? 'bg-iip-gold text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              className={!pondere ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Pér. brutes
             </button>
           </div>
@@ -387,7 +387,7 @@ function DotationComparaison({ civil }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">Enveloppe</label>
           <select value={potFilter} onChange={e => setPotFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+            className="controle text-sm">
             <option value="TOUT">Tout (IIP + HELB)</option>
             <option value="">Toutes (IIP)</option>
             <option value="organique">Organique</option>
@@ -401,9 +401,9 @@ function DotationComparaison({ civil }) {
         {data && (
           <div className="ml-auto flex gap-2">
             <button onClick={() => setOpenSecs(new Set(data.sections.map(s => s.section)))}
-              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded px-2 py-1">Tout ouvrir</button>
+              className="bouton text-xs">Tout ouvrir</button>
             <button onClick={() => setOpenSecs(new Set())}
-              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded px-2 py-1">Tout fermer</button>
+              className="bouton text-xs">Tout fermer</button>
           </div>
         )}
       </div>
@@ -412,21 +412,21 @@ function DotationComparaison({ civil }) {
         <div className="carte overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="text-white text-xs" style={{ background: 'var(--c-principal)' }}>
-                <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'var(--c-principal)',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
+              <tr className="tab-entete">
+                <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'var(--c-fond_entete, var(--fond-bande))',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
                 <Th col="niv" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Niv.</Th>
                 <Th col="quad" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Quad.</Th>
                 <th className="px-2 py-1.5 h-9 text-center font-semibold" colSpan={3}
-                  style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee1}</th>
+                  style={{borderLeft:'1px solid var(--c-filet, rgb(var(--gris-200)))'}}>{annee1}</th>
                 <th className="px-2 py-1.5 h-9 text-center font-semibold" colSpan={3}
-                  style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee2}</th>
-                <Th col="delta" align="center" rowSpan={2} style={{borderLeft:'1px solid rgba(255,255,255,.18)',verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Δ</Th>
+                  style={{borderLeft:'1px solid var(--c-filet, rgb(var(--gris-200)))'}}>{annee2}</th>
+                <Th col="delta" align="center" rowSpan={2} style={{borderLeft:'1px solid var(--c-filet, rgb(var(--gris-200)))',verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Δ</Th>
               </tr>
-              <tr className="text-white/80 text-mention" style={{ background: 'var(--c-principal)' }}>
-                <Th col="q1a" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.12)',fontWeight:'normal'}}>Q1</Th>
+              <tr className="tab-entete">
+                <Th col="q1a" align="right" style={{borderLeft:'1px solid var(--c-filet, rgb(var(--gris-200)))',fontWeight:'normal'}}>Q1</Th>
                 <Th col="q2a" align="right" style={{fontWeight:'normal'}}>Q2</Th>
                 <Th col="ta" align="right" style={{fontWeight:'600'}}>Total</Th>
-                <Th col="q1b" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.12)',fontWeight:'normal'}}>Q1</Th>
+                <Th col="q1b" align="right" style={{borderLeft:'1px solid var(--c-filet, rgb(var(--gris-200)))',fontWeight:'normal'}}>Q1</Th>
                 <Th col="q2b" align="right" style={{fontWeight:'normal'}}>Q2</Th>
                 <Th col="tb" align="right" style={{fontWeight:'600'}}>Total</Th>
               </tr>
@@ -439,11 +439,10 @@ function DotationComparaison({ civil }) {
                   <>
                     {/* Ligne section */}
                     <tr key={sec.section}
-                      className={`cursor-pointer border-t-2 ${si % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-iip-gold/5`}
-                      style={{borderTopColor: 'var(--c-principal)'}}
+                      className="tab-repere cursor-pointer"
                       onClick={() => toggleSec(sec.section)}>
                       <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10 overflow-hidden text-ellipsis whitespace-nowrap"
-                        style={{background: si % 2 === 0 ? '#f9fafb' : 'white', width:colW.nom, maxWidth:colW.nom}}>
+                        style={{background: 'var(--c-fond_regroupement, var(--tab-repere))', width:colW.nom, maxWidth:colW.nom}}>
                         <Chevron ouvert={open} size={14} className="mr-2" />
                         {sec.section}
                       </td>
@@ -459,7 +458,7 @@ function DotationComparaison({ civil }) {
                     {/* Lignes UE */}
                     {open && sec.ues.map((u, i) => (
                       <tr key={`${u.section}-${u.ue_num}`}
-                        className={`border-t border-gray-100 text-xs hover:bg-gray-50/60`}>
+                        className="ligne-maison text-xs">
                         <td className="px-3 py-1.5 h-9 sticky left-0 z-10 pl-8 overflow-hidden text-ellipsis whitespace-nowrap"
                           style={{background:'var(--blanc)', width:colW.nom, maxWidth:colW.nom}}>
                           <span className="font-mono text-gray-400 mr-2">UE {u.ue_num}</span>
@@ -483,8 +482,8 @@ function DotationComparaison({ civil }) {
                 );
               })}
               {/* Ligne totaux globaux */}
-              <tr className="border-t-2 border-iip-gold bg-iip-gold/5 font-bold">
-                <td className="px-3 py-2.5 text-iip-gold sticky left-0 bg-iip-gold/5 z-10">TOTAL GÉNÉRAL</td>
+              <tr className="ligne-total font-bold">
+                <td className="px-3 py-2.5 text-iip-gold sticky left-0 z-10" style={{ background: 'var(--c-tableau_total, #EDF2F8)' }}>TOTAL GÉNÉRAL</td>
                 <td></td><td></td>
                 <td className="px-2 py-2.5 text-right border-l border-gray-100">
                   {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot1.q1,0)*100)/100)}
@@ -786,8 +785,8 @@ export default function Pilotage({ vue = 'tout' }) {
           </div>
           <div className="flex items-center gap-2">
             <div className="segments text-xs">
-              <button onClick={() => setRapportPaysage(false)} className={`px-2.5 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
-              <button onClick={() => setRapportPaysage(true)} className={`px-2.5 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
+              <button onClick={() => setRapportPaysage(false)} className={!rapportPaysage ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>Portrait</button>
+              <button onClick={() => setRapportPaysage(true)} className={rapportPaysage ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>Paysage</button>
             </div>
             <OuvrirEditions ongletInitial="gestion" titre="Imprimer ou envoyer le rapport — centre d'édition"
               pieces={[{ cle: 'dotation', label: 'Rapport de dotation (A4)', description: rapportPaysage ? 'Paysage' : 'Portrait', onClick: () => imprimerDotation(rapportPaysage) }]} />
@@ -799,34 +798,30 @@ export default function Pilotage({ vue = 'tout' }) {
             return (
               <div key={s.section} className="carte overflow-hidden">
                 <button onClick={() => setDotOpen(p => { const n = new Set(p); n.has(s.section) ? n.delete(s.section) : n.add(s.section); return n; })}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 text-left">
-                  {open ? <IconChevronDown size={16} className="text-gray-400" /> : <IconChevronRight size={16} className="text-gray-400" />}
-                  <span className="font-semibold text-iip-blue text-sm flex-1">{s.section}</span>
+                  className="entete-carte w-full text-left">
+                  <span className="titre-carte flex-1 min-w-0">{open ? <IconChevronDown size={16} className="text-gray-400 flex-none" /> : <IconChevronRight size={16} className="text-gray-400 flex-none" />}{s.section}</span>
                   <span className="text-xs text-gray-500">{fmt(s.periodes)} pér. · {fmt(s.etp, 1)} ETP{s.etudiants ? ` · ${s.etudiants} ét.` : ''}</span>
                 </button>
                 {open && (
-                  <div className="border-t border-gray-100 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="tab-entete intertitre">
-                        <tr>
-                          <th className="px-4 py-2 text-left">UE</th>
-                          <th className="px-3 py-2 text-right">Périodes</th>
-                          <th className="px-3 py-2 text-right">% dot.</th>
-                          <th className="px-3 py-2 text-right whitespace-nowrap">Δ% {anneePrec || ''}</th>
-                        </tr>
-                      </thead>
+                  <Tableau className="!border-0 !rounded-none">
+                      <TableauEntete>
+                          <ThM>UE</ThM>
+                          <ThM align="droite">Périodes</ThM>
+                          <ThM align="droite">% dot.</ThM>
+                          <ThM align="droite" className="whitespace-nowrap">Δ% {anneePrec || ''}</ThM>
+                      </TableauEntete>
                       <tbody>
                         {s.grouped.map(g => (
                           <Fragment key={g.niv}>
                             {s.grouped.length > 1 && (
-                              <tr className="bg-iip-blue/5">
+                              <tr className="tab-repere">
                                 <td className="px-4 py-1.5 h-9 text-xs font-semibold text-iip-blue">{g.niv}</td>
                                 <td className="px-3 py-1.5 h-9 text-right text-xs font-semibold text-iip-blue">{fmt(g.periodes)}</td>
                                 <td colSpan={2}></td>
                               </tr>
                             )}
                             {g.ues.map(u => (
-                              <tr key={u.ue_num} className="border-t border-gray-100 hover:bg-gray-50">
+                              <tr key={u.ue_num} className="ligne-maison">
                                 <td className="px-4 py-2 text-gray-700"><span className="text-gray-400 text-xs mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
                                 <td className="px-3 py-2 text-right font-mono">{fmt(u.periodes)}</td>
                                 <td className="px-3 py-2 text-right text-gray-500">{u.pct != null ? u.pct.toFixed(0) + ' %' : '—'}</td>
@@ -840,8 +835,7 @@ export default function Pilotage({ vue = 'tout' }) {
                           </Fragment>
                         ))}
                       </tbody>
-                    </table>
-                  </div>
+                  </Tableau>
                 )}
               </div>
             );
@@ -872,7 +866,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 : 'Comparaison pluriannuelle'}>
             <button onClick={() => setDotFace(f => f === 'recto' ? 'verso' : 'recto')}
               title="Retourner la carte"
-              className="w-8 h-8 rounded-full border border-iip-turquoise/40 text-iip-turquoise hover:bg-iip-turquoise hover:text-white flex items-center justify-center transition flex-shrink-0">
+              className="bouton !px-2 flex-shrink-0">
               <IconRotateClockwise size={16} />
             </button>
           </EnteteCarte>
@@ -903,23 +897,17 @@ export default function Pilotage({ vue = 'tout' }) {
             /* ── RECTO : KPIs + enveloppes + table ── */
             <>
               {/* KPIs compacts */}
-              <div className="grid grid-cols-5 gap-px bg-gray-100 border-b border-gray-100">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 border-b border-gray-100">
                 {[
-                  { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B',            color: 'text-iip-blue' },
+                  { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B', etat: 'fort' },
                   { label: 'Utilisées',     value: fmt(d.usage_organique),
-                    sub: d.dot_total > 0
-                      ? <span className="text-orange-600 text-mention">dont {fmt(d.dot_total)} pér. de dépassement</span>
-                      : 'périodes B',
-                    color: trafficColor(d.pct_organique) },
-                  { label: 'Charges fixes', value: <span className="text-orange-600">−{fmt(charges)}</span>, sub: `FELSI ${fmt(felsi)} + GIPS 40`, color: '' },
-                  { label: 'Solde réel',    value: <span className={soldeReel < 0 ? 'text-red-600' : 'text-green-700'}>{sign(soldeReel)}{fmt(soldeReel)}</span>, sub: soldeReel < -200 ? '⚠ Pénalité ×1,5' : 'après FELSI + GIPS', color: '' },
-                  { label: 'Taux',          value: <span className={trafficColor(d.pct_organique)}>{pct(d.pct_organique)}</span>, sub: <ProgressBar pct={d.pct_organique} />, taux: true },
-                ].map(({ label, value, sub, color, taux }) => (
-                  <div key={label} className={`px-4 py-3 bg-white ${taux ? trafficBg(d.pct_organique) : ''}`}>
-                    <div className="intertitre mb-0.5">{label}</div>
-                    <div className={`text-lg font-bold leading-tight ${color || 'text-iip-blue'}`}>{value}</div>
-                    <div className="text-mention text-gray-400 mt-0.5">{sub}</div>
-                  </div>
+                    sub: d.dot_total > 0 ? `dont ${fmt(d.dot_total)} pér. de dépassement` : 'périodes B',
+                    etat: d.dot_total > 0 ? 'surveiller' : 'neutre' },
+                  { label: 'Charges fixes', value: `−${fmt(charges)}`, sub: `FELSI ${fmt(felsi)} + GIPS 40`, etat: 'surveiller' },
+                  { label: 'Solde réel',    value: `${sign(soldeReel)}${fmt(soldeReel)}`, sub: soldeReel < -200 ? '⚠ Pénalité ×1,5' : 'après FELSI + GIPS', etat: soldeReel < 0 ? 'corriger' : 'reussi' },
+                  { label: 'Taux',          value: pct(d.pct_organique), sub: <ProgressBar pct={d.pct_organique} />, etat: tonDotation(d.pct_organique).etat },
+                ].map(({ label, value, sub, etat }) => (
+                  <TuileEtat key={label} etat={etat} valeur={value} libelle={label} precision={sub} />
                 ))}
               </div>
 
@@ -937,28 +925,8 @@ export default function Pilotage({ vue = 'tout' }) {
                     L'année civile en deux moitiés
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="rounded-carte border border-gray-200 px-3 py-2">
-                      <div className="text-mention text-gray-500">
-                        Janvier – juin {d.annee_civile}
-                      </div>
-                      <div className="text-lg font-bold text-iip-blue leading-tight">
-                        {fmt(d.usage_jan_juin)}
-                      </div>
-                      <div className="text-mention text-gray-400">
-                        Q2 de {d.scolaire_jan_juin} — consommé
-                      </div>
-                    </div>
-                    <div className="rounded-carte border border-gray-200 px-3 py-2">
-                      <div className="text-mention text-gray-500">
-                        Septembre – décembre {d.annee_civile}
-                      </div>
-                      <div className="text-lg font-bold text-iip-blue leading-tight">
-                        {fmt(d.usage_sep_dec)}
-                      </div>
-                      <div className="text-mention text-gray-400">
-                        Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant
-                      </div>
-                    </div>
+                    <TuileEtat etat="neutre" valeur={fmt(d.usage_jan_juin)} libelle={<>Janvier – juin {d.annee_civile}</>} precision={<>Q2 de {d.scolaire_jan_juin} — consommé</>} />
+                    <TuileEtat etat="neutre" valeur={fmt(d.usage_sep_dec)} libelle={<>Septembre – décembre {d.annee_civile}</>} precision={<>Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant</>} />
                     {/* LA MOITIÉ QUI VIENT — l'année académique en cours ne
                         s'arrête pas en décembre. Son second quadrimestre est
                         déjà attribué : il tombe en janvier-juin de l'année
@@ -966,30 +934,11 @@ export default function Pilotage({ vue = 'tout' }) {
                         celle-ci. Ne montrer que les deux moitiés de l'année
                         civile revenait à couper l'année académique en cours en
                         deux et à n'en regarder que la première moitié. */}
-                    <div className="rounded-carte border border-gray-200 px-3 py-2">
-                      <div className="text-mention text-gray-500">
-                        Janvier – juin {d.annee_civile + 1}
-                      </div>
-                      <div className="text-lg font-bold text-iip-blue leading-tight">
-                        {fmt(d.usage_jan_juin_suivant)}
-                      </div>
-                      <div className="text-mention text-gray-400">
-                        Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}
-                      </div>
-                    </div>
+                    <TuileEtat etat="neutre" valeur={fmt(d.usage_jan_juin_suivant)} libelle={<>Janvier – juin {d.annee_civile + 1}</>} precision={<>Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}</>} />
 
-                    <div data-etat={d.solde_apres_jan_juin < 0 ? 'corriger' : 'reussi'} className="bloc-etat px-3 py-2">
-                      <div className="text-mention text-gray-600">
-                        Reste pour la rentrée
-                      </div>
-                      <div className={`text-lg font-bold leading-tight ${
-                        'text-iip-texte'}`}>
-                        {fmt(d.solde_apres_jan_juin)}
-                      </div>
-                      <div className="text-mention text-gray-500">
-                        après décompte de janvier – juin
-                      </div>
-                    </div>
+                    <TuileEtat etat={d.solde_apres_jan_juin < 0 ? 'corriger' : 'reussi'}
+                      valeur={fmt(d.solde_apres_jan_juin)} libelle="Reste pour la rentrée"
+                      precision="après décompte de janvier – juin" />
                   </div>
                 </div>
               )}
@@ -1001,44 +950,20 @@ export default function Pilotage({ vue = 'tout' }) {
                   deux mesure ce qui reste à encoder. Le fondre dans le solde
                   ferait disparaître cette information même. */}
               {d.solde_constate != null && (
-                <div className="px-4 py-3 border-b border-gray-100 border-l-4 border-l-[color:var(--c-attente)]">
-                  <div className="flex items-center gap-6 flex-wrap text-xs">
-                    <div>
-                      <div className="text-mention uppercase tracking-wider text-amber-700 mb-0.5">
-                        Solde constaté
-                      </div>
-                      <div className="text-lg font-bold text-amber-900 leading-tight">
-                        {fmt(d.solde_constate)}
-                      </div>
-                      <div className="text-mention text-amber-700">déclaré par la direction</div>
-                    </div>
-                    <div>
-                      <div className="intertitre mb-0.5">
-                        Consommation qu'il implique
-                      </div>
-                      <div className="text-lg font-bold text-iip-blue leading-tight">
-                        {fmt(d.usage_implique)}
-                      </div>
-                      <div className="text-mention text-gray-400">
-                        dotation utilisable − solde constaté
-                      </div>
-                    </div>
-                    <div>
-                      <div className="intertitre mb-0.5">
-                        Écart avec la base
-                      </div>
-                      <div className={`text-lg font-bold leading-tight ${
-                        Math.abs(d.ecart_encodage || 0) < 1 ? 'text-green-700' : 'text-orange-600'}`}>
-                        {sign(d.ecart_encodage)}{fmt(Math.abs(d.ecart_encodage))}
-                      </div>
-                      <div className="text-mention text-gray-400">
-                        {Math.abs(d.ecart_encodage || 0) < 1
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="flex items-stretch gap-3 flex-wrap text-xs">
+                    <TuileEtat etat="surveiller" className="flex-1 min-w-[160px]" valeur={fmt(d.solde_constate)}
+                      libelle="Solde constaté" precision="déclaré par la direction" />
+                    <TuileEtat etat="neutre" className="flex-1 min-w-[160px]" valeur={fmt(d.usage_implique)}
+                      libelle="Consommation qu'il implique" precision="dotation utilisable − solde constaté" />
+                    <TuileEtat etat={Math.abs(d.ecart_encodage || 0) < 1 ? 'reussi' : 'surveiller'} className="flex-1 min-w-[160px]"
+                      valeur={`${sign(d.ecart_encodage)}${fmt(Math.abs(d.ecart_encodage))}`}
+                      libelle="Écart avec la base"
+                      precision={Math.abs(d.ecart_encodage || 0) < 1
                           ? 'la base rend compte de l’année'
-                          : 'périodes non encodées dans Lucie'}
-                      </div>
-                    </div>
+                          : 'périodes non encodées dans Lucie'} />
                     {d.solde_constate_note && (
-                      <div className="flex-1 min-w-[200px] text-xs text-amber-900 italic">
+                      <div className="flex-1 min-w-[200px] self-center text-xs text-slate-700 italic">
                         « {d.solde_constate_note} »
                       </div>
                     )}
@@ -1061,12 +986,12 @@ export default function Pilotage({ vue = 'tout' }) {
                           <div className="flex justify-between text-mention text-gray-500 mb-1">
                             <span>{fmt(e.periodes_b)}</span>
                             <span className={trafficColor(e.pct)}>{fmt(e.usage)}</span>
-                            <span className={e.solde < 0 ? 'text-red-600 font-semibold' : 'text-green-700 font-semibold'}>{sign(e.solde)}{fmt(e.solde)}</span>
+                            <span className="text-iip-texte font-semibold">{sign(e.solde)}{fmt(e.solde)}</span>
                           </div>
                           <ProgressBar pct={e.pct} />
                           <div className="flex justify-between mt-0.5">
                             <span className={`text-mention font-medium ${trafficColor(e.pct)}`}>{pct(e.pct)}</span>
-                            {dep && <span className="text-mention text-orange-600 font-bold">⚠ +{fmt(dot)}</span>}
+                            {dep && <PastilleEtat etat="surveiller">⚠ +{fmt(dot)}</PastilleEtat>}
                           </div>
                         </div>
                       );
@@ -1082,9 +1007,9 @@ export default function Pilotage({ vue = 'tout' }) {
                     Détail par section · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex rounded border border-gray-200 overflow-hidden text-mention">
-                      <button onClick={() => setRapportPaysage(false)} className={`px-2 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
-                      <button onClick={() => setRapportPaysage(true)}  className={`px-2 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
+                    <div className="segments">
+                      <button onClick={() => setRapportPaysage(false)} className={!rapportPaysage ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>Portrait</button>
+                      <button onClick={() => setRapportPaysage(true)}  className={rapportPaysage ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>Paysage</button>
                     </div>
                     <OuvrirEditions taille="petit" ongletInitial="gestion" titre="Imprimer ou envoyer le rapport — centre d'édition"
                       pieces={[{ cle: 'dotation', label: 'Rapport de dotation (A4)', description: rapportPaysage ? 'Paysage' : 'Portrait', onClick: () => imprimerDotation(rapportPaysage) }]} />
@@ -1100,7 +1025,7 @@ export default function Pilotage({ vue = 'tout' }) {
                         <div key={s.section}>
                           <button
                             onClick={() => setDotOpen(p => { const n = new Set(p); n.has(s.section) ? n.delete(s.section) : n.add(s.section); return n; })}
-                            className="w-full flex items-center gap-2 py-2 hover:bg-gray-50 text-left">
+                            className="ligne-maison w-full flex items-center gap-2 py-2 text-left">
                             {open
                               ? <IconChevronDown size={14} className="text-gray-400 flex-shrink-0" />
                               : <IconChevronRight size={14} className="text-gray-400 flex-shrink-0" />}
@@ -1113,25 +1038,23 @@ export default function Pilotage({ vue = 'tout' }) {
                             )}
                           </button>
                           {open && (
-                            <table className="w-full text-sm mb-1">
-                              <thead>
-                                <tr className="intertitre border-b border-gray-100">
-                                  <th className="pb-1 text-left pl-5 font-medium">UE</th>
-                                  <th className="pb-1 text-right font-medium pr-2">Périodes</th>
-                                  <th className="pb-1 text-right font-medium pr-2">% Dot.</th>
-                                  <th className="pb-1 text-right font-medium pr-1">Δ% {anneePrec || ''}</th>
-                                </tr>
-                              </thead>
+                            <Tableau className="mb-1">
+                              <TableauEntete>
+                                  <ThM className="pl-5">UE</ThM>
+                                  <ThM align="droite">Périodes</ThM>
+                                  <ThM align="droite">% Dot.</ThM>
+                                  <ThM align="droite">Δ% {anneePrec || ''}</ThM>
+                              </TableauEntete>
                               <tbody>
                                 {s.grouped.map(g => (
                                   <Fragment key={g.niv}>
                                     {s.grouped.length > 1 && (
-                                      <tr className="bg-iip-blue/5">
+                                      <tr className="tab-repere">
                                         <td className="pl-5 py-1 text-mention font-semibold text-iip-blue" colSpan={4}>{g.niv}</td>
                                       </tr>
                                     )}
                                     {g.ues.map(u => (
-                                      <tr key={u.ue_num} className="border-t border-gray-50 hover:bg-gray-50">
+                                      <tr key={u.ue_num} className="ligne-maison">
                                         <td className="pl-5 py-1.5 h-9 text-gray-700"><span className="text-gray-400 text-mention mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
                                         <td className="py-1.5 h-9 text-right pr-2 font-mono text-gray-700">{fmt(u.periodes)}</td>
                                         <td className="py-1.5 h-9 text-right pr-2 text-gray-400 text-xs">{u.pct != null ? u.pct.toFixed(0) + ' %' : '—'}</td>
@@ -1147,7 +1070,7 @@ export default function Pilotage({ vue = 'tout' }) {
                                   </Fragment>
                                 ))}
                               </tbody>
-                            </table>
+                            </Tableau>
                           )}
                         </div>
                       );
@@ -1192,26 +1115,23 @@ export default function Pilotage({ vue = 'tout' }) {
             {/* Table PEP & calcul dotation */}
             <div className="carte overflow-hidden">
               <EnteteCarte titre="Mécanisme d'ajustement de dotation" />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="tab-entete intertitre">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Dotation</th>
-                      <th className="px-3 py-2 text-right">PEP N-2 utilisée</th>
-                      <th className="px-3 py-2 text-right">PEP pondérée (mécan.)</th>
-                      <th className="px-3 py-2 text-right">PEP référence</th>
-                      <th className="px-3 py-2 text-right">Écart ±8 %</th>
-                      <th className="px-3 py-2 text-center">Zone</th>
-                      <th className="px-3 py-2 text-right">Dotation</th>
-                    </tr>
-                  </thead>
+              <Tableau className="!border-0 !rounded-none">
+                  <TableauEntete>
+                      <ThM>Dotation</ThM>
+                      <ThM align="droite">PEP N-2 utilisée</ThM>
+                      <ThM align="droite">PEP pondérée (mécan.)</ThM>
+                      <ThM align="droite">PEP référence</ThM>
+                      <ThM align="droite">Écart ±8 %</ThM>
+                      <ThM align="centre">Zone</ThM>
+                      <ThM align="droite">Dotation</ThM>
+                  </TableauEntete>
                   <tbody>
                     {pepTableData.map(row => (
-                      <tr key={row.annee_civile} className={`border-t border-gray-100 ${row.annee_civile === selYear ? 'bg-iip-gold/5' : 'hover:bg-gray-50'}`}>
+                      <tr key={row.annee_civile} className={`ligne-maison ${row.annee_civile === selYear ? 'ligne-active' : ''}`}>
                         <td className={`px-3 py-2 font-semibold ${row.annee_civile === selYear ? 'text-iip-gold' : 'text-gray-700'}`}>
                           {row.annee_civile} {row.annee_civile === selYear ? '◄' : ''}
-                          {row.derogation && <span className="ml-1 text-mention bg-amber-500 text-white px-1 rounded">dérог.</span>}
-                          {row.partiel && <span className="ml-1 text-mention bg-iip-turquoise/10 text-iip-blue px-1 rounded">partiel</span>}
+                          {row.derogation && <PastilleEtat etat="surveiller" className="ml-1">dérог.</PastilleEtat>}
+                          {row.partiel && <PastilleEtat etat="disponible" className="ml-1">partiel</PastilleEtat>}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500 font-mono text-xs">{row.pep_annee_utilisee || '—'}</td>
                         <td className="px-3 py-2 text-right font-mono">
@@ -1227,9 +1147,9 @@ export default function Pilotage({ vue = 'tout' }) {
                             : '—'}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-champ">Neutre ±8 %</span>}
-                          {row.zone === 'HAUSSE' && <span className="text-xs bg-iip-turquoise/10 text-iip-blue px-2 py-0.5 rounded-champ">↑ Hausse &gt;+8 %</span>}
-                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-champ">↓ Baisse &lt;−8 %</span>}
+                          {row.zone === 'NEUTRE' && <PastilleEtat etat="reussi">Neutre ±8 %</PastilleEtat>}
+                          {row.zone === 'HAUSSE' && <PastilleEtat etat="disponible">↑ Hausse &gt;+8 %</PastilleEtat>}
+                          {row.zone === 'BAISSE' && <PastilleEtat etat="corriger">↓ Baisse &lt;−8 %</PastilleEtat>}
                           {row.zone == null && <span className="text-gray-300 text-xs">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right">
@@ -1240,8 +1160,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </Tableau>
             </div>
           </div>
         )}
@@ -1281,24 +1200,22 @@ export default function Pilotage({ vue = 'tout' }) {
             <b className="ml-2">HELB</b> : même base (CT ÷ 800, PP ÷ 1000) — tout est exprimé en périodes.
           </span>
         </div>
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bande-entete text-gray-500 text-xs uppercase">
-              <th className="text-left px-3 py-2">Section / UE</th>
-              <th className="text-right px-3 py-2">ETP CT <span className="font-normal normal-case">(÷800)</span></th>
-              <th className="text-right px-3 py-2">ETP PP <span className="font-normal normal-case">(÷1000)</span></th>
-              <th className="text-right px-3 py-2 text-iip-gold">ETP IIP</th>
-              <th className="text-right px-3 py-2 text-iip-mauve">ETP HELB</th>
-              <th className="text-right px-3 py-2">ETP total</th>
-              <th className="text-right px-3 py-2">% total</th>
-              <th className="text-right px-3 py-2">Inscrits</th>
-              <th className="text-right px-3 py-2" title="Inscrits de la section ÷ ses ETP de cours">Étudiants / ETP</th>
-              <th className="px-3 py-2 w-8"></th>
-            </tr>
-          </thead>
+        <Tableau>
+          <TableauEntete>
+              <ThM>Section / UE</ThM>
+              <ThM align="droite">ETP CT <span className="font-normal normal-case">(÷800)</span></ThM>
+              <ThM align="droite">ETP PP <span className="font-normal normal-case">(÷1000)</span></ThM>
+              <ThM align="droite" className="text-iip-gold">ETP IIP</ThM>
+              <ThM align="droite" className="text-iip-mauve">ETP HELB</ThM>
+              <ThM align="droite">ETP total</ThM>
+              <ThM align="droite">% total</ThM>
+              <ThM align="droite">Inscrits</ThM>
+              <ThM align="droite" title="Inscrits de la section ÷ ses ETP de cours">Étudiants / ETP</ThM>
+              <ThM largeur="w-8"></ThM>
+          </TableauEntete>
           <tbody>
             {/* Le total d'abord, sous l'en-tête. */}
-            <tr className="border-b-2 border-gray-300 font-bold bg-gray-50">
+            <tr className="ligne-total font-bold">
               <td className="px-3 py-2">TOTAL</td>
               <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_ct)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_pp)}</td>
@@ -1312,7 +1229,7 @@ export default function Pilotage({ vue = 'tout' }) {
             </tr>
             {secs.map(s => (
               <Fragment key={s.section}>
-                <tr className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggle(s.section)}>
+                <tr className="ligne-maison cursor-pointer" onClick={() => toggle(s.section)}>
                   <td className="px-3 py-2 font-medium text-gray-800">{s.section}</td>
                   <td className="px-3 py-2 text-right text-gray-500">{f(s.etp_ct)}</td>
                   <td className="px-3 py-2 text-right text-gray-500">{f(s.etp_pp)}</td>
@@ -1325,7 +1242,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   <td className="px-3 py-2 text-right text-gray-400">{etpOpen.has(s.section) ? '▾' : '▸'}</td>
                 </tr>
                 {etpOpen.has(s.section) && s.ues.map(u => (
-                  <tr key={u.ue_num} className="bg-gray-50/50 text-second">
+                  <tr key={u.ue_num} className="ligne-maison text-second">
                     <td className="px-3 py-1 pl-8 text-gray-600">UE {u.ue_num}{u.ue_nom ? ` — ${u.ue_nom}` : ''}</td>
                     <td className="px-3 py-1 text-right text-gray-400">{f3(u.etp_ct)}</td>
                     <td className="px-3 py-1 text-right text-gray-400">{f3(u.etp_pp)}</td>
@@ -1340,7 +1257,7 @@ export default function Pilotage({ vue = 'tout' }) {
             ))}
 
           </tbody>
-        </table>
+        </Tableau>
       </div>
     );
   };
@@ -1404,55 +1321,55 @@ export default function Pilotage({ vue = 'tout' }) {
       <div className="carte overflow-hidden">
         <EnteteCarte titre="Dotations organiques par année civile">
             <input value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Ex: 2027"
-              className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24" />
+              className="controle text-sm w-24" />
             <button onClick={addYear} disabled={saving || !newYear} className="bouton bouton-fort">Ajouter</button>
         </EnteteCarte>
-        <table className="w-full text-sm">
-          <thead className="tab-entete intertitre">
-            <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-right" title="Ce que la direction constate : le solde réellement resté à la fin de l’année. Il ne remplace pas le calcul, il le confronte.">Solde constaté</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
+        <Tableau className="!border-0 !rounded-none">
+          <thead>
+            <tr className="tab-entete"><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-right" title="Ce que la direction constate : le solde réellement resté à la fin de l’année. Il ne remplace pas le calcul, il le confronte.">Solde constaté</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
             {civil.map(y => editDot?.annee_civile === y.annee_civile ? (
-              <tr key={y.annee_civile} className="border-t border-gray-100 bg-iip-gold/5">
+              <tr key={y.annee_civile} className="ligne-maison ligne-active">
                 <td className="px-4 py-2 font-semibold text-iip-gold">{y.annee_civile}</td>
-                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.periodes_eleves ?? ''} onChange={e => setEditDot({ ...editDot, periodes_eleves: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-20 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="controle text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.periodes_eleves ?? ''} onChange={e => setEditDot({ ...editDot, periodes_eleves: e.target.value })} placeholder="HOD" className="controle text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="controle text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="controle text-sm w-20 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="controle text-sm w-28 text-right" /></td>
                 {/* LE SOLDE CONSTATÉ. « Tout utilisé sauf cinq périodes » est
                     ce dont on se souvient d'une année ; la consommation, on ne
                     l'a jamais soustraite. On saisit donc ce qu'on sait, et
                     Lucie en déduit le reste. */}
-                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="bloc-etat etat-surveiller px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
+                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="controle text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="controle text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveDotation} disabled={saving} className="bouton bouton-fort"><IconCheck size={14} /></button>
-                  <button onClick={() => setEditDot(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
+                  <button onClick={() => setEditDot(null)} className="bouton" title="Annuler"><IconX size={14} /></button>
                 </td>
               </tr>
             ) : (
-              <tr key={y.annee_civile} className="border-t border-gray-100 hover:bg-gray-50">
+              <tr key={y.annee_civile} className="ligne-maison">
                 <td className="px-4 py-2.5 font-semibold text-gray-700">{y.annee_civile}</td>
                 <td className="px-4 py-2.5 text-right font-mono">{y.dotation_organique > 0 ? fmt(y.dotation_organique) : <span className="text-gray-300">—</span>}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-iip-blue">{y.periodes_eleves ? fmt(y.periodes_eleves) : <span className="text-gray-300">—</span>}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-red-400">{y.pep_reference ? fmt(y.pep_reference) : <span className="text-gray-300">à saisir</span>}</td>
+                <td className="px-4 py-2.5 text-right font-mono text-slate-600">{y.pep_reference ? fmt(y.pep_reference) : <span className="text-gray-300">à saisir</span>}</td>
                 <td className="px-4 py-2.5 text-right text-gray-500 text-xs">{y.pep_annee_utilisee || '—'}</td>
                 <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{y.source === 'historique' ? fmt(y.usage_organique) : '(calculé)'}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs">{y.solde_constate != null
-                  ? <span className="text-amber-800 font-semibold" title={y.ecart_encodage != null && Math.abs(y.ecart_encodage) >= 1 ? `${fmt(Math.abs(y.ecart_encodage))} périodes non encodées dans Lucie` : 'la base rend compte de l’année'}>{fmt(y.solde_constate)}</span>
+                  ? <span className="text-iip-texte font-semibold" title={y.ecart_encodage != null && Math.abs(y.ecart_encodage) >= 1 ? `${fmt(Math.abs(y.ecart_encodage))} périodes non encodées dans Lucie` : 'la base rend compte de l’année'}>{fmt(y.solde_constate)}</span>
                   : <span className="text-gray-300">—</span>}</td>
                 <td className="px-4 py-2.5 text-xs text-gray-400 max-w-xs truncate">{y.notes || ''}</td>
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
-                    <button onClick={() => setEditDot({ annee_civile: y.annee_civile, dotation_organique: y.dotation_organique, periodes_eleves: y.periodes_eleves ?? '', pep_reference: y.pep_reference ?? '', pep_annee_utilisee: y.pep_annee_utilisee ?? '', usage_historique_organique: y.source === 'historique' ? y.usage_organique : '', solde_constate: y.solde_constate ?? '', notes: y.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
-                    <button onClick={() => deleteYear(y.annee_civile)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
+                    <button onClick={() => setEditDot({ annee_civile: y.annee_civile, dotation_organique: y.dotation_organique, periodes_eleves: y.periodes_eleves ?? '', pep_reference: y.pep_reference ?? '', pep_annee_utilisee: y.pep_annee_utilisee ?? '', usage_historique_organique: y.source === 'historique' ? y.usage_organique : '', solde_constate: y.solde_constate ?? '', notes: y.notes || '' })} className="bouton text-xs">Modifier</button>
+                    <button onClick={() => deleteYear(y.annee_civile)} className="bouton bouton-detruire !px-2" title="Supprimer"><IconTrash size={16} /></button>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Tableau>
       </div>
 
       {/* Enveloppes extérieures */}
@@ -1464,40 +1381,40 @@ export default function Pilotage({ vue = 'tout' }) {
           <div className="p-4 border-b border-gray-100">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
               <div><label className="block text-xs text-gray-500 mb-0.5">Code</label>
-                <select value={editEnv.code} onChange={e => setEditEnv({ ...editEnv, code: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full">
+                <select value={editEnv.code} onChange={e => setEditEnv({ ...editEnv, code: e.target.value })} className="controle text-sm w-full">
                   {['QUAL', 'CF', 'INCL'].map(c => <option key={c}>{c}</option>)}</select></div>
               <div><label className="block text-xs text-gray-500 mb-0.5">Libellé</label>
-                <input value={editEnv.label} onChange={e => setEditEnv({ ...editEnv, label: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></div>
+                <input value={editEnv.label} onChange={e => setEditEnv({ ...editEnv, label: e.target.value })} className="controle text-sm w-full" /></div>
               <div><label className="block text-xs text-gray-500 mb-0.5">Année civile</label>
-                <input type="number" value={editEnv.annee_civile} onChange={e => setEditEnv({ ...editEnv, annee_civile: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></div>
+                <input type="number" value={editEnv.annee_civile} onChange={e => setEditEnv({ ...editEnv, annee_civile: e.target.value })} className="controle text-sm w-full" /></div>
               <div><label className="block text-xs text-gray-500 mb-0.5">Périodes B</label>
-                <input type="number" value={editEnv.periodes_b} onChange={e => setEditEnv({ ...editEnv, periodes_b: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></div>
+                <input type="number" value={editEnv.periodes_b} onChange={e => setEditEnv({ ...editEnv, periodes_b: e.target.value })} className="controle text-sm w-full" /></div>
               <div className="flex gap-1">
                 <button onClick={saveEnv} disabled={saving} className="bouton bouton-fort w-full">Créer</button>
-                <button onClick={() => setEditEnv(null)} className="border text-gray-500 text-xs px-2 py-1.5 h-9 rounded"><IconX size={14} /></button>
+                <button onClick={() => setEditEnv(null)} className="bouton" title="Annuler"><IconX size={14} /></button>
               </div>
             </div>
           </div>
         )}
-        <table className="w-full text-sm">
-          <thead className="tab-entete intertitre">
-            <tr><th className="px-4 py-2 text-left">Code</th><th className="px-4 py-2 text-left">Libellé</th><th className="px-4 py-2 text-right">Civile</th><th className="px-4 py-2 text-right">Allocation (B)</th><th className="px-4 py-2 text-right">Usage hist.</th><th className="px-4 py-2" /></tr>
+        <Tableau className="!border-0 !rounded-none">
+          <thead>
+            <tr className="tab-entete"><th className="px-4 py-2 text-left">Code</th><th className="px-4 py-2 text-left">Libellé</th><th className="px-4 py-2 text-right">Civile</th><th className="px-4 py-2 text-right">Allocation (B)</th><th className="px-4 py-2 text-right">Usage hist.</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
             {civil.flatMap(y => y.enveloppes.map(e => editEnv?.id === e.id ? (
-              <tr key={e.id} className="border-t border-gray-100 bg-iip-gold/5">
+              <tr key={e.id} className="ligne-maison ligne-active">
                 <td className="px-4 py-2 font-mono text-iip-gold">{e.code}</td>
-                <td className="px-4 py-2"><input value={editEnv.label} onChange={ev => setEditEnv({ ...editEnv, label: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
+                <td className="px-4 py-2"><input value={editEnv.label} onChange={ev => setEditEnv({ ...editEnv, label: ev.target.value })} className="controle text-sm w-full" /></td>
                 <td className="px-4 py-2 text-right">{e.annee_civile}</td>
-                <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="controle text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="controle text-sm w-24 text-right" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveEnv} disabled={saving} className="bouton bouton-fort"><IconCheck size={14} /></button>
-                  <button onClick={() => setEditEnv(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
+                  <button onClick={() => setEditEnv(null)} className="bouton" title="Annuler"><IconX size={14} /></button>
                 </td>
               </tr>
             ) : (
-              <tr key={e.id} className="border-t border-gray-100 hover:bg-gray-50">
+              <tr key={e.id} className="ligne-maison">
                 <td className="px-4 py-2.5 font-mono font-semibold text-gray-700">{e.code}</td>
                 <td className="px-4 py-2.5 text-gray-600">{e.label}</td>
                 <td className="px-4 py-2.5 text-right">{e.annee_civile}</td>
@@ -1505,14 +1422,14 @@ export default function Pilotage({ vue = 'tout' }) {
                 <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{e.source === 'historique' ? fmt(e.usage) : '(calculé)'}</td>
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
-                    <button onClick={() => setEditEnv({ id: e.id, label: e.label, periodes_b: e.periodes_b, usage_historique: e.usage_historique ?? '', notes: e.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
-                    <button onClick={async () => { if (await demander('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
+                    <button onClick={() => setEditEnv({ id: e.id, label: e.label, periodes_b: e.periodes_b, usage_historique: e.usage_historique ?? '', notes: e.notes || '' })} className="bouton text-xs">Modifier</button>
+                    <button onClick={async () => { if (await demander('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="bouton bouton-detruire !px-2" title="Supprimer"><IconTrash size={16} /></button>
                   </div>
                 </td>
               </tr>
             )))}
           </tbody>
-        </table>
+        </Tableau>
       </div>
 
       {/* UEs avec pot */}
@@ -1523,39 +1440,37 @@ export default function Pilotage({ vue = 'tout' }) {
                   const s = e.target.value;
                   api.ueWithPot(anneeActive, s || null, true).then(setUeList);
                 }}
-                className="border border-gray-200 rounded px-2 py-1 text-xs bg-white">
+                className="controle text-xs">
                 <option value="">— Toutes sections —</option>
                 {[...new Set(ueList.map(u => u.section).filter(Boolean))].sort().map(s =>
                   <option key={s} value={s}>{s}</option>
                 )}
               </select>
           </EnteteCarte>
-          <table className="w-full text-sm">
-            <thead className="tab-entete intertitre">
-              <tr>
-                <th className="px-4 py-2 text-left">Section</th>
-                <th className="px-4 py-2 text-left">UE</th>
-                <th className="px-4 py-2 text-left">Code FWB</th>
-                <th className="px-4 py-2 text-center">Pot effectif</th>
-                <th className="px-4 py-2 text-center">Override</th>
-              </tr>
-            </thead>
+          <Tableau className="!border-0 !rounded-none">
+            <TableauEntete>
+                <ThM>Section</ThM>
+                <ThM>UE</ThM>
+                <ThM>Code FWB</ThM>
+                <ThM align="centre">Pot effectif</ThM>
+                <ThM align="centre">Override</ThM>
+            </TableauEntete>
             <tbody>
               {ueList.map(u => (
-                <tr key={`${u.ue_num}-${u.section}`} className="border-t border-gray-100 hover:bg-gray-50">
+                <tr key={`${u.ue_num}-${u.section}`} className="ligne-maison">
                   <td className="px-4 py-2 text-xs text-gray-400">{u.section}</td>
                   <td className="px-4 py-2.5 text-gray-700 text-xs">{u.ue_nom}</td>
                   <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{u.ue_code_fwb || '—'}</td>
                   <td className="px-4 py-2.5 text-center">
-                    <span className="text-xs bg-iip-gold/10 text-iip-gold font-semibold px-2 py-0.5 rounded">
+                    <PastilleEtat etat="neutre">
                       {u.pot_effectif || '?'}
-                    </span>
+                    </PastilleEtat>
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <select value={u.pot_code || ''} onChange={async e => {
                       await api.ueSetPot(u.ue_num, anneeActive, e.target.value || null);
                       api.ueWithPot(anneeActive, null, true).then(setUeList);
-                    }} className="border border-gray-200 rounded px-1.5 py-0.5 text-xs">
+                    }} className="controle text-xs !h-7">
                       <option value="">Auto</option>
                       {['QUAL', 'CF', 'INCL', 'AESI', 'organique'].map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -1563,7 +1478,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Tableau>
         </div>
       )}
     </div>
@@ -1886,8 +1801,8 @@ thead { display: table-header-group; }
                     </label>))}
                 </div>))}
             </aside>)}
-          {choisirBlocs && <div className="sans-impression bloc-etat mx-auto my-2 px-3 py-2 text-second" style={{ width: 1000 }} data-etat="disponible">
-            <b>Choix des blocs</b> : cliquez une carte ou une tuile pour la retirer de l'impression — elle se grise ; recliquez pour la remettre. « Terminer le choix » quand c'est prêt.</div>}
+          {choisirBlocs && <div className="sans-impression mx-auto my-2" style={{ width: 1000 }}><Encadre etat="disponible">
+            <b>Choix des blocs</b> : cliquez une carte ou une tuile pour la retirer de l'impression — elle se grise ; recliquez pour la remettre. « Terminer le choix » quand c'est prêt.</Encadre></div>}
           <div className={`page-impression mx-auto px-0 py-5 space-y-6 ${choisirBlocs ? 'choix-blocs' : ''}`} onClickCapture={basculerBloc}>
             <div className="border-b-2 pb-2" style={{ borderColor: '#C9A84C' }}>
               <div className="text-mention uppercase tracking-wide text-slate-500">Institut Ilya Prigogine · Gestion — données de l'établissement</div>
@@ -1909,7 +1824,7 @@ thead { display: table-header-group; }
               <div className="segments">
                 {rubriqueActive.faces.map(([k, l]) => (
                   <button key={k} type="button" onClick={() => setTab(k)}
-                    className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+                    className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}
               </div>)}
             <span className="flex-1" />
             {tab !== 'mes-frais' && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
@@ -1985,9 +1900,9 @@ thead { display: table-header-group; }
         ) : loading ? (
           <div className="text-gray-400 py-12 text-center">Chargement…</div>
         ) : civil.length === 0 ? (
-          <div className="bg-amber-500 border border-amber-500 rounded-xl p-6 text-sm text-white">
+          <Encadre etat="surveiller">
             Aucune année civile configurée. Allez dans <strong>Configuration</strong> pour ajouter les premières années.
-          </div>
+          </Encadre>
         ) : (
           <>
             {tab === 'synthese' && renderSynthese()}

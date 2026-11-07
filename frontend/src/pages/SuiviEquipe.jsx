@@ -233,7 +233,7 @@ export default function SuiviEquipe() {
                   </span>
                   {r.a_du_confidentiel && (
                     <span title="Cette séance porte des notes confidentielles"
-                      className="text-[color:var(--brique)] flex-none">
+                      className="text-[color:var(--c-refuse)] flex-none">
                       <IconLock size={14} />
                     </span>
                   )}
@@ -396,7 +396,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           pieces={[{ cle: 'pv-reunion', label: 'Procès-verbal de la réunion', description: 'Le PV à diffuser : les notes confidentielles n’y figurent pas', onClick: () => onImprimer() }]} />
         {reunion.peut_confidentiel && (
           <button onClick={() => onImprimer('integrale')} className="bouton controle px-3
-            flex items-center gap-1.5 text-[color:var(--brique)]"
+            flex items-center gap-1.5 text-[color:var(--c-refuse)]"
             title="PV intégral, notes confidentielles comprises — à ne pas diffuser">
             <IconLock size={16} /> PV intégral
           </button>
@@ -420,7 +420,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
       </div>
 
       {/* ── LA SÉANCE : quoi, quand, où, qui ── */}
-      <div className="carte bg-white px-4 py-3 mb-3">
+      <div className="carte px-4 py-3 mb-3">
         <input value={champs.titre} onChange={e => poser('titre', e.target.value)} onBlur={() => enregistrer()}
           className="w-full bg-transparent border-0 border-b border-transparent hover:border-slate-200
                      focus:border-iip-blue focus:outline-none px-0 h-8 text-lg font-semibold text-iip-blue" />
@@ -531,7 +531,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
       {/* ── L'ORDRE DU JOUR : chaque point, ce qui s'y dit, ce qui s'y décide ── */}
       {points.map((p, i) => (
         <div key={p.id || `neuf-${i}`}
-          className={`carte bg-white px-4 py-3 mb-3 ${p.confidentiel ? 'border-red-200' : ''}`}>
+          className={`carte px-4 py-3 mb-3 ${p.confidentiel ? '!border-red-300' : ''}`}>
           <div className="flex items-center gap-2.5">
             <span className="w-[26px] h-[26px] rounded-full grid place-items-center text-white text-second font-bold tabular-nums flex-none"
               style={{ background: 'var(--c-principal)' }}>{i + 1}</span>
@@ -545,13 +545,13 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
                 : 'Rendre ce point confidentiel (absent du PV diffusé)'}
                 onClick={() => { const l = points.map((x, j) => (j === i ? { ...x, confidentiel: !x.confidentiel } : x));
                                  setPoints(l); enregistrer(l); }}
-                className={`flex-none p-1 rounded ${p.confidentiel ? 'text-[color:var(--brique)]' : 'text-slate-300 hover:text-slate-500'}`}>
+                className={`flex-none p-1 rounded ${p.confidentiel ? 'text-[color:var(--c-refuse)]' : 'text-slate-300 hover:text-slate-500'}`}>
                 <IconLock size={15} />
               </button>
             )}
             <button onClick={() => { const l = points.filter((_, j) => j !== i); setPoints(l); enregistrer(l); }}
               title="Retirer ce point — les actions décidées dessous sont conservées"
-              className="flex-none p-1 rounded text-slate-300 hover:text-[color:var(--brique)]">
+              className="flex-none p-1 rounded text-slate-300 hover:text-[color:var(--c-refuse)]">
               <IconTrash size={15} />
             </button>
           </div>
@@ -565,7 +565,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
               onChange={e => poserPoint(i, 'notes', e.target.value)} onBlur={() => enregistrer()}
               placeholder="Ce qui s'est dit, ce qui a été tranché."
               className={`block w-[calc(100%-2.25rem)] ml-9 mt-1.5 border rounded-champ px-2.5 py-1.5 text-sm resize-y
-                ${p.confidentiel ? 'bg-red-50/40 border-red-200' : 'bg-white border-slate-200'}`} />
+                ${p.confidentiel ? 'bg-white border-red-300' : 'bg-white border-slate-200'}`} />
           )}
           <div className="ml-9 mt-2">
             <span className="intertitre block mb-0.5">Décisions</span>
@@ -615,8 +615,8 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           className="w-full mt-1 bg-white border border-slate-200 rounded-champ px-2 py-1 text-sm" />
       </details>
       {reunion.peut_confidentiel && (
-        <details className="carte px-3 py-2 mb-2 border-red-200" open={!!champs.notes_confidentielles}>
-          <summary className="cursor-pointer text-second text-[color:var(--brique)]">
+        <details className="carte px-3 py-2 mb-2 !border-red-300" open={!!champs.notes_confidentielles}>
+          <summary className="cursor-pointer text-second text-[color:var(--c-refuse)]">
             <IconLock size={12} className="inline -mt-0.5" /> Notes confidentielles
             <span className="text-slate-400"> — absentes du PV diffusé</span>
           </summary>
@@ -918,7 +918,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
      « au courant » se lisent sous l'intitulé et se règlent sous « ⋯ ». */
   const GRILLE = 'grid grid-cols-[22px_minmax(0,1fr)_minmax(10rem,20rem)_8.6rem_7.4rem_28px] items-center gap-x-3';
   return (
-    <div className="carte overflow-hidden bg-white">
+    <div className="carte overflow-hidden">
       {taches.length > 0 && (
         <div className={`${GRILLE} tab-entete px-3 py-1.5 text-mention uppercase tracking-[.1em] text-slate-500 font-semibold`}>
           <span /><span>Tâche</span><span>Responsables</span><span>Échéance</span><span>Statut</span><span />

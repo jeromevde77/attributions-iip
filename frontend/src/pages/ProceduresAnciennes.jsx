@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { PageHeader, RailLateral, OuvrirEditions, Fenetre } from '../components/ui.jsx';
+import { PageHeader, RailLateral, OuvrirEditions, Fenetre, PastilleEtat, Tableau } from '../components/ui.jsx';
 import Disciplinaire from './Disciplinaire.jsx';
 import { informer } from '../lib/dialogue.jsx';
 import {
@@ -44,11 +44,11 @@ function fmtCourt(d) {
 // ─── Composants UI ────────────────────────────────────────────────────────────
 function Badge({ ok, label }) {
   return ok
-    ? <span className="bloc-etat etat-reussi inline-flex items-center gap-1 text-green-800 px-3 py-0.5 text-sm font-semibold"><IconCheck size={15} stroke={2.2} /> {label}</span>
-    : <span className="bloc-etat etat-corriger inline-flex items-center gap-1 text-red-800 px-3 py-0.5 text-sm font-semibold"><IconX size={15} stroke={2.2} /> {label}</span>;
+    ? <PastilleEtat etat="reussi"><IconCheck size={13} stroke={2.2} /> {label}</PastilleEtat>
+    : <PastilleEtat etat="corriger"><IconX size={13} stroke={2.2} /> {label}</PastilleEtat>;
 }
 function Ref({ text }) {
-  return <span className="inline-flex items-center gap-1 text-xs text-iip-blue bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
+  return <PastilleEtat etat="neutre" className="ml-1"><IconScale size={12} stroke={1.8} /> {text}</PastilleEtat>;
 }
 function Section({ title, color = 'turquoise', children }) {
   const cls = { red:'border-red-500', green:'border-green-500',
@@ -58,13 +58,13 @@ function Section({ title, color = 'turquoise', children }) {
 function Q({ num, text, value, onChange, ref_ }) {
   return (
     <div className="mb-4 flex items-start gap-3">
-      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-iip-turquoise text-white text-sm font-bold flex items-center justify-center">{num}</span>
+      <span className="pastille-etape" data-etat="courant">{num}</span>
       <div className="flex-1">
-        <p className="text-sm font-medium text-gray-800 mb-2">{text}{ref_ && <Ref text={ref_} />}</p>
-        <div className="flex gap-2">
+        <p className="text-sm font-medium text-slate-800 mb-2">{text}{ref_ && <Ref text={ref_} />}</p>
+        <div className="segments">
           {[['oui', 'Oui', IconCheck], ['non', 'Non', IconX], ['', '—', null]].map(([v, l, Ic]) => (
             <button key={v} onClick={() => onChange(v)}
-              className={`inline-flex items-center gap-1 px-4 py-1.5 rounded-champ text-sm border transition ${value===v?(v==='oui'?'bg-green-600 text-white border-green-600':v==='non'?'bg-red-600 text-white border-red-600':'bg-gray-400 text-white border-gray-400'):'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+              className={`inline-flex items-center gap-1 px-4 py-1.5 text-sm ${value===v ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
               {Ic && <Ic size={15} stroke={2.2} />}{l}
             </button>
           ))}
@@ -496,7 +496,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       });
       if (res.error) { informer('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
-        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+        informer('Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
       setPreviewHtml(res.html);
       const pid = res.procedure_id;
@@ -548,8 +548,8 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
       {/* Indicateur autosave */}
       {autosaved && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-800/80 text-white text-xs px-3 py-1.5 rounded-champ flex items-center gap-1.5 pointer-events-none">
-          <span>✓</span> Brouillon sauvegardé
+        <div data-etat="reussi" className="bloc-etat fixed bottom-4 right-4 z-50 text-slate-800 text-xs px-3 py-1.5 flex items-center gap-1.5 pointer-events-none">
+          <IconCheck size={13} style={{ color: 'var(--e)' }} /> Brouillon sauvegardé
         </div>
       )}
 
@@ -559,12 +559,12 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
             <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
           </label>
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
             <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full">
               <option value="">— Toutes les sections —</option>
               {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -572,7 +572,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
             <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full">
               <option value="">— Choisir une UE —</option>
               {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
@@ -580,13 +580,13 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de publication des résultats</div>
             <input type="date" value={datePubli} onChange={e => setDatePubli(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
             {datePubli && <p className="text-xs text-gray-500 mt-0.5">Limite recours : <strong>{fmt(limiteRecours)}</strong></p>}
           </label>
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de réception de la plainte</div>
             <input type="date" value={dateRecours} onChange={e => setDateRecours(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
             {nbJours !== null && (
               <p className={`text-xs mt-0.5 font-semibold inline-flex items-center gap-1 ${delaiRespect ? 'text-green-700' : 'text-red-700'}`}>
                 J+{nbJours} → {delaiRespect ? <><IconCheck size={14} /> Dans le délai</> : <><IconX size={14} /> HORS DÉLAI</>}
@@ -597,7 +597,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
         {/* Professeurs de l'UE — checkboxes présents à la délibération */}
         {ueNum && (
-          <div className="mt-3 p-4 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg">
+          <div className="carte mt-3 p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-bold text-iip-blue">
                 Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
@@ -616,14 +616,14 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                 <p className="text-xs text-iip-blue mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
                 <div className="space-y-1">
                   {profs.map(p => (
-                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400 border-l-4 border-l-green-500' : 'bg-white border-iip-turquoise/30 hover:bg-iip-turquoise/5'}`}>
-                      <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
-                      <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
+                    <label key={p.id} data-etat={profsPresents.has(p.id) ? 'reussi' : 'neutre'} className="bloc-etat flex items-center gap-3 px-3 py-2 cursor-pointer transition">
+                      <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-iip-blue" />
+                      <span className="pastille-etape" data-etat={profsPresents.has(p.id) ? 'fait' : 'courant'}>
                         {(p.nom[0]||'?').toUpperCase()}
                       </span>
-                      <span className={`text-sm font-medium flex-1 ${profsPresents.has(p.id) ? 'text-green-800' : 'text-gray-700'}`}>{p.nomComplet}</span>
-                      {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
-                      {profsPresents.has(p.id) && <IconCheck size={15} className="text-green-700 ml-1" />}
+                      <span className="text-sm font-medium flex-1 text-slate-800">{p.nomComplet}</span>
+                      {p.qualite && <span className="text-xs text-slate-400 italic">{p.qualite}</span>}
+                      {profsPresents.has(p.id) && <IconCheck size={15} className="ml-1" style={{ color: 'var(--e)' }} />}
                     </label>
                   ))}
                 </div>
@@ -648,20 +648,20 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       <Section title="2 · Qualification de la décision">
         <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_={UI.porteeRefus} />
         {q.decisionRefus === 'non' && (
-          <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg border-l-4 border-l-red-500">
-            <p className="font-bold text-red-800 inline-flex items-center gap-1.5"><IconBan size={18} /> IRRECEVABLE DE PLEIN DROIT</p>
-            <p className="text-red-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
-            <p className="text-xs text-red-600 mt-1 inline-flex items-center gap-1"><IconScale size={13} /> {UI.porteeRefus2}</p>
+          <div data-etat="corriger" className="bloc-etat mt-3 p-4">
+            <p className="font-bold text-iip-texte inline-flex items-center gap-1.5"><IconBan size={18} style={{ color: 'var(--e)' }} /> IRRECEVABLE DE PLEIN DROIT</p>
+            <p className="text-slate-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
+            <p className="text-xs text-slate-500 mt-1 inline-flex items-center gap-1"><IconScale size={13} /> {UI.porteeRefus2}</p>
           </div>
         )}
         {q.decisionRefus === 'oui' && (
-          <div className="bloc-etat etat-reussi mt-3 p-3 text-sm text-green-800 inline-flex items-center gap-1.5">
-            <IconCheck size={16} /> La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
+          <div data-etat="reussi" className="bloc-etat mt-3 p-3 text-sm text-slate-800 inline-flex items-center gap-1.5">
+            <IconCheck size={16} style={{ color: 'var(--e)' }} /> La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
           </div>
         )}
         {q.decisionRefus === 'oui' && delaiRespect === false && (
-          <div className="mt-2 p-3 bg-orange-50 border-2 border-orange-400 rounded text-sm text-orange-800 flex items-start gap-1.5 border-l-4 border-l-orange-500">
-            <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+          <div data-etat="surveiller" className="bloc-etat mt-2 p-3 text-sm text-slate-800 flex items-start gap-1.5">
+            <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--e)' }} />
             <span><strong>Attention :</strong> le délai de 4 jours calendrier est dépassé (J+{nbJours}). La plainte sera vraisemblablement <strong>irrecevable</strong> pour ce motif — vérification formelle ci-dessous.</span>
           </div>
         )}
@@ -678,17 +678,17 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
 
         {conditionsRecevabilite.some(c => c.ok !== undefined) && (
-          <div className={`p-4 rounded-xl border-2 mt-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
+          <div data-etat={recevable ? 'reussi' : irrecevable ? 'corriger' : 'neutre'} className="bloc-etat p-4 mt-4">
             {recevable && <>
-              <p className="font-bold text-green-800 text-base inline-flex items-center gap-1.5"><IconCircleCheck size={20} /> RECEVABLE — Procéder à l'instruction</p>
-              {limiteDecisionInterne && <p className="text-sm text-green-700 mt-1 inline-flex items-center gap-1"><IconClock size={14} /> Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
+              <p className="font-bold text-iip-texte text-base inline-flex items-center gap-1.5"><IconCircleCheck size={20} style={{ color: 'var(--e)' }} /> RECEVABLE — Procéder à l'instruction</p>
+              {limiteDecisionInterne && <p className="text-sm text-slate-700 mt-1 inline-flex items-center gap-1"><IconClock size={14} /> Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
             </>}
             {irrecevable && !recevable && <>
-              <p className="font-bold text-red-800 text-base inline-flex items-center gap-1.5"><IconBan size={20} /> IRRECEVABLE</p>
+              <p className="font-bold text-iip-texte text-base inline-flex items-center gap-1.5"><IconBan size={20} style={{ color: 'var(--e)' }} /> IRRECEVABLE</p>
               {conditionsRecevabilite.filter(c => c.ok === false).map(c => (
-                <p key={c.label} className="text-sm text-red-700 mt-1 inline-flex items-center gap-1"><IconX size={14} /> {c.label} <Ref text={c.ref} /></p>
+                <p key={c.label} className="text-sm text-slate-700 mt-1 inline-flex items-center gap-1"><IconX size={14} /> {c.label} <Ref text={c.ref} /></p>
               ))}
-              <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant par écrit ({is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §4'}).</p>
+              <p className="text-sm text-slate-700 mt-2">→ Notifier à l'étudiant par écrit ({is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §4'}).</p>
             </>}
           </div>
         )}
@@ -715,14 +715,14 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE restreint</div>
             <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
             {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite décision : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
           </label>
         </div>
 
         {/* Synthèse */}
-        <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50 border-l-4 border-l-green-500' : 'border-red-500 bg-red-50'}`}>
-          <p className="font-bold text-base inline-flex items-center gap-1.5">{recevable ? <><IconCircleCheck size={18} /> Recevable</> : <><IconBan size={18} /> Irrecevable</>}</p>
+        <div data-etat={recevable ? 'reussi' : 'corriger'} className="bloc-etat p-4 mb-5">
+          <p className="font-bold text-base text-iip-texte inline-flex items-center gap-1.5">{recevable ? <><IconCircleCheck size={18} style={{ color: 'var(--e)' }} /> Recevable</> : <><IconBan size={18} style={{ color: 'var(--e)' }} /> Irrecevable</>}</p>
           {recevable && (() => {
             const irregs = [
               q.quorum === 'non' && 'Quorum non atteint (Art. 89 §1)',
@@ -732,8 +732,8 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
               q.publiResultats === 'non' && `Publication tardive (${is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'})`,
             ].filter(Boolean);
             return irregs.length
-              ? <><p className="text-sm text-red-700 mt-2 font-medium">Irrégularités relevées :</p>{irregs.map(i=><p key={i} className="text-sm text-red-700 inline-flex items-center gap-1"><IconX size={14} /> {i}</p>)}</>
-              : <p className="text-sm text-green-700 mt-1">Aucune irrégularité de fond relevée — recours rejeté.</p>;
+              ? <><p className="text-sm text-slate-800 mt-2 font-medium">Irrégularités relevées :</p>{irregs.map(i=><p key={i} className="text-sm text-slate-700 inline-flex items-center gap-1"><IconX size={14} style={{ color: 'var(--c-refuse)' }} /> {i}</p>)}</>
+              : <p className="text-sm text-slate-700 mt-1">Aucune irrégularité de fond relevée — recours rejeté.</p>;
           })()}
         </div>
 
@@ -747,22 +747,22 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             {n:5, label:'Notification par recommandé', detail:`${limiteDecisionInterne ? 'Date limite : ' + fmt(limiteDecisionInterne) + '.' : 'Envoyer dans le délai légal (7 jours calendrier hors congés).'}`},
             {n:6, label:'Archivage', detail:'Classer le dossier complet (plainte + pièces + décision + récépissé recommandé).'},
           ].map(item => (
-            <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
-              <div className="w-6 h-6 rounded-full bg-iip-turquoise text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
-              <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
+            <div key={item.n} className="carte flex gap-3 p-3 text-sm">
+              <div className="pastille-etape" data-etat="courant">{item.n}</div>
+              <div><p className="font-semibold">{item.label}</p><p className="text-slate-600">{item.detail}</p></div>
             </div>
           ))}
         </div>
 
         {limiteRecourseExterne && (
-          <div className="bloc-etat etat-surveiller p-3 text-sm mb-5 inline-flex items-center gap-1.5">
-            <IconClock size={15} /> <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
-            <span className="text-xs text-orange-700 ml-2 inline-flex items-center gap-1"><IconScale size={12} /> Art. 90 §2 RDE/ROI</span>
+          <div data-etat="surveiller" className="bloc-etat p-3 text-sm mb-5 inline-flex items-center gap-1.5">
+            <IconClock size={15} style={{ color: 'var(--e)' }} /> <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
+            <span className="text-xs text-slate-500 ml-2 inline-flex items-center gap-1"><IconScale size={12} /> Art. 90 §2 RDE/ROI</span>
           </div>
         )}
 
         {/* Date d'envoi + commentaire — saisis après la délibération */}
-        <div className="border border-gray-200 rounded-lg p-4 mb-5 bg-gray-50 space-y-4">
+        <div className="carte p-4 mb-5 space-y-4">
           <p className="text-sm font-semibold text-gray-700">À compléter après la réunion du CDE restreint :</p>
 
           <label className="block">
@@ -771,7 +771,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
               <span className="text-gray-400 font-normal ml-1">(déclenche le délai de recours externe)</span>
             </div>
             <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white" />
+              className="controle w-full" />
             {limiteRecourseExterne && (
               <p className="text-xs text-orange-700 mt-1 font-medium inline-flex items-center gap-1">
                 <IconClock size={13} /> Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong>
@@ -786,11 +786,11 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
               <span className="text-gray-400 font-normal ml-1">(facultatif — apparaîtra dans la décision)</span>
             </div>
             {/* Justifications cochables */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden mb-2">
+            <div className="border border-slate-200 rounded-champ bg-white overflow-hidden mb-2">
               {justificationsDB.map((j, i) => {
                 const checked = justificationsChoisies.has(i);
                 return (
-                  <label key={i} className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer transition-colors ${checked ? 'bg-blue-50 border-l-2 border-iip-turquoise' : 'hover:bg-gray-50 border-l-2 border-transparent'} ${i > 0 ? 'border-t border-gray-100' : ''}`}>
+                  <label key={i} className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer transition-colors ${checked ? 'ligne-active border-l-2 border-iip-blue' : 'hover:bg-slate-50 border-l-2 border-transparent'} ${i > 0 ? 'border-t border-slate-100' : ''}`}>
                     <input type="checkbox" checked={checked} onChange={() => {
                       setJustificationsChoisies(prev => {
                         const n = new Set(prev);
@@ -806,18 +806,18 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             {/* Commentaire libre complémentaire */}
             <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
               rows={3} placeholder="Commentaire libre complémentaire (optionnel)…"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white resize-y" />
+              className="w-full border border-slate-300 rounded-champ px-3 py-2 text-sm bg-white resize-y" />
           </label>
 
           {/* Upload courrier étudiant */}
-          <div className="border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50">
+          <div className="border border-dashed border-slate-300 rounded-champ p-3">
             <div className="text-xs font-semibold text-gray-600 mb-1">
               Courrier de recours reçu
               <span className="text-gray-400 font-normal ml-1">(optionnel — PDF, Word, image…)</span>
             </div>
             {fichierRecours?.ok ? (
-              <div className="flex items-center gap-2 text-sm text-green-700">
-                <span>✓</span>
+              <div className="flex items-center gap-2 text-sm text-slate-800">
+                <IconCheck size={14} style={{ color: 'var(--c-reussi)' }} />
                 <span className="truncate">{fichierRecours.nom}</span>
                 <button onClick={() => setFichierRecours(null)} className="text-gray-400 hover:text-red-500 ml-auto text-xs">×</button>
               </div>
@@ -860,7 +860,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       {/* Réinitialiser */}
       <div className="flex justify-end">
         <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); setCommentaireCDE(''); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="border border-iip-turquoise text-iip-turquoise px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-turquoise/5 inline-flex items-center gap-1.5">
+          className="bouton">
           <IconRefresh size={16} /> Nouveau recours
         </button>
       </div>
@@ -1164,7 +1164,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       });
       if (res.error) { informer('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
-        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+        informer('Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
       setPreviewHtml(res.html);
     } catch(e) { informer('Erreur : ' + e.message); }
@@ -1189,12 +1189,12 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
             <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
           </label>
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
             <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full">
               <option value="">— Toutes les sections —</option>
               {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -1202,7 +1202,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
             <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full">
               <option value="">— Choisir une UE —</option>
               {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
@@ -1210,7 +1210,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Session</div>
             <select value={session} onChange={e => setSession(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full">
               <option value="1">1re session</option>
               <option value="2">2e session</option>
             </select>
@@ -1222,32 +1222,32 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'épreuve</div>
             <input type="date" value={dateExamen} onChange={e => setDateExamen(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
           </label>
         </div>
 
         {/* Membres présents */}
         {ueNum && (
-          <div className="bloc-etat etat-corriger mt-3 p-4">
+          <div className="carte mt-3 p-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-bold text-red-900">
+              <p className="text-sm font-bold text-iip-texte">
                 Membres du CDE présents {loadingProfs && <span className="text-xs font-normal ml-1">…</span>}
               </p>
               {profs.length > 0 && (
                 <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
-                  className="text-xs text-red-600 hover:underline">Tout cocher</button>
+                  className="text-xs text-iip-blue hover:underline">Tout cocher</button>
               )}
             </div>
             <div className="space-y-1">
               {profs.map(p => (
-                <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id)?'bg-green-50 border-green-400':'bg-white border-red-200 hover:bg-red-50'}`}>
-                  <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => togglePresent(p.id)} className="w-4 h-4 accent-green-600" />
-                  <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id)?'bg-green-600':'bg-red-700'}`}>
+                <label key={p.id} data-etat={profsPresents.has(p.id) ? 'reussi' : 'neutre'} className="bloc-etat flex items-center gap-3 px-3 py-2 cursor-pointer transition">
+                  <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => togglePresent(p.id)} className="w-4 h-4 accent-iip-blue" />
+                  <span className="pastille-etape" data-etat={profsPresents.has(p.id) ? 'fait' : 'courant'}>
                     {(p.nom[0]||'?').toUpperCase()}
                   </span>
-                  <span className="text-sm font-medium flex-1">{p.nomComplet}</span>
-                  {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
-                  {profsPresents.has(p.id) && <IconCheck size={15} className="text-green-700" />}
+                  <span className="text-sm font-medium flex-1 text-slate-800">{p.nomComplet}</span>
+                  {p.qualite && <span className="text-xs text-slate-400 italic">{p.qualite}</span>}
+                  {profsPresents.has(p.id) && <IconCheck size={15} style={{ color: 'var(--e)' }} />}
                 </label>
               ))}
             </div>
@@ -1273,7 +1273,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               ['pendant',    "Pendant l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 73 RDE/ROI'],
               ['correction', "À la correction / après l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'],
             ].map(([val, label, ref]) => (
-              <label key={val} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${momentFaits===val? 'bg-red-50 border-red-500 border-l-4 border-l-red-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}>
+              <label key={val} data-etat={momentFaits===val ? 'fort' : 'neutre'} className="bloc-etat flex items-start gap-2.5 p-3 cursor-pointer transition">
                 <input type="radio" name="momentFaits" value={val} checked={momentFaits===val} onChange={() => setMomentFaits(val)} className="accent-red-700 mt-0.5" />
                 <span><span className="text-sm font-medium block">{label}</span><Ref text={ref} /></span>
               </label>
@@ -1285,7 +1285,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <div>
             <div className="text-xs font-semibold text-gray-600 mb-1">Type de fraude constatée <Ref text={is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 RDE/ROI'} /></div>
             <select value={typeFraude} onChange={e => setTypeFraude(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full">
               <option value="">— Sélectionner —</option>
               <option value="Usage de notes ou documents non autorisés (antisèche)">Usage de notes ou documents non autorisés (antisèche)</option>
               <option value="Communication entre étudiants pendant l'épreuve">Communication entre étudiants pendant l'épreuve</option>
@@ -1299,19 +1299,19 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <div>
             <div className="text-xs font-semibold text-gray-600 mb-1">Date des faits constatés</div>
             <input type="date" value={dateFaits} onChange={e => setDateFaits(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle" />
             {limiteNotif && <p className="text-xs text-orange-600 mt-1 inline-flex items-center gap-1"><IconClock size={13} /> Notification à l'étudiant recommandée avant le : <strong>{fmt(limiteNotif)}</strong></p>}
           </div>
           <div>
             <div className="text-xs font-semibold text-gray-600 mb-1">Description détaillée des faits (rapport du surveillant)</div>
             <textarea value={descriptionFraits} onChange={e => setDescriptionFraits(e.target.value)}
               rows={5} placeholder="Décrire précisément : qui a constaté la fraude, à quelle heure, ce qui a été saisi ou observé, le comportement de l'étudiant, les témoins éventuels..."
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
+              className="w-full border border-slate-300 rounded-champ px-3 py-2 text-sm bg-white resize-y" />
           </div>
         </div>
-        <div className="bloc-etat etat-surveiller mt-4 p-3 text-sm">
-          <p className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconAlertTriangle size={15} /> Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
-          <p className="text-amber-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
+        <div data-etat="surveiller" className="bloc-etat mt-4 p-3 text-sm">
+          <p className="font-semibold text-iip-texte inline-flex items-center gap-1.5"><IconAlertTriangle size={15} style={{ color: 'var(--e)' }} /> Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
+          <p className="text-slate-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
         </div>
 
         {/* Procédure contradictoire — notification + contestation */}
@@ -1320,16 +1320,16 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block mb-3">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de notification à l'étudiant *</div>
             <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
             <p className="text-xs text-gray-400 mt-0.5">Courrier/e-mail informant des faits reprochés et du droit à l'audition</p>
           </label>
           {!dateNotification && (
-            <div className="bloc-etat etat-corriger mb-3 p-3 border-red-400 text-sm text-red-800 flex items-start gap-1.5">
-              <IconBan size={16} className="flex-shrink-0 mt-0.5" />
+            <div data-etat="corriger" className="bloc-etat mb-3 p-3 text-sm text-slate-800 flex items-start gap-1.5">
+              <IconBan size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--e)' }} />
               <span>La notification préalable est obligatoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 §1'}). Toute décision sans notification préalable serait nulle.</span>
             </div>
           )}
-          <label className="flex items-center gap-2.5 p-3 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50">
+          <label className="carte flex items-center gap-2.5 p-3 cursor-pointer">
             <input type="checkbox" checked={conteste} onChange={e => setConteste(e.target.checked)} className="w-4 h-4 accent-red-700" />
             <span className="text-sm font-medium text-gray-700">L'étudiant conteste les faits / demande à être entendu</span>
           </label>
@@ -1338,14 +1338,14 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               <label className="block">
                 <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'audition</div>
                 <input type="date" value={dateAudition} onChange={e => setDateAudition(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+                  className="controle w-full" />
                 <p className="text-xs text-gray-400 mt-0.5">Laisser vide si l'étudiant ne s'est finalement pas présenté</p>
               </label>
               <div>
                 <div className="text-xs font-semibold text-gray-600 mb-1">Déclarations de l'étudiant lors de l'audition</div>
                 <textarea value={declarationsEtudiant} onChange={e => setDeclarationsEtudiant(e.target.value)}
                   rows={4} placeholder={dateAudition ? "Résumer les déclarations de l'étudiant : contestation des faits, explications données, circonstances atténuantes invoquées..." : "L'étudiant ne s'est pas présenté à l'audition dans le délai imparti."}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
+                  className="w-full border border-slate-300 rounded-champ px-3 py-2 text-sm bg-white resize-y" />
               </div>
             </div>
           )}
@@ -1360,13 +1360,13 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE</div>
             <input type="date" value={dateCDE} onChange={e => setDateCDE(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+              className="controle w-full" />
           </label>
         </div>
 
-        <div className="bloc-etat etat-surveiller mb-4 p-3 text-sm">
-          <p className="font-semibold text-amber-800">Sanction applicable selon la situation :</p>
-          <p className="text-amber-700 mt-1">
+        <div data-etat="surveiller" className="bloc-etat mb-4 p-3 text-sm">
+          <p className="font-semibold text-iip-texte">Sanction applicable selon la situation :</p>
+          <p className="text-slate-700 mt-1">
             {is2526F
               ? (session === '2'
                   ? '2e session → Refus systématique (Art. 55 ROI/RGE)'
@@ -1389,10 +1389,10 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 73 §1)`, session==='1'&&!recidive],
               ['refus',       `Refus pour l'UE ${ueNum} (Art. 73 §2 — 2e session ou récidive)`, session==='2'||recidive],
             ]).map(([val, label, recommande]) => (
-              <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val? 'bg-green-50 border-green-500 border-l-4 border-l-green-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}>
+              <label key={val} data-etat={decision===val ? 'fort' : 'neutre'} className="bloc-etat flex items-center gap-3 p-3 cursor-pointer transition">
                 <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
                 <span className="text-sm flex-1">{label}</span>
-                {recommande && <span className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5">Recommandé</span>}
+                {recommande && <PastilleEtat etat="reussi">Recommandé</PastilleEtat>}
               </label>
             ))}
           </div>
@@ -1402,22 +1402,22 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <div className="text-xs font-semibold text-gray-600 mb-1">Observations / motivation complémentaire du CDE</div>
           <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
             rows={3} placeholder="Ex : Le CDE a examiné les pièces saisies. Les faits sont établis sans ambiguïté. L'étudiant a reconnu les faits lors de l'audition..."
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
+            className="w-full border border-slate-300 rounded-champ px-3 py-2 text-sm bg-white resize-y" />
         </div>
 
         {/* Synthèse */}
         {decision && (
-          <div className="p-4 bg-red-50 border-2 border-red-500 rounded-lg mt-5 border-l-4 border-l-red-500">
-            <p className="font-bold text-red-900 inline-flex items-center gap-1.5">
+          <div data-etat="corriger" className="bloc-etat p-4 mt-5">
+            <p className="font-bold text-iip-texte inline-flex items-center gap-1.5">
               Décision : {decision === 'ajournement'
                 ? <><IconCheck size={16} /> Ajournement ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §1'})</>
                 : <><IconBan size={16} /> Refus pour l'UE {ueNum} ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §2'})</>}
             </p>
-            <p className="text-sm text-red-700 mt-1">{etudiant} · UE {ueNum}{ueNom ? ' — ' + ueNom : ''} · {session === '1' ? '1re session' : '2e session'}{recidive ? ' · Récidive' : ''}</p>
+            <p className="text-sm text-slate-700 mt-1">{etudiant} · UE {ueNum}{ueNom ? ' — ' + ueNom : ''} · {session === '1' ? '1re session' : '2e session'}{recidive ? ' · Récidive' : ''}</p>
             {profsPresents.size > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {profs.filter(p => profsPresents.has(p.id)).map(p => (
-                  <span key={p.id} className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5 inline-flex items-center gap-1"><IconCheck size={12} /> {p.nomComplet}</span>
+                  <PastilleEtat key={p.id} etat="reussi"><IconCheck size={12} /> {p.nomComplet}</PastilleEtat>
                 ))}
               </div>
             )}
@@ -1425,12 +1425,12 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
         )}
 
         {/* Date d'envoi */}
-        <div className="border border-gray-200 rounded-lg p-4 mt-5 bg-gray-50">
+        <div className="carte p-4 mt-5">
           <p className="text-sm font-semibold text-gray-700 mb-3">À compléter après la réunion du CDE :</p>
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision à l'étudiant (recommandé)</div>
             <input type="date" value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white" />
+              className="controle" />
             {dateEnvoi && (
               <p className="text-xs text-orange-700 mt-1 inline-flex items-center gap-1">
                 <IconClock size={13} /> Limite recours interne : <strong>{fmt(addJoursCalendrier(dateEnvoi, 4))}</strong>
@@ -1448,15 +1448,15 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             {n:3, label:'Archiver le dossier', detail:'Classer : rapport de fraude + pièces saisies + preuve de notification + PV de délibération + récépissé recommandé.'},
             {n:4, label:'Informer les voies de recours', detail:'L\'étudiant dispose de 4 jours calendrier pour introduire un recours interne (Art. 88 §1 RDE/ROI).'},
           ].map(item => (
-            <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
-              <div className="w-6 h-6 rounded-full bg-red-700 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
-              <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
+            <div key={item.n} className="carte flex gap-3 p-3 text-sm">
+              <div className="pastille-etape" data-etat="courant">{item.n}</div>
+              <div><p className="font-semibold">{item.label}</p><p className="text-slate-600">{item.detail}</p></div>
             </div>
           ))}
         </div>
 
         <button onClick={ouvrirPV}
-          className="w-full bg-red-700 hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+          className="bouton bouton-fort w-full flex items-center justify-center gap-2">
           <IconFileText size={18} /> Générer le procès-verbal (PDF)
         </button>
         <p className="text-xs text-gray-500 text-center mt-1">Document officiel · CONFIDENTIEL · À signer et envoyer par recommandé à l'étudiant</p>
@@ -1465,7 +1465,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       {/* Réinitialiser */}
       <div className="flex justify-end">
         <button onClick={() => { setStep(1); setEtudiant(''); setUeNum(''); setSession('1'); setRecidive(false); setDateExamen(''); setDateFaits(''); setTypeFraude(''); setDescriptionFraits(''); setDateNotification(''); setDateAudition(''); setDeclarationsEtudiant(''); setDateCDE(''); setDateEnvoi(''); setDecision(''); setCommentaireCDE(''); setMomentFaits('pendant'); setConteste(false); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="bloc-etat etat-corriger border-red-700 text-red-700 px-6 py-2 text-sm font-medium hover:bg-red-50 inline-flex items-center gap-1.5">
+          className="bouton">
           <IconRefresh size={16} /> Nouveau dossier
         </button>
       </div>
@@ -1499,10 +1499,10 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 // ─── ArchivesProcedures ───────────────────────────────────────────────────────
 const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé', brouillon: 'Brouillon' };
-const STATUT_COLOR = { en_cours: 'bg-iip-turquoise/10 text-iip-blue', clos: 'bg-green-500 text-white', annule: 'bg-gray-100 text-gray-500', brouillon: 'bg-amber-500 text-white' };
+const STATUT_ETAT = { en_cours: 'disponible', clos: 'reussi', annule: 'indisponible', brouillon: 'surveiller' };
 const VERDICT_LABEL = { irrecevable: 'Irrecevable', rejete: 'Rejeté', accueilli: 'Accueilli', ajourne: 'Ajourné', refus: 'Refus' };
-const VERDICT_COLOR = { irrecevable: 'bg-red-500 text-white', rejete: 'bg-orange-500 text-white', accueilli: 'bg-green-500 text-white', ajourne: 'bg-yellow-500 text-white', refus: 'bg-red-500 text-white' };
-const TYPE_COLOR = { recours: 'bg-iip-turquoise/10 text-iip-turquoise', fraude: 'bg-red-500 text-white' };
+const VERDICT_ETAT = { irrecevable: 'corriger', rejete: 'surveiller', accueilli: 'reussi', ajourne: 'surveiller', refus: 'corriger' };
+const TYPE_ETAT = { recours: 'disponible', fraude: 'corriger' };
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -1602,11 +1602,11 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         sous="Toutes les procédures générées — recours et fraudes" />
 
       {/* Filtres */}
-      <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex flex-wrap gap-3 items-end">
+      <div className="carte px-4 py-3 flex flex-wrap gap-3 items-end">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Type</label>
           <select value={filtreType} onChange={e => setFiltreType(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
+            className="controle">
             <option value="">Tous</option>
             <option value="recours">Recours</option>
             <option value="fraude">Fraude</option>
@@ -1615,7 +1615,7 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">Statut</label>
           <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
+            className="controle">
             <option value="">Tous</option>
             <option value="">Tous</option>
             <option value="brouillon">Brouillon</option>
@@ -1627,7 +1627,7 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">Année</label>
           <select value={filtreAnnee} onChange={e => setFiltreAnnee(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
+            className="controle">
             <option value="">Toutes</option>
             {annees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
@@ -1635,7 +1635,7 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div className="flex-1 min-w-40">
           <label className="block text-xs text-gray-500 mb-1">Étudiant</label>
           <input value={filtreQ} onChange={e => setFiltreQ(e.target.value)}
-            placeholder="Rechercher…" className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
+            placeholder="Rechercher…" className="controle w-full" />
         </div>
         <button onClick={charger} className="bouton">
           <IconRefresh size={14} /> Actualiser
@@ -1647,15 +1647,14 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div className="text-center text-gray-400 py-12">Chargement…</div>
       ) : archives.length === 0 ? (
         <div className="text-center text-gray-400 py-16">
-          <p className="text-3xl mb-2">📂</p>
+          <IconFolder size={36} stroke={1.5} className="mx-auto mb-2 text-slate-300" />
           <p>Aucune procédure archivée</p>
           <p className="text-xs mt-1">Les procédures seront enregistrées automatiquement à chaque génération de PV</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="tab-entete intertitre">
-              <tr>
+        <Tableau>
+            <thead>
+              <tr className="tab-entete">
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Étudiant</th>
                 <th className="px-4 py-3 text-left">UE</th>
@@ -1667,60 +1666,59 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {archives.map(proc => (
-                <tr key={proc.id} className="hover:bg-gray-50">
+                <tr key={proc.id} className="ligne-maison">
                   <td className="px-4 py-3">
-                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${TYPE_COLOR[proc.type] || 'bg-gray-100 text-gray-600'}`}>
-                      {proc.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'}
-                    </span>
+                    <PastilleEtat etat={TYPE_ETAT[proc.type] || 'neutre'}>
+                      {proc.type === 'recours' ? <><IconScale size={12} /> Recours</> : <><IconShieldExclamation size={12} /> Fraude</>}
+                    </PastilleEtat>
                   </td>
                   <td className="px-4 py-3 font-medium text-gray-800">{proc.etudiant || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{proc.ue_num ? `UE ${proc.ue_num}` : '—'}{proc.ue_nom ? ` — ${proc.ue_nom.slice(0, 28)}${proc.ue_nom.length > 28 ? '…' : ''}` : ''}</td>
                   <td className="px-4 py-3 text-gray-600">{proc.section || '—'}</td>
                   <td className="px-4 py-3">
                     {proc.verdict ? (
-                      <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${VERDICT_COLOR[proc.verdict] || 'bg-gray-100 text-gray-600'}`}>
+                      <PastilleEtat etat={VERDICT_ETAT[proc.verdict] || 'neutre'}>
                         {VERDICT_LABEL[proc.verdict] || proc.verdict}
-                      </span>
+                      </PastilleEtat>
                     ) : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${STATUT_COLOR[proc.statut] || 'bg-gray-100'}`}>
+                    <PastilleEtat etat={STATUT_ETAT[proc.statut] || 'neutre'}>
                       {STATUT_LABEL[proc.statut] || proc.statut}
-                    </span>
+                    </PastilleEtat>
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(proc.date_faits)}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(proc.date_seance_cde)}</td>
                   <td className="px-4 py-3">
                     <button onClick={() => voirDetail(proc)}
-                      className="text-iip-turquoise hover:underline text-xs font-medium">
+                      className="text-iip-blue hover:underline text-xs font-medium">
                       Détail →
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </Tableau>
       )}
 
       {/* Panneau de détail */}
       {detail && (
         <Fenetre titre={detail.etudiant} large="moyenne" onFermer={() => setDetail(null)}
-          sous={`${detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE ${detail.ue_num} · ${detail.section} · ${detail.annee_scolaire}`}
+          sous={`${detail.type === 'recours' ? 'Recours' : 'Fraude'} · UE ${detail.ue_num} · ${detail.section} · ${detail.annee_scolaire}`}
           outils={<OuvrirEditions sombre taille="moyen" titre="Voir, imprimer ou envoyer le document — centre d'édition"
             pieces={[{ cle: 'procedure', label: 'Document de la procédure', description: 'Recomposé à partir du dossier', onClick: () => regenererHTML(detail) }]} />}>
             <div className="space-y-5">
               {/* Badges */}
               <div className="flex flex-wrap gap-2">
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${STATUT_COLOR[detail.statut]}`}>
+                <PastilleEtat etat={STATUT_ETAT[detail.statut] || 'neutre'}>
                   {STATUT_LABEL[detail.statut]}
-                </span>
+                </PastilleEtat>
                 {detail.verdict && (
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${VERDICT_COLOR[detail.verdict]}`}>
+                  <PastilleEtat etat={VERDICT_ETAT[detail.verdict] || 'neutre'}>
                     {VERDICT_LABEL[detail.verdict] || detail.verdict}
-                  </span>
+                  </PastilleEtat>
                 )}
               </div>
 
@@ -1735,10 +1733,10 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
               {/* Changement de statut */}
               <div>
                 <p className="text-xs text-gray-500 font-medium mb-2">Changer le statut</p>
-                <div className="flex gap-2">
+                <div className="segments">
                   {['brouillon', 'en_cours', 'clos', 'annule'].map(s => (
                     <button key={s} onClick={() => changerStatut(detail.id, s)} disabled={saving || detail.statut === s}
-                      className={`text-xs px-3 py-1.5 rounded border transition ${detail.statut === s ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold' : 'border-gray-300 text-gray-600 hover:border-iip-turquoise hover:text-iip-turquoise'}`}>
+                      className={`text-xs px-3 py-1.5 ${detail.statut === s ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
                       {STATUT_LABEL[s]}
                     </button>
                   ))}
@@ -1759,11 +1757,11 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
               )}
 
               {/* Suppression */}
-              <div className="border-t border-red-100 pt-4 mt-4">
+              <div className="border-t border-slate-200 pt-4 mt-4">
                 {confirmSupp === detail.id ? (
-                  <div className="bloc-etat etat-corriger p-4 space-y-3">
-                    <p className="text-sm font-medium text-red-800">Suppression physique définitive</p>
-                    <p className="text-xs text-red-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
+                  <div data-etat="corriger" className="bloc-etat p-4 space-y-3">
+                    <p className="text-sm font-medium text-iip-texte">Suppression physique définitive</p>
+                    <p className="text-xs text-slate-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
                     <div className="flex gap-2">
                       <button onClick={() => supprimerPhysique(detail.id)} disabled={saving}
                         className="bouton bouton-detruire">
@@ -1813,7 +1811,7 @@ export default function Procedures() {
   }
 
   const bandeauPreRempli = (
-    <p className="text-xs text-iip-blue -mt-2 mb-5 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-3 py-1.5 h-9 inline-flex items-center gap-1.5">
+    <p data-etat="disponible" className="bloc-etat text-xs text-slate-800 -mt-2 mb-5 px-3 py-1.5 inline-flex items-center gap-1.5">
       <IconArrowBackUp size={14} stroke={1.8} /> Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
     </p>
   );

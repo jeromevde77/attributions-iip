@@ -5,13 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, nomDoc, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ListeDiplomes from '../components/ListeDiplomes.jsx';
-import { RailLateral, Fenetre } from '../components/ui.jsx';
+import { RailLateral, Fenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../components/ui.jsx';
 import EnvoiMailModal from '../components/EnvoiMailModal.jsx';
+import { couleurBloc } from '../lib/blocs.js';
 import {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
   IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription,
   IconCertificate, IconBolt, IconPrinter, IconFileSpreadsheet, IconDownload, IconSend,
-  IconFileExport,
+  IconFileExport, IconChevronDown, IconChevronUp,
 } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -1580,7 +1581,7 @@ ${methodologie}
   })).filter(g => g.items.length > 0)];
 
   return (
-    <div className={integre ? 'flex min-h-0 flex-1' : 'relative bg-slate-50'}
+    <div className={integre ? 'flex min-h-0 flex-1' : 'relative'}
       style={integre ? undefined : { minHeight: 'calc(100vh - 64px)' }}>
 
       {/* LA LISTE DES TYPES : colonne de la fenêtre quand on est intégré, rail
@@ -1639,14 +1640,14 @@ ${methodologie}
                               : 'gouttiere-rail flex flex-col min-w-0'} ${rapportVu && renduRapport ? 'hidden' : ''}`}>
 
       {/* ── Barre de filtres + actions ── */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex items-center gap-3 flex-wrap">
+      <div className="flex-shrink-0 border-b px-5 py-2.5 flex items-center gap-3 flex-wrap" style={{ borderColor: 'var(--c-filet)' }}>
         {/* Filtres rapides (sauf rapport-section : pop-up) */}
         {def.filtres.length > 0 && entite !== 'rapport-section' && (<>
           {def.filtres.includes('section') && (
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Section</span>
               <select value={filtres.section || ''} onChange={e => setFiltres(f => ({ ...f, section: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white min-w-[120px]">
+                className="controle min-w-[120px]">
                 <option value="">{entite === 'rapport-etp' ? '— Choisir —' : '— Toutes —'}</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
               </select>
@@ -1657,7 +1658,7 @@ ${methodologie}
               <span className="text-xs text-slate-500">Étudiants</span>
               <select value={filtres.source_etudiants || 'auto'}
                 onChange={e => setFiltres(f => ({ ...f, source_etudiants: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                className="controle">
                 <option value="auto">Depuis Lucie (auto)</option>
                 <option value="manuel">Saisie manuelle</option>
               </select>
@@ -1666,7 +1667,7 @@ ${methodologie}
                   value={filtres.nb_etudiants_estimes || ''}
                   onChange={e => setFiltres(f => ({ ...f, nb_etudiants_estimes: e.target.value }))}
                   placeholder="ex: 120"
-                  className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm w-24" />
+                  className="controle w-24" />
               )}
             </label>
           )}
@@ -1679,7 +1680,7 @@ ${methodologie}
                   dit, au lieu de laisser croire. */}
               {ueList.length > 0
                 ? <select value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
-                    className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                    className="controle">
                     <option value="">— Toutes les UE —</option>
                     {ueList.map(u => (
                       <option key={u.ue_num} value={u.ue_num}>
@@ -1699,7 +1700,7 @@ ${methodologie}
               {filtres.ue_num
                 ? <select value={filtres.cours_code || ''}
                     onChange={e => setFiltres(f => ({ ...f, cours_code: e.target.value, groupe: '', par_groupe: false }))}
-                    className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                    className="controle">
                     <option value="">— Toute l'unité —</option>
                     {coursList.map(c => (
                       <option key={c.cours_code} value={c.cours_code}>
@@ -1716,7 +1717,7 @@ ${methodologie}
                 <span className="text-xs text-slate-500">Groupe</span>
                 <select value={filtres.groupe || ''}
                   onChange={e => setFiltres(f => ({ ...f, groupe: e.target.value }))}
-                  className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                  className="controle">
                   <option value="">— Tous les groupes —</option>
                   {(rows?.groupesDispo || []).map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
@@ -1753,7 +1754,7 @@ ${methodologie}
               <span className="text-xs text-slate-500">Niveau</span>
               <select value={filtres.niveau_etu || ''}
                 onChange={e => setFiltres(f => ({ ...f, niveau_etu: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                className="controle">
                 <option value="">— Tous —</option>
                 <option value="BA1">BA1</option><option value="BA2">BA2</option>
                 <option value="BA3">BA3 / diplômant</option>
@@ -1766,7 +1767,7 @@ ${methodologie}
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Statut</span>
               <select value={filtres.statut || ''} onChange={e => setFiltres(f => ({ ...f, statut: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                className="controle">
                 <option value="">— Tous —</option>
                 <option value="MDP">MDP</option><option value="EXP">Expert</option><option value="CC">CC</option>
               </select>
@@ -1777,7 +1778,7 @@ ${methodologie}
               <span className="text-xs text-slate-500">Cours donnés</span>
               <select value={filtres.detail_cours || 'colonne'}
                 onChange={e => setFiltres(f => ({ ...f, detail_cours: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                className="controle">
                 <option value="aucun">Ne pas afficher</option>
                 <option value="colonne">Dans une colonne</option>
                 <option value="colonnes">Une colonne par cours</option>
@@ -1788,7 +1789,7 @@ ${methodologie}
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Niveau</span>
               <select value={filtres.niveau || ''} onChange={e => setFiltres(f => ({ ...f, niveau: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                className="controle">
                 <option value="">— Tous —</option><option value="SUP">SUP</option><option value="DS">DS</option>
               </select>
             </label>
@@ -1797,7 +1798,7 @@ ${methodologie}
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Tronc commun</span>
               <select value={filtres.tc || ''} onChange={e => setFiltres(f => ({ ...f, tc: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                className="controle">
                 <option value="">— L'ensemble —</option><option value="tc">TC uniquement</option><option value="hors">Hors TC</option>
               </select>
             </label>
@@ -1815,13 +1816,13 @@ ${methodologie}
 
         {/* Sélecteur d'orientation (rapports uniquement) */}
         {estRapport && (
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
-            <button onClick={() => setOrientation('portrait')}
-              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='portrait'?'bg-white text-slate-800 shadow-pose font-medium':'text-slate-500'}`}>
+          <div className="segments">
+            <button type="button" onClick={() => setOrientation('portrait')}
+              className={orientation==='portrait' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Portrait
             </button>
-            <button onClick={() => setOrientation('landscape')}
-              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='landscape'?'bg-white text-slate-800 shadow-pose font-medium':'text-slate-500'}`}>
+            <button type="button" onClick={() => setOrientation('landscape')}
+              className={orientation==='landscape' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Paysage
             </button>
           </div>
@@ -1923,7 +1924,7 @@ ${methodologie}
         ))}
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-5 mt-3 rounded-lg flex-shrink-0 border-l-4 border-l-red-500">{error}</div>}
+      {error && <div className="bloc-etat px-3 py-2 text-sm mx-5 mt-3 flex-shrink-0" data-etat="corriger">{error}</div>}
 
       {/* ── Zone de contenu ── */}
       <div className="flex-1 min-h-0 overflow-auto">
@@ -1938,7 +1939,7 @@ ${methodologie}
         {/* Aperçu rapport (en ligne, comme une feuille) */}
         {rows !== null && estRapport && apercuHtml && (
           <div className="p-5 flex justify-center">
-            <div className={`bg-white shadow-flottant rounded-lg overflow-hidden border border-slate-200 ${orientation==='landscape' ? 'w-full max-w-[1100px]' : 'w-full max-w-[820px]'}`}>
+            <div className={`bg-white shadow-flottant rounded-carte overflow-hidden border ${orientation==='landscape' ? 'w-full max-w-[1100px]' : 'w-full max-w-[820px]'}`}>
               <iframe aria-label="Aperçu" srcDoc={apercuHtml} className="w-full block" style={{ height: '78vh', border: 'none' }} />
             </div>
           </div>
@@ -1979,31 +1980,23 @@ ${methodologie}
                   className="text-xs text-slate-500 underline">par défaut</button>
               </div>
             )}
-            <div className="bg-white rounded-lg border border-slate-200 overflow-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead className="tab-entete sticky top-0 z-10">
-                  <tr>
+            <Tableau>
+              <TableauEntete>
+                {colsVisibles.map(c => <Th key={c.key} className="whitespace-nowrap">{c.label}</Th>)}
+              </TableauEntete>
+              <tbody>
+                {rows.map((row, i) => (
+                  <Tr key={i}>
                     {colsVisibles.map(c => (
-                      <th key={c.key} className="text-left px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">{c.label}</th>
+                      <Td key={c.key} className="max-w-xs truncate" title={String(row[c.key] ?? '')}>
+                        {row[c.key] ?? '—'}
+                      </Td>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={i} className={i % 2 ? 'bg-slate-50/50' : ''}>
-                      {colsVisibles.map(c => (
-                        <td key={c.key} className="px-3 py-1.5 h-9 border-b border-slate-100 text-slate-800 max-w-xs truncate" title={String(row[c.key] ?? '')}>
-                          {row[c.key] ?? '—'}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                  {rows.length === 0 && (
-                    <tr><td colSpan={colsVisibles.length || 1} className="text-center text-slate-400 py-8">Aucun résultat</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </Tr>
+                ))}
+                {rows.length === 0 && <TableauVide colonnes={colsVisibles.length || 1}>Aucun résultat</TableauVide>}
+              </tbody>
+            </Tableau>
           </div>
         )}
       </div>
@@ -2020,31 +2013,31 @@ ${methodologie}
           onFermer={()=>setShowOptionsRapport(false)}
           pied={<>
             <button onClick={()=>{ setFiltres(f=>({ section:f.section, ue_num:f.ue_num })); }}
-              className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser les critères</button>
+              className="text-xs text-slate-500 hover:text-slate-700 underline">Réinitialiser les critères</button>
             <span />
             <button onClick={()=>setShowOptionsRapport(false)} className="bouton">Annuler</button>
             <button onClick={()=>{ setShowOptionsRapport(false); genererReel(); }}
               className="bouton bouton-fort">Générer le rapport</button>
           </>}>
-            <p className="text-sm text-gray-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>
+            <p className="text-sm text-slate-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-medium text-gray-600">Section(s)</label>
+                  <label className="block text-second text-slate-600">Section(s)</label>
                   <div className="flex gap-2 text-xs">
                     <button onClick={()=>setFiltres(f=>({...f, sections: sections.map(s=> typeof s === 'string' ? s : (s.code ?? s.section ?? '')).filter(Boolean)}))}
-                      className="text-iip-gold hover:underline">Toutes</button>
+                      className="text-iip-blue hover:underline">Toutes</button>
                     <button onClick={()=>setFiltres(f=>({...f, sections: []}))}
-                      className="text-gray-400 hover:underline">Aucune</button>
+                      className="text-slate-400 hover:underline">Aucune</button>
                   </div>
                 </div>
-                <div className="border border-gray-200 rounded-lg p-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-1">
+                <div className="carte p-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-1">
                   {sections.map(s => {
                     const code = typeof s === 'string' ? s : (s.code ?? s.section ?? '');
                     if (!code) return null;
                     const sel = Array.isArray(filtres.sections) && filtres.sections.includes(code);
                     return (
-                      <label key={code} className="inline-flex items-center gap-1.5 text-sm cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                      <label key={code} className="inline-flex items-center gap-1.5 text-sm cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
                         <input type="checkbox" checked={sel} onChange={()=>setFiltres(f=>{
                           const cur = Array.isArray(f.sections) ? f.sections : [];
                           return { ...f, sections: sel ? cur.filter(x=>x!==code) : [...cur, code] };
@@ -2054,39 +2047,39 @@ ${methodologie}
                     );
                   })}
                 </div>
-                <p className="text-xs text-gray-400 mt-1">Aucune cochée = toutes les sections.</p>
+                <p className="text-xs text-slate-400 mt-1">Aucune cochée = toutes les sections.</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Contrat</label>
+                <label className="block text-second text-slate-600 mb-1">Contrat</label>
                 <select value={filtres.contrat||''} onChange={e=>setFiltres(f=>({...f, contrat:e.target.value}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="controle w-full">
                   <option value="">Tous</option>
                   <option value="IIP">IIP uniquement</option>
                   <option value="HELB">HELB uniquement</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tronc commun</label>
+                <label className="block text-second text-slate-600 mb-1">Tronc commun</label>
                 <select value={filtres.tc||''} onChange={e=>setFiltres(f=>({...f, tc:e.target.value}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="controle w-full">
                   <option value="">L'ensemble</option>
                   <option value="tc">TC uniquement</option>
                   <option value="hors">Hors TC</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Vue</label>
+                <label className="block text-second text-slate-600 mb-1">Vue</label>
                 <select value={filtres.vue||''} onChange={e=>setFiltres(f=>({...f, vue:e.target.value}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="controle w-full">
                   <option value="">Par organisation <span>— détail des dédoublements</span></option>
                   <option value="fusion">Coordination (fusionnée) — organisations regroupées</option>
                 </select>
-                <p className="text-xs text-gray-400 mt-1">La vue coordination regroupe les organisations d'une UE : simplement les cours donnés, sans la mécanique de gestion.</p>
+                <p className="text-xs text-slate-400 mt-1">La vue coordination regroupe les organisations d'une UE : simplement les cours donnés, sans la mécanique de gestion.</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Niveau</label>
+                <label className="block text-second text-slate-600 mb-1">Niveau</label>
                 <select value={filtres.niveau||''} onChange={e=>setFiltres(f=>({...f, niveau:e.target.value}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="controle w-full">
                   <option value="">Tous</option>
                   <option value="BA1">BA1</option>
                   <option value="BA2">BA2</option>
@@ -2094,27 +2087,27 @@ ${methodologie}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Quadrimestre</label>
+                <label className="block text-second text-slate-600 mb-1">Quadrimestre</label>
                 <select value={filtres.quad||''} onChange={e=>setFiltres(f=>({...f, quad:e.target.value}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="controle w-full">
                   <option value="">Tous</option>
                   <option value="Q1">Q1</option>
                   <option value="Q2">Q2</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Type de cours</label>
+                <label className="block text-second text-slate-600 mb-1">Type de cours</label>
                 <select value={filtres.type_cours||''} onChange={e=>setFiltres(f=>({...f, type_cours:e.target.value}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="controle w-full">
                   <option value="">Tous</option>
                   <option value="CT">CT (cours généraux)</option>
                   <option value="PP">PP (pratique professionnelle)</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nature HELB (TH/TP)</label>
+                <label className="block text-second text-slate-600 mb-1">Nature HELB (TH/TP)</label>
                 <select value={filtres.helb_nature||''} onChange={e=>setFiltres(f=>({...f, helb_nature:e.target.value}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="controle w-full">
                   <option value="">Toutes</option>
                   <option value="CT">TH (théorie)</option>
                   <option value="TP">TP (travaux pratiques)</option>
@@ -2139,7 +2132,6 @@ function HeuresContactView({ sections, annee }) {
 
   const ORDRE_BLOC = ['BA1','BA2','BA3','BA4','Autres'];
   const BLOC_LABEL = { BA1:'Bloc 1 (BA1)', BA2:'Bloc 2 (BA2)', BA3:'Bloc 3 (BA3)', BA4:'Bloc 4 (BA4)', Autres:'Autres' };
-  const BLOC_COLOR = { BA1:'var(--c-attente)', BA2:'var(--c-disponible)', BA3:'var(--c-texte)', BA4:'var(--c-faveur)', Autres:'#6b7280' };
 
   const parBloc = (ues) => {
     const map = {};
@@ -2177,7 +2169,7 @@ function HeuresContactView({ sections, annee }) {
   };
 
   if (!sections || sections.length === 0)
-    return <div className="text-sm text-gray-400 text-center py-12">Aucune donnée.</div>;
+    return <div className="text-sm text-slate-400 text-center py-12">Aucune donnée.</div>;
 
   const totalH = sections.reduce((s, x) => s + x.total_heures, 0);
 
@@ -2185,8 +2177,8 @@ function HeuresContactView({ sections, annee }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-sm font-semibold text-iip-blue">Grille de cours — {annee}</div>
-          <div className="text-xs text-gray-400 mt-0.5">
+          <div className="titre-carte">Grille de cours — {annee}</div>
+          <div className="text-second text-slate-500 mt-0.5">
             {sections.length} section{sections.length > 1 ? 's' : ''} · {totalH}h
           </div>
         </div>
@@ -2198,77 +2190,77 @@ function HeuresContactView({ sections, annee }) {
 
       <div className="space-y-4">
         {sections.map(s => (
-          <div key={s.section} className="border border-gray-200 rounded-xl overflow-hidden">
+          <div key={s.section} className="carte overflow-hidden">
             <button onClick={() => toggle(s.section)}
-              className="w-full flex items-center justify-between px-4 py-2.5 bg-iip-blue text-white hover:opacity-90 transition">
-              <span className="font-semibold">{s.section}</span>
-              <div className="flex items-center gap-3 text-sm">
-                <span className="opacity-80">{s.ues.length} UE</span>
-                <span className="font-bold">{s.total_heures}h</span>
-                <span>{expanded[s.section] ? '▲' : '▼'}</span>
+              className="entete-carte w-full text-left">
+              <span className="titre-carte">{s.section}</span>
+              <div className="flex items-center gap-3 text-sm text-iip-texte">
+                <span className="text-slate-500">{s.ues.length} UE</span>
+                <span className="font-semibold tabular-nums">{s.total_heures}h</span>
+                {expanded[s.section] ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
               </div>
             </button>
 
             {expanded[s.section] && (
               <div className="p-3 space-y-3">
                 {parBloc(s.ues).map(({ bloc, ues }) => {
-                  const coulBloc = BLOC_COLOR[bloc] || '#6b7280';
+                  const coulBloc = couleurBloc(bloc) || 'rgb(var(--gris-500))';
                   const totalBlocH = ues.reduce((a, u) => a + u.total_heures_ue, 0);
                   return (
                     <div key={bloc}>
-                      <div className="text-sm font-bold text-white px-3 py-1.5 rounded-t"
+                      <div className="text-sm font-semibold text-white px-3 py-1.5 rounded-t-champ"
                         style={{ background: coulBloc }}>
                         {BLOC_LABEL[bloc] || bloc}
                       </div>
-                      <table className="w-full text-xs border-collapse">
+                      <table className="tableau-maison w-full text-second border-collapse">
                         <thead>
-                          <tr style={{ background: 'var(--c-principal)' }}>
-                            <th className="text-left px-2 py-1.5 text-white font-medium w-20">Code</th>
-                            <th className="text-left px-2 py-1.5 text-white font-medium">Cours</th>
-                            <th className="text-center px-2 py-1.5 text-white font-medium w-12">Type</th>
-                            <th className="text-right px-2 py-1.5 text-white font-bold w-20">Hrs cours</th>
+                          <tr className="tab-entete">
+                            <th className="cellule text-left px-2 py-1.5 font-medium w-20">Code</th>
+                            <th className="cellule text-left px-2 py-1.5 font-medium">Cours</th>
+                            <th className="cellule text-center px-2 py-1.5 font-medium w-12">Type</th>
+                            <th className="cellule text-right px-2 py-1.5 font-medium w-20">Hrs cours</th>
                           </tr>
                         </thead>
                         <tbody>
                           {ues.map((u) => [
-                            <tr key={`ue-${u.ue_num}`} style={{ background: '#e8edf5', borderTop: '2px solid #00AACC4D' }}>
+                            <tr key={`ue-${u.ue_num}`} className="tab-repere">
                               <td colSpan={4} className="px-2 py-1 text-xs font-semibold text-iip-blue">
                                 <span className="mr-2">UE {u.ue_num}</span>
-                                <span className="font-normal text-gray-600">{u.ue_nom}</span>
+                                <span className="font-normal text-slate-600">{u.ue_nom}</span>
                                 {u.quadrimestre && <span className="ml-2 text-gray-400 font-normal">{u.quadrimestre}</span>}
                                 {u.ects > 0 && <span className="ml-2 text-gray-400 font-normal">{u.ects} ECTS</span>}
                               </td>
                             </tr>,
                             ...u.cours.map((c, i) => (
-                              <tr key={c.cours_code} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                <td className="px-2 py-1 font-mono text-gray-400 text-mention">{c.cours_code}</td>
-                                <td className="px-2 py-1 text-gray-700">{c.cours_nom}</td>
+                              <tr key={c.cours_code} className="ligne-maison">
+                                <td className="px-2 py-1 font-mono text-slate-400 text-mention">{c.cours_code}</td>
+                                <td className="px-2 py-1 text-slate-700">{c.cours_nom}</td>
                                 <td className="px-2 py-1 text-center">
                                   {c.ct_pp && (
-                                    <span className={`text-mention font-bold px-1.5 py-0.5 rounded ${c.ct_pp === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>{c.ct_pp}</span>
+                                    <span className="text-mention font-semibold text-slate-600">{c.ct_pp}</span>
                                   )}
                                 </td>
-                                <td className="px-2 py-1 text-right font-bold text-gray-800">
+                                <td className="px-2 py-1 text-right font-semibold text-iip-texte tabular-nums">
                                   {c.heures != null ? `${c.heures}h` : '—'}
                                 </td>
                               </tr>
                             )),
                             u.total_heures_ue > 0 && (
-                              <tr key={`tot-${u.ue_num}`} className="bg-blue-50">
-                                <td colSpan={3} className="px-2 py-0.5 text-right text-gray-400 italic text-mention">
+                              <tr key={`tot-${u.ue_num}`} className="ligne-total">
+                                <td colSpan={3} className="px-2 py-0.5 text-right text-slate-500 italic text-mention">
                                   Sous-total UE {u.ue_num}
                                 </td>
-                                <td className="px-2 py-0.5 text-right text-gray-600 font-semibold text-mention">
+                                <td className="px-2 py-0.5 text-right text-slate-600 font-semibold text-mention">
                                   {u.total_heures_ue}h
                                 </td>
                               </tr>
                             ),
                           ])}
-                          <tr style={{ background: BLEU }}>
-                            <td colSpan={3} className="px-2 py-1.5 text-right text-white font-bold text-xs">
+                          <tr className="ligne-total">
+                            <td colSpan={3} className="px-2 py-1.5 text-right font-semibold">
                               Total {BLOC_LABEL[bloc] || bloc}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-white font-bold text-xs">
+                            <td className="px-2 py-1.5 text-right font-semibold tabular-nums">
                               {totalBlocH}h
                             </td>
                           </tr>

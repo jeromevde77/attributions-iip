@@ -63,7 +63,7 @@ export default function MesAbsences({ appel, jeton, onErreur }) {
             const etat = !c.releve_le ? 'attente' : c.erreur ? 'refus' : 'recu';
             return (
               <div key={c.id} className="px-4 py-3 flex items-start gap-3 text-sm">
-                <span className={`flex-none mt-0.5 ${etat === 'recu' ? 'text-emerald-700' : etat === 'refus' ? 'text-red-700' : 'text-slate-400'}`}>
+                <span className={`flex-none mt-0.5 ${etat === 'recu' ? 'text-[color:var(--c-reussi)]' : etat === 'refus' ? 'text-[color:var(--c-refuse)]' : 'text-slate-400'}`}>
                   {etat === 'recu' ? <IconCheck size={18} /> : etat === 'refus' ? <IconAlertTriangle size={18} /> : <IconClock size={18} />}</span>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold">Absence du {jourFr(c.du)} au {jourFr(c.au)}</div>

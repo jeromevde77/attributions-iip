@@ -18,7 +18,7 @@ import * as gConfig from './guide/config.js';
 import * as gEcole from './guide/ecole.js';
 import * as gNouveautes from './guide/nouveautes.js';
 
-export const VERSION_DECRITE = '3.5.198';
+export const VERSION_DECRITE = '3.5.206';
 
 export const RUBRIQUES = [
   {
@@ -1096,8 +1096,8 @@ export const RUBRIQUES = [
         ],
       },
       {
-        titre: "Mon parcours, mes frais, l'aide",
-        texte: "Trois autres onglets de l'espace. « Mon parcours » : en haut, son schéma de capitalisation — le même dessin que la fiche, à la même échelle, les prérequis en flèches, ses réussites avec leur note (ou VA, VAE) ; en dessous, « Où j'en suis cette année » : les unités de sa section, par bloc, dans leur état (acquise, à son programme, accessible, en attente d'une délibération, pas encore accessible, avec la raison) et les crédits acquis. « Mes frais » : total, versé, reste à payer, l'échéance du solde, le détail et ses versements ; et, tant qu'il reste à payer, le QR à scanner avec l'application de sa banque, qui remplit bénéficiaire, montant et communication structurée. « Aide et règles » : un petit mode d'emploi de l'espace, la grille de lecture des résultats (réussi, NA, ajourné, refusé, faveur, VA) et les règlements à lire et à signer.",
+        titre: "Les entrées de l'espace : Aujourd'hui, Mon parcours, Mes documents, Messages, Mes démarches, Mes frais",
+        texte: "L'espace est rangé comme celui des enseignants (3.5.201). « Aujourd'hui » : ce qui attend l'étudiant — documents et règlements à signer, messages non lus — et les raccourcis vers son PAE, ses résultats, ses frais. « Mon parcours », en trois onglets : « Schéma et unités » (son schéma de capitalisation, puis chacune de ses unités dans son état, qui se déplie sur ses cours, sa DUE validée et son dossier pédagogique ; toucher une unité du schéma l'ouvre), « Mes résultats » (les décisions des délibérations closes), « Mon PAE ». « Mes documents » : les pièces de l'école et les règlements, à ouvrir puis à signer, au même endroit. « Messages ». « Mes démarches » : valorisation, TFE, stage, absences. « Mes frais » : total, versé, reste à payer, l'échéance et le QR de paiement. En bas, « Aide » (le mode d'emploi de l'espace et la grille de lecture des résultats) et « Mon compte ». Une entrée n'apparaît que si sa fonction est ouverte (Mise en service).",
         savoir: [
           "Les chiffres sont ceux de Lucie : le parcours vient du moteur du PAE, les frais de la note de frais de l'étudiant.",
           "Sur un téléphone, le schéma se fait glisser de côté ; un toucher l'agrandit.",
@@ -1106,7 +1106,7 @@ export const RUBRIQUES = [
         images: [
           { src: "/guide/portail-parcours.png", legende: "Mon parcours (données d'essai) : le schéma de capitalisation, puis « Où j'en suis cette année ».", etroite: true },
           { src: "/guide/portail-frais.png", legende: "Mes frais : le reste à payer et le QR de paiement.", etroite: true },
-          { src: "/guide/portail-aide.png", legende: "Aide et règles : le mode d'emploi de l'espace, puis la grille de lecture et les règlements.", etroite: true },
+          { src: "/guide/portail-aide.png", legende: "Aide : le mode d'emploi de l'espace et la grille de lecture des résultats (capture d'avant le rangement du 7 novembre).", etroite: true },
         ],
       },
       {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { IconTrash } from '@tabler/icons-react';
+import { IconTrash, IconX, IconCheck, IconAlertTriangle } from '@tabler/icons-react';
+import { Fenetre, TuileEtat, Encadre, PastilleEtat } from './ui.jsx';
 import { api } from '../lib/api.js';
 import { informer } from '../lib/dialogue.jsx';
 
@@ -65,13 +66,12 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
     row.type_cours === 'PP' ? <span className="badge badge-pp">PP</span> : null;
 
   const cardHelb = row.contrat_mdp === 'HELB';
+  const champ = 'controle w-full';
 
   return (
     <>
-      <div className={`rounded-lg border p-3 transition-all ${
-        selected ? 'border-iip-gold ring-2 ring-iip-gold/30 bg-yellow-50'
-        : cardHelb ? 'border-pink-200 bg-pink-50'
-        : 'border-gray-200 bg-white'}`}>
+      <div className={`carte p-3 transition-all ${selected ? 'ring-2 ring-iip-blue/30' : ''}`}
+        style={cardHelb ? { borderLeft: '4px solid var(--c-helb)' } : undefined}>
         <div className="flex items-start gap-2">
           {isAdmin && (
             <input type="checkbox" checked={selected || false}
@@ -79,57 +79,62 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                    className="mt-1 cursor-pointer flex-shrink-0" />
           )}
           <div className="flex-1 min-w-0" onClick={() => setOpen(true)}>
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1 flex-wrap">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1 flex-wrap">
               <span>UE {row.ue_num}</span>
-              {row.num_organisation > 1 && <span className="bg-white border border-slate-200 text-slate-600 px-1 rounded text-mention">Org. {row.num_organisation}</span>}
+              {row.num_organisation > 1 && <PastilleEtat etat="neutre">Org. {row.num_organisation}</PastilleEtat>}
               {row.code_cours && <><span>·</span><span>{row.code_cours}</span></>}
               {row.bloc && <><span>·</span><span>{row.bloc}</span></>}
             </div>
-            <div className="text-sm font-medium text-gray-800 line-clamp-1 mb-0.5">
+            <div className="text-sm font-medium text-iip-texte line-clamp-1 mb-0.5">
               {row.nom_cours || row.ue_nom}
             </div>
-            {row.activite_nom && <div className="text-xs text-gray-500 mb-1">{row.activite_nom}</div>}
+            {row.activite_nom && <div className="text-xs text-slate-500 mb-1">{row.activite_nom}</div>}
             <div className="flex items-center justify-between flex-wrap gap-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {contratBadge}
                 {typeBadge}
-                {row.type_cours_helb && <span className="bg-pink-500 text-white text-mention px-1.5 py-0.5 rounded font-semibold">{row.type_cours_helb}</span>}
+                {row.type_cours_helb && <span className="badge badge-helb">{row.type_cours_helb}</span>}
                 {row.code && <span className="badge badge-exp">Gr. {row.code}</span>}
                 {row.quadrimestre_attribue && <span className="badge badge-exp">{row.quadrimestre_attribue}</span>}
                 {row.contrat && <span className="badge badge-exp">{row.contrat === 'EXP' && cardHelb ? 'PI' : row.contrat}</span>}
-                {conforme === 0 && <span className="badge bg-red-500 text-white">✗</span>}
+                {conforme === 0 && <PastilleEtat etat="corriger" title="Non conforme"><IconX size={11} stroke={2.5} /></PastilleEtat>}
               </div>
               <div className="text-right">
-                <div className="text-base font-bold text-iip-gold leading-tight">{row.total_attribue_professeur ?? total}</div>
-                <div className="text-mention text-gray-500 leading-tight">per.</div>
+                <div className="text-base font-bold text-iip-blue leading-tight">{row.total_attribue_professeur ?? total}</div>
+                <div className="text-mention text-slate-500 leading-tight">per.</div>
               </div>
             </div>
-            <div className="mt-1.5 text-xs text-gray-600 truncate">
-              {row.professeur || <span className="italic text-orange-600">⚠ Professeur non assigné</span>}
+            <div className="mt-1.5 text-xs text-slate-600 truncate">
+              {row.professeur || <span className="italic inline-flex items-center gap-1" style={{ color: 'var(--c-attente)' }}>
+                <IconAlertTriangle size={12} /> Professeur non assigné</span>}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Drawer d'édition rapide */}
+      {/* Édition rapide : une fenêtre de Lucie. */}
       {open && (
-        <div className="fixed inset-0 z-40 flex items-end" onClick={() => setOpen(false)}>
-          <div className="absolute inset-0 bg-black/40"></div>
-          <div className={`relative w-full rounded-t-2xl shadow-dessus p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50 border-l-4 border-l-pink-500' : 'bg-white'}`}
-               onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-1 bg-gray-300 rounded mx-auto mb-3"></div>
-            <h3 className="titre-carte mb-1">{row.nom_cours || row.ue_nom}</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              {row.section} · UE {row.ue_num} · {row.code_cours}
-              {row.activite_nom && ` · ${row.activite_nom}`}
-            </p>
-
-            <div className="space-y-3 mb-4">
+        <Fenetre titre={row.nom_cours || row.ue_nom}
+          sous={`${row.section || ''} · UE ${row.ue_num} · ${row.code_cours || ''}${row.activite_nom ? ` · ${row.activite_nom}` : ''}`}
+          large="petite" onFermer={() => setOpen(false)}
+          pied={<>
+            {isAdmin && (
+              <button onClick={() => { setOpen(false); onDelete?.(row.id); }}
+                      className="bouton bouton-detruire" aria-label="Supprimer" title="Supprimer">
+                <IconTrash size={15} />
+              </button>
+            )}
+            <span />
+            <button onClick={() => setOpen(false)} className="bouton">Fermer</button>
+            <button onClick={save} disabled={saving} className="bouton bouton-fort">
+              {saving ? '…' : 'Enregistrer'}
+            </button>
+          </>}>
+            <div className="space-y-3">
               {/* Professeur */}
               <label className="block">
-                <div className="text-xs text-gray-600 mb-1">Professeur</div>
-                <select value={form.professeur_id} onChange={e => set('professeur_id', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
+                <div className="text-xs text-slate-600 mb-1">Professeur</div>
+                <select value={form.professeur_id} onChange={e => set('professeur_id', e.target.value)} className={champ}>
                   <option value="">— Aucun —</option>
                   {professeurs.map(p => <option key={p.id} value={p.id}>{p.nom_prenom}</option>)}
                 </select>
@@ -137,9 +142,8 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
 
               {/* Activité */}
               <label className="block">
-                <div className="text-xs text-gray-600 mb-1">Activité</div>
-                <select value={form.activite_id} onChange={e => set('activite_id', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
+                <div className="text-xs text-slate-600 mb-1">Activité</div>
+                <select value={form.activite_id} onChange={e => set('activite_id', e.target.value)} className={champ}>
                   <option value="">— Aucune —</option>
                   {activites.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
                 </select>
@@ -147,18 +151,16 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Contrat</div>
-                  <select value={form.contrat_mdp} onChange={e => set('contrat_mdp', e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
+                  <div className="text-xs text-slate-600 mb-1">Contrat</div>
+                  <select value={form.contrat_mdp} onChange={e => set('contrat_mdp', e.target.value)} className={champ}>
                     <option value="">—</option>
                     <option value="IIP">IIP</option>
                     <option value="HELB">HELB</option>
                   </select>
                 </label>
                 <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Quadrimestre</div>
-                  <select value={form.quadrimestre_attribue} onChange={e => set('quadrimestre_attribue', e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
+                  <div className="text-xs text-slate-600 mb-1">Quadrimestre</div>
+                  <select value={form.quadrimestre_attribue} onChange={e => set('quadrimestre_attribue', e.target.value)} className={champ}>
                     <option value="">—</option>
                     <option value="Q1">Q1</option>
                     <option value="Q2">Q2</option>
@@ -166,23 +168,20 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                   </select>
                 </label>
                 <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Groupe</div>
-                  <input type="text" value={form.code} onChange={e => set('code', e.target.value)}
-                         className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white" />
+                  <div className="text-xs text-slate-600 mb-1">Groupe</div>
+                  <input type="text" value={form.code} onChange={e => set('code', e.target.value)} className={champ} />
                 </label>
                 <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Organisation</div>
-                  <select value={form.num_organisation} onChange={e => set('num_organisation', e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
+                  <div className="text-xs text-slate-600 mb-1">Organisation</div>
+                  <select value={form.num_organisation} onChange={e => set('num_organisation', e.target.value)} className={champ}>
                     <option value="1">1</option><option value="2">2</option>
                     <option value="3">3</option><option value="4">4</option>
                   </select>
                 </label>
                 {isHelb && (
                   <label className="block col-span-2">
-                    <div className="text-xs text-gray-600 mb-1">Statut HELB</div>
-                    <select value={form.type_cours_helb} onChange={e => set('type_cours_helb', e.target.value)}
-                            className="w-full border border-pink-300 rounded px-3 py-1.5 h-9 text-base bg-white">
+                    <div className="text-xs text-slate-600 mb-1">Statut HELB</div>
+                    <select value={form.type_cours_helb} onChange={e => set('type_cours_helb', e.target.value)} className={champ}>
                       <option value="">—</option>
                       <option value="MFP">MFP</option>
                       <option value="MA">MA</option>
@@ -191,64 +190,35 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
                 <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Périodes</div>
+                  <div className="text-xs text-slate-600 mb-1">Périodes</div>
                   <input type="text" inputMode="decimal" value={form.periodes_attribuees}
                          onChange={e => set('periodes_attribuees', e.target.value)}
-                         className="w-full border border-iip-gold/40 rounded px-3 py-1.5 h-9 text-base bg-iip-gold/5 no-spinner" />
+                         className={`${champ} no-spinner`} />
                 </label>
                 <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Autonomie</div>
+                  <div className="text-xs text-slate-600 mb-1">Autonomie</div>
                   <input type="text" inputMode="decimal" value={form.autonomie_attribuee}
                          onChange={e => set('autonomie_attribuee', e.target.value)}
-                         className="w-full border border-iip-gold/40 rounded px-3 py-1.5 h-9 text-base bg-iip-gold/5 no-spinner" />
+                         className={`${champ} no-spinner`} />
                 </label>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 bg-gray-50 rounded p-2 text-center">
-                <div>
-                  <div className="text-mention text-gray-500">Total</div>
-                  <div className="text-lg font-bold">{total}</div>
-                </div>
-                <div>
-                  <div className="text-mention text-gray-500">Heures</div>
-                  <div className="text-lg font-bold">{heures}</div>
-                </div>
-                <div>
-                  <div className="text-mention text-gray-500">Coût dot.</div>
-                  <div className="text-lg font-bold">{row.cout_dotation || '—'}</div>
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                <TuileEtat taille="compacte" valeur={total} libelle="Total" />
+                <TuileEtat taille="compacte" valeur={heures} libelle="Heures" />
+                <TuileEtat taille="compacte" valeur={row.cout_dotation || '—'} libelle="Coût dot." />
               </div>
 
               {row.cours_per != null && (
-                <div className={`text-xs rounded p-2 ${conforme ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                <Encadre etat={conforme ? 'reussi' : 'corriger'} icone={conforme ? IconCheck : IconX}
+                  titre={conforme ? 'Conforme' : `Non conforme (ratio ${row.cours_multiple_attendu})`}>
                   Cours_per : {row.cours_per} · Total attribué : {row.cours_total_attribue}
-                  {conforme
-                    ? <span className="ml-1 font-semibold">✓ Conforme</span>
-                    : <span className="ml-1 font-semibold">✗ Non conforme (ratio {row.cours_multiple_attendu})</span>}
-                </div>
+                </Encadre>
               )}
             </div>
-
-            <div className="flex gap-2 pt-2 border-t border-gray-200">
-              <button onClick={() => setOpen(false)}
-                      className="flex-1 py-2.5 text-sm text-gray-600 hover:text-gray-800">
-                Fermer
-              </button>
-              {isAdmin && (
-                <button onClick={() => { setOpen(false); onDelete?.(row.id); }}
-                        className="px-4 py-2.5 text-sm bg-red-50 hover:bg-red-100 text-red-600 rounded font-medium border-l-4 border-l-red-500">
-                  <IconTrash size={15} />
-                </button>
-              )}
-              <button onClick={save} disabled={saving}
-                      className="bouton bouton-fort flex-1">
-                {saving ? '…' : 'Enregistrer'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </>
   );

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { rubriquesDuDossier, decouperProgramme } from '../lib/texteDossier.js';
 import EditeurRubrique from './EditeurRubrique.jsx';
-import { TuileEtat } from './ui.jsx';
+import { TuileEtat, Encadre, EnteteCarte, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 
 const nb = v => (v == null || v === '' ? '—' : String(Math.round(Number(v) * 10) / 10).replace('.', ','));
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
@@ -24,7 +24,7 @@ export default function FicheCours({ coursCode, annee, sansEntete = false }) {
       .catch(e => setErreur(e.message));
   }, [coursCode, annee]);
 
-  if (erreur) return <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>;
+  if (erreur) return <Encadre etat="corriger">{erreur}</Encadre>;
   if (!f) return <p className="text-sm text-slate-400">Chargement…</p>;
   const c = f.cours;
   // Le programme de CE cours, dans le dossier pédagogique de l'UE.
@@ -53,19 +53,19 @@ export default function FicheCours({ coursCode, annee, sansEntete = false }) {
       </div>
 
       <div className="carte overflow-hidden">
-        <div className="entete-carte px-3 py-2 font-semibold text-sm">Acquis d’apprentissage évalués dans ce cours</div>
+        <EnteteCarte titre="Acquis d’apprentissage évalués dans ce cours" />
         {f.acquis.length ? (
-          <table className="w-full text-sm">
-            <thead><tr className="tab-entete"><th className="px-3 py-1.5 text-left w-24">Acquis</th><th className="px-2 py-1.5 text-left">Énoncé</th>
-              <th className="px-2 py-1.5 text-right w-20">Poids</th><th className="px-3 py-1.5 text-right w-20">Part</th></tr></thead>
+          <Tableau className="!border-0 !rounded-none">
+            <TableauEntete><Th largeur="w-24">Acquis</Th><Th>Énoncé</Th>
+              <Th align="droite" largeur="w-20">Poids</Th><Th align="droite" largeur="w-20">Part</Th></TableauEntete>
             <tbody>{f.acquis.map(a => (
-              <tr key={a.aa_code} className="border-b border-slate-100 align-top">
-                <td className="px-3 py-1.5 font-semibold whitespace-nowrap">{a.aa_code}</td>
-                <td className="px-2 py-1.5 whitespace-pre-line">{a.description || '—'}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{nb(a.poids)}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{a.part != null ? `${nb(a.part)} %` : '—'}</td>
-              </tr>))}</tbody>
-          </table>
+              <Tr key={a.aa_code} className="align-top">
+                <Td className="font-semibold whitespace-nowrap">{a.aa_code}</Td>
+                <Td className="whitespace-pre-line">{a.description || '—'}</Td>
+                <Td align="droite" className="tabular-nums">{nb(a.poids)}</Td>
+                <Td align="droite" className="tabular-nums">{a.part != null ? `${nb(a.part)} %` : '—'}</Td>
+              </Tr>))}</tbody>
+          </Tableau>
         ) : <p className="px-3 py-3 text-sm text-slate-500 m-0">Aucun acquis n’est encore rattaché à ce cours pour {annee} (Unité → croiser les acquis et le programme).</p>}
       </div>
 

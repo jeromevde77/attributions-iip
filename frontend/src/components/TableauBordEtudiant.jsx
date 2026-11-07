@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders, api } from '../lib/api.js';
-import { Fenetre, EnteteCarte } from './ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, PastilleEtat } from './ui.jsx';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 
@@ -22,26 +22,24 @@ import { ouvrirApercu } from '../lib/apercu.js';
 
 const SEUIL = 10;                       // RDE, art. 78
 const DECISIONS = [
-  { cle: 'reussi',  libelle: 'Réussi',   ton: 'bg-emerald-600' },
-  { cle: 'ajourne', libelle: 'Ajourné',  ton: 'bg-amber-500' },
-  { cle: 'refuse',  libelle: 'Refusé',   ton: 'bg-red-600' },
-  { cle: 'absent',  libelle: 'Absent',   ton: 'bg-slate-400' },
+  { cle: 'reussi',  libelle: 'Réussi',   ton: 'var(--c-reussi)' },
+  { cle: 'ajourne', libelle: 'Ajourné',  ton: 'var(--c-attente)' },
+  { cle: 'refuse',  libelle: 'Refusé',   ton: 'var(--c-refuse)' },
+  { cle: 'absent',  libelle: 'Absent',   ton: 'rgb(var(--gris-400))' },
 ];
 
 // Une note se lit d'un coup d'œil : la couleur porte l'information, le chiffre
 // la précise.
-const tonNote = n => n == null ? 'bg-slate-100 text-slate-400'
-  : n >= 14 ? 'bg-emerald-500 text-white'
-  : n >= SEUIL ? 'bg-sky-500 text-white'
-  : n >= 8 ? 'bg-amber-500 text-white'
-  : 'bg-red-500 text-white';
+// Une note est une PASTILLE PLEINE (lib/etats.js) : l'état de la couleur réglée, le chiffre en blanc.
+const tonNote = n => n == null ? 'neutre'
+  : n >= 14 ? 'reussi'
+  : n >= SEUIL ? 'disponible'
+  : n >= 8 ? 'surveiller'
+  : 'corriger';
 
 const tonResultat = r => ({
-  reussi: 'bg-emerald-500 text-white border-emerald-500',
-  ajourne: 'bg-amber-500 text-white border-amber-500',
-  refuse: 'bg-red-500 text-white border-red-500',
-  absent: 'bg-slate-100 text-slate-500 border-slate-200',
-}[r] || 'bg-white text-slate-500 border-slate-200');
+  reussi: 'reussi', ajourne: 'surveiller', refuse: 'corriger', absent: 'neutre',
+}[r] || 'neutre');
 
 const LIB_RESULTAT = { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé', absent: 'Absent' };
 
@@ -127,7 +125,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
     finally { setEnCours(false); }
   }
 
-  if (erreur) return <Cadre onClose={onClose}><div className="text-sm text-red-700">{erreur}</div></Cadre>;
+  if (erreur) return <Cadre onClose={onClose}><Encadre etat="corriger">{erreur}</Encadre></Cadre>;
   if (!detail || !bilan) return <Cadre onClose={onClose}><div className="py-8 text-center text-slate-400 text-sm">Chargement…</div></Cadre>;
 
   const e = bilan.etudiant;
@@ -140,7 +138,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       titre={`${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim()}
       sous={`UE ${ueNum} · ${e.section || '—'} · ${annee}`}
       pied={<>
-        <span className="text-second text-amber-800">
+        <span className="text-second" style={{ color: 'var(--c-attente)' }}>
           {sansMotif > 0 && decision && decision !== 'reussi' && (<>
             {sansMotif} acquis sans motivation : la décision sera enregistrée, mais elle
             restera attaquable tant qu'ils ne sont pas motivés.
@@ -171,21 +169,21 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             Crédits de la section {ects.section || ''}
           </span>
           <span className="text-second text-slate-600">
-            <b className="text-emerald-700">{ects.acquis}</b> acquis ·
-            {' '}<b className="text-sky-700">{ects.programme}</b> au programme ·
+            <b style={{ color: 'var(--c-reussi)' }}>{ects.acquis}</b> acquis ·
+            {' '}<b style={{ color: 'var(--c-disponible)' }}>{ects.programme}</b> au programme ·
             {' '}<b className="text-slate-400">{ects.restant}</b> à venir ·
             {' '}sur <b>{total || '—'}</b>
           </span>
         </div>
-        <div className="h-4 rounded-full bg-slate-100 overflow-hidden flex">
-          <div style={{ width: `${pc(ects.acquis)}%` }} className="bg-emerald-500" title={`${ects.acquis} ECTS acquis`} />
-          <div style={{ width: `${pc(ects.programme)}%` }} className="bg-sky-500" title={`${ects.programme} ECTS au programme`} />
+        <div className="h-4 rounded-full overflow-hidden flex" style={{ background: 'rgb(var(--gris-100))' }}>
+          <div style={{ width: `${pc(ects.acquis)}%`, background: 'var(--c-reussi)' }} title={`${ects.acquis} ECTS acquis`} />
+          <div style={{ width: `${pc(ects.programme)}%`, background: 'var(--c-disponible)' }} title={`${ects.programme} ECTS au programme`} />
         </div>
         {/* Le total se SOMME au référentiel : aucun total n'est stocké. S'il ne
             tombe pas rond, c'est le référentiel qui est incomplet — mieux vaut
             le dire que d'afficher une jauge fausse sans le signaler. */}
         {!total && (
-          <p className="mt-1 text-second text-amber-800 flex items-center gap-1">
+          <p className="mt-1 text-second flex items-center gap-1" style={{ color: 'var(--c-attente)' }}>
             <IconAlertTriangle size={13} /> Aucun ECTS au référentiel de cette section : la jauge ne peut rien situer.
           </p>
         )}
@@ -199,7 +197,8 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           </div>
           <div className={`text-2xl font-bold leading-tight ${
             bilan.moyenne == null ? 'text-slate-300'
-              : bilan.moyenne >= SEUIL ? 'text-iip-blue' : 'text-red-700'}`}>
+              : bilan.moyenne >= SEUIL ? 'text-iip-blue' : ''}`}
+            style={bilan.moyenne != null && bilan.moyenne < SEUIL ? { color: 'var(--c-refuse)' } : undefined}>
             {bilan.moyenne == null ? '—' : `${String(bilan.moyenne).replace('.', ',')}/20`}
           </div>
           <div className="text-xs text-slate-400">pondérée par les périodes du dossier pédagogique</div>
@@ -217,7 +216,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             pondération : la moyenne serait juste en apparence et fausse en
             silence. */}
         {bilan.moyenne_sans_ponderation > 0 && (
-          <div className="text-second text-amber-800 flex items-start gap-1 max-w-sm">
+          <div className="text-second flex items-start gap-1 max-w-sm" style={{ color: 'var(--c-attente)' }}>
             <IconAlertTriangle size={13} className="mt-0.5 flex-none" />
             {bilan.moyenne_sans_ponderation} unité(s) notée(s) sans périodes au référentiel :
             elles ne pèsent pas dans la moyenne.
@@ -251,7 +250,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
         )}
 
         {!!bilan.valorisations.length && (
-          <div className="mt-2 text-second text-violet-800">
+          <div className="mt-2 text-second text-slate-600">
             {bilan.valorisations.length} valorisation(s) :
             {' '}{bilan.valorisations.map(v => `UE ${v.ue_num}`).join(' · ')}
           </div>
@@ -263,7 +262,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
         <div className="intertitre mb-1.5">
           UE {ueNum} — acquis d'apprentissage, par cours
         </div>
-        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+        <div className="carte overflow-hidden divide-y divide-slate-100">
           {parCours.map(co => (
             <div key={co.cours_code || '—'} className="px-3 py-2">
               <div className="flex items-baseline gap-2 mb-1">
@@ -273,9 +272,9 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               <div className="space-y-1">
                 {co.aas.map(a => (
                   <div key={a.aa_code} className="flex items-center gap-2 text-second">
-                    <span className={`px-1.5 py-0.5 rounded font-bold tabular-nums text-second ${tonNote(a.note)}`}>
+                    <PastilleEtat etat={tonNote(a.note)} className="min-w-[2.25rem] justify-center tabular-nums !text-second">
                       {a.note == null ? '—' : String(a.note).replace('.', ',')}
-                    </span>
+                    </PastilleEtat>
                     <span className="font-mono text-xs text-slate-400 w-20 flex-none truncate">{a.aa_code}</span>
                     <span className="flex-1 text-slate-700">{a.description || ''}</span>
                     {a.non_evalue && <span className="text-xs text-slate-400">non évalué</span>}
@@ -304,9 +303,8 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
         <div className="flex flex-wrap items-center gap-2">
           {DECISIONS.map(d => (
             <button key={d.cle} type="button" onClick={() => setDecision(d.cle)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition ${
-                decision === d.cle ? `${d.ton} text-white border-transparent`
-                  : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}>
+              style={decision === d.cle ? { background: d.ton, borderColor: d.ton, color: '#fff' } : undefined}
+              className="bouton">
               {d.libelle}
             </button>
           ))}
@@ -315,9 +313,9 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           <span className="ml-2 flex items-center gap-1.5 text-second text-slate-600">
             Cote délibérée
             <b className={`text-base tabular-nums ${
-              detail?.ue_na ? 'text-slate-500'
-                : detail?.ue_faveur ? 'text-amber-700'
-                : (detail?.note_deliberee ?? 0) < SEUIL ? 'text-red-700' : 'text-emerald-700'}`}>
+              detail?.ue_na ? 'text-slate-500' : ''}`}
+              style={detail?.ue_na ? undefined : { color: detail?.ue_faveur ? 'var(--c-faveur)'
+                : (detail?.note_deliberee ?? 0) < SEUIL ? 'var(--c-refuse)' : 'var(--c-reussi)' }}>
               {detail?.ue_na ? 'NA'
                 : detail?.note_deliberee == null ? '—'
                 : String(detail.note_deliberee).replace('.', ',')}
@@ -326,8 +324,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               <span className="text-slate-400">/20</span>
             )}
             {detail?.ue_faveur && (
-              <span className="text-mention font-bold px-1.5 py-0.5 rounded-champ
-                               bg-amber-100 text-amber-900 border border-amber-300">faveur</span>
+              <PastilleEtat etat="faveur">faveur</PastilleEtat>
             )}
           </span>
         </div>
@@ -343,7 +340,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             communication : les documents remis portent « NA ». */}
         {detail?.note_deliberee != null && detail.note_deliberee < SEUIL
           && decision === 'reussi' && (
-          <div className="bloc-etat etat-surveiller px-3 py-2 text-second text-amber-900">
+          <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
             Cote délibérée sous le seuil de {SEUIL}/20 avec une décision de réussite.
             C'est possible — le Conseil délibère — mais la décision devra être motivée,
             et une faveur porterait l'unité à exactement {SEUIL}.
@@ -355,7 +352,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           <div className="carte overflow-hidden">
             <EnteteCarte titre={`Motivation — ${nonMaitrises.length} acquis non maîtrisé(s)`}>
               {sansMotif > 0 && (
-                <span className="text-second text-amber-800 flex items-center gap-1">
+                <span className="text-second flex items-center gap-1" style={{ color: 'var(--c-attente)' }}>
                   <IconAlertTriangle size={13} /> {sansMotif} sans motivation
                 </span>
               )}
@@ -366,7 +363,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="font-mono text-xs text-slate-500">{a.aa_code}</span>
                     <span className="text-sm flex-1">{a.description || a.cours_nom}</span>
-                    <span className="text-second font-semibold text-red-700">
+                    <span className="text-second font-semibold" style={{ color: 'var(--c-refuse)' }}>
                       {a.note == null ? '—' : String(a.note).replace('.', ',')}/20
                     </span>
                   </div>
@@ -379,7 +376,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                   </button>
 
                   {ouvert[a.aa_code] && (
-                    <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
+                    <div className="carte overflow-hidden mb-2 divide-y divide-slate-100">
                       {MOTIFS_ECHEC.map(g => (
                         <div key={g.cle} className="px-2.5 py-2">
                           <div className="intertitre mb-1"
@@ -406,8 +403,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                   )}
 
                   {!!(coches[a.aa_code] || []).length && !ouvert[a.aa_code] && (
-                    <div className="mb-1 text-second text-slate-600 bg-slate-50
-                                    border border-slate-200 rounded-lg px-2 py-1.5">
+                    <div className="carte mb-1 text-second text-slate-600 px-2 py-1.5">
                       {(coches[a.aa_code] || []).map(texteDuMotif).filter(Boolean).join(' ')}
                     </div>
                   )}
@@ -417,9 +413,9 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                     placeholder={(coches[a.aa_code] || []).length
                       ? 'Précisions propres à ce dossier — ce qui a été observé'
                       : "Motivation — ce qui n'est pas maîtrisé, et pourquoi"}
-                    className={`w-full border rounded-lg px-2 py-1.5 text-second ${
-                      (coches[a.aa_code] || []).length || (motifs[a.aa_code] || '').trim()
-                        ? 'border-slate-300' : 'border-amber-300 bg-amber-50/50'}`} />
+                    style={(coches[a.aa_code] || []).length || (motifs[a.aa_code] || '').trim()
+                      ? undefined : { borderColor: 'var(--c-attente)', borderLeftWidth: 4 }}
+                    className="w-full border border-slate-300 rounded-lg bg-white px-2 py-1.5 text-second" />
                 </div>
               ))}
             </div>
@@ -452,9 +448,9 @@ function Badge({ i, courante = false, passe = false }) {
       title={`${i.ue_nom || ''}${i.points != null ? ` · ${i.points}/20` : ''}`
         + `${i.ects ? ` · ${i.ects} ECTS` : ''}${passe ? ` · ${i.annee_scolaire}` : ''}`
         + ' — cliquer pour le descriptif de l’unité'}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-second
-        cursor-pointer hover:shadow-pose
-        ${tonResultat(i.resultat)} ${courante ? 'ring-2 ring-iip-blue ring-offset-1' : ''}`}>
+      data-etat={tonResultat(i.resultat)}
+      className={`pastille-etat !text-second !px-2 !py-0.5 cursor-pointer hover:brightness-95
+        ${courante ? 'ring-2 ring-iip-blue ring-offset-1' : ''}`}>
       <b>{i.ue_num}</b>
       {i.points != null && <span className="tabular-nums">{String(i.points).replace('.', ',')}</span>}
       {i.resultat && <span className="opacity-70">{LIB_RESULTAT[i.resultat] || i.resultat}</span>}

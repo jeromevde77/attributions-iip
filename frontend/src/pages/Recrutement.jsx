@@ -4,8 +4,10 @@ import {
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
   IconLayoutColumns, IconChevronRight, IconSettings, IconFileText, IconFileTypePdf, IconPrinter,
+  IconMail, IconSchool, IconClipboardList, IconScale, IconCalendar, IconSignature, IconLoader2,
+  IconAlertTriangle, IconChevronDown, IconChevronUp, IconGripVertical, IconPaperclip,
 } from '@tabler/icons-react';
-import { Btn, RailLateral, VoletRail, Fenetre, OutilFenetre, EnteteCarte } from '../components/ui.jsx';
+import { Btn, RailLateral, VoletRail, Fenetre, OutilFenetre, EnteteCarte, PastilleEtat, Encadre } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -14,14 +16,14 @@ import { demander, informer } from '../lib/dialogue.jsx';
 function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
   return (
     <label className={`block ${className}`}>
-      <div className="text-xs text-gray-600 mb-0.5">{label}</div>
+      <div className="text-xs text-slate-600 mb-0.5">{label}</div>
       <input
         value={value ?? ''}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm"
+        className="controle w-full"
       />
-      {hint && <div className="text-xs text-gray-400 mt-0.5">{hint}</div>}
+      {hint && <div className="text-xs text-slate-400 mt-0.5">{hint}</div>}
     </label>
   );
 }
@@ -34,11 +36,12 @@ const af = (url, opts = {}) =>
   }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Erreur'); return j; });
 
 const STATUT = {
-  engage:    { label: 'Engagé', color: '#FFFFFF', bg: 'var(--c-reussi)' },
-  a_voir:    { label: 'À voir',    color: '#6b7280', bg: '#f3f4f6' },
-  entretien: { label: 'Entretien', color: '#FFFFFF', bg: 'var(--c-disponible)' },
-  retenu:    { label: 'Retenu',    color: '#FFFFFF', bg: 'var(--c-reussi)' },
-  ecarte:    { label: 'Écarté',    color: '#FFFFFF', bg: 'var(--c-refuse)' },
+  // `etat` : la pastille de l'écran (lib/etats.js) ; `color`/`bg` ne servent plus qu'aux pièces imprimées.
+  engage:    { label: 'Engagé',    etat: 'reussi',     color: '#FFFFFF', bg: 'var(--c-reussi)' },
+  a_voir:    { label: 'À voir',    etat: 'neutre',     color: '#6b7280', bg: '#f3f4f6' },
+  entretien: { label: 'Entretien', etat: 'disponible', color: '#FFFFFF', bg: 'var(--c-disponible)' },
+  retenu:    { label: 'Retenu',    etat: 'reussi',     color: '#FFFFFF', bg: 'var(--c-reussi)' },
+  ecarte:    { label: 'Écarté',    etat: 'corriger',   color: '#FFFFFF', bg: 'var(--c-refuse)' },
 };
 
 
@@ -145,14 +148,15 @@ const DIPLOMES_FWB = {
 };
 
 
+// `Icone` à l'écran ; `emoji` ne sert plus qu'à la pièce imprimée.
 const DOCS_REMIS_LIST = [
-  { key: 'cv',            label: 'CV',                                    emoji: '📄' },
-  { key: 'lettre',        label: 'Lettre de motivation',                  emoji: '✉️'  },
-  { key: 'diplomes',      label: 'Copie du/des diplôme(s)',               emoji: '🎓' },
-  { key: 'titre_peda',    label: 'Titre pédagogique (AESI/AESS/CAP…)',    emoji: '📋' },
-  { key: 'casier',        label: 'Extrait de casier judiciaire (mod. 2)', emoji: '⚖️'  },
-  { key: 'anciennete',    label: "Attestation d'ancienneté barémique",   emoji: '📅' },
-  { key: 'declaration',   label: 'Déclaration de candidature signée',     emoji: '✍️'  },
+  { key: 'cv',            label: 'CV',                                    emoji: '📄', Icone: IconFileText },
+  { key: 'lettre',        label: 'Lettre de motivation',                  emoji: '✉️', Icone: IconMail },
+  { key: 'diplomes',      label: 'Copie du/des diplôme(s)',               emoji: '🎓', Icone: IconSchool },
+  { key: 'titre_peda',    label: 'Titre pédagogique (AESI/AESS/CAP…)',    emoji: '📋', Icone: IconClipboardList },
+  { key: 'casier',        label: 'Extrait de casier judiciaire (mod. 2)', emoji: '⚖️', Icone: IconScale },
+  { key: 'anciennete',    label: "Attestation d'ancienneté barémique",   emoji: '📅', Icone: IconCalendar },
+  { key: 'declaration',   label: 'Déclaration de candidature signée',     emoji: '✍️', Icone: IconSignature },
 ];
 
 
@@ -226,7 +230,7 @@ export default function Recrutement() {
           Section
         </label>
         <select value={filtre} onChange={e => setFiltre(e.target.value)}
-          className="controle w-full bg-white border border-slate-300 rounded-champ px-2 text-sm">
+          className="controle w-full">
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -245,16 +249,16 @@ export default function Recrutement() {
         {vue === 'postes' && (<>
         <div className="flex items-center justify-between mb-6">
           <h1 className="titre-ecran mb-0">
-            Cours à pourvoir <span className="text-base font-normal text-gray-400">({annee})</span>
+            Cours à pourvoir <span className="text-base font-normal text-slate-400">({annee})</span>
           </h1>
         </div>
 
-        {err && <div className="bloc-etat etat-corriger text-sm text-red-600 px-3 py-2 mb-4">{err}</div>}
+        {err && <Encadre etat="corriger" className="mb-4">{err}</Encadre>}
 
-        {loading && <div className="text-sm text-gray-400">Chargement…</div>}
+        {loading && <div className="text-sm text-slate-400">Chargement…</div>}
 
         {!loading && postesFiltres.length === 0 && (
-          <div className="text-sm text-gray-400 text-center py-16">
+          <div className="text-sm text-slate-400 text-center py-16">
             Aucun cours à pourvoir pour {filtre || 'cette année'}.
           </div>
         )}
@@ -271,19 +275,18 @@ export default function Recrutement() {
                     const detail = await af(`/postes/${p.ue_num}/${encodeURIComponent(p.code_cours)}/${encodeURIComponent(p.section)}?annee=${encodeURIComponent(annee)}`);
                     setPoste({ ...p, ...detail });
                   }}
-                  className="text-left border border-gray-200 bg-white rounded-lg px-4 py-3 hover:border-iip-turquoise hover:shadow-pose transition flex items-center justify-between gap-4">
+                  className="carte text-left px-4 py-3 hover:border-iip-blue hover:shadow-pose transition flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="font-semibold text-iip-blue flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-gray-400 font-normal">UE {p.ue_num}</span>
+                      <span className="text-xs text-slate-400 font-normal">UE {p.ue_num}</span>
                       {p.nom_cours || p.ue_nom}
                       {p.contrat_mdp && (
-                        <span className="text-mention font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                          style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>
+                        <span className={`badge ${p.contrat_mdp === 'HELB' ? 'badge-helb' : 'badge-iip'} flex-shrink-0`}>
                           {p.contrat_mdp}
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-3">
+                    <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-3">
                       {p.ue_quad && <span>{p.ue_quad}</span>}
                       {p.ue_per_cours != null && <span>{p.ue_per_cours} pér.{p.ue_aut ? ` + ${p.ue_aut} aut.` : ''}</span>}
                       {p.ects > 0 && <span>{p.ects} ECTS</span>}
@@ -292,7 +295,7 @@ export default function Recrutement() {
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <div className="text-lg font-bold text-iip-blue">{p.nb_candidats}</div>
-                    <div className="text-mention text-gray-400">candidat{p.nb_candidats !== 1 ? 's' : ''}</div>
+                    <div className="text-mention text-slate-400">candidat{p.nb_candidats !== 1 ? 's' : ''}</div>
                   </div>
                 </button>
               ))}
@@ -327,32 +330,29 @@ function FichePoste({ poste, annee, onBack, grille }) {
   return (
     <div className="max-w-none">
       {/* En-tête marine */}
-      <div className="bg-iip-blue rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 mb-5">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <IconBriefcase size={20} className="text-white" />
-          </div>
+          <IconBriefcase size={20} className="text-iip-blue flex-shrink-0" />
           <div className="min-w-0">
-            <h1 className="text-lg font-bold text-white truncate">{poste.nom_cours || poste.ue_nom}</h1>
-            <div className="text-white/60 text-xs flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="font-medium text-white/80">UE {poste.ue_num}</span>
+            <h1 className="titre-ecran truncate">{poste.nom_cours || poste.ue_nom}</h1>
+            <div className="text-slate-500 text-xs flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className="font-medium text-slate-700">UE {poste.ue_num}</span>
               <span>{poste.section}</span>
               {poste.contrat_mdp && (
-                <span className="bg-white/20 text-white/90 text-mention font-bold px-2 py-0.5 rounded">
+                <span className={`badge ${poste.contrat_mdp === 'HELB' ? 'badge-helb' : 'badge-iip'}`}>
                   {poste.contrat_mdp}
                 </span>
               )}
               {candidats.length > 0 && (
-                <span className="bg-white/20 text-white/90 text-mention px-2 py-0.5 rounded">
+                <PastilleEtat etat="neutre">
                   {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
-                </span>
+                </PastilleEtat>
               )}
             </div>
           </div>
         </div>
-        <button onClick={onBack}
-          className="text-white/60 hover:text-white flex-shrink-0 flex items-center gap-1 text-xs border border-white/20 rounded-lg px-3 py-1.5 hover:bg-white/10 transition">
-          ← Retour
+        <button onClick={onBack} className="bouton flex-shrink-0">
+          <IconArrowLeft size={14} /> Retour
         </button>
       </div>
 
@@ -368,9 +368,9 @@ function FichePoste({ poste, annee, onBack, grille }) {
             ['Type', poste.type_cours],
             ['Référent', ue.et_ref],
           ].filter(([, v]) => v).map(([label, val]) => (
-          <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
+          <div key={label} className="carte px-3 py-2">
             <div className="intertitre">{label}</div>
-            <div className="text-sm font-medium text-gray-800 mt-0.5">{val}</div>
+            <div className="text-sm font-medium text-slate-800 mt-0.5">{val}</div>
           </div>
         ))}
       </div>
@@ -383,8 +383,8 @@ function FichePoste({ poste, annee, onBack, grille }) {
             </div>
             <ul className="space-y-1">
               {aa.map((a, i) => (
-                <li key={i} className="text-sm text-gray-600 flex gap-2">
-                  <span className="text-mention text-gray-400 font-mono mt-0.5 flex-shrink-0">{a.aa_code}</span>
+                <li key={i} className="text-sm text-slate-600 flex gap-2">
+                  <span className="text-mention text-slate-400 font-mono mt-0.5 flex-shrink-0">{a.aa_code}</span>
                   <span>L'étudiant·e sera capable {a.description}</span>
                 </li>
               ))}
@@ -393,14 +393,13 @@ function FichePoste({ poste, annee, onBack, grille }) {
         )}
 
       {/* Onglets */}
-      <div className="flex gap-1 border-b border-gray-200 mb-4">
+      <div className="flex gap-4 border-b border-slate-200 mb-4">
         {[
           ['candidats', `Candidats (${candidats.length})`, IconUsersGroup],
           ['grille', 'Grille d\'entretien', IconClipboardText],
         ].map(([v, lbl, Icon]) => (
           <button key={v} onClick={() => setOnglet(v)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
-              onglet === v ? 'border-iip-turquoise text-iip-blue' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`${onglet === v ? 'onglet-page onglet-page-actif' : 'onglet-page'} flex items-center gap-1.5`}>
             <Icon size={15} />{lbl}
           </button>
         ))}
@@ -428,7 +427,7 @@ function FichePoste({ poste, annee, onBack, grille }) {
       </div>
 
       {candidats.length === 0 && !ajout && (
-        <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">
+        <div className="carte text-sm text-slate-400 text-center py-8">
           Aucun candidat pour ce cours. Cliquez "Ajouter un candidat".
         </div>
       )}
@@ -555,18 +554,18 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
   };
 
   return (
-    <div className="border border-iip-turquoise/40 rounded-xl p-4 mb-4 bg-iip-turquoise/5 space-y-4">
+    <div className="carte p-4 mb-4 space-y-4">
 
       {/* Zone dépôt de documents par type */}
       <div>
         <div className="intertitre mb-2">Documents</div>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
-            <label key={type} className="cursor-pointer border border-dashed border-gray-300 rounded-lg px-3 py-2.5 hover:border-iip-turquoise hover:bg-white transition flex items-center gap-2">
-              <IconUpload size={14} className="text-gray-400 flex-shrink-0" />
+            <label key={type} className="cursor-pointer border border-dashed border-slate-300 rounded-champ px-3 py-2.5 hover:border-iip-blue transition flex items-center gap-2">
+              <IconUpload size={14} className="text-slate-400 flex-shrink-0" />
               <div>
-                <div className="text-xs font-medium text-gray-700">{label}</div>
-                <div className="text-mention text-gray-400">PDF, Word, image…</div>
+                <div className="text-xs font-medium text-slate-700">{label}</div>
+                <div className="text-mention text-slate-400">PDF, Word, image…</div>
               </div>
               <input type="file" accept={accept} className="hidden" onChange={e => {
                 const file = e.target.files?.[0];
@@ -583,11 +582,11 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
         {docs.length > 0 && (
           <div className="mt-2 space-y-1">
             {docs.map((d, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded px-2 py-1.5">
+              <div key={i} className="flex items-center gap-2 text-xs border border-slate-200 rounded px-2 py-1.5">
                 <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
-                <span className="text-gray-500 flex-shrink-0">{TYPES_DOC[d.type]?.label}</span>
-                <span className="text-gray-700 truncate flex-1">{d.file.name}</span>
-                <button onClick={() => retirerDoc(i)} className="text-gray-300 hover:text-red-500 flex-shrink-0"><IconX size={13} /></button>
+                <span className="text-slate-500 flex-shrink-0">{TYPES_DOC[d.type]?.label}</span>
+                <span className="text-slate-700 truncate flex-1">{d.file.name}</span>
+                <button onClick={() => retirerDoc(i)} className="text-slate-300 hover:text-[color:var(--c-refuse)] flex-shrink-0"><IconX size={13} /></button>
               </div>
             ))}
           </div>
@@ -610,12 +609,12 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
         <Champ label="Lien CV (Drive…)" value={f.cv_url} onChange={v => setF({ ...f, cv_url: v })} />
       </div>
       <div>
-        <div className="text-xs text-gray-500 mb-1">Notes / profil</div>
+        <div className="text-xs text-slate-500 mb-1">Notes / profil</div>
         <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} rows={2}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1.5" />
+          className="controle w-full h-auto py-1.5" />
       </div>
 
-      {err && <div className="text-xs text-red-600">{err}</div>}
+      {err && <Encadre etat="corriger">{err}</Encadre>}
       <div className="flex gap-2 justify-end">
         <Btn variant="ghost" onClick={onCancel}>Annuler</Btn>
         <Btn variant="primary" icon={IconCheck} onClick={soumettre} disabled={busy || extracting}>
@@ -679,27 +678,26 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
     if (!await demander(`Attribuer ${nomAff} à ce cours ?\n\nCela va :\n• Créer sa fiche dans Personnel\n• L'assigner au cours\n• Notifier la direction et les RH`)) return;
     try {
       const res = await af(`/candidatures/${c.id}/attribuer`, { method: 'POST' });
-      informer(`✓ ${res.nom} a été créé dans Personnel et attribué au cours.\nNotification envoyée.`);
+      informer(`${res.nom} a été créé dans Personnel et attribué au cours.\nNotification envoyée.`);
       onChange();
     } catch (e) { informer('Erreur : ' + e.message); }
   };
 
   return (
-    <div className="border border-gray-200 bg-white rounded-lg overflow-hidden">
+    <div className="carte overflow-hidden">
       {/* En-tête candidat */}
       <div className="px-4 py-3 flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-iip-blue flex items-center gap-2">
             {c.nom}
-            <span className="text-mention font-semibold px-2 py-0.5 rounded-champ"
-              style={{ color: st.color, background: st.bg }}>{st.label}</span>
+            <PastilleEtat etat={st.etat}>{st.label}</PastilleEtat>
           </div>
-          <div className="text-xs text-gray-400">{[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}</div>
-          {c.notes && <div className="text-xs text-gray-500 mt-0.5 italic">{c.notes}</div>}
+          <div className="text-xs text-slate-400">{[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}</div>
+          {c.notes && <div className="text-xs text-slate-500 mt-0.5 italic">{c.notes}</div>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => onEntretien && onEntretien()}
-            className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2 py-1 h-7 flex items-center gap-1 flex-shrink-0">
+            className="bouton !h-7 flex-shrink-0">
             <IconClipboardText size={12} /> Entretien
           </button>
           {c.statut === 'retenu' && (
@@ -709,15 +707,14 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
             </button>
           )}
           <select value={c.statut} onChange={e => majStatut(e.target.value)}
-            className="text-xs border border-gray-200 rounded px-2 py-1 h-7"
-            style={{ color: st.color }}>
+            className="controle !h-7 text-xs">
             {Object.entries(STATUT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <button onClick={() => setOpen(v => !v)}
-            className="text-xs text-gray-400 hover:text-iip-blue px-2 py-1 border border-gray-200 rounded">
-            {open ? '▲' : `▼ Docs (${docs.length})`}
+            className="bouton !h-7 text-xs">
+            {open ? <IconChevronUp size={13} /> : <><IconChevronDown size={13} /> Docs ({docs.length})</>}
           </button>
-          <button onClick={supprimerCandidature} className="text-gray-300 hover:text-red-500 p-1">
+          <button onClick={supprimerCandidature} title="Retirer" className="text-slate-300 hover:text-[color:var(--c-refuse)] p-1">
             <IconX size={15} />
           </button>
         </div>
@@ -725,17 +722,17 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
 
       {/* Section documents dépliable */}
       {open && (
-        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50">
+        <div className="border-t border-slate-100 px-4 py-3">
           {/* Documents existants groupés par type */}
           {docs.length > 0 && (
             <div className="space-y-1 mb-3">
               {docs.map(d => (
-                <div key={d.id} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded px-2 py-1.5">
+                <div key={d.id} className="flex items-center gap-2 text-xs border border-slate-200 rounded px-2 py-1.5">
                   <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
-                  <span className="text-gray-400 flex-shrink-0 w-20">{TYPES_DOC[d.type]?.label || d.type}</span>
+                  <span className="text-slate-400 flex-shrink-0 w-20">{TYPES_DOC[d.type]?.label || d.type}</span>
                   <button onClick={() => ouvrirDoc(d.id, d.nom_original)}
                     className="text-iip-blue hover:underline truncate flex-1 text-left">{d.nom_original}</button>
-                  <button onClick={() => supprimerDoc(d.id)} className="text-gray-300 hover:text-red-500 flex-shrink-0">
+                  <button onClick={() => supprimerDoc(d.id)} className="text-slate-300 hover:text-[color:var(--c-refuse)] flex-shrink-0">
                     <IconTrash size={12} />
                   </button>
                 </div>
@@ -746,7 +743,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
           {/* Ajouter des documents */}
           <div className="flex flex-wrap gap-2">
             {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
-              <label key={type} className="cursor-pointer text-xs border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise hover:bg-white flex items-center gap-1 text-gray-500">
+              <label key={type} className="cursor-pointer text-xs border border-dashed border-slate-300 rounded px-2 py-1 hover:border-iip-blue flex items-center gap-1 text-slate-500">
                 <IconUpload size={11} />
                 {label}
                 <input type="file" accept={accept} className="hidden" onChange={e => {
@@ -782,7 +779,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
                   <div className="text-sm opacity-60 mt-1">Ce format ne peut pas être prévisualisé</div>
                 </div>
                 <button onClick={() => telechargerDoc(null, visionneur.nom, visionneur.url)}
-                  className="mt-2 bg-white text-iip-blue px-4 py-2 rounded-lg font-medium hover:bg-gray-100 flex items-center gap-2">
+                  className="bouton mt-2">
                   <IconDownload size={16} /> Télécharger le fichier
                 </button>
               </div>
@@ -914,7 +911,7 @@ function GrilleEntretien({ poste, annee, qIA, setQIA, grille }) {
   return (
     <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-slate-500">
           Grille commune IIP (4 axes fixes) + questions spécifiques générées selon les acquis d'apprentissage du cours.
         </p>
         <div className="flex gap-2">
@@ -925,17 +922,17 @@ function GrilleEntretien({ poste, annee, qIA, setQIA, grille }) {
         </div>
       </div>
 
-      {err && <div className="text-xs text-white bg-red-500 rounded px-3 py-2 mb-3">{err}</div>}
+      {err && <Encadre etat="corriger" className="mb-3">{err}</Encadre>}
 
       <div className="space-y-3">
         {grilleActive.map((axe, i) => (
-          <div key={i} className="border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: axe.couleur }}>
-              {axe.axe}
+          <div key={i} className="carte overflow-hidden">
+            <div className="entete-carte">
+              <h3 className="titre-carte"><span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: axe.couleur }} />{axe.axe}</h3>
             </div>
             <ul className="px-4 py-3 space-y-2.5">
               {axe.questions.map((q, j) => (
-                <li key={j} className="text-sm text-gray-700 flex gap-2 list-none">
+                <li key={j} className="text-sm text-slate-700 flex gap-2 list-none">
                   <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full" style={{ background: axe.couleur }} />
                   {q}
                 </li>
@@ -945,22 +942,19 @@ function GrilleEntretien({ poste, annee, qIA, setQIA, grille }) {
         ))}
 
         {loading && (
-          <div className="border border-dashed border-iip-turquoise/40 rounded-xl p-4 flex items-center gap-2 text-sm text-gray-400">
+          <div className="carte p-4 flex items-center gap-2 text-sm text-slate-400">
             <span className="animate-spin w-4 h-4 border-2 border-iip-blue border-t-transparent rounded-full flex-shrink-0" />
             Génération des questions spécifiques à « {poste.nom_cours || poste.ue_nom} »…
           </div>
         )}
 
         {qIA.length > 0 && (
-          <div className="border border-iip-blue/20 rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 text-sm font-semibold text-white flex items-center justify-between" style={{ background: 'var(--c-principal)' }}>
-              <span>Axe 5 — Questions spécifiques au cours</span>
-              <span className="text-mention font-normal opacity-60">générées par l'IA · UE {poste.ue_num}</span>
-            </div>
+          <div className="carte overflow-hidden">
+            <EnteteCarte titre="Axe 5 — Questions spécifiques au cours" sous={`générées par l'IA · UE ${poste.ue_num}`} />
             <ul className="px-4 py-3 space-y-2.5">
               {qIA.map((q, i) => (
-                <li key={i} className="text-sm text-gray-700 flex gap-2 list-none">
-                  <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-iip-turquoise" />
+                <li key={i} className="text-sm text-slate-700 flex gap-2 list-none">
+                  <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full" style={{ background: 'var(--c-accent)' }} />
                   {q}
                 </li>
               ))}
@@ -1062,7 +1056,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
         </div>
       )}
       pied={<>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-slate-400">
           {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}
         </span>
         <button onClick={sauvegarder} disabled={saving}
@@ -1075,26 +1069,26 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
           {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
         </button>
       </>}>
-      <div className="-mx-5 -my-4 bg-gray-50">
+      <div className="-mx-5 -my-4">
         <div className="max-w-none mx-auto px-4 py-5 space-y-5">
 
           {Object.entries(parAxe).map(([axe, { couleur, questions }]) => (
-            <div key={axe} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
-              <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>
-                {axe}
+            <div key={axe} className="carte overflow-hidden">
+              <div className="entete-carte">
+                <h3 className="titre-carte"><span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: couleur }} />{axe}</h3>
               </div>
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-slate-100">
                 {questions.map(({ q, i }) => {
                   const disabled = !!reponses[i]?.disabled;
                   return (
                   <div key={i} className={`px-4 py-3 transition ${disabled ? 'opacity-40' : ''}`}>
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
+                      <div className="text-sm text-slate-800 font-medium flex-1">{q}</div>
                       <button onClick={() => toggleDisabled(i)} title={disabled ? 'Réactiver la question' : 'Ne pas poser cette question'}
                         className={`text-mention px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
-                          disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
+                          disabled ? 'border-slate-300 text-slate-500' : 'border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600'
                         }`}>
-                        {disabled ? '+ Réactiver' : '✕ Non posée'}
+                        {disabled ? 'Réactiver' : 'Non posée'}
                       </button>
                     </div>
 
@@ -1107,7 +1101,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                           className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-champ border transition font-medium ${
                             reponses[i]?.note === val
                               ? 'text-white border-transparent shadow-pose'
-                              : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                              : 'border-slate-200 text-slate-400 hover:border-slate-300'
                           }`}
                           style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
                           <span className="font-bold">{val}</span>
@@ -1116,7 +1110,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                       ))}
                     </div>
                     {reponses[i]?.note > 0 && (
-                      <div className="text-mention text-gray-500 italic mb-2 pl-1">
+                      <div className="text-mention text-slate-500 italic mb-2 pl-1">
                         {LIKERT.find(l => l.val === reponses[i].note)?.desc}
                       </div>
                     )}
@@ -1125,7 +1119,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                       onChange={e => majReponse(i, 'commentaire', e.target.value)}
                       placeholder="Notes sur la réponse…"
                       rows={2}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise"
+                      className="controle w-full h-auto py-1.5 resize-none"
                     />
                     </>)}
                   </div>
@@ -1143,29 +1137,29 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
               onChange={e => setCommentaireGlobal(e.target.value)}
               placeholder="Impression générale, points forts, réserves, recommandation…"
               rows={3}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise"
+              className="controle w-full h-auto py-2 resize-none"
             />
           </div>
 
           {/* Appréciation réflexive */}
-          <div className="bloc-etat etat-disponible p-4">
+          <div className="carte p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
-              <div className="text-xs text-teal-600">Évaluation globale de la posture réflexive du candidat</div>
+              <div className="titre-carte">Appréciation du niveau réflexif</div>
+              <div className="text-xs text-slate-500">Évaluation globale de la posture réflexive du candidat</div>
             </div>
             <div className="flex flex-wrap gap-2 mb-3">
               {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
                 <button key={val} type="button"
                   onClick={() => setReflexifNiveaux(prev => prev.includes(val) ? prev.filter(x=>x!==val) : [...prev, val])}
                   title={desc}
-                  className={`flex flex-col items-center px-3 py-2 rounded-lg border-2 transition text-left ${
+                  className={`flex flex-col items-center px-3 py-2 rounded-champ border-2 transition text-left ${
                     reflexifNiveaux.includes(val)
                       ? 'text-white shadow-flottant'
-                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300'
                   }`}
                   style={reflexifNiveaux.includes(val) ? { background: color, borderColor: color } : {}}>
                   <span className="font-bold text-sm">{val} — {label}</span>
-                  <span className={`text-mention mt-0.5 leading-tight ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-gray-400'}`}>
+                  <span className={`text-mention mt-0.5 leading-tight ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-slate-400'}`}>
                     {desc}
                   </span>
                 </button>
@@ -1177,7 +1171,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                 onChange={e => setReflexifCommentaire(e.target.value)}
                 placeholder="Observations sur la posture réflexive : exemples concrets, nuances…"
                 rows={2}
-                className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white"
+                className="controle w-full h-auto py-1.5 resize-none"
               />
             )}
           </div>
@@ -1235,36 +1229,34 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
   return (
     <div className="h-full">
       {/* Barre de filtres */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h1 className="text-xl font-title text-iip-gold mr-2">Vue parallèle</h1>
+      <div className="flex items-center gap-3 mb-4 flex-nowrap">
+        <h1 className="titre-ecran mr-2">Vue parallèle</h1>
 
-        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={showTous} onChange={e => setShowTous(e.target.checked)}
             className="w-4 h-4 accent-iip-blue" />
           Afficher tous les cours
         </label>
 
         <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)}
-          className="text-sm border border-gray-200 rounded px-2 py-1.5 h-8">
+          className="controle">
           <option value="">Toutes sections</option>
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
         <select value={filtreFn} onChange={e => setFiltreFn(e.target.value)}
-          className="text-sm border border-gray-200 rounded px-2 py-1.5 h-8">
+          className="controle">
           <option value="">Toutes fonctions</option>
           {(fonctions || []).map(fn => <option key={fn.id} value={fn.libelle}>{fn.libelle}</option>)}
         </select>
 
-        <span className="text-xs text-gray-400 ml-auto">
+        <span className="text-xs text-slate-400 ml-auto">
           {postesFiltres.length} cours · {candidatsFiltres.length} candidat{candidatsFiltres.length > 1 ? 's' : ''}
         </span>
       </div>
 
       {feedback && (
-        <div className="bloc-etat etat-reussi text-sm text-green-700 px-3 py-2 mb-3 flex items-center gap-2">
-          <IconCheck size={15} /> {feedback}
-        </div>
+        <Encadre etat="reussi" icone={IconCheck} className="mb-3">{feedback}</Encadre>
       )}
 
       <div className="grid grid-cols-2 gap-4 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
@@ -1276,7 +1268,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
           </div>
           <div className="flex-1 overflow-auto space-y-1.5 pr-1">
             {postesFiltres.length === 0 && (
-              <div className="text-sm text-gray-300 text-center py-12">Aucun cours{showTous ? '' : ' sans candidat'}.</div>
+              <div className="text-sm text-slate-300 text-center py-12">Aucun cours{showTous ? '' : ' sans candidat'}.</div>
             )}
             {postesFiltres.map((p, i) => {
               const isTarget = dropTarget === `${p.ue_num}-${p.code_cours}-${p.section}`;
@@ -1285,33 +1277,33 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                   onDragOver={e => { e.preventDefault(); setDropTarget(`${p.ue_num}-${p.code_cours}-${p.section}`); }}
                   onDragLeave={() => setDropTarget(null)}
                   onDrop={() => onDrop(p)}
-                  className={`border rounded-lg px-3 py-1.5 transition ${
+                  style={{ background: 'var(--blanc, #fff)' }}
+                  className={`border rounded-champ px-3 py-1.5 transition ${
                     isTarget
-                      ? 'border-iip-turquoise bg-iip-turquoise/10 shadow-flottant scale-[1.01]'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                      ? 'border-iip-blue shadow-flottant scale-[1.01]'
+                      : 'border-slate-200 hover:border-slate-300'
                   }`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-iip-blue flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs text-gray-400 font-normal">UE {p.ue_num}</span>
+                        <span className="text-xs text-slate-400 font-normal">UE {p.ue_num}</span>
                         <span className="truncate">{p.nom_cours || p.ue_nom}</span>
                         {p.contrat_mdp && (
-                          <span className="text-mention font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                            style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>{p.contrat_mdp}</span>
+                          <span className={`badge ${p.contrat_mdp === 'HELB' ? 'badge-helb' : 'badge-iip'} flex-shrink-0`}>{p.contrat_mdp}</span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {p.section}{p.ue_quad ? ` · ${p.ue_quad}` : ''}{p.ue_per_cours ? ` · ${p.ue_per_cours} pér.` : ''}
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right">
                       <div className="text-base font-bold text-iip-blue">{p.nb_candidats}</div>
-                      <div className="text-mention text-gray-400">cand.</div>
+                      <div className="text-mention text-slate-400">cand.</div>
                     </div>
                   </div>
                   {isTarget && dragId && (
-                    <div className="mt-2 text-xs text-iip-turquoise font-medium text-center animate-pulse">
-                      ↓ Déposer ici pour rattacher
+                    <div className="mt-2 text-xs text-iip-blue font-medium text-center animate-pulse">
+                      Déposer ici pour rattacher
                     </div>
                   )}
                 </div>
@@ -1327,40 +1319,39 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
           </div>
           <div className="flex-1 overflow-auto space-y-1.5 pl-1">
             {candidatsFiltres.length === 0 && (
-              <div className="text-sm text-gray-300 text-center py-12">Aucun candidat{filtreFn ? ` avec la fonction "${filtreFn}"` : ''}.</div>
+              <div className="text-sm text-slate-300 text-center py-12">Aucun candidat{filtreFn ? ` avec la fonction "${filtreFn}"` : ''}.</div>
             )}
             {candidatsFiltres.map(c => (
               <div key={c.id}
                 draggable
                 onDragStart={() => setDragId(c.id)}
                 onDragEnd={() => { setDragId(null); setDropTarget(null); }}
-                className={`border rounded-lg px-3 py-1.5 cursor-grab active:cursor-grabbing select-none transition ${
+                style={{ background: 'var(--blanc, #fff)' }}
+                className={`border rounded-champ px-3 py-1.5 cursor-grab active:cursor-grabbing select-none transition ${
                   dragId === c.id
-                    ? 'border-iip-blue bg-iip-blue/5 opacity-70 shadow-flottant'
-                    : 'border-gray-200 bg-white hover:border-iip-blue/40 hover:shadow-pose'
+                    ? 'border-iip-blue opacity-70 shadow-flottant'
+                    : 'border-slate-200 hover:border-iip-blue/40 hover:shadow-pose'
                 }`}>
                 <div className="flex items-center gap-2">
-                  <div className="flex flex-col items-center justify-center text-gray-200 flex-shrink-0">
-                    <span className="text-lg leading-none">⠿</span>
-                  </div>
+                  <IconGripVertical size={16} className="text-slate-300 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-iip-blue">{c.prenom ? `${(c.nom || '').toUpperCase()} ${c.prenom}` : c.nom}</div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       {c.fonction && (
-                        <span className="text-mention bg-iip-blue/10 text-iip-blue px-1.5 py-0.5 rounded font-medium">
+                        <PastilleEtat etat="neutre">
                           {c.fonction}
-                        </span>
+                        </PastilleEtat>
                       )}
-                      <span className="text-xs text-gray-400">{c.email || '—'}</span>
+                      <span className="text-xs text-slate-400">{c.email || '—'}</span>
                     </div>
                     {c.candidatures?.length > 0 && (
-                      <div className="text-mention text-gray-400 mt-0.5">
+                      <div className="text-mention text-slate-400 mt-0.5">
                         {c.candidatures.length} candidature{c.candidatures.length > 1 ? 's' : ''}
                       </div>
                     )}
                   </div>
                   {c.documents?.length > 0 && (
-                    <span className="text-xs text-gray-300 flex items-center gap-0.5 flex-shrink-0">
+                    <span className="text-xs text-slate-300 flex items-center gap-0.5 flex-shrink-0">
                       <IconFileCv size={12} /> {c.documents.length}
                     </span>
                   )}
@@ -1769,23 +1760,23 @@ ${tous.map(candidatHtml).join('')}
     <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 gap-3">
         <h1 className="titre-ecran mb-0 whitespace-nowrap">
-          Candidats <span className="text-base font-normal text-gray-400">({candidats.length})</span>
+          Candidats <span className="text-base font-normal text-slate-400">({candidats.length})</span>
         </h1>
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Rechercher…"
-          className="flex-1 max-w-xs text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-iip-turquoise" />
+          className="controle flex-1 max-w-xs" />
       </div>
 
       {filtres.length === 0 && (
-        <div className="text-sm text-gray-400 text-center py-12">
+        <div className="text-sm text-slate-400 text-center py-12">
           {search ? 'Aucun candidat trouvé.' : 'Aucun candidat pour l\'instant.'}
         </div>
       )}
 
       {/* Liste style membres du personnel */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="carte overflow-hidden">
         {filtres.length === 0 && (
-          <div className="text-sm text-gray-400 text-center py-10">Aucun candidat.</div>
+          <div className="text-sm text-slate-400 text-center py-10">Aucun candidat.</div>
         )}
         {filtres.map((c, idx) => {
           const entretienNote = c.entretien_note;
@@ -1793,7 +1784,7 @@ ${tous.map(candidatHtml).join('')}
           const docs = Object.values(c.docs_remis || {}).filter(Boolean).length;
           return (
             <button key={c.id} onClick={() => setFiche(c)}
-              className={`w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition ${idx > 0 ? 'border-t border-gray-100' : ''}`}>
+              className={`w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition ${idx > 0 ? 'border-t border-slate-100' : ''}`}>
               {/* Avatar initiales */}
               <div className="w-9 h-9 rounded-full bg-iip-blue/10 flex items-center justify-center flex-shrink-0 text-xs font-bold text-iip-blue">
                 {(c.prenom?.[0] || '').toUpperCase()}{(c.nom?.[0] || '').toUpperCase()}
@@ -1801,37 +1792,35 @@ ${tous.map(candidatHtml).join('')}
               {/* Infos principales */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-900 text-sm">
+                  <span className="font-semibold text-slate-900 text-sm">
                     {c.prenom ? `${(c.nom || '').toUpperCase()} ${c.prenom}` : c.nom}
                   </span>
                   {c.candidatures?.map((ca, i) => {
                     const st = STATUT[ca.statut] || STATUT.a_voir;
                     return (
-                      <span key={i} className="text-mention px-2 py-0.5 rounded-champ font-semibold flex-shrink-0"
-                        style={{ background: st.bg, color: st.color }}>
+                      <PastilleEtat key={i} etat={st.etat} className="flex-shrink-0">
                         {st.label}
-                      </span>
+                      </PastilleEtat>
                     );
                   })}
                 </div>
-                <div className="text-xs text-gray-400 truncate mt-0.5">
+                <div className="text-xs text-slate-400 truncate mt-0.5">
                   {c.candidatures?.map(ca => ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`).join(', ') || '—'}
                 </div>
               </div>
               {/* Méta droite */}
               <div className="flex items-center gap-3 flex-shrink-0">
                 {docs > 0 && (
-                  <span className="text-mention text-gray-400 flex items-center gap-0.5">
+                  <span className="text-mention text-slate-400 flex items-center gap-0.5">
                     <IconFileCv size={12} /> {docs}
                   </span>
                 )}
                 {entretienNote != null && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-champ text-white"
-                    style={{ background: noteColor }}>
+                  <PastilleEtat etat={entretienNote >= 3 && entretienNote < 4 ? 'surveiller' : 'neutre'}>
                     {entretienNote}/5
-                  </span>
+                  </PastilleEtat>
                 )}
-                <IconChevronRight size={14} className="text-gray-300" />
+                <IconChevronRight size={14} className="text-slate-300" />
               </div>
             </button>
           );
@@ -2058,7 +2047,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 if (!await demander(`Recrutement global de ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
                 try {
                   const r = await af(`/candidats/${candidat.id}/engager-global`, { method: 'POST' });
-                  informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
+                  informer(`${(r.nom||'').toUpperCase()} ${r.prenom||''} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
                   onSaved();
                 } catch(e) { informer('Erreur : ' + e.message); }
               }}
@@ -2071,13 +2060,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                   if (!await demander(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
                   try {
                     const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                    informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                    informer(`${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                     onSaved();
                   } catch(e) { informer('Erreur : ' + e.message); }
                 }}
                 title="Engager ce candidat"
                 className="bouton inline-flex items-center gap-1.5">
-                ✅ Engager
+                <IconCheck size={14} /> Engager
               </button>
             )}
             <button onClick={supprimerCandidat} title="Supprimer"
@@ -2096,24 +2085,24 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Coordonnées" />
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="text-xs text-gray-500 mb-1">Prénom</div>
+                <div className="text-xs text-slate-500 mb-1">Prénom</div>
                 <input value={f.prenom} onChange={e => setF({ ...f, prenom: e.target.value })}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                  className="controle w-full" />
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">Nom *</div>
+                <div className="text-xs text-slate-500 mb-1">Nom *</div>
                 <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                  className="controle w-full" />
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">E-mail</div>
+                <div className="text-xs text-slate-500 mb-1">E-mail</div>
                 <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                  className="controle w-full" />
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">Téléphone</div>
+                <div className="text-xs text-slate-500 mb-1">Téléphone</div>
                 <input value={f.telephone} onChange={e => setF({ ...f, telephone: e.target.value })}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                  className="controle w-full" />
               </div>
             </div>
           </div>
@@ -2126,31 +2115,32 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 const checked = !!f.docs_remis?.[doc.key];
                 return (
                   <label key={doc.key}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition select-none ${
-                      checked ? 'bg-green-500 border-green-500 text-white' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+                    data-etat={checked ? 'reussi' : 'neutre'}
+                    className={`bloc-etat flex items-center gap-2 px-3 py-2 cursor-pointer transition select-none ${
+                      checked ? 'text-iip-texte' : 'text-slate-500 hover:border-slate-300'
                     }`}>
                     <input type="checkbox" checked={checked}
                       onChange={e => setF({ ...f, docs_remis: { ...f.docs_remis, [doc.key]: e.target.checked } })}
-                      className="w-4 h-4 accent-green-600 flex-shrink-0" />
-                    <span className="text-base leading-none flex-shrink-0">{doc.emoji}</span>
+                      className="w-4 h-4 accent-iip-blue flex-shrink-0" />
+                    <doc.Icone size={15} className="flex-shrink-0 text-slate-400" />
                     <span className="text-xs font-medium leading-tight">{doc.label}</span>
-                    {checked && <span className="ml-auto text-green-500 text-xs flex-shrink-0">✓</span>}
+                    {checked && <IconCheck size={13} className="ml-auto flex-shrink-0" style={{ color: 'var(--c-reussi)' }} />}
                   </label>
                 );
               })}
             </div>
             {/* Zone de dépôt */}
-            <div className="border-t border-gray-100 pt-3">
-              <div className="text-xs text-gray-400 font-medium mb-2">Fichiers déposés ({docs.length})</div>
+            <div className="border-t border-slate-100 pt-3">
+              <div className="intertitre mb-2">Fichiers déposés ({docs.length})</div>
               {docs.length > 0 && (
                 <div className="space-y-1 mb-2">
                   {docs.map(d => (
-                    <div key={d.id} className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-100 rounded px-2 py-1.5">
+                    <div key={d.id} className="flex items-center gap-2 text-xs border border-slate-200 rounded px-2 py-1.5">
                       <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
-                      <span className="text-gray-400 w-20 flex-shrink-0">{TYPES_DOC[d.type]?.label || d.type}</span>
+                      <span className="text-slate-400 w-20 flex-shrink-0">{TYPES_DOC[d.type]?.label || d.type}</span>
                       <button onClick={() => ouvrirDoc(d.id, d.nom_original)}
                         className="text-iip-blue hover:underline truncate flex-1 text-left">{d.nom_original}</button>
-                      <button onClick={() => supprimerDoc(d.id)} className="text-gray-200 hover:text-red-400 flex-shrink-0">
+                      <button onClick={() => supprimerDoc(d.id)} className="text-slate-200 hover:text-[color:var(--c-refuse)] flex-shrink-0">
                         <IconTrash size={12} />
                       </button>
                     </div>
@@ -2159,7 +2149,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               )}
               <div className="flex flex-wrap gap-2">
                 {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
-                  <label key={type} className="cursor-pointer text-xs border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise flex items-center gap-1 text-gray-500">
+                  <label key={type} className="cursor-pointer text-xs border border-dashed border-slate-300 rounded px-2 py-1 hover:border-iip-blue flex items-center gap-1 text-slate-500">
                     <IconUpload size={11} /> {label}
                     <input type="file" accept={accept} className="hidden" onChange={e => {
                       const file = e.target.files?.[0]; if (file) { ajouterDoc(type, file); e.target.value = ''; }
@@ -2180,7 +2170,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               </button>
             </EnteteCarte>
             {f.qualifications.length === 0 && (
-              <div className="text-xs text-gray-400 italic">Aucun titre ou diplôme renseigné.</div>
+              <div className="text-xs text-slate-400 italic">Aucun titre ou diplôme renseigné.</div>
             )}
             <div className="space-y-1.5">
               {f.qualifications.map((q, i) => {
@@ -2188,15 +2178,15 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
                 const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
                 return (
-                  <div key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <div key={i} className="flex items-start gap-2 border border-slate-200 rounded-champ px-3 py-2">
                     <div className="flex-1 min-w-0 space-y-0.5">
                       {niv && <div className="text-xs font-semibold text-iip-blue">{niv.label}</div>}
-                      {dip && <div className="text-xs text-gray-700">{dip.label}</div>}
-                      {!dip && q.diplome_autre && <div className="text-xs text-gray-700 italic">{q.diplome_autre}</div>}
-                      {tit && <div className="text-xs text-iip-turquoise font-medium">{tit.label}</div>}
+                      {dip && <div className="text-xs text-slate-700">{dip.label}</div>}
+                      {!dip && q.diplome_autre && <div className="text-xs text-slate-700 italic">{q.diplome_autre}</div>}
+                      {tit && <div className="text-xs text-iip-blue font-medium">{tit.label}</div>}
                     </div>
                     <button type="button" onClick={() => setF({ ...f, qualifications: f.qualifications.filter((_, j) => j !== i) })}
-                      className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5">
+                      className="text-slate-300 hover:text-[color:var(--c-refuse)] flex-shrink-0 mt-0.5">
                       <IconX size={13} />
                     </button>
                   </div>
@@ -2213,13 +2203,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 {candidatures.map((ca, i) => {
                   const st = STATUT[ca.statut] || STATUT.a_voir;
                   return (
-                    <div key={i} className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 space-y-1.5">
+                    <div key={i} className="border border-slate-200 rounded-champ px-3 py-2 space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-800 truncate">
+                          <div className="text-sm font-medium text-slate-800 truncate">
                             {ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}
                           </div>
-                          <div className="text-xs text-gray-400">{ca.section} · {ca.annee_scolaire}</div>
+                          <div className="text-xs text-slate-400">{ca.section} · {ca.annee_scolaire}</div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <select
@@ -2228,8 +2218,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                               await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: e.target.value }) });
                               rechargerCandidatures();
                             }}
-                            className="text-xs border border-gray-200 rounded px-2 py-1 h-7"
-                            style={{ color: (STATUT[ca.statut]||STATUT.a_voir).color }}>
+                            className="controle !h-7 text-xs">
                             {Object.entries(STATUT).filter(([k]) => k !== 'engage').map(([k, v]) => (
                               <option key={k} value={k}>{v.label}</option>
                             ))}
@@ -2244,31 +2233,31 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                                     await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
                                   }
                                   const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                                  informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                                  informer(`${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                                   onSaved();
                                 } catch(e) { informer('Erreur : ' + e.message); }
                               }}
-                              className="text-xs bg-green-600 text-white hover:opacity-90 rounded px-2.5 py-1 h-7 flex items-center gap-1 font-medium flex-shrink-0">
-                              ✅ Engager
+                              className="bouton bouton-fort !h-7 flex-shrink-0">
+                              <IconCheck size={13} /> Engager
                             </button>
                           )}
                           {ca.statut === 'engage' && (
-                            <span className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2.5 py-0.5 font-semibold flex-shrink-0">
-                              ✓ Engagé
-                            </span>
+                            <PastilleEtat etat="reussi" className="flex-shrink-0">
+                              <IconCheck size={11} /> Engagé
+                            </PastilleEtat>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => setEntretienCand(ca)}
-                          className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2 py-1 flex items-center gap-1 font-medium">
+                          className="bouton !h-7">
                           <IconClipboardText size={12} /> Lancer l'entretien
                         </button>
                         <button onClick={async () => {
                           if (!await demander('Retirer ce cours ?')) return;
                           await af(`/candidatures/${ca.id}`, { method: 'DELETE' });
                           rechargerCandidatures();
-                        }} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
+                        }} className="text-xs text-slate-400 hover:text-[color:var(--c-refuse)] flex items-center gap-1">
                           <IconX size={12} /> Retirer
                         </button>
                       </div>
@@ -2278,31 +2267,31 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               </div>
             )}
             {/* Sélecteur */}
-            <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2 bg-gray-50/50">
+            <div className="border border-dashed border-slate-300 rounded-champ p-3 space-y-2">
               <div className="intertitre">Ajouter un cours</div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Section</div>
+                  <div className="text-xs text-slate-500 mb-0.5">Section</div>
                   <select value={selSection} onChange={e => { setSelSection(e.target.value); setSelUE(''); setSelCours(''); }}
-                    className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
+                    className="controle w-full !h-8 text-xs">
                     <option value="">— choisir —</option>
                     {sections.map(s => <option key={s.code} value={s.code}>{s.code}{s.libelle ? ` — ${s.libelle}` : ''}</option>)}
                   </select>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 mb-0.5">UE {loadingUE && <span className="text-gray-400">…</span>}</div>
+                  <div className="text-xs text-slate-500 mb-0.5">UE {loadingUE && <span className="text-slate-400">…</span>}</div>
                   <select value={selUE} onChange={e => { setSelUE(e.target.value); setSelCours(''); }}
                     disabled={!selSection || ues.length === 0}
-                    className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8 disabled:bg-gray-100 disabled:text-gray-400">
+                    className="controle w-full !h-8 text-xs disabled:opacity-50">
                     <option value="">— choisir —</option>
                     {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
                   </select>
                 </div>
                 {cours.length > 1 && (
                   <div className="col-span-2">
-                    <div className="text-xs text-gray-500 mb-0.5">Cours</div>
+                    <div className="text-xs text-slate-500 mb-0.5">Cours</div>
                     <select value={selCours} onChange={e => setSelCours(e.target.value)}
-                      className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
+                      className="controle w-full !h-8 text-xs">
                       <option value="">— choisir —</option>
                       {cours.map(c => <option key={c.cours_code} value={c.cours_code}>{c.cours_nom} ({c.ct_pp})</option>)}
                     </select>
@@ -2340,25 +2329,25 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             const hasIndisp = jours.some(j => cr.some(c => dispo[`${j}_${c.key}`]));
             if (!hasIndisp && !dispo._remarque) return null;
             return (
-              <div className="bloc-etat etat-surveiller bg-orange-50/40 p-4">
-                <div className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-2">Indisponibilités</div>
+              <div className="carte overflow-hidden p-4">
+                <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Indisponibilités" />
                 <div className="overflow-x-auto">
-                  <table className="text-xs border-collapse">
+                  <table className="hors-maison text-xs border-collapse">
                     <thead><tr>
-                      <th className="w-16 text-right pr-2 text-gray-400 font-normal" />
-                      {jours.map(j => <th key={j} className="text-center px-1.5 text-gray-500 font-semibold pb-1 w-10">{j}</th>)}
+                      <th className="w-16 text-right pr-2 text-slate-400 font-normal" />
+                      {jours.map(j => <th key={j} className="text-center px-1.5 text-slate-500 font-semibold pb-1 w-10">{j}</th>)}
                     </tr></thead>
                     <tbody>
                       {cr.map(cren => (
                         <tr key={cren.key}>
-                          <td className="text-right pr-2 text-gray-500 py-0.5 font-medium">{cren.l}</td>
+                          <td className="text-right pr-2 text-slate-500 py-0.5 font-medium">{cren.l}</td>
                           {jours.map(j => {
                             const indisp = !!dispo[`${j}_${cren.key}`];
                             return (
                               <td key={j} className="text-center py-0.5 px-0.5">
-                                <span className={`inline-block w-9 h-6 rounded text-mention font-bold leading-6 ${
-                                  indisp ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-300'
-                                }`}>{indisp ? '✗' : ''}</span>
+                                <span className={`inline-flex items-center justify-center w-9 h-6 rounded ${
+                                  indisp ? 'text-white' : 'bg-slate-100'
+                                }`} style={indisp ? { background: 'var(--c-attente)' } : undefined}>{indisp ? <IconX size={12} stroke={2.5} /> : ''}</span>
                               </td>
                             );
                           })}
@@ -2367,7 +2356,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                     </tbody>
                   </table>
                 </div>
-                {dispo._remarque && <div className="text-xs text-orange-700 mt-1.5 italic">{dispo._remarque}</div>}
+                {dispo._remarque && <div className="text-xs text-slate-600 mt-1.5 italic">{dispo._remarque}</div>}
               </div>
             );
           })()}
@@ -2408,26 +2397,27 @@ function SemainierIndisp({ value = {}, onChange }) {
   };
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-2 italic">Cochez les créneaux où le candidat n'est <strong>pas disponible</strong>.</p>
+      <p className="text-xs text-slate-500 mb-2 italic">Cochez les créneaux où le candidat n'est <strong>pas disponible</strong>.</p>
       <div className="overflow-x-auto">
-        <table className="text-xs border-collapse">
+        <table className="hors-maison text-xs border-collapse">
           <thead><tr>
-            <th className="w-20 text-right pr-3 text-gray-400 font-normal pb-1" />
-            {JOURS_SEM.map(j => <th key={j} className="text-center px-1.5 text-gray-500 font-semibold pb-1 w-12">{j}</th>)}
+            <th className="w-20 text-right pr-3 text-slate-400 font-normal pb-1" />
+            {JOURS_SEM.map(j => <th key={j} className="text-center px-1.5 text-slate-500 font-semibold pb-1 w-12">{j}</th>)}
           </tr></thead>
           <tbody>
             {CRENEAUX_SEM.map(cr => (
               <tr key={cr.key}>
-                <td className="text-right pr-3 text-gray-500 py-1 font-medium whitespace-nowrap">{cr.label}</td>
+                <td className="text-right pr-3 text-slate-500 py-1 font-medium whitespace-nowrap">{cr.label}</td>
                 {JOURS_SEM.map(j => {
                   const indisp = !!value[`${j}_${cr.key}`];
                   return (
                     <td key={j} className="text-center py-1 px-1">
                       <button type="button" onClick={() => toggle(j, cr.key)}
-                        className={`w-10 h-7 rounded border-2 transition text-xs font-bold ${
-                          indisp ? 'bg-orange-400 text-white border-orange-400' : 'bg-white text-gray-200 border-gray-200 hover:border-orange-300'
-                        }`}>
-                        {indisp ? '✗' : ''}
+                        className={`w-10 h-7 rounded border-2 transition inline-flex items-center justify-center ${
+                          indisp ? 'text-white' : 'border-slate-200 hover:border-slate-400'
+                        }`}
+                        style={indisp ? { background: 'var(--c-attente)', borderColor: 'var(--c-attente)' } : { background: 'var(--blanc, #fff)' }}>
+                        {indisp ? <IconX size={13} stroke={2.5} /> : ''}
                       </button>
                     </td>
                   );
@@ -2439,7 +2429,7 @@ function SemainierIndisp({ value = {}, onChange }) {
       </div>
       <input value={value._remarque || ''} onChange={e => onChange({ ...value, _remarque: e.target.value })}
         placeholder="Contrainte particulière (ex : disponible uniquement en Q1, déplacement limité…)"
-        className="w-full text-xs border border-gray-200 rounded px-2.5 py-1.5 text-gray-600 placeholder-gray-400 mt-2" />
+        className="controle w-full mt-2" />
     </div>
   );
 }
@@ -2464,7 +2454,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
     <Fenetre titre="Titres et diplômes" large="moyenne" onFermer={onClose}
       sous="Ajoutez une ligne par titre ou diplôme. Encodez directement depuis le CV."
       pied={<>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-slate-400">
             {lignes.filter(l => l.niveau || l.titre_peda).length} titre{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''} complété{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''}
           </span>
             <button onClick={onClose} className="bouton">Annuler</button>
@@ -2476,11 +2466,11 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
           {lignes.map((l, i) => {
             const dipListe = DIPLOMES_FWB[l.niveau] || [];
             return (
-              <div key={i} className="border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+              <div key={i} className="carte p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-semibold text-gray-500">Titre {i + 1}</div>
+                  <div className="text-xs font-semibold text-slate-500">Titre {i + 1}</div>
                   {lignes.length > 1 && (
-                    <button onClick={() => retirerLigne(i)} className="text-gray-300 hover:text-red-400">
+                    <button onClick={() => retirerLigne(i)} className="text-slate-300 hover:text-[color:var(--c-refuse)]">
                       <IconX size={14} />
                     </button>
                   )}
@@ -2496,7 +2486,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                         className={`text-xs px-2.5 py-1 rounded-champ border transition ${
                           l.niveau === n.val
                             ? 'bg-iip-blue text-white border-iip-blue font-semibold'
-                            : 'border-gray-300 text-gray-600 hover:border-iip-blue/50 bg-white'
+                            : 'border-slate-300 text-slate-600 hover:border-iip-blue/50'
                         }`}>
                         {n.label.split('—')[0].trim()}
                       </button>
@@ -2511,7 +2501,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                       <div className="intertitre mb-1">Diplôme</div>
                       {dipListe.length > 0 ? (
                         <select value={l.diplome} onChange={e => majLigne(i, 'diplome', e.target.value)}
-                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
+                          className="controle w-full !h-8 text-xs">
                           <option value="">— choisir —</option>
                           {dipListe.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
                           <option value="__autre__">Autre (préciser ci-dessous)</option>
@@ -2520,7 +2510,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                       {(!l.diplome || l.diplome === '__autre__' || dipListe.length === 0) && (
                         <input value={l.diplome_autre} onChange={e => majLigne(i, 'diplome_autre', e.target.value)}
                           placeholder="Préciser le diplôme…"
-                          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 h-8 mt-1" />
+                          className="controle w-full !h-8 text-xs mt-1" />
                       )}
                     </div>
                   </div>
@@ -2535,8 +2525,8 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                         onClick={() => majLigne(i, 'titre_peda', l.titre_peda === t.val ? '' : t.val)}
                         className={`text-xs px-2.5 py-1 rounded-champ border transition ${
                           l.titre_peda === t.val
-                            ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold'
-                            : 'border-gray-300 text-gray-600 hover:border-iip-turquoise/50 bg-white'
+                            ? 'bg-iip-blue text-white border-iip-blue font-semibold'
+                            : 'border-slate-300 text-slate-600 hover:border-iip-blue/50'
                         }`}>
                         {t.label.split('—')[0].trim()}
                       </button>
@@ -2548,7 +2538,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
           })}
 
           <button onClick={ajouterLigne}
-            className="w-full border-2 border-dashed border-gray-200 rounded-lg py-2 text-xs text-gray-400 hover:border-iip-blue hover:text-iip-blue flex items-center justify-center gap-1.5 transition">
+            className="w-full border-2 border-dashed border-slate-200 rounded-lg py-2 text-xs text-slate-400 hover:border-iip-blue hover:text-iip-blue flex items-center justify-center gap-1.5 transition">
             <IconPlus size={13} /> Ajouter un autre titre ou diplôme
           </button>
         </div>
@@ -2621,7 +2611,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
   };
 
   return (
-    <Fenetre titre="🤖 Analyser un CV avec Lucie" large="moyenne" onFermer={onClose}
+    <Fenetre icone={IconSparkles} titre="Analyser un CV avec Lucie" large="moyenne" onFermer={onClose}
       sous="Lucie lit le PDF et pré-remplit la fiche candidat. Tu valides avant d'enregistrer."
       pied={<>
           <span />
@@ -2646,38 +2636,38 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
                     setFichier(file); setAnalyse(null); setApercu(null);
                   }
                 }}
-                className={`relative flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-xl transition ${
-                  fichier ? 'border-iip-turquoise bg-iip-turquoise/5' : 'border-gray-300 hover:border-iip-blue/50 bg-gray-50'
+                className={`relative flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-carte transition ${
+                  fichier ? 'border-iip-blue' : 'border-slate-300 hover:border-iip-blue/50'
                 }`}>
                 <input type="file" accept="application/pdf" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   onChange={e => { setFichier(e.target.files?.[0] || null); setAnalyse(null); setApercu(null); }} />
                 {fichier ? (
                   <>
-                    <div className="text-3xl">📄</div>
+                    <IconFileText size={30} className="text-iip-blue" />
                     <div className="text-sm font-semibold text-iip-blue">{fichier.name}</div>
-                    <div className="text-xs text-gray-400">{(fichier.size / 1024).toFixed(0)} Ko — cliquer ou glisser pour changer</div>
+                    <div className="text-xs text-slate-400">{(fichier.size / 1024).toFixed(0)} Ko — cliquer ou glisser pour changer</div>
                   </>
                 ) : (
                   <>
-                    <div className="text-4xl">📎</div>
-                    <div className="text-sm text-gray-500 font-medium">Glisser un CV ici ou cliquer pour sélectionner</div>
-                    <div className="text-xs text-gray-400">Format PDF uniquement</div>
+                    <IconPaperclip size={34} className="text-slate-400" />
+                    <div className="text-sm text-slate-500 font-medium">Glisser un CV ici ou cliquer pour sélectionner</div>
+                    <div className="text-xs text-slate-400">Format PDF uniquement</div>
                   </>
                 )}
               </div>
 
-              {err && <div className="text-xs text-white bg-red-500 rounded px-3 py-2 mt-2">{err}</div>}
+              {err && <Encadre etat="corriger" className="mt-2">{err}</Encadre>}
 
               <button onClick={analyser} disabled={!fichier || loading}
                 className="bouton bouton-fort mt-3 w-full flex items-center justify-center gap-2">
                 {loading ? (
-                  <><span className="animate-spin">⏳</span> Lucie analyse le CV…</>
+                  <><IconLoader2 size={15} className="animate-spin" /> Lucie analyse le CV…</>
                 ) : (
-                  <>🤖 Analyser avec Lucie</>
+                  <><IconSparkles size={15} /> Analyser avec Lucie</>
                 )}
               </button>
               {loading && (
-                <div className="text-xs text-center text-gray-400 mt-2 animate-pulse">
+                <div className="text-xs text-center text-slate-400 mt-2 animate-pulse">
                   Extraction des informations en cours… (10-20 secondes)
                 </div>
               )}
@@ -2687,11 +2677,11 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
           {/* Prévisualisation et validation */}
           {apercu && (
             <div className="space-y-4">
-              <div className="bloc-etat etat-reussi flex items-center gap-2 px-3 py-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm text-green-700 font-medium">CV analysé — vérifiez et corrigez si besoin</span>
+              <div data-etat="reussi" className="bloc-etat flex items-center gap-2 px-3 py-2">
+                <IconCheck size={15} style={{ color: 'var(--e)' }} />
+                <span className="text-sm text-iip-texte font-medium">CV analysé — vérifiez et corrigez si besoin</span>
                 <button onClick={() => { setApercu(null); setAnalyse(null); }}
-                  className="ml-auto text-xs text-gray-400 hover:text-gray-600">Recommencer</button>
+                  className="ml-auto text-xs text-slate-400 hover:text-slate-600">Recommencer</button>
               </div>
 
               {/* Coordonnées */}
@@ -2700,20 +2690,20 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
                 <div className="grid grid-cols-2 gap-3">
                   {[['prenom','Prénom'],['nom','Nom'],['email','E-mail'],['telephone','Téléphone']].map(([k,l]) => (
                     <div key={k}>
-                      <div className="text-xs text-gray-500 mb-1">{l}</div>
+                      <div className="text-xs text-slate-500 mb-1">{l}</div>
                       <input value={apercu[k] || ''} onChange={e => setApercu(a => ({ ...a, [k]: e.target.value }))}
-                        className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                        className="controle w-full" />
                     </div>
                   ))}
                   <div className="col-span-2">
-                    <div className="text-xs text-gray-500 mb-1">Fonction / spécialité</div>
+                    <div className="text-xs text-slate-500 mb-1">Fonction / spécialité</div>
                     <input value={apercu.fonction || ''} onChange={e => setApercu(a => ({ ...a, fonction: e.target.value }))}
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                      className="controle w-full" />
                   </div>
                   <div className="col-span-2">
-                    <div className="text-xs text-gray-500 mb-1">Profil (résumé Lucie)</div>
+                    <div className="text-xs text-slate-500 mb-1">Profil (résumé Lucie)</div>
                     <textarea value={apercu.notes || ''} onChange={e => setApercu(a => ({ ...a, notes: e.target.value }))}
-                      rows={3} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
+                      rows={3} className="controle w-full h-auto py-1.5 resize-none" />
                   </div>
                 </div>
               </div>
@@ -2722,7 +2712,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
               <div className="carte overflow-hidden p-4">
                 <EnteteCarte className="-mx-4 -mt-4 mb-3" titre={`Diplômes & Titres détectés (${apercu.qualifications?.length || 0})`} />
                 {apercu.qualifications?.length === 0 && (
-                  <div className="text-xs text-gray-400 italic">Aucun diplôme détecté automatiquement.</div>
+                  <div className="text-xs text-slate-400 italic">Aucun diplôme détecté automatiquement.</div>
                 )}
                 <div className="space-y-2">
                   {apercu.qualifications?.map((q, i) => {
@@ -2730,15 +2720,15 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
                     const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
                     const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
                     return (
-                      <div key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                      <div key={i} className="flex items-start gap-2 border border-slate-200 rounded-champ px-3 py-2">
                         <div className="flex-1 min-w-0 space-y-0.5">
                           {niv && <div className="text-xs font-semibold text-iip-blue">{niv.label}</div>}
-                          {dip && <div className="text-xs text-gray-700">{dip.label}</div>}
-                          {!dip && q.diplome_autre && <div className="text-xs text-gray-500 italic">{q.diplome_autre}</div>}
-                          {tit && <div className="text-xs text-iip-turquoise font-medium">{tit.label}</div>}
+                          {dip && <div className="text-xs text-slate-700">{dip.label}</div>}
+                          {!dip && q.diplome_autre && <div className="text-xs text-slate-500 italic">{q.diplome_autre}</div>}
+                          {tit && <div className="text-xs text-iip-blue font-medium">{tit.label}</div>}
                         </div>
                         <button type="button" onClick={() => setApercu(a => ({ ...a, qualifications: a.qualifications.filter((_, j) => j !== i) }))}
-                          className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5"><IconX size={13}/></button>
+                          className="text-slate-300 hover:text-[color:var(--c-refuse)] flex-shrink-0 mt-0.5"><IconX size={13}/></button>
                       </div>
                     );
                   })}
@@ -2804,40 +2794,40 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
         <div className="space-y-4">
           {/* Bouton analyse CV */}
           <button onClick={() => setAnalyseCv(true)}
-            className="w-full flex items-center gap-3 p-3 bg-iip-blue/5 border-2 border-dashed border-iip-blue/30 hover:border-iip-blue/60 rounded-xl transition text-left">
-            <span className="text-2xl">🤖</span>
+            className="w-full flex items-center gap-3 p-3 border-2 border-dashed border-iip-blue/30 hover:border-iip-blue/60 rounded-carte transition text-left">
+            <IconSparkles size={22} className="text-iip-blue flex-shrink-0" />
             <div>
               <div className="text-sm font-semibold text-iip-blue">Analyser un CV avec Lucie</div>
-              <div className="text-xs text-gray-400">Pré-remplissage automatique depuis un PDF</div>
+              <div className="text-xs text-slate-400">Pré-remplissage automatique depuis un PDF</div>
             </div>
-            {cvFile && <span className="ml-auto text-xs text-green-600 font-medium">✓ CV chargé</span>}
+            {cvFile && <PastilleEtat etat="reussi" className="ml-auto"><IconCheck size={11} /> CV chargé</PastilleEtat>}
           </button>
 
           <div className="grid grid-cols-2 gap-3">
             {[['prenom','Prénom'],['nom','Nom *'],['email','E-mail'],['telephone','Téléphone']].map(([k,l]) => (
               <div key={k}>
-                <div className="text-xs text-gray-500 mb-1">{l}</div>
+                <div className="text-xs text-slate-500 mb-1">{l}</div>
                 <input value={f[k]||''} onChange={e => setF({ ...f, [k]: e.target.value })}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                  className="controle w-full" />
               </div>
             ))}
             <div className="col-span-2">
-              <div className="text-xs text-gray-500 mb-1">Notes</div>
+              <div className="text-xs text-slate-500 mb-1">Notes</div>
               <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })}
-                rows={2} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
+                rows={2} className="controle w-full h-auto py-1.5 resize-none" />
             </div>
           </div>
 
           {/* Qualifications si remplies par analyse */}
           {f.qualifications?.length > 0 && (
-            <div className="border border-gray-200 rounded-lg p-3">
-              <div className="text-xs text-gray-400 mb-2">Diplômes détectés</div>
+            <div className="carte p-3">
+              <div className="intertitre mb-2">Diplômes détectés</div>
               {f.qualifications.map((q, i) => {
                 const niv = NIVEAUX_ETUDE.find(n => n.val === q.niveau);
                 const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
                 const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
                 return (
-                  <div key={i} className="text-xs text-gray-600 py-0.5">
+                  <div key={i} className="text-xs text-slate-600 py-0.5">
                     {[niv?.label, dip?.label||q.diplome_autre, tit?.label].filter(Boolean).join(' · ')}
                   </div>
                 );
@@ -2876,7 +2866,7 @@ function EditeurGrille({ grille, onSaved }) {
     })));
   }, [grille]);
 
-  if (!axes) return <div className="text-gray-400 py-8">Chargement de la grille…</div>;
+  if (!axes) return <div className="text-slate-400 py-8">Chargement de la grille…</div>;
 
   // Réordonner les axes par drag & drop
   const onDragStartAxe = (i) => setDragAxe(i);
@@ -2931,14 +2921,14 @@ function EditeurGrille({ grille, onSaved }) {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="titre-ecran mb-0">Grille d'entretien</h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Modifiez les axes et questions — appliqués à tous les entretiens.
             Chaque axe tire au hasard le nombre de questions qu'il déclare :
             au-delà de quatre axes, l'entretien devient trop long pour se tenir.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-sm text-green-600 flex items-center gap-1"><IconCheck size={15} /> Enregistré</span>}
+          {saved && <span className="text-sm flex items-center gap-1" style={{ color: 'var(--c-reussi)' }}><IconCheck size={15} /> Enregistré</span>}
           <Btn variant="ghost" onClick={revenirDefaut} disabled={saving}
             title="Quatre axes, deux questions tirées dans chacun">
             Grille de référence
@@ -2949,7 +2939,7 @@ function EditeurGrille({ grille, onSaved }) {
         </div>
       </div>
 
-      {err && <div className="text-sm text-red-600 bg-red-50 rounded px-3 py-2 mb-4 border-l-4 border-l-red-500">{err}</div>}
+      {err && <Encadre etat="corriger" className="mb-4">{err}</Encadre>}
 
       <div className="space-y-4">
         {axes.map((axe, ai) => (
@@ -2959,46 +2949,47 @@ function EditeurGrille({ grille, onSaved }) {
             onDragOver={e => onDragOverAxe(e, ai)}
             onDragLeave={() => setDragOver(null)}
             onDrop={() => onDropAxe(ai)}
-            className={`border rounded-xl overflow-hidden transition ${
+            className={`carte overflow-hidden transition ${
               dragOver === ai && dragAxe !== ai
-                ? 'border-iip-turquoise shadow-flottant scale-[1.01]'
-                : 'border-gray-200'
+                ? '!border-iip-blue shadow-flottant scale-[1.01]'
+                : ''
             }`}>
-            {/* En-tête axe — poignée de drag + titre + couleur + suppr */}
-            <div className="flex items-center gap-2 px-3 py-2" style={{ background: axe.couleur }}>
-              <span className="text-white/50 cursor-grab active:cursor-grabbing text-lg select-none" title="Glisser pour réordonner">⠿</span>
+            {/* En-tête axe — poignée de drag + repère de couleur + titre + couleur + suppr */}
+            <div className="entete-carte !justify-start gap-2">
+              <IconGripVertical size={16} className="text-slate-400 cursor-grab active:cursor-grabbing select-none flex-none" title="Glisser pour réordonner" />
+              <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: axe.couleur }} />
               <input
                 value={axe.libelle}
                 onChange={e => majAxe(ai, 'libelle', e.target.value)}
-                className="flex-1 text-sm font-semibold text-white bg-transparent border-b border-white/30 focus:outline-none focus:border-white placeholder-white/50"
+                className="flex-1 min-w-0 text-sm font-semibold text-iip-texte bg-transparent border-b border-slate-300 focus:outline-none focus:border-iip-blue placeholder-slate-400"
                 placeholder="Intitulé de l'axe…"
               />
               <input type="color" value={axe.couleur} onChange={e => majAxe(ai, 'couleur', e.target.value)}
                 className="w-7 h-7 rounded cursor-pointer border-0 bg-transparent" title="Couleur" />
-              <button onClick={() => retirerAxe(ai)} className="text-white/60 hover:text-white ml-1" title="Supprimer l'axe">
+              <button onClick={() => retirerAxe(ai)} className="text-slate-400 hover:text-[color:var(--c-refuse)] ml-1" title="Supprimer l'axe">
                 <IconX size={16} />
               </button>
             </div>
 
             {/* Questions */}
-            <div className="divide-y divide-gray-50 px-3 py-2 space-y-1.5">
+            <div className="divide-y divide-slate-50 px-3 py-2 space-y-1.5">
               {axe.questions.map((q, qi) => (
                 <div key={qi} className="flex items-start gap-2 pt-1.5">
-                  <span className="text-xs text-gray-300 w-5 flex-shrink-0 mt-2">{qi + 1}.</span>
+                  <span className="text-xs text-slate-300 w-5 flex-shrink-0 mt-2">{qi + 1}.</span>
                   <textarea
                     value={q.libelle}
                     onChange={e => majQ(ai, qi, e.target.value)}
                     rows={2}
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise"
+                    className="controle flex-1 h-auto py-1.5 resize-none"
                     placeholder="Texte de la question…"
                   />
-                  <button onClick={() => retirerQ(ai, qi)} className="text-gray-200 hover:text-red-400 flex-shrink-0 mt-1.5">
+                  <button onClick={() => retirerQ(ai, qi)} className="text-slate-200 hover:text-[color:var(--c-refuse)] flex-shrink-0 mt-1.5">
                     <IconX size={15} />
                   </button>
                 </div>
               ))}
               <button onClick={() => ajouterQ(ai)}
-                className="text-xs text-gray-400 hover:text-iip-blue flex items-center gap-1 pt-1.5 pb-0.5">
+                className="text-xs text-slate-400 hover:text-iip-blue flex items-center gap-1 pt-1.5 pb-0.5">
                 <IconPlus size={13} /> Ajouter une question
               </button>
             </div>
@@ -3006,7 +2997,7 @@ function EditeurGrille({ grille, onSaved }) {
         ))}
 
         <button onClick={ajouterAxe}
-          className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-400 hover:border-iip-turquoise hover:text-iip-blue flex items-center justify-center gap-1.5 transition">
+          className="w-full border-2 border-dashed border-slate-200 rounded-carte py-3 text-sm text-slate-400 hover:border-iip-blue hover:text-iip-blue flex items-center justify-center gap-1.5 transition">
           <IconPlus size={16} /> Ajouter un axe
         </button>
       </div>
@@ -3148,18 +3139,16 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
               </button>
             )}
       </>}>
-      <div className="-mx-5 -my-4 bg-gray-50 min-h-full">
+      <div className="-mx-5 -my-4 min-h-full">
 
       {/* Barre de navigation — elle reste en haut quand le guide défile. */}
-      <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 px-5 py-2 flex items-center gap-1 overflow-x-auto">
+      <div className="sticky top-0 z-10 border-b border-slate-200 px-5 flex items-center gap-4 overflow-x-auto" style={{ background: 'var(--c-fenetre_corps, #fff)' }}>
         {sections.map((s, i) => {
           const labels = { intro: 'Intro', 'q-fixe': 'Questions fixes', admin: 'Administratif', bilan: 'Bilan' };
           const label = labels[s] || `Axe ${axeKeys.indexOf(s) + 1}`;
           return (
             <button key={s} onClick={() => setSection(s)}
-              className={`text-xs px-3 py-1.5 rounded-champ whitespace-nowrap transition ${
-                section === s ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-gray-500 border border-gray-200 hover:border-iip-blue/50'
-              }`}>{label}</button>
+              className={`${section === s ? 'onglet-page onglet-page-actif' : 'onglet-page'} whitespace-nowrap`}>{label}</button>
           );
         })}
       </div>
@@ -3172,13 +3161,13 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
             <div className="carte overflow-hidden p-5">
               <EnteteCarte className="-mx-5 -mt-5 mb-4" titre="Introduction — à lire au candidat" />
               {introTexte ? (
-                <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
+                <div data-etat="neutre" className="bloc-etat text-sm text-slate-700 leading-relaxed p-4 whitespace-pre-wrap">
                   {introTexte}
                 </div>
               ) : (
-                <div className="text-sm text-gray-400 italic p-4">Chargement du texte d'introduction…</div>
+                <div className="text-sm text-slate-400 italic p-4">Chargement du texte d'introduction…</div>
               )}
-              <div className="mt-3 text-xs text-gray-400 italic flex items-center justify-between">
+              <div className="mt-3 text-xs text-slate-400 italic flex items-center justify-between">
                 <span>Ce texte est confidentiel. Pour le modifier : Config. → Recrutement.</span>
               </div>
             </div>
@@ -3189,23 +3178,23 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
             <div className="space-y-4">
               <section className="carte overflow-hidden">
                 <EnteteCarte titre="Questions fixes — posées à tous les candidats" />
-                <div className="divide-y divide-gray-100 px-4 py-3 space-y-4">
+                <div className="divide-y divide-slate-100 px-4 py-3 space-y-4">
                   <div>
                     <div className="text-xs text-iip-blue font-bold uppercase tracking-wide mb-1">Q1 — Présentation (1 minute)</div>
-                    <div className="text-sm text-gray-800 font-medium mb-2">« Pouvez-vous vous présenter en une minute ? Parcours, expérience principale, et ce qui vous a amené ici aujourd'hui. »</div>
-                    <div className="text-xs text-gray-400 italic mb-2">Question ouverte — écoute active, prise de notes.</div>
+                    <div className="text-sm text-slate-800 font-medium mb-2">« Pouvez-vous vous présenter en une minute ? Parcours, expérience principale, et ce qui vous a amené ici aujourd'hui. »</div>
+                    <div className="text-xs text-slate-400 italic mb-2">Question ouverte — écoute active, prise de notes.</div>
                     <textarea placeholder="Notes sur la réponse…" rows={2}
                       value={reponses['qf_presentation']?.commentaire || ''}
                       onChange={e => majReponse('qf_presentation', 'commentaire', e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise" />
+                      className="controle w-full h-auto py-1.5 resize-none" />
                   </div>
                   <div className="pt-3">
                     <div className="text-xs text-iip-blue font-bold uppercase tracking-wide mb-1">Q2 — Motivation</div>
-                    <div className="text-sm text-gray-800 font-medium mb-2">« Qu'est-ce qui vous motive à rejoindre l'équipe de l'Institut Ilya Prigogine ? Qu'espérez-vous y apporter, et qu'espérez-vous en retirer ? »</div>
+                    <div className="text-sm text-slate-800 font-medium mb-2">« Qu'est-ce qui vous motive à rejoindre l'équipe de l'Institut Ilya Prigogine ? Qu'espérez-vous y apporter, et qu'espérez-vous en retirer ? »</div>
                     <textarea placeholder="Notes sur la réponse…" rows={2}
                       value={reponses['qf_motivation']?.commentaire || ''}
                       onChange={e => majReponse('qf_motivation', 'commentaire', e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise" />
+                      className="controle w-full h-auto py-1.5 resize-none" />
                   </div>
                 </div>
               </section>
@@ -3216,20 +3205,22 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {axeKeys.includes(section) && (() => {
             const { couleur, questions } = parAxe[section];
             return (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
-                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>{section}</div>
-                <div className="divide-y divide-gray-100">
+              <div className="carte overflow-hidden">
+                <div className="entete-carte">
+                  <h3 className="titre-carte"><span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: couleur }} />{section}</h3>
+                </div>
+                <div className="divide-y divide-slate-100">
                   {questions.map(({ q, i }) => {
                     const disabled = !!reponses[i]?.disabled;
                     return (
                       <div key={i} className={`px-4 py-3 transition ${disabled ? 'opacity-40' : ''}`}>
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
+                          <div className="text-sm text-slate-800 font-medium flex-1">{q}</div>
                           <button onClick={() => toggleDisabled(i)}
                             className={`text-mention px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
-                              disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
+                              disabled ? 'border-slate-300 text-slate-500' : 'border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600'
                             }`}>
-                            {disabled ? '+ Réactiver' : '✕ Non posée'}
+                            {disabled ? 'Réactiver' : 'Non posée'}
                           </button>
                         </div>
                         {!disabled && (<>
@@ -3240,7 +3231,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                           className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-champ border transition font-medium ${
                             reponses[i]?.note === val
                               ? 'text-white border-transparent shadow-pose'
-                              : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                              : 'border-slate-200 text-slate-400 hover:border-slate-300'
                           }`}
                           style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
                           <span className="font-bold">{val}</span>
@@ -3249,13 +3240,13 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                       ))}
                     </div>
                     {reponses[i]?.note > 0 && (
-                      <div className="text-mention text-gray-500 italic mb-2 pl-1">
+                      <div className="text-mention text-slate-500 italic mb-2 pl-1">
                         {LIKERT.find(l => l.val === reponses[i].note)?.desc}
                       </div>
                     )}
                           <textarea value={reponses[i]?.commentaire || ''} onChange={e => majReponse(i, 'commentaire', e.target.value)}
                             placeholder="Notes sur la réponse…" rows={2}
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise" />
+                            className="controle w-full h-auto py-1.5 resize-none" />
                         </>)}
                       </div>
                     );
@@ -3270,7 +3261,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
             <div className="space-y-4">
               <section className="carte overflow-hidden">
                 <EnteteCarte titre="Questions administratives" />
-                <div className="px-4 py-3 space-y-3 text-sm text-gray-700">
+                <div className="px-4 py-3 space-y-3 text-sm text-slate-700">
                   <div className="text-second text-slate-600 font-medium">
                     Questions à poser systématiquement en fin d'entretien
                   </div>
@@ -3292,7 +3283,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                 <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Divers / autres remarques" />
                 <textarea value={divers} onChange={e => setDivers(e.target.value)}
                   placeholder="Tout autre élément pertinent noté pendant l'entretien…" rows={3}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
+                  className="controle w-full h-auto py-2 resize-none" />
               </div>
             </div>
           )}
@@ -3305,10 +3296,10 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
               {conclusionTexte && (
                 <div className="carte overflow-hidden p-5">
                   <EnteteCarte className="-mx-5 -mt-5 mb-4" titre="Mot de fin — à lire au candidat" />
-                  <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
+                  <div className="bloc-etat text-sm text-slate-700 leading-relaxed p-4 whitespace-pre-wrap" data-etat="neutre">
                     {conclusionTexte}
                   </div>
-                  <div className="mt-2 text-xs text-gray-400 italic">Pour modifier ce texte : Config. → Recrutement.</div>
+                  <div className="mt-2 text-xs text-slate-400 italic">Pour modifier ce texte : Config. → Recrutement.</div>
                 </div>
               )}
 
@@ -3316,25 +3307,25 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                 <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Bilan global de l'entretien" />
                 <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}
                   placeholder="Impression générale, points forts, réserves, recommandation finale…" rows={4}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
+                  className="controle w-full h-auto py-2 resize-none" />
               </div>
 
-              <div className="bloc-etat etat-disponible p-4">
+              <div className="carte p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
+                  <div className="titre-carte">Appréciation du niveau réflexif</div>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
                     <button key={val} type="button"
                       onClick={() => setReflexifNiveaux(prev => prev.includes(val) ? prev.filter(x=>x!==val) : [...prev, val])}
-                      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 text-left transition ${
-                        reflexifNiveaux.includes(val) ? 'text-white shadow-flottant' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-champ border-2 text-left transition ${
+                        reflexifNiveaux.includes(val) ? 'text-white shadow-flottant' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                       }`}
                       style={reflexifNiveaux.includes(val) ? { background: color, borderColor: color } : {}}>
-                      <span className={`font-bold text-lg w-6 flex-shrink-0 ${reflexifNiveaux.includes(val) ? 'text-white' : 'text-gray-400'}`}>{val}</span>
+                      <span className={`font-bold text-lg w-6 flex-shrink-0 ${reflexifNiveaux.includes(val) ? 'text-white' : 'text-slate-400'}`}>{val}</span>
                       <div>
                         <div className="font-semibold text-sm">{label}</div>
-                        <div className={`text-xs ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-gray-400'}`}>{desc}</div>
+                        <div className={`text-xs ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-slate-400'}`}>{desc}</div>
                       </div>
                     </button>
                   ))}
@@ -3342,19 +3333,19 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                 {reflexifNiveaux.length > 0 && (
                   <textarea value={reflexifCommentaire} onChange={e => setReflexifCommentaire(e.target.value)}
                     placeholder="Observations : exemples concrets, nuances…" rows={2}
-                    className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white mt-3" />
+                    className="controle w-full h-auto py-1.5 resize-none mt-3" />
                 )}
 
                 {/* Synthèse notes */}
                 {noteGlobale != null && (
-                  <div className="mt-3 pt-3 border-t border-teal-200 flex items-center justify-between">
-                    <div className="text-xs text-teal-700">
+                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
+                    <div className="text-xs text-slate-500">
                       {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQs.length}
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <div className="text-xs text-teal-600">Moyenne générale</div>
-                        <div className="text-2xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
+                        <div className="text-xs text-slate-500">Moyenne générale</div>
+                        <div className="text-2xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-slate-400">/5</span></div>
                       </div>
                       <button onClick={sauvegarder} disabled={saving}
                         className="bouton bouton-fort flex items-center gap-1.5">

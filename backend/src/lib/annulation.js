@@ -35,7 +35,7 @@ const NON_TRACEES = new Set(['annulation_trace', 'annulation_geste', 'journal_mo
   'sauvegarde', 'labo_sauvegarde', 'reglage_historique', 'rappel_envoye', 'lucie_notification', 'document_archive',
   'attribution_snapshot', 'envoi_copie',
   // MES FRAIS (3.5.197) : confidentiels, à leur titulaire seul — aucune copie dans les traces d'annulation.
-  'frais_profil', 'frais_piece', 'frais_trajet', 'frais_justificatif']);
+  'frais_profil', 'frais_piece', 'frais_trajet', 'frais_justificatif', 'frais_lieu']);
 
 /* LES ACTES OFFICIELS : un geste qui en touche un ne s'annule pas par le bouton. */
 const OFFICIELS = {

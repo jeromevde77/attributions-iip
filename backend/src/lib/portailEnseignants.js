@@ -81,7 +81,7 @@ const compte = id => comptesEnseignants().find(u => u.id === Number(id)) || null
    le registre de lecture de Lucie (`corpus_lecture`), relevés comme les présences. Même règle que Documentation : on ne
    confirme pas un texte qui n'a pas été présenté. */
 const echapper = t => String(t ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-function texteHtml(d, v) {
+export function texteHtml(d, v) {
   try {
     if (v.format === 'html') return v.contenu;
     if (v.format === 'parties') { const t = JSON.parse(v.contenu || '{}'); return `<style>${STYLES_IMPRESSION}</style>${corpsImprimable({ titre: d.titre, version: v, parties: t.parties || [] })}`; }

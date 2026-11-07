@@ -1520,7 +1520,9 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
  * 1. UNE EXPLICATION N'EST PAS UN ÉTAT. Un bloc « neutre » (ou sans état) n'a rien à signaler : il perd son cadre, son
  *    liseré et son fond, et se lit comme une ligne de texte. Le cadre reste à ce qui porte un état (à corriger, à
  *    surveiller, réussi, disponible…) et aux tuiles, qui détachent un chiffre. */
-.bloc-etat:is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande):not(.tuile-compacte) {
+/* (3.5.206) Un bloc qui porte son état par une classe (etat-reussi, etat-neutre…) n'est pas « sans état », et un bloc qu'on clique
+   ou qu'on coche (bouton, case, lien) est un choix : tous deux gardent leur cadre. */
+.bloc-etat:is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande):not(.tuile-compacte):not(:is(.etat-reussi, .etat-faveur, .etat-disponible, .etat-surveiller, .etat-corriger, .etat-neutre)):not(:is(button, label, a)) {
   border: 0; border-radius: 0; background: transparent; padding-left: 0; padding-right: 0;
   color: var(--c-texte_doux, rgb(var(--gris-600)));
 }
@@ -1678,3 +1680,17 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
 .pastille-groupe-bouton:focus-visible { outline: 2px solid var(--c-principal, #19537E); outline-offset: 2px; }
 .pastille-groupe-bouton:hover { background: color-mix(in srgb, var(--c-principal, #19537E) 8%, #fff); }
 .pastille-groupe-active, .pastille-groupe-active:hover { background: var(--c-principal, #19537E); color: #fff; }
+
+/* L'ENTRÉE DES ESPACES (3.5.202) : une seule carte ; les formulaires posés dedans n'ont pas de cadre à eux. */
+.entree-espace .carte { border: 0; background: transparent; padding: 0; }
+
+/* LA LISTE À LISERÉ GARDE SON DESSIN (3.5.202, capture de Charles : lignes décalées, liseré hors de l'arrondi). La règle « un bloc
+   neutre perd son cadre et sa marge » ne vaut pas pour une ligne de liste : même marge pour toutes, pas de liseré gris pour ce
+   qui n'a pas d'état, et la carte rogne ce qui dépasse de son arrondi. */
+.pile-etats { overflow: clip; }
+.pile-etats .bloc-etat { padding-left: 1rem !important; padding-right: 1rem !important; }
+.pile-etats .bloc-etat:is([data-etat="neutre"], :not([data-etat])) { box-shadow: none; color: inherit; background: transparent; }
+
+/* UNE ZONE DE TEXTE N'EST PAS UNE LIGNE (3.5.205) : `.controle` fixe la hauteur et interdit le retour à la ligne ; posé sur un
+   <textarea>, il l'écrasait. Le défaut est corrigé ici, une fois, pour tous les écrans. */
+textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; line-height: 1.45; padding-top: .45rem; padding-bottom: .45rem; }

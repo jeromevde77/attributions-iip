@@ -213,8 +213,8 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
             </thead>
             <tbody>
               {etudiants.map(e => (
-                <tr key={e.id} className="border-t border-slate-100 bg-white">
-                  <td className="px-2 py-1 sticky left-0 bg-white whitespace-nowrap">
+                <tr key={e.id} className="ligne-maison">
+                  <td className="px-2 py-1 sticky left-0 whitespace-nowrap" style={{ background: 'var(--c-fond_ligne, #fff)' }}>
                     <b>{String(e.nom || '').toUpperCase()}</b> {e.prenom}
                     {e.groupe && <span className="block text-xs text-slate-400">{e.groupe}</span>}
                   </td>
@@ -290,17 +290,17 @@ function FicheEvaluation({ fiche, acquis, base, annee, onFermer, onFait }) {
       </>}>
       <div className="space-y-3 text-sm">
         <label className="block"><span className="intertitre block mb-1">Intitulé</span>
-          <input className="controle w-full border border-slate-300 rounded-champ" value={f.intitule} maxLength={80} autoFocus
+          <input className="controle w-full" value={f.intitule} maxLength={80} autoFocus
             placeholder="Test 1, Interrogation, Travail de groupe…" onChange={e => setF({ ...f, intitule: e.target.value })} /></label>
         <div className="grid grid-cols-4 gap-2">
           <label><span className="intertitre block mb-1">Date</span>
-            <input type="date" className="controle w-full border border-slate-300 rounded-champ" value={f.date || ''} onChange={e => setF({ ...f, date: e.target.value })} /></label>
+            <input type="date" className="controle w-full" value={f.date || ''} onChange={e => setF({ ...f, date: e.target.value })} /></label>
           <label><span className="intertitre block mb-1">Sur</span>
-            <input className="controle w-full border border-slate-300 rounded-champ text-right" value={f.sur} inputMode="decimal" onChange={e => setF({ ...f, sur: e.target.value })} /></label>
+            <input className="controle w-full text-right" value={f.sur} inputMode="decimal" onChange={e => setF({ ...f, sur: e.target.value })} /></label>
           <label><span className="intertitre block mb-1">Poids</span>
-            <input className="controle w-full border border-slate-300 rounded-champ text-right" value={f.poids} inputMode="decimal" onChange={e => setF({ ...f, poids: e.target.value })} /></label>
+            <input className="controle w-full text-right" value={f.poids} inputMode="decimal" onChange={e => setF({ ...f, poids: e.target.value })} /></label>
           <label><span className="intertitre block mb-1">Session</span>
-            <select className="controle w-full border border-slate-300 rounded-champ" value={f.session} onChange={e => setF({ ...f, session: Number(e.target.value) })}>
+            <select className="controle w-full" value={f.session} onChange={e => setF({ ...f, session: Number(e.target.value) })}>
               <option value={1}>1ʳᵉ</option><option value={2}>2ᵉ</option></select></label>
         </div>
         {acquis.length > 0 ? (
@@ -318,7 +318,7 @@ function FicheEvaluation({ fiche, acquis, base, annee, onFermer, onFait }) {
                     <input type="checkbox" className="mt-1" checked={!!lie(a.aa_code)} onChange={() => basculer(a.aa_code)} />
                     <span className="flex-1 min-w-0"><b>{a.aa_code}</b> <span className="text-slate-500">{a.description}</span></span>
                   </label>
-                  {lie(a.aa_code) && <input className="w-14 h-7 border border-slate-300 rounded-champ text-right px-1" title="Poids de l’évaluation dans cet acquis"
+                  {lie(a.aa_code) && <input className="controle w-16 !h-7 text-right" title="Poids de l’évaluation dans cet acquis"
                     value={lie(a.aa_code).poids} inputMode="decimal" onChange={e => poidsAA(a.aa_code, e.target.value)} />}
                 </div>))}
             </div>

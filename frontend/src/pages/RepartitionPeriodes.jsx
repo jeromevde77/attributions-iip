@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { IconAlertTriangle, IconDeviceFloppy, IconCalculator, IconCheck, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { EnteteCarte } from '../components/ui.jsx';
+import { EnteteCarte, PastilleEtat, Tableau } from '../components/ui.jsx';
 
 /**
  * Répartition des périodes entre les deux années civiles d'une année académique.
@@ -148,9 +148,8 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
       </div>
 
       {message && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
-          message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
-                                : 'bg-red-500 text-white border border-red-500'}`}>
+        <div data-etat={message.type === 'ok' ? 'reussi' : 'corriger'}
+          className="bloc-etat px-4 py-2.5 text-sm text-slate-800 flex items-center justify-between">
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} title="Fermer" aria-label="Fermer" className="ml-3 opacity-60"><IconX size={14} /></button>
         </div>
@@ -158,11 +157,11 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
 
       <div className="flex gap-2 flex-wrap items-center">
         {!anneeImposee && <select value={annee} onChange={e => setAnnee(e.target.value)}
-          className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-semibold text-iip-blue">
+          className="controle font-semibold text-iip-blue">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>}
         <select value={section} onChange={e => setSection(e.target.value)}
-          className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+          className="controle">
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
@@ -211,10 +210,8 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
               </div>
               <div className="flex flex-wrap gap-2">
                 {civile.enveloppes.map(e => (
-                  <div key={e.code}
-                    className={`px-3 py-1.5 rounded-lg border text-second ${e.depasse
-                      ? 'bg-red-500 border-red-500 text-white'
-                      : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <div key={e.code} data-etat={e.depasse ? 'corriger' : 'neutre'}
+                    className="bloc-etat px-3 py-1.5 text-second text-slate-700">
                     <b>{e.label}</b> · {nb(e.consomme)} pér.
                     {e.illimite ? <span className="text-slate-400"> · sans plafond</span>
                       : e.disponible != null && (
@@ -228,8 +225,8 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
                 ))}
               </div>
               {civile.avertissement && (
-                <div className="mt-2 text-second text-red-800 flex items-center gap-1.5">
-                  <IconAlertTriangle size={14} /> {civile.avertissement}
+                <div className="mt-2 text-second text-slate-700 flex items-center gap-1.5">
+                  <IconAlertTriangle size={14} style={{ color: 'var(--c-refuse)' }} /> {civile.avertissement}
                 </div>
               )}
             </div>
@@ -239,13 +236,11 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
 
       {/* Bouclage : ce qui est réparti doit égaler ce qui est attribué. */}
       {data?.controle && (
-        <div className={`px-4 py-2.5 rounded-xl border text-sm flex items-center gap-3 flex-wrap ${
-          data.controle.boucle
-            ? 'bg-emerald-500 border-emerald-500 text-white'
-            : 'bg-red-500 border-red-500 text-white'}`}>
+        <div data-etat={data.controle.boucle ? 'reussi' : 'corriger'}
+          className="bloc-etat px-4 py-2.5 text-sm text-slate-800 flex items-center gap-3 flex-wrap">
           {data.controle.boucle
-            ? <IconCheck size={16} className="flex-none" />
-            : <IconAlertTriangle size={16} className="flex-none" />}
+            ? <IconCheck size={16} className="flex-none" style={{ color: 'var(--e)' }} />
+            : <IconAlertTriangle size={16} className="flex-none" style={{ color: 'var(--e)' }} />}
           <span>
             <b>{nb(data.controle.reparti)}</b> période(s) réparties pour
             {' '}<b>{nb(data.controle.attribue)}</b> attribuée(s)
@@ -253,20 +248,20 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
               ? ' — la déclaration correspond à ce qui est organisé.'
               : ` — écart de ${nb(data.controle.ecart)}, à résorber avant de déclarer.`}
           </span>
-          <span className="text-xs opacity-70 ml-auto">
+          <span className="text-xs text-slate-500 ml-auto">
             Pilotage consolide {nb(data.controle.pilotage)} pér. sur les mêmes UE
           </span>
         </div>
       )}
 
       {data?.anomalies?.length > 0 && (
-        <div className="bloc-etat etat-surveiller px-4 py-3">
-          <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
-            <IconAlertTriangle size={15} /> {data.anomalies.length} contrôle(s) à examiner
+        <div data-etat="surveiller" className="bloc-etat px-4 py-3">
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-iip-texte mb-1.5">
+            <IconAlertTriangle size={15} style={{ color: 'var(--e)' }} /> {data.anomalies.length} contrôle(s) à examiner
           </div>
-          <ul className="text-second text-amber-900 space-y-0.5">
+          <ul className="text-second text-slate-700 space-y-0.5">
             {data.anomalies.slice(0, 12).map((a, i) => (
-              <li key={i} className={a.niveau === 'grave' ? 'text-red-800 font-medium' : ''}>
+              <li key={i} className={a.niveau === 'grave' ? 'text-red-700 font-medium' : ''}>
                 <b>UE {a.ue_num}</b> · {a.cours} — {a.message}
               </li>
             ))}
@@ -278,12 +273,11 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
       {!data ? (
         <div className="py-10 text-center text-sm text-slate-400">Chargement…</div>
       ) : !data.ues.length ? (
-        <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
+        <div className="carte py-10 text-center text-sm text-slate-400">
           Aucune organisation d'UE pour {annee}.
         </div>
       ) : (
-        <div className="border border-slate-200 rounded-xl overflow-x-auto">
-          <table className="w-full text-sm">
+        <Tableau>
             <thead>
               <tr className="tab-entete">
                 <th className="px-3 py-2 text-left min-w-[240px]">Activité d'enseignement</th>
@@ -314,14 +308,10 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
                             {s.ues} organisation(s) · {nb(s.attribue)} pér. attribuées
                           </span>
                           {!s.boucle && (
-                            <span className="text-mention px-1.5 py-0.5 rounded bg-red-500 text-white font-normal">
-                              écart de bouclage
-                            </span>
+                            <PastilleEtat etat="corriger">écart de bouclage</PastilleEtat>
                           )}
                           {s.hors_organique > 0 && (
-                            <span className="text-mention px-1.5 py-0.5 rounded bg-violet-500 text-white font-normal">
-                              dont {nb(s.hors_organique)} hors dotation
-                            </span>
+                            <PastilleEtat etat="neutre">dont {nb(s.hors_organique)} hors dotation</PastilleEtat>
                           )}
                         </button>
                       </td>
@@ -342,8 +332,7 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
                 );
               })}
             </tbody>
-          </table>
-        </div>
+        </Tableau>
       )}
 
       <p className="text-xs text-slate-500">
@@ -379,7 +368,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           value={valeur ?? ''}
           onChange={e => editer(u, l, nom, e.target.value)}
           className={`w-16 border rounded px-1 py-0.5 text-second text-right
-            ${modifie ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}`} />
+            ${modifie ? 'border-amber-500' : 'border-slate-200'}`} />
         {groupes && (
           <div className={`text-mention leading-tight mt-0.5 ${
             groupes.entier ? 'text-slate-400' : 'text-amber-700 font-semibold'}`}
@@ -395,23 +384,23 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
 
   return (
     <>
-      <tr className="bg-slate-50/80 border-y border-slate-200">
+      <tr className="ligne-maison">
         <td className="px-3 py-1.5 text-second font-semibold text-iip-blue">
           UE {u.ue_num}{u.num_organisation > 1 ? ` · org. ${u.num_organisation}` : ''} — {u.ue_nom}
           <span className="ml-2 text-xs font-normal text-slate-500">
             {fr(u.date_debut)} → {fr(u.date_fin)}
           </span>
           {u.pot && u.pot !== 'organique' && (
-            <span className="ml-2 text-mention px-1.5 py-0.5 rounded bg-violet-500 text-white"
+            <PastilleEtat etat="neutre" className="ml-2"
               title="Cette UE est financée par une enveloppe fermée, non par la dotation organique.">
               {u.pot}
-            </span>
+            </PastilleEtat>
           )}
           {u.periodes_helb > 0 && (
-            <span className="ml-2 text-mention px-1.5 py-0.5 rounded bg-slate-200 text-slate-600"
+            <PastilleEtat etat="neutre" className="ml-2"
               title="Ces périodes relèvent de la HELB : elles ne se décomptent pas de votre dotation et n'entrent pas dans la répartition.">
               {u.periodes_helb} pér. HELB, hors dotation
-            </span>
+            </PastilleEtat>
           )}
           {u.part_dates != null && (
             <button onClick={onAppliquerDates}
@@ -423,9 +412,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
         </td>
         <td className="px-2 py-1.5 text-center">
           {u.niveau && (
-            <span className="text-mention px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-              {u.niveau}
-            </span>
+            <PastilleEtat etat="neutre">{u.niveau}</PastilleEtat>
           )}
         </td>
         <td className="px-2 py-1.5 text-center text-xs text-slate-500">
@@ -452,11 +439,11 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
       </tr>
 
       {u.lignes.map(l => (
-        <tr key={`${l.cours_code || l.nature}`} className="border-b border-slate-100 hover:bg-slate-50/50">
+        <tr key={`${l.cours_code || l.nature}`} className="ligne-maison">
           <td className="px-3 py-1 pl-6 text-second text-slate-700">
             {l.nature === 'autonomie' ? (
-              <span className="italic text-violet-700">Autonomie
-                <span className="ml-1.5 text-mention not-italic text-violet-500">hors cas généraux</span>
+              <span className="italic text-slate-600">Autonomie
+                <span className="ml-1.5 text-mention not-italic text-slate-400">hors cas généraux</span>
               </span>
             ) : (
               <>

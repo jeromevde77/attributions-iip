@@ -8,8 +8,8 @@ import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import CompositionSection from '../components/CompositionSection.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
-import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle, IconBooks } from '@tabler/icons-react';
-import { Fenetre, GroupeFenetre, Chevron, EnteteCarte } from '../components/ui.jsx';
+import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle, IconBooks, IconScale } from '@tabler/icons-react';
+import { Fenetre, GroupeFenetre, Chevron, EnteteCarte, PastilleEtat, Tableau } from '../components/ui.jsx';
 import AcquisUE from '../components/AcquisUE.jsx';
 import MotifsDefautUE from '../components/MotifsDefautUE.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -197,7 +197,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
               <div className="intertitre mb-1">
                 Dossiers pédagogiques
               </div>
-              <label className="flex items-center gap-3 border-2 border-dashed border-iip-turquoise/30 rounded-lg p-4 cursor-pointer hover:border-iip-turquoise/60 transition">
+              <label className="flex items-center gap-3 border-2 border-dashed border-slate-300 rounded-carte p-4 cursor-pointer hover:border-iip-blue transition">
                 <IconUpload size={22} className="text-iip-turquoise flex-shrink-0" />
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-iip-blue">
@@ -224,15 +224,15 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                 Section cible <span className="text-gray-400 font-normal normal-case">(pour les UE qui n'existent pas encore)</span>
               </div>
               <select value={section} onChange={e => setSection(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white focus:outline-none focus:border-iip-blue">
+                className="controle w-full">
                 <option value="">— Rechercher par code FWB uniquement —</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.libelle}</option>)}
               </select>
             </div>
 
             {error && (
-              <div className="bloc-etat etat-corriger p-3 text-sm text-red-700 flex items-start gap-2">
-                <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />{error}
+              <div data-etat="corriger" className="bloc-etat p-3 text-sm text-slate-800 flex items-start gap-2">
+                <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--e)' }} />{error}
               </div>
             )}
 
@@ -305,7 +305,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                               value={cibles[x.fichier]
                                 ?? (x.data.action === 'updated' ? String(x.data.ue_num) : '')}
                               onChange={e => changerCible(x.fichier, e.target.value, x.data.parsed?.cours)}
-                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-iip-blue">
+                              className="controle flex-1 text-xs">
                               {x.data.action === 'created' && (
                                 <option value="">Créer une nouvelle UE</option>
                               )}
@@ -357,8 +357,8 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                                       return { ...m, [x.fichier]: { ...c0, choix } };
                                     })}
                                     className={`w-56 border rounded px-1.5 py-0.5 text-xs bg-white
-                                      ${carte.choix[ci] ? 'border-green-400 text-green-800' : 'border-amber-300 text-iip-texte'}`}>
-                                    <option value="">➕ Créer ce cours</option>
+                                      ${carte.choix[ci] ? 'border-emerald-500 text-slate-800' : 'border-amber-500 text-iip-texte'}`}>
+                                    <option value="">+ Créer ce cours</option>
                                     {carte.cours.map(k => (
                                       <option key={k.cours_code} value={k.cours_code}>
                                         {k.cours_code} — {k.cours_nom}
@@ -466,21 +466,21 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
         </p>
         <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={8}
           placeholder={"Exemple :\nTIM\t248\tPhysique…\tBA1\tQ1/Q2\t144\nTIM\t260\tContrôle qualité…\tBA1\tQ2\t139"}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-xs font-mono mb-3" />
+          className="w-full border border-slate-300 rounded-champ px-3 py-2 text-xs font-mono mb-3" />
         <div className="flex gap-2 mb-3">
           <button type="button" onClick={parser} className="bouton">Analyser</button>
           {preview && <span className="text-sm text-gray-500 self-center">{preview.length} ligne(s) détectée(s)</span>}
         </div>
         {preview && preview.length > 0 && (
-          <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{ minHeight: '80px' }}>
-            <table className="w-full text-second">
-              <thead className="tab-entete sticky top-0"><tr><th className="text-left px-3 py-1.5 h-9 text-gray-500">N° UE</th><th className="text-right px-3 py-1.5 h-9 text-gray-500">Nb étudiants</th></tr></thead>
+          <div className="mb-3 flex-1 overflow-auto" style={{ minHeight: '80px' }}>
+            <Tableau dense>
+              <thead className="sticky top-0"><tr className="tab-entete"><th className="text-left px-3 py-1.5 h-9">N° UE</th><th className="text-right px-3 py-1.5 h-9">Nb étudiants</th></tr></thead>
               <tbody>
                 {preview.map((e, i) => (
-                  <tr key={i} className="border-t border-gray-100"><td className="px-3 py-1 text-gray-700">{e.ue_num}</td><td className="px-3 py-1 text-right text-gray-700">{e.nb_etudiants}</td></tr>
+                  <tr key={i} className="ligne-maison"><td className="px-3 py-1 text-slate-700">{e.ue_num}</td><td className="px-3 py-1 text-right text-slate-700">{e.nb_etudiants}</td></tr>
                 ))}
               </tbody>
-            </table>
+            </Tableau>
           </div>
         )}
     </Fenetre>
@@ -757,7 +757,7 @@ export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ong
           + `refuse de changer, rien n'est écrit.`);
         if (!ok) { setSaving(false); return; }
         const fait = await api.renameUENum(ue.ue_num, n, false, portee);
-        informer(`✓ L'UE ${ue.ue_num} est devenue l'UE ${n} à partir de ${portee} (${fait.total} ligne(s)).`);
+        informer(`L'UE ${ue.ue_num} est devenue l'UE ${n} à partir de ${portee} (${fait.total} ligne(s)).`);
         onSaved();
         return;
       }
@@ -1098,7 +1098,7 @@ function CatalogueUEModal({ section, onClose, onDone }) {
       try {
         const res = await api.appliquerNominations(ue.ue_num, section);
         if (res?.alertes?.length) {
-          await informer('Profs définitifs placés.\n\n⚠ ' + res.alertes.map(a => a.message).join('\n'));
+          await informer('Profs définitifs placés.\n\nÀ vérifier : ' + res.alertes.map(a => a.message).join('\n'));
         }
       } catch { /* non bloquant */ }
       onDone(r);
@@ -1110,28 +1110,28 @@ function CatalogueUEModal({ section, onClose, onDone }) {
     <Fenetre icone={IconLink} titre={`Rattacher une UE à ${section}`}
       sous="Catalogue de toutes les UE. Une UE absente de l'année courante y sera copiée automatiquement."
       large="moyenne" onFermer={onClose}>
-        <div className="pb-2 mb-1 border-b">
+        <div className="pb-2 mb-1 border-b border-slate-200">
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une UE (numéro ou nom)…"
-            className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" autoFocus />
+            className="controle w-full" autoFocus />
         </div>
         {loading ? (
           <div className="p-8 text-center text-gray-400">Chargement…</div>
         ) : (
-          <div className="-mx-5 divide-y divide-gray-100">
+          <div className="-mx-5 divide-y divide-slate-100">
             {filtered.map(ue => {
               const present = dejaLa(ue);
               return (
-                <div key={ue.ue_num} className={`flex items-center gap-3 px-5 py-2 ${present ? 'opacity-50' : 'hover:bg-iip-gold/5'}`}>
-                  <span className="font-semibold text-iip-gold text-sm w-16 flex-shrink-0">UE {ue.ue_num}</span>
-                  {ue.ue_niv && <span className="text-xs bg-gray-100 px-1.5 rounded flex-shrink-0">{ue.ue_niv}</span>}
+                <div key={ue.ue_num} className={`flex items-center gap-3 px-5 py-2 ${present ? 'opacity-50' : 'hover:bg-slate-50'}`}>
+                  <span className="font-semibold text-iip-blue text-sm w-16 flex-shrink-0">UE {ue.ue_num}</span>
+                  {ue.ue_niv && <PastilleEtat etat="neutre" className="flex-shrink-0">{ue.ue_niv}</PastilleEtat>}
                   <span className="text-sm text-gray-700 truncate flex-1" title={ue.ue_nom}>{ue.ue_nom}</span>
                   {!ue.presente_annee_active && <span className="text-xs text-iip-mauve flex-shrink-0" title="Sera copiée dans l'année courante">à copier</span>}
                   {ue.sections.length > 0 && <span className="text-xs text-gray-400 flex-shrink-0">{ue.sections.join(', ')}</span>}
                   {present ? (
-                    <span className="text-xs text-green-600 font-medium flex-shrink-0">✓ déjà rattachée</span>
+                    <PastilleEtat etat="reussi" className="flex-shrink-0">déjà rattachée</PastilleEtat>
                   ) : (
                     <button onClick={() => rattacher(ue)} disabled={busy === ue.ue_num}
-                      className="text-xs bg-iip-gold hover:bg-iip-amber text-white px-3 py-1 rounded flex-shrink-0 disabled:opacity-40">
+                      className="bouton bouton-fort flex-shrink-0">
                       {busy === ue.ue_num ? '…' : 'Rattacher'}
                     </button>
                   )}
@@ -1203,45 +1203,44 @@ export default function Referentiels({ embedded = false }) {
         {embedded && <div className="text-sm text-gray-500">Structure académique · {annee}</div>}
         <div className="flex gap-2">
           {annees.filter(a => a.code !== annee).length > 0 && (
-            <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">Importer des UE</button>
+            <button onClick={() => setImportOpen(true)} className="bouton">Importer des UE</button>
           )}
-          <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-iip-turquoise/40 text-iip-blue hover:bg-iip-turquoise/5 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
-          <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle section</button>
-          <button onClick={() => setDpImportOpen(true)} className="bg-white border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/5 text-sm px-4 py-2 rounded font-medium flex items-center gap-1.5"><IconUpload size={15} /> Import DP</button>
-          <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle UE</button>
+          <button onClick={() => setEffectifsOpen(true)} className="bouton">Importer effectifs étudiants</button>
+          <button onClick={() => setSectionModal({})} className="bouton"><IconPlus size={15} /> Nouvelle section</button>
+          <button onClick={() => setDpImportOpen(true)} className="bouton"><IconUpload size={15} /> Import DP</button>
+          <button onClick={() => setUeModal({})} className="bouton bouton-fort"><IconPlus size={15} /> Nouvelle UE</button>
         </div>
       </div>
 
-      <p className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 border border-gray-200">
+      <p className="text-xs text-slate-500">
         Gérez la structure académique de l'année <b>{annee}</b> : sections, UE et cours.
         Les UE et cours sont propres à chaque année. Les sections sont communes à toutes les années.
         La suppression est bloquée s'il existe des attributions.
       </p>
 
       {/* Sélecteur de vue */}
-      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+      <div className="segments w-fit">
         <button onClick={() => setViewMode('sections')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'sections' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm ${viewMode === 'sections' ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
           Sections
         </button>
         <button onClick={() => setViewMode('section')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'section' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm ${viewMode === 'section' ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
           UE
         </button>
         <button onClick={() => setViewMode('table')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'table' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm ${viewMode === 'table' ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
           Tableau global
         </button>
         <button onClick={() => setViewMode('activites')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'activites' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm ${viewMode === 'activites' ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
           <IconTarget size={15} className="inline align-[-2px] mr-1" />Activités
         </button>
       </div>
 
       {/* ── Vue Sections : tableau de gestion des sections ── */}
       {viewMode === 'sections' && (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
-          <table className="w-full text-sm">
+        <Tableau>
             <thead>
               <tr className="tab-entete">
                 <th className="text-left px-3 py-2">Code</th>
@@ -1264,36 +1263,34 @@ export default function Referentiels({ embedded = false }) {
                 const nbCours = grp ? grp.ues.reduce((n, u) => n + u.cours.length, 0) : 0;
                 return (
                   <tr key={s.code} className="ligne-maison">
-                    <td className="px-3 py-2 font-semibold text-iip-gold">{s.code}</td>
+                    <td className="px-3 py-2 font-semibold text-iip-blue">{s.code}</td>
                     <td className="px-3 py-2 text-gray-700">{s.libelle && s.libelle !== s.code ? s.libelle : <span className="text-gray-300">—</span>}</td>
-                    <td className="px-3 py-2 text-center">{s.niveau ? <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{s.niveau}</span> : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2 text-center">{s.niveau ? <PastilleEtat etat="neutre">{s.niveau}</PastilleEtat> : <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-700">{s.responsable || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-center text-gray-600">{s.code_fwb || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-right text-gray-500">{nbUe}</td>
                     <td className="px-3 py-2 text-right text-gray-500">{nbCours}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
-                      <button onClick={() => setUeModal({ section: s.code })} className="text-iip-mauve hover:opacity-70 font-bold" title={`Ajouter une UE à ${s.code}`}><IconPlus size={14} /></button>
-                      <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber ml-3" title="Modifier"><IconPencil size={15} /></button>
+                      <button onClick={() => setUeModal({ section: s.code })} className="text-slate-400 hover:text-iip-blue" title={`Ajouter une UE à ${s.code}`}><IconPlus size={14} /></button>
+                      <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-slate-400 hover:text-iip-blue ml-3" title="Modifier"><IconPencil size={15} /></button>
                       <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
-        </div>
+        </Tableau>
       )}
 
       {viewMode === 'section' && structure.length === 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">
+        <div className="carte p-8 text-center text-slate-400">
           Aucune UE pour {annee}. Créez-en une avec « Nouvelle UE ».
         </div>
       )}
 
 
       {viewMode === 'section' && (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
-          <table className="w-full text-sm">
+        <Tableau>
             <thead>
               <tr className="tab-entete">
                 <th className="w-8"></th>
@@ -1325,35 +1322,35 @@ export default function Referentiels({ embedded = false }) {
                     {/* Bandeau de section (ligne de regroupement) */}
                     <tr className="tab-repere">
                       <td className="px-2 py-2 text-center">
-                        <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
+                        <button onClick={() => toggle(secKey)} className="text-slate-400 font-bold">
                           <Chevron ouvert={secOpen} size={14} />
                         </button>
                       </td>
                       <td colSpan="7" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
-                        <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
-                        {sg.section_niveau && <span className="ml-2 text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
+                        <span className="font-bold text-iip-blue text-sm">{sg.section}</span>
+                        {sg.section_niveau && <PastilleEtat etat="neutre" className="ml-2">{sg.section_niveau}</PastilleEtat>}
                       </td>
                       <td colSpan="6" className="px-2 py-2 text-right text-sm text-gray-500">
                         <button onClick={(e) => { e.stopPropagation(); setGrilleSection(sg.section); }}
                           title={`Répartir l'autonomie de ${sg.section}`}
-                          className="mr-3 text-xs px-2 py-1 rounded bg-iip-mauve/10 text-iip-mauve hover:bg-iip-mauve hover:text-white transition font-medium">
-                          ⚖ Autonomie
+                          className="bouton mr-3">
+                          <IconScale size={14} /> Autonomie
                         </button>
                         {sg.ues.length} UE · {totalCours} cours
                       </td>
                       <td className="px-2 py-2 text-right relative">
                         <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
                           title={`Ajouter une UE à ${sg.section}`}
-                          className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition"><IconPlus size={14} /></button>
+                          className="bouton px-2"><IconPlus size={14} /></button>
                         {catalogueSection === sg.section && (
-                          <div className="absolute right-2 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-64 text-left">
+                          <div className="absolute right-2 top-full mt-1 z-30 bg-white border border-slate-200 rounded-carte shadow-dessus py-1 w-64 text-left">
                             <button onClick={() => { setCatalogueOpen(sg.section); setCatalogueSection(null); }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
-                              <IconLink size={15} className="text-iip-gold" /><span>Rattacher une UE existante</span>
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2">
+                              <IconLink size={15} className="text-slate-500" /><span>Rattacher une UE existante</span>
                             </button>
                             <button onClick={() => { setUeModal({ section: sg.section }); setCatalogueSection(null); }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
-                              <span>＋</span><span>Créer une nouvelle UE</span>
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                              <IconPlus size={15} className="text-slate-500" /><span>Créer une nouvelle UE</span>
                             </button>
                           </div>
                         )}
@@ -1366,31 +1363,25 @@ export default function Referentiels({ embedded = false }) {
                       const isHelb = ue.et_ref === 'HELB';
                       return (
                         <Fragment key={ue.ue_num}>
-                          <tr className={`${
-                            activeUE === ueKey
-                              ? (isHelb
-                                  ? `bg-pink-50 border-t-2 border-pink-400 ${ueOpen ? '' : 'border-b-2'}`
-                                  : `bg-iip-gold/5 border-t-2 border-iip-gold/60 ${ueOpen ? '' : 'border-b-2'}`)
-                              : (isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-b border-gray-100 border-l-2 border-l-pink-400' : 'ligne-maison border-b border-gray-100')
-                          }`}>
-                            <td className={`px-2 py-1.5 text-center ${activeUE === ueKey ? (isHelb ? 'border-l-2 border-pink-400' : 'border-l-2 border-iip-gold/60') : ''}`}>
-                              <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
+                          <tr className={`ligne-maison ${activeUE === ueKey ? 'ligne-active' : ''}`}>
+                            <td className={`px-2 py-1.5 text-center ${isHelb ? 'border-l-2 border-l-pink-400' : ''}`}>
+                              <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-slate-400">
                                 <Chevron ouvert={ueOpen} size={14} />
                               </button>
                             </td>
-                            <td className="px-2 py-1.5 h-9 font-semibold text-iip-gold whitespace-nowrap cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>UE {ue.ue_num}</td>
+                            <td className="px-2 py-1.5 h-9 font-semibold text-iip-blue whitespace-nowrap cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>UE {ue.ue_num}</td>
                             <td className="px-2 py-1.5 h-9 text-center">{ue.ue_niv || '—'}</td>
                             <td className="px-2 py-1.5 h-9 text-center">{ue.ue_niveau || '—'}</td>
                             <td className="px-2 py-1.5 h-9 text-center">{ue.ue_quad || '—'}</td>
                             <td className="px-2 py-1.5 h-9 text-center">
-                              {isHelb ? <span className="text-pink-600 font-bold">HELB</span> : (ue.et_ref || '—')}
+                              {isHelb ? <PastilleEtat etat="neutre">HELB</PastilleEtat> : (ue.et_ref || '—')}
                             </td>
                             <td className="px-2 py-1.5 h-9 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                               {ue.ue_nom}
                               {ue._orpheline && (
-                                <span className="ml-2 text-xs bg-orange-500 text-white border border-orange-500 rounded px-1.5 py-0.5" title="Des attributions existent pour cette UE mais elle n'a pas de fiche dans le référentiel">
-                                  ⚠ fiche manquante
-                                </span>
+                                <PastilleEtat etat="surveiller" className="ml-2" title="Des attributions existent pour cette UE mais elle n'a pas de fiche dans le référentiel">
+                                  fiche manquante
+                                </PastilleEtat>
                               )}
                               {ue.sections_partagees && (
                                 <span className="ml-2 text-sm text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
@@ -1404,20 +1395,16 @@ export default function Referentiels({ embedded = false }) {
                             <td className="px-2 py-1.5 h-9 text-right font-semibold text-iip-mauve">{ue.ue_per_etudiants ?? '—'}</td>
                             <td className="px-2 py-1.5 h-9 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 h-9 text-right text-gray-400">{ue.nb_attributions}</td>
-                            <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
-                              <button onClick={() => setUeModal({ ...ue, _edit: true, _liste: sg.ues })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
+                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                              <button onClick={() => setUeModal({ ...ue, _edit: true, _liste: sg.ues })} className="text-slate-400 hover:text-iip-blue" title="Modifier l'UE"><IconPencil size={15} /></button>
                               <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                             </td>
                           </tr>
                           {ueOpen && (
-                            <tr className={
-                              activeUE === ueKey
-                                ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5')
-                                : (isHelb ? 'bg-pink-50/40' : '')
-                            }>
-                              <td colSpan="14" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
+                            <tr className={activeUE === ueKey ? 'ligne-active' : ''}>
+                              <td colSpan="14" className={`px-8 py-2 ${isHelb ? 'border-l-2 border-l-pink-400' : ''}`}>
                                 <table className="w-full text-sm">
-                                  <thead><tr className="text-gray-500 text-xs">
+                                  <thead><tr className="text-slate-500 text-xs">
                                     <th className="text-left py-1 pr-2">Code</th>
                                     <th className="text-left">Nom du cours</th>
                                     <th className="text-center px-2" title="Type d'enseignement (CT/PP/CG)">Type</th>
@@ -1480,8 +1467,7 @@ export default function Referentiels({ embedded = false }) {
                 );
               })}
             </tbody>
-          </table>
-        </div>
+        </Tableau>
       )}
 
       {/* Vue tableau global : toutes les UE triées par numéro */}
@@ -1503,11 +1489,10 @@ export default function Referentiels({ embedded = false }) {
           .map(ue => ({ ...ue, _sectionsLabel: ue._sections.size ? [...ue._sections].sort().join(', ') : '-' }))
           .sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
         if (allUes.length === 0) {
-          return <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">Aucune UE pour {annee}.</div>;
+          return <div className="carte p-8 text-center text-slate-400">Aucune UE pour {annee}.</div>;
         }
         return (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
+          <Tableau>
               <thead>
                 <tr className="tab-entete">
                   <th className="text-left px-3 py-2 w-8"></th>
@@ -1533,17 +1518,17 @@ export default function Referentiels({ embedded = false }) {
                   const isHelb = ue.et_ref === 'HELB';
                   return (
                     <Fragment key={ueKey}>
-                      <tr className={`ligne-maison ${isHelb ? 'bg-pink-50' : ''}`}>
-                        <td className="px-3 py-1.5 h-9">
-                          <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
+                      <tr className="ligne-maison">
+                        <td className={`px-3 py-1.5 h-9 ${isHelb ? 'border-l-2 border-l-pink-400' : ''}`}>
+                          <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-slate-400">
                             <Chevron ouvert={ueOpen} size={14} />
                           </button>
                         </td>
-                        <td className="px-2 py-1.5 h-9 font-semibold text-iip-gold cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>{ue.ue_num}</td>
+                        <td className="px-2 py-1.5 h-9 font-semibold text-iip-blue cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>{ue.ue_num}</td>
                         <td className="px-2 py-1.5 h-9 text-xs text-gray-600">{ue._sectionsLabel}</td>
                         <td className="px-2 py-1.5 h-9 cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                           {ue.ue_nom}
-                          {isHelb && <span className="text-xs text-pink-600 font-bold ml-1.5">HELB</span>}
+                          {isHelb && <PastilleEtat etat="neutre" className="ml-1.5">HELB</PastilleEtat>}
                         </td>
                         <td className="px-2 py-1.5 h-9 text-center">{ue.ue_niv || '—'}</td>
                         <td className="px-2 py-1.5 h-9 text-center">{ue.ue_niveau || '—'}</td>
@@ -1555,15 +1540,15 @@ export default function Referentiels({ embedded = false }) {
                         <td className="px-2 py-1.5 h-9 text-right">{ue.ects ?? '—'}</td>
                         <td className="px-2 py-1.5 h-9 text-right text-gray-400">{ue.cours.length}</td>
                         <td className="px-2 py-1.5 h-9 text-right whitespace-nowrap">
-                          <button onClick={() => setUeModal({ ...ue, _edit: true, _liste: allUes })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
+                          <button onClick={() => setUeModal({ ...ue, _edit: true, _liste: allUes })} className="text-slate-400 hover:text-iip-blue" title="Modifier l'UE"><IconPencil size={15} /></button>
                           <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                         </td>
                       </tr>
                       {ueOpen && (
-                        <tr className={isHelb ? 'bg-pink-50/40' : ''}>
-                          <td colSpan="14" className="px-6 py-2">
+                        <tr>
+                          <td colSpan="14" className={`px-6 py-2 ${isHelb ? 'border-l-2 border-l-pink-400' : ''}`}>
                             <table className="w-full text-sm">
-                              <thead><tr className="text-gray-500 text-xs">
+                              <thead><tr className="text-slate-500 text-xs">
                                 <th className="text-left py-1 pr-2">Code</th><th className="text-left">Nom du cours</th>
                                 <th className="text-center px-1" title="Type (CT/PP/CG)">Type</th>
                                 <th className="text-center px-1" title="Code U (Z/B/F/T/P/O)">Code U</th>
@@ -1620,8 +1605,7 @@ export default function Referentiels({ embedded = false }) {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+          </Tableau>
         );
       })()}
 
@@ -1744,19 +1728,19 @@ function GestionActivites({ sections = [] }) {
   function RowAct({ a }) {
     const isEdit = editId === a.id;
     return (
-      <tr className="hover:bg-gray-50 group border-b border-gray-100 last:border-0">
+      <tr className="ligne-maison group">
         <td className="px-4 py-2 w-full">
           {isEdit
             ? <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') sauvegarderEdit(a.id); if (e.key === 'Escape') setEditId(null); }}
-                className="border border-iip-gold rounded px-3 py-1.5 h-9 text-sm w-full" />
+                className="controle w-full" />
             : <span className="text-sm text-gray-700">{a.libelle}</span>}
         </td>
         <td className="px-3 py-2 whitespace-nowrap">
           {a.ue_num
             ? <span className="text-xs text-gray-400">UE{a.ue_num}</span>
             : <select value={a.section || ''} onChange={e => changerSection(a.id, e.target.value)}
-                className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-500 cursor-pointer hover:border-iip-gold">
+                className="text-xs border border-slate-200 rounded px-1.5 py-0.5 bg-white text-slate-500 cursor-pointer hover:border-iip-blue">
                 <option value="">Globale</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
               </select>}
@@ -1764,10 +1748,8 @@ function GestionActivites({ sections = [] }) {
         <td className="px-3 py-2 whitespace-nowrap">
           <select value={a.type_etp || ''} onChange={e => changerType(a.id, e.target.value)}
             className={`text-xs font-semibold border rounded px-1.5 py-0.5 cursor-pointer outline-none
-              ${a.type_etp === 'TH' ? 'bg-slate-100 text-slate-800 border-slate-300'
-              : a.type_etp === 'TP' ? 'bg-cyan-500 text-white border-cyan-500'
-              : a.type_etp === 'COD' ? 'bg-iip-gold/10 text-iip-gold border-iip-gold/40'
-              : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+              ${a.type_etp ? 'bg-white text-iip-blue border-slate-300'
+              : 'bg-white text-slate-400 border-slate-200'}`}
             title="Type pour le calcul ETP : TH ÷800, TP ÷1000, COD ÷1440">
             <option value="">— Type —</option>
             <option value="TH">TH (÷800)</option>
@@ -1779,12 +1761,12 @@ function GestionActivites({ sections = [] }) {
           <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition">
             {isEdit
               ? <>
-                  <button onClick={() => sauvegarderEdit(a.id)} className="text-xs text-iip-gold hover:underline"><IconCheck size={13} className="inline align-[-2px]" /> OK</button>
+                  <button onClick={() => sauvegarderEdit(a.id)} className="text-xs text-iip-blue hover:underline"><IconCheck size={13} className="inline align-[-2px]" /> OK</button>
                   <button onClick={() => setEditId(null)} className="text-xs text-gray-400 hover:underline">Annuler</button>
                 </>
               : <>
                   <button onClick={() => { setEditId(a.id); setEditVal(a.libelle); }}
-                    className="text-xs text-gray-400 hover:text-iip-gold">Renommer</button>
+                    className="text-xs text-slate-400 hover:text-iip-blue">Renommer</button>
                   <button onClick={() => supprimer(a.id, a.libelle)}
                     className="text-xs text-gray-400 hover:text-red-500"><IconX size={14} /></button>
                 </>}
@@ -1806,7 +1788,7 @@ function GestionActivites({ sections = [] }) {
               {titre} <span className="text-gray-400 font-normal">({acts.length})</span></>} />
         </button>
         {!replie && (
-          <table className="w-full">
+          <table className="tableau-maison w-full">
             <tbody>
               {acts.map(a => <RowAct key={a.id} a={a} />)}
               {!acts.length && <tr><td colSpan={4} className="px-4 py-3 text-xs text-gray-400 italic">Aucune</td></tr>}
@@ -1828,12 +1810,12 @@ function GestionActivites({ sections = [] }) {
             <input value={newLibelle} onChange={e => setNewLibelle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && creer()}
               placeholder="ex. Remédiation, Atelier…"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm focus:border-iip-gold outline-none" />
+              className="controle w-full" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Section</label>
             <select value={newSection} onChange={e => setNewSection(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle">
               <option value="">Globale (toutes sections)</option>
               {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
             </select>
@@ -1848,12 +1830,12 @@ function GestionActivites({ sections = [] }) {
       {/* Recherche */}
       <input value={search} onChange={e => setSearch(e.target.value)}
         placeholder="Rechercher une activité…"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-iip-gold outline-none" />
+        className="controle w-full" />
 
       {loading ? <div className="text-center text-gray-400 py-8">Chargement…</div> : (
         <>
           <Bloc cle="__glob" titre="Communes à toutes les sections" sousTitre="Disponibles partout"
-            acts={globales} couleur="text-iip-gold" />
+            acts={globales} couleur="text-iip-blue" />
           {sectionsTriees.map(sec => (
             <Bloc key={sec} cle={sec} titre={`${sec}`} acts={parSection[sec]} />
           ))}

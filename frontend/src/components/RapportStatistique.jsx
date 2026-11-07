@@ -26,7 +26,7 @@ const e2 = n => (n ? n.toFixed(2).replace('.', ',') : '—');
 const HELB = 'var(--c-helb)';
 
 function BadgeHelb({ libelle = 'HELB' }) {
-  return <span className="ml-1.5 text-mention font-bold text-white rounded px-1.5 py-px align-middle" style={{ background: HELB }}>{libelle}</span>;
+  return <span className="pastille-etat ml-1.5 align-middle" style={{ '--e': HELB }}>{libelle}</span>;
 }
 
 // L'anneau et les barres sont ceux de la maison (components/graphiques.jsx, 3.1.261).
@@ -88,7 +88,7 @@ function Personnes({ d }) {
         <div>
           <div className="text-sm font-semibold mb-1">Les pays <span className="text-slate-500 font-normal">· {pays.length}</span></div>
           {!pays.length ? <p className="text-second text-slate-500 m-0">Aucune nationalité renseignée.</p> : (
-            <Barres lignes={pays.slice(0, 12).map(([nom, v]) => ({ nom, valeur: v, couleur: nom === 'Belgique' ? COUL_NAT.be : '#5E9C8B' }))} format={v => `${k0(v)} · ${pc(v, natC)}`} />)}
+            <Barres lignes={pays.slice(0, 12).map(([nom, v]) => ({ nom, valeur: v, couleur: nom === 'Belgique' ? COUL_NAT.be : 'var(--g-2)' }))} format={v => `${k0(v)} · ${pc(v, natC)}`} />)}
           {pays.length > 12 && <div className="text-xs text-slate-500 mt-1">… et {pays.length - 12} autre(s) pays.</div>}
         </div>
       </div>
@@ -100,7 +100,7 @@ function Personnes({ d }) {
             <tr key={l.section} className="border-b border-slate-100"><Td>{l.section}</Td><Td n>{k0(y.n)}</Td><Td n>{k0(y.F)}</Td><Td n>{k0(y.M)}</Td><Td n>{pc(y.F || 0, c)}</Td>
               <Td n>{k0(y.be)} <span className="text-xs text-slate-400">{pc(y.be || 0, cn)}</span></Td><Td n>{k0(y.ue)}</Td><Td n>{k0(y.hors_ue)}</Td>
               <Td n className={y.nat_inconnue ? 'text-slate-400' : ''}>{k0(y.nat_inconnue)}</Td></tr>); })}</tbody>
-          <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble (chacun une fois)</Td><Td n>{k0(x.n)}</Td><Td n>{k0(x.F)}</Td><Td n>{k0(x.M)}</Td><Td n>{pc(x.F || 0, sexeC)}</Td>
+          <tfoot><tr className="ligne-total font-semibold"><Td>Ensemble (chacun une fois)</Td><Td n>{k0(x.n)}</Td><Td n>{k0(x.F)}</Td><Td n>{k0(x.M)}</Td><Td n>{pc(x.F || 0, sexeC)}</Td>
             <Td n>{k0(x.be)} <span className="text-xs text-slate-400 font-normal">{pc(x.be || 0, natC)}</span></Td><Td n>{k0(x.ue)}</Td><Td n>{k0(x.hors_ue)}</Td><Td n>{k0(x.nat_inconnue)}</Td></tr></tfoot>
         </table>
       </div>
@@ -312,7 +312,7 @@ function FinancesFormations({ annee }) {
           <thead className="tab-entete"><tr><Th>Section</Th><Th n>Inscrits</Th><Th n>Coût salarial</Th><Th n>dont FWB</Th><Th n>dont HELB</Th><Th n>Fonds propres</Th>
             <Th n>{mode === 'prevu' ? 'Budget prévu' : 'Dépensé'}</Th><Th n>Services (part)</Th><Th n>Coût véritable</Th><Th n>DI et frais</Th><Th n>Produits</Th><Th n>Rapporte</Th><Th n>Solde</Th></tr></thead>
           <tbody>
-            <tr className="font-semibold bg-slate-50 border-b border-slate-300"><Td>Ensemble</Td><Td n>{k0(T.inscrits)}</Td><Td n>{eur(T.cout_salarial)}</Td><Td n>{eur(T.cout_fwb)}</Td><Td n>{eur(T.cout_helb)}</Td><Td n>{eur(T.cout_fp)}</Td>
+            <tr className="ligne-total font-semibold border-b border-slate-300"><Td>Ensemble</Td><Td n>{k0(T.inscrits)}</Td><Td n>{eur(T.cout_salarial)}</Td><Td n>{eur(T.cout_fwb)}</Td><Td n>{eur(T.cout_helb)}</Td><Td n>{eur(T.cout_fp)}</Td>
               <Td n>{eur(mode === 'prevu' ? T.budget_charges : T.realise)}</Td><Td n>{eur(mode === 'prevu' ? T.communs_charges : T.communs_realise)}</Td><Td n>{eur(cv(T))}</Td>
               <Td n>{eur(T.di_frais)}</Td><Td n>{eur((T.budget_produits || 0) + (T.communs_produits || 0))}</Td><Td n>{eur(T.rapporte)}</Td><Td n>{signe(so(T))}</Td></tr>
             {f.sections.map(r => (
@@ -437,7 +437,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
                 <Td n b>{l.taux ? eur(l.montant) : '—'}</Td><Td n>{eur(l.cout_detaille)}</Td>
               </tr>))}</tbody>
             {Y.cmb.lignes.length > 1 && (
-            <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble{Y.cmb.a_regler.length ? ' — montants des niveaux chiffrés seulement' : ''}</Td>
+            <tfoot><tr className="ligne-total font-semibold"><Td>Ensemble{Y.cmb.a_regler.length ? ' — montants des niveaux chiffrés seulement' : ''}</Td>
               <Td n>{k0(Y.cmb.lignes.reduce((a, l) => a + l.per_iip, 0))}</Td><Td n>{k0(Y.cmb.lignes.reduce((a, l) => a + l.per_helb, 0))}</Td>
               <Td n>{k0(Y.cmb.total.periodes)}</Td><Td /><Td n>{eur(Y.cmb.total.montant_iip)}</Td><Td n>{eur(Y.cmb.total.montant_helb)}</Td>
               <Td n>{eur(Y.cmb.total.montant)}</Td><Td n>{eur(Y.cmb.total.cout_detaille)}</Td></tr></tfoot>)}
@@ -463,7 +463,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
                   <div style={{ width: pc(E.cc, E.total), background: 'var(--g-1)' }} /><div style={{ width: pc(E.exp, E.total), background: 'var(--g-2)' }} /></div></Td>
                 {Y.etp_total.autre > 0 && <Td n>{e2(E.autre)}</Td>}
               </tr>))}</tbody>
-            <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble</Td><Td n>{e2(Y.etp_total.total)}</Td><Td n>{e2(Y.etp_total.cc)}</Td><Td n>{e2(Y.etp_total.exp)}</Td>
+            <tfoot><tr className="ligne-total font-semibold"><Td>Ensemble</Td><Td n>{e2(Y.etp_total.total)}</Td><Td n>{e2(Y.etp_total.cc)}</Td><Td n>{e2(Y.etp_total.exp)}</Td>
               <Td n>{pc(Y.etp_total.cc, Y.etp_total.total)}</Td>
               <Td n>{k0(totalInscrits(d, sections))}</Td>
 <Td><span className="text-xs text-slate-500 font-normal">
@@ -489,7 +489,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
                 <Td n>{S.part_fonctions ? eur(S.part_fonctions) : '—'}</Td><Td n b>{eur(S.cout_complet)}</Td>
                 <Td n>{S.inscrits ? eur(S.cout_complet / S.inscrits) : '—'}</Td>
               </tr>))}</tbody>
-            <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble</Td><Td n>{eur(T.cout)}</Td><Td n>{eur(d.statuts?.CC?.cout)}</Td><Td n>{eur(d.statuts?.EXP?.cout)}</Td>
+            <tfoot><tr className="ligne-total font-semibold"><Td>Ensemble</Td><Td n>{eur(T.cout)}</Td><Td n>{eur(d.statuts?.CC?.cout)}</Td><Td n>{eur(d.statuts?.EXP?.cout)}</Td>
               <Td n>{eur(T.cout_helb)}</Td><Td n>{k0(ins)}</Td><Td n>{eur(T.cout_fonctions)}</Td><Td n>{eur(T.cout_complet)}</Td><Td n>{ins ? eur(T.cout_complet / ins) : '—'}</Td></tr></tfoot>
           </table></div>
         </Carte>
@@ -508,7 +508,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
                   <Td>{S.section}<BadgeHelb libelle={t.payeur || 'HELB'} /><span className="text-xs text-slate-500"> perçu par {t.payeur} · {t.etudiants} étudiant(s)</span></Td>
                   <Td n>0</Td><Td n>0</Td><Td n>0</Td><Td n b>0</Td><Td n>0</Td><Td n>0</Td></tr>,
               ]; })}</tbody>
-            <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble — perçu par l'établissement</Td><Td n>{k0(R.di)}</Td><Td n>{k0(R.dis)}</Td><Td n>{k0(R.frais)}</Td>
+            <tfoot><tr className="ligne-total font-semibold"><Td>Ensemble — perçu par l'établissement</Td><Td n>{k0(R.di)}</Td><Td n>{k0(R.dis)}</Td><Td n>{k0(R.frais)}</Td>
               <Td n>{k0((R.di || 0) + (R.dis || 0) + (R.frais || 0))}</Td><Td n>{k0(R.verse)}</Td>
               <Td n>{R.etudiants ? k0(((R.di || 0) + (R.dis || 0) + (R.frais || 0)) / R.etudiants) : '—'}</Td></tr></tfoot>
           </table></div>
@@ -527,7 +527,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
                 <Td n>{g.cout ? eur(g.cout) : g.cout_periodes ? <i>{eur(g.cout_periodes)} *</i> : '—'}</Td>
               </tr>))}</tbody>
             <tfoot>
-              <tr className="font-semibold bg-slate-50"><Td>Ensemble des fonctions</Td><Td /><Td /><Td /><Td>{Y.fonctions.some(g => g.helb) ? `dont HELB ${eur(Y.fonctions.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` : ''}</Td><Td n>{eur(T.cout_fonctions)}</Td></tr>
+              <tr className="ligne-total font-semibold"><Td>Ensemble des fonctions</Td><Td /><Td /><Td /><Td>{Y.fonctions.some(g => g.helb) ? `dont HELB ${eur(Y.fonctions.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` : ''}</Td><Td n>{eur(T.cout_fonctions)}</Td></tr>
               {Y.cout_en_periodes > 0 && <tr><Td className="text-second text-slate-500" colSpan={5}>* payées par des périodes attribuées — déjà comprises dans le coût des cours, hors total</Td><Td n><i>{eur(Y.cout_en_periodes)} *</i></Td></tr>}
             </tfoot>
           </table></div>)}
