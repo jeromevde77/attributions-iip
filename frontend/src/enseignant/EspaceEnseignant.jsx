@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
 import { FournisseurRail } from '../components/ui.jsx';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import DatesDeliberation, { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeliberation.jsx';
+import { useDatesDeliberation, LigneDeliberation, EvaluationsDeliberations } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import TrainUE from '../components/TrainUE.jsx';
@@ -931,7 +931,7 @@ function MonAgenda({ moi, onPresences }) {
     <div className="space-y-4">
       <h1 className="titre-ecran">Mon agenda</h1>
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Délibérations'], ['annee', 'L’année de l’école']].map(([k, l]) => (
+        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Évaluations et délibérations'], ['annee', 'L’année de l’école']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
         <span className="flex-1" />
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
@@ -941,7 +941,7 @@ function MonAgenda({ moi, onPresences }) {
         // MA SEMAINE À L'ÉCHELLE DES HEURES (3.5.150, Charles : « une structure par heures, comme dans l'horaire normal ») : la
         // semaine de Lucie, avec l'agenda de l'école au-dessus de chaque jour ; une séance ouvre ses présences.
         // LES DÉLIBÉRATIONS DE MES UNITÉS (3.5.160, Charles : « ceci doit aller dans agenda ») : le tableau quitte Mes unités.
-        : vue === 'deliberations' ? <DatesDeliberation annee={annee || undefined} />
+        : vue === 'deliberations' ? <EvaluationsDeliberations annee={annee || undefined} />
         : vue === 'semaine' ? <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
         : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
       <Suspense fallback={null}>
