@@ -2614,7 +2614,9 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         <EnvoiMailModal
           pieces={envoi}
           typeDoc="deliberation_lot"
-          sujet={delibChoisie ? `Documents de délibération — ${annee}` : `Documents — ${annee}`}
+          // LE SUJET DIT DE QUOI IL S'AGIT (3.5.188, Charles : « pourquoi deux fois le même document ? » — deux envois, deux sessions, un
+          // même titre) : l'unité et la session, dans l'espace de l'étudiant comme dans sa boîte.
+          sujet={delibChoisie ? `Documents de délibération — UE ${(liste?.unites || []).map(u => u.ue_num).join(', ')} · ${session === 2 ? '2e' : '1re'} session · ${annee}` : `Documents — ${annee}`}
           contenu={`${delibChoisie ? `Délibération ${annee} · session ${session} · UE ${(liste?.unites || []).map(u => u.ue_num).join(', ')}` : annee} · ${[...PIECES, ...PIECES_DOSSIER].filter(x => choix[x.cle]).map(x => x.label.toLowerCase()).join(', ')}`}
           onClose={() => setEnvoi(null)} />
       )}
