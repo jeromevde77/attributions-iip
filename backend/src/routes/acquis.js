@@ -3956,6 +3956,14 @@ export function coursAutorises(user, annee) {
  * pas faire disparaître des pièces.
  */
 export function decisionDeSession(etudId, ueNum, annee, session = 1) {
+  /* LA SECONDE SESSION N'EXISTE QUE POUR L'AJOURNÉ (3.5.193, Charles : « si on réussit en S1, on n'a pas de doc en S2, puisqu'elle
+     n'existe pas »). « Réussites d'office » en S2 avait posé une décision de S2 à neuf réussis de S1 de l'UE 333, qui ont reçu une
+     seconde attestation. Une ligne de S2 ne compte que si la S1 a ajourné l'étudiant. */
+  if (Number(session) === 2) {
+    const s1 = db.prepare(`SELECT resultat FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1`).get(Number(etudId), annee, Number(ueNum));
+    if (s1 && s1.resultat !== 'ajourne') return { resultat: null, points: null, mention: null, source: null };
+  }
   const l = db.prepare(`
     SELECT resultat, points, mention FROM deliberation_resultat
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
@@ -8834,6 +8842,9 @@ r.post('/deliberation/ue/:ueNum/plein-droit', authRequired,
   db.transaction(() => {
     for (const i of inscrits) {
       if (ids && !ids.includes(i.etudiant_id)) continue;
+      // En S2, seul l'ajourné de S1 se délibère (3.5.193).
+      if (ses === 2 && db.prepare(`SELECT resultat FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ?
+        AND ue_num = ? AND session = 1`).get(i.etudiant_id, annee, ueNum)?.resultat !== 'ajourne') continue;
       const d = delibererUE(i.etudiant_id, ueNum, annee, ses);
       if (!d.ue.de_plein_droit) continue;
       maj.run('reussi', d.ue.note, i.id);
@@ -9294,7 +9305,10 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const ses = Number(req.body?.session) === 2 ? 2 : 1;
-  const ids = Array.isArray(req.body?.etudiants) ? req.body.etudiants.map(Number) : [];
+  // En S2, seul l'ajourné de S1 se délibère (3.5.193).
+  const ids = (Array.isArray(req.body?.etudiants) ? req.body.etudiants.map(Number) : [])
+    .filter(id => ses !== 2 || db.prepare(`SELECT resultat FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ?
+      AND ue_num = ? AND session = 1`).get(id, annee, ueNum)?.resultat === 'ajourne');
   const motif = String(req.body?.motif || '').trim();
   const simulation = req.body?.simulation === true;
   const aussiCours = req.body?.cours !== false;

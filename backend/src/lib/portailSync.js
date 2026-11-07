@@ -370,6 +370,14 @@ async function deposerDocuments() {
       JOIN envoi_copie c ON c.envoi_id = m.id WHERE m.destinataire_type = 'etudiant' AND m.statut IN ('envoye','simule','depose')
       ORDER BY m.id DESC`).all();
   } catch { return; }
+  /* UNE PIÈCE DE SECONDE SESSION POUR QUI N'Y ÉTAIT PAS SE RETIRE (3.5.193) : l'UE 333 avait envoyé une attestation « Session 2 » à
+     des réussis de S1. Le registre la garde ; l'espace ne la montre plus. */
+  const { decisionDeSession } = await import('../routes/acquis.js');
+  envois = envois.filter(m => {
+    const x = /^Session 2 — UE (\d+)/.exec(String(m.contenu || '')), a = /(\d{4}-\d{4})/.exec(String(m.sujet || ''));
+    if (!x || !a) return true;
+    try { return !!decisionDeSession(m.destinataire_id, Number(x[1]), a[1], 2).resultat; } catch { return true; }
+  });
   /* UN TITRE QUI DIT LEQUEL (3.5.192, Charles : « pourquoi le document est deux fois ? ») : deux envois de délibération (S1 puis
      S2) portaient le même sujet générique ; le registre garde ce qu'ils contiennent (« Session 2 — UE 333 : motivation de refus »).
      Les documents déjà déposés sont renommés. */
