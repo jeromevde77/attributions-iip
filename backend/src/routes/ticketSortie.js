@@ -51,7 +51,7 @@ r.get('/:coursCode/:seanceId/qr', authRequired, (req, res) => {
   try {
     const x = qrDuTicket(t);
     if (x.erreur) return res.status(409).json({ error: x.message });
-    res.json({ ...x, resultats: resultatsTicket(t) });
+    res.json({ ...x, resultats: resultatsTicket(t), lucie_url: process.env.LUCIE_URL ? String(process.env.LUCIE_URL).replace(/\/+$/, '') : null });
   } catch (e) { res.status(503).json({ error: e.message }); }
 });
 

@@ -112,6 +112,7 @@ export default function TicketSortie({ seance, onFermer }) {
   const [info, setInfo] = useState(null);       // { types, max, defaut, ticket, resultats }
   const [mode, setMode] = useState('charge');   // charge | composer | projeter | resultats
   const [jeton, setJeton] = useState(null);
+  const [lucie, setLucie] = useState(null);   // l’adresse de Lucie, quand on projette depuis l’espace enseignant
   const [r, setR] = useState(null);
   const [erreur, setErreur] = useState(null);
 
@@ -125,7 +126,7 @@ export default function TicketSortie({ seance, onFermer }) {
     if (mode !== 'projeter') return undefined;
     let vivant = true, t = null;
     const tourner = async () => {
-      try { const j = await appel(`${base}/qr`); if (!vivant) return; setJeton(j.jeton); setR(j.resultats); setErreur(null); t = setTimeout(tourner, (j.rotation_s || 15) * 1000); }
+      try { const j = await appel(`${base}/qr`); if (!vivant) return; setJeton(j.jeton); setLucie(j.lucie_url || null); setR(j.resultats); setErreur(null); t = setTimeout(tourner, (j.rotation_s || 15) * 1000); }
       catch (e) { if (vivant) { setErreur(e.message); setMode('resultats'); } }
     };
     tourner();
@@ -136,7 +137,7 @@ export default function TicketSortie({ seance, onFermer }) {
   useEffect(() => {
     if (mode !== 'projeter' || !jeton || !toile.current) return;
     const taille = Math.min(window.innerWidth * 0.45, window.innerHeight * 0.6);
-    QRCode.toCanvas(toile.current, `${window.location.origin}/presence/${encodeURIComponent(jeton)}`, { width: Math.round(taille), margin: 2, errorCorrectionLevel: 'M' });
+    QRCode.toCanvas(toile.current, `${(window.__lucieRelais && lucie) || window.location.origin}/presence/${encodeURIComponent(jeton)}`, { width: Math.round(taille), margin: 2, errorCorrectionLevel: 'M' });
   }, [jeton, mode]);
 
   useEffect(() => {

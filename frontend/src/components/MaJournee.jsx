@@ -212,7 +212,7 @@ export function ProjectionQR({ seance, onFermer }) {
   useEffect(() => {
     if (!etat?.jeton || !toile.current) return;
     const taille = Math.min(window.innerWidth * 0.55, window.innerHeight * 0.72);
-    QRCode.toCanvas(toile.current, `${window.location.origin}/presence/${encodeURIComponent(etat.jeton)}`,
+    QRCode.toCanvas(toile.current, `${(window.__lucieRelais && etat.lucie_url) || window.location.origin}/presence/${encodeURIComponent(etat.jeton)}`,
       { width: Math.round(taille), margin: 2, errorCorrectionLevel: 'M' });
   }, [etat?.jeton]);
 
