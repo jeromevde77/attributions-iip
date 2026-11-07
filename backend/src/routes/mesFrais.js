@@ -38,11 +38,26 @@ try {
     CREATE TABLE IF NOT EXISTS frais_justificatif (id INTEGER PRIMARY KEY AUTOINCREMENT, piece_id INTEGER NOT NULL, nom TEXT,
       mime TEXT, fichier TEXT, taille INTEGER, cree_le TEXT DEFAULT (datetime('now')));
   `);
+  for (const [t, c] of [['frais_profil', 'domicile TEXT'], ['frais_trajet', 'depart_type TEXT']]) {
+    try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c}`); } catch { /* déjà là */ }
+  }
 } catch (e) { console.error('[mes frais] migration', e.message); }
 
 const garde = (req, res, next) => (ROLES.includes(req.user?.role) ? next() : res.status(403).json({ error: 'Réservé à la direction.' }));
 const sienne = (req, id) => db.prepare('SELECT * FROM frais_piece WHERE id = ? AND user_id = ?').get(Number(id), req.user.id);
-const profilDe = uid => db.prepare('SELECT * FROM frais_profil WHERE user_id = ?').get(uid) || {};
+/* LE DOMICILE (3.5.199, Charles : « ce n'est pas forcément depuis Lennik, cela peut être de chez moi — tu as l'adresse ») :
+   repris de la fiche du personnel reliée au compte, tant que le profil n'en porte pas un autre. */
+function domicileFiche(uid) {
+  try {
+    const p = db.prepare(`SELECT p.adresse_rue, p.code_postal, p.commune FROM utilisateur u JOIN professeur p ON p.id = u.professeur_id WHERE u.id = ?`).get(uid);
+    return p ? [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
+  } catch { return ''; }
+}
+const profilDe = uid => {
+  const p = db.prepare('SELECT * FROM frais_profil WHERE user_id = ?').get(uid) || {};
+  return { ...p, domicile: p.domicile || domicileFiche(uid) || null };
+};
+const departDe = (prof, type, autre) => (type === 'domicile' ? prof.domicile : type === 'autre' ? autre : prof.depart || DEPART_DEFAUT);
 const DEPART_DEFAUT = 'Route de Lennik 808, 1070 Anderlecht';
 
 r.use(authRequired, garde);
@@ -53,17 +68,17 @@ r.get('/', (req, res) => {
     .map(x => ({ ...x,
       trajets: db.prepare('SELECT * FROM frais_trajet WHERE piece_id = ? ORDER BY date, id').all(x.id),
       justificatifs: db.prepare('SELECT id, nom, mime, taille FROM frais_justificatif WHERE piece_id = ? ORDER BY id').all(x.id) }));
-  res.json({ profil: { depart: DEPART_DEFAUT, entite: 'Institut Ilya Prigogine', fonction: 'Directeur(rice)', ...p }, pieces });
+  res.json({ profil: { entite: 'Institut Ilya Prigogine', fonction: 'Directeur(rice)', ...p, depart: p.depart || DEPART_DEFAUT }, pieces });
 });
 
 r.put('/profil', (req, res) => {
   const b = req.body || {};
   const iban = String(b.iban || '').replace(/\s+/g, '').toUpperCase();
   if (iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/.test(iban)) return res.status(400).json({ error: 'IBAN illisible.' });
-  db.prepare(`INSERT INTO frais_profil (user_id, prenom, nom, fonction, iban, depart, entite, maj_le) VALUES (?,?,?,?,?,?,?, datetime('now'))
+  db.prepare(`INSERT INTO frais_profil (user_id, prenom, nom, fonction, iban, depart, entite, domicile, maj_le) VALUES (?,?,?,?,?,?,?,?, datetime('now'))
     ON CONFLICT(user_id) DO UPDATE SET prenom = excluded.prenom, nom = excluded.nom, fonction = excluded.fonction, iban = excluded.iban,
-      depart = excluded.depart, entite = excluded.entite, maj_le = excluded.maj_le`)
-    .run(req.user.id, b.prenom || null, b.nom || null, b.fonction || null, iban || null, b.depart || null, b.entite || null);
+      depart = excluded.depart, entite = excluded.entite, domicile = excluded.domicile, maj_le = excluded.maj_le`)
+    .run(req.user.id, b.prenom || null, b.nom || null, b.fonction || null, iban || null, b.depart || null, b.entite || null, b.domicile || null);
   res.json({ ok: true });
 });
 
@@ -113,18 +128,21 @@ r.post('/gsm', (req, res) => {
    l'emporte, le calcul reste à côté. */
 r.get('/km', async (req, res) => {
   const p = profilDe(req.user.id);
-  const x = await kmAllerRetour(String(req.query.depart || p.depart || DEPART_DEFAUT), String(req.query.arrivee || ''));
-  res.json(x);
+  const depart = departDe(p, String(req.query.type || 'travail'), String(req.query.depart || ''));
+  if (!depart) return res.json({ km_ar: null, raison: 'adresse de départ inconnue (domicile : à compléter dans « Mes coordonnées »)' });
+  res.json({ ...(await kmAllerRetour(depart, String(req.query.arrivee || ''))), depart });
 });
 r.post('/piece/:id/trajet', async (req, res) => {
   const p = sienne(req, req.params.id);
   if (!p || p.nature !== 'km') return res.status(404).json({ error: 'Relevé introuvable.' });
   const b = req.body || {};
-  const depart = b.depart || profilDe(req.user.id).depart || DEPART_DEFAUT;
+  const type = ['travail', 'domicile', 'autre'].includes(b.depart_type) ? b.depart_type : 'travail';
+  const depart = departDe(profilDe(req.user.id), type, b.depart);
+  if (!depart) return res.status(400).json({ error: type === 'domicile' ? 'Votre domicile n’est pas connu : complétez « Mes coordonnées ».' : 'L’adresse de départ manque.' });
   let calc = null; try { calc = (await kmAllerRetour(depart, b.arrivee || '')).km_ar; } catch { /* */ }
   const km = b.km === '' || b.km == null ? calc : Number(b.km);
-  const id = db.prepare(`INSERT INTO frais_trajet (piece_id, date, depart, arrivee, entreprise, raison, a_charge, km, km_calcule)
-    VALUES (?,?,?,?,?,?,?,?,?)`).run(p.id, b.date || null, depart, b.arrivee || null, b.entreprise || null, b.raison || null,
+  const id = db.prepare(`INSERT INTO frais_trajet (piece_id, date, depart, depart_type, arrivee, entreprise, raison, a_charge, km, km_calcule)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`).run(p.id, b.date || null, depart, type, b.arrivee || null, b.entreprise || null, b.raison || null,
       b.a_charge || 'Entité', km, calc).lastInsertRowid;
   res.json({ ok: true, id: Number(id), km, km_calcule: calc });
 });

@@ -992,6 +992,35 @@ export function PastilleEtat({ etat = 'neutre', children, className = '', title 
   );
 }
 
+/* LA LISTE À LISERÉ — UNE RECETTE POUR TOUT LUCIE (3.5.199, Charles, 7 novembre 2026 : « une carte, des lignes à liseré » ;
+   « TOUT doit être semblable, sinon les gens se perdent »). Documents, messages, textes à lire, ce qui m'attend, unités : une
+   carte au rayon réglé, une ligne par élément, le liseré de l'état à gauche (data-etat), un filet entre les lignes, un chevron
+   quand la ligne s'ouvre. Le dessin vit dans index.css (`.pile-etats`) ; un écran n'écrit plus ses lignes à la main. */
+export function ListeEtats({ children, className = '' }) {
+  return <div className={`pile-etats ${className}`}>{children}</div>;
+}
+/** Une ligne. `titre` et `sous` (gris, une ligne) ; `meta` : pastilles après le titre ; `droite` : ce qui va à droite ;
+ *  `onClick` : la ligne s'ouvre (chevron) ; `children` : ce qui se déplie sous elle. */
+export function LigneEtat({ etat = 'neutre', icone: Ic = null, couleurIcone = null, titre, sous = null, meta = null, droite = null,
+                            onClick = null, ouverte = false, children = null, attenue = false, id }) {
+  const tete = (
+    <>
+      {Ic && <Ic size={20} className="flex-none text-slate-500" style={couleurIcone ? { color: couleurIcone } : undefined} />}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 flex-wrap"><b className="text-sm text-iip-texte">{titre}</b>{meta}</span>
+        {sous && <span className="block text-second text-slate-500 truncate">{sous}</span>}
+      </span>
+      {droite}
+      {onClick && <IconChevronRight size={16} className={`flex-none text-slate-400 transition-transform ${ouverte ? 'rotate-90' : ''}`} />}
+    </>);
+  const cls = `w-full text-left flex items-center gap-3 ${attenue ? 'opacity-75' : ''}`;
+  return (
+    <div id={id} className="bloc-etat px-4 py-2.5" data-etat={etat}>
+      {onClick ? <button type="button" onClick={onClick} className={`${cls} hover:brightness-[.98]`}>{tete}</button> : <div className={cls}>{tete}</div>}
+      {children && <div className="mt-2">{children}</div>}
+    </div>);
+}
+
 /** LE PRIMO-INSCRIT (3.1.268) : aucune trace dans une année antérieure — le serveur
  *  en décide (`lib/primo.js`), l'écran ne fait que le montrer, partout de la même façon. */
 export function BadgePrimo({ className = '' }) {

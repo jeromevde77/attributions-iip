@@ -3,6 +3,7 @@ import { IconReceipt, IconCreditCard, IconCar, IconDeviceMobile, IconFileTypePdf
 import { EnteteCarte, Encadre, Fenetre, OutilFenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { demander } from '../lib/dialogue.jsx';
+import ChampsAdresse from './ChampsAdresse.jsx';
 
 /* MES FRAIS (3.5.197, Charles : « dans l'espace finances, je dois pouvoir compléter ce genre de documents pour moi — confidentiel
    et à moi ! »). Trois pièces de l'ASBL : note de frais (et la note GSM du semestre), justificatif de dépense payée par la carte de
@@ -61,7 +62,7 @@ export default function MesFrais() {
       </div>
       <section className="carte overflow-hidden">
         <EnteteCarte icone={IconReceipt} titre="Mes pièces" sous="Une ligne ouvre la pièce ; le PDF sort au modèle de l’ASBL, signé, justificatifs à la suite." />
-        <Tableau>
+        <Tableau className="!border-0 !rounded-none">
           <TableauEntete><Th>Pièce</Th><Th>Date</Th><Th>Fournisseur / période</Th><Th align="droite">Montant / km</Th><Th align="droite">Justif.</Th></TableauEntete>
           <tbody>
             {!d.pieces.length && <TableauVide colonnes={5}>Aucune pièce pour l’instant.</TableauVide>}
@@ -90,7 +91,7 @@ function Champ({ l, children }) {
 }
 
 function FenetreProfil({ profil, onFermer, recharger }) {
-  const [v, setV] = useState({ prenom: '', nom: '', fonction: 'Directeur(rice)', iban: '', depart: '', entite: '', ...profil });
+  const [v, setV] = useState({ prenom: '', nom: '', fonction: 'Directeur(rice)', iban: '', depart: '', entite: '', domicile: '', ...profil });
   const [err, setErr] = useState(null);
   const enreg = async () => { try { await appel('PUT', '/profil', v); await recharger(); onFermer(); } catch (e) { setErr(e.message); } };
   const c = k => ({ value: v[k] || '', onChange: e => setV({ ...v, [k]: e.target.value }), className: 'controle w-full' });
@@ -103,6 +104,7 @@ function FenetreProfil({ profil, onFermer, recharger }) {
         <Champ l="Fonction"><select {...c('fonction')}>{['Directeur(rice)', 'Directeur(rice) adjoint(e)', 'Responsable'].map(f => <option key={f}>{f}</option>)}</select></Champ>
         <Champ l="IBAN pour le remboursement"><input {...c('iban')} placeholder="BE.." /></Champ>
         <Champ l="Lieu de travail (départ des trajets)"><input {...c('depart')} /></Champ>
+        <Champ l="Domicile (repris de votre fiche du personnel)"><input {...c('domicile')} placeholder="rue, n°, code postal, commune" /></Champ>
         <Champ l="À charge de (par défaut)"><input {...c('entite')} /></Champ>
       </div>
     </Fenetre>);
@@ -111,7 +113,10 @@ function FenetreProfil({ profil, onFermer, recharger }) {
 function FenetrePiece({ p, profil, onFermer, recharger }) {
   const [v, setV] = useState(p);
   const [err, setErr] = useState(null);
-  const [t, setT] = useState({ date: auj(), arrivee: '', entreprise: '', raison: '', a_charge: 'Entité', km: '' });
+  const VIDE = { date: auj(), depart_type: 'travail', depart: '', cp: '', localite: '', rue: '', entreprise: '', raison: '', a_charge: 'Entité', km: '' };
+  const [t, setT] = useState(VIDE);
+  // L'ARRIVÉE SE SAISIT AVEC L'AIDE BPOST (code postal → localité → rue), comme une adresse de fiche ; elle se recompose en une ligne.
+  const arrivee = [t.rue, [t.cp, t.localite].filter(Boolean).join(' ')].filter(Boolean).join(', ');
   const [calc, setCalc] = useState(null);
   useEffect(() => { setV(p); }, [p]);
   const N = NATURES[p.nature] || NATURES.note;
@@ -137,12 +142,15 @@ function FenetrePiece({ p, profil, onFermer, recharger }) {
     try { await appel('DELETE', `/piece/${p.id}`); await recharger(); onFermer(); } catch (e) { setErr(e.message); }
   };
   const calculer = async () => {
-    if (!t.arrivee) return;
-    try { const j = await appel('GET', `/km?arrivee=${encodeURIComponent(t.arrivee)}`); setCalc(j.km_ar ?? j.raison); if (j.km_ar != null && !t.km) setT({ ...t, km: String(j.km_ar) }); } catch (e) { setCalc(e.message); }
+    if (!t.cp || !t.rue) return;
+    try {
+      const j = await appel('GET', `/km?type=${t.depart_type}&depart=${encodeURIComponent(t.depart)}&arrivee=${encodeURIComponent(arrivee)}`);
+      setCalc(j.km_ar ?? j.raison); if (j.km_ar != null) setT(x => ({ ...x, km: String(j.km_ar) }));
+    } catch (e) { setCalc(e.message); }
   };
   const ajouterTrajet = async () => {
-    if (!t.arrivee) { setErr('L’adresse d’arrivée est requise.'); return; }
-    try { await appel('POST', `/piece/${p.id}/trajet`, t); setT({ date: auj(), arrivee: '', entreprise: '', raison: '', a_charge: 'Entité', km: '' }); setCalc(null); recharger(); }
+    if (!t.cp || !t.rue) { setErr('L’adresse d’arrivée est requise (code postal et rue).'); return; }
+    try { await appel('POST', `/piece/${p.id}/trajet`, { ...t, arrivee }); setT(VIDE); setCalc(null); recharger(); }
     catch (e) { setErr(e.message); }
   };
   const totalKm = p.trajets.reduce((s, x) => s + (Number(x.km) || 0), 0);
@@ -164,27 +172,45 @@ function FenetrePiece({ p, profil, onFermer, recharger }) {
         {p.nature !== 'km' && <Champ l="Objet et localisation de la dépense"><textarea rows={3} {...c('objet')} className="controle w-full h-auto py-1.5" /></Champ>}
         {p.nature === 'km' && (
           <section className="carte overflow-hidden">
-            <EnteteCarte icone={IconCar} titre="Trajets" sous={`Kilomètres aller-retour depuis ${profil.depart} · total ${Math.round(totalKm * 10) / 10} km`} />
-            <Tableau dense>
-              <TableauEntete><Th>Date</Th><Th>Arrivée</Th><Th>Entreprise</Th><Th>Raison</Th><Th>À charge</Th><Th align="droite">KM</Th><Th /></TableauEntete>
+            <EnteteCarte icone={IconCar} titre="Trajets" sous={`Kilomètres aller-retour · total ${Math.round(totalKm * 10) / 10} km`} />
+            <Tableau dense className="!border-0 !rounded-none">
+              <TableauEntete><Th>Date</Th><Th>Départ</Th><Th>Arrivée</Th><Th>Entreprise</Th><Th>Raison</Th><Th>À charge</Th><Th align="droite">KM</Th><Th /></TableauEntete>
               <tbody>
                 {p.trajets.map(x => (
                   <Tr key={x.id}>
-                    <Td>{jj(x.date)}</Td><Td>{x.arrivee}</Td><Td>{x.entreprise}</Td><Td>{x.raison}</Td><Td>{x.a_charge}</Td>
+                    <Td>{jj(x.date)}</Td><Td>{x.depart}</Td><Td>{x.arrivee}</Td><Td>{x.entreprise}</Td><Td>{x.raison}</Td><Td>{x.a_charge}</Td>
                     <Td align="droite">{x.km ?? '—'}{x.km_calcule != null && Number(x.km_calcule) !== Number(x.km) ? <span className="text-slate-400"> (carte : {x.km_calcule})</span> : ''}</Td>
                     <Td align="droite"><button type="button" className="text-slate-400 hover:text-red-700" title="Retirer" onClick={async () => { await appel('DELETE', `/trajet/${x.id}`); recharger(); }}><IconTrash size={14} /></button></Td>
                   </Tr>))}
               </tbody>
             </Tableau>
-            <div className="p-3 grid sm:grid-cols-6 gap-2 items-end">
-              <Champ l="Date"><input type="date" className="controle w-full" value={t.date} onChange={e => setT({ ...t, date: e.target.value })} /></Champ>
-              <div className="sm:col-span-2"><Champ l="Adresse d’arrivée"><input className="controle w-full" value={t.arrivee} onBlur={calculer} onChange={e => setT({ ...t, arrivee: e.target.value })} placeholder="rue, n°, code postal, commune" /></Champ></div>
-              <Champ l="Entreprise"><input className="controle w-full" value={t.entreprise} onChange={e => setT({ ...t, entreprise: e.target.value })} /></Champ>
-              <Champ l="Raison"><input className="controle w-full" value={t.raison} onChange={e => setT({ ...t, raison: e.target.value })} /></Champ>
-              <Champ l={`KM A/R${typeof calc === 'number' ? ` (carte : ${calc})` : ''}`}><input type="number" step="0.1" className="controle w-full" value={t.km} onChange={e => setT({ ...t, km: e.target.value })} /></Champ>
-              <div className="sm:col-span-6 flex items-center gap-2">
+            <div className="p-3 space-y-3">
+              <div className="grid sm:grid-cols-4 gap-2 items-end">
+                <Champ l="Date"><input type="date" className="controle w-full" value={t.date} onChange={e => setT({ ...t, date: e.target.value })} /></Champ>
+                <Champ l="Départ">
+                  <div className="segments w-full">{[['travail', 'Lieu de travail'], ['domicile', 'Domicile'], ['autre', 'Autre']].map(([k, l]) => (
+                    <button key={k} type="button" className={`flex-1 ${t.depart_type === k ? 'choisi bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}
+                      onClick={() => setT({ ...t, depart_type: k })}>{l}</button>))}</div>
+                </Champ>
+                <div className="sm:col-span-2 text-second text-slate-500 pb-2">
+                  {t.depart_type === 'travail' ? profil.depart : t.depart_type === 'domicile' ? (profil.domicile || 'domicile inconnu : complétez « Mes coordonnées »') : ''}
+                  {t.depart_type === 'autre' && <input className="controle w-full" value={t.depart} onChange={e => setT({ ...t, depart: e.target.value })} placeholder="adresse de départ" />}
+                </div>
+              </div>
+              <div className="intertitre">Arrivée</div>
+              <div onBlur={calculer}>
+                <ChampsAdresse valeurs={t} poser={(k, val) => setT(x => ({ ...x, [k]: val }))} classe="controle w-full" />
+              </div>
+              <div className="grid sm:grid-cols-4 gap-2 items-end">
+                <Champ l="Entreprise"><input className="controle w-full" value={t.entreprise} onChange={e => setT({ ...t, entreprise: e.target.value })} /></Champ>
+                <Champ l="Raison du déplacement"><input className="controle w-full" value={t.raison} onChange={e => setT({ ...t, raison: e.target.value })} /></Champ>
+                <Champ l="À charge de"><input className="controle w-full" value={t.a_charge} onChange={e => setT({ ...t, a_charge: e.target.value })} /></Champ>
+                <Champ l={`KM aller-retour${typeof calc === 'number' ? ` (carte : ${calc})` : ''}`}><input type="number" step="0.1" className="controle w-full" value={t.km} onChange={e => setT({ ...t, km: e.target.value })} /></Champ>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
                 <button className="bouton inline-flex items-center gap-1.5" onClick={ajouterTrajet}><IconPlus size={15} />Ajouter le trajet</button>
-                {typeof calc === 'string' && <span className="text-second text-slate-500">{calc}</span>}
+                <button className="bouton" onClick={calculer}>Calculer les km</button>
+                <span className="text-second text-slate-500">{typeof calc === 'string' ? calc : 'Kilomètres calculés par Lucie (OpenStreetMap, trajet le plus court en voiture), aller-retour ; le chiffre tapé l’emporte.'}</span>
               </div>
             </div>
           </section>)}
