@@ -1629,7 +1629,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
@@ -1912,11 +1912,11 @@ thead { display: table-header-group; }
                     className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
               </div>)}
             <span className="flex-1" />
-            <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
+            {tab !== 'mes-frais' && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
               onClick={() => setChoixImpression(new Set([tab].filter(k => k !== 'config')))}>
-              <IconPrinter size={15} /> Imprimer des parties…</button>
+              <IconPrinter size={15} /> Imprimer des parties…</button>}
             {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
-            {['budget', 'dotation'].includes(tab)
+            {tab === 'mes-frais' ? null : ['budget', 'dotation'].includes(tab)
               ? <span className="text-second text-slate-500">{tab === 'budget' ? 'Année civile : dans la page' : 'Toutes les années civiles'}</span>
               : (
                 <label className="flex items-center gap-2 text-second text-slate-600">
@@ -1949,6 +1949,9 @@ thead { display: table-header-group; }
         ) : tab === 'qui-fait-quoi' ? (
           <PageHeader icon={IconListCheck} titre="Qui fait quoi"
             sous="Ce que chacun a fait dans Lucie, ce qui attend, et à qui le confier" />
+        ) : tab === 'mes-frais' ? (
+          <PageHeader icon={IconCoin} titre="Mes frais"
+            sous="Notes de frais, dépenses par carte de l’ASBL, frais de parcours — confidentiel, à vous seul" />
         ) : tab === 'presences-ue' ? (
           <PageHeader icon={IconChartBar} titre="Présences et régularité"
             sous="Présences encodées, réguliers au premier dixième, PEP estimée — par section et par unité" />
@@ -1977,6 +1980,8 @@ thead { display: table-header-group; }
           <PlanActionQualite />
         ) : tab === 'budget' ? (
           <Budget />
+        ) : tab === 'mes-frais' ? (
+          <Suspense fallback={<div className="text-gray-400 py-4">Chargement…</div>}><MesFrais /></Suspense>
         ) : loading ? (
           <div className="text-gray-400 py-12 text-center">Chargement…</div>
         ) : civil.length === 0 ? (
