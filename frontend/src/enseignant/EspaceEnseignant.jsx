@@ -4,17 +4,16 @@ import FenetreEspace from '../components/FenetreEspace.jsx';
 import { FriseJournee } from '../components/FriseJournee.jsx';
 import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
-import { FournisseurRail } from '../components/ui.jsx';
+import { FournisseurRail, ListeEtats, LigneEtat, Encadre, Tableau, Tr, Td } from '../components/ui.jsx';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { useDatesDeliberation, LigneDeliberation, EvaluationsDeliberations } from '../components/DatesDeliberation.jsx';
+import { EvaluationsDeliberations } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
-import { couleurBloc, rangBloc } from '../lib/blocs.js';
+import { rangBloc } from '../lib/blocs.js';
 import TrainUE from '../components/TrainUE.jsx';
 import { BoutonRail as BoutonFace } from '../components/RailEspace.jsx';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
 const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
-const AgendaEcoleLucie = lazy(() => import('../pages/AgendaEcole.jsx'));
 const SemaineLucie = lazy(() => import('../components/MonHoraireSemaine.jsx'));
 const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
 const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
@@ -164,7 +163,7 @@ function LireTexte({ vid, onFermer }) {
         ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Vous avez confirmé avoir pris connaissance de ce texte le {court(t.confirme_le)}.</span>
         : <><span className="flex-1 min-w-0 text-second text-slate-600">La direction vous demande d’en prendre connaissance.</span>
             <button type="button" className="bouton bouton-fort controle" disabled={envoi} onClick={confirmer}>Je confirme avoir pris connaissance</button></>)}>
-      {erreur && <div className="bloc-etat px-3 py-2 text-sm mb-3" data-etat="corriger">{erreur}</div>}
+      {erreur && <Encadre etat="corriger" className="mb-3">{erreur}</Encadre>}
       {!t ? !erreur && <p className="text-slate-500">Chargement…</p> : (
         <div className="space-y-4">
           <iframe title={t.titre} srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${t.html}`}
@@ -181,19 +180,13 @@ function TextesEcole() {
   if (!l) return <p className="text-slate-500">Chargement…</p>;
   return (
     <div className="space-y-4">
-      
       <p className="m-0 text-slate-600">Les règles du jeu : circulaires, règlements, procédures. Ceux qui ne sont pas encore confirmés vous attendent.</p>
       {!l.length ? <p className="text-slate-500">Aucun texte pour l’instant.</p> : (
-        <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+        <ListeEtats>
           {l.map(t => (
-            <button key={t.version_id} type="button" onClick={() => setLire(t.version_id)}
-              className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 first:border-t-0 hover:bg-slate-50"
-              style={{ borderLeft: `4px solid ${t.confirme_le ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-refuse, #9D4A38)'}` }}>
-              <span className="flex-1 min-w-0">{t.titre}</span>
-              <span className="text-second text-slate-500 whitespace-nowrap">{t.confirme_le ? `confirmé le ${court(t.confirme_le)}` : t.ouvert_le ? 'ouvert, à confirmer' : 'à lire et confirmer'}</span>
-              <IconChevronRight size={16} className="text-slate-400" />
-            </button>))}
-        </section>)}
+            <LigneEtat key={t.version_id} etat={t.confirme_le ? 'reussi' : 'corriger'} icone={IconBook} titre={t.titre} onClick={() => setLire(t.version_id)}
+              droite={<span className="text-second text-slate-500 whitespace-nowrap">{t.confirme_le ? `confirmé le ${court(t.confirme_le)}` : t.ouvert_le ? 'ouvert, à confirmer' : 'à lire et confirmer'}</span>} />))}
+        </ListeEtats>)}
       {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); charger(); }} />}
     </div>);
 }
@@ -219,7 +212,7 @@ function OuvrirDocument({ d, onFermer }) {
         <span className="flex-1" />
         {etat.accuse_le ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Réception accusée le {court(etat.accuse_le)}</span>
           : <button type="button" className="bouton bouton-fort controle" onClick={accuser}>J’accuse réception de cette pièce</button>}</>}>
-      {erreur && <div className="bloc-etat px-3 py-2 text-sm mb-3" data-etat="corriger">{erreur}</div>}
+      {erreur && <Encadre etat="corriger" className="mb-3">{erreur}</Encadre>}
       {!url ? !erreur && <p className="text-slate-500">Chargement…</p> : (
         <iframe title={d.nom_fichier} src={url} className="w-full border border-slate-200 rounded-champ" style={{ height: '62vh' }} />)}
     </Volet>);
@@ -232,24 +225,18 @@ function MesDocuments() {
   if (!l) return <p className="text-slate-500">Chargement…</p>;
   return (
     <div className="space-y-4">
-      
       <p className="m-0 text-slate-600">Les pièces que l’école vous a envoyées par Lucie — votre contrat, votre fiche d’attributions… —, telles qu’elles sont parties.</p>
       {!l.length ? <p className="text-slate-500">Aucune pièce pour l’instant.</p> : (
-        <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+        <ListeEtats>
           {l.map(d => d.sans_copie ? (
-            <div key={d.envoi_id} className="flex items-center gap-3 px-4 py-3 border-t border-slate-100 first:border-t-0"
-              style={{ borderLeft: '4px solid var(--c-indisponible, #CBD5E1)' }}>
-              <span className="flex-1 min-w-0">{d.sujet || d.nom_fichier}<span className="block text-second text-slate-500">envoyé le {court(d.envoye_le)}{d.reference ? ` · réf. ${d.reference}` : ''}</span></span>
-              <span className="text-second text-slate-500 text-right">copie non conservée par Lucie<span className="block">à redemander au secrétariat</span></span>
-            </div>) : (
-            <button key={d.envoi_id} type="button" onClick={() => setOuvert(d)}
-              className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 first:border-t-0 hover:bg-slate-50"
-              style={{ borderLeft: `4px solid ${d.accuse_le ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-disponible, #2F6FB0)'}` }}>
-              <span className="flex-1 min-w-0">{d.sujet || d.nom_fichier}<span className="block text-second text-slate-500">envoyé le {court(d.envoye_le)}{d.reference ? ` · réf. ${d.reference}` : ''}</span></span>
-              <span className="text-second text-slate-500 whitespace-nowrap">{d.accuse_le ? `reçu le ${court(d.accuse_le)}` : 'à ouvrir'}</span>
-              <IconChevronRight size={16} className="text-slate-400" />
-            </button>))}
-        </section>)}
+            <LigneEtat key={d.envoi_id} etat="indisponible" icone={IconFileText} titre={d.sujet || d.nom_fichier}
+              sous={`envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''}`}
+              droite={<span className="text-second text-slate-500 text-right">copie non conservée par Lucie<span className="block">à redemander au secrétariat</span></span>} />
+          ) : (
+            <LigneEtat key={d.envoi_id} etat={d.accuse_le ? 'reussi' : 'disponible'} icone={IconFileText} titre={d.sujet || d.nom_fichier}
+              sous={`envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''}`} onClick={() => setOuvert(d)}
+              droite={<span className="text-second text-slate-500 whitespace-nowrap">{d.accuse_le ? `reçu le ${court(d.accuse_le)}` : 'à ouvrir'}</span>} />))}
+        </ListeEtats>)}
       {ouvert && <OuvrirDocument d={ouvert} onFermer={() => { setOuvert(null); charger(); }} />}
     </div>);
 }
@@ -260,12 +247,12 @@ function FicheEtudiant({ id, onFermer }) {
   useEffect(() => { appel('GET', `/etudiant/${id}`).then(setF).catch(e => setErreur(e.message)); }, [id]);
   return (
     <Volet titre={f ? `${String(f.nom || '').toUpperCase()} ${f.prenom || ''}` : 'Fiche'} sous={f ? [f.section, f.matricule, f.email].filter(Boolean).join(' · ') : ''} onFermer={onFermer}>
-      {erreur && <p className="text-red-700">{erreur}</p>}
+      {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
       {!f ? !erreur && <p className="text-slate-500">Chargement…</p> : (
         <div className="space-y-5 text-sm">
           {f.amenagements.length > 0 && (
-            <div className="bloc-etat px-3 py-2" data-etat="disponible"><div className="font-semibold mb-1">Aménagements raisonnables accordés</div>
-              <ul className="m-0 pl-5">{f.amenagements.map((a, i) => <li key={i}>{a.libelle}{a.precisions ? ` — ${a.precisions}` : ''}{a.ue_num ? ` (UE ${a.ue_num})` : ''}</li>)}</ul></div>)}
+            <Encadre etat="disponible" titre="Aménagements raisonnables accordés">
+              <ul className="m-0 pl-5">{f.amenagements.map((a, i) => <li key={i}>{a.libelle}{a.precisions ? ` — ${a.precisions}` : ''}{a.ue_num ? ` (UE ${a.ue_num})` : ''}</li>)}</ul></Encadre>)}
           {f.cours.map(c => {
             const p = c.presences; const dus = p.present + p.absent + p.justifie;
             return (
@@ -273,33 +260,13 @@ function FicheEtudiant({ id, onFermer }) {
                 <div className="font-semibold">{c.nom || c.code} <span className="font-normal text-slate-500">· UE {c.ue_num}{c.groupe ? ` · ${c.groupe}` : ''}</span></div>
                 <div className="text-slate-600 mt-1">Présences : {p.present} présent·e · {p.absent} absent·e · {p.justifie} justifiée(s){p.passees ? ` — sur ${p.passees} séance(s) passée(s)${dus < p.passees ? `, ${p.passees - dus} non encodée(s)` : ''}` : ''}</div>
                 {c.notes.length > 0 ? (
-                  <table className="mt-2 w-full max-w-md text-sm"><tbody>
-                    {c.notes.map((n, i) => <tr key={i} className="border-t border-slate-100"><td className="py-1 pr-3">{n.evaluation}</td>
-                      <td className="py-1 text-right tabular-nums">{n.mention || (n.points != null ? `${String(n.points).replace('.', ',')} / ${n.sur}` : '—')}</td></tr>)}
-                  </tbody></table>) : <div className="text-slate-400 mt-1">Aucune note au carnet.</div>}
+                  <div className="mt-2 max-w-md"><Tableau dense><tbody>
+                    {c.notes.map((n, i) => <Tr key={i}><Td>{n.evaluation}</Td>
+                      <Td align="droite" className="tabular-nums">{n.mention || (n.points != null ? `${String(n.points).replace('.', ',')} / ${n.sur}` : '—')}</Td></Tr>)}
+                  </tbody></Tableau></div>) : <div className="text-slate-400 mt-1">Aucune note au carnet.</div>}
               </section>);
           })}
         </div>)}
-    </Volet>);
-}
-function VoirDUE({ ue, onFermer }) {
-  const [d, setD] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  useEffect(() => { appel('GET', `/due/${ue}`).then(setD).catch(e => setErreur(e.message)); }, [ue]);
-  return (
-    <Volet titre={d ? `DUE — UE ${d.ue_num} ${d.ue_nom || ''}` : 'DUE'} sous={d ? (d.statut === 'validee' ? 'version validée par la direction' : 'en préparation — elle se rédige dans Lucie, Mes cours') : ''} onFermer={onFermer}>
-      {erreur && <p className="text-red-700">{erreur}</p>}
-      {d ? <iframe title="DUE" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
-    </Volet>);
-}
-function VoirDP({ ue, onFermer }) {
-  const [d, setD] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  useEffect(() => { appel('GET', `/dp/${ue}`).then(setD).catch(e => setErreur(e.message)); }, [ue]);
-  return (
-    <Volet titre={d ? `Dossier pédagogique — UE ${d.ue_num} ${d.ue_nom || ''}` : 'Dossier pédagogique'} sous="le texte officiel de l’unité" onFermer={onFermer}>
-      {erreur && <p className="text-red-700">{erreur}</p>}
-      {d ? <iframe title="Dossier pédagogique" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
     </Volet>);
 }
 function TrainDeLUE({ u }) {
@@ -339,30 +306,24 @@ function MesUE() {
   const [t, setT] = useState(null);
   const [ouvert, setOuvert] = useState({});
   const [fiche, setFiche] = useState(null);
-  const [due, setDue] = useState(null);
-  const [dp, setDp] = useState(null);
   const [liste, setListe] = useState(null);
+  const [ecrire, setEcrire] = useState(false);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
-  const delibs = useDatesDeliberation(t?.annee || undefined);
   if (!t) return <p className="text-slate-500">Chargement…</p>;
   if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
   return (
     <div className="space-y-5">
-      <h1 className="titre-ecran">Mes étudiants{t.annee ? <span className="compte">{t.annee}</span> : null}</h1>
+      {/* UNE CHOSE, UNE PLACE (3.5.202, Charles : « une chose, une place ») : les dates et délibérations vivent dans Mon agenda, le
+          dossier pédagogique et la DUE dans Mes unités ; ici, les étudiants — et leur écrire. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="titre-ecran !mb-0 flex-1">Mes étudiants{t.annee ? <span className="compte">{t.annee}</span> : null}</h1>
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>
+      </div>
       {[...t.ues].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num).map(u => (
-        <section key={u.ue_num} className="bg-white border border-slate-200 border-l-[3px] rounded-carte overflow-hidden"
-          style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
-          <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
-            <span className="flex-1 min-w-[16rem]">
-              <span className="block font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
-              <LigneDeliberation seances={delibs} ue={u.ue_num} />
-            </span>
+        <section key={u.ue_num} className="carte overflow-hidden">
+          <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
+            <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
             <TrainDeLUE u={u} />
-            {u.a_dp && <button type="button" className="bouton controle" onClick={() => setDp(u.ue_num)}>Dossier pédagogique</button>}
-            {/* LA DUE EST À L'ESSAI (3.5.133, Charles : « pour DUE tu mets un badge TEST »). */}
-            {u.a_due && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setDue(u.ue_num)}
-              title={u.due_statut === 'validee' ? 'Version validée par la direction' : 'En préparation dans Lucie'}>
-              DUE <span className="px-1.5 py-px rounded-pastille text-[10px] font-bold tracking-wide text-white" style={{ background: 'var(--c-attente, #B45309)' }}>TEST</span></button>}
           </div>
           {u.cours.map(c => {
             const k = `${u.ue_num}|${c.code}`;
@@ -384,8 +345,7 @@ function MesUE() {
           })}
         </section>))}
       {fiche && <FicheEtudiant id={fiche} onFermer={() => setFiche(null)} />}
-      {due && <VoirDUE ue={due} onFermer={() => setDue(null)} />}
-      {dp && <VoirDP ue={dp} onFermer={() => setDp(null)} />}
+      <Suspense fallback={null}>{ecrire && <MessagesEtudiantsLucie titre="Écrire à mes étudiants" onFermer={() => setEcrire(false)} />}</Suspense>
       {liste && <Suspense fallback={null}><ListeSurMesureLucie cours={liste} annee={t.annee || undefined} onFermer={() => setListe(null)} /></Suspense>}
     </div>);
 }
@@ -488,7 +448,7 @@ function MesCoursEspace({ vue, tic, allerA, demande }) {
 
 const TYPES_DATE = {
   examen: ['Examen', 'var(--c-attente, #B45309)'], deliberation: ['Délibération', 'var(--c-principal, #19537E)'],
-  conge: ['Congé', '#94A3B8'], ferme: ['École fermée', '#64748B'], ferie: ['Férié', '#94A3B8'],
+  conge: ['Congé', 'rgb(var(--gris-400))'], ferme: ['École fermée', 'rgb(var(--gris-500))'], ferie: ['Férié', 'rgb(var(--gris-400))'],
   moment: ['École', 'var(--c-disponible, #2F6FB0)'], formation: ['Formation', 'var(--c-reussi, #3E7D5E)'],
 };
 const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -520,7 +480,7 @@ function MesDates({ moi }) {
       {parMois.map(g => (
         <section key={g.k} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
           <div className="entete-carte px-4 py-2 font-semibold text-iip-texte first-letter:uppercase">{MOIS_FR[Number(g.k.slice(5, 7)) - 1]} {g.k.slice(0, 4)}</div>
-          {g.l.map((x, i) => { const [lib, c] = TYPES_DATE[x.type] || ['Date', '#94A3B8'];
+          {g.l.map((x, i) => { const [lib, c] = TYPES_DATE[x.type] || ['Date', 'rgb(var(--gris-400))'];
             return (
               <div key={i} className={`flex items-start gap-3 px-4 py-2 border-t border-slate-100 ${(x.au || x.date) < auj ? 'opacity-60' : ''}`}>
                 <span className="w-24 shrink-0 tabular-nums text-sm"><b>{jourCourt(x.date)}</b>{x.au ? <span className="text-slate-500"> → {court(x.au)}</span> : null}{x.heure ? <span className="block text-second text-slate-500">{String(x.heure).slice(0, 5)}</span> : null}</span>
@@ -538,15 +498,15 @@ function MesDates({ moi }) {
    Sous la ligne, la liste des événements à venir. Les mêmes données que « Mes dates » (les moments de l'agenda de l'école qui
    concernent les enseignants, les congés, les fériés, mes examens et délibérations). */
 const RANGEES_ECOLE = [
-  ['Portes ouvertes', m => m.genre === 'Portes ouvertes', '#7C3AED'],
-  ['Inscriptions', m => m.genre === 'Inscriptions' || m.genre === 'Rentrée', '#2F6FB0'],
-  ['Salons', m => m.genre === 'Salon, SIEP', '#0E7490'],
-  ['Examens', m => m.type === 'examen' || m.genre === 'Examens', '#B45309'],
-  ['Délibérations', m => m.type === 'deliberation' || m.genre === 'Délibérations', '#19537E'],
-  ['Cérémonies', m => m.genre === 'Remise des diplômes' || m.genre === 'Cérémonie', '#C9A227'],
-  ['Formations, réunions', m => m.type === 'formation' || ['Journée de formation', 'Réunion', 'Conseil', 'Qualité', 'Échéance, document'].includes(m.genre), '#3E7D5E'],
-  ['Congés', m => ['conge', 'ferme', 'ferie'].includes(m.type), '#94A3B8'],
-  ['Autres', () => true, '#64748B'],
+  ['Portes ouvertes', m => m.genre === 'Portes ouvertes', 'var(--c-serie_5)'],
+  ['Inscriptions', m => m.genre === 'Inscriptions' || m.genre === 'Rentrée', 'var(--c-disponible)'],
+  ['Salons', m => m.genre === 'Salon, SIEP', 'var(--c-serie_3)'],
+  ['Examens', m => m.type === 'examen' || m.genre === 'Examens', 'var(--c-attente)'],
+  ['Délibérations', m => m.type === 'deliberation' || m.genre === 'Délibérations', 'var(--c-principal)'],
+  ['Cérémonies', m => m.genre === 'Remise des diplômes' || m.genre === 'Cérémonie', 'var(--c-epreuve, var(--c-serie_4))'],
+  ['Formations, réunions', m => m.type === 'formation' || ['Journée de formation', 'Réunion', 'Conseil', 'Qualité', 'Échéance, document'].includes(m.genre), 'var(--c-reussi)'],
+  ['Congés', m => ['conge', 'ferme', 'ferie'].includes(m.type), 'rgb(var(--gris-400))'],
+  ['Autres', () => true, 'rgb(var(--gris-500))'],
 ];
 function TimelineEcole({ moi, annee }) {
   const [d, setD] = useState(null);
@@ -604,7 +564,7 @@ function TimelineEcole({ moi, annee }) {
           return (
             <div key={i} className="flex items-start gap-3 px-4 py-2 border-t border-slate-100 text-sm">
               <span className="w-32 shrink-0 tabular-nums"><b>{dateCourte(x.date)}</b>{x.au && x.au !== x.date ? <span className="text-slate-500"> → {dateCourte(x.au)}</span> : null}</span>
-              <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: r?.c || '#64748B' }}>{r?.l || 'École'}</span>
+              <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: r?.c || 'rgb(var(--gris-500))' }}>{r?.l || 'École'}</span>
               <span className="flex-1 min-w-0">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</span>
             </div>); })}
         {!aVenir.length && <p className="px-4 py-3 m-0 text-slate-500">Rien à venir.</p>}
@@ -640,9 +600,8 @@ function MonAgenda({ moi, onPresences }) {
         // LES DÉLIBÉRATIONS DE MES UNITÉS (3.5.160, Charles : « ceci doit aller dans agenda ») : le tableau quitte Mes unités.
         : vue === 'deliberations' ? <EvaluationsDeliberations annee={annee || undefined} />
         : vue === 'semaine' ? <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
-        : <div className="space-y-5"><TimelineEcole moi={moi} annee={annee} />
-            <div><div className="intertitre mb-2">Semaine par semaine</div>
-              <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense></div></div>}
+        // L'ANNÉE DE L'ÉCOLE, UNE FOIS (3.5.202) : la frise ; la vue semaine par semaine faisait doublon.
+        : <TimelineEcole moi={moi} annee={annee} />}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
         {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
@@ -653,18 +612,14 @@ function MonAgenda({ moi, onPresences }) {
 /* L'ÉCOLE : ce qu'elle envoie (textes à lire, documents), écrire aux étudiants, l'aide. Une face soulignée à la fois. */
 function LEcole() {
   const [f, setF] = useState('textes');
-  const [ecrire, setEcrire] = useState(false);
   return (
     <div className="space-y-4">
       <h1 className="titre-ecran">L’école</h1>
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200">
         {[['textes', 'Textes à lire'], ['documents', 'Mes documents']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setF(k)} className={`onglet-page ${f === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
-        <span className="flex-1" />
-        <button type="button" className="bouton controle inline-flex items-center gap-1.5 mb-1" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>
       </div>
       {f === 'documents' ? <MesDocuments /> : <TextesEcole />}
-      <Suspense fallback={null}>{ecrire && <MessagesEtudiantsLucie titre="Écrire à mes étudiants" onFermer={() => setEcrire(false)} />}</Suspense>
     </div>);
 }
 

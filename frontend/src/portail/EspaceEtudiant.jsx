@@ -5,7 +5,7 @@ import MesAbsences from './MesAbsences.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
-import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
+import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
 import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome } from '@tabler/icons-react';
 
 /**
@@ -52,14 +52,13 @@ const Tete = ({ sous, onQuitter }) => (
 
 // Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
 const COURT = { aujourdhui: 'Aujourd’hui', messages: 'Messages', parcours: 'Parcours', documents: 'Documents', demarches: 'Démarches', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
-const ETAT_COULEUR = { reussi: 'var(--c-reussi, #3E7D5E)', surveiller: 'var(--c-attente, #B45309)', corriger: 'var(--c-refuse, #9D4A38)' };
 
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
 function Accuse({ type, id, presente, signe, onFait, onErreur }) {
   const [etape, setEtape] = useState(null);   // null | 'code'
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState(null);
-  if (signe) return <span className="inline-flex items-center gap-1 text-second" style={{ color: ETAT_COULEUR.reussi }}><IconCheck size={15} /> Accusé signé le {jourFr(signe)}</span>;
+  if (signe) return <span className="inline-flex items-center gap-1 text-second" style={{ color: 'var(--c-reussi)' }}><IconCheck size={15} /> Accusé signé le {jourFr(signe)}</span>;
   if (!presente) return <span className="text-second text-slate-500">Ouvrez la pièce pour pouvoir en accuser réception.</span>;
   const demanderCode = async () => {
     try { const j = await appel('POST', '/code', { objet_type: type, objet_id: id }); setMsg(j.message); setEtape('code'); }
@@ -217,19 +216,19 @@ function Etapes({ faits }) {
       {noms.map((n, i) => {
         const fait = faits[i], actif = i === courant;
         return (
-          <div key={n} className="flex-1 text-center relative text-xs" style={{ color: actif ? 'var(--c-principal, #16406A)' : '#64748b', fontWeight: actif ? 600 : 400 }}>
-            {i > 0 && <span className="absolute top-[13px] right-1/2 w-full h-0.5" style={{ background: fait || actif ? ETAT_COULEUR.reussi : '#E2E8F0' }} />}
+          <div key={n} className="flex-1 text-center relative text-xs" style={{ color: actif ? 'var(--c-principal)' : 'rgb(var(--gris-500))', fontWeight: actif ? 600 : 400 }}>
+            {i > 0 && <span className="absolute top-[13px] right-1/2 w-full h-0.5" style={{ background: fait || actif ? 'var(--c-reussi)' : 'rgb(var(--gris-200))' }} />}
             <span className="relative z-10 mx-auto mb-1 w-7 h-7 rounded-full grid place-items-center font-bold border-2"
-              style={fait ? { background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }
+              style={fait ? { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }
                 : actif ? { background: 'var(--c-principal, #16406A)', borderColor: 'var(--c-principal, #16406A)', color: '#fff' }
-                  : { background: '#fff', borderColor: '#CBD5E1' }}>{fait ? <IconCheck size={15} /> : i + 1}</span>
+                  : { background: 'var(--c-fond_tuile, #fff)', borderColor: 'rgb(var(--gris-300))' }}>{fait ? <IconCheck size={15} /> : i + 1}</span>
             {n}
           </div>);
       })}
     </div>);
 }
 const Zone = ({ n, titre, children, pale }) => (
-  <section className={`bg-white border border-slate-200 rounded-carte p-4 space-y-2 ${pale ? 'opacity-60' : ''}`}>
+  <section className={`carte p-4 space-y-2 ${pale ? 'opacity-60' : ''}`}>
     <h3 className="text-sm font-semibold text-iip-texte flex items-center gap-2">
       <span className="w-6 h-6 rounded-full grid place-items-center text-xs text-white flex-none" style={{ background: 'var(--c-principal, #16406A)' }}>{n}</span>{titre}</h3>
     {children}
@@ -342,7 +341,7 @@ function MesValorisations({ onErreur }) {
             </div>))}
           <CarteAdmission adm={v.offre?.admission} />
         </div>
-        <div className="bg-white border border-slate-200 rounded-carte px-4 py-1">
+        <div className="carte px-4 py-1">
           <Plus titre="Ce que le Conseil peut décider"><ul className="pl-4 list-disc space-y-1">
             <li><b>Dispense complète</b> : vous maîtrisez de façon globale et suffisante <b>tous</b> les acquis de l’unité. Vous ne la suivez pas et recevez une attestation de réussite « valorisation », avec des points en pourcentage.</li>
             <li><b>Dispense partielle</b> : vous maîtrisez certains acquis ; vous êtes dispensé des activités qui y correspondent, mais vous restez inscrit à l’unité et présentez l’évaluation que le Conseil précise.</li>
@@ -402,7 +401,7 @@ function MesValorisations({ onErreur }) {
           <div key={d.ue_num} className="space-y-2 border-l-4 pl-3" style={{ borderColor: 'var(--c-disponible, #2F6FB0)' }}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold text-iip-texte flex-1 min-w-0">UE {d.ue_num} {d.ue_nom || ''}</span>
-              <span className="pastille-etat" style={{ background: 'var(--c-disponible, #2F6FB0)', color: '#fff' }}>{PORTE[d.porte] || d.porte}</span>
+              <PastilleEtat etat="disponible">{PORTE[d.porte] || d.porte}</PastilleEtat>
               {!d.attente && d.en_ligne && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
                 onClick={() => geste('/va/retirer', { ue_num: d.ue_num })}>Retirer cette demande</button>}
             </div>
@@ -452,7 +451,7 @@ function MesValorisations({ onErreur }) {
                 return (
                   <div key={a.code} className="border-t border-slate-100 pt-2 space-y-1">
                     <div className="text-sm"><b className="text-iip-texte">{a.code}</b> <span className="text-slate-700">{a.libelle}</span>
-                      {enreg.texte.trim() && !change && <IconCheck size={14} className="inline ml-1" style={{ color: ETAT_COULEUR.reussi }} />}</div>
+                      {enreg.texte.trim() && !change && <IconCheck size={14} className="inline ml-1" style={{ color: 'var(--c-reussi)' }} />}</div>
                     <textarea rows={3} className="controle w-full !h-auto py-1.5 leading-snug" disabled={!d.modifiable || d.attente} value={cur.texte}
                       placeholder="Où et comment avez-vous acquis cet acquis ?" onChange={e => poser({ texte: e.target.value })} />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-second text-slate-600">
@@ -476,7 +475,7 @@ function MesValorisations({ onErreur }) {
                   {d.frise.map(e => (
                     <span key={e.cle} className="text-xs px-2 py-0.5 rounded-full border"
                       style={e.refus ? { background: 'var(--c-refuse, #9D4A38)', color: '#fff', borderColor: 'transparent' }
-                        : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: '#64748b' }}>
+                        : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: 'rgb(var(--gris-500))' }}>
                       {e.fait ? '✓ ' : ''}{e.libelle}{e.le && e.fait ? ` · ${jourFr(e.le)}` : ''}</span>))}
                 </div>
               </div>)}
@@ -496,7 +495,7 @@ function MesValorisations({ onErreur }) {
             {/* Sur téléphone, le libellé passe à la ligne : `.bouton` ne le permet pas (3.5.022). */}
             <button type="button" className="bouton w-full inline-flex items-center justify-center gap-2 font-semibold disabled:opacity-50 !whitespace-normal !h-auto py-2 text-center leading-snug"
               disabled={enCours || attend || !certifie || incomplets.length > 0}
-              style={{ background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }}
+              style={{ background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }}
               onClick={() => geste('/va/terminer', null, () => { setCertifie(false); setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute. Il reste dans vos documents.'); })}>
               <IconCheck size={17} /> J’ai terminé — envoyer et recevoir l’accusé de réception</button>
             <p className="text-xs text-slate-500">Vous pouvez encore compléter tant que le secrétariat n’a pas examiné la demande.</p>
@@ -507,11 +506,11 @@ function MesValorisations({ onErreur }) {
 }
 
 const PARCOURS_ETAT = {
-  acquise: ['var(--c-reussi, #3E7D5E)', '#fff', 'acquise'],
-  programme: ['var(--c-disponible, #2F6FB0)', '#fff', 'à mon programme'],
-  accessible: ['#fff', 'var(--c-disponible, #2F6FB0)', 'accessible'],
-  attente: ['var(--c-attente, #B45309)', '#fff', 'en attente d’une délibération'],
-  pas_encore: ['#EEF1F5', '#64748b', 'pas encore accessible'],
+  acquise: ['var(--c-reussi)', 'var(--blanc, #fff)', 'acquise'],
+  programme: ['var(--c-disponible)', 'var(--blanc, #fff)', 'à mon programme'],
+  accessible: ['var(--c-fond_tuile, #fff)', 'var(--c-disponible)', 'accessible'],
+  attente: ['var(--c-attente)', 'var(--blanc, #fff)', 'en attente d’une délibération'],
+  pas_encore: ['rgb(var(--gris-100))', 'rgb(var(--gris-500))', 'pas encore accessible'],
 };
 
 /** LE SCHÉMA DE CAPITALISATION (3.5.010) : le dessin de la fiche, déposé par Lucie, montré comme une image (aucun script
@@ -522,10 +521,10 @@ const PARCOURS_ETAT = {
 function SchemaParcours({ schema, onNoeud = null }) {
   if (typeof schema === 'string') {
     const src = `data:image/svg+xml;utf8,${encodeURIComponent(schema)}`;
-    return <section className="bg-white border border-slate-200 rounded-carte p-3"><div className="overflow-x-auto"><img src={src} alt="Schéma de capitalisation" style={{ maxWidth: 'none' }} /></div></section>;
+    return <section className="carte p-3"><div className="overflow-x-auto"><img src={src} alt="Schéma de capitalisation" style={{ maxWidth: 'none' }} /></div></section>;
   }
   return (
-    <section className="bg-white border border-slate-200 rounded-carte p-3">
+    <section className="carte p-3">
       <p className="sm:hidden text-xs text-slate-500 mb-1">Faites glisser le schéma de côté ; « + » l’agrandit.</p>
       <SchemaCapitalisation data={schema} mode="etudiant" titre="Mon schéma de capitalisation" onNoeud={onNoeud} />
     </section>
@@ -631,12 +630,12 @@ function MesFrais({ onErreur }) {
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2">
         {[['Total', f.total, 'neutre'], ['Versé', f.verse, 'reussi'], ['Reste à payer', f.restant, f.restant > 0 ? 'corriger' : 'reussi']].map(([l, m, e]) => (
-          <div key={l} className="bloc-etat px-3 py-2" data-etat={e}><div className="text-lg font-bold text-iip-texte tabular-nums">{eur(m)}</div><div className="text-xs text-slate-500">{l}</div></div>))}
+          <TuileEtat key={l} etat={e} valeur={eur(m)} libelle={l} taille="compacte" />))}
       </div>
       <div className="text-sm text-slate-600">{f.acompte_verse ? <>Acompte de {eur(f.acompte)} versé.</> : <>Acompte de <b>{eur(f.acompte)}</b> à verser dès l’inscription.</>}
         {f.restant > 0 && f.echeance_solde && <> Le solde est à payer avant le <b>{jourFr(f.echeance_solde)}</b>.</>}</div>
       {f.virement && (
-        <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-3">
+        <section className="carte p-4 space-y-3">
           <h2 className="titre-carte">Payer par virement</h2>
           <div className="flex flex-wrap gap-4 items-start">
             {f.virement.qr && <img alt="QR de paiement" className="w-40 h-40 border border-slate-200 rounded-champ"
@@ -653,7 +652,7 @@ function MesFrais({ onErreur }) {
           <p className="text-xs text-slate-500">Scannez le QR avec l’application de votre banque : bénéficiaire, montant et communication s’y remplissent seuls.
             Gardez la communication telle quelle : c’est elle qui rattache votre paiement à votre dossier.</p>
         </section>)}
-      <section className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+      <section className="carte divide-y divide-slate-100">
         {f.lignes.map(l => <div key={l.libelle} className="px-4 py-2 text-sm flex gap-2"><span className="flex-1">{l.libelle}</span>
           <span className="tabular-nums">{l.note || eur(l.montant)}</span></div>)}
         <div className="px-4 py-2 text-sm flex gap-2 font-semibold"><span className="flex-1">Total {f.annee}</span><span className="tabular-nums">{eur(f.total)}</span></div>
@@ -777,7 +776,7 @@ function FraisEstimes({ tarif, ues }) {
     [`Frais administratifs (${f.periodes} périodes)`, f.variables],
   ].filter(([, m, note]) => m > 0 || note);
   return (
-    <div className="bg-white border border-slate-200 rounded-carte px-4 py-3 text-sm space-y-1.5">
+    <div className="carte px-4 py-3 text-sm space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-semibold text-iip-texte">Frais estimés pour {tarif.annee}</span>
         <span className="text-lg font-semibold tabular-nums text-iip-texte">{eur(f.total)}</span>
@@ -850,7 +849,7 @@ function MonPAE({ onErreur, email }) {
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
             : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut (ou à votre adresse privée tant que vous entrez par un code d’accès).</div>}
         </div>
-        <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+        <ul className="carte divide-y divide-slate-100">
           {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
@@ -882,7 +881,7 @@ function MonPAE({ onErreur, email }) {
           <div className="text-slate-600">Pas encore confirmé par l’école. Pour le modifier, adressez-vous à votre coordination
             {o.du && o.au && o.du > new Date().toISOString().slice(0, 10) ? `, ou proposez vos unités en ligne du ${jourFr(o.du)} au ${jourFr(o.au)}` : ''}.</div>
         </div>
-        {prog.length ? <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+        {prog.length ? <ul className="carte divide-y divide-slate-100">
           {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
@@ -901,7 +900,7 @@ function MonPAE({ onErreur, email }) {
       {etatProp && <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={etatProp[0]}><div>{etatProp[1]}</div>
         {prop.message && <div className="text-slate-600">« {prop.message} »</div>}</div>}
       {attend && <p className="text-sm text-slate-500">Envoi en cours d’enregistrement…</p>}
-      <div className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+      <div className="carte divide-y divide-slate-100">
         {(o.unites || []).map(u => (
           <label key={u.ue_num} className={`flex items-start gap-3 px-4 py-2.5 text-sm ${u.cochable && o.ouvert ? 'cursor-pointer' : 'opacity-60'}`}>
             <input type="checkbox" className="mt-0.5" disabled={!u.cochable || !o.ouvert} checked={u.verrouillee || !!choix?.has(u.ue_num)}
@@ -939,7 +938,7 @@ function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
     } catch (e) { setErreur(e.message); }
   };
   return (
-    <form onSubmit={valider} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+    <form onSubmit={valider} className="carte p-5 space-y-3">
       <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} />
         {avecActuel ? 'Changer mon mot de passe' : nouveauCompte ? 'Choisissez votre mot de passe' : 'Choisissez un nouveau mot de passe'}</h1>
       <p className="text-sm text-slate-600">Dix caractères au moins. Une phrase courte que vous retenez fait un bon mot de passe ; évitez
@@ -1089,7 +1088,7 @@ function Espace() {
   if (lien && !connecte) {
     return (
       <Cadre horsBe={horsBe} erreur={erreur}>
-        <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+        <div className="carte p-5 space-y-3">
           {!lien.appareils ? <>
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Cet appareil est-il le vôtre ?</h1>
             <p className="text-sm text-slate-600">Reconnu, il ne vous demandera que votre mot de passe pendant 90 jours ; un autre appareil
@@ -1105,7 +1104,7 @@ function Espace() {
   if (!connecte && defi) {
     return (
       <Cadre horsBe={horsBe} erreur={erreur}>
-        <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+        <div className="carte p-5 space-y-3">
           {!defi.appareils ? <>
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldCheck size={18} /> Un nouvel appareil</h1>
             <p className="text-sm text-slate-600">Un code à six chiffres part dans la minute vers <b>{defi.adresse}</b>. Il est valable 10 minutes.</p>
@@ -1126,7 +1125,7 @@ function Espace() {
     return (
       <Cadre horsBe={horsBe} erreur={erreur}>
         {modeCandidat ? (
-          <form onSubmit={entrerCandidat} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          <form onSubmit={entrerCandidat} className="carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Pas encore d’adresse de l’institut</h1>
             <p className="text-sm text-slate-600">Votre dossier vient d’être ouvert : un <b>code d’accès</b> vous a été envoyé à votre adresse
               privée. Il ouvre votre espace jusqu’à ce que vous receviez votre adresse de l’institut.</p>
@@ -1139,7 +1138,7 @@ function Espace() {
             <button type="button" className="text-second text-iip-blue underline" onClick={() => { setModeCandidat(false); setErreur(null); }}>J’ai mon adresse de l’institut</button>
           </form>
         ) : !modeLien ? (
-          <form onSubmit={seConnecter} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          <form onSubmit={seConnecter} className="carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconLock size={18} /> Mon espace étudiant</h1>
             <p className="text-sm text-slate-600">Vos résultats délibérés, vos documents, vos accusés de réception.</p>
             <input value={ident} onChange={e => setIdent(e.target.value)} placeholder="Adresse de l'institut (ou matricule)" autoComplete="username"
@@ -1153,7 +1152,7 @@ function Espace() {
               Pas encore d’adresse de l’institut ? Entrer avec mon code d’accès</button>
           </form>
         ) : (
-          <form onSubmit={demanderLien} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          <form onSubmit={demanderLien} className="carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Première visite ou mot de passe oublié</h1>
             <p className="text-sm text-slate-600">Tapez votre adresse de l'institut (ou votre matricule) : un lien, valable 30 minutes et à usage
               unique, part à votre adresse électronique <b>de l'institut</b>. Il vous mène à choisir votre mot de passe.</p>
