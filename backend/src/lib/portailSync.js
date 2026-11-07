@@ -29,7 +29,7 @@ import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.j
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
-import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants, relayerEnseignants } from './portailEnseignants.js';
+import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants, relayerEnseignants, texteHtml } from './portailEnseignants.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -153,7 +153,9 @@ function reglementsEtudiants() {
         const v = derniereVersion(d.id); const ref = versionReference(d.id);
         if (!v) return null;
         const valables = db.prepare('SELECT id FROM corpus_version WHERE document_id = ? AND numero >= ?').all(d.id, ref?.numero || v.numero).map(x => x.id);
-        return { version_id: v.id, cle: d.cle, titre: d.titre, numero: v.numero, publiee_le: v.publiee_le, contenu: v.contenu,
+        return { version_id: v.id, cle: d.cle, titre: d.titre, numero: v.numero, publiee_le: v.publiee_le,
+          // LE TEXTE MIS EN PAGE, JAMAIS SA FORME BRUTE (3.5.203 : un texte « par parties » partait en JSON — « Ouille ! »).
+          contenu: texteHtml(d, v),
           source_url: d.source_url || null, valables };
       }).filter(Boolean);
   } catch { return []; }

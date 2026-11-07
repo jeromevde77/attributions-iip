@@ -1298,7 +1298,9 @@ function Espace() {
         {texte && (
           <FenetreEspace titre={texte.titre} sous={`Version ${texte.numero}`} onFermer={() => setTexte(null)}
             pied={texte.source_url ? <a href={texte.source_url} target="_blank" rel="noreferrer" className="text-second text-iip-blue underline">Le texte officiel</a> : null}>
-            <div className="texte-corpus" dangerouslySetInnerHTML={{ __html: texte.contenu }} />
+            {/* Le texte, mis en page par Lucie, dans son cadre (3.5.203) : ses styles ne débordent pas sur l'espace. */}
+            <iframe title={texte.titre} sandbox="" className="w-full border-0" style={{ height: '70vh' }}
+              srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${texte.contenu || ''}`} />
           </FenetreEspace>)}
       </div>
       </main>
