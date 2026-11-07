@@ -207,7 +207,8 @@ function Responsable({ c, d, lecture, onChange }) {
 // nul ne cherche à le corriger ici.
 function Su({ label, valeur }) {
   return (
-    <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+    // UNE DONNÉE LUE N'EST PAS UNE CASE (3.5.190, Charles : « beaucoup de cases et de tableaux ») : l'étiquette et la valeur, sans cadre.
+    <div className="py-1">
       <div className="intertitre">{label}</div>
       <div className="text-sm text-slate-700 font-medium">{valeur ?? '—'}</div>
     </div>
@@ -877,7 +878,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       {/* ── Ce que Lucie sait déjà ── */}
       <Bloc titre="Identification de l'unité"
         aide="Repris du référentiel de l'année : pour le corriger, passez par les référentiels.">
-        <div className="grid gap-2 sm:grid-cols-3 mb-3">
+        <div className="grid gap-x-6 gap-y-1 sm:grid-cols-3 mb-3">
           <Su label="Section" valeur={u.section} />
           <Su label="Crédits ECTS" valeur={u.ects} />
           <Su label="Volume horaire"

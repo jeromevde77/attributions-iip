@@ -322,7 +322,7 @@ export default function PonderationsUE({ ueFixe = null }) {
             <div className="grid gap-3.5 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
               {/* ── B ─────────────────────────────────────────────────── */}
               <Zone lettre="B" titre="Qui évalue quel acquis" sous="le poids dans le cours, sur 10 · clic sur un acquis : ses liens">
-                <div className="overflow-x-auto rounded-champ border border-slate-200 bg-white">
+                <div className="overflow-x-auto">
                   <table className="w-full border-separate border-spacing-0 text-second" style={{ minWidth: 260 + coursEval.length * 86 }}>
                     <thead>
                       <tr>

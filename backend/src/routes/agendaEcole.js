@@ -16,7 +16,8 @@ import { moments, chaleur, TYPES_MOMENT, NATURES, NATURE_DU_TYPE, DOMAINES, POUR
 try { migrerAgenda(); } catch (e) { console.error('[agenda] migration', e.message); }
 
 const r = Router();
-const annee = req => String(req.query.annee || req.body?.annee || anneeDeTravail(req));
+// Une année lisible, sinon celle de travail (3.5.190 : « null » venu d'un navigateur faisait tomber la route en « Invalid time value »).
+const annee = req => { const a = String(req.query.annee || req.body?.annee || ''); return /^\d{4}-\d{4}$/.test(a) ? a : anneeDeTravail(req); };
 const nomDe = u => { const x = db.prepare('SELECT nom_complet, email FROM utilisateur WHERE id = ?').get(u.id); return nomEcranDuCompte(x?.nom_complet, x?.email) || u.email; };
 const faute = (res, e) => res.status(e.status || 500).json({ error: e.message });
 const direction = (req, res) => { if (PEINT_ETABLISSEMENT.includes(req.user.role)) return true; res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' }); return false; };

@@ -1088,6 +1088,13 @@ select[multiple], select[size]:not([size="1"]) {
 /* Une réserve est une nuance, pas un état : le trait, pas la couleur. */
 .bloc-etat.sous-reserve { border-style: dashed; border-left-style: solid; }
 
+/* UNE PILE DE LIGNES SIGNALÉES = UN SEUL TABLEAU (3.5.190, Charles : « un seul tableau avec la barre de couleur sur le côté, pour
+   gagner de la place ») : les tuiles d'une même pile se touchent, chacune garde son liseré ; un filet les sépare, le cadre est commun. */
+.pile-etats { border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); border-radius: 0 10px 10px 0; }
+.pile-etats > * + *, .pile-etats .space-y-2 > * + * { margin-top: 0 !important; }
+.pile-etats .bloc-etat { border-radius: 0 !important; border-top-width: 0; margin: 0 !important; }
+.pile-etats .bloc-etat.py-3 { padding-top: .55rem; padding-bottom: .55rem; }
+
 /* La pastille : le même état, en ligne. Fond pâle, texte de l'état assombri. */
 .pastille-etat {
   --e: #7A879E;

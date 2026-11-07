@@ -25,7 +25,7 @@ import { placementsSection } from '../lib/placement.js';
 import { marquerPrimo } from '../lib/primo.js';
 import { etatsPAE, plafondBloc, rangBloc } from '../lib/pae.js';
 import { identiteEtablissement } from './config.js';
-import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice } from './acquis.js';
+import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice, membresDuConseil } from './acquis.js';
 import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
@@ -8656,8 +8656,65 @@ r.post('/valorisations/matrice', authRequired, gesteRequis('valorisation.instrui
  *  et une contrôlée, finiraient par diverger. */
 r.get('/valorisations/referentiel', authRequired, (req, res) => {
   res.json({ bases: BASES, finalites: FINALITES, etats: ETATS,
-             pourcentage_dispense: POURCENTAGE_DISPENSE, motifs: motifsVA() });
+             pourcentage_dispense: POURCENTAGE_DISPENSE, motifs: motifsVA(), constat_partiel: CONSTAT_PARTIEL });
 });
+
+/* LE CONSTAT PROPOSÉ D'UN ACCORD PARTIEL (3.5.190, Charles : « proposer le constat d'office »). Un accord partiel se motive ; la
+   phrase est proposée dans la séance, modifiable, et c'est en arrêtant la décision que le Conseil la fait sienne. {cours} = les cours
+   ou acquis dispensés. Une seule source : l'écran la reçoit du référentiel. */
+const CONSTAT_PARTIEL = "Sur pièces et conformément à l'avis du chargé de cours, les acquis d'apprentissage de {cours} sont "
+  + "reconnus équivalents à ceux acquis antérieurement ; les autres activités de l'unité restent à suivre et à évaluer.";
+
+/* LES MEMBRES DU CONSEIL POUR UNE SÉANCE DE VALORISATION (3.5.190, Charles : « une case présents dans la séance »). La séance
+   réunit plusieurs unités d'une section : la liste est la réunion des membres de chacune ; cochée une fois, elle vaut pour toutes. */
+r.get('/valorisations/seance/membres', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
+  const annee = String(req.query.annee || '');
+  const ues = [...new Set(String(req.query.ues || '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  const vus = new Map();
+  for (const ue of ues) {
+    const poses = new Map(db.prepare(`SELECT p.cle, p.present FROM valorisation_presence p JOIN valorisation_seance s ON s.id = p.seance_id
+      WHERE s.ue_num = ? AND s.annee_scolaire = ?`).all(ue, annee).map(x => [x.cle, !!x.present]));
+    for (const m of membresDuConseil(ue, annee)) {
+      const x = vus.get(m.cle) || { cle: m.cle, nom: m.nom, qualite: m.role === 'professeur' ? 'Professeur' : m.qualite, voix: m.voix, ues: [], present: true };
+      x.ues.push(ue);
+      if (poses.has(m.cle) && !poses.get(m.cle)) x.present = false;
+      vus.set(m.cle, x);
+    }
+  }
+  res.json({ membres: [...vus.values()].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')) });
+});
+
+/* OUVRIR LA SÉANCE DE VALORISATION DE CHAQUE UNITÉ DÉCIDÉE (3.5.190, Charles : « je ne fais que valider… ») : arrêter des
+   décisions en séance pose, pour chaque unité qui n'en a pas, la séance du PV d'annexe 4 — date de séance et de communication = la
+   date de la séance, présidence = la personne connectée —, et les présences cochées dans la séance. Une séance déjà ouverte garde
+   ce qu'on y a posé (seuls les blancs se remplissent) ; une séance clôturée n'est pas touchée. */
+function ouvrirSeancesValorisation(ues, annee, dateCE, req, presents) {
+  const nom = req.user?.nom || req.user?.email || null;
+  const titre = { directeur: 'le Directeur', admin: 'le Directeur', directeur_adjoint: 'la Direction adjointe' }[req.user?.role] || null;
+  for (const ue of ues) {
+    let s = db.prepare('SELECT * FROM valorisation_seance WHERE ue_num = ? AND annee_scolaire = ?').get(ue, annee);
+    if (s?.cloturee) continue;
+    if (!s) {
+      db.prepare(`INSERT INTO valorisation_seance (ue_num, annee_scolaire, date_seance, communication_date, president_nom, president_titre, maj_par)
+        VALUES (?,?,?,?,?,?,?)`).run(ue, annee, dateCE, dateCE, nom, titre, req.user?.username || null);
+    } else {
+      db.prepare(`UPDATE valorisation_seance SET date_seance = COALESCE(NULLIF(date_seance,''), ?),
+        communication_date = COALESCE(NULLIF(communication_date,''), ?), president_nom = COALESCE(NULLIF(TRIM(president_nom),''), ?),
+        president_titre = COALESCE(NULLIF(TRIM(president_titre),''), ?), maj_le = CURRENT_TIMESTAMP WHERE id = ?`)
+        .run(dateCE, dateCE, nom, titre, s.id);
+    }
+    if (!Array.isArray(presents)) continue;
+    s = db.prepare('SELECT id FROM valorisation_seance WHERE ue_num = ? AND annee_scolaire = ?').get(ue, annee);
+    const set = new Set(presents.map(String));
+    const ins = db.prepare(`INSERT INTO valorisation_presence (seance_id, cle, nom, prenom, qualite, categorie, voix, present)
+      VALUES (?,?,?,?,?,?,?,?)`);
+    const ote = db.prepare('DELETE FROM valorisation_presence WHERE seance_id = ? AND cle = ?');
+    for (const m of membresDuConseil(ue, annee)) {
+      ote.run(s.id, m.cle);
+      ins.run(s.id, m.cle, m.nom, m.prenom || null, m.qualite || null, m.categorie || null, m.voix || 'deliberative', set.has(m.cle) ? 1 : 0);
+    }
+  }
+}
 
 /**
  * LE DOSSIER TEL QUE LES CONTRÔLES DOIVENT LE VOIR.
@@ -9219,6 +9276,10 @@ r.post('/valorisations/lot/validation', authRequired, (req, res) => {
   const nom = req.user?.nom || req.user?.email || null;
   db.transaction(() => {
     for (const id of prets) maj.run(nom, req.user?.id ?? null, req.user?.role || null, id);
+    // VALIDER OUVRE AUSSI LA SÉANCE DU PV qui manquerait (3.5.190) : à la date de séance des décisions.
+    for (const d of dossiers.filter(x => prets.includes(x.id) && x.decision_ce_date)) {
+      ouvrirSeancesValorisation([d.ue_num], d.annee_scolaire, String(d.decision_ce_date).slice(0, 10), req, null);
+    }
   })();
   // Le journal, LIGNE PAR LIGNE : un geste en série reste une suite de gestes
   // individuels, et c'est ainsi qu'il se relit.
@@ -9358,6 +9419,8 @@ r.post('/valorisations/lot/decisions', authRequired, gesteRequis('valorisation.i
   const nom = req.user?.nom || req.user?.email || null;
   db.transaction(() => {
     for (const { v, corps } of cibles) ecrireDecision(v, corps, nom);
+    ouvrirSeancesValorisation([...new Set(cibles.map(c => c.v.ue_num))],
+      cibles[0].v.annee_scolaire, dateCE, req, req.body?.presents);
   })();
   // UNE LIGNE DE JOURNAL PAR DOSSIER, avec ce qui a été décidé pour lui : le
   // lot ne dilue pas la responsabilité, et ne confond pas les décisions.
