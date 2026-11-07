@@ -921,6 +921,86 @@ function MesDates({ moi }) {
     </div>);
 }
 
+/* LA LIGNE DU TEMPS DE L'ÉCOLE (3.5.182, Charles : « une vision sur l'agenda — timeline — de l'école ; important ; avec les
+   journées portes ouvertes, les événements, les inscriptions, les salons… »). L'année en largeur (de la mi-août à la mi-août), une
+   rangée par sorte d'événement, chaque événement à sa place et à sa durée ; aujourd'hui en trait rouge ; au survol, le détail.
+   Sous la ligne, la liste des événements à venir. Les mêmes données que « Mes dates » (les moments de l'agenda de l'école qui
+   concernent les enseignants, les congés, les fériés, mes examens et délibérations). */
+const RANGEES_ECOLE = [
+  ['Portes ouvertes', m => m.genre === 'Portes ouvertes', '#7C3AED'],
+  ['Inscriptions', m => m.genre === 'Inscriptions' || m.genre === 'Rentrée', '#2F6FB0'],
+  ['Salons', m => m.genre === 'Salon, SIEP', '#0E7490'],
+  ['Examens', m => m.type === 'examen' || m.genre === 'Examens', '#B45309'],
+  ['Délibérations', m => m.type === 'deliberation' || m.genre === 'Délibérations', '#19537E'],
+  ['Cérémonies', m => m.genre === 'Remise des diplômes' || m.genre === 'Cérémonie', '#C9A227'],
+  ['Formations, réunions', m => m.type === 'formation' || ['Journée de formation', 'Réunion', 'Conseil', 'Qualité', 'Échéance, document'].includes(m.genre), '#3E7D5E'],
+  ['Congés', m => ['conge', 'ferme', 'ferie'].includes(m.type), '#94A3B8'],
+  ['Autres', () => true, '#64748B'],
+];
+function TimelineEcole({ moi, annee }) {
+  const [d, setD] = useState(null);
+  const [vu, setVu] = useState(null);
+  useEffect(() => {
+    fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
+      .then(setD).catch(() => setD({ items: [] }));
+  }, [annee]);
+  if (!d) return <p className="text-slate-500">Chargement…</p>;
+  const a0 = Number(String(d.annee || annee || moi.aujourdhui).slice(0, 4));
+  const debut = new Date(Date.UTC(a0, 7, 15)), fin = new Date(Date.UTC(a0 + 1, 7, 15));
+  const jours = (fin - debut) / 864e5;
+  const pos = iso => Math.max(0, Math.min(100, ((new Date(`${String(iso).slice(0, 10)}T00:00:00Z`) - debut) / 864e5 / jours) * 100));
+  const rangees = RANGEES_ECOLE.map(([l, f, c]) => ({ l, f, c, items: [] }));
+  for (const x of d.items || []) { const r = rangees.find(z => z.f(x)); if (r) r.items.push(x); }
+  const visibles = rangees.filter(r => r.items.length);
+  const mois = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(a0, 8 + i, 1)));
+  const auj = moi.aujourdhui;
+  const dateCourte = iso => { const [a, m, j] = String(iso).slice(0, 10).split('-').map(Number); return `${j} ${MOIS_FR[m - 1].slice(0, 4)}.`; };
+  const aVenir = (d.items || []).filter(x => (x.au || x.date) >= auj && !['ferie'].includes(x.type)).slice(0, 40);
+  return (
+    <div className="space-y-4">
+      <section className="bg-white border border-slate-200 rounded-carte p-4 overflow-x-auto">
+        <div className="min-w-[760px]">
+          <div className="relative h-6 ml-40 border-b border-slate-200">
+            {mois.map(m => <span key={m.toISOString()} className="absolute top-0 text-mention text-slate-500 first-letter:uppercase" style={{ left: `${pos(m.toISOString())}%` }}>{MOIS_FR[m.getUTCMonth()].slice(0, 4)}.</span>)}
+          </div>
+          {visibles.map(r => (
+            <div key={r.l} className="flex items-center border-b border-slate-100 last:border-0">
+              <div className="w-40 shrink-0 pr-3 py-2 text-second font-semibold text-iip-texte flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.c }} />{r.l}</div>
+              <div className="relative flex-1 h-9">
+                {mois.map(m => <span key={m.toISOString()} className="absolute top-0 bottom-0 w-px bg-slate-100" style={{ left: `${pos(m.toISOString())}%` }} />)}
+                {auj >= debut.toISOString().slice(0, 10) && auj < fin.toISOString().slice(0, 10) && <span className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: `${pos(auj)}%`, background: 'var(--c-refuse, #9D4A38)' }} />}
+                {r.items.map((x, i) => {
+                  const g = pos(x.date), dr = pos(x.au || x.date);
+                  return (
+                    <button key={i} type="button" onMouseEnter={() => setVu(x)} onMouseLeave={() => setVu(null)} onClick={() => setVu(x)}
+                      className="absolute top-1.5 h-6 rounded-md hover:ring-2 hover:ring-offset-1"
+                      style={{ left: `${g}%`, width: `max(8px, ${dr - g}%)`, background: r.c, opacity: (x.au || x.date) < auj ? 0.45 : 0.9, '--tw-ring-color': r.c }}
+                      aria-label={`${x.titre} — ${dateCourte(x.date)}`} />);
+                })}
+              </div>
+            </div>))}
+          {!visibles.length && <p className="text-slate-500 m-0">Rien dans l’agenda de l’école pour cette année.</p>}
+        </div>
+        <div className="mt-3 min-h-[2.5rem] text-sm">
+          {vu ? <><b>{vu.titre}</b> <span className="text-slate-600">· {dateCourte(vu.date)}{vu.au && vu.au !== vu.date ? ` → ${dateCourte(vu.au)}` : ''}{vu.heure ? ` · ${String(vu.heure).slice(0, 5)}` : ''}{vu.lieu ? ` · ${vu.lieu}` : ''}</span></>
+            : <span className="text-slate-400">Survolez (ou touchez) un événement pour son détail. Le trait rouge, c’est aujourd’hui.</span>}
+        </div>
+      </section>
+      <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+        <div className="entete-carte px-4 py-2 font-semibold text-iip-texte">À venir</div>
+        {aVenir.map((x, i) => { const r = rangees.find(z => z.f(x));
+          return (
+            <div key={i} className="flex items-start gap-3 px-4 py-2 border-t border-slate-100 text-sm">
+              <span className="w-32 shrink-0 tabular-nums"><b>{dateCourte(x.date)}</b>{x.au && x.au !== x.date ? <span className="text-slate-500"> → {dateCourte(x.au)}</span> : null}</span>
+              <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: r?.c || '#64748B' }}>{r?.l || 'École'}</span>
+              <span className="flex-1 min-w-0">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</span>
+            </div>); })}
+        {!aVenir.length && <p className="px-4 py-3 m-0 text-slate-500">Rien à venir.</p>}
+      </section>
+    </div>);
+}
+
 /* MON AGENDA : la semaine (avec les journées de l'école), et deux portes — les visites de stage, l'horaire dans le téléphone. */
 function MonAgenda({ moi, onPresences }) {
   const [ouvert, setOuvert] = useState(null);
@@ -943,7 +1023,9 @@ function MonAgenda({ moi, onPresences }) {
         // LES DÉLIBÉRATIONS DE MES UNITÉS (3.5.160, Charles : « ceci doit aller dans agenda ») : le tableau quitte Mes unités.
         : vue === 'deliberations' ? <EvaluationsDeliberations annee={annee || undefined} />
         : vue === 'semaine' ? <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
-        : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
+        : <div className="space-y-5"><TimelineEcole moi={moi} annee={annee} />
+            <div><div className="intertitre mb-2">Semaine par semaine</div>
+              <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense></div></div>}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
         {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
