@@ -43,3 +43,29 @@ export function rangCouleur(code) {
   if (m) return Number(m[1]) - 1;
   return ALPHA.indexOf(c[0]);
 }
+
+/* LES GROUPES D'UN COURS, LUS ET RANGÉS (3.5.166, Charles : « simplement le nom du cours, puis des badges A, B, C… ; si le cours
+   est coupé en activités, le nom de l'activité et ses groupes »). Les libellés viennent du serveur sous la forme
+   « Activité · Org 1 · Gr. A », « Org 1 · Gr. B », « Activité · tous » : on les découpe une fois, ici. */
+export function lireGroupe(libelle) {
+  const parts = String(libelle || '').split(' · ').map(x => x.trim()).filter(Boolean);
+  const iOrg = parts.findIndex(p => /^Org \d+$/.test(p));
+  const avant = iOrg >= 0 ? parts.slice(0, iOrg) : parts.filter(p => !/^Gr\./.test(p) && p !== 'tous');
+  const gr = parts.find(p => /^Gr\./.test(p));
+  const org = iOrg >= 0 ? Number(parts[iOrg].slice(4)) : 1;
+  const nom = gr ? gr.replace(/^Gr\.\s*/, '') : null;
+  return { libelle, activite: avant.join(' · ') || null, org, groupe: nom ? (org > 1 ? `${nom} (org ${org})` : nom) : null };
+}
+
+/** Les groupes rangés par activité : [{ activite, groupes: [{ libelle, groupe }] }] — les activités suivies par tous n'ont pas de groupe. */
+export function parActivite(libelles) {
+  const out = [];
+  for (const l of [...new Set(libelles)]) {
+    const g = lireGroupe(l);
+    let a = out.find(x => x.activite === g.activite);
+    if (!a) out.push(a = { activite: g.activite, groupes: [] });
+    if (g.groupe) a.groupes.push(g);
+  }
+  for (const a of out) a.groupes.sort((x, y) => x.groupe.localeCompare(y.groupe, 'fr', { numeric: true }));
+  return out.filter(a => a.groupes.length);
+}

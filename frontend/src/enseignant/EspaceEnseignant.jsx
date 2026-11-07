@@ -587,7 +587,7 @@ function AgendaPastille({ a }) {
 
 /* CONTACTER / URGENCE (3.5.089) : le même bouton que Lucie — vert « Contacter » quand le secrétariat est là, orange « Urgence »
    sinon ; il nomme qui est là et la permanence, et chaque numéro s'appelle d'un toucher. */
-function BoutonContact() {
+function BoutonContact({ compact = false }) {
   const [c, setC] = useState(null);
   const [ouvert, setOuvert] = useState(false);
   const charger = () => appel('GET', '/contact').then(setC).catch(() => {});
@@ -596,9 +596,9 @@ function BoutonContact() {
   const ok = !!c.secretariat_ouvert;
   const Tel = ({ p }) => (p.telephone ? <a className="text-iip-blue underline whitespace-nowrap" href={`tel:${String(p.telephone).replace(/\s+/g, '')}`}>{p.telephone}</a> : <span className="text-slate-400">pas de numéro</span>);
   return (<>
-    <button type="button" onClick={() => { charger(); setOuvert(true); }} className="shrink-0 min-h-11 md:min-h-9 px-3 rounded-champ inline-flex items-center gap-2 text-sm font-semibold text-white"
+    <button type="button" onClick={() => { charger(); setOuvert(true); }} title={ok ? 'Contacter' : 'Urgence'} className="shrink-0 min-h-11 md:min-h-9 px-3 rounded-champ inline-flex items-center gap-2 text-sm font-semibold text-white"
       style={{ background: ok ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-attente, #B45309)' }}>
-      <IconPhone size={16} /> {ok ? 'Contacter' : 'Urgence'}
+      <IconPhone size={16} />{!compact && ` ${ok ? 'Contacter' : 'Urgence'}`}
     </button>
     {ouvert && (
       <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} onFermer={() => setOuvert(false)}>
@@ -967,12 +967,12 @@ function LEcole() {
     </div>);
 }
 
-function BoutonFace({ f, actif, onClick }) {
+function BoutonFace({ f, actif, onClick, etroit = false }) {
   return (
-    <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined}
-      className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
+    <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined} title={etroit ? f.l : undefined} aria-label={f.l}
+      className={`shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left ${etroit ? 'md:justify-center md:px-0' : ''}`}
       style={actif ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
-      <f.I size={18} /> {f.l}
+      <f.I size={18} /> <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
     </button>);
 }
 
@@ -1074,6 +1074,7 @@ export default function EspaceEnseignant() {
   const ouvrirSeance = (action, s) => { setDemande({ action, s, n: Date.now() }); setFace(action === 'presences' ? 'presences' : 'notes'); };
   const [tic, setTic] = useState(0);
   const [questionAide, setQuestionAide] = useState('');
+  const [deplie, setDeplie] = useState(null);   // null : la règle ; true / false : le choix de la personne
   const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -1110,7 +1111,9 @@ export default function EspaceEnseignant() {
   }
   if (!moi) return <p className="p-6 text-slate-500">{erreur || 'Chargement…'}</p>;
   const quitter = () => { poser(null); setToken(null); setMoi(null); };
-  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); };
+  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); setDeplie(null); };
+  // Étroit hors d'Aujourd'hui, sauf si on l'a déplié (ou replié) soi-même ; changer d'entrée rend la règle.
+  const etroit = deplie === null ? face !== 'aujourdhui' : !deplie;
   const chercher = <RechercheEspace faces={[...FACES, ...FACES_BAS]} onFace={aller}
     onCours={code => { setDemande({ action: 'notes', s: { cours_code: code }, n: Date.now() }); setFace('notes'); }}
     onAide={q => { setQuestionAide(q); aller('aide'); }} />;
@@ -1118,16 +1121,26 @@ export default function EspaceEnseignant() {
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
       <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto flex items-center gap-2"><BoutonContact />{chercher}</span></div>
-      <nav aria-label="Espace enseignant" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto md:sticky md:top-0 md:h-screen">
-        <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div></div>
+      {/* UN RAIL ÉTROIT QUAND ON TRAVAILLE (3.5.166, Charles : « gagnons de la place ; réduis le menu à un rail étroit une fois
+          qu'on a choisi notes, ou autre ») : sur Aujourd'hui, le menu entier ; ailleurs, les icônes seules (le nom au survol),
+          et le chevron le déplie. Sur téléphone, la bande d'onglets ne change pas. */}
+      <nav aria-label="Espace enseignant" className={`${etroit ? 'md:w-[4.5rem]' : 'md:w-60'} md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 ${etroit ? 'md:px-2 md:py-4' : 'md:p-4'} flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen transition-[width] duration-200`}>
+        <div className={`hidden md:flex items-center gap-2.5 pb-4 ${etroit ? 'justify-center' : 'px-2'}`}>
+          {etroit ? <LogoLucie hauteur={26} sansTexte className="" /> : <div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div>}
+        </div>
         {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
-        <div className="hidden md:flex items-center gap-2 px-2 pb-3"><BoutonContact />{chercher}</div>
-        {FACES.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
+        <div className={`hidden md:flex items-center gap-2 pb-3 ${etroit ? 'flex-col' : 'px-2'}`}><BoutonContact compact={etroit} />{chercher}</div>
+        {FACES.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
-        {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
-        <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
-          <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>
-          <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0" onClick={quitter}><IconLogout size={15} /> Se déconnecter</button>
+        {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
+        <button type="button" className="hidden md:inline-flex items-center justify-center min-h-9 rounded-champ text-slate-500 hover:bg-slate-50"
+          onClick={() => setDeplie(d => !d)} title={etroit ? 'Déplier le menu' : 'Réduire le menu'} aria-label={etroit ? 'Déplier le menu' : 'Réduire le menu'}>
+          {etroit ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
+        </button>
+        <div className={`md:border-t border-slate-200 md:pt-3 ${etroit ? '' : 'md:px-2'} flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0`}>
+          {!etroit && <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>}
+          <button type="button" className={`text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0 ${etroit ? 'md:justify-center' : ''}`} onClick={quitter}
+            title="Se déconnecter"><IconLogout size={15} /><span className={etroit ? 'md:hidden' : ''}> Se déconnecter</span></button>
         </div>
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">

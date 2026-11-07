@@ -2,9 +2,10 @@
  *  barre de Lucie, l'espace enseignant, l'espace étudiant (3.5.086, Charles : « ce n'est pas le bon logo »). */
 import { ETOILES, TRAITS, ECLAT, DISCRETES, POINTS_L } from '../lib/logoVierge.js';
 
-export default function LogoLucie({ hauteur = 28, className = 'logo-lucie' }) {
+// `sansTexte` (3.5.166) : la figure seule, pour un rail étroit.
+export default function LogoLucie({ hauteur = 28, className = 'logo-lucie', sansTexte = false }) {
   return (
-    <svg className={className} width={Math.round(hauteur * 3.5)} height={hauteur} viewBox="-12 -6 172 49" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lucie">
+    <svg className={className} width={Math.round(hauteur * (sansTexte ? 1.5 : 3.5))} height={hauteur} viewBox={sansTexte ? '-12 -6 74 49' : '-12 -6 172 49'} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lucie">
       <g stroke="#1B2B4B" strokeOpacity=".12" fill="none" strokeWidth="0.8" strokeLinecap="round">
         {TRAITS.map(([a, b]) => <line key={a + b} x1={ETOILES[a][0]} y1={ETOILES[a][1]} x2={ETOILES[b][0]} y2={ETOILES[b][1]} />)}
       </g>
@@ -17,7 +18,7 @@ export default function LogoLucie({ hauteur = 28, className = 'logo-lucie' }) {
           <circle cx={x} cy={y} r={i === 1 ? 3.6 : 3.2} fill="#00AACC" />
           <circle cx={x} cy={y} r={i === 1 ? 1.6 : 1.4} fill="white" fillOpacity=".7" />
         </g>))}
-      <text x="66" y="30" fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif" fontSize="22" fontWeight="700" letterSpacing="-0.5" fill="#1B2B4B">Lucie</text>
+      {!sansTexte && <text x="66" y="30" fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif" fontSize="22" fontWeight="700" letterSpacing="-0.5" fill="#1B2B4B">Lucie</text>}
     </svg>
   );
 }
