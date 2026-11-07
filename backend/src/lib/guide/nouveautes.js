@@ -50,6 +50,17 @@ export const ajouts = {
   ],
   organisation: [
     {
+      titre: "Absences des enseignants",
+      pour: 'sec coo dir',
+      ou: "Organisation → Qui enseigne et quand → Absences des enseignants.",
+      texte: "Les absences que les professeurs ont signalées, la plus récente en tête (ocre : à traiter). Dépliez-en une : chaque séance de la période a sa décision — Annulée, Remplacée (choisissez qui), Déplacée (nouvelle date et heures), Maintenue — avec, si besoin, un mot pour les étudiants ; [[Poser]] l'écrit dans l'horaire. Quand tout est décidé, [[Prévenir les étudiants|IconSend]] envoie le message aux inscrits de chaque cours : dans leur espace s'ils en ont un, sinon par courriel à leur adresse d'école. Le professeur reçoit la décision dans son tableau de bord.",
+      savoir: [
+        "Une séance retouchée ici est marquée « modifiée dans Lucie » : aucun import d'horaire ne l'écrase.",
+        "On peut revenir sur une décision : l'horaire reprend la séance d'origine, puis la nouvelle décision ; il faut alors prévenir à nouveau.",
+        "La coordination lit les absences de ses sections ; le secrétariat et la direction décident.",
+      ],
+    },
+    {
       titre: "Le rail d'Organisation, dans l'ordre du travail",
       pour: 'sec coo dir',
       ou: "Organisation → le rail de gauche.",
@@ -299,6 +310,27 @@ export const ajouts = {
     },
   ],
   mescours: [
+    {
+      titre: "Mes TFE : mes jurys et mes fiches",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → Mes TFE (dans Lucie : Mes cours → rail → Mes TFE).",
+      texte: "Une ligne par TFE dont vous êtes membre du jury (promoteur, copromoteur, lecteur, président) : l'étudiant, le titre, votre rôle et ce qui reste à remplir. Dépliée, elle montre la question de recherche, le jury, la défense, les remises du calendrier de la section (reçues ou non) et les fichiers que l'étudiant a déposés depuis son espace. En dessous, les fiches d'évaluation de l'unité : celles de votre rôle se remplissent critère par critère (points sur le maximum de la fiche, ou PP, NP, CM), puis [[Enregistrer la fiche|IconCheck|fort]].",
+      savoir: [
+        "La note va dans le carnet du cours qui porte la fiche (une note par acquis, et la note de la fiche) ; elle rejoint la feuille de notes par « Reprendre dans la feuille de notes », comme le reste du carnet.",
+        "« Le jury, de commun accord » se remplit par le promoteur.",
+        "Les fiches et leurs critères sont réglés par la coordination (Organisation → Travaux de fin d'études → Fiches d'évaluation) ; le jury, par la coordination dans le TFE.",
+      ],
+    },
+    {
+      titre: "Signaler une absence",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → Mon agenda → Signaler une absence (dans Lucie : Mes cours → rail → Signaler une absence).",
+      texte: "Vos dates, un motif (maladie, raison familiale, formation, mission de service, autre) et, si vous voulez, un mot pour le secrétariat. Lucie relève vos séances de la période et prévient le secrétariat et la coordination. Le secrétariat décide de chaque séance — annulée, remplacée, déplacée ou maintenue — puis prévient vos étudiants, par leur espace ou par courriel à leur adresse d'école. Vous retrouvez sa décision dans la même fenêtre et dans votre tableau de bord.",
+      savoir: [
+        "Tant que rien n'est décidé, vous pouvez retirer le signalement ; ensuite, demandez au secrétariat.",
+        "Un certificat médical se remet comme d'habitude au secrétariat : ce signalement ne le remplace pas.",
+      ],
+    },
     {
       titre: "Le carnet : noter acquis par acquis (l’écrit et l’oral d’une épreuve intégrée)",
       pour: 'ens coo dir',

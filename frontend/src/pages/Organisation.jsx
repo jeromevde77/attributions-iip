@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconBook2, IconCalendar, IconChalkboard, IconUsers, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -22,6 +22,7 @@ const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
 const StagesOrganisation = lazy(() => import('./StagesOrganisation.jsx'));
 const TfeOrganisation = lazy(() => import('./TfeOrganisation.jsx'));
+const AbsencesEnseignants = lazy(() => import('../components/AbsencesEnseignants.jsx'));
 /* Stages et TFE : direction, secrétariat et TOUTE coordination (ses sections), quelles que soient les cases de sa fiche
    (3.5.073, Charles). Le serveur fait la même règle (`garderModuleSauf`). */
 const STAGES_TFE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
@@ -104,6 +105,7 @@ export default function Organisation({ ongletInitial }) {
             { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye, seulementPresent: true },
             { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent, seulementPresent: true },
             { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock, seulementPresent: true },
+            { key: 'absences-prof' },
           ] },
         { key: 'g-etudiants', label: 'Les étudiants', icone: IconUsers,
           enfants: [{ key: 'repartition' }, { key: 'stages' }, { key: 'tfe' }] },
@@ -161,6 +163,9 @@ export default function Organisation({ ongletInitial }) {
         { key: 'tfe', roles: STAGES_TFE, label: 'Travaux de fin d’études', icone: IconFileCertificate,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    {annee ? <TfeOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
+        /* LES ABSENCES DES ENSEIGNANTS (3.5.210) : le professeur signale, le secrétariat décide séance par séance et prévient. */
+        { key: 'absences-prof', roles: STAGES_TFE, label: 'Absences des enseignants', icone: IconUserOff,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><AbsencesEnseignants /></Suspense> },
         /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en
            briques, pour que les groupes de tous les cours s'emboîtent à l'horaire. */
 

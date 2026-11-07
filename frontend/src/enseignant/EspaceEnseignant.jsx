@@ -21,9 +21,11 @@ const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.
 const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
 const AideLucie = lazy(() => import('../pages/Aide.jsx'));
 const MaFicheLucie = lazy(() => import('../pages/Professeurs.jsx'));
+const MesTfeLucie = lazy(() => import('../components/MesTfe.jsx'));
+const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignants.jsx').then(m => ({ default: m.SignalerAbsence })));
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId } from '@tabler/icons-react';
+import { IconSchool, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -594,6 +596,7 @@ function MonAgenda({ moi, onPresences }) {
         <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Évaluations et délibérations'], ['annee', 'L’année de l’école']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
         <span className="flex-1" />
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('absence')}><IconUserOff size={16} /> Signaler une absence</button>
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('agenda')}><IconCalendarShare size={16} /> Dans l’agenda de mon téléphone</button>
       </div>
@@ -607,6 +610,7 @@ function MonAgenda({ moi, onPresences }) {
         : <TimelineEcole moi={moi} annee={annee} />}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
+        {ouvert === 'absence' && <SignalerAbsenceLucie onFermer={() => setOuvert(null)} />}
         {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
       </Suspense>
     </div>);
@@ -723,6 +727,7 @@ const FACES = [
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'tfe', l: 'Mes TFE', I: IconSchool },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
 ];
 const FACES_BAS = [
@@ -830,6 +835,8 @@ export default function EspaceEnseignant() {
           // le relais — ses données, ses attributions ; « Modifier » envoie une demande que la direction valide. Fermer ramène ici.
           : face === 'fiche' ? (lucie ? <MemoryRouter initialEntries={['/professeurs']}><SuivreLiens allerA={k => aller(k)} retour={() => aller('aujourdhui')} />
               <Suspense fallback={<ChargementLucie />}><MaFicheLucie /></Suspense></MemoryRouter> : <ChargementLucie />)
+          // MES TFE (3.5.210) : ses TFE, leur suivi, les fiches de son rôle — l'écran de Lucie, par le relais.
+          : face === 'tfe' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesTfeLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}
