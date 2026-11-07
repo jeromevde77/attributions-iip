@@ -18,7 +18,7 @@ import * as gConfig from './guide/config.js';
 import * as gEcole from './guide/ecole.js';
 import * as gNouveautes from './guide/nouveautes.js';
 
-export const VERSION_DECRITE = '3.5.169';
+export const VERSION_DECRITE = '3.5.171';
 
 export const RUBRIQUES = [
   {
