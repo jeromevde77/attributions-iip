@@ -21,7 +21,7 @@ const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.
 const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
 const AideLucie = lazy(() => import('../pages/Aide.jsx'));
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch } from '@tabler/icons-react';
 
 /**
@@ -1052,6 +1052,23 @@ function LEcole() {
     </div>);
 }
 
+/* UNE PAGE QUI TOMBE NE BLANCHIT PLUS TOUT L'ESPACE (3.5.185, Charles : « espace enseignant vide, blanc ») : une erreur dans un
+   écran de Lucie (une réponse inattendue du relais) n'emporte que cet écran ; le reste de l'espace reste là, et le message le dit. */
+class Garde extends Component {
+  constructor(p) { super(p); this.state = { erreur: null }; }
+  static getDerivedStateFromError(erreur) { return { erreur }; }
+  componentDidCatch(e) { console.error('[espace enseignant]', e); }
+  componentDidUpdate(prev) { if (prev.cle !== this.props.cle && this.state.erreur) this.setState({ erreur: null }); }
+  render() {
+    if (!this.state.erreur) return this.props.children;
+    return (
+      <div className="bloc-etat px-4 py-3 text-sm" data-etat="corriger">
+        Cette page n’a pas pu s’afficher. Rechargez dans un instant ; si cela persiste, signalez-le à la direction.
+        <button type="button" className="bouton ml-3" onClick={() => this.setState({ erreur: null })}>Réessayer</button>
+      </div>);
+  }
+}
+
 /* LE BOUTON DU RAIL : commun aux deux espaces (3.5.184), dans components/RailEspace.jsx. */
 
 /* LA LOUPE (3.5.161, Charles : « il n'y a pas la petite loupe, ni l'aide ») : « Où aller ? » de l'espace — les entrées, mes unités
@@ -1217,7 +1234,7 @@ export default function EspaceEnseignant() {
             title="Se déconnecter"><IconLogout size={15} /><span className={etroit ? 'md:hidden' : ''}> Se déconnecter</span></button>
         </div>
       </nav>
-      <main className="flex-1 min-w-0 p-4 md:p-8">
+      <main className="flex-1 min-w-0 p-4 md:p-8"><Garde cle={face}>
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
         {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}
@@ -1237,6 +1254,7 @@ export default function EspaceEnseignant() {
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}
+        </Garde>
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>
     </div>

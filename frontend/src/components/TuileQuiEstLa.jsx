@@ -22,7 +22,8 @@ export default function TuileQuiEstLa() {
   const [face, setFace] = useState('maintenant');
   const charger = () => fetch('/api/equipe/maintenant', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setD).catch(() => {});
   useEffect(() => { charger(); const t = setInterval(charger, 60000); return () => clearInterval(t); }, []);
-  if (!d) return null;
+  // Une réponse d'une autre forme (relais de l'espace enseignant, refus) ne fait pas tomber la page (3.5.185).
+  if (!d || !Array.isArray(d.presents) || !Array.isArray(d.permanences)) return null;
 
   const permEnCours = d.permanences.filter(p => p.en_cours);
   const resume = d.presents.length
