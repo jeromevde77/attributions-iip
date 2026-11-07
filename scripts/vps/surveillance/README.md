@@ -7,6 +7,7 @@ En place depuis le 7 novembre 2026. Les alertes partent vers un sujet **ntfy**
 | Quoi | Fichiers | Quand | Alerte |
 |---|---|---|---|
 | Disque de `/` | `lucie-disque` + `.service` + `.timer` | toutes les 30 min | ≥ 80 %, ≥ 90 % (répétée chaque jour), retour à la normale |
+| Mise à jour en échec (pull, sauvegarde, démarrage) | `../mise-a-jour.sh` (sujet : `NTFY_SUJET` dans `/opt/lucie/.env`) | toutes les 5 min | une même alerte au plus une fois par heure |
 | Redémarrage nécessaire, correctifs de sécurité bloqués | `lucie-systeme` + `.service` + `.timer` | chaque jour, 08:00 UTC | redémarrage en attente ; correctifs `-security` en attente depuis plus de 2 jours |
 
 Complètent ces deux scripts :
