@@ -1661,5 +1661,8 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
   border-radius: 999px; border: 1px solid var(--c-principal, #19537E); color: var(--c-principal, #19537E);
   font-size: 12px; font-weight: 600; line-height: 1.5; background: #fff; }
 .pastille-groupe-bouton { cursor: pointer; padding: 3px 10px; font-size: 13px; }
+/* Le choix ne change que les couleurs : même graisse, même bord, même largeur — rien ne se décale sous la souris (3.5.168). */
+.pastille-groupe, .pastille-groupe-bouton, .pastille-groupe-active { font-weight: 600; border-width: 1px; }
+.pastille-groupe-bouton:focus-visible { outline: 2px solid var(--c-principal, #19537E); outline-offset: 2px; }
 .pastille-groupe-bouton:hover { background: color-mix(in srgb, var(--c-principal, #19537E) 8%, #fff); }
 .pastille-groupe-active, .pastille-groupe-active:hover { background: var(--c-principal, #19537E); color: #fff; }

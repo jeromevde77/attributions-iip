@@ -176,6 +176,12 @@ export function decouperProgramme(texte, intitulesCours = []) {
   // écrits - Psychomotricité ») vaut ce cours : on ne lui ajoute pas un second bloc vide.
   const proche = memeCours;
   for (const n of intitulesCours) if (n && !cours.some(c => proche(c.nom, n))) cours.push({ nom: n, texte: '' });
+  /* UNE UNITÉ D'UN SEUL COURS (3.5.167, Charles, UE 246 : tout le programme tombait dans « Introduction commune à tous les
+     cours ») : quand le dossier ne nomme aucun cours, le programme entier est celui de ce cours. */
+  const vrais = intitulesCours.filter(Boolean);
+  if (vrais.length === 1 && cours.length === 1 && !cours[0].texte && pre.join('').trim()) {
+    return { preambule: '', cours: [{ nom: cours[0].nom, texte: pre.join('\n').trim() }] };
+  }
   return { preambule: pre.join('\n').trim(), cours };
 }
 export function recomposerProgramme(preambule, cours) {

@@ -95,7 +95,7 @@ export default function MaListe({ etudiants, groupe, cours, onImprimer, occupe }
     <div ref={boite} className="relative inline-flex items-center gap-2">
       {msg && <span className="text-second text-slate-500">{msg}</span>}
       <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5" disabled={occupe} onClick={() => { const r = boite.current?.getBoundingClientRect(); setAGauche(!!r && r.left < window.innerWidth / 2); setOuvert(o => !o); }}>
-        <IconListDetails size={15} /> Ma liste {groupe ? `(groupe ${groupe})` : ''} <span className="text-slate-400">· {etudiants.length}</span> <IconChevronDown size={14} />
+        <IconListDetails size={15} /> Ma liste <span className="text-slate-400">· {etudiants.length}</span> <IconChevronDown size={14} />
       </button>
       {ouvert && (
         <div className={`absolute ${aGauche ? 'left-0' : 'right-0'} top-full mt-1 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-carte border border-slate-200 shadow-flottant p-1`} style={{ background: 'var(--blanc)' }}>
