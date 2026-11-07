@@ -183,7 +183,7 @@ function MaJournee({ moi, onPresences, onSemaine }) {
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="m-0 text-2xl font-semibold text-iip-texte">Bonjour {moi.prenom}</h1>
+          <h1 className="titre-ecran">Bonjour {moi.prenom}</h1>
           <p className="m-0 mt-1 text-slate-500 first-letter:uppercase">{jourFr(jour)}{d ? ` · ${d.seances.length ? `${d.seances.length} séance(s)` : 'aucune séance'}` : ''}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ function TextesEcole() {
   if (!l) return <p className="text-slate-500">Chargement…</p>;
   return (
     <div className="space-y-4">
-      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Les textes de l’école</h1>
+      
       <p className="m-0 text-slate-600">Les règles du jeu : circulaires, règlements, procédures. Ceux qui ne sont pas encore confirmés vous attendent.</p>
       {!l.length ? <p className="text-slate-500">Aucun texte pour l’instant.</p> : (
         <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
@@ -313,7 +313,7 @@ function MesDocuments() {
   if (!l) return <p className="text-slate-500">Chargement…</p>;
   return (
     <div className="space-y-4">
-      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mes documents</h1>
+      
       <p className="m-0 text-slate-600">Les pièces que l’école vous a envoyées par Lucie — votre contrat, votre fiche d’attributions… —, telles qu’elles sont parties.</p>
       {!l.length ? <p className="text-slate-500">Aucune pièce pour l’instant.</p> : (
         <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
@@ -429,7 +429,7 @@ function MesUE() {
   if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
   return (
     <div className="space-y-5">
-      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mes UE et mes étudiants{t.annee ? ` · ${t.annee}` : ''}</h1>
+      <h1 className="titre-ecran">Mes étudiants{t.annee ? <span className="compte">{t.annee}</span> : null}</h1>
       {[...t.ues].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num).map(u => (
         <section key={u.ue_num} className="bg-white border border-slate-200 border-l-[3px] rounded-carte overflow-hidden"
           style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
@@ -529,7 +529,7 @@ function Presences({ seanceId, onRetour, motifs: MOTIFS = [], qr = false }) {
     <div className="space-y-4">
       <button type="button" className="bouton controle inline-flex items-center gap-1" onClick={onRetour}><IconChevronLeft size={16} /> Ma journée</button>
       <div>
-        <h1 className="m-0 text-2xl font-semibold text-iip-texte">Présences</h1>
+        <h1 className="titre-ecran">Présences</h1>
         <p className="m-0 mt-1 text-slate-500">{s.cours_nom || s.cours_code} · <span className="first-letter:uppercase">{jourFr(s.date)}</span>, {h(s.heure_debut)}{s.local ? ` · ${s.local}` : ''}</p>
       </div>
       {qr && s.date === d.aujourdhui && !s.annule && (
@@ -626,7 +626,7 @@ function MonHoraire({ moi, onPresences }) {
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mon horaire{d?.jours?.[0] ? ` · semaine du ${court(d.jours[0])}` : ''}</h1>
+        <h1 className="titre-ecran">Mon horaire{d?.jours?.[0] ? ` · semaine du ${court(d.jours[0])}` : ''}</h1>
         <div className="flex items-center gap-2">
           <button type="button" className="bouton controle" aria-label="Semaine précédente" onClick={() => setRef(decaler(ref, -7))}><IconChevronLeft size={16} /></button>
           {ref !== moi.aujourdhui && <button type="button" className="bouton controle" onClick={() => setRef(moi.aujourdhui)}>Cette semaine</button>}
@@ -664,7 +664,7 @@ function MonCompte({ moi, onToken }) {
   useEffect(() => { charger(); }, []);
   return (
     <div className="space-y-5">
-      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mon compte</h1>
+      <h1 className="titre-ecran">Mon compte</h1>
       <p className="m-0 text-slate-600">{String(moi.nom || '').toUpperCase()} {moi.prenom} · {moi.email}</p>
       <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
         <div className="entete-carte px-4 py-3 font-semibold text-iip-texte inline-flex items-center gap-2 w-full"><IconDevices size={16} /> Mes appareils reconnus ({app?.appareils?.length || 0} sur {app?.max || 3})</div>
@@ -733,7 +733,7 @@ function GrillePresences({ moi }) {
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="m-0 text-2xl font-semibold text-iip-texte">Présences de l’année</h1>
+        <h1 className="titre-ecran">Présences de l’année</h1>
         <div className="flex flex-wrap items-center gap-2">
           <select className="controle" value={code} onChange={e => setCode(e.target.value)} aria-label="Cours">
             {d.cours.map(c => <option key={c.code} value={c.code}>{c.ue_num ? `UE ${c.ue_num} · ` : ''}{c.nom || c.code}</option>)}
@@ -929,6 +929,7 @@ function MonAgenda({ moi, onPresences }) {
   let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
   return (
     <div className="space-y-4">
+      <h1 className="titre-ecran">Mon agenda</h1>
       <div className="flex flex-wrap gap-2 items-center">
         <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Délibérations'], ['annee', 'L’année de l’école']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
@@ -956,6 +957,7 @@ function LEcole() {
   const [ecrire, setEcrire] = useState(false);
   return (
     <div className="space-y-4">
+      <h1 className="titre-ecran">L’école</h1>
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200">
         {[['textes', 'Textes à lire'], ['documents', 'Mes documents']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setF(k)} className={`onglet-page ${f === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}

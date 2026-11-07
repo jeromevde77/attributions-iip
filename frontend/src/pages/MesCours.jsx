@@ -4,7 +4,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useRef, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight, IconChevronDown, IconListDetails, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -131,6 +131,9 @@ export default function MesCours({ espace = null }) {
      que l'affichage — les notes des autres groupes restent dans la feuille et
      partent avec l'enregistrement. */
   const [groupeVu, setGroupeVu] = useState('');
+  // LES ACQUIS ÉVALUÉS, DANS UN VOLET QU'ON OUVRE (3.5.170, Charles : « pour gagner de la place, un volet étroit qui s'ouvre si on
+  // clique pour avoir le détail ») ; il s'ouvre seul quand une note sous 10 demande son justificatif.
+  const [voletAcquis, setVoletAcquis] = useState(false);
   const [impression, setImpression] = useState(null);
   /* LA SECONDE SESSION (22 octobre 2026, Charles, UE 333 : « les professeurs ne
      savent pas encoder les points de la seconde session, ce n'est pas prévu »).
@@ -295,7 +298,8 @@ export default function MesCours({ espace = null }) {
           }
           if (cible) { ev.preventDefault(); cible.focus(); cible.select?.(); }
         };
-        const nomAA = (a, i) => `AA ${i + 1}`;
+        // LE VRAI CODE DE L'ACQUIS (3.5.170, Charles : « AA1, AA2… cela perd les profs ») : AA250.3, celui du dossier.
+        const nomAA = (a, i) => a?.aa_code || cols[i] || `AA ${i + 1}`;
         /* LA NOTE DU COURS, CALCULÉE EN ENCODANT (Charles, 26 septembre 2026).
            Moyenne des acquis pondérée par leur poids dans le cours — le niveau 1
            du modèle de calcul : INDICATIVE, la note qui fait foi reste celle de
@@ -485,16 +489,19 @@ export default function MesCours({ espace = null }) {
                 (le groupe choisi), notes tapées comprises. */}
             {face === 'indicateurs' && feuille && (
               <IndicateursNotes etudiants={vus} tous={feuille.etudiants} cols={cols}
-                nomCol={(k, i) => (k ? `${nomAA(null, i)} · ${k}` : 'Note du cours')}
+                nomCol={(k, i) => (k || 'Note du cours')}
                 valeurDe={valeurDe} noteCours={noteCours} groupesDispo={groupeVu ? [] : groupesDispo} groupesDe={groupesDe}
                 coursCode={ouvert} annee={annee} ueNum={feuille.ue_num} session={feuille.session || 1} />)}
             {fait && <p className="text-sm m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
             {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
             {face === 'notes' && feuille && (
-              <div className="grid gap-3 items-start lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className={`grid gap-3 items-start ${voletAcquis || (actifSous && actifEtu) ? 'lg:grid-cols-[minmax(0,1fr)_300px]' : ''}`}>
                 <div className="carte overflow-x-auto">
                   <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 text-second text-slate-500">
+                    <button type="button" onClick={() => setVoletAcquis(v => !v)} aria-pressed={voletAcquis}
+                      className={`order-last shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-champ border ${voletAcquis ? 'border-iip-blue text-iip-blue bg-white' : 'border-slate-200 text-slate-600 hover:border-iip-blue'}`}>
+                      <IconListDetails size={15} /> Acquis évalués</button>
                     <span className="min-w-0 flex-1">
                       {caseActive ? <>Dans la case active :</> : <>Cliquez une case, puis :</>}
                     </span>
@@ -674,7 +681,9 @@ export default function MesCours({ espace = null }) {
                 {/* CE QUE L'ON ÉVALUE, À CÔTÉ DE LA SAISIE : l'en-tête « AA 1 »
                     ne dit rien seul, et la bulle au survol ne se lit pas en
                     tapant des notes. */}
-                <div className="carte px-3 py-2.5 space-y-2.5 lg:sticky lg:top-3">
+                {(voletAcquis || (actifSous && actifEtu)) && <div className="carte px-3 py-2.5 space-y-2.5 lg:sticky lg:top-3">
+                  {voletAcquis && <div className="flex justify-end -mb-1"><button type="button" className="text-slate-400 hover:text-slate-700" onClick={() => setVoletAcquis(false)}
+                    title="Fermer le volet" aria-label="Fermer le volet"><IconX size={16} /></button></div>}
                   {actifSous && actifEtu && (
                     <div data-etat={String(justifs[actifEtu.id]?.[caseActive.k] ?? '').trim() ? 'neutre' : 'surveiller'} className="bloc-etat px-2.5 py-2 space-y-1">
                       <div className="text-second font-semibold">Justificatif d'échec</div>
@@ -722,6 +731,7 @@ export default function MesCours({ espace = null }) {
                       </div>
                     </div>
                   )}
+                  {voletAcquis && <>
                   <div className="intertitre">Ce que vous évaluez</div>
                   {cols.length > 1 && !pondere && (
                     <div data-etat="surveiller" className="bloc-etat px-2 py-1.5 text-xs">
@@ -733,7 +743,7 @@ export default function MesCours({ espace = null }) {
                     const n = feuille.etudiants.filter(e => String(notes[e.id]?.[a.aa_code] ?? '').trim() !== '').length;
                     return (
                       <div key={a.aa_code} className="pl-2 border-l-[3px]" style={{ borderLeftColor: 'var(--c-disponible)' }}>
-                        <div className="text-second font-semibold">{nomAA(a, i)} <span className="font-normal text-slate-400">· {a.aa_code}</span></div>
+                        <div className="text-second font-semibold">{a.aa_code}</div>
                         <div className="text-second text-slate-600 leading-snug">{a.description || '—'}</div>
                         <div className="text-xs text-slate-400">
                           <b className="text-slate-600">{partDe(a.aa_code)} % de la note du cours</b>
@@ -749,7 +759,8 @@ export default function MesCours({ espace = null }) {
                     La colonne « Cours » est la moyenne pondérée des acquis, indicative ; * : sans les PP, NP et CM.
                     Les flèches et Entrée passent d'une case à l'autre.
                   </div>
-                </div>
+                  </>}
+                </div>}
               </div>
             )}
 
@@ -813,7 +824,7 @@ export default function MesCours({ espace = null }) {
       ] }]} />}
     {vueDue && espace && (
       <div className="px-4 md:px-6 pt-1 pb-3 flex flex-wrap items-center gap-2">
-        <h1 className="text-lg font-semibold text-iip-blue m-0 mr-2">Mes unités</h1>
+        <h1 className="titre-ecran !mb-0 mr-2">Mes unités</h1>
         <div className="segments">
           {[['dossier', '0. Dossier pédagogique'], ['croisement', '1. Croiser acquis et programme'], ['ponderation', '2. Pondérer'], ['descriptif', '3. La DUE']].map(([k, l]) => (
             <button key={k} type="button" onClick={() => setFaceDue(k)} className={faceDue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
@@ -822,8 +833,8 @@ export default function MesCours({ espace = null }) {
     {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={espace ? ['dossier', 'croisement', 'ponderation', 'descriptif'] : ['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>
-        <IconBooks size={20} className="text-iip-turquoise" />
-        <h1 className="text-lg font-semibold text-iip-blue m-0">{{ aujourdhui: 'Ma journée', rendre: 'À rendre', notes: 'Mes notes', presences: 'Mes présences' }[vueEspace] || 'Mes cours'}</h1>
+        {!espace && <IconBooks size={20} className="text-iip-turquoise" />}
+        <h1 className="titre-ecran !mb-0">{{ aujourdhui: 'Ma journée', rendre: 'À rendre', notes: 'Mes notes', presences: 'Mes présences' }[vueEspace] || 'Mes cours'}</h1>
         <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
           title="L'année des cours affichés — sans changer l'année de travail du reste de Lucie"
           className="controle border border-slate-300 rounded-champ bg-white text-sm font-semibold">
