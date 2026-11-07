@@ -4135,6 +4135,10 @@ export default function Etudiants() {
                         : e.pae_confirme ? 'Programme confirmé, PAE pas encore validé — ouvrir la revue' : 'PAE pas encore validé — ouvrir la revue'}>
                       <IconWritingSign size={15} style={{ color: e.pae_valide ? 'var(--c-reussi, #3E7D5E)' : 'rgb(var(--gris-300))' }} />
                     </button>
+                    {/* L'ŒIL DANS LA LISTE (3.5.174, Charles : « plus rapide ») : voir son espace étudiant — la direction. */}
+                    {passeRole('admin') && (
+                      <button type="button" className="p-0.5 ml-1 rounded hover:bg-slate-100 text-iip-blue" onClick={() => voirEspaceEtudiant(e.id)}
+                        title="Voir son espace étudiant (lecture seule)" aria-label="Voir son espace étudiant"><IconEye size={15} /></button>)}
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />

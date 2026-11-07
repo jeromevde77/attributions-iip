@@ -969,12 +969,18 @@ function LEcole() {
     </div>);
 }
 
+/* LE RAIL DE L'ESPACE, COMME CELUI DE LUCIE (3.5.173, Charles : « je veux savoir où je suis, l'icône en surbrillance, et une
+   info-bulle immédiate comme dans Lucie »). L'entrée ouverte : fond du menu actif, icône et texte au principal, filet à gauche.
+   Rail étroit : le nom dans la bulle marine de Lucie, au survol, sans délai. */
 function BoutonFace({ f, actif, onClick, etroit = false }) {
   return (
-    <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined} title={etroit ? f.l : undefined} aria-label={f.l}
-      className={`shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left ${etroit ? 'md:justify-center md:px-0' : ''}`}
-      style={actif ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
-      <f.I size={18} /> <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
+    <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined} aria-label={f.l}
+      className={`group relative shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left transition-colors ${etroit ? 'md:justify-center md:px-0' : ''} ${actif ? '' : 'hover:bg-slate-50'}`}
+      style={actif ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal, #19537E)', fontWeight: 600 } : { color: 'var(--menu-texte, #334155)' }}>
+      {actif && <span aria-hidden className="hidden md:block absolute -left-2 top-2 bottom-2 w-[3px] rounded-full" style={{ background: 'var(--c-principal, #19537E)' }} />}
+      <f.I size={etroit ? 20 : 18} stroke={actif ? 2.2 : 1.8} /> <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
+      {etroit && <span role="tooltip" className="hidden md:group-hover:block md:group-focus-visible:block pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50 px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium text-xs whitespace-nowrap"
+        style={{ background: 'var(--c-principal, #16406A)' }}>{f.l}</span>}
     </button>);
 }
 

@@ -825,10 +825,7 @@ export default function MesCours({ espace = null }) {
     {vueDue && espace && (
       <div className="px-4 md:px-6 pt-1 pb-3 flex flex-wrap items-center gap-2">
         <h1 className="titre-ecran !mb-0 mr-2">Mes unités</h1>
-        <div className="segments">
-          {[['dossier', '0. Dossier pédagogique'], ['croisement', '1. Croiser acquis et programme'], ['ponderation', '2. Pondérer'], ['descriptif', '3. La DUE']].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setFaceDue(k)} className={faceDue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
-        </div>
+        {/* Les étapes se choisissent sur la ligne de progression de l'unité, dessous (3.5.172, Charles : « double emploi »). */}
       </div>)}
     {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={espace ? ['dossier', 'croisement', 'ponderation', 'descriptif'] : ['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
