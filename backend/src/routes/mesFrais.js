@@ -38,6 +38,9 @@ try {
     CREATE TABLE IF NOT EXISTS frais_justificatif (id INTEGER PRIMARY KEY AUTOINCREMENT, piece_id INTEGER NOT NULL, nom TEXT,
       mime TEXT, fichier TEXT, taille INTEGER, cree_le TEXT DEFAULT (datetime('now')));
   `);
+  // LES LIEUX FAVORIS (3.5.200, Charles : « enregistrer des lieux en favoris pour les faire calculer facilement »).
+  db.exec(`CREATE TABLE IF NOT EXISTS frais_lieu (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, nom TEXT NOT NULL,
+    entreprise TEXT, rue TEXT, cp TEXT, localite TEXT, raison TEXT, cree_le TEXT DEFAULT (datetime('now')))`);
   for (const [t, c] of [['frais_profil', 'domicile TEXT'], ['frais_trajet', 'depart_type TEXT']]) {
     try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c}`); } catch { /* déjà là */ }
   }
@@ -68,7 +71,8 @@ r.get('/', (req, res) => {
     .map(x => ({ ...x,
       trajets: db.prepare('SELECT * FROM frais_trajet WHERE piece_id = ? ORDER BY date, id').all(x.id),
       justificatifs: db.prepare('SELECT id, nom, mime, taille FROM frais_justificatif WHERE piece_id = ? ORDER BY id').all(x.id) }));
-  res.json({ profil: { entite: 'Institut Ilya Prigogine', fonction: 'Directeur(rice)', ...p, depart: p.depart || DEPART_DEFAUT }, pieces });
+  const lieux = db.prepare('SELECT * FROM frais_lieu WHERE user_id = ? ORDER BY nom COLLATE NOCASE').all(req.user.id);
+  res.json({ profil: { entite: 'Institut Ilya Prigogine', fonction: 'Directeur(rice)', ...p, depart: p.depart || DEPART_DEFAUT }, pieces, lieux });
 });
 
 r.put('/profil', (req, res) => {
@@ -122,6 +126,19 @@ r.post('/gsm', (req, res) => {
     VALUES (?, 'note', ?, ?, ?, ?, ?, ?, date('now'))`).run(req.user.id, `${an}-${s2 ? '12' : '06'}-${s2 ? '19' : '30'}`, req.body?.fournisseur || 'Opérateur téléphonique',
       20 * mois, 'Remboursement du forfait téléphonique à concurrence de 20 € par mois.', 'Institut Ilya Prigogine', periode).lastInsertRowid;
   res.json({ ok: true, id: Number(id) });
+});
+
+r.post('/lieu', (req, res) => {
+  const b = req.body || {};
+  const nom = String(b.nom || b.entreprise || '').trim();
+  if (!nom || !String(b.cp || '').trim() || !String(b.rue || '').trim()) return res.status(400).json({ error: 'Un nom, un code postal et une rue.' });
+  const id = db.prepare('INSERT INTO frais_lieu (user_id, nom, entreprise, rue, cp, localite, raison) VALUES (?,?,?,?,?,?,?)')
+    .run(req.user.id, nom, b.entreprise || null, b.rue, b.cp, b.localite || null, b.raison || null).lastInsertRowid;
+  res.json({ ok: true, id: Number(id) });
+});
+r.delete('/lieu/:lid', (req, res) => {
+  db.prepare('DELETE FROM frais_lieu WHERE id = ? AND user_id = ?').run(Number(req.params.lid), req.user.id);
+  res.json({ ok: true });
 });
 
 /* LES TRAJETS : km aller-retour calculés depuis le lieu de travail (même service que les visites de stage) ; le chiffre tapé

@@ -81,8 +81,8 @@ export default function MesFrais() {
           </tbody>
         </Tableau>
       </section>
-      {p && <FenetrePiece p={p} profil={d.profil} onFermer={() => setOuverte(null)} recharger={charger} />}
-      {profil && <FenetreProfil profil={d.profil} onFermer={() => setProfil(false)} recharger={charger} />}
+      {p && <FenetrePiece p={p} profil={d.profil} lieux={d.lieux || []} onFermer={() => setOuverte(null)} recharger={charger} />}
+      {profil && <FenetreProfil profil={d.profil} lieux={d.lieux || []} onFermer={() => setProfil(false)} recharger={charger} />}
     </div>);
 }
 
@@ -90,7 +90,7 @@ function Champ({ l, children }) {
   return <label className="block"><span className="block text-second text-slate-600 mb-0.5">{l}</span>{children}</label>;
 }
 
-function FenetreProfil({ profil, onFermer, recharger }) {
+function FenetreProfil({ profil, lieux, onFermer, recharger }) {
   const [v, setV] = useState({ prenom: '', nom: '', fonction: 'Directeur(rice)', iban: '', depart: '', entite: '', domicile: '', ...profil });
   const [err, setErr] = useState(null);
   const enreg = async () => { try { await appel('PUT', '/profil', v); await recharger(); onFermer(); } catch (e) { setErr(e.message); } };
@@ -107,13 +107,22 @@ function FenetreProfil({ profil, onFermer, recharger }) {
         <Champ l="Domicile (repris de votre fiche du personnel)"><input {...c('domicile')} placeholder="rue, n°, code postal, commune" /></Champ>
         <Champ l="À charge de (par défaut)"><input {...c('entite')} /></Champ>
       </div>
+      {lieux.length > 0 && (<>
+        <div className="intertitre mt-4 mb-1">Mes lieux favoris</div>
+        <ul className="divide-y divide-slate-100 text-sm">
+          {lieux.map(l => (
+            <li key={l.id} className="py-1.5 flex items-center gap-2">
+              <span className="min-w-0 flex-1"><b>{l.nom}</b> <span className="text-slate-500">{[l.rue, [l.cp, l.localite].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</span></span>
+              <button type="button" className="text-slate-400 hover:text-red-700" title="Retirer des favoris" onClick={async () => { await appel('DELETE', `/lieu/${l.id}`); recharger(); }}><IconTrash size={14} /></button>
+            </li>))}
+        </ul></>)}
     </Fenetre>);
 }
 
-function FenetrePiece({ p, profil, onFermer, recharger }) {
+function FenetrePiece({ p, profil, lieux, onFermer, recharger }) {
   const [v, setV] = useState(p);
   const [err, setErr] = useState(null);
-  const VIDE = { date: auj(), depart_type: 'travail', depart: '', cp: '', localite: '', rue: '', entreprise: '', raison: '', a_charge: 'Entité', km: '' };
+  const VIDE = { date: auj(), depart_type: 'travail', depart: '', cp: '', localite: '', rue: '', entreprise: '', raison: '', a_charge: 'Entité', km: '', favori: false };
   const [t, setT] = useState(VIDE);
   // L'ARRIVÉE SE SAISIT AVEC L'AIDE BPOST (code postal → localité → rue), comme une adresse de fiche ; elle se recompose en une ligne.
   const arrivee = [t.rue, [t.cp, t.localite].filter(Boolean).join(' ')].filter(Boolean).join(', ');
@@ -141,16 +150,21 @@ function FenetrePiece({ p, profil, onFermer, recharger }) {
     if (!(await demander('Supprimer cette pièce et ses justificatifs ?'))) return;
     try { await appel('DELETE', `/piece/${p.id}`); await recharger(); onFermer(); } catch (e) { setErr(e.message); }
   };
-  const calculer = async () => {
-    if (!t.cp || !t.rue) return;
+  const calculer = async (x = t) => {
+    const arr = [x.rue, [x.cp, x.localite].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    if (!x.cp || !x.rue) return;
     try {
-      const j = await appel('GET', `/km?type=${t.depart_type}&depart=${encodeURIComponent(t.depart)}&arrivee=${encodeURIComponent(arrivee)}`);
+      const j = await appel('GET', `/km?type=${x.depart_type}&depart=${encodeURIComponent(x.depart)}&arrivee=${encodeURIComponent(arr)}`);
       setCalc(j.km_ar ?? j.raison); if (j.km_ar != null) setT(x => ({ ...x, km: String(j.km_ar) }));
     } catch (e) { setCalc(e.message); }
   };
   const ajouterTrajet = async () => {
     if (!t.cp || !t.rue) { setErr('L’adresse d’arrivée est requise (code postal et rue).'); return; }
-    try { await appel('POST', `/piece/${p.id}/trajet`, { ...t, arrivee }); setT(VIDE); setCalc(null); recharger(); }
+    try {
+      await appel('POST', `/piece/${p.id}/trajet`, { ...t, arrivee });
+      if (t.favori) await appel('POST', '/lieu', { nom: t.entreprise || arrivee, entreprise: t.entreprise, rue: t.rue, cp: t.cp, localite: t.localite, raison: t.raison });
+      setT(VIDE); setCalc(null); recharger();
+    }
     catch (e) { setErr(e.message); }
   };
   const totalKm = p.trajets.reduce((s, x) => s + (Number(x.km) || 0), 0);
@@ -197,8 +211,20 @@ function FenetrePiece({ p, profil, onFermer, recharger }) {
                   {t.depart_type === 'autre' && <input className="controle w-full" value={t.depart} onChange={e => setT({ ...t, depart: e.target.value })} placeholder="adresse de départ" />}
                 </div>
               </div>
-              <div className="intertitre">Arrivée</div>
-              <div onBlur={calculer}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="intertitre">Arrivée</span>
+                {/* LES LIEUX FAVORIS (3.5.200) : un clic remplit l'adresse, l'entreprise et la raison, et calcule les km. */}
+                {lieux.length > 0 && (
+                  <select className="controle" value="" onChange={e => {
+                    const l = lieux.find(x => String(x.id) === e.target.value); if (!l) return;
+                    const n = { ...t, rue: l.rue || '', cp: l.cp || '', localite: l.localite || '', entreprise: l.entreprise || l.nom, raison: l.raison || t.raison, km: '' };
+                    setT(n); calculer(n);
+                  }}>
+                    <option value="">★ Un lieu favori…</option>
+                    {lieux.map(l => <option key={l.id} value={l.id}>{l.nom}{l.localite ? ` — ${l.localite}` : ''}</option>)}
+                  </select>)}
+              </div>
+              <div onBlur={() => calculer()}>
                 <ChampsAdresse valeurs={t} poser={(k, val) => setT(x => ({ ...x, [k]: val }))} classe="controle w-full" />
               </div>
               <div className="grid sm:grid-cols-4 gap-2 items-end">
@@ -209,7 +235,8 @@ function FenetrePiece({ p, profil, onFermer, recharger }) {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button className="bouton inline-flex items-center gap-1.5" onClick={ajouterTrajet}><IconPlus size={15} />Ajouter le trajet</button>
-                <button className="bouton" onClick={calculer}>Calculer les km</button>
+                <button className="bouton" onClick={() => calculer()}>Calculer les km</button>
+                <label className="inline-flex items-center gap-1.5 text-second text-slate-600"><input type="checkbox" checked={t.favori} onChange={e => setT({ ...t, favori: e.target.checked })} />Garder ce lieu en favori</label>
                 <span className="text-second text-slate-500">{typeof calc === 'string' ? calc : 'Kilomètres calculés par Lucie (OpenStreetMap, trajet le plus court en voiture), aller-retour ; le chiffre tapé l’emporte.'}</span>
               </div>
             </div>
