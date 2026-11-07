@@ -705,15 +705,16 @@ export default function Accueil({ apresEntete = null }) {
             « ce qui m'attend avant ce qui s'est passé ». */}
         {/* LES MESSAGES TOUJOURS EN HAUT (Charles, 11 octobre 2026 : « c'est la priorité que l'info
             passe ») : hors de la mise en page, ils ne se déplacent ni ne se masquent. */}
-        <div className="mb-4 space-y-2"><MessagesRecus />
+        <div className="mb-4 pile-etats"><MessagesRecus />
           {/* LES PRÉSENCES À COMPLÉTER APRÈS UN QR (28 octobre 2026) : une obligation, pas un
               bloc qu'on range — elle ne se masque pas. */}
           <PresencesACompleter />
           {/* QUI EST LÀ ? TOUJOURS VISIBLE, POUR TOUS (Charles, 12 octobre 2026 : « tout le monde doit
               pouvoir voir qui est là, en cas d'urgence ») : hors de la mise en page, comme les messages. */}
-          <TuileQuiEstLa /></div>
+          <TuileQuiEstLa />
+          {/* QUOI DE NEUF REJOINT LA PILE (3.5.190) : un seul tableau, liseré à gauche. */}
+          <TuileNouveautes /></div>
         <BlocsPage page="accueil" blocs={[
-          { cle: 'nouveautes', titre: 'Quoi de neuf dans Lucie', rendu: <TuileNouveautes /> },
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
           { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
           { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },

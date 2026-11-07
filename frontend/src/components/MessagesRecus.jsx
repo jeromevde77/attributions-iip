@@ -14,7 +14,9 @@ import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
  * un accusé : le message reste alors signalé tant qu'il n'est pas confirmé.
  */
 const heure = s => { const d = new Date(String(s || '').replace(' ', 'T') + 'Z'); return isNaN(d) ? '' : d.toLocaleString('fr-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
-const apercu = html => String(html || '').replace(/<\/(p|li)>/g, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+// Les entités se décodent (3.5.190 : « l&#39;univers » paraissait tel quel dans l'aperçu).
+const entites = t => { try { const x = document.createElement('textarea'); x.innerHTML = t; return x.value; } catch { return t; } };
+const apercu = html => entites(String(html || '').replace(/<\/(p|li)>/g, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')).replace(/\s+/g, ' ').trim();
 
 /* LES PIÈCES JOINTES D'UN MESSAGE (3.5.131) : un bouton par fichier, ouvert dans un nouvel onglet (la route exige la
    session, d'où le passage par un blob). */
