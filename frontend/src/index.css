@@ -1674,7 +1674,7 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
 .pastille-groupe { display: inline-flex; align-items: center; min-width: 1.6rem; justify-content: center; padding: 1px 8px;
   border-radius: 999px; border: 1px solid var(--c-principal, #19537E); color: var(--c-principal, #19537E);
   font-size: 12px; font-weight: 600; line-height: 1.5; background: #fff; }
-.pastille-groupe-bouton { cursor: pointer; padding: 3px 10px; font-size: 13px; }
+.pastille-groupe-bouton { cursor: pointer; padding: 1px 9px; font-size: 12px; }
 /* Le choix ne change que les couleurs : même graisse, même bord, même largeur — rien ne se décale sous la souris (3.5.168). */
 .pastille-groupe, .pastille-groupe-bouton, .pastille-groupe-active { font-weight: 600; border-width: 1px; }
 .pastille-groupe-bouton:focus-visible { outline: 2px solid var(--c-principal, #19537E); outline-offset: 2px; }
@@ -1694,3 +1694,7 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
 /* UNE ZONE DE TEXTE N'EST PAS UNE LIGNE (3.5.205) : `.controle` fixe la hauteur et interdit le retour à la ligne ; posé sur un
    <textarea>, il l'écrasait. Le défaut est corrigé ici, une fois, pour tous les écrans. */
 textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; line-height: 1.45; padding-top: .45rem; padding-bottom: .45rem; }
+
+/* LE LISERÉ D'UN BLOC « FORT » (3.5.207, capture de Charles : la couleur du bloc BA1/BA2 manquait). `border-color` repeignait
+   aussi le bord gauche en gris : le liseré reprend sa couleur, `--e` (marine par défaut, ou la couleur posée par l'écran). */
+.bloc-etat[data-etat="fort"], .bloc-etat.etat-neutre[style*="--e"] { border-left-color: var(--e); }

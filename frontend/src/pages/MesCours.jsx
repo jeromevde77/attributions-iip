@@ -436,7 +436,10 @@ export default function MesCours({ espace = null }) {
                   const nb = g => feuille.etudiants.filter(e => groupesDe(e).includes(g)).length;
                   const badge = (g, l, k) => (
                     <button key={g || 'tous'} type="button" onClick={() => setGroupeVu(g)} title={g || 'Tous les étudiants'}
-                      className={`pastille-groupe pastille-groupe-bouton ${groupeVu === g ? 'pastille-groupe-active' : ''}`}>
+                      // DANS UNE BARRE, LA HAUTEUR DES CONTRÔLES (3.5.207, Charles : « souci de taille ») : la session à côté est un
+                      // segment de 36 px ; le badge prend la même hauteur et la même taille de texte.
+                      style={{ height: 'var(--d-controle-h, 36px)' }}
+                      className={`pastille-groupe pastille-groupe-bouton !px-3 !text-second ${groupeVu === g ? 'pastille-groupe-active' : ''}`}>
                       {l}<span className="opacity-60 ml-1 font-normal">{k}</span></button>);
                   return (
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -940,7 +943,7 @@ export default function MesCours({ espace = null }) {
                   return parUnite.map(u => (
                     <section key={`${u.ue_num}|${u.section}`} data-etat="fort" className="bloc-etat overflow-hidden"
                       style={couleurBloc(u.ue_niv) ? { '--e': couleurBloc(u.ue_niv) } : undefined}>
-                      <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
+                      <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b border-slate-100">
                         <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
                           {u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
                         <TrainUE section={u.section} niveau={u.ue_niv} ects={u.ects} nbCours={u.cours.length}
@@ -949,7 +952,7 @@ export default function MesCours({ espace = null }) {
                       {u.cours.map(x => (<div key={x.cours_code}>
                         <button type="button" aria-expanded={ouvert === x.cours_code}
                           onClick={() => (ouvert === x.cours_code ? (setOuvert(null), setFeuille(null)) : ouvrir(x.cours_code))}
-                          className="w-full text-left px-4 py-3 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50">
+                          className="w-full text-left px-4 py-2 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50">
                           {ouvert === x.cours_code ? <IconChevronDown size={16} className="text-slate-500" /> : <IconChevronRight size={16} className="text-slate-500" />}
                           <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span>{x.cours_nom || x.cours_code}</span>
