@@ -20,8 +20,15 @@
 set -u
 cd /opt/lucie || exit 1
 
-exec 9>/opt/lucie/.mise-a-jour.lock
-flock -n 9 || exit 0   # la précédente tourne encore : on passe ce tour-ci
+# LE MÊME VERROU QUE LES GESTES maj-dev / maj-prod (gestes-vps, en root) : le
+# 7 novembre 2026 à 23:00:24, un maj-dev et ce script ont recréé la dev à la
+# même seconde → « The container name … is already in use » (comme le 25
+# septembre et le 1er novembre). Ouvert en LECTURE : flock n'en demande pas
+# plus, et le fichier reste utilisable que ce soit ce compte ou root qui l'ait créé.
+VERROU=/opt/lucie/.mise-a-jour.lock
+[ -e "$VERROU" ] || : > "$VERROU"
+exec 9<"$VERROU"
+flock -n 9 || exit 0   # une mise à jour (ce script ou un geste) tourne : on passe ce tour-ci
 
 horo() { date '+%F %T'; }
 id_image() { docker image inspect "$1" --format '{{.Id}}' 2>/dev/null; }
