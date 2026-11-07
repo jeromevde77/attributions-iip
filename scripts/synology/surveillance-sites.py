@@ -15,26 +15,48 @@ Une panne n'est signalée qu'après DEUX échecs de suite (10 minutes) : un
 redémarrage de conteneur ou une coupure de quelques secondes ne réveille
 personne. Le retour est signalé dès le premier succès.
 
+Deux sortes de contrôles :
+- les PAGES (nginx répond) ;
+- les API (le backend répond {"ok": true}). Indispensable : nginx sert la page
+  avec un 200 même quand le backend est mort — Lucie afficherait une page
+  blanche sans qu'aucun contrôle de page ne le voie.
+Et une fois par jour, les CERTIFICATS HTTPS : alerte s'il en reste moins de
+JOURS_CERTIFICAT jours (Caddy renouvelle à 30 jours : un certificat à 14 jours
+de sa fin, c'est un renouvellement qui échoue).
+
 État : etat-sites.json ; journal : journal-sites.log, à côté de ce script.
 Python 3.8 (DSM 7) : bibliothèque standard seulement.
 """
 
 import json
+import socket
+import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+# nom → (adresse, "page" | "api")
 SITES = {
-    "www": "https://www.lucie-iip.be",
-    "etudiants": "https://etudiants.lucie-iip.be",
-    "enseignants": "https://enseignants.lucie-iip.be",
-    "dev": "https://dev.lucie-iip.be",
-    "monitor": "https://monitor.lucie-iip.be",
+    "www": ("https://www.lucie-iip.be", "page"),
+    "www-api": ("https://www.lucie-iip.be/api/health", "api"),
+    "etudiants": ("https://etudiants.lucie-iip.be", "page"),
+    "enseignants": ("https://enseignants.lucie-iip.be", "page"),
+    "portail-api": ("https://etudiants.lucie-iip.be/api/portail/sante", "api"),
+    "dev": ("https://dev.lucie-iip.be", "page"),
+    "dev-api": ("https://dev.lucie-iip.be/api/health", "api"),
+    "portail-dev-api": ("https://etudiants-dev.lucie-iip.be/api/portail/sante", "api"),
+    "monitor": ("https://monitor.lucie-iip.be", "page"),
 }
+CERTIFICATS = ["lucie-iip.be", "www.lucie-iip.be", "dev.lucie-iip.be",
+               "etudiants.lucie-iip.be", "etudiants-dev.lucie-iip.be",
+               "enseignants.lucie-iip.be", "enseignants-dev.lucie-iip.be",
+               "monitor.lucie-iip.be"]
+JOURS_CERTIFICAT = 14
 ECHECS_AVANT_ALERTE = 2
-DELAI = 20  # secondes par site
+DELAI = 20  # secondes par contrôle
 
 ICI = Path(__file__).resolve().parent
 ETAT = ICI / "etat-sites.json"
@@ -60,16 +82,56 @@ def prevenir(sujet, titre, message, priorite="high"):
         noter(f"ERREUR  notification ntfy non envoyée : {e}")
 
 
-def sonder(url):
-    """None si le site répond (2xx/3xx), sinon la raison de l'échec."""
+def sonder(url, sorte):
+    """None si ça répond comme il faut, sinon la raison de l'échec.
+    page : 2xx/3xx. api : 200 ET un JSON {"ok": true}."""
     requete = urllib.request.Request(url, headers={"User-Agent": "lucie-surveillance"})
     try:
         with urllib.request.urlopen(requete, timeout=DELAI) as r:
-            return None if r.status < 400 else f"HTTP {r.status}"
+            if r.status >= 400:
+                return f"HTTP {r.status}"
+            if sorte == "api":
+                try:
+                    if json.loads(r.read(65536)).get("ok") is not True:
+                        return "le backend ne dit pas ok"
+                except ValueError:
+                    return "réponse non JSON (backend absent ?)"
+            return None
     except urllib.error.HTTPError as e:
         return f"HTTP {e.code}"
     except Exception as e:
         return str(getattr(e, "reason", e))[:80]
+
+
+def jours_restants(hote):
+    """Jours avant l'expiration du certificat HTTPS de hote (ou la raison de l'échec)."""
+    try:
+        contexte = ssl.create_default_context()
+        with socket.create_connection((hote, 443), timeout=DELAI) as brut:
+            with contexte.wrap_socket(brut, server_hostname=hote) as tls:
+                fin = ssl.cert_time_to_seconds(tls.getpeercert()["notAfter"])
+        return int((fin - time.time()) // 86400)
+    except Exception as e:
+        return str(getattr(e, "reason", e))[:80]
+
+
+def controler_certificats(sujet, etat):
+    """Une fois par jour au plus (le script tourne toutes les 5 minutes)."""
+    if time.time() - etat.get("_certificats", 0) < 86400:
+        return
+    etat["_certificats"] = time.time()
+    proches = []
+    for hote in CERTIFICATS:
+        j = jours_restants(hote)
+        if isinstance(j, str):
+            proches.append(f"{hote} (illisible : {j})")
+        elif j < JOURS_CERTIFICAT:
+            proches.append(f"{hote} ({j} j)")
+    if proches:
+        noter("CERTIFICAT  " + ", ".join(proches))
+        prevenir(sujet, "Lucie - certificat HTTPS",
+                 "Expire bientôt ou illisible : " + ", ".join(proches)
+                 + ". Caddy ne renouvelle plus ? Voir docker logs lucie-caddy.", "high")
 
 
 def main():
@@ -86,9 +148,9 @@ def main():
         etat = {}
 
     tombes, revenus = [], []
-    for nom, url in SITES.items():
+    for nom, (url, sorte) in SITES.items():
         avant = etat.get(nom, {"echecs": 0, "signale": False})
-        raison = sonder(url)
+        raison = sonder(url, sorte)
         if raison is None:
             if avant["signale"]:
                 revenus.append(nom)
@@ -101,6 +163,7 @@ def main():
                 signale = True
             etat[nom] = {"echecs": echecs, "signale": signale, "raison": raison}
 
+    controler_certificats(sujet, etat)
     ETAT.write_text(json.dumps(etat, indent=1), encoding="utf-8")
 
     if tombes:

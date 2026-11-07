@@ -13,7 +13,7 @@ Tâches : **Panneau de configuration → Planificateur de tâches**, utilisateur
 | Tâche | Script | Quand | Alerte |
 |---|---|---|---|
 | Rapatrier les sauvegardes | `recuperer-sauvegardes.sh <sujet>` | chaque jour, 04:00 (Bruxelles) | rsync en échec ; dernière copie de `prod_` ou `portail_` absente, de plus de 26 h, ou illisible |
-| Sites joignables | `python3 surveillance-sites.py <sujet>` | toutes les 5 min | un site ne répond plus depuis 10 min (2 échecs) ; puis son retour |
+| Sites et backends joignables, certificats | `python3 surveillance-sites.py <sujet>` | toutes les 5 min (certificats : une fois par jour) | une page OU une API (`/api/health`, `/api/portail/sante` : nginx répond 200 même backend mort) ne répond plus depuis 10 min ; puis son retour ; un certificat HTTPS à moins de 14 jours de sa fin |
 | Stock VPS OVH | `python3 verifier-stock.py <sujet>` | chaque jour, 09:00 | VPS-2 ou VPS-3 de nouveau disponible en Europe |
 
 ## Les sauvegardes, de bout en bout
