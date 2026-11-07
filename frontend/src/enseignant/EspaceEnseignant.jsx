@@ -51,12 +51,6 @@ async function appel(methode, chemin, corps) {
   return j;
 }
 
-const STATUTS = [
-  { k: 'present', l: 'P', titre: 'Présent', c: 'var(--c-reussi, #3E7D5E)' },
-  { k: 'retard', l: 'P*', titre: 'En retard', c: 'var(--c-disponible, #2F6FB0)' },
-  { k: 'absent', l: 'A', titre: 'Absent', c: 'var(--c-refuse, #9D4A38)' },
-  { k: 'justifie', l: 'J', titre: 'Absence justifiée', c: 'var(--c-attente, #B45309)' },
-];
 const cleDe = p => (p?.statut === 'present' && p.retard ? 'retard' : p?.statut || null);
 
 const Logo = () => <LogoLucie hauteur={30} className="" />;
@@ -150,83 +144,7 @@ function ChoisirMotDePasse({ onFait, avecActuel }) {
   );
 }
 
-// ── LES FACES ──
-function CarteSeance({ s, onPresences }) {
-  const fait = s.presences && s.presences.attendus && s.presences.prises >= s.presences.attendus;
-  return (
-    <article className="bg-white border border-slate-200 rounded-carte p-4 flex flex-col gap-2"
-      style={s.annule || s.visite ? undefined : { borderLeft: `4px solid ${teinteCours(s.cours_code)}`, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-second text-slate-500">{h(s.heure_debut)}{s.heure_fin ? ` – ${h(s.heure_fin)}` : ''}{s.local ? ` · ${s.local}` : ''}</span>
-        {s.annule ? <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-refuse, #9D4A38)' }}>annulée</span>
-          : s.visite ? <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-disponible, #2F6FB0)' }}>visite</span>
-          : fait ? <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>présences prises</span> : null}
-      </div>
-      <h3 className={`m-0 text-base font-semibold ${s.annule ? 'line-through text-slate-400' : ''}`}>{s.cours_nom || s.cours_code}</h3>
-      <span className="text-second text-slate-500">{s.ue_num ? `UE ${s.ue_num}` : ''}{s.matiere && !s.visite ? ` · ${s.matiere}` : ''}{s.presences ? ` · ${s.presences.attendus} inscrit(s)` : ''}</span>
-      {!s.visite && !s.annule && <div><button type="button" className="bouton bouton-fort controle inline-flex items-center gap-1.5" onClick={() => onPresences(s.id)}><IconUserCheck size={16} /> Prendre les présences</button></div>}
-    </article>
-  );
-}
 
-function MaJournee({ moi, onPresences, onSemaine }) {
-  const [jour, setJour] = useState(moi.aujourdhui);
-  const [d, setD] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  useEffect(() => { setD(null); appel('GET', `/journee?date=${jour}`).then(setD).catch(e => setErreur(e.message)); }, [jour]);
-  const [t, setT] = useState(null);
-  useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
-  const aFaire = t?.a_faire || [];
-  const [lire, setLire] = useState(null);
-  const [agJour, setAgJour] = useState([]);
-  useEffect(() => { appel('GET', `/agenda?du=${jour}&au=${jour}`).then(setAgJour).catch(() => setAgJour([])); }, [jour]);
-  return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="titre-ecran">Bonjour {moi.prenom}</h1>
-          <p className="m-0 mt-1 text-slate-500 first-letter:uppercase">{jourFr(jour)}{d ? ` · ${d.seances.length ? `${d.seances.length} séance(s)` : 'aucune séance'}` : ''}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="bouton controle" aria-label="Jour précédent" onClick={() => setJour(decaler(jour, -1))}><IconChevronLeft size={16} /></button>
-          {jour !== moi.aujourdhui && <button type="button" className="bouton controle" onClick={() => setJour(moi.aujourdhui)}>Aujourd’hui</button>}
-          <button type="button" className="bouton controle" aria-label="Jour suivant" onClick={() => setJour(decaler(jour, 1))}><IconChevronRight size={16} /></button>
-          <button type="button" className="bouton controle" onClick={onSemaine}>Toute ma semaine</button>
-        </div>
-      </header>
-      {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
-      {agJour.length > 0 && <div className="flex flex-wrap gap-2">{agJour.map((a, i) => <AgendaPastille key={i} a={a} />)}</div>}
-      {!d ? <p className="text-slate-500">Chargement…</p> : (
-        <>
-          {d.seances.length ? <div className="grid gap-4 md:grid-cols-2">{d.seances.map(s => <CarteSeance key={s.id} s={s} onPresences={onPresences} />)}</div>
-            : <p className="text-slate-500">Aucune séance ce jour-là dans votre horaire.</p>}
-          <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-            <div className="entete-carte px-4 py-3 font-semibold text-iip-texte">Ce qui m’attend</div>
-            {!d.sans_presences.length && !aFaire.length && <p className="m-0 px-4 py-3 text-slate-500">Rien en retard. Bonne journée.</p>}
-            {aFaire.map((x, i) => (
-              <div key={`f${i}`} role={x.version_id ? 'button' : undefined} tabIndex={x.version_id ? 0 : undefined}
-                onClick={x.version_id ? () => setLire(x.version_id) : undefined}
-                className={`flex items-center gap-3 px-4 py-3 border-t border-slate-100 ${x.version_id ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
-                <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: x.retard ? 'var(--c-refuse, #9D4A38)' : x.type === 'due' ? 'var(--c-attente, #B45309)' : 'var(--c-disponible, #2F6FB0)' }}>
-                  {{ tache: 'tâche', texte: 'à lire', message: 'message', rappel: 'rappel', due: 'DUE' }[x.type] || 'à faire'}</span>
-                <span className="flex-1 min-w-0">{x.titre}{x.echeance ? ` — pour le ${court(x.echeance)}${x.retard ? ' (en retard)' : ''}` : ''}</span>
-                {x.version_id && <IconChevronRight size={16} className="text-slate-400" />}
-              </div>))}
-            {d.sans_presences.map(s => (
-              <button key={s.id} type="button" onClick={() => onPresences(s.id)} className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white hover:bg-slate-50">
-                <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-attente, #B45309)' }}>présences</span>
-                <span className="flex-1 min-w-0">{s.cours_nom || s.cours_code} — séance du {court(s.date)} à {h(s.heure_debut)}</span>
-                <IconChevronRight size={16} className="text-slate-400" />
-              </button>))}
-          </section>
-        </>)}
-      {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); appel('GET', '/tableau').then(setT).catch(() => {}); }} />}
-    </div>
-  );
-}
-
-/* MES UE ET MES ÉTUDIANTS (3.5.086, Charles : « les DUE des UE dans lesquelles ils sont, les listes d'étudiants, les fiches
-   des étudiants » ; tranché : une fiche PÉDAGOGIQUE). Un seul cadre par unité ; la DUE et la fiche s'ouvrent par-dessus. */
 const Volet = props => <FenetreEspace {...props} />;
 /* LIRE ET CONFIRMER UN TEXTE DE L'ÉCOLE (3.5.088) : l'ouvrir le pose « présenté » ; « Je confirme avoir pris connaissance »
    le pose « confirmé », dans le registre de lecture de Lucie. */
@@ -474,120 +392,8 @@ function MesUE() {
 
 /* LE QR PROJETÉ (3.5.136) : signé par l'espace, il change toutes les 15 s ; l'étudiant scanne vers Lucie. Le compteur suit les
    présences que Lucie renvoie (toutes les dix secondes environ). */
-function EcranQR({ seanceId, titre, onFermer }) {
-  const [e, setE] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  const toile = useRef(null);
-  useEffect(() => {
-    let minuterie = null, vivant = true;
-    const tourner = () => appel('GET', `/seance/${seanceId}/qr`).then(j => { if (!vivant) return; setE(j); setErreur(null); minuterie = setTimeout(tourner, (j.rotation_s || 15) * 1000); })
-      .catch(x => { if (vivant) setErreur(x.message); });
-    tourner();
-    return () => { vivant = false; clearTimeout(minuterie); };
-  }, [seanceId]);
-  useEffect(() => { if (e?.url && toile.current) QRCode.toCanvas(toile.current, e.url, { width: 420, margin: 1 }).catch(() => {}); }, [e]);
-  return (
-    <Volet titre={titre} sous="Présence par QR — les étudiants scannent avec leur téléphone" onFermer={onFermer}>
-      {erreur ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div> : !e ? <p className="text-slate-500">Chargement…</p> : (
-        <div className="flex flex-col items-center gap-4 py-2">
-          <canvas ref={toile} className="max-w-full" style={{ width: 'min(420px, 80vw)', height: 'auto' }} />
-          <div className="text-5xl font-bold tabular-nums text-iip-texte">{e.compteur.presents} / {e.compteur.attendus}</div>
-          <div className="text-sm text-slate-500">{e.fenetre.ouverte ? `Scan ouvert jusqu’à ${e.fenetre.ferme}` : e.fenetre.avant ? `Le scan ouvre à ${e.fenetre.ouvre}` : `Le scan est fermé depuis ${e.fenetre.ferme} : complétez à la main`}</div>
-        </div>)}
-    </Volet>);
-}
 
-function Presences({ seanceId, onRetour, motifs: MOTIFS = [], qr = false }) {
-  const [qrOuvert, setQrOuvert] = useState(false);
-  const [d, setD] = useState(null);
-  const [etats, setEtats] = useState({});
-  const [motifs, setMotifs] = useState({});
-  const [msg, setMsg] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  const charger = useCallback(() => appel('GET', `/seance/${seanceId}`).then(x => {
-    setD(x);
-    setEtats(Object.fromEntries(x.etudiants.map(e => [e.id, cleDe(e)])));
-    setMotifs(Object.fromEntries(x.etudiants.filter(e => e.motif).map(e => [e.id, e.motif])));
-  }).catch(e => setErreur(e.message)), [seanceId]);
-  useEffect(() => { charger(); }, [charger]);
-  if (erreur) return <div className="space-y-3"><button type="button" className="bouton controle" onClick={onRetour}><IconChevronLeft size={16} /> Retour</button><div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div></div>;
-  if (!d) return <p className="text-slate-500">Chargement…</p>;
-  const s = d.seance;
-  const avenir = s.date > d.aujourdhui;
-  const tous = k => setEtats(Object.fromEntries(d.etudiants.map(e => [e.id, k])));
-  const enregistrer = async () => {
-    setErreur(null); setMsg(null);
-    const manque = d.etudiants.filter(e => etats[e.id] === 'justifie' && !motifs[e.id]);
-    if (manque.length) return setErreur('Une absence justifiée demande son motif.');
-    try {
-      const r = await appel('POST', `/seance/${seanceId}/presences`, { presences: d.etudiants.filter(e => etats[e.id]).map(e => ({
-        etudiant_id: e.id, statut: etats[e.id] === 'retard' ? 'present' : etats[e.id], retard: etats[e.id] === 'retard', motif: motifs[e.id] || null })) });
-      setMsg(`${r.n} présence(s) enregistrée(s). Lucie les reprend dans les secondes qui viennent.`);
-    } catch (e) { setErreur(e.message); }
-  };
-  const nPris = d.etudiants.filter(e => etats[e.id]).length;
-  return (
-    <div className="space-y-4">
-      <button type="button" className="bouton controle inline-flex items-center gap-1" onClick={onRetour}><IconChevronLeft size={16} /> Ma journée</button>
-      <div>
-        <h1 className="titre-ecran">Présences</h1>
-        <p className="m-0 mt-1 text-slate-500">{s.cours_nom || s.cours_code} · <span className="first-letter:uppercase">{jourFr(s.date)}</span>, {h(s.heure_debut)}{s.local ? ` · ${s.local}` : ''}</p>
-      </div>
-      {qr && s.date === d.aujourdhui && !s.annule && (
-        <button type="button" className="bouton bouton-fort controle inline-flex items-center gap-1.5" onClick={() => setQrOuvert(true)}><IconQrcode size={17} /> Afficher le QR</button>)}
-      {qrOuvert && <EcranQR seanceId={seanceId} titre={`${s.cours_nom || s.cours_code} · ${h(s.heure_debut)}`} onFermer={() => { setQrOuvert(false); charger(); }} />}
-      {d.dernier_envoi?.erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">Lucie n’a pas repris le dernier envoi : {d.dernier_envoi.erreur}</div>}
-      {avenir ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">Cette séance n’a pas encore eu lieu : ses présences se prennent le jour même ou après.</div> : (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="bouton controle" onClick={() => tous('present')}>Tous présents</button>
-            <span className="text-second text-slate-500">Un toucher choisit l’état de chaque étudiant · {nPris} sur {d.etudiants.length}</span>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-            {d.etudiants.map(e => (
-              <div key={e.id} className="flex flex-wrap items-center gap-2 px-4 py-2 border-t border-slate-100 first:border-t-0">
-                <span className="flex-1 min-w-[10rem]">{String(e.nom || '').toUpperCase()} {e.prenom}{e.groupe ? <span className="text-second text-slate-400"> · {e.groupe}</span> : null}</span>
-                <div className="flex gap-1">
-                  {STATUTS.map(x => {
-                    const actif = etats[e.id] === x.k;
-                    return <button key={x.k} type="button" title={x.titre} aria-label={`${x.titre} — ${e.nom} ${e.prenom}`} aria-pressed={actif}
-                      onClick={() => setEtats(t => ({ ...t, [e.id]: actif ? null : x.k }))}
-                      className="w-12 h-11 rounded-champ font-semibold border"
-                      style={actif ? { background: x.c, borderColor: x.c, color: '#fff' } : { background: '#fff', borderColor: '#D8DCE4', color: '#5B6B7C' }}>{x.l}</button>;
-                  })}
-                </div>
-                {etats[e.id] === 'justifie' && (
-                  <select className="controle" value={motifs[e.id] || ''} onChange={ev => setMotifs(m => ({ ...m, [e.id]: ev.target.value }))} aria-label="Motif de l’absence">
-                    <option value="">— motif —</option>{MOTIFS.map(m => <option key={m.k} value={m.k}>{m.l}</option>)}
-                  </select>)}
-              </div>))}
-          </div>
-          {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
-          {msg && <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">{msg}</div>}
-          <div className="flex items-center gap-3">
-            <button type="button" className="bouton bouton-fort controle inline-flex items-center gap-1.5" onClick={enregistrer}><IconCheck size={16} /> Enregistrer</button>
-            <span className="text-second text-slate-500">P présent · P* en retard · A absent · J absence justifiée</span>
-          </div>
-        </>)}
-    </div>
-  );
-}
-
-/* L'AGENDA DE L'ÉCOLE DANS L'HORAIRE (3.5.089) : un jour férié, fermé ou de congé est grisé d'un aplat (plus de hachures, 3.5.143 :
-   « moche ») ; les moments s'y écrivent. */
-const TEINTE_AGENDA = { ferie: '#9D4A38', ferme: '#9D4A38', conge: '#64748B', formation: '#6B46C1', moment: '#2F6FB0' };
 const MOT_AGENDA = { ferie: 'Férié', ferme: 'École fermée', conge: 'Congé', formation: 'Formation', moment: '' };
-function AgendaPastille({ a }) {
-  const c = TEINTE_AGENDA[a.type] || '#2F6FB0';
-  return (
-    <div className="text-mention rounded-r-champ px-2 py-1" style={{ background: `color-mix(in srgb, ${c} 12%, #fff)`, borderLeft: `3px solid ${c}` }}>
-      <b>{MOT_AGENDA[a.type] || a.genre || ''}</b>{(MOT_AGENDA[a.type] || a.genre) && a.libelle ? ' · ' : ''}{a.libelle}
-      {a.heure_debut ? ` · ${String(a.heure_debut).slice(0, 5)}${a.heure_fin ? `–${String(a.heure_fin).slice(0, 5)}` : ''}` : ''}{a.lieu ? ` · ${a.lieu}` : ''}
-    </div>);
-}
-
-/* CONTACTER / URGENCE (3.5.089) : le même bouton que Lucie — vert « Contacter » quand le secrétariat est là, orange « Urgence »
-   sinon ; il nomme qui est là et la permanence, et chaque numéro s'appelle d'un toucher. */
 function BoutonContact({ compact = false }) {
   const [c, setC] = useState(null);
   const [ouvert, setOuvert] = useState(false);
@@ -616,48 +422,6 @@ function BoutonContact({ compact = false }) {
   </>);
 }
 
-function MonHoraire({ moi, onPresences }) {
-  const [ref, setRef] = useState(moi.aujourdhui);
-  const [d, setD] = useState(null);
-  useEffect(() => { setD(null); appel('GET', `/semaine?date=${ref}`).then(setD).catch(() => setD({ jours: [], seances: [] })); }, [ref]);
-  const [ag, setAg] = useState([]);
-  useEffect(() => { if (d?.jours?.length) appel('GET', `/agenda?du=${d.jours[0]}&au=${d.jours[6]}`).then(setAg).catch(() => setAg([])); }, [d]);
-  const duJour = j => ag.filter(a => a.du <= j && j <= a.au);
-  const jours = (d?.jours || []).filter((j, i) => i < 5 || (d?.seances || []).some(s => s.date === j) || duJour(j).some(a => a.type !== 'conge' && a.type !== 'ferme'));
-  return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="titre-ecran">Mon horaire{d?.jours?.[0] ? ` · semaine du ${court(d.jours[0])}` : ''}</h1>
-        <div className="flex items-center gap-2">
-          <button type="button" className="bouton controle" aria-label="Semaine précédente" onClick={() => setRef(decaler(ref, -7))}><IconChevronLeft size={16} /></button>
-          {ref !== moi.aujourdhui && <button type="button" className="bouton controle" onClick={() => setRef(moi.aujourdhui)}>Cette semaine</button>}
-          <button type="button" className="bouton controle" aria-label="Semaine suivante" onClick={() => setRef(decaler(ref, 7))}><IconChevronRight size={16} /></button>
-        </div>
-      </header>
-      {/* UN SEUL CADRE (3.5.085, Charles : « trop de cadres… un seul ») : la semaine est un cadre, les jours des colonnes séparées
-          par un filet, chaque cours sa couleur (fond pâle, bande plus foncée) — celle de l'horaire de Lucie (teinteCours). */}
-      {!d ? <p className="text-slate-500">Chargement…</p> : (
-        <div className="bg-white border border-slate-200 rounded-carte overflow-hidden grid divide-y md:divide-y-0 md:divide-x divide-slate-200"
-          style={{ gridTemplateColumns: `repeat(auto-fit, minmax(10rem, 1fr))` }}>
-          {jours.map(j => (
-            <div key={j} className="p-3 flex flex-col gap-2 md:min-h-[12rem]"
-              style={duJour(j).some(a => ['ferie', 'ferme', 'conge'].includes(a.type)) ? { background: '#F7F8FA' } : undefined}>
-              <span className={`font-semibold first-letter:uppercase ${j === d.aujourdhui ? 'text-iip-blue' : 'text-iip-texte'}`}>{jourFr(j)}{j === d.aujourdhui ? ' · aujourd’hui' : ''}</span>
-              {duJour(j).map((a, i) => <AgendaPastille key={i} a={a} />)}
-              {d.seances.filter(s => s.date === j).map(s => (
-                <button key={s.id} type="button" disabled={s.visite || s.annule} onClick={() => onPresences(s)}
-                  className="text-left rounded-r-champ px-2.5 py-2 flex flex-col gap-0.5"
-                  style={s.annule ? { background: '#F4F5F7', borderLeft: '4px solid #C9CED6' } : s.visite ? { background: 'color-mix(in srgb, #F9B619 18%, #fff)', borderLeft: '4px solid #B8860B' } : styleTuileCours(s.cours_code, { filet: false })}>
-                  <span className="text-mention text-slate-600">{h(s.heure_debut)}{s.heure_fin ? ` – ${h(s.heure_fin)}` : ''}</span>
-                  <span className={`text-sm font-medium ${s.annule ? 'line-through text-slate-400' : 'text-iip-texte'}`}>{s.cours_nom || s.cours_code}</span>
-                  {s.local && <span className="text-mention text-slate-600 inline-flex items-center gap-1">{s.visite && <IconMapPin size={12} />}{s.local}</span>}
-                </button>))}
-              {!d.seances.some(s => s.date === j) && <span className="text-second text-slate-400">—</span>}
-            </div>))}
-        </div>)}
-    </div>
-  );
-}
 
 function MonCompte({ moi, onToken }) {
   const [app, setApp] = useState(null);
@@ -687,127 +451,6 @@ function MonCompte({ moi, onToken }) {
    Par cours : ses étudiants en lignes, ses séances depuis la rentrée en colonnes. Un clic sur une case ouvre le choix (P, P*, A,
    J + motif, effacer) ; la case part par la porte de la séance, Lucie la juge au relevé (quelques secondes) et un refus se dit.
    Export Excel : la grille telle qu'elle est à l'écran. */
-const LETTRE = { present: 'P', retard: 'P*', absent: 'A', justifie: 'J' };
-function GrillePresences({ moi }) {
-  const [d, setD] = useState(null);
-  const [code, setCode] = useState(() => { try { return localStorage.getItem('ens.grille.cours') || ''; } catch { return ''; } });
-  const [choix, setChoix] = useState(null);      // { s, e, x, y }
-  const [motif, setMotif] = useState('');
-  const [msg, setMsg] = useState(null);
-  const charger = useCallback(c => appel('GET', `/grille${c ? `?cours=${encodeURIComponent(c)}` : ''}`).then(j => {
-    setD(j);
-    if (!c && j.cours?.length) setCode(j.cours[0].code);
-  }).catch(e => setMsg(e.message)), []);
-  useEffect(() => { charger(code); try { localStorage.setItem('ens.grille.cours', code); } catch { /* */ } }, [code, charger]);
-  useEffect(() => { if (!d?.en_route) return undefined; const t = setTimeout(() => charger(code), 4000); return () => clearTimeout(t); }, [d, code, charger]);
-  if (!d) return <p className="text-slate-500">{msg || 'Chargement…'}</p>;
-  if (!d.cours?.length) return <p className="text-slate-500">Aucun cours avec des séances à l’horaire cette année.</p>;
-  const seances = d.seances || [];
-  const etudiants = d.etudiants || [];
-  const cle = (s, e) => `${s}|${e}`;
-  const pres = new Map((d.presences || []).map(p => [cle(p.seance_id, p.etudiant_id), p]));
-  const inscrit = new Set((d.inscrits || []).map(i => cle(i.seance_id, i.etudiant_id)));
-  const motifs = moi.motifs || [];
-  const libMotif = k => motifs.find(m => m.k === k)?.l || k;
-  async function poser(s, e, statut, mot) {
-    if (moi.apercu) { setMsg('Aperçu : rien ne s’enregistre.'); setChoix(null); return; }
-    const ligne = statut === 'retard' ? { etudiant_id: e, statut: 'present', retard: true }
-      : { etudiant_id: e, statut: statut || null, retard: false, motif: statut === 'justifie' ? mot : null };
-    try { await appel('POST', `/seance/${s}/presences`, { presences: [ligne] }); setMsg(null); } catch (x) { setMsg(x.message); }
-    setChoix(null); setMotif(''); charger(code);
-  }
-  function exporter() {
-    import('xlsx').then(XLSX => {
-      const c = d.cours.find(x => x.code === code);
-      const tete = ['Nom', 'Prénom', 'Groupe', ...seances.map(s => `${court(s.date)}${s.annule ? ' (annulée)' : ''}`), 'P', 'A', 'J'];
-      const lignes = etudiants.map(e => {
-        const cases = seances.map(s => { const p = pres.get(cle(s.id, e.id)); return !inscrit.has(cle(s.id, e.id)) ? '—' : LETTRE[cleDe(p)] || ''; });
-        return [String(e.nom || '').toUpperCase(), e.prenom, e.groupe || '', ...cases,
-          cases.filter(x => x === 'P' || x === 'P*').length, cases.filter(x => x === 'A').length, cases.filter(x => x === 'J').length];
-      });
-      const ws = XLSX.utils.aoa_to_sheet([[`${c?.nom || code} — présences ${seances[0] ? `du ${court(seances[0].date)} au ${court(seances[seances.length - 1].date)}` : ''}`], [], tete, ...lignes]);
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Présences');
-      XLSX.writeFile(wb, `Presences_${code}.xlsx`);
-    });
-  }
-  const passee = s => s.date <= d.aujourdhui;
-  return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="titre-ecran">Présences de l’année</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <select className="controle" value={code} onChange={e => setCode(e.target.value)} aria-label="Cours">
-            {d.cours.map(c => <option key={c.code} value={c.code}>{c.ue_num ? `UE ${c.ue_num} · ` : ''}{c.nom || c.code}</option>)}
-          </select>
-          <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={exporter} disabled={!etudiants.length}><IconDownload size={16} /> Excel</button>
-        </div>
-      </header>
-      {msg && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{msg}</div>}
-      {(d.refus || []).length > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">Lucie a refusé : {d.refus[0].erreur}</div>}
-      {d.en_route > 0 && <p className="m-0 text-second text-slate-500">Envoi vers Lucie en cours…</p>}
-      {!seances.length ? <p className="text-slate-500">Aucune séance de ce cours à l’horaire.</p> : (
-        <div className="bg-white border border-slate-200 rounded-carte overflow-auto" style={{ maxHeight: '70vh' }}>
-          <table className="text-sm border-collapse">
-            <thead><tr>
-              <th className="sticky left-0 top-0 z-20 bg-white px-3 py-2 text-left border-b border-slate-200 min-w-[13rem]">Étudiant</th>
-              {seances.map(s => (
-                <th key={s.id} className={`sticky top-0 z-10 bg-white px-1 py-2 border-b border-slate-200 text-center font-semibold whitespace-nowrap ${s.annule ? 'line-through text-slate-400' : ''}`}
-                  title={`${court(s.date)} ${h(s.heure_debut)}–${h(s.heure_fin)}${s.local ? ` · ${s.local}` : ''}${s.annule ? ' · annulée' : ''}`}>
-                  <span className="text-mention">{court(s.date)}</span></th>))}
-              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">P</th>
-              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">A</th>
-              <th className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-200 text-center">J</th>
-            </tr></thead>
-            <tbody>{etudiants.map(e => {
-              let nP = 0, nA = 0, nJ = 0;
-              return (
-                <tr key={e.id} className="border-t border-slate-100">
-                  <td className="sticky left-0 z-10 bg-white px-3 py-1 whitespace-nowrap">{String(e.nom || '').toUpperCase()} {e.prenom}{e.groupe ? <span className="text-second text-slate-400"> · {e.groupe}</span> : null}</td>
-                  {seances.map(s => {
-                    if (!inscrit.has(cle(s.id, e.id))) return <td key={s.id} className="text-center text-slate-300">—</td>;
-                    const p = pres.get(cle(s.id, e.id)); const k = cleDe(p); const st = STATUTS.find(x => x.k === k);
-                    if (k === 'present' || k === 'retard') nP++; else if (k === 'absent') nA++; else if (k === 'justifie') nJ++;
-                    const actif = passee(s) && !s.annule;
-                    return (
-                      <td key={s.id} className="p-0.5 text-center">
-                        <button type="button" disabled={!actif} onClick={ev => setChoix({ s: s.id, e: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom}`, date: s.date, x: ev.clientX, y: ev.clientY })}
-                          className="w-9 h-7 rounded text-xs font-bold disabled:opacity-40"
-                          style={st ? { background: st.c, color: '#fff' } : { border: '1px solid #E4E7EC', color: '#94a3b8' }}
-                          title={p?.statut === 'justifie' && p.motif ? libMotif(p.motif) : st?.titre || (actif ? 'Non encodé' : s.annule ? 'Séance annulée' : 'Séance à venir')}>
-                          {st ? st.l : actif ? '·' : ''}</button>
-                      </td>);
-                  })}
-                  <td className="text-center tabular-nums">{nP}</td><td className="text-center tabular-nums">{nA}</td><td className="text-center tabular-nums">{nJ}</td>
-                </tr>);
-            })}</tbody>
-          </table>
-        </div>)}
-      <p className="m-0 text-mention text-slate-400">P présent · P* en retard · A absent · J absence justifiée · — pas inscrit à cette séance. Les séances à venir ne s’encodent pas.</p>
-      {choix && (
-        <Volet titre={choix.nom} sous={`Séance du ${court(choix.date)}`} large="26rem" onFermer={() => { setChoix(null); setMotif(''); }}>
-          <div className="space-y-3 text-sm">
-            <div className="flex flex-wrap gap-2">
-              {STATUTS.filter(x => x.k !== 'justifie').map(x => (
-                <button key={x.k} type="button" className="bouton controle font-bold" style={{ background: x.c, color: '#fff', borderColor: x.c }} onClick={() => poser(choix.s, choix.e, x.k)}>{x.l} · {x.titre}</button>))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select className="controle" value={motif} onChange={e => setMotif(e.target.value)} aria-label="Motif de l’absence justifiée">
-                <option value="">Absence justifiée — motif…</option>
-                {motifs.map(m => <option key={m.k} value={m.k}>{m.l}</option>)}
-              </select>
-              <button type="button" className="bouton controle" disabled={!motif} onClick={() => poser(choix.s, choix.e, 'justifie', motif)}>J · Justifiée</button>
-            </div>
-            <button type="button" className="bouton controle" onClick={() => poser(choix.s, choix.e, null)}>Effacer</button>
-          </div>
-        </Volet>)}
-    </div>);
-}
-
-/* MES COURS, TEL QUE DANS LUCIE (3.5.137) : l'écran de Lucie, ses requêtes passant par le relais. Ses entrées de rail remontent
-   dans la navigation de l'espace (`surSections`). */
-/* LE TABLEAU DE BORD DE LUCIE (3.5.140, Charles : « je veux aussi la page d'accueil, tableau de bord, avec les notifications, les
-   messages, etc. ») : la page « Ce qui m'attend » de Lucie elle-même, par le relais. Ses liens vers d'autres écrans de Lucie se
-   traduisent en entrées de l'espace (un texte → L'école, un cours → Mes notes) ; un écran qui n'existe pas ici le dit. */
 function SuivreLiens({ allerA }) {
   const loc = useLocation();
   useEffect(() => {
@@ -843,40 +486,6 @@ function MesCoursEspace({ vue, tic, allerA, demande }) {
     </div>);
 }
 
-/* CE QUI M'ATTEND (sous la frise d'Aujourd'hui) : tâches, textes à lire, messages, DUE, séances sans présences. */
-function CeQuiMAttend({ moi, onPresences }) {
-  const [d, setD] = useState(null);
-  const [t, setT] = useState(null);
-  const [lire, setLire] = useState(null);
-  useEffect(() => { appel('GET', `/journee?date=${moi.aujourdhui}`).then(setD).catch(() => setD({ sans_presences: [] })); }, [moi.aujourdhui]);
-  useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
-  const aFaire = t?.a_faire || [];
-  const sans = d?.sans_presences || [];
-  return (
-    <section className="bg-white border border-slate-200 rounded-carte overflow-hidden mx-0">
-      <div className="entete-carte px-4 py-3 font-semibold text-iip-texte">Ce qui m’attend</div>
-      {d && t && !sans.length && !aFaire.length && <p className="m-0 px-4 py-3 text-slate-500">Rien en retard. Bonne journée.</p>}
-      {aFaire.map((x, i) => (
-        <div key={`f${i}`} role={x.version_id ? 'button' : undefined} tabIndex={x.version_id ? 0 : undefined}
-          onClick={x.version_id ? () => setLire(x.version_id) : undefined}
-          className={`flex items-center gap-3 px-4 py-3 border-t border-slate-100 ${x.version_id ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
-          <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: x.retard ? 'var(--c-refuse, #9D4A38)' : x.type === 'due' ? 'var(--c-attente, #B45309)' : 'var(--c-disponible, #2F6FB0)' }}>
-            {{ tache: 'tâche', texte: 'à lire', message: 'message', rappel: 'rappel', due: 'DUE' }[x.type] || 'à faire'}</span>
-          <span className="flex-1 min-w-0">{x.titre}{x.echeance ? ` — pour le ${court(x.echeance)}${x.retard ? ' (en retard)' : ''}` : ''}</span>
-          {x.version_id && <IconChevronRight size={16} className="text-slate-400" />}
-        </div>))}
-      {sans.map(s => (
-        <button key={s.id} type="button" onClick={() => onPresences(s.id)} className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white hover:bg-slate-50">
-          <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-attente, #B45309)' }}>présences</span>
-          <span className="flex-1 min-w-0">{s.cours_nom || s.cours_code} — séance du {court(s.date)} à {h(s.heure_debut)}</span>
-          <IconChevronRight size={16} className="text-slate-400" />
-        </button>))}
-      {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); appel('GET', '/tableau').then(setT).catch(() => {}); }} />}
-    </section>);
-}
-
-/* MES DATES (3.5.142, Charles : « un Mon agenda avec les dates des examens, des délibérations, etc., avec l'agenda de l'école »).
-   Dans l'ordre du temps, par mois : examens et délibérations de mes cours et unités, congés, fermetures, fériés, grands moments. */
 const TYPES_DATE = {
   examen: ['Examen', 'var(--c-attente, #B45309)'], deliberation: ['Délibération', 'var(--c-principal, #19537E)'],
   conge: ['Congé', '#94A3B8'], ferme: ['École fermée', '#64748B'], ferie: ['Férié', '#94A3B8'],
