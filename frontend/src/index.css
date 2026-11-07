@@ -1654,3 +1654,12 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
 /* Le numéro et la case à cocher sur la même ligne (3.5.155, Charles : « mise en page » — dans la liste des étudiants, la
    colonne étroite de la case faisait passer le numéro au-dessus). */
 table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-sans-numero]) > td:first-child { white-space: nowrap; }
+
+/* UN GROUPE EST UN BADGE (3.5.166) : la lettre du groupe, petite pastille ; cliquable dans la feuille d'un cours, pleine quand
+   c'est le groupe affiché. */
+.pastille-groupe { display: inline-flex; align-items: center; min-width: 1.6rem; justify-content: center; padding: 1px 8px;
+  border-radius: 999px; border: 1px solid var(--c-principal, #19537E); color: var(--c-principal, #19537E);
+  font-size: 12px; font-weight: 600; line-height: 1.5; background: #fff; }
+.pastille-groupe-bouton { cursor: pointer; padding: 3px 10px; font-size: 13px; }
+.pastille-groupe-bouton:hover { background: color-mix(in srgb, var(--c-principal, #19537E) 8%, #fff); }
+.pastille-groupe-active, .pastille-groupe-active:hover { background: var(--c-principal, #19537E); color: #fff; }

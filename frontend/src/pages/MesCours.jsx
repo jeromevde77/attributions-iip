@@ -23,6 +23,7 @@ import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 import AtelierUE from './AtelierUE.jsx';
 import TrainUE from '../components/TrainUE.jsx';
+import { parActivite } from '../lib/groupes.js';
 
 /**
  * MES COURS — la porte du professeur.
@@ -425,23 +426,22 @@ export default function MesCours({ espace = null }) {
                 {/* LES GROUPES, COURTS (3.5.165, Charles : « pas très clair ni design ») : ce que tous les groupes ont en commun
                     (« Anatomie topographique 1 (TP) · Org 1 ») se dit une fois, devant ; chaque bouton ne porte que sa lettre et son
                     nombre. */}
+                {/* LES GROUPES, EN BADGES (3.5.166, Charles : « le nom du cours, puis des badges A, B, C… ; si le cours est coupé en
+                    activités, le nom de l'activité et ses groupes ») : « Tous », puis chaque activité et ses lettres. */}
                 {groupesDispo.length > 0 && (() => {
-                  const parts = groupesDispo.map(g => g.split(' · '));
-                  let n = 0;
-                  while (parts.every(p => p.length > n + 1 && p[n] === parts[0][n])) n++;
-                  const commun = parts[0].slice(0, n).filter(x => !/^Org 1$/.test(x)).join(' · ');
-                  const court = g => g.split(' · ').slice(n).join(' · ').replace(/^Gr\.\s*/, '') || g;
                   const nb = g => feuille.etudiants.filter(e => groupesDe(e).includes(g)).length;
+                  const badge = (g, l, k) => (
+                    <button key={g || 'tous'} type="button" onClick={() => setGroupeVu(g)} title={g || 'Tous les étudiants'}
+                      className={`pastille-groupe pastille-groupe-bouton ${groupeVu === g ? 'pastille-groupe-active' : ''}`}>
+                      {l}<span className="opacity-60 ml-1 font-normal">{k}</span></button>);
                   return (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-second text-slate-500">{commun ? `${commun} — groupe` : 'Groupe'}</span>
-                      <div className="segments">
-                        {[['', 'Tous', feuille.etudiants.length], ...groupesDispo.map(g => [g, court(g), nb(g)])].map(([g, l, k]) => (
-                          <button key={g || 'tous'} type="button" onClick={() => setGroupeVu(g)} title={g || 'Tous les étudiants'}
-                            className={`px-3 py-1 text-second ${groupeVu === g ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
-                            {l} <span className={groupeVu === g ? 'text-white/70' : 'text-slate-400'}>{k}</span></button>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      {badge('', 'Tous', feuille.etudiants.length)}
+                      {parActivite(groupesDispo).map(a => (
+                        <span key={a.activite || '-'} className="inline-flex flex-wrap items-center gap-1.5">
+                          {a.activite && <span className="text-second text-slate-500 mr-0.5">{a.activite}</span>}
+                          {a.groupes.map(g => badge(g.libelle, g.groupe, nb(g.libelle)))}
+                        </span>))}
                     </div>);
                 })()}
                 <span className="ml-auto" />
@@ -945,11 +945,17 @@ export default function MesCours({ espace = null }) {
                           onClick={() => (ouvert === x.cours_code ? (setOuvert(null), setFeuille(null)) : ouvrir(x.cours_code))}
                           className={`w-full text-left px-4 py-3 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50 ${ouvert === x.cours_code ? 'font-semibold' : ''}`}>
                           {ouvert === x.cours_code ? <IconChevronDown size={16} className="text-slate-500" /> : <IconChevronRight size={16} className="text-slate-500" />}
-                          <span className="flex-1 min-w-0">{x.cours_nom || x.cours_code}</span>
-                          <span className="text-second text-slate-500 text-right">{(() => {
-                            const gr = (x.groupes || []).map(g => g.replace(/(^| · )Org 1( · |$)/, '$1').replace(/ · $/, '')).filter(Boolean).join(' + ');
-                            return `${gr ? `${gr} · ` : ''}${x.nb_etudiants} étudiant${x.nb_etudiants > 1 ? 's' : ''}`;
-                          })()}</span>
+                          <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span>{x.cours_nom || x.cours_code}</span>
+                            {/* LES GROUPES EN BADGES (3.5.166) : la lettre ; le nom de l'activité devant ses groupes quand le cours en a
+                                plusieurs. */}
+                            {parActivite(x.groupes || []).map(a => (
+                              <span key={a.activite || '-'} className="inline-flex flex-wrap items-center gap-1 font-normal">
+                                {a.activite && <span className="text-second text-slate-500">{a.activite}</span>}
+                                {a.groupes.map(g => <span key={g.libelle} className="pastille-groupe">{g.groupe}</span>)}
+                              </span>))}
+                          </span>
+                          <span className="text-second text-slate-500 text-right whitespace-nowrap">{x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}</span>
                         </button>
                         {ouvert === x.cours_code && <div className="px-4 pb-4 pt-1 border-t border-slate-100">{rendreOuvert()}</div>}
                       </div>))}
