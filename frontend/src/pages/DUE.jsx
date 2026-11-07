@@ -286,6 +286,8 @@ export function lireProgramme(texte, cours) {
     const brut = String(brut0).replace(/^###\s+/, '');
     let l = brut.replace(/^[\s•\-–*]+/, '').trim();
     if (l.length < 3) continue;
+    // Un numéro d'intertitre resté seul sur sa ligne (« 4.3. », détaché de son intitulé) n'est rien (3.5.171).
+    if (/^\d+(\.\d+)*\.?$/.test(l)) continue;
     /* UNE PUCE LUE DANS LE DOSSIER (14 octobre 2026, UE 333) : l'import écrit « - » et deux espaces
        par sous-niveau. Une puce est un POINT, à son niveau — jamais un chapeau, même si elle finit
        par « , » ou « : » (« à l'égard du matériel, » est une sous-puce, pas une phrase de contexte). */
@@ -296,13 +298,15 @@ export function lireProgramme(texte, cours) {
     const queue = m && coursDe(m[2]);
     if (queue) {
       const tete = m[1].trim();
-      if (tete.length >= 3) {
+      // « 4.3.Médecine nucléaire » (3.5.171, UE 250) : la « tête » n'est qu'un numéro d'intertitre, pas un point du programme.
+      if (tete.length >= 3 && !/^\d+(\.\d+)*\.?$/.test(tete)) {
         if (!courant) out.push({ type: 'intro', texte: tete, cours: [] });
         else out.push({ type: /[,:]$/.test(tete) ? 'chapeau' : 'point', texte: tete, cours: [courant] });
       }
       courant = queue.cours_code; continue;
     }
-    const c = !/^[\s•\-–*]/.test(brut) && coursDe(l);
+    // Un intertitre numéroté (« 4.2 Radiographie… ») se compare sans son numéro.
+    const c = !/^[\s•\-–*]/.test(brut) && coursDe(l.replace(/^\d+(\.\d+)+\.?\s*/, ''));
     if (c) { courant = c.cours_code; continue; }
     if (!courant) { out.push({ type: 'intro', texte: l, cours: [] }); continue; }
     out.push({ type: /[,:]$/.test(l) ? 'chapeau' : 'point', texte: l, cours: [courant] });
