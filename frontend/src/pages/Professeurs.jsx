@@ -2255,6 +2255,11 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 </div>
               </>
             )}
+            {/* L'ŒIL DANS LA LISTE (3.5.174, Charles : « le petit œil pour aller voir l'espace ici aussi, plus rapide ») : la direction. */}
+            {passeRole('admin') && (
+              <button onClick={() => voirEspaceEnseignant(p.id)}
+                className="text-iip-blue hover:text-iip-turquoise text-sm" title="Voir son espace enseignant (lecture seule)" aria-label="Voir son espace enseignant"><IconEye size={15}/></button>
+            )}
             {canEdit && (
               <button onClick={() => setEditProf(p)}
                 className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier"><IconEdit size={15}/></button>
