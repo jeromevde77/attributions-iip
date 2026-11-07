@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconDeviceFloppy, IconSearch, IconAlertTriangle } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, Encadre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -109,8 +109,8 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
       sous="Saisissez la note sur 20 ; le résultat en découle au seuil de 10."
       large="grande" hauteurFixe onFermer={onClose}
       pied={donnees && etudiantsVus.length ? (<>
-        <span className="text-xs text-iip-turquoise flex items-center gap-1.5">
-          VA = valorisation · ⚠ VA = valorisation ET résultat encodé, à trancher
+        <span className="text-xs text-slate-500 flex items-center gap-1.5">
+          VA = valorisation · VA en brique = valorisation ET résultat encodé, à trancher
         </span>
         <span className="text-second text-slate-500 flex items-center gap-1.5">
           <IconAlertTriangle size={13} />
@@ -128,21 +128,18 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
           toute la hauteur de la fenêtre. */}
       <div className="h-full space-y-4 flex flex-col">
         {message && (
-          <div className={`px-3 py-2 rounded-lg text-sm ${
-            message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
-            : message.type === 'alerte' ? 'bg-amber-500 border border-amber-500 text-white'
-            : 'bg-emerald-500 border border-emerald-500 text-white'}`}>
+          <Encadre etat={message.type === 'err' ? 'corriger' : message.type === 'alerte' ? 'surveiller' : 'reussi'}>
             {message.texte}
-          </div>
+          </Encadre>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <label className="text-xs">
             <span className="intertitre block mb-1">
-              Année <span className="text-red-500">*</span>
+              Année <span style={{ color: 'var(--c-refuse)' }}>*</span>
             </span>
             <select value={annee} onChange={e => setAnnee(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+              className="controle w-full">
               <option value="">—</option>
               {annees.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -150,10 +147,10 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
 
           <label className="text-xs">
             <span className="intertitre block mb-1">
-              Section <span className="text-red-500">*</span>
+              Section <span style={{ color: 'var(--c-refuse)' }}>*</span>
             </span>
             <select value={section} onChange={e => { setSection(e.target.value); setUeFiltre(''); }}
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+              className="controle w-full">
               <option value="">—</option>
               {sections.map(s => (
                 <option key={s.code} value={s.code}>{s.libelle || s.code}</option>
@@ -167,7 +164,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
             </span>
             <select value={ueFiltre} onChange={e => setUeFiltre(e.target.value)}
               disabled={!donnees}
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+              className="controle w-full">
               <option value="">Toutes</option>
               {(donnees?.ues || []).map(u => (
                 <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}</option>
@@ -183,7 +180,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
               <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={recherche} onChange={e => setRecherche(e.target.value)}
                 placeholder="Filtrer…"
-                className="w-full border border-slate-300 rounded-lg pl-8 pr-2 py-1.5 text-sm" />
+                className="controle controle-icone w-full" />
             </div>
           </label>
         </div>
@@ -193,13 +190,13 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
             {enCours ? 'Chargement…' : 'Choisissez une année et une section.'}
           </div>
         ) : !etudiantsVus.length ? (
-          <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
+          <div className="carte py-10 text-center text-sm text-slate-400">
             Aucun étudiant inscrit dans cette section pour {annee}.
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-second border-collapse">
+            <div className="carte flex-1 overflow-auto">
+              <table className="tableau-maison w-full text-second border-collapse">
                 <thead className="tab-entete sticky top-0 z-10">
                   <tr>
                     <th className="intertitre text-left px-2 py-1.5 border-b border-slate-200 sticky left-0 bande-entete">Étudiant</th>
@@ -216,7 +213,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
                 </thead>
                 <tbody>
                   {etudiantsVus.map(e => (
-                    <tr key={e.id} className="hover:bg-slate-50">
+                    <tr key={e.id} className="ligne-maison">
                       <td className="px-2 py-1 border-b border-slate-100 whitespace-nowrap
                                      sticky left-0 bg-white">
                         <span className="font-medium text-slate-700">{e.nom}</span>{' '}
@@ -239,19 +236,20 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
                                     ? ` — attention, un résultat « ${d.conflit} » est aussi encodé`
                                     : ''}`
                                 : undefined}
-                              className={`w-11 text-center border rounded px-1 py-0.5 text-second
-                                ${modifie ? 'border-amber-400 bg-amber-50'
-                                  // La valorisation se distingue : la grille de
-                                  // parcours l'affiche, cet écran l'ignorait.
-                                  : d?.conflit ? 'border-red-400 bg-red-100 font-semibold'
-                                  : va ? 'border-iip-turquoise bg-iip-turquoise/10'
-                                  : n == null ? 'border-slate-200'
-                                  : n >= 10 ? 'border-emerald-200 bg-emerald-50/50'
-                                            : 'border-red-200 bg-red-50/50'}`} />
+                              // L'état se lit au filet de la case (couleurs réglées), jamais à un fond pâle.
+                              // La valorisation se distingue : la grille de parcours l'affiche, cet écran l'ignorait.
+                              style={{ borderColor: modifie ? 'var(--c-attente)'
+                                : d?.conflit ? 'var(--c-refuse)'
+                                : va ? 'var(--c-disponible)'
+                                : n == null ? 'rgb(var(--gris-200))'
+                                : n >= 10 ? 'var(--c-reussi)' : 'var(--c-refuse)',
+                                borderWidth: modifie || d?.conflit ? 2 : 1 }}
+                              className={`w-11 text-center border rounded bg-white px-1 py-0.5 text-second
+                                ${d?.conflit ? 'font-semibold' : ''}`} />
                             {va && (
-                              <div className="text-mention leading-none mt-0.5 text-iip-turquoise
-                                              font-semibold">
-                                {d.conflit ? '⚠ VA' : 'VA'}
+                              <div className="text-mention leading-none mt-0.5 font-semibold"
+                                style={{ color: d.conflit ? 'var(--c-refuse)' : 'rgb(var(--gris-500))' }}>
+                                VA
                               </div>
                             )}
                           </td>
