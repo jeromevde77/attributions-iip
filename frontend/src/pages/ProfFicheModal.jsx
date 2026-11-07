@@ -4,13 +4,13 @@ import { authHeaders } from '../lib/api.js';
 import { useState, useEffect, useRef } from 'react';
 import FonctionsPanel from '../components/FonctionsPanel.jsx';
 import ChampsAdresse, { ChoixPays } from '../components/ChampsAdresse.jsx';
-import { Fenetre, Chevron, OutilFenetre } from '../components/ui.jsx';
+import { Fenetre, Chevron, OutilFenetre, Encadre } from '../components/ui.jsx';
 import { passeRole } from '../lib/droits.js';
 import { voirEspaceEnseignant } from '../lib/voirEspace.js';
 import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
-import { IconId, IconTrash, IconFileText, IconChevronRight, IconChevronLeft, IconEye } from '@tabler/icons-react';
+import { IconId, IconTrash, IconFileText, IconChevronRight, IconChevronLeft, IconEye, IconCheck, IconPlus, IconAlertTriangle, IconLoader2 } from '@tabler/icons-react';
 import { informer, demander } from '../lib/dialogue.jsx';
 
 const _tok = () => localStorage.getItem('token');
@@ -44,15 +44,15 @@ const REVENUS_CONJOINT = [
 /* Section repliable */
 function Section({ titre, sous, ouvert, onToggle, children, complet }) {
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="carte overflow-hidden">
       <button type="button" onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-iip-gold/5 hover:bg-iip-gold/10 transition text-left">
+        className="entete-carte w-full text-left">
         <div className="flex items-center gap-2">
-          <Chevron ouvert={ouvert} size={14} className="text-iip-gold" />
-          <span className="font-semibold text-iip-gold text-sm">{titre}</span>
-          {sous && <span className="text-xs text-gray-400">· {sous}</span>}
+          <Chevron ouvert={ouvert} size={14} className="text-iip-blue" />
+          <span className="titre-carte">{titre}</span>
+          {sous && <span className="text-xs text-slate-400">· {sous}</span>}
         </div>
-        {complet && <span className="text-green-600 text-xs">✓</span>}
+        {complet && <IconCheck size={14} style={{ color: 'var(--c-reussi)' }} />}
       </button>
       {ouvert && <div className="px-4 py-3 space-y-3">{children}</div>}
     </div>
@@ -60,12 +60,12 @@ function Section({ titre, sous, ouvert, onToggle, children, complet }) {
 }
 
 /* Champs stables (définis au niveau module → jamais démontés, focus préservé) */
-const FIELD_CLS = "w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold";
+const FIELD_CLS = "controle w-full";
 
 function Labelled({ label, children }) {
   return (
     <div>
-      <label className="block text-xs text-gray-600 mb-0.5">{label}</label>
+      <label className="block text-xs text-slate-600 mb-0.5">{label}</label>
       {children}
     </div>
   );
@@ -134,14 +134,14 @@ function DispoGrid({ base, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
         <div className="segments flex h-9">
           {['Q1', 'Q2'].map(q => (
             <button key={q} onClick={() => setQ(q)}
-              className={`px-4 text-second ${quadrimestre === q ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{q}</button>
+              className={`px-4 text-second ${quadrimestre === q ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{q}</button>
           ))}
         </div>
         <LegendeDispo />
         <span className="flex-1" />
         <button onClick={() => { setDispo({}); setSaved(false); }} className="bouton !h-8">Tout vert</button>
         <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort !h-8">
-          {saving ? 'Sauvegarde…' : saved ? '✓ Enregistré' : `Enregistrer ${quadrimestre}`}</button>
+          {saving ? 'Sauvegarde…' : saved ? <><IconCheck size={14} /> Enregistré</> : `Enregistrer ${quadrimestre}`}</button>
       </div>
       <p className="text-second text-slate-500">Un clic fait tourner la case : vert disponible, orange éventuellement, rouge pas disponible. Cet agenda, posé sur les blocs de l’école, vaut pour toutes les sections où il enseigne.</p>
       <AgendaSemaine base={base} jours={[...new Set(base.map(c => c.jour))].sort()} valeur={(j, c) => dispo[`${j}|${c.debut}`] ?? 1} onCase={changer} />
@@ -450,7 +450,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
         </button>
         <span className="text-second text-slate-500 min-w-0">
           {isNew ? 'La fiche est créée à la validation, pas avant.'
-            : enregistreA && !touche ? <span className="text-emerald-700">✓ Enregistré à {enregistreA} — vous pouvez continuer ou passer à la fiche voisine.</span>
+            : enregistreA && !touche ? <span className="inline-flex items-center gap-1" style={{ color: 'var(--c-reussi)' }}><IconCheck size={13} /> Enregistré à {enregistreA} — vous pouvez continuer ou passer à la fiche voisine.</span>
             : 'Les modifications ne sont enregistrées qu’à la validation.'}
         </span>
         <button type="button" onClick={onClose} className="bouton ml-auto">{enregistreA && !touche ? 'Fermer' : 'Annuler'}</button>
@@ -459,21 +459,22 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
         className="space-y-3">
 
           {/* Import optionnel depuis la carte eID belge */}
-          <div className="border border-iip-gold/30 bg-iip-gold/5 rounded-lg p-3 flex items-start gap-3">
+          <div className="carte p-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-iip-gold flex items-center gap-1.5">
+              <div className="titre-carte flex items-center gap-1.5">
                 <IconId size={15}/> Pré-remplir depuis la carte eID
                 <span className="intertitre font-normal">optionnel</span>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Lit l'identité et l'adresse via l'app « eID Reader ». Les champs restent modifiables et rien n'est enregistré tant que vous ne validez pas.
               </p>
               {eidState !== 'idle' && (
-                <p className={`text-xs mt-1.5 ${eidState === 'error' ? 'text-red-600' : eidState === 'done' ? 'text-green-700' : 'text-gray-600'}`}>
-                  {eidBusy && <span className="inline-block animate-spin mr-1">⏳</span>}
+                <p className="text-xs mt-1.5 text-slate-600"
+                  style={eidState === 'error' ? { color: 'var(--c-refuse)' } : eidState === 'done' ? { color: 'var(--c-reussi)' } : undefined}>
+                  {eidBusy && <IconLoader2 size={12} className="inline-block animate-spin mr-1 align-[-2px]" />}
                   {eidMsg}
                   {eidBusy && (
-                    <button type="button" onClick={cancelEid} className="ml-2 underline hover:text-gray-800">Annuler</button>
+                    <button type="button" onClick={cancelEid} className="ml-2 underline hover:text-slate-800">Annuler</button>
                   )}
                 </p>
               )}
@@ -489,11 +490,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             {form.photo && (
               <div className="flex items-center gap-3">
                 <img src={form.photo} alt="Photo d'identité"
-                  className="w-20 h-24 object-cover rounded border border-gray-200 flex-shrink-0" />
-                <div className="text-xs text-gray-500">
+                  className="w-20 h-24 object-cover rounded border border-slate-200 flex-shrink-0" />
+                <div className="text-xs text-slate-500">
                   Photo issue de la carte eID.
                   <button type="button" onClick={() => set('photo', '')}
-                    className="block mt-1 text-red-500 hover:text-red-700 underline">Retirer la photo</button>
+                    className="block mt-1 underline" style={{ color: 'var(--c-refuse)' }}>Retirer la photo</button>
                 </div>
               </div>
             )}
@@ -541,9 +542,9 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               6 octobre 2026) : le professeur les propose, la direction valide. */}
           <Section titre="3 · Titres de capacité" sous={`${titres.length} titre(s)`}
             ouvert={open.titres} onToggle={() => toggle('titres')}>
-            <p className="text-xs text-gray-500">Diplômes, brevets, certificats, attestations, reconnaissance d'expérience utile…</p>
+            <p className="text-xs text-slate-500">Diplômes, brevets, certificats, attestations, reconnaissance d'expérience utile…</p>
             {titres.map((t, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-gray-100 pb-2">
+              <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-slate-100 pb-2">
                 <div className="col-span-3">
                   <TextField label="Date" type="date" value={t.date_obtention} onChange={v => setTitre(i, 'date_obtention', v)} />
                 </div>
@@ -554,11 +555,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                   <TextField label="Délivré par" value={t.delivre_par} onChange={v => setTitre(i, 'delivre_par', v)} />
                 </div>
                 <div className="col-span-1 text-right">
-                  <button type="button" onClick={() => delTitre(i)} className="text-red-400 hover:text-red-600 inline-flex" title="Retirer"><IconTrash size={14}/></button>
+                  <button type="button" onClick={() => delTitre(i)} className="text-slate-400 hover:text-[color:var(--c-refuse)] inline-flex" title="Retirer"><IconTrash size={14}/></button>
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addTitre} className="text-iip-gold hover:text-iip-amber text-sm font-medium">＋ Ajouter un titre</button>
+            <button type="button" onClick={addTitre} className="bouton !h-8"><IconPlus size={14} /> Ajouter un titre</button>
           </Section>
 
           {!restreint && (<>
@@ -569,8 +570,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               <OuiNon label="Personne porteuse d'un handicap" value={form.handicap} onChange={v => set('handicap', v)} />
             </div>
             {['marie', 'cohab_legal'].includes(form.etat_civil) && (
-              <div className="bg-gray-50 rounded-lg p-3 space-y-3 border border-gray-100">
-                <div className="text-xs font-semibold text-gray-600">Situation du conjoint / cohabitant légal</div>
+              <div className="carte p-3 space-y-3">
+                <div className="text-xs font-semibold text-slate-600">Situation du conjoint / cohabitant légal</div>
                 <div className="grid grid-cols-2 gap-3">
                   <TextField label="Nom" value={form.conjoint_nom} onChange={v => set('conjoint_nom', v)} />
                   <TextField label="Prénom" value={form.conjoint_prenom} onChange={v => set('conjoint_prenom', v)} />
@@ -582,10 +583,10 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                 <SelectField label="Revenus du conjoint" value={form.conjoint_revenus} onChange={v => set('conjoint_revenus', v)} options={REVENUS_CONJOINT} />
               </div>
             )}
-            <p className="text-xs text-white bg-amber-500 border border-amber-500 rounded px-3 py-2">
-              ⚠️ Marié(e)/cohabitant(e) légal(e) : joindre la déclaration de précompte professionnel,
+            <Encadre etat="surveiller" icone={IconAlertTriangle}>
+              Marié(e)/cohabitant(e) légal(e) : joindre la déclaration de précompte professionnel,
               sans laquelle les enfants ne seront pas renseignés à charge.
-            </p>
+            </Encadre>
           </Section>
 
           {/* 5. Personnes à charge */}
@@ -597,7 +598,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               ['autre', 'Autre(s) personne(s) à charge'],
             ].map(([cat, titre]) => (
               <div key={cat} className="space-y-2">
-                <div className="text-xs font-semibold text-gray-600">{titre}</div>
+                <div className="text-xs font-semibold text-slate-600">{titre}</div>
                 {charByCat(cat).map(({ c, i }) => (
                   <div key={i} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-5">
@@ -607,11 +608,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                       <OuiNon label="Handicap" value={c.handicap} onChange={v => setCharge(i, 'handicap', v)} />
                     </div>
                     <div className="col-span-2 text-right">
-                      <button type="button" onClick={() => delCharge(i)} className="text-red-400 hover:text-red-600 inline-flex" title="Retirer"><IconTrash size={14}/></button>
+                      <button type="button" onClick={() => delCharge(i)} className="text-slate-400 hover:text-[color:var(--c-refuse)] inline-flex" title="Retirer"><IconTrash size={14}/></button>
                     </div>
                   </div>
                 ))}
-                <button type="button" onClick={() => addCharge(cat)} className="text-iip-gold hover:text-iip-amber text-xs font-medium">＋ Ajouter</button>
+                <button type="button" onClick={() => addCharge(cat)} className="bouton !h-8"><IconPlus size={14} /> Ajouter</button>
               </div>
             ))}
           </Section>
@@ -632,26 +633,26 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
           {form.statut === 'CC' && (
             <Section titre="6 bis · Ancienneté" sous={anciennete ? `PO : ${anciennete.po.total} j` : ''}
               ouvert={open.anciennete} onToggle={() => toggle('anciennete')}>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-slate-500">
                 L'ancienneté = report historique (saisi ici) + acquis de l'année courante (calculé
                 automatiquement selon le décret du 01/02/1993 : 360 j si ≥ 50 % d'une charge, 180 j si ≥ 40 périodes).
               </p>
 
               {/* Ancienneté PO */}
-              <div className="bg-iip-gold/5 rounded-lg p-3 space-y-2 border border-iip-gold/20">
-                <div className="text-xs font-semibold text-iip-gold">Ancienneté Pouvoir Organisateur (toutes périodes)</div>
+              <div className="carte p-3 space-y-2">
+                <div className="intertitre">Ancienneté Pouvoir Organisateur (toutes périodes)</div>
                 <div className="grid grid-cols-3 gap-3 items-end">
                   <Labelled label="Report historique (jours)">
                     <input type="number" min="0" value={form.report_anc_po}
                       onChange={e => set('report_anc_po', Number(e.target.value))} className={FIELD_CLS} />
                   </Labelled>
                   <div className="text-sm">
-                    <div className="text-xs text-gray-500">Acquis {anciennete?.annee || 'cette année'}</div>
-                    <div className="font-semibold text-gray-700">+ {anciennete?.po.acquis_annee ?? 0} j</div>
+                    <div className="text-xs text-slate-500">Acquis {anciennete?.annee || 'cette année'}</div>
+                    <div className="font-semibold text-slate-700">+ {anciennete?.po.acquis_annee ?? 0} j</div>
                   </div>
                   <div className="text-sm">
-                    <div className="text-xs text-gray-500">Total à jour</div>
-                    <div className="font-bold text-iip-gold text-lg">
+                    <div className="text-xs text-slate-500">Total à jour</div>
+                    <div className="font-bold text-iip-blue text-lg">
                       {(Number(form.report_anc_po) || 0) + (anciennete?.po.acquis_annee ?? 0)} j
                     </div>
                   </div>
@@ -660,17 +661,17 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
 
               {/* Ancienneté par cours */}
               <div className="space-y-2">
-                <div className="text-xs font-semibold text-gray-600">Ancienneté par cours (limitée au nom du cours)</div>
+                <div className="text-xs font-semibold text-slate-600">Ancienneté par cours (limitée au nom du cours)</div>
                 {(anciennete?.cours || []).length === 0 && (
-                  <p className="text-xs text-gray-400">Aucun cours attribué cette année.</p>
+                  <p className="text-xs text-slate-400">Aucun cours attribué cette année.</p>
                 )}
                 {(anciennete?.cours || []).map((c, i) => {
                   const report = reportsCours[c.cours_nom] ?? 0;
                   return (
-                    <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-gray-100 pb-2">
+                    <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-slate-100 pb-2">
                       <div className="col-span-5">
-                        <div className="text-xs text-gray-500 mb-0.5">Cours</div>
-                        <div className="text-sm text-gray-800 truncate" title={c.cours_nom}>{c.cours_nom}</div>
+                        <div className="text-xs text-slate-500 mb-0.5">Cours</div>
+                        <div className="text-sm text-slate-800 truncate" title={c.cours_nom}>{c.cours_nom}</div>
                       </div>
                       <div className="col-span-3">
                         <Labelled label="Report (jours)">
@@ -680,12 +681,12 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                         </Labelled>
                       </div>
                       <div className="col-span-2 text-sm">
-                        <div className="text-xs text-gray-500">Acquis</div>
-                        <div className="font-semibold text-gray-700">+ {c.acquis_annee} j</div>
+                        <div className="text-xs text-slate-500">Acquis</div>
+                        <div className="font-semibold text-slate-700">+ {c.acquis_annee} j</div>
                       </div>
                       <div className="col-span-2 text-sm">
-                        <div className="text-xs text-gray-500">Total</div>
-                        <div className="font-bold text-iip-gold">{(Number(report) || 0) + c.acquis_annee} j</div>
+                        <div className="text-xs text-slate-500">Total</div>
+                        <div className="font-bold text-iip-blue">{(Number(report) || 0) + c.acquis_annee} j</div>
                       </div>
                     </div>
                   );
@@ -700,7 +701,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             ouvert={open.missions} onToggle={() => toggle('missions')}>
             {/* LES FONCTIONS SE RÈGLENT ICI AUSSI (7 octobre 2026 : « je mets où
                 la fonction de direction ? ») — le renvoi visait un écran supprimé. */}
-            {isNew ? <p className="text-sm text-gray-500">Les fonctions se posent une fois la fiche créée.</p>
+            {isNew ? <p className="text-sm text-slate-500">Les fonctions se posent une fois la fiche créée.</p>
               : <FonctionsPanel profId={prof.id} />}
           </Section>
 
@@ -737,18 +738,18 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               ouvert={open.nomination} onToggle={() => toggle('nomination')}>
               <div className="mb-3 flex gap-4 flex-wrap">
                 <label className="block">
-                  <span className="text-xs text-gray-500">Statut de nomination</span>
+                  <span className="text-xs text-slate-500">Statut de nomination</span>
                   <select value={form.statut_nomination || 'temporaire'} onChange={v => set('statut_nomination', v.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm max-w-xs">
+                    className="controle w-full max-w-xs">
                     <option value="temporaire">Temporaire</option>
                     <option value="temporaire_prioritaire">Temporaire prioritaire</option>
                     <option value="definitif">Engagé à titre définitif</option>
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-xs text-gray-500">Statut HELB (contrat HE)</span>
+                  <span className="text-xs text-slate-500">Statut HELB (contrat HE)</span>
                   <select value={form.statut_helb || ''} onChange={v => set('statut_helb', v.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm max-w-xs">
+                    className="controle w-full max-w-xs">
                     <option value="">— aucun —</option>
                     <option value="MA">Maître-Assistant (MA)</option>
                     <option value="MFP">Maître de Formation Pratique (MFP)</option>

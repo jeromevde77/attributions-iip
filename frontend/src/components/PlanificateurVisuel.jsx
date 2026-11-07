@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { IconCalendar, IconPlus, IconScissors, IconTrash } from '@tabler/icons-react';
+import { IconCalendar, IconPlus, IconScissors, IconTrash, IconAlertTriangle, IconCheck, IconRepeat } from '@tabler/icons-react';
+import { Fenetre, Encadre } from './ui.jsx';
 import { getAnnee } from '../lib/api.js';
 import WizardConfigCours from './WizardConfigCours.jsx';
 
@@ -12,7 +13,7 @@ const BASE_H_PAR_SEM = 2;
 
 // Couleur du type de semaine (calendrier promotion sociale)
 const SEM_STYLE = {
-  cours:    { bg: '#ffffff',  label: '' },
+  cours:    { bg: 'var(--blanc, #fff)',  label: '' },
   vacances: { bg: 'rgb(var(--gris-100))',  label: 'Vac.' },
   ferie:    { bg: 'rgb(var(--gris-100))',  label: 'Férié' },
   ev1:      { bg: 'rgb(var(--e-attente-100))',  label: 'EV1' },
@@ -452,19 +453,29 @@ export default function PlanificateurVisuel({ onClose }) {
   }, [blocs, semaines, calSessions, evalSupprimees, coursDedoubles]);
 
   return (
-    <div className="fixed inset-0 voile-fenetre flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-dessus w-full max-w-[95vw] h-[90vh] flex flex-col">
-        {/* En-tête */}
-        <div className="border-b border-gray-200 p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <h2 className="titre-carte"><IconCalendar size={18} className="inline align-[-2px] mr-1" />Planificateur visuel d'UE</h2>
+    <>
+    <Fenetre icone={IconCalendar} titre="Planificateur visuel d'UE" large="ecran" hauteurFixe pleinCorps
+      onFermer={() => onClose()}
+      pied={<>
+        <span className="text-xs text-slate-500">
+          {ueChoisie && <>UE {ueChoisie.ue_num} · {voies.length} groupe(s) · {blocs.length} bloc(s)</>}
+        </span>
+        <button onClick={onClose} className="bouton">Fermer</button>
+        <button onClick={() => setConfirmOpen(true)} disabled={!blocs.length || saving}
+          className="bouton bouton-fort">
+          {saving ? 'Création…' : 'Créer les attributions'}
+        </button>
+      </>}>
+        {/* Barre d'outils */}
+        <div className="border-b border-slate-200 px-5 py-3 flex items-center justify-between gap-4 flex-nowrap flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             <select value={section} onChange={e => setSection(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle">
               <option value="">— Section —</option>
               {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.nom}</option>)}
             </select>
             <select value={ueNum} onChange={e => setUeNum(e.target.value)} disabled={!section}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white disabled:opacity-50">
+              className="controle disabled:opacity-50">
               <option value="">— UE —</option>
               {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
@@ -476,24 +487,23 @@ export default function PlanificateurVisuel({ onClose }) {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <label className="text-xs text-gray-500 flex items-center gap-1.5">
+            <label className="text-xs text-slate-500 flex items-center gap-1.5">
               Base h/semaine
               <input type="number" min="0.5" step="0.5" value={hParSem}
                 onChange={e => setHParSem(Math.max(0.5, Number(e.target.value) || BASE_H_PAR_SEM))}
-                className="w-16 border border-gray-300 rounded px-2 py-1 text-sm" />
+                className="controle w-20" />
             </label>
-            <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
           </div>
         </div>
 
         {/* Corps */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 min-h-0 overflow-auto p-4">
           {!ueNum ? (
-            <div className="text-center text-gray-400 py-20">Choisissez une section puis une UE pour commencer.</div>
+            <div className="text-center text-slate-400 py-20">Choisissez une section puis une UE pour commencer.</div>
           ) : loading ? (
-            <div className="text-center text-gray-400 py-20">Chargement…</div>
+            <div className="text-center text-slate-400 py-20">Chargement…</div>
           ) : voies.length === 0 ? (
-            <div className="text-center text-gray-400 py-20">
+            <div className="text-center text-slate-400 py-20">
               Aucun groupe pour cette UE.<br/>
               <span className="text-sm">Créez d'abord des groupes dans la grille de planification, ou importez depuis les attributions.</span>
             </div>
@@ -502,30 +512,30 @@ export default function PlanificateurVisuel({ onClose }) {
               {/* Bandeau capacité / sessions */}
               <div className="mb-3 flex items-center gap-4 flex-wrap text-xs" style={{ paddingLeft: LABEL_W }}>
                 {calSessions ? (
-                  <span className="text-gray-500">
-                    Dernière semaine de cours : <strong className="text-gray-700">S{semaines[dernierCoursIdx]?.semaine_num}</strong> ({semaines[dernierCoursIdx]?.date_debut})
+                  <span className="text-slate-500">
+                    Dernière semaine de cours : <strong className="text-slate-700">S{semaines[dernierCoursIdx]?.semaine_num}</strong> ({semaines[dernierCoursIdx]?.date_debut})
                     · {semCoursDispo} semaines de cours disponibles
                   </span>
                 ) : (
-                  <span className="text-orange-500">⚠ Dernier jour admin non défini (Paramètres) — limite de session non calculée</span>
+                  <span className="inline-flex items-center gap-1" style={{ color: 'var(--c-attente)' }}><IconAlertTriangle size={13} /> Dernier jour admin non défini (Paramètres) — limite de session non calculée</span>
                 )}
                 {!capaciteOK && (
-                  <span className="bg-red-500 text-white px-2 py-0.5 rounded font-medium">
-                    ⚠ Le volume horaire risque de ne pas tenir dans les semaines disponibles
+                  <span className="pastille-etat" data-etat="corriger">
+                    <IconAlertTriangle size={12} /> Le volume horaire risque de ne pas tenir dans les semaines disponibles
                   </span>
                 )}
               </div>
 
               {/* En-tête des semaines */}
-              <div className="flex sticky top-0 z-10 bg-white" style={{ paddingLeft: LABEL_W }}>
+              <div className="flex sticky top-0 z-10" style={{ paddingLeft: LABEL_W, background: 'var(--blanc, #fff)' }}>
                 {semaines.map((s, i) => {
                   const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
                   return (
                     <div key={s.id} style={{ width: PX_SEM, background: st.bg }}
-                      className="border-r border-gray-100 text-center py-1 text-mention text-gray-500 flex-shrink-0"
+                      className="border-r border-slate-100 text-center py-1 text-mention text-slate-500 flex-shrink-0"
                       title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}`}>
                       <div className="font-semibold">{s.semaine_num}</div>
-                      {st.label && <div className="text-mention text-gray-400">{st.label}</div>}
+                      {st.label && <div className="text-mention text-slate-400">{st.label}</div>}
                     </div>
                   );
                 })}
@@ -533,13 +543,13 @@ export default function PlanificateurVisuel({ onClose }) {
 
               {/* Voies (groupes) */}
               {voies.map(voie => (
-                <div key={voie.groupe_id} className="flex items-stretch border-b border-gray-100 group/voie" style={{ minHeight: 52 }}>
+                <div key={voie.groupe_id} className="flex items-stretch border-b border-slate-100 group/voie" style={{ minHeight: 52 }}>
                   {/* Label du groupe */}
                   <div style={{ width: LABEL_W }} className="flex-shrink-0 pr-3 py-2 flex flex-col justify-center">
-                    <div className="text-sm font-medium text-gray-700 truncate">
+                    <div className="text-sm font-medium text-slate-700 truncate">
                       {voie.groupe?.cours_nom || 'Cours'}
                     </div>
-                    <div className="text-xs text-gray-400 truncate">
+                    <div className="text-xs text-slate-400 truncate">
                       Groupe {voie.groupe?.nom}
                       {voie.groupe?.prof && ` · ${voie.groupe.prof}`}
                       {` · ${voie.groupe?.heures || 0}h`}
@@ -550,8 +560,8 @@ export default function PlanificateurVisuel({ onClose }) {
                       const hAuto = voie.blocs.filter(b => b.kind === 'autonomie').reduce((s, b) => s + (b.heures || 0), 0);
                       // 3h d'évaluation (EV1 2h + VC 1h) prises sur le cours étudiant
                       if (hCours > 0 && (hCours - 3) < 4 && hAuto < 4) {
-                        return <div className="text-mention text-amber-600 mt-0.5 leading-tight">
-                          ⚠ très peu d'heures de cours après l'évaluation — ajoutez de l'autonomie ou faites de l'évaluation continue
+                        return <div className="text-mention mt-0.5 leading-tight" style={{ color: 'var(--c-attente)' }}>
+                          <IconAlertTriangle size={11} className="inline align-[-1px]" /> très peu d'heures de cours après l'évaluation — ajoutez de l'autonomie ou faites de l'évaluation continue
                         </div>;
                       }
                       return null;
@@ -565,7 +575,7 @@ export default function PlanificateurVisuel({ onClose }) {
                         const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
                         const bg = s.type !== 'cours' ? st.bg : 'transparent';
                         return <div key={s.id} style={{ width: PX_SEM, background: bg }}
-                          className="border-r border-gray-50 flex-shrink-0" />;
+                          className="border-r border-slate-50 flex-shrink-0" />;
                       })}
                     </div>
                     {/* Blocs */}
@@ -597,7 +607,7 @@ export default function PlanificateurVisuel({ onClose }) {
                           cursor: 'grab',
                         }}
                         className="flex items-center px-2 text-xs font-medium overflow-hidden select-none hover:brightness-95 transition group/bloc"
-                        title={`${b.activite} · ${b.heures}h sur ${semCoursReelles} sem. de cours = ${hParSemaine}h/sem${depasseLimite ? ' ⚠ dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} congé(s) traversé(s)` : ''}`}>
+                        title={`${b.activite} · ${b.heures}h sur ${semCoursReelles} sem. de cours = ${hParSemaine}h/sem${depasseLimite ? ' — dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} congé(s) traversé(s)` : ''}`}>
                         {/* Hachures sur les semaines de congé */}
                         {congesTraverses.map(off => (
                           <div key={off} style={{
@@ -623,7 +633,7 @@ export default function PlanificateurVisuel({ onClose }) {
                         {/* Bouton + : ouvre le menu d'actions */}
                         <button onMouseDown={e => { e.stopPropagation(); }}
                           onClick={e => { e.stopPropagation(); setMenuBloc(menuBloc?.id === b.id ? null : b); }}
-                          className="ml-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/70 hover:bg-white text-gray-700 text-xs leading-none relative z-10 flex-shrink-0"
+                          className="ml-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/70 hover:bg-white text-slate-700 text-xs leading-none relative z-10 flex-shrink-0"
                           title="Actions sur ce bloc">+</button>
                         {/* Poignée de redimensionnement */}
                         {/* Poignée gauche = début */}
@@ -644,13 +654,13 @@ export default function PlanificateurVisuel({ onClose }) {
                         width: ev.dureeSem * PX_SEM - 2,
                         top: 6, bottom: 6,
                         background: 'rgb(var(--gris-200))',
-                        border: '1.5px solid #9ca3af',
+                        border: '1.5px solid rgb(var(--gris-400))',
                         color: 'var(--c-texte)',
                         borderRadius: 6,
                         cursor: ev.supprimable ? 'pointer' : 'default',
                       }}
                         onClick={() => ev.supprimable && setEvalASupprimer(ev)}
-                        className={`flex items-center justify-center text-xs font-bold select-none transition z-10 ${ev.supprimable ? 'hover:bg-gray-300' : ''}`}
+                        className={`flex items-center justify-center text-xs font-bold select-none transition z-10 ${ev.supprimable ? 'hover:brightness-95' : ''}`}
                         title={ev.supprimable
                           ? `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · groupe dédoublé : cliquer pour supprimer (réunion des groupes)`
                           : `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · non supprimable (cours non dédoublé / groupe A)`}>
@@ -660,7 +670,7 @@ export default function PlanificateurVisuel({ onClose }) {
                   </div>
                 </div>
               ))}
-              <div className="mt-4 flex items-center gap-4 text-xs text-gray-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
+              <div className="mt-4 flex items-center gap-4 text-xs text-slate-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-disponible-100))',border:'1.5px solid var(--c-disponible)'}}/>Cours</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-attente-100))',border:'1.5px solid var(--c-attente)'}}/>Remédiation</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-faveur-100))',border:'1.5px solid var(--c-faveur)'}}/>Autonomie</span>
@@ -669,33 +679,25 @@ export default function PlanificateurVisuel({ onClose }) {
             </div>
           )}
         </div>
-
-        {/* Pied */}
-        <div className="border-t border-gray-200 p-4 flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            {ueChoisie && <>UE {ueChoisie.ue_num} · {voies.length} groupe(s) · {blocs.length} bloc(s)</>}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="bouton">Fermer</button>
-            <button onClick={() => setConfirmOpen(true)} disabled={!blocs.length || saving}
-              className="bouton bouton-fort">
-              {saving ? 'Création…' : 'Créer les attributions'}
-            </button>
-          </div>
-        </div>
-      </div>
+    </Fenetre>
 
       {/* Confirmation */}
       {confirmOpen && (
-        <div className="fixed inset-0 voile-fenetre flex items-center justify-center z-[60]" onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
-          <div className="bg-white rounded-xl shadow-dessus max-w-lg w-full p-6">
-            <h3 className="titre-carte mb-2">Récapitulatif des opérations</h3>
-            <p className="text-sm text-gray-600 mb-3">
+        <Fenetre titre="Récapitulatif des opérations" large="petite" onFermer={() => setConfirmOpen(false)}
+          pied={<>
+            <span />
+            <button onClick={() => setConfirmOpen(false)} className="bouton">Annuler</button>
+            <button onClick={enregistrer} disabled={saving}
+              className="bouton bouton-fort">
+              {saving ? 'Création…' : 'Confirmer'}
+            </button>
+          </>}>
+            <p className="text-sm text-slate-600 mb-3">
               Pour l'UE {ueChoisie?.ue_num}, les opérations suivantes seront appliquées :
             </p>
 
-            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Planification ({blocs.length} bloc(s))</div>
-            <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 max-h-32 overflow-auto mb-3">
+            <div className="intertitre mb-1">Planification ({blocs.length} bloc(s))</div>
+            <div className="carte p-3 text-xs text-slate-600 max-h-32 overflow-auto mb-3">
               {blocs.map(b => (
                 <div key={b.id} className="flex justify-between py-0.5">
                   <span>{b.activite} (gr. {b.groupe_nom})</span>
@@ -706,8 +708,8 @@ export default function PlanificateurVisuel({ onClose }) {
 
             {Object.keys(reductions).length > 0 && (
               <>
-                <div className="text-xs font-semibold text-amber-600 uppercase mb-1">Évaluations supprimées (déduites de l'autonomie)</div>
-                <div className="bg-amber-500 rounded p-3 text-xs text-white max-h-32 overflow-auto mb-3">
+                <Encadre etat="surveiller" titre="Évaluations supprimées (déduites de l'autonomie)" className="mb-3">
+                <div className="max-h-32 overflow-auto text-xs">
                   {Object.entries(reductions).map(([gid, r]) => (
                     <div key={gid} className="py-0.5">
                       <div className="flex justify-between">
@@ -715,114 +717,103 @@ export default function PlanificateurVisuel({ onClose }) {
                         <span className="font-semibold">−{r.autoRetiree} pér. d'autonomie</span>
                       </div>
                       {r.autoRetiree < r.demande && (
-                        <div className="text-mention text-amber-600">
-                          ⚠ autonomie insuffisante ({r.autoDispo} pér. dispo) — le DP reste intact, on ne retire que l'autonomie
+                        <div className="text-mention" style={{ color: 'var(--c-attente)' }}>
+                          <IconAlertTriangle size={11} className="inline align-[-1px]" /> autonomie insuffisante ({r.autoDispo} pér. dispo) — le DP reste intact, on ne retire que l'autonomie
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
+                </Encadre>
               </>
             )}
-
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmOpen(false)} className="bouton">Annuler</button>
-              <button onClick={enregistrer} disabled={saving}
-                className="bouton bouton-fort">
-                {saving ? 'Création…' : 'Confirmer'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
       {/* Confirmation suppression d'une évaluation */}
       {evalASupprimer && (
-        <div className="fixed inset-0 voile-fenetre flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setEvalASupprimer(null)}>
-          <div className="bg-white rounded-xl shadow-dessus w-full max-w-sm p-5">
-            <h3 className="titre-carte mb-1">Supprimer {evalASupprimer.label} ?</h3>
-            <p className="text-sm text-gray-600 mb-4">
+        <Fenetre icone={IconTrash} titre={`Supprimer ${evalASupprimer.label} ?`} large="petite" onFermer={() => setEvalASupprimer(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setEvalASupprimer(null)} className="bouton">Annuler</button>
+            <button onClick={() => {
+                setEvalSupprimees(prev => new Set(prev).add(evalASupprimer.id));
+                setEvalASupprimer(null);
+              }}
+              className="bouton bouton-detruire">
+              Supprimer
+            </button>
+          </>}>
+            <p className="text-sm text-slate-600">
               Le cours étant dédoublé, le prof réunit les groupes pour cette évaluation.
               Elle sera retirée de la planification de ce groupe et l'autonomie correspondante
               sera déduite à la confirmation finale (le DP du cours reste intact).
             </p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setEvalASupprimer(null)} className="bouton">Annuler</button>
-              <button onClick={() => {
-                  setEvalSupprimees(prev => new Set(prev).add(evalASupprimer.id));
-                  setEvalASupprimer(null);
-                }}
-                className="bouton bouton-detruire">
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {/* Dialogue de scission d'un bloc */}
       {coupeBloc && (
-        <div className="fixed inset-0 voile-fenetre flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
-          <div className="bg-white rounded-xl shadow-dessus w-full max-w-sm p-5">
-            <h3 className="titre-carte mb-1"><IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc</h3>
-            <p className="text-sm text-gray-600 mb-4">{coupeBloc.activite} · {coupeBloc.heures}h sur {coupeBloc.dureeSem} sem.</p>
-            <div className="flex rounded border border-gray-300 overflow-hidden text-sm mb-3">
-              <button onClick={() => setCoupeMode('heures')}
-                className={`flex-1 px-3 py-1.5 ${coupeMode === 'heures' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600'}`}>
+        <Fenetre icone={IconScissors} titre="Scinder le bloc"
+          sous={`${coupeBloc.activite} · ${coupeBloc.heures}h sur ${coupeBloc.dureeSem} sem.`}
+          large="petite" onFermer={() => setCoupeBloc(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setCoupeBloc(null)} className="bouton">Annuler</button>
+            <button onClick={() => couperBlocPosition(coupeBloc, coupeMode, coupeVal)} disabled={!coupeVal}
+              className="bouton bouton-fort">
+              Scinder
+            </button>
+          </>}>
+            <div className="segments mb-3">
+              <button onClick={() => setCoupeMode('heures')} 
+                className={coupeMode === 'heures' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
                 Par heures
               </button>
-              <button onClick={() => setCoupeMode('semaine')}
-                className={`flex-1 px-3 py-1.5 border-l border-gray-300 ${coupeMode === 'semaine' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600'}`}>
+              <button onClick={() => setCoupeMode('semaine')} 
+                className={coupeMode === 'semaine' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
                 Par semaines
               </button>
             </div>
-            <label className="block mb-4">
-              <span className="text-xs text-gray-500">
+            <label className="block">
+              <span className="text-xs text-slate-500">
                 {coupeMode === 'heures' ? "Heures pour le 1er segment (cours)" : "Semaines de cours pour le 1er segment"}
               </span>
               <input type="number" min="1" autoFocus value={coupeVal} onChange={e => setCoupeVal(e.target.value)}
                 placeholder={coupeMode === 'heures' ? `max ${coupeBloc.heures}h` : `max ${coupeBloc.dureeSem - 1} sem.`}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1" />
-              <span className="text-xs text-gray-400">
+                className="controle w-full mt-1" />
+              <span className="text-xs text-slate-400">
                 Le reste deviendra une activité (remédiation/évaluation), modifiable ensuite.
               </span>
             </label>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setCoupeBloc(null)} className="bouton">Annuler</button>
-              <button onClick={() => couperBlocPosition(coupeBloc, coupeMode, coupeVal)} disabled={!coupeVal}
-                className="bouton bouton-fort">
-                Scinder
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {/* Menu contextuel d'un bloc */}
       {menuBloc && (
         <div className="fixed inset-0 z-[55]" onClick={() => setMenuBloc(null)}>
-          <div className="absolute bg-white rounded-lg shadow-dessus border border-gray-200 py-1 w-56 text-sm"
-            style={{ left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}
+          <div className="absolute rounded-carte shadow-dessus border border-slate-200 py-1 w-56 text-sm"
+            style={{ left: '50%', top: '50%', transform: 'translate(-50%,-50%)', background: 'var(--blanc, #fff)' }}
             onClick={e => e.stopPropagation()}>
-            <div className="px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-medium truncate">
+            <div className="px-3 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium truncate">
               {menuBloc.activite}
             </div>
-            <button onClick={() => dedoublerBloc(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+            <button onClick={() => dedoublerBloc(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
               <IconPlus size={14} className="inline align-[-2px] mr-1" />Dédoubler le groupe (B, C…)
             </button>
-            <div className="px-3 py-1.5 h-9 text-xs text-gray-400">Activité :</div>
+            <div className="px-3 py-1.5 h-9 text-xs text-slate-400">Activité :</div>
             {['Cours', 'TP / Labo', 'Remédiation', 'Autonomie', 'Évaluation'].map(act => (
               <button key={act} onClick={() => setActiviteBloc(menuBloc, act)}
-                className="w-full text-left px-5 py-1.5 h-9 hover:bg-gray-50 text-xs">{act}</button>
+                className="w-full text-left px-5 py-1.5 h-9 hover:bg-slate-50 text-xs">{act}</button>
             ))}
-            <div className="border-t border-gray-100 my-1" />
-            <button onClick={() => toggleAlternance(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
-              {menuBloc.alternance ? '✓ ' : ''}🔁 Une semaine sur deux
+            <div className="border-t border-slate-100 my-1" />
+            <button onClick={() => toggleAlternance(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+              {menuBloc.alternance ? <IconCheck size={14} /> : <IconRepeat size={14} />} Une semaine sur deux
             </button>
-            <button onClick={() => { setCoupeBloc(menuBloc); setMenuBloc(null); setCoupeMode('heures'); setCoupeVal(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+            <button onClick={() => { setCoupeBloc(menuBloc); setMenuBloc(null); setCoupeMode('heures'); setCoupeVal(''); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
               <IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc…
             </button>
-            <div className="border-t border-gray-100 my-1" />
-            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 border-l-4 border-l-red-500">
+            <div className="border-t border-slate-100 my-1" />
+            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2" style={{ color: 'var(--c-refuse)' }}>
               <IconTrash size={14} className="inline align-[-2px] mr-1" />Supprimer ce bloc
             </button>
           </div>
@@ -862,7 +853,7 @@ export default function PlanificateurVisuel({ onClose }) {
           }}
         />
       )}
-    </div>
+    </>
   );
 
   async function enregistrer() {

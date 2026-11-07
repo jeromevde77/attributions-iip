@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { IconCalendarExclamation } from '@tabler/icons-react';
+import { Fenetre, Encadre } from './ui.jsx';
 import { authHeaders, getAnnee, setAnnee } from '../lib/api.js';
 import { anneeCourante, dejaAccepte, accepter, confirmerAnnee } from '../lib/annee.js';
 
@@ -64,58 +65,46 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
     window.location.reload();
   };
 
+  const rester = () => { accepter(regardee, quoi); setFerme(true); };
+
+  // UNE VRAIE FENÊTRE DE LUCIE (`Fenetre`) : bandeau, corps, l'action dans le pied.
+  // Fermer (croix, Échap) vaut « rester » : on a vu l'avertissement.
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center p-4 pt-[12vh]
-                    voile-fenetre">
-      {/* LE DESSIN DES BOÎTES DE LUCIE (lib/dialogue.jsx) : liseré orange à
-          gauche, coins droits de ce côté, l'action dans un pied. */}
-      <div className="rounded-r-fenetre max-w-lg w-full shadow-dessus overflow-hidden border-l-4"
-        style={{ borderLeftColor: 'var(--c-attente)', background: 'var(--c-fenetre_corps, #fff)' }}>
-        <div className="px-5 pt-5 pb-3 flex items-start gap-3">
-          <IconCalendarExclamation size={22} className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
-          <div>
-            <h2 className="titre-carte">
-              Vous n'êtes pas dans l'année en cours
-            </h2>
-            <p className="text-sm text-slate-600 mt-1">
-              Vous vous apprêtez à modifier {quoi} de <b>{regardee}</b>, alors que
-              l'année en cours est <b>{courante}</b>. Ce qui sera encodé ici ne comptera
-              pas pour {courante}.
-            </p>
-          </div>
-        </div>
-
-        <div className="px-5 pb-4 pl-[52px] space-y-2">
-          <label className="block">
-            <span className="intertitre block mb-0.5">Changer d'année</span>
-            <select value={choix || courante} onChange={e => setChoix(e.target.value)}
-              className="controle w-full bg-white text-iip-texte">
-              {(annees.length ? annees : [courante, regardee]).map(a => (
-                <option key={a} value={a}>
-                  {a}{a === courante ? ' — année en cours' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <p className="text-xs text-slate-500">
-            Rester en {regardee} est légitime — on prépare l'année suivante, on corrige
-            un encodage passé. L'avertissement ne reviendra pas pour cet écran tant que
-            la session est ouverte.
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">
-          <button
-            onClick={() => { accepter(regardee, quoi); setFerme(true); }}
-            className="bouton">
-            Rester en {regardee}
-          </button>
-          <button onClick={basculer} className="bouton bouton-fort">
-            Travailler en {choix || courante}
-          </button>
-        </div>
+    <Fenetre icone={IconCalendarExclamation} titre="Vous n'êtes pas dans l'année en cours"
+      large="petite" onFermer={rester}
+      pied={<>
+        <span />
+        <button onClick={rester} className="bouton">
+          Rester en {regardee}
+        </button>
+        <button onClick={basculer} className="bouton bouton-fort">
+          Travailler en {choix || courante}
+        </button>
+      </>}>
+      <div className="space-y-3">
+        <Encadre etat="surveiller">
+          Vous vous apprêtez à modifier {quoi} de <b>{regardee}</b>, alors que
+          l'année en cours est <b>{courante}</b>. Ce qui sera encodé ici ne comptera
+          pas pour {courante}.
+        </Encadre>
+        <label className="block">
+          <span className="intertitre block mb-0.5">Changer d'année</span>
+          <select value={choix || courante} onChange={e => setChoix(e.target.value)}
+            className="controle w-full">
+            {(annees.length ? annees : [courante, regardee]).map(a => (
+              <option key={a} value={a}>
+                {a}{a === courante ? ' — année en cours' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-slate-500">
+          Rester en {regardee} est légitime — on prépare l'année suivante, on corrige
+          un encodage passé. L'avertissement ne reviendra pas pour cet écran tant que
+          la session est ouverte.
+        </p>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 

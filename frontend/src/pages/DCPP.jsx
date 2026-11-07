@@ -4,7 +4,7 @@
  * Navigation interne : tableau de bord → auto-analyse → observation → PDCP
  */
 import { useEffect, useState, useCallback } from 'react';
-import { TuileEtat } from '../components/ui.jsx';
+import { TuileEtat, PastilleEtat, EnteteCarte } from '../components/ui.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAnnee } from '../lib/api.js';
 import {
@@ -34,17 +34,13 @@ const SCORE_COLORS = { 0: 'rgb(var(--gris-200))', 1: 'var(--c-attente)', 2: 'var
 // ─── Petit badge de statut ────────────────────────────────────────────────────
 function StatutBadge({ statut }) {
   const cfg = {
-    'en-cours':  { label: 'En cours',  bg: 'var(--c-disponible)', color: '#FFFFFF' },
-    'complete':  { label: 'Complète',  bg: 'var(--c-reussi)', color: '#FFFFFF' },
-    'actif':     { label: 'Actif',     bg: 'var(--c-disponible)', color: '#FFFFFF' },
-    'atteint':   { label: 'Atteint',   bg: 'var(--c-reussi)', color: '#FFFFFF' },
-    'abandonne': { label: 'Abandonné', bg: 'var(--c-attente)', color: '#FFFFFF' },
-  }[statut] || { label: statut, bg: 'rgb(var(--gris-100))', color: 'var(--c-texte)' };
-  return (
-    <span style={{ background: cfg.bg, color: cfg.color, fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
-      {cfg.label}
-    </span>
-  );
+    'en-cours':  { label: 'En cours',  etat: 'disponible' },
+    'complete':  { label: 'Complète',  etat: 'reussi' },
+    'actif':     { label: 'Actif',     etat: 'disponible' },
+    'atteint':   { label: 'Atteint',   etat: 'reussi' },
+    'abandonne': { label: 'Abandonné', etat: 'surveiller' },
+  }[statut] || { label: statut, etat: 'neutre' };
+  return <PastilleEtat etat={cfg.etat}>{cfg.label}</PastilleEtat>;
 }
 
 // ─── Carte KPI ────────────────────────────────────────────────────────────────
@@ -68,16 +64,16 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
   const countObj = (statut) => bord?.objectifs?.find(o => o.statut === statut)?.n || 0;
 
   return (
-    <div style={{ padding: '24px 0' }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: 'rgb(var(--gris-500))', marginBottom: 4 }}>Année scolaire</div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--c-texte)' }}>{profNom}</div>
-        <div style={{ fontSize: 13, color: 'var(--c-accent)', marginTop: 2 }}>{annee}</div>
+    <div className="py-4">
+      <div className="mb-5">
+        <div className="text-second text-slate-500 mb-1">Année scolaire</div>
+        <div className="titre-carte">{profNom}</div>
+        <div className="text-second text-slate-500 mt-0.5">{annee}</div>
       </div>
 
       {/* Auto-analyse */}
       <Section titre="Auto-analyse" icon={IconClipboardList} couleur="var(--c-accent)">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+        <div className="flex gap-3 flex-wrap mb-3">
           <Kpi label="En cours" val={countSeances('auto-analyse','en-cours')} couleur="var(--c-principal)" />
           <Kpi label="Complètes" val={countSeances('auto-analyse','complete')} couleur="var(--c-texte)" />
         </div>
@@ -87,8 +83,8 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
       </Section>
 
       {/* Observation */}
-      <Section titre="Observation en classe" icon={IconEye} couleur="#7C5BD9">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+      <Section titre="Observation en classe" icon={IconEye} couleur="var(--c-accent)">
+        <div className="flex gap-3 flex-wrap mb-3">
           <Kpi label="En cours" val={countSeances('observation','en-cours')} couleur="var(--c-principal)" />
           <Kpi label="Complètes" val={countSeances('observation','complete')} couleur="var(--c-texte)" />
         </div>
@@ -98,8 +94,8 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
       </Section>
 
       {/* PDCP */}
-      <Section titre="Plan de développement (PDCP)" icon={IconTargetArrow} couleur="#C0392B">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+      <Section titre="Plan de développement (PDCP)" icon={IconTargetArrow} couleur="var(--c-accent)">
+        <div className="flex gap-3 flex-wrap mb-3">
           <Kpi label="Actifs" val={countObj('actif')} couleur="var(--c-principal)" />
           <Kpi label="Atteints" val={countObj('atteint')} couleur="var(--c-texte)" />
           <Kpi label="Max" val={4} couleur="rgb(var(--gris-400))" />
@@ -166,25 +162,25 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
   const cfg = DISPOSITIFS.find(d => d.id === dispositif);
 
   return (
-    <div style={{ padding: '16px 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, color: cfg.couleur, fontSize: 16 }}>{cfg.label}</div>
+    <div className="py-4">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="titre-carte">{cfg.label}</h2>
         <Btn onClick={() => setCreating(v => !v)} icon={creating ? IconX : IconPlus} variant="accent">
           {creating ? 'Annuler' : 'Nouvelle séance'}
         </Btn>
       </div>
 
       {creating && (
-        <div style={{ background: 'rgb(var(--gris-50))', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="carte p-4 mb-4">
+          <div className="grid grid-cols-2 gap-3 mb-3">
             <Field label="Date">
-              <input type="date" value={form.date_seance} onChange={e => setForm(f => ({ ...f, date_seance: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+              <input type="date" value={form.date_seance} onChange={e => setForm(f => ({ ...f, date_seance: e.target.value }))} className="controle w-full" />
             </Field>
             <Field label="Num. UE">
               {ues.length > 0
                 ? <select value={form.ue_num}
                     onChange={e => setForm(f => ({ ...f, ue_num: e.target.value }))}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                    className="controle w-full">
                     <option value="">— choisir —</option>
                     {ues.map(u => (
                       <option key={u.ue_num} value={u.ue_num}>
@@ -197,17 +193,17 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
                   </span>}
             </Field>
             <Field label="Cours">
-              <input value={form.cours_nom} onChange={e => setForm(f => ({ ...f, cours_nom: e.target.value }))} placeholder="Intitulé du cours" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+              <input value={form.cours_nom} onChange={e => setForm(f => ({ ...f, cours_nom: e.target.value }))} placeholder="Intitulé du cours" className="controle w-full" />
             </Field>
             <Field label="Type">
-              <select value={form.type_cours} onChange={e => setForm(f => ({ ...f, type_cours: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+              <select value={form.type_cours} onChange={e => setForm(f => ({ ...f, type_cours: e.target.value }))} className="controle w-full">
                 <option value="cours">Cours théorique</option>
                 <option value="tp">TP / TD</option>
               </select>
             </Field>
             {dispositif === 'observation' && (
               <Field label="Rencontre n°">
-                <select value={form.rencontre_num} onChange={e => setForm(f => ({ ...f, rencontre_num: Number(e.target.value) }))} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                <select value={form.rencontre_num} onChange={e => setForm(f => ({ ...f, rencontre_num: Number(e.target.value) }))} className="controle w-full">
                   <option value={1}>1 — Pré-observation</option>
                   <option value={2}>2 — Observation</option>
                   <option value={3}>3 — Post-observation</option>
@@ -219,28 +215,28 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
         </div>
       )}
 
-      {loading && <p style={{ color: 'var(--c-texte)', fontSize: 13 }}>Chargement…</p>}
+      {loading && <p className="text-sm text-slate-500">Chargement…</p>}
       {!loading && seances.length === 0 && (
-        <p style={{ color: 'var(--c-texte)', fontSize: 13, fontStyle: 'italic' }}>Aucune séance pour cette année.</p>
+        <p className="text-sm text-slate-500 italic">Aucune séance pour cette année.</p>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {seances.map(s => (
-          <div key={s.id} style={{ background: 'var(--blanc)', border: '1px solid #E2E8F0', borderRadius: 8, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+          <div key={s.id} className="carte px-3.5 py-3 flex items-center gap-3 cursor-pointer"
             onClick={() => onOuvrir(s.id)}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 14 }}>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-iip-texte">
                 {s.cours_nom || '(cours non précisé)'}
-                {s.ue_num && <span style={{ marginLeft: 8, fontSize: 12, color: 'rgb(var(--gris-500))' }}>UE {s.ue_num}</span>}
+                {s.ue_num && <span className="ml-2 text-second text-slate-500 font-normal">UE {s.ue_num}</span>}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--c-texte)', marginTop: 2 }}>
+              <div className="text-second text-slate-600 mt-0.5">
                 {s.date_seance || 'Date non renseignée'}
                 {dispositif === 'observation' && ` · Rencontre ${s.rencontre_num}`}
                 {s.type_cours && ` · ${s.type_cours === 'tp' ? 'TP/TD' : 'Cours'}`}
               </div>
             </div>
             <StatutBadge statut={s.statut} />
-            <button onClick={e => { e.stopPropagation(); supprimer(s.id); }}
-              style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+            <button onClick={e => { e.stopPropagation(); supprimer(s.id); }} title="Supprimer"
+              className="p-1 text-slate-500 hover:text-[color:var(--c-refuse)]">
               <IconTrash size={15} />
             </button>
           </div>
@@ -289,19 +285,19 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
     } catch (e) { informer(e.message); } finally { setSaving(false); }
   }
 
-  if (!seance) return <p style={{ color: 'var(--c-texte)', padding: 24 }}>Chargement…</p>;
+  if (!seance) return <p className="text-sm text-slate-500 p-6">Chargement…</p>;
 
   const libelles = filteredCriteres();
   const estObservation = seance.dispositif === 'observation';
 
   return (
-    <div style={{ padding: '16px 0' }}>
+    <div className="py-4">
       {/* En-tête séance */}
-      <div style={{ background: 'rgb(var(--gris-50))', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="carte px-4 py-3 mb-5">
+        <div className="flex justify-between items-center gap-3">
           <div>
-            <div style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 15 }}>{seance.cours_nom || '(cours)'}</div>
-            <div style={{ fontSize: 12, color: 'rgb(var(--gris-500))', marginTop: 2 }}>
+            <div className="titre-carte">{seance.cours_nom || '(cours)'}</div>
+            <div className="text-second text-slate-500 mt-0.5">
               {seance.date_seance} · {seance.type_cours === 'tp' ? 'TP/TD' : 'Cours théorique'}
               {seance.ue_num && ` · UE ${seance.ue_num}`}
               {estObservation && ` · Rencontre ${seance.rencontre_num}`}
@@ -312,21 +308,19 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
       </div>
 
       {/* Grille des critères */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+      <div className="flex flex-col gap-3 mb-5">
         {libelles.map(lib => {
           const critere = referentiel.criteres.find(c => c.id === lib.critere_id);
           const rep = reponses[lib.critere_id] || {};
 
           return (
-            <div key={lib.id} style={{ background: 'var(--blanc)', border: '1px solid #E2E8F0', borderRadius: 8, padding: 14 }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <span style={{ background: 'var(--c-principal)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-                  {critere?.code}
-                </span>
-                <span style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 13 }}>{lib.libelle}</span>
+            <div key={lib.id} className="carte p-3.5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="badge badge-z whitespace-nowrap">{critere?.code}</span>
+                <span className="font-semibold text-sm text-iip-texte">{lib.libelle}</span>
               </div>
               {lib.question_ref && (
-                <p style={{ fontSize: 11, color: 'var(--c-texte)', fontStyle: 'italic', marginBottom: 8 }}>{lib.question_ref}</p>
+                <p className="text-xs text-slate-600 italic mb-2">{lib.question_ref}</p>
               )}
 
               {!estObservation ? (
@@ -336,17 +330,17 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
                   onChange={e => setReponses(prev => ({ ...prev, [lib.critere_id]: { ...prev[lib.critere_id], reponse_txt: e.target.value } }))}
                   placeholder="Votre réflexion…"
                   rows={3}
-                  style={{ width: '100%', border: '1px solid #D1D5DB', borderRadius: 6, padding: '8px 10px', fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }}
+                  className="controle w-full h-auto py-2 resize-y"
                 />
               ) : (
                 // Observation : score 0/1/2 avant + après
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid grid-cols-2 gap-3">
                   {['avant', 'apres'].map(moment => (
                     <div key={moment}>
-                      <div style={{ fontSize: 11, color: 'rgb(var(--gris-500))', marginBottom: 6, fontWeight: 600 }}>
+                      <div className="intertitre mb-1.5">
                         {moment === 'avant' ? 'Avant la séance' : 'Après la séance'}
                       </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div className="flex gap-1.5">
                         {[0, 1, 2].map(score => (
                           <button key={score}
                             onClick={() => setReponses(prev => ({
@@ -354,11 +348,10 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
                               [lib.critere_id]: { ...prev[lib.critere_id], [`score_${moment}`]: score }
                             }))}
                             title={SCORE_LABELS[score]}
+                            className="w-8 h-8 rounded-champ border-2 font-bold text-sm text-iip-texte"
                             style={{
-                              width: 32, height: 32, borderRadius: 6, border: '2px solid',
                               borderColor: rep[`score_${moment}`] === score ? 'var(--c-principal)' : 'rgb(var(--gris-200))',
-                              background: rep[`score_${moment}`] === score ? SCORE_COLORS[score] : 'rgb(var(--gris-50))',
-                              fontWeight: 700, fontSize: 14, cursor: 'pointer', color: 'var(--c-texte)',
+                              background: rep[`score_${moment}`] === score ? SCORE_COLORS[score] : 'var(--blanc, #fff)',
                             }}>
                             {score}
                           </button>
@@ -374,9 +367,9 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="flex gap-2.5 flex-wrap">
         <Btn onClick={() => sauvegarder(false)} icon={saving ? undefined : IconCheck} variant="primary" disabled={saving}>
-          {saving ? 'Sauvegarde…' : saved ? '✓ Sauvegardé' : 'Sauvegarder'}
+          {saving ? 'Sauvegarde…' : saved ? 'Sauvegardé' : 'Sauvegarder'}
         </Btn>
         {seance.statut !== 'complete' && (
           <Btn onClick={() => sauvegarder(true)} icon={IconCircleCheck} variant="secondary">
@@ -433,11 +426,11 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
   }
 
   return (
-    <div style={{ padding: '16px 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <div className="py-4">
+      <div className="flex justify-between items-center mb-4">
         <div>
-          <div style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 16 }}>Plan de développement des compétences</div>
-          <div style={{ fontSize: 12, color: 'var(--c-texte)', marginTop: 2 }}>Maximum 4 objectifs SMART · {annee}</div>
+          <h2 className="titre-carte">Plan de développement des compétences</h2>
+          <div className="text-second text-slate-500 mt-0.5">Maximum 4 objectifs SMART · {annee}</div>
         </div>
         {objectifs.length < 4 && (
           <Btn onClick={() => setCreating(v => !v)} icon={creating ? IconX : IconPlus} variant="accent">
@@ -447,26 +440,26 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
       </div>
 
       {creating && (
-        <div style={{ background: '#FFF5F5', border: '1px solid rgb(var(--gris-200))', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="carte p-4 mb-4">
+          <div className="flex flex-col gap-2.5">
             <Field label="Objectif *">
               <input value={form.libelle} onChange={e => setForm(f => ({ ...f, libelle: e.target.value }))}
                 placeholder="Formulé en termes de compétence à développer…"
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                className="controle w-full" />
             </Field>
             <Field label="Indicateurs (un par ligne)">
               <textarea value={form.indicateurs} onChange={e => setForm(f => ({ ...f, indicateurs: e.target.value }))}
                 rows={3} placeholder="Comment saurai-je que j'ai progressé ?"
-                style={{ width: '100%', border: '1px solid #D1D5DB', borderRadius: 6, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit' }} />
+                className="controle w-full h-auto py-2" />
             </Field>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="grid grid-cols-2 gap-3">
               <Field label="Échéance">
                 <input type="date" value={form.echeance} onChange={e => setForm(f => ({ ...f, echeance: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                  className="controle w-full" />
               </Field>
               <Field label="Critère lié">
                 <select value={form.critere_id} onChange={e => setForm(f => ({ ...f, critere_id: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                  className="controle w-full">
                   <option value="">— Aucun —</option>
                   {referentiel?.criteres?.map(c => (
                     <option key={c.id} value={c.id}>{c.code}</option>
@@ -480,42 +473,43 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
       )}
 
       {objectifs.length === 0 && (
-        <p style={{ color: 'var(--c-texte)', fontSize: 13, fontStyle: 'italic' }}>Aucun objectif défini pour cette année.</p>
+        <p className="text-sm text-slate-500 italic">Aucun objectif défini pour cette année.</p>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="flex flex-col gap-3">
         {objectifs.map((obj, i) => (
-          <div key={obj.id} style={{ background: 'var(--blanc)', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--c-principal)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
+          <div key={obj.id} className="carte p-4">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-champ grid place-items-center font-bold text-sm text-white flex-none"
+                style={{ background: 'var(--c-principal)' }}>
                 {obj.numero}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 14 }}>{obj.libelle}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-iip-texte">{obj.libelle}</div>
                 {obj.indicateurs?.length > 0 && (
-                  <ul style={{ marginTop: 6, paddingLeft: 16, fontSize: 12, color: 'rgb(var(--gris-500))' }}>
+                  <ul className="mt-1.5 pl-4 list-disc text-second text-slate-500">
                     {obj.indicateurs.map((ind, j) => <li key={j}>{ind}</li>)}
                   </ul>
                 )}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="flex gap-2 mt-2 flex-wrap items-center">
                   <StatutBadge statut={obj.statut} />
-                  {obj.echeance && <span style={{ fontSize: 11, color: 'var(--c-texte)' }}>⏱ {obj.echeance}</span>}
+                  {obj.echeance && <span className="inline-flex items-center gap-1 text-xs text-slate-600"><IconCalendar size={12} /> {obj.echeance}</span>}
                   {obj.critere_id && (
-                    <span style={{ fontSize: 11, background: 'var(--c-disponible)', color: '#FFFFFF', padding: '2px 7px', borderRadius: 10 }}>
+                    <PastilleEtat etat="disponible">
                       Critère {referentiel?.criteres?.find(c => c.id === obj.critere_id)?.code}
-                    </span>
+                    </PastilleEtat>
                   )}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div className="flex gap-1">
                 {obj.statut === 'actif' && (
                   <button onClick={() => patcher(obj.id, { statut: 'atteint' })} title="Marquer atteint"
-                    style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                    className="p-1 text-slate-500 hover:text-iip-texte">
                     <IconCircleCheck size={16} />
                   </button>
                 )}
                 <button onClick={() => supprimer(obj.id)} title="Supprimer"
-                  style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                  className="p-1 text-slate-500 hover:text-[color:var(--c-refuse)]">
                   <IconTrash size={15} />
                 </button>
               </div>
@@ -528,14 +522,11 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
 }
 
 // ─── Composants utilitaires ───────────────────────────────────────────────────
-function Section({ titre, icon: Icon, couleur, children }) {
+function Section({ titre, icon: Icon, children }) {
   return (
-    <div style={{ background: 'var(--blanc)', border: `1px solid rgb(var(--gris-200))`, borderLeft: `3px solid ${couleur}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <Icon size={17} style={{ color: couleur }} />
-        <span style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 14 }}>{titre}</span>
-      </div>
-      {children}
+    <div className="carte mb-3.5">
+      <EnteteCarte icone={Icon} titre={titre} />
+      <div className="p-4">{children}</div>
     </div>
   );
 }
@@ -543,25 +534,22 @@ function Section({ titre, icon: Icon, couleur, children }) {
 function Field({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: 'rgb(var(--gris-500))', fontWeight: 600, marginBottom: 4 }}>{label}</div>
+      <div className="intertitre mb-1">{label}</div>
       {children}
     </div>
   );
 }
 
+// Les boutons de la maison : fort (l'action principale), neutre, détruire.
 function Btn({ onClick, icon: Icon, children, variant = 'secondary', disabled = false }) {
-  const styles = {
-    primary:   { background: 'var(--c-principal)', color: '#fff', border: 'none' },
-    secondary: { background: 'var(--blanc)', color: 'var(--c-texte)', border: '1px solid #D1D5DB' },
-    accent:    { background: 'var(--c-accent)', color: '#fff', border: 'none' },
-    danger:    { background: 'var(--c-refuse)', color: '#fff', border: 'none' },
-  }[variant];
+  const cls = {
+    primary:   'bouton bouton-fort',
+    secondary: 'bouton',
+    accent:    'bouton bouton-fort',
+    danger:    'bouton bouton-detruire',
+  }[variant] || 'bouton';
   return (
-    <button onClick={onClick} disabled={disabled} style={{
-      ...styles, display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-      cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, fontFamily: 'inherit',
-    }}>
+    <button onClick={onClick} disabled={disabled} className={`${cls} inline-flex items-center gap-1.5`}>
       {Icon && <Icon size={14} />}{children}
     </button>
   );
@@ -615,49 +603,43 @@ export default function DCPP() {
     { id: 'pdcp',         label: 'PDCP',                icon: IconTargetArrow },
   ];
 
-  return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)', background: 'rgb(var(--gris-50))' }}>
-      {/* Rail latéral */}
-      <div style={{ width: 56, background: 'var(--c-principal)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, gap: 4, flexShrink: 0 }}>
-        <button onClick={goBack} title="Retour" style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, marginBottom: 8 }}>
-          <IconArrowLeft size={18} />
-        </button>
-        {navItems.map(item => {
-          const active = view === item.id || (item.id !== 'dashboard' && view.startsWith('seance-') && false);
-          return (
-            <button key={item.id} onClick={() => setView(item.id)} title={item.label}
-              style={{
-                color: active ? 'var(--c-accent)' : 'var(--c-disponible)', background: active ? 'rgba(0,170,204,0.15)' : 'none',
-                border: 'none', cursor: 'pointer', padding: 10, borderRadius: 8,
-              }}>
-              <item.icon size={19} />
-            </button>
-          );
-        })}
-      </div>
+  const actifOnglet = view.startsWith('seance-') ? null : view;
 
-      {/* Contenu */}
-      <div style={{ flex: 1, padding: '24px 32px', maxWidth: 860, overflow: 'auto' }}>
+  return (
+    <div className="px-6 py-5 max-w-[860px]">
         {/* Fil d'Ariane */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <button onClick={() => navigate('/professeurs')} style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
+        <div className="flex items-center gap-1.5 mb-1 text-second">
+          <button onClick={goBack} title="Retour" className="p-1 -ml-1 text-slate-500 hover:text-iip-texte">
+            <IconArrowLeft size={16} />
+          </button>
+          <button onClick={() => navigate('/professeurs')} className="text-slate-600 hover:underline">
             Membres du personnel
           </button>
-          <span style={{ color: 'rgb(var(--gris-300))' }}>›</span>
-          <span style={{ color: 'rgb(var(--gris-500))', fontSize: 12 }}>{profNom}</span>
+          <span className="text-slate-300">›</span>
+          <span className="text-slate-500">{profNom}</span>
           {view !== 'dashboard' && (
             <>
-              <span style={{ color: 'rgb(var(--gris-300))' }}>›</span>
-              <span style={{ color: 'var(--c-texte)', fontSize: 12, fontWeight: 600 }}>{breadcrumb}</span>
+              <span className="text-slate-300">›</span>
+              <span className="font-semibold text-iip-texte">{breadcrumb}</span>
             </>
           )}
         </div>
 
         {/* Titre */}
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--c-texte)', marginBottom: 20 }}>
+        <h1 className="titre-ecran mb-3">
           Développement des compétences
-          <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--c-accent)', marginLeft: 10 }}>{annee}</span>
+          <span className="text-sm font-normal text-slate-500 ml-2.5">{annee}</span>
         </h1>
+
+        {/* Les faces du module : un soulignement, pas un second rail. */}
+        <div className="flex gap-4 border-b border-slate-200 mb-2">
+          {navItems.map(item => (
+            <button key={item.id} onClick={() => setView(item.id)}
+              className={`${actifOnglet === item.id ? 'onglet-page onglet-page-actif' : 'onglet-page'} inline-flex items-center gap-1.5`}>
+              <item.icon size={15} />{item.label}
+            </button>
+          ))}
+        </div>
 
         {view === 'dashboard' && (
           <TableauDeBord profId={profId} profNom={profNom} annee={annee} onNavigate={setView} />
@@ -678,7 +660,6 @@ export default function DCPP() {
         {view === 'pdcp' && (
           <PlanDeveloppement profId={profId} annee={annee} referentiel={referentiel} />
         )}
-      </div>
     </div>
   );
 }
