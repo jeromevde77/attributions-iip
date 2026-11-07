@@ -596,9 +596,9 @@ function BoutonContact({ compact = false }) {
   const ok = !!c.secretariat_ouvert;
   const Tel = ({ p }) => (p.telephone ? <a className="text-iip-blue underline whitespace-nowrap" href={`tel:${String(p.telephone).replace(/\s+/g, '')}`}>{p.telephone}</a> : <span className="text-slate-400">pas de numéro</span>);
   return (<>
-    <button type="button" onClick={() => { charger(); setOuvert(true); }} title={ok ? 'Contacter' : 'Urgence'} className="shrink-0 min-h-11 md:min-h-9 px-3 rounded-champ inline-flex items-center gap-2 text-sm font-semibold text-white"
+    <button type="button" onClick={() => { charger(); setOuvert(true); }} title={ok ? 'Contacter' : 'Urgence'} className={`shrink-0 min-h-11 md:min-h-9 rounded-carte inline-flex items-center justify-center gap-2 text-sm font-semibold text-white ${compact ? 'md:w-9 md:h-9 md:px-0 px-3' : 'px-3'}`}
       style={{ background: ok ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-attente, #B45309)' }}>
-      <IconPhone size={16} />{!compact && ` ${ok ? 'Contacter' : 'Urgence'}`}
+      <IconPhone size={17} stroke={1.8} />{!compact && ` ${ok ? 'Contacter' : 'Urgence'}`}
     </button>
     {ouvert && (
       <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} onFermer={() => setOuvert(false)}>
@@ -973,12 +973,19 @@ function LEcole() {
    info-bulle immédiate comme dans Lucie »). L'entrée ouverte : fond du menu actif, icône et texte au principal, filet à gauche.
    Rail étroit : le nom dans la bulle marine de Lucie, au survol, sans délai. */
 function BoutonFace({ f, actif, onClick, etroit = false }) {
+  /* LES MESURES DU RAIL DE LUCIE (3.5.178, Charles : « taille des icônes un peu grande, fais comme dans Lucie, tout ») : rail
+     étroit = cases carrées de 36 px, icône 19 trait 1,8, grise ; l'entrée ouverte = pastille pâle cernée d'un filet, icône à
+     l'accent ; survol = ombre légère. Déplié : la même icône, le libellé à côté. */
+  const style = actif
+    ? { background: 'var(--menu-survol)', color: 'var(--menu-texte)', boxShadow: 'inset 0 0 0 1px var(--menu-actif-bord)' }
+    : { color: 'var(--menu-texte-doux)' };
   return (
     <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined} aria-label={f.l}
-      className={`group relative shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left transition-colors ${etroit ? 'md:justify-center md:px-0' : ''} ${actif ? '' : 'hover:bg-slate-50'}`}
-      style={actif ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal, #19537E)', fontWeight: 600 } : { color: 'var(--menu-texte, #334155)' }}>
-      {actif && <span aria-hidden className="hidden md:block absolute -left-2 top-2 bottom-2 w-[3px] rounded-full" style={{ background: 'var(--c-principal, #19537E)' }} />}
-      <f.I size={etroit ? 20 : 18} stroke={actif ? 2.2 : 1.8} /> <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
+      className={`group relative shrink-0 inline-flex items-center text-sm text-left transition-colors duration-150 ${actif ? 'font-semibold' : 'hover:shadow-pose'}
+        ${etroit ? 'min-h-11 px-3 gap-2.5 rounded-carte md:min-h-0 md:w-9 md:h-9 md:mx-auto md:px-0 md:justify-center' : 'min-h-11 md:min-h-10 px-2.5 gap-3 rounded-carte'}`}
+      style={style}>
+      <f.I size={19} stroke={1.8} className="flex-shrink-0" style={{ color: actif ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />
+      <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
       {etroit && <span role="tooltip" className="hidden md:group-hover:block md:group-focus-visible:block pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50 px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium text-xs whitespace-nowrap"
         style={{ background: 'var(--c-principal, #16406A)' }}>{f.l}</span>}
     </button>);
@@ -1025,7 +1032,7 @@ function RechercheEspace({ faces, onFace, onCours, onAide }) {
   return (
     <>
       <button type="button" onClick={() => setOuvert(true)} aria-label="Rechercher" title="Où aller ? (⌘K)"
-        className="w-10 h-10 grid place-items-center rounded-champ border border-slate-200 bg-white text-iip-blue hover:bg-slate-50"><IconSearch size={18} /></button>
+        className="w-9 h-9 grid place-items-center rounded-carte border border-slate-200 bg-white hover:shadow-pose" style={{ color: 'var(--menu-icone)' }}><IconSearch size={17} stroke={1.8} /></button>
       {ouvert && (
         <div className="fixed inset-0 z-[80] bg-slate-900/30 backdrop-blur-[2px]" onMouseDown={() => setOuvert(false)}>
           <div className="mx-auto mt-[12vh] w-[min(640px,92vw)] bg-white rounded-fenetre shadow-dessus overflow-hidden" onMouseDown={e => e.stopPropagation()}>
@@ -1132,7 +1139,7 @@ export default function EspaceEnseignant() {
       {/* UN RAIL ÉTROIT QUAND ON TRAVAILLE (3.5.166, Charles : « gagnons de la place ; réduis le menu à un rail étroit une fois
           qu'on a choisi notes, ou autre ») : sur Aujourd'hui, le menu entier ; ailleurs, les icônes seules (le nom au survol),
           et le chevron le déplie. Sur téléphone, la bande d'onglets ne change pas. */}
-      <nav aria-label="Espace enseignant" className={`${etroit ? 'md:w-[4.5rem]' : 'md:w-60'} md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 ${etroit ? 'md:px-2 md:py-4' : 'md:p-4'} flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen transition-[width] duration-200`}>
+      <nav aria-label="Espace enseignant" className={`${etroit ? 'md:w-14' : 'md:w-60'} md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 ${etroit ? 'md:px-1.5 md:py-4' : 'md:p-4'} flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen transition-[width] duration-200`}>
         <div className={`hidden md:flex items-center gap-2.5 pb-4 ${etroit ? 'justify-center' : 'px-2'}`}>
           {etroit ? <LogoLucie hauteur={26} sansTexte className="" /> : <div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div>}
         </div>
@@ -1143,7 +1150,7 @@ export default function EspaceEnseignant() {
         {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <button type="button" className="hidden md:inline-flex items-center justify-center min-h-9 rounded-champ text-slate-500 hover:bg-slate-50"
           onClick={() => setDeplie(d => !d)} title={etroit ? 'Déplier le menu' : 'Réduire le menu'} aria-label={etroit ? 'Déplier le menu' : 'Réduire le menu'}>
-          {etroit ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
+          {etroit ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
         </button>
         <div className={`md:border-t border-slate-200 md:pt-3 ${etroit ? '' : 'md:px-2'} flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0`}>
           {!etroit && <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>}

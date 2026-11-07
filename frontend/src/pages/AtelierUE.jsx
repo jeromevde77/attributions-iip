@@ -86,7 +86,12 @@ function etats(due, liens) {
    faite »). Les pastilles et le trait de la maison (graphiques.jsx) ; une étape s'ouvre quand celle d'avant
    est faite — « sans objet » (épreuve intégrée, aucun cours évalué) vaut faite. */
 export const etapeFaite = e => e === 'fait' || e === 'neutre';
+/* PLUS DE BLOCAGE (3.5.179, Charles, 7 novembre 2026 : « j'ai changé d'avis, on doit pouvoir accéder à toutes les étapes sans
+   blocage ») : chaque étape s'ouvre, à tout moment ; la frise dit seulement ce qui est fait. Les règles d'ordre restent écrites
+   dessous, inactives, au cas où l'on y reviendrait. */
+const ORDRE_IMPOSE = false;
 export function verrouDe(k, et) {
+  if (!ORDRE_IMPOSE) return null;
   if (k === 'ponderation' && !etapeFaite(et.croisement?.etat)) return "Terminez d'abord l'étape 1 : chaque cours croisé, chaque acquis servi.";
   if (k === 'descriptif' && !etapeFaite(et.croisement?.etat)) return "Terminez d'abord l'étape 1 : le croisement.";
   if (k === 'descriptif' && et.ponderation && !etapeFaite(et.ponderation.etat)) return "Terminez d'abord l'étape 2 : la pondération conforme au croisement.";
