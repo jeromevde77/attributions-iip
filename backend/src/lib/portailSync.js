@@ -29,6 +29,7 @@ import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.j
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
+import { supportsActifs, contenuDe as contenuSupport } from './supportsCours.js';
 import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants, relayerEnseignants, texteHtml } from './portailEnseignants.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
@@ -425,6 +426,7 @@ export async function passerPortail() {
     }
     if (tours % 12 === 0) { await deposer(); await deposerDocuments(); }
     if (toursDocsUE++ % 60 === 0) { try { await deposerDocsUE(); } catch (e) { console.error('[espace] DUE et dossiers :', e.message); } }
+    if (tours % 6 === 0) { try { await deposerSupports(); } catch (e) { console.error('[espace] supports de cours :', e.message); } }
     tours++;
   } catch (e) {
     if (tours % 30 === 0) console.error('[portail]', e.message);   // un portail arrêté ne remplit pas le journal
@@ -441,6 +443,23 @@ async function deposerDocsUE() {
     empreinte: d.html ? createHash('sha256').update(d.html).digest('hex').slice(0, 32) : '' }));
   const changes = docs.filter(d => (connus[`${d.ue_num}|${d.quoi}`] || '') !== d.empreinte);
   for (let i = 0; i < changes.length; i += 20) await appel('POST', '/interne/ue-docs', { docs: changes.slice(i, i + 20) });
+}
+
+/* LES SUPPORTS DE COURS (3.5.211) : toutes les minutes. Seuls ceux que le portail n'a pas (ou plus à la même empreinte) partent,
+   un à un ; puis la liste des actifs — le portail efface les supports retirés. Rien ne part tant que la fonction est fermée
+   pour tous (Configuration → Mise en service → « Les supports de cours »). */
+async function deposerSupports() {
+  if (!fonctionOuverte('espace.supports')) return;
+  const annee = anneeActive();
+  const actifs = supportsActifs(annee);
+  const connus = (await appel('GET', '/interne/supports/empreintes')).empreintes || {};
+  for (const s of actifs.filter(x => connus[x.id] !== x.empreinte)) {
+    const buf = contenuSupport(s);
+    if (!buf) continue;
+    await appel('POST', '/interne/supports', { id: s.id, annee: s.annee_scolaire, ue_num: s.ue_num, cours_code: s.cours_code, cours_nom: s.cours_nom || null,
+      titre: s.titre, nom: s.nom, mime: s.mime, taille: s.taille, empreinte: s.empreinte, depose_le: s.depose_le, auteur: s.depose_par, contenu: buf.toString('base64') });
+  }
+  await appel('POST', '/interne/supports/actifs', { ids: actifs.map(x => x.id) });
 }
 
 export function planifierPortail() {

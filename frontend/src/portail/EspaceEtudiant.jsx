@@ -534,6 +534,18 @@ function MonParcours({ onErreur }) {
   };
   const charger = useCallback(() => appel('GET', '/parcours').then(setP).catch(onErreur), [onErreur]);
   useEffect(() => { charger(); }, [charger]);
+  // LES SUPPORTS DE COURS (3.5.211) : fermés pour cet étudiant, la route répond 404 et rien ne s'affiche.
+  const [supports, setSupports] = useState([]);
+  useEffect(() => { appel('GET', '/supports').then(j => setSupports(j.supports || [])).catch(() => setSupports([])); }, []);
+  const recent = s => s.depose_le && (Date.now() - new Date(String(s.depose_le).replace(' ', 'T') + 'Z').getTime()) < 7 * 86400000;
+  const ouvrirSupport = async s => {
+    const w = window.open('', '_blank');
+    try {
+      const r = await appel('GET', `/supports/${s.id}`, null, true);
+      const url = URL.createObjectURL(await r.blob());
+      if (w) w.location = url; else window.location.href = url;
+    } catch (e) { if (w) w.close(); onErreur(e); }
+  };
   useEffect(() => { if (!p || p.pret) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [p, charger]);
   if (!p) return <ChargementLucie />;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre parcours… quelques secondes.</p>;
@@ -568,7 +580,8 @@ function MonParcours({ onErreur }) {
                     <span className="text-sm text-iip-texte">{u.ue_nom}</span>
                   </span>
                   <span className="block text-second text-slate-500">{[u.bloc !== '—' ? u.bloc : null, u.ects ? `${u.ects} ECTS` : null, lib,
-                    u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison].filter(Boolean).join(' · ')}{u.cours?.length ? ` · ${u.cours.length} cours` : ''}</span>
+                    u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison].filter(Boolean).join(' · ')}{u.cours?.length ? ` · ${u.cours.length} cours` : ''}
+                    {(() => { const n = supports.filter(sp => Number(sp.ue_num) === Number(u.ue_num) && recent(sp)).length; return n ? <b style={{ color: 'var(--c-disponible)' }}> · {n} nouveau{n > 1 ? 'x' : ''} support{n > 1 ? 's' : ''}</b> : null; })()}</span>
                 </span>
                 <span className="text-slate-400 text-sm flex-none">{ouv ? '▴' : '▾'}</span>
               </button>
@@ -577,10 +590,18 @@ function MonParcours({ onErreur }) {
                   {u.cours?.length > 0 && (
                     <ul className="text-sm divide-y divide-slate-100">
                       {u.cours.map(k => (
-                        <li key={k.code} className="py-1 flex items-baseline gap-2">
-                          <span className="tabular-nums text-slate-500 w-14 flex-none">{k.code}</span>
-                          <span className="min-w-0 flex-1 text-iip-texte">{k.nom}</span>
-                          <span className="text-second text-slate-500 flex-none">{k.autonomie ? 'travail personnel' : k.per ? `${k.per} p.` : ''}</span>
+                        <li key={k.code} className="py-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="tabular-nums text-slate-500 w-14 flex-none">{k.code}</span>
+                            <span className="min-w-0 flex-1 text-iip-texte">{k.nom}</span>
+                            <span className="text-second text-slate-500 flex-none">{k.autonomie ? 'travail personnel' : k.per ? `${k.per} p.` : ''}</span>
+                          </div>
+                          {supports.filter(sp => sp.cours_code === k.code).map(sp => (
+                            <button key={sp.id} type="button" className="ml-16 mt-1 flex items-center gap-1.5 text-left text-second hover:underline" onClick={() => ouvrirSupport(sp)}>
+                              <IconFileText size={14} className="text-slate-500 flex-none" /><span className="text-iip-texte">{sp.titre}</span>
+                              <span className="text-slate-500">· {jourFr(sp.depose_le)}</span>
+                              {recent(sp) && <span className="pastille-etat" data-etat="disponible">nouveau</span>}
+                            </button>))}
                         </li>))}
                     </ul>)}
                   <div className="flex flex-wrap gap-2">

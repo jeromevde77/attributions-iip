@@ -20,6 +20,7 @@ import VisitesStage from '../components/VisitesStage.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { OuvrirEditions, RailLateral, Encadre, Fenetre } from '../components/ui.jsx';
 import MesTfe from '../components/MesTfe.jsx';
+import SupportsCours from '../components/SupportsCours.jsx';
 import { SignalerAbsence } from '../components/AbsencesEnseignants.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
@@ -412,7 +413,7 @@ export default function MesCours({ espace = null }) {
                 attestations du congé-éducation payé. */}
             <div className={`${vueEspace === 'presences' ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200`}>
               {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
-              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
+              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['supports', 'Supports'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
                 .filter(([k]) => !espace || (vueEspace === 'presences' ? k === 'presences' : k !== 'presences')).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
@@ -491,6 +492,7 @@ export default function MesCours({ espace = null }) {
             )}
             {/* LA FICHE DU COURS (3.5.129) : son UE, ses périodes, l'autonomie, l'évaluation, ses acquis et son programme. */}
             {face === 'fiche' && <FicheCours key={ouvert} coursCode={ouvert} annee={annee} sansEntete={!!espace} />}
+            {face === 'supports' && <SupportsCours key={ouvert} coursCode={ouvert} annee={annee} />}
             {face === 'presences' && <PresencesCours key={`${ouvert}|${seanceChoisie || ''}`} coursCode={ouvert} annee={annee} seanceInitiale={seanceChoisie} />}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
                 (le groupe choisi), notes tapées comprises. */}

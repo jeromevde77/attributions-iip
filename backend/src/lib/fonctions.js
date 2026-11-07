@@ -38,6 +38,8 @@ export const CATALOGUE = [
     quoi: "Le titre, le jury, les remises et la défense ; l'étudiant propose sa question de recherche (acceptée ou renvoyée par le promoteur ou la coordination), dépose ses remises et lit les fiches d'évaluation." },
   { cle: 'espace.stage', famille: 'espace', titre: 'Mon stage',
     quoi: 'Le lieu, les dates, le superviseur et le maître de stage ; les pièces qui manquent (art. 51 et 55) ; les visites prévues ; les fiches d’évaluation du stage.' },
+  { cle: 'espace.supports', famille: 'espace', titre: 'Les supports de cours',
+    quoi: "Les fichiers que les professeurs déposent pour un cours (Mes cours → le cours → Supports) ; les inscrits les trouvent dans Mon parcours, sous le cours, avec la marque « nouveau » pendant une semaine." },
   { cle: 'espace.certificats', famille: 'espace', titre: 'Mes absences — certificat médical',
     quoi: "L'étudiant dépose son certificat médical (PDF ou photo) et les dates de son absence ; remis dans les 3 jours ouvrables, ses absences de la période sont justifiées ; professeurs et secrétariat sont prévenus." },
   { cle: 'espace.candidats', famille: 'espace', titre: "Le code d'accès des candidats",

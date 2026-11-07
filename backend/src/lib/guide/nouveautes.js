@@ -322,6 +322,16 @@ export const ajouts = {
       ],
     },
     {
+      titre: "Les supports de cours",
+      pour: 'ens coo dir',
+      ou: "Mes notes (espace enseignant) ou Mes cours → le cours → onglet Supports.",
+      texte: "Déposez les fichiers d'un cours pour vos étudiants : [[Choisir un fichier|IconUpload]] (PDF, Word, Excel, PowerPoint ou image, 15 Mo au plus), un titre lisible, puis [[Déposer|IconCheck|fort]]. Les inscrits les trouvent dans leur espace, Mon parcours, sous le cours ; un support récent y porte la marque « nouveau » pendant une semaine. [[Retirer|IconTrash]] le fait sortir de leur espace.",
+      savoir: [
+        "Le support appartient au cours, pas à vous seul : un autre professeur du cours ou la coordination le voit et peut le retirer.",
+        "Tant que la direction n'a pas ouvert « Les supports de cours » (Configuration → Mise en service), l'écran le dit : vous pouvez déjà déposer.",
+      ],
+    },
+    {
       titre: "Signaler une absence",
       pour: 'ens coo dir',
       ou: "Espace enseignant → Mon agenda → Signaler une absence (dans Lucie : Mes cours → rail → Signaler une absence).",
