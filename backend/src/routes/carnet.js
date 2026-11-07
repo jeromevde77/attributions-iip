@@ -11,7 +11,7 @@ import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { accesCours, acquisDuCours } from './mesCours.js';
-import { migrerCarnet, lireValeur, propositions, evaluationsDuCours, notesDuCarnet, notesParAcquis, noteDEnsemble, MENTIONS_CARNET } from '../lib/carnet.js';
+import { migrerCarnet, lireValeur, propositions, evaluationsDuCours, notesDuCarnet, notesParAcquis, noteDEnsemble, MENTIONS_CARNET, planDuCours, MODES_PLAN, NATURES } from '../lib/carnet.js';
 
 try { migrerCarnet(); } catch (e) { console.error('[migration] carnet :', e.message); }
 
@@ -45,8 +45,91 @@ function lireEvaluation(b, acquis) {
   if (aa.some(x => !(x.poids > 0 && x.poids <= 100))) return { erreur: 'Le poids d’un acquis est un nombre positif.' };
   const par_acquis = b?.par_acquis ? 1 : 0;
   if (par_acquis && !aa.length) return { erreur: 'Une évaluation notée acquis par acquis se rattache à ses acquis : cochez-les.' };
-  return { intitule, sur, poids, date, session, aa, par_acquis };
+  const nature = b?.nature && NATURES[b.nature] ? b.nature : null;
+  const role = b?.role === 'continue' || b?.role === 'examen' ? b.role : null;
+  return { intitule, sur, poids, date, session, aa, par_acquis, nature, role };
 }
+
+/* LA DUE DU COURS : ses modalités cochées (évaluation[cours][s1|s2][nature]), et si elle est validée (alors on ne la touche pas). */
+function lireDUE(ueNum, annee) {
+  try {
+    const l = db.prepare('SELECT contenu, statut FROM due WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee);
+    let contenu = {}; try { contenu = JSON.parse(l?.contenu || '{}'); } catch { contenu = {}; }
+    return { contenu, statut: l?.statut || 'preparation', existe: !!l };
+  } catch { return { contenu: {}, statut: 'preparation', existe: false }; }
+}
+function modalitesDUE(ueNum, annee, code) {
+  const d = lireDUE(ueNum, annee);
+  const e = d.contenu?.evaluation?.[code] || {};
+  const liste = sess => Object.entries(e[sess] || {}).filter(([k, v]) => v && NATURES[k]).map(([k]) => k);
+  return { s1: liste('s1'), s2: liste('s2'), validee: d.statut === 'validee' };
+}
+/* LE PLAN NOURRIT LA DUE (tranché par Charles) : les natures des évaluations du plan deviennent les modalités cochées de ce cours,
+   session par session ; le mode de calcul s'y note aussi. Une DUE validée par la direction ne se modifie pas d'ici. */
+function nourrirDUE(ueNum, annee, code, evaluations, plans, par) {
+  if (!ueNum) return 'sans unité';
+  const d = lireDUE(ueNum, annee);
+  if (d.statut === 'validee') return 'validee';
+  const contenu = d.contenu || {};
+  const parSess = { s1: {}, s2: {} };
+  for (const e of evaluations) if (e.nature && NATURES[e.nature]) parSess[e.session === 2 ? 's2' : 's1'][e.nature] = true;
+  contenu.evaluation = { ...(contenu.evaluation || {}), [code]: parSess };
+  contenu.plan_evaluation = { ...(contenu.plan_evaluation || {}), [code]: { s1: { mode: plans[1].mode, part_continue: plans[1].part_continue }, s2: { mode: plans[2].mode, part_continue: plans[2].part_continue } } };
+  try {
+    db.prepare(`INSERT INTO due (ue_num, annee_scolaire, contenu, statut, maj_le, maj_par) VALUES (?,?,?,?,datetime('now'),?)
+      ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET contenu = excluded.contenu, maj_le = excluded.maj_le, maj_par = excluded.maj_par`)
+      .run(ueNum, annee, JSON.stringify(contenu), d.statut, par);
+    return 'ok';
+  } catch (e) { return `erreur : ${e.message}`; }
+}
+
+/* LE PLAN D'ÉVALUATION (3.5.189) : le mode de calcul et la part du continu, par session ; la nature, le rôle, le poids ou le
+   maximum de chaque évaluation ; et les évaluations à créer (proposées depuis la DUE). Puis la DUE suit. */
+r.put('/:coursCode/plan', authRequired, (req, res) => {
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  const c = contexte(req, annee);
+  if (!c) return res.status(403).json({ error: REFUS });
+  const b = req.body || {};
+  const plans = {};
+  for (const sess of [1, 2]) {
+    const p = b.plans?.[sess] || {};
+    const mode = MODES_PLAN[p.mode] ? p.mode : 'pondere';
+    const part = Math.min(100, Math.max(0, Number(String(p.part_continue ?? 40).replace(',', '.')) || 0));
+    plans[sess] = { mode, part_continue: part };
+  }
+  const maj = Array.isArray(b.evaluations) ? b.evaluations : [];
+  const creer = Array.isArray(b.creer) ? b.creer : [];
+  const evs = evaluationsDuCours(c.code, annee);
+  for (const x of maj) {
+    if (!evs.some(e => e.id === Number(x.id))) return res.status(404).json({ error: 'Une évaluation du plan n’appartient pas à ce cours.' });
+    if (x.nature && !NATURES[x.nature]) return res.status(400).json({ error: `Nature inconnue : ${x.nature}.` });
+    const sur = Number(String(x.sur ?? 20).replace(',', '.')), poids = Number(String(x.poids ?? 1).replace(',', '.'));
+    if (!(sur > 0 && sur <= 1000) || !(poids >= 0 && poids <= 100)) return res.status(400).json({ error: 'Maximum ou poids invalide.' });
+    const trop = db.prepare('SELECT COUNT(*) n FROM carnet_note WHERE evaluation_id = ? AND points > ?').get(Number(x.id), sur).n;
+    if (trop) return res.status(409).json({ error: `${trop} note(s) dépassent ${sur} dans « ${evs.find(e => e.id === Number(x.id)).intitule} » : corrigez-les avant de baisser le maximum.` });
+  }
+  for (const x of creer) {
+    if (!String(x.intitule || '').trim()) return res.status(400).json({ error: 'Une évaluation à créer se nomme.' });
+    if (x.nature && !NATURES[x.nature]) return res.status(400).json({ error: `Nature inconnue : ${x.nature}.` });
+  }
+  const par = qui(req);
+  db.transaction(() => {
+    const ecrirePlan = db.prepare(`INSERT INTO carnet_plan (annee_scolaire, cours_code, session, mode, part_continue, maj_par, maj_le) VALUES (?,?,?,?,?,?,datetime('now'))
+      ON CONFLICT(annee_scolaire, cours_code, session) DO UPDATE SET mode = excluded.mode, part_continue = excluded.part_continue, maj_par = excluded.maj_par, maj_le = excluded.maj_le`);
+    for (const sess of [1, 2]) ecrirePlan.run(annee, c.code, sess, plans[sess].mode, plans[sess].part_continue, par);
+    const up = db.prepare(`UPDATE carnet_evaluation SET nature = ?, role = ?, sur = ?, poids = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`);
+    for (const x of maj) up.run(x.nature || null, x.role === 'continue' ? 'continue' : x.role === 'examen' ? 'examen' : null,
+      Number(String(x.sur ?? 20).replace(',', '.')), Number(String(x.poids ?? 1).replace(',', '.')), par, Number(x.id));
+    let ordre = (db.prepare('SELECT MAX(ordre) m FROM carnet_evaluation WHERE annee_scolaire = ? AND cours_code = ?').get(annee, c.code)?.m ?? 0);
+    const ins = db.prepare(`INSERT INTO carnet_evaluation (annee_scolaire, cours_code, ue_num, intitule, sur, poids, session, ordre, cree_par, nature, role)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+    for (const x of creer) ins.run(annee, c.code, c.d.ueNum, String(x.intitule).trim().slice(0, 80), Number(x.sur) > 0 ? Number(x.sur) : 20,
+      Number(x.poids) >= 0 ? Number(x.poids) : 1, Number(x.session) === 2 ? 2 : 1, ++ordre, par, x.nature || null,
+      x.role === 'continue' ? 'continue' : x.role === 'examen' ? 'examen' : null);
+  })();
+  const due = nourrirDUE(c.d.ueNum, annee, c.code, evaluationsDuCours(c.code, annee), plans, par);
+  res.json({ ok: true, creees: creer.length, due });
+});
 
 // ── Le carnet d'un cours : évaluations, notes, propositions ─────────────────
 r.get('/:coursCode', authRequired, (req, res) => {
@@ -58,14 +141,16 @@ r.get('/:coursCode', authRequired, (req, res) => {
   const notesAA = notesParAcquis(evaluations);
   const ids = c.d.etudiants.map(e => e.id);
   const codes = c.acquis.map(a => a.aa_code);
-  const props = { 1: propositions({ evaluations, notes, notesAA, acquis: codes, etudiants: ids, session: 1 }),
-    2: propositions({ evaluations, notes, notesAA, acquis: codes, etudiants: ids, session: 2 }) };
+  const plans = { 1: planDuCours(c.code, annee, 1), 2: planDuCours(c.code, annee, 2) };
+  const props = { 1: propositions({ evaluations, notes, notesAA, acquis: codes, etudiants: ids, session: 1, plan: plans[1] }),
+    2: propositions({ evaluations, notes, notesAA, acquis: codes, etudiants: ids, session: 2, plan: plans[2] }) };
   // L'an dernier a-t-il un carnet ? « Reprendre l'an dernier » n'est proposé que s'il y a quelque chose à reprendre.
   const precedent = evaluations.length ? null : db.prepare(`SELECT annee_scolaire AS a, COUNT(*) n FROM carnet_evaluation
     WHERE cours_code = ? AND annee_scolaire < ? GROUP BY annee_scolaire ORDER BY annee_scolaire DESC LIMIT 1`).get(c.code, annee) || null;
   res.json({
     annee, cours_code: c.code, ue_num: c.d.ueNum, acquis: c.acquis, mentions: MENTIONS_CARNET, precedent,
-    evaluations: evaluations.map(e => ({ id: e.id, intitule: e.intitule, date: e.date, sur: e.sur, poids: e.poids,
+    plans, modes: MODES_PLAN, natures: NATURES, due: modalitesDUE(c.d.ueNum, annee, c.code),
+    evaluations: evaluations.map(e => ({ id: e.id, intitule: e.intitule, date: e.date, sur: e.sur, poids: e.poids, nature: e.nature || null, role: e.role || null,
       session: e.session, aa: e.aa, par_acquis: !!e.par_acquis, cree_par: e.cree_par, modifie_par: e.modifie_par,
       notees: [...(notes.get(e.id)?.values() || [])].filter(n => n.points != null || n.mention).length })),
     etudiants: c.d.etudiants.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus, groupe: e.groupe || '',
@@ -84,8 +169,8 @@ r.post('/:coursCode/evaluations', authRequired, (req, res) => {
   if (v.erreur) return res.status(400).json({ error: v.erreur });
   const id = db.transaction(() => {
     const ordre = (db.prepare('SELECT MAX(ordre) m FROM carnet_evaluation WHERE annee_scolaire = ? AND cours_code = ?').get(annee, c.code)?.m ?? 0) + 1;
-    const nid = db.prepare(`INSERT INTO carnet_evaluation (annee_scolaire, cours_code, ue_num, intitule, date, sur, poids, session, ordre, cree_par, par_acquis)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(annee, c.code, c.d.ueNum, v.intitule, v.date, v.sur, v.poids, v.session, ordre, qui(req), v.par_acquis).lastInsertRowid;
+    const nid = db.prepare(`INSERT INTO carnet_evaluation (annee_scolaire, cours_code, ue_num, intitule, date, sur, poids, session, ordre, cree_par, par_acquis, nature, role)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(annee, c.code, c.d.ueNum, v.intitule, v.date, v.sur, v.poids, v.session, ordre, qui(req), v.par_acquis, v.nature, v.role).lastInsertRowid;
     const lien = db.prepare('INSERT INTO carnet_evaluation_aa (evaluation_id, aa_code, poids) VALUES (?,?,?)');
     for (const a of v.aa) lien.run(nid, a.aa_code, a.poids);
     return nid;
@@ -119,8 +204,8 @@ r.put('/:coursCode/evaluations/:id', authRequired, (req, res) => {
     if (orph.length) return res.status(409).json({ error: `Des notes existent pour ${orph.map(x => x.aa_code).join(', ')} : effacez-les avant de décocher cet acquis.` });
   }
   db.transaction(() => {
-    db.prepare(`UPDATE carnet_evaluation SET intitule = ?, date = ?, sur = ?, poids = ?, session = ?, par_acquis = ?, modifie_par = ?, modifie_le = datetime('now')
-      WHERE id = ?`).run(v.intitule, v.date, v.sur, v.poids, v.session, v.par_acquis, qui(req), ev.id);
+    db.prepare(`UPDATE carnet_evaluation SET intitule = ?, date = ?, sur = ?, poids = ?, session = ?, par_acquis = ?, nature = COALESCE(?, nature), role = COALESCE(?, role), modifie_par = ?, modifie_le = datetime('now')
+      WHERE id = ?`).run(v.intitule, v.date, v.sur, v.poids, v.session, v.par_acquis, v.nature, v.role, qui(req), ev.id);
     db.prepare('DELETE FROM carnet_evaluation_aa WHERE evaluation_id = ?').run(ev.id);
     const lien = db.prepare('INSERT INTO carnet_evaluation_aa (evaluation_id, aa_code, poids) VALUES (?,?,?)');
     for (const a of v.aa) lien.run(ev.id, a.aa_code, a.poids);
@@ -235,7 +320,7 @@ r.get('/:coursCode/excel', authRequired, async (req, res) => {
   const notes = notesDuCarnet(evaluations);
   const ids = c.d.etudiants.map(e => e.id);
   const codes = c.acquis.map(a => a.aa_code);
-  const p = propositions({ evaluations, notes, notesAA: notesParAcquis(evaluations), acquis: codes, etudiants: ids, session: 1 });
+  const p = propositions({ evaluations, notes, notesAA: notesParAcquis(evaluations), acquis: codes, etudiants: ids, session: 1, plan: planDuCours(c.code, annee, 1) });
   const wb = new ExcelJS.Workbook();
   const f = wb.addWorksheet('Carnet');
   const cles = codes.length ? codes : [''];

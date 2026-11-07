@@ -68,6 +68,32 @@ export function migrerCarnet(base = db) {
       PRIMARY KEY (evaluation_id, etudiant_id, aa_code));
   `);
   try { base.exec('ALTER TABLE carnet_evaluation ADD COLUMN par_acquis INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+  /* LE PLAN D'ÉVALUATION (3.5.189, Charles : « un outil Gérer mon évaluation qui, sur base de la DUE, permet de paramétrer les
+     évaluations — évaluation continue, si cela s'additionne, si chaque évaluation a un poids » ; tranché : au choix du
+     professeur, il propose la note par acquis, réglé par les titulaires, il part de la DUE et la nourrit). Un plan par cours,
+     année et session ; chaque évaluation porte sa NATURE (les modalités de la DUE) et son RÔLE (continu ou examen). */
+  base.exec(`CREATE TABLE IF NOT EXISTS carnet_plan (
+      annee_scolaire TEXT NOT NULL, cours_code TEXT NOT NULL, session INTEGER NOT NULL DEFAULT 1,
+      mode TEXT NOT NULL DEFAULT 'pondere', part_continue REAL NOT NULL DEFAULT 40,
+      maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (annee_scolaire, cours_code, session))`);
+  try { base.exec('ALTER TABLE carnet_evaluation ADD COLUMN nature TEXT'); } catch { /* déjà là */ }
+  try { base.exec('ALTER TABLE carnet_evaluation ADD COLUMN role TEXT'); } catch { /* déjà là */ }
+}
+
+export const MODES_PLAN = {
+  pondere: 'Moyenne pondérée — chaque évaluation a son poids',
+  somme: 'Addition des points — tout se rapporte au total des maximums',
+  continu_examen: 'Évaluation continue + examen — une part pour chacun',
+};
+// Les natures sont celles des modalités de la DUE (EPREUVES de pages/DUE.jsx) : une seule liste.
+export const NATURES = { ecrit: 'Écrit', oral: 'Oral', pratique: 'Pratique', travail: 'Travail individuel', travail_groupe: 'Travail de groupe', continue: 'Év. continue' };
+
+/** Le plan d'un cours pour une session (défaut : moyenne pondérée). */
+export function planDuCours(coursCode, annee, session = 1) {
+  const p = db.prepare('SELECT * FROM carnet_plan WHERE annee_scolaire = ? AND cours_code = ? AND session = ?').get(annee, coursCode, session);
+  return p ? { mode: MODES_PLAN[p.mode] ? p.mode : 'pondere', part_continue: Number(p.part_continue) || 0, maj_par: p.maj_par, maj_le: p.maj_le, regle: true }
+    : { mode: 'pondere', part_continue: 40, regle: false };
 }
 
 /** Les notes par acquis : Map evaluation_id → Map etudiant_id → { [aa_code]: { points, mention } }. */
@@ -117,37 +143,62 @@ export function lireValeur(brut, sur) {
  * Rend Map etudiant_id → { [aa_code]: { note, sur20, nb } } pour la session demandée,
  * et `moyenne` (toutes évaluations, pondérées, une décimale) — repère du carnet.
  */
-export function propositions({ evaluations, notes, acquis, etudiants, session = 1, notesAA = new Map() }) {
+export function propositions({ evaluations, notes, acquis, etudiants, session = 1, notesAA = new Map(), plan = null }) {
+  const mode = plan?.mode || 'pondere';
+  const pc = Math.min(100, Math.max(0, Number(plan?.part_continue ?? 40))) / 100;
   const evs = evaluations.filter(e => (e.session || 1) === session);
   const cles = acquis.length ? acquis : [''];
   const sortie = new Map();
   for (const etu of etudiants) {
     const par = {};
     for (const aa of cles) {
-      let num = 0, den = 0, nb = 0;
+      // Trois façons de compter (le plan) : pondérée (poids de l'évaluation × poids du lien), addition (points sur total des
+      // maximums, au poids du lien), continu + examen (deux moyennes pondérées, mêlées selon la part du continu).
+      const acc = { t: [0, 0], c: [0, 0], x: [0, 0] }; let nb = 0;
       for (const e of evs) {
         const lien = aa ? (e.aa || []).find(x => x.aa_code === aa) : { poids: 1 };
         if (!lien) continue;
         // Une évaluation par acquis donne À CHAQUE ACQUIS sa propre note ; les autres, la même note à tous.
         const n = e.par_acquis && aa ? notesAA.get(e.id)?.get(etu)?.[aa] : notes.get(e.id)?.get(etu);
         if (n?.points == null || !(e.sur > 0)) continue;
-        const w = (Number(e.poids) || 0) * (Number(lien.poids) || 0);
+        const wl = Number(lien.poids) || 0;
+        if (mode === 'somme') {
+          if (!(wl > 0)) continue;
+          acc.t[0] += n.points * wl; acc.t[1] += e.sur * wl; nb++; continue;
+        }
+        const w = (Number(e.poids) || 0) * wl;
         if (!(w > 0)) continue;
-        num += (n.points / e.sur) * 20 * w; den += w; nb++;
+        const k = mode === 'continu_examen' ? (e.role === 'continue' || e.nature === 'continue' ? 'c' : 'x') : 't';
+        acc[k][0] += (n.points / e.sur) * 20 * w; acc[k][1] += w; nb++;
       }
-      if (den > 0) {
-        const sur20 = num / den;
+      let sur20 = null;
+      if (mode === 'somme') sur20 = acc.t[1] > 0 ? (acc.t[0] / acc.t[1]) * 20 : null;
+      else if (mode === 'continu_examen') {
+        const c = acc.c[1] > 0 ? acc.c[0] / acc.c[1] : null, x = acc.x[1] > 0 ? acc.x[0] / acc.x[1] : null;
+        sur20 = c != null && x != null ? c * pc + x * (1 - pc) : (c ?? x);
+      } else sur20 = acc.t[1] > 0 ? acc.t[0] / acc.t[1] : null;
+      if (sur20 != null) {
         // Arrondi à l'unité, comme la feuille (9,5 → 10 : la règle de la maison).
         par[aa] = { note: Math.min(20, Math.max(0, Math.round(sur20 + 1e-9))), sur20: Math.round(sur20 * 10) / 10, nb };
       }
     }
-    let num = 0, den = 0;
+    // La moyenne du carnet suit le même plan (toutes les évaluations, sans les liens).
+    const m = { t: [0, 0], c: [0, 0], x: [0, 0] };
     for (const e of evs) {
       const n = notes.get(e.id)?.get(etu);
-      if (n?.points == null || !(e.sur > 0) || !(Number(e.poids) > 0)) continue;
-      num += (n.points / e.sur) * 20 * Number(e.poids); den += Number(e.poids);
+      if (n?.points == null || !(e.sur > 0)) continue;
+      if (mode === 'somme') { m.t[0] += n.points; m.t[1] += e.sur; continue; }
+      if (!(Number(e.poids) > 0)) continue;
+      const k = mode === 'continu_examen' ? (e.role === 'continue' || e.nature === 'continue' ? 'c' : 'x') : 't';
+      m[k][0] += (n.points / e.sur) * 20 * Number(e.poids); m[k][1] += Number(e.poids);
     }
-    sortie.set(etu, { aa: par, moyenne: den > 0 ? Math.round((num / den) * 10) / 10 : null });
+    let moy = null;
+    if (mode === 'somme') moy = m.t[1] > 0 ? (m.t[0] / m.t[1]) * 20 : null;
+    else if (mode === 'continu_examen') {
+      const c = m.c[1] > 0 ? m.c[0] / m.c[1] : null, x = m.x[1] > 0 ? m.x[0] / m.x[1] : null;
+      moy = c != null && x != null ? c * pc + x * (1 - pc) : (c ?? x);
+    } else moy = m.t[1] > 0 ? m.t[0] / m.t[1] : null;
+    sortie.set(etu, { aa: par, moyenne: moy != null ? Math.round(moy * 10) / 10 : null });
   }
   return sortie;
 }
