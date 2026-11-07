@@ -3772,6 +3772,7 @@ export default function Etudiants() {
           nulle part laisse l'écran sans point d'entrée pour le regard. */}
       <h1 className="titre-ecran">
         Étudiants <span className="compte">· {filtres.length}</span>
+        <EffectifsCourts />
       </h1>
 
       {/* UNE LIGNE, L'ESSENTIEL VISIBLE (3.1.456, maquette validée par Charles le 29 octobre 2026 :
@@ -4435,4 +4436,20 @@ export default function Etudiants() {
     </div>
   );
 
+}
+
+
+/* LES EFFECTIFS À CÔTÉ DU TITRE (3.5.196, Charles : « 901 dans Gestion, 899 dans Étudiants ») : le nombre de la liste est ce qui est
+   affiché ; à côté, les chiffres de l'année, de la même source que Gestion (lib/effectifs.js). */
+function EffectifsCourts() {
+  const [e, setE] = useState(null);
+  useEffect(() => {
+    fetch(`/api/etudiants/effectifs?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setE).catch(() => setE(null));
+  }, []);
+  if (!e) return null;
+  return (
+    <span className="ml-3 text-second font-normal text-slate-500" title="Mêmes chiffres que Gestion → Population">
+      en parcours {e.en_parcours} · au 15/10 {e.au_15_10.total}{e.au_15_10.fige ? '' : ' (indicatif)'} · inscrits {e.inscrits}{e.sortis ? `, dont ${e.sortis} sorti(s)` : ''}
+    </span>);
 }
