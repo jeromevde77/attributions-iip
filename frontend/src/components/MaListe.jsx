@@ -58,6 +58,9 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
  */
 export default function MaListe({ etudiants, groupe, cours, onImprimer, occupe }) {
   const [ouvert, setOuvert] = useState(false);
+  // LE MENU S'OUVRE DU CÔTÉ OÙ IL Y A DE LA PLACE (3.5.163, Charles : « mise en page ») : aligné à droite du bouton quand
+  // celui-ci est à droite de l'écran, à gauche sinon (dans l'espace enseignant, le bouton est à gauche de la tuile).
+  const [aGauche, setAGauche] = useState(false);
   const [composer, setComposer] = useState(false);
   const [msg, setMsg] = useState('');
   const boite = useRef(null);
@@ -91,11 +94,11 @@ export default function MaListe({ etudiants, groupe, cours, onImprimer, occupe }
   return (
     <div ref={boite} className="relative inline-flex items-center gap-2">
       {msg && <span className="text-second text-slate-500">{msg}</span>}
-      <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5" disabled={occupe} onClick={() => setOuvert(o => !o)}>
+      <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5" disabled={occupe} onClick={() => { const r = boite.current?.getBoundingClientRect(); setAGauche(!!r && r.left < window.innerWidth / 2); setOuvert(o => !o); }}>
         <IconListDetails size={15} /> Ma liste {groupe ? `(groupe ${groupe})` : ''} <span className="text-slate-400">· {etudiants.length}</span> <IconChevronDown size={14} />
       </button>
       {ouvert && (
-        <div className="absolute right-0 top-full mt-1 z-30 w-80 rounded-carte border border-slate-200 shadow-flottant p-1" style={{ background: 'var(--blanc)' }}>
+        <div className={`absolute ${aGauche ? 'left-0' : 'right-0'} top-full mt-1 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-carte border border-slate-200 shadow-flottant p-1`} style={{ background: 'var(--blanc)' }}>
           {[
             [IconColumns, 'Composer une liste…', 'Choisir les colonnes : adresse, matricule, groupe, section, colonnes vides', () => { setOuvert(false); setComposer(true); }],
             [IconPrinter, 'Imprimer la liste (PDF)', 'Avec une colonne de signature ; aperçu d’abord', () => { setOuvert(false); onImprimer(); }],
