@@ -11,7 +11,7 @@ import { TuileEtat } from './ui.jsx';
 const nb = v => (v == null || v === '' ? '—' : String(Math.round(Number(v) * 10) / 10).replace('.', ','));
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
 
-export default function FicheCours({ coursCode, annee }) {
+export default function FicheCours({ coursCode, annee, sansEntete = false }) {
   const [f, setF] = useState(null);
   const [dp, setDp] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -38,10 +38,11 @@ export default function FicheCours({ coursCode, annee }) {
   const evaluation = (Number(c.cours_ev1) || 0) + (Number(c.cours_vc1) || 0);
   return (
     <div className="space-y-3">
-      <div>
+      {/* Dans la tuile de l'espace, l'unité et le cours sont déjà en tête (3.5.169) : on ne les redit pas. */}
+      {!sansEntete && <div>
         <div className="text-second text-slate-500">UE {f.ue.ue_num} — {f.ue.ue_nom}{f.ue.section ? ` · ${f.ue.section}` : ''}{f.ue.ects ? ` · ${nb(f.ue.ects)} ECTS` : ''}</div>
         <div className="titre-carte">{c.cours_code} · {c.cours_nom}{c.ct_pp ? <span className="ml-2 text-second text-slate-400">{c.ct_pp}</span> : null}</div>
-      </div>
+      </div>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <TuileEtat etat="neutre" valeur={nb(c.cours_per)} libelle="périodes de cours" />
         <TuileEtat etat="neutre" valeur={nb(c.cours_autonomie)} libelle="périodes d’autonomie"

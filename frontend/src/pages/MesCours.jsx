@@ -439,7 +439,7 @@ export default function MesCours({ espace = null }) {
                       {badge('', 'Tous', feuille.etudiants.length)}
                       {parActivite(groupesDispo).map(a => (
                         <span key={a.activite || '-'} className="inline-flex flex-wrap items-center gap-1.5">
-                          {a.activite && <span className="text-second text-slate-500 mr-0.5">{a.activite}</span>}
+                          <span className="text-second text-slate-500 mr-0.5">{a.activite ? `Groupe — ${a.activite}` : 'Groupe'}</span>
                           {a.groupes.map(g => badge(g.libelle, g.groupe, nb(g.libelle)))}
                         </span>))}
                     </div>);
@@ -479,7 +479,7 @@ export default function MesCours({ espace = null }) {
               <GrillePresence coursCode={ouvert} ueNum={feuille.ue_num} annee={annee} grilleUE={!!feuille.grille_ue} />
             )}
             {/* LA FICHE DU COURS (3.5.129) : son UE, ses périodes, l'autonomie, l'évaluation, ses acquis et son programme. */}
-            {face === 'fiche' && <FicheCours key={ouvert} coursCode={ouvert} annee={annee} />}
+            {face === 'fiche' && <FicheCours key={ouvert} coursCode={ouvert} annee={annee} sansEntete={!!espace} />}
             {face === 'presences' && <PresencesCours key={`${ouvert}|${seanceChoisie || ''}`} coursCode={ouvert} annee={annee} seanceInitiale={seanceChoisie} />}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
                 (le groupe choisi), notes tapées comprises. */}
@@ -932,7 +932,7 @@ export default function MesCours({ espace = null }) {
                     if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
                   }
                   return parUnite.map(u => (
-                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[5px] rounded-carte"
+                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[3px] rounded-carte"
                       style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
                       <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
                         <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
@@ -949,7 +949,9 @@ export default function MesCours({ espace = null }) {
                             <span>{x.cours_nom || x.cours_code}</span>
                             {/* LES GROUPES EN BADGES (3.5.166) : la lettre ; le nom de l'activité devant ses groupes quand le cours en a
                                 plusieurs. */}
-                            {parActivite(x.groupes || []).map(a => (
+                            {/* CE QUI NE CHANGE PAS EN TÊTE (3.5.169, Charles) : ouverte, la ligne ne garde que le nom du cours ; le groupe se
+                                choisit dessous, après l'action. Fermée, les badges ouvrent le cours sur leur groupe. */}
+                            {ouvert !== x.cours_code && parActivite(x.groupes || []).map(a => (
                               <span key={a.activite || '-'} className="inline-flex flex-wrap items-center gap-1 font-normal">
                                 {a.activite && <span className="text-second text-slate-500">{a.activite}</span>}
                                 {/* UN BADGE SE CLIQUE (3.5.168, Charles : « quand je clique sur A, un décalage se fait ») : il ouvre le cours sur

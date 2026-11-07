@@ -431,7 +431,7 @@ function MesUE() {
     <div className="space-y-5">
       <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mes UE et mes étudiants{t.annee ? ` · ${t.annee}` : ''}</h1>
       {[...t.ues].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num).map(u => (
-        <section key={u.ue_num} className="bg-white border border-slate-200 border-l-[5px] rounded-carte overflow-hidden"
+        <section key={u.ue_num} className="bg-white border border-slate-200 border-l-[3px] rounded-carte overflow-hidden"
           style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
           <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
             <span className="flex-1 min-w-[16rem]">
