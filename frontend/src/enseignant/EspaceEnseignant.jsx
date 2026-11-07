@@ -18,9 +18,10 @@ const SemaineLucie = lazy(() => import('../components/MonHoraireSemaine.jsx'));
 const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
 const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
 const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
+const AideLucie = lazy(() => import('../pages/Aide.jsx'));
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -334,46 +335,6 @@ function MesDocuments() {
     </div>);
 }
 /* L'AIDE (3.5.089) : le mode d'emploi des enseignants, tel que Lucie le tient (guide en ligne, version Enseignants). */
-function Aide() {
-  const [g, setG] = useState(null);
-  const [ouvert, setOuvert] = useState(0);
-  useEffect(() => { appel('GET', '/guide').then(setG).catch(() => setG({ chapitres: [] })); }, []);
-  if (!g) return <p className="text-slate-500">Chargement…</p>;
-  return (
-    <div className="space-y-4">
-      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Aide</h1>
-      <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-2 text-sm">
-        <div className="font-semibold">Cet espace en bref</div>
-        <ul className="m-0 pl-5 space-y-1 text-slate-700">
-          <li><b>Ma journée</b> : vos séances du jour, et ce qui vous attend (présences à prendre, textes à confirmer, DUE…).</li>
-          <li><b>Les présences</b> : un toucher par étudiant — P, P* (retard), A, J (justifié, avec son motif). Elles arrivent dans Lucie en quelques secondes.</li>
-          <li><b>Mon horaire</b> : la semaine, l’agenda de l’école (congés, fériés, journées fermées), une couleur par cours.</li>
-          <li><b>Mes UE et étudiants</b> : la DUE de chaque unité, vos listes et la fiche de chaque étudiant.</li>
-          <li><b>Textes de l’école</b> et <b>Mes documents</b> : ce que l’école vous demande de lire, ce qu’elle vous a envoyé ; on confirme, on accuse réception.</li>
-          <li><b>Mon compte</b> : mot de passe et appareils reconnus (trois au plus).</li>
-        </ul>
-      </section>
-      {(g.chapitres || []).length > 0 && <div className="text-second text-slate-500">Le mode d’emploi complet des enseignants{g.version ? ` (Lucie ${g.version})` : ''} :</div>}
-      {(g.chapitres || []).map((c, i) => (
-        <section key={i} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-          <button type="button" className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50" onClick={() => setOuvert(o => (o === i ? null : i))}>
-            {ouvert === i ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}<span className="flex-1 font-semibold text-iip-texte">{c.titre}</span>
-          </button>
-          {ouvert === i && (
-            <div className="px-4 pb-4 space-y-4 text-sm">
-              {c.resume && <p className="m-0 text-slate-600">{c.resume}</p>}
-              {c.points.map((p, k) => (
-                <div key={k} className="border-t border-slate-100 pt-3">
-                  <div className="font-semibold">{p.titre}</div>
-                  {p.ou && <div className="text-second text-slate-500 mt-0.5">Où : {p.ou}</div>}
-                  {p.texte && <p className="m-0 mt-1 text-slate-700">{p.texte}</p>}
-                  {p.savoir.length > 0 && <ul className="m-0 mt-1 pl-5 text-slate-600">{p.savoir.map((x, j) => <li key={j}>{x}</li>)}</ul>}
-                </div>))}
-            </div>)}
-        </section>))}
-    </div>);
-}
-
 function FicheEtudiant({ id, onFermer }) {
   const [f, setF] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -996,12 +957,12 @@ function LEcole() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200">
-        {[['textes', 'Textes à lire'], ['documents', 'Mes documents'], ['aide', 'Aide']].map(([k, l]) => (
+        {[['textes', 'Textes à lire'], ['documents', 'Mes documents']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setF(k)} className={`onglet-page ${f === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
         <span className="flex-1" />
         <button type="button" className="bouton controle inline-flex items-center gap-1.5 mb-1" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>
       </div>
-      {f === 'textes' ? <TextesEcole /> : f === 'documents' ? <MesDocuments /> : <Aide />}
+      {f === 'documents' ? <MesDocuments /> : <TextesEcole />}
       <Suspense fallback={null}>{ecrire && <MessagesEtudiantsLucie titre="Écrire à mes étudiants" onFermer={() => setEcrire(false)} />}</Suspense>
     </div>);
 }
@@ -1013,6 +974,75 @@ function BoutonFace({ f, actif, onClick }) {
       style={actif ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
       <f.I size={18} /> {f.l}
     </button>);
+}
+
+/* LA LOUPE (3.5.161, Charles : « il n'y a pas la petite loupe, ni l'aide ») : « Où aller ? » de l'espace — les entrées, mes unités
+   et mes cours (un cours ouvre ses notes), mes étudiants (leur fiche), et la question posée au mode d'emploi. ⌘K / Ctrl+K partout. */
+const sansAccent = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function RechercheEspace({ faces, onFace, onCours, onAide }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [q, setQ] = useState('');
+  const [i, setI] = useState(0);
+  const [t, setT] = useState(null);
+  const [fiche, setFiche] = useState(null);
+  const champ = useRef(null);
+  useEffect(() => {
+    const touche = e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setOuvert(o => !o); } if (e.key === 'Escape') setOuvert(false); };
+    window.addEventListener('keydown', touche); return () => window.removeEventListener('keydown', touche);
+  }, []);
+  useEffect(() => {
+    if (!ouvert) return;
+    setQ(''); setI(0); setTimeout(() => champ.current?.focus(), 0);
+    if (!t) appel('GET', '/tableau').then(setT).catch(() => setT({ ues: [] }));
+  }, [ouvert]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const n = sansAccent(q.trim());
+  const res = [];
+  if (n) {
+    for (const f of faces) if (sansAccent(f.l).includes(n)) res.push({ type: 'Aller à', l: f.l, faire: () => onFace(f.k) });
+    const vus = new Set();
+    for (const u of t?.ues || []) {
+      if (sansAccent(`ue ${u.ue_num} ${u.ue_nom}`).includes(n)) res.push({ type: 'Unité', l: `UE ${u.ue_num} — ${u.ue_nom}`, faire: () => onFace('etudiants') });
+      for (const c of u.cours || []) {
+        if (sansAccent(`${c.code} ${c.nom}`).includes(n)) res.push({ type: 'Cours · notes', l: `${c.code} · ${c.nom}`, faire: () => onCours(c.code) });
+        for (const e of c.etudiants || []) {
+          if (vus.has(e.id) || !sansAccent(`${e.nom} ${e.prenom}`).includes(n)) continue;
+          vus.add(e.id); res.push({ type: 'Étudiant', l: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`, faire: () => setFiche(e.id), reste: true });
+        }
+      }
+    }
+    res.splice(12);
+    res.push({ type: 'Aide', l: `Chercher « ${q.trim()} » dans le mode d’emploi`, faire: () => onAide(q.trim()) });
+  }
+  const choisir = r => { if (!r) return; r.faire(); if (!r.reste) setOuvert(false); };
+  return (
+    <>
+      <button type="button" onClick={() => setOuvert(true)} aria-label="Rechercher" title="Où aller ? (⌘K)"
+        className="w-10 h-10 grid place-items-center rounded-champ border border-slate-200 bg-white text-iip-blue hover:bg-slate-50"><IconSearch size={18} /></button>
+      {ouvert && (
+        <div className="fixed inset-0 z-[80] bg-slate-900/30 backdrop-blur-[2px]" onMouseDown={() => setOuvert(false)}>
+          <div className="mx-auto mt-[12vh] w-[min(640px,92vw)] bg-white rounded-fenetre shadow-dessus overflow-hidden" onMouseDown={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-4 border-b border-slate-200">
+              <IconSearch size={18} className="text-slate-400" />
+              <input ref={champ} value={q} placeholder="Où aller ? — un cours, un étudiant, une question…" data-reponses="non"
+                onChange={e => { setQ(e.target.value); setI(0); }}
+                onKeyDown={e => {
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setI(x => Math.min(x + 1, res.length - 1)); }
+                  if (e.key === 'ArrowUp') { e.preventDefault(); setI(x => Math.max(x - 1, 0)); }
+                  if (e.key === 'Enter') choisir(res[i]);
+                }}
+                className="flex-1 py-3.5 outline-none text-base bg-transparent" />
+            </div>
+            <ul className="m-0 p-1 list-none max-h-[55vh] overflow-auto">
+              {!n && <li className="px-3 py-3 text-sm text-slate-500">Tapez un nom de cours, d’étudiant, une entrée (« présences », « agenda ») ou une question pour l’aide.</li>}
+              {res.map((r, k) => (
+                <li key={k}><button type="button" onMouseEnter={() => setI(k)} onClick={() => choisir(r)}
+                  className={`w-full text-left px-3 py-2 rounded-champ flex items-center gap-3 ${k === i ? 'bg-slate-100' : ''}`}>
+                  <span className="text-mention text-slate-500 w-24 shrink-0">{r.type}</span><span className="flex-1 min-w-0 truncate">{r.l}</span></button></li>))}
+            </ul>
+          </div>
+        </div>)}
+      {fiche && <FicheEtudiant id={fiche} onFermer={() => setFiche(null)} />}
+    </>);
 }
 
 /* LA STRUCTURE (3.5.138, Charles, 6 novembre 2026 : « c'est la structure que je veux changer » ; « mes notes, mes présences, mes
@@ -1027,6 +1057,7 @@ const FACES = [
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
 ];
 const FACES_BAS = [
+  { k: 'aide', l: 'Aide', I: IconHelpCircle },
   { k: 'ecole', l: 'L’école', I: IconBuilding },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
@@ -1042,6 +1073,7 @@ export default function EspaceEnseignant() {
   const [demande, setDemande] = useState(null);
   const ouvrirSeance = (action, s) => { setDemande({ action, s, n: Date.now() }); setFace(action === 'presences' ? 'presences' : 'notes'); };
   const [tic, setTic] = useState(0);
+  const [questionAide, setQuestionAide] = useState('');
   const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -1079,14 +1111,17 @@ export default function EspaceEnseignant() {
   if (!moi) return <p className="p-6 text-slate-500">{erreur || 'Chargement…'}</p>;
   const quitter = () => { poser(null); setToken(null); setMoi(null); };
   const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); };
+  const chercher = <RechercheEspace faces={[...FACES, ...FACES_BAS]} onFace={aller}
+    onCours={code => { setDemande({ action: 'notes', s: { cours_code: code }, n: Date.now() }); setFace('notes'); }}
+    onAide={q => { setQuestionAide(q); aller('aide'); }} />;
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
-      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto"><BoutonContact /></span></div>
+      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto flex items-center gap-2"><BoutonContact />{chercher}</span></div>
       <nav aria-label="Espace enseignant" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto md:sticky md:top-0 md:h-screen">
         <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div></div>
         {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
-        <div className="hidden md:block px-2 pb-3"><BoutonContact /></div>
+        <div className="hidden md:flex items-center gap-2 px-2 pb-3"><BoutonContact />{chercher}</div>
         {FACES.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
         {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
@@ -1110,6 +1145,8 @@ export default function EspaceEnseignant() {
           apresEntete={<Suspense fallback={null}><MaJourneeLucie onAgir={ouvrirSeance} onSemaine={() => aller('agenda')} /></Suspense>} />}
         {!seance && (face === 'etudiants' ? <MesUE />
           : face === 'agenda' ? <MonAgenda moi={moi} onPresences={s => ouvrirSeance('presences', s)} />
+          // L'AIDE INTERACTIVE (3.5.161) : le mode d'emploi illustré de Lucie, celui des enseignants (le serveur filtre par rôle).
+          : face === 'aide' ? (lucie ? <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8"><Suspense fallback={<p className="text-slate-500">Chargement…</p>}><AideLucie rechercheInitiale={questionAide} /></Suspense></div> : <p className="text-slate-500">Ouverture…</p>)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}
