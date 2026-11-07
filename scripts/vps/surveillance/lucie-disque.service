@@ -1,0 +1,8 @@
+# /etc/systemd/system/lucie-disque.service — lancé par lucie-disque.timer
+[Unit]
+Description=Lucie : surveillance du disque (notification ntfy)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/lucie-disque
