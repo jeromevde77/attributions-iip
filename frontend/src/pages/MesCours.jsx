@@ -943,7 +943,7 @@ export default function MesCours({ espace = null }) {
                       {u.cours.map(x => (<div key={x.cours_code}>
                         <button type="button" aria-expanded={ouvert === x.cours_code}
                           onClick={() => (ouvert === x.cours_code ? (setOuvert(null), setFeuille(null)) : ouvrir(x.cours_code))}
-                          className={`w-full text-left px-4 py-3 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50 ${ouvert === x.cours_code ? 'font-semibold' : ''}`}>
+                          className="w-full text-left px-4 py-3 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50">
                           {ouvert === x.cours_code ? <IconChevronDown size={16} className="text-slate-500" /> : <IconChevronRight size={16} className="text-slate-500" />}
                           <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span>{x.cours_nom || x.cours_code}</span>
@@ -952,7 +952,14 @@ export default function MesCours({ espace = null }) {
                             {parActivite(x.groupes || []).map(a => (
                               <span key={a.activite || '-'} className="inline-flex flex-wrap items-center gap-1 font-normal">
                                 {a.activite && <span className="text-second text-slate-500">{a.activite}</span>}
-                                {a.groupes.map(g => <span key={g.libelle} className="pastille-groupe">{g.groupe}</span>)}
+                                {/* UN BADGE SE CLIQUE (3.5.168, Charles : « quand je clique sur A, un décalage se fait ») : il ouvre le cours sur
+                                    ce groupe ; rien ne bouge autour (plus de gras à l'ouverture). */}
+                                {a.groupes.map(g => (
+                                  <span key={g.libelle} role="button" tabIndex={0} title={g.libelle}
+                                    className={`pastille-groupe pastille-groupe-bouton ${ouvert === x.cours_code && groupeVu === g.libelle ? 'pastille-groupe-active' : ''}`}
+                                    onClick={ev => { ev.stopPropagation(); if (ouvert !== x.cours_code) ouvrir(x.cours_code); setGroupeVu(g.libelle); }}
+                                    onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopPropagation(); if (ouvert !== x.cours_code) ouvrir(x.cours_code); setGroupeVu(g.libelle); } }}>
+                                    {g.groupe}</span>))}
                               </span>))}
                           </span>
                           <span className="text-second text-slate-500 text-right whitespace-nowrap">{x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}</span>
