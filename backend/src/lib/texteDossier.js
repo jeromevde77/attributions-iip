@@ -8,6 +8,35 @@
 // les deux se tiennent à l'identique.
 // ─────────────────────────────────────────────────────────────────────────────
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/* UN POINT COMMENCE PAR UNE MAJUSCULE (3.5.159, Charles : « mettre des majuscules quand il s'agit d'un nouveau point ») : le
+   dossier écrit « d’énumérer… », suite de « L’étudiant sera capable : » ; à l'écran, chaque point se lit seul. Le texte n'est
+   pas modifié, seulement son affichage. */
+const majuscule = t => String(t ?? '').replace(/^([«"“(\s]*)(\p{Ll})/u, (m, a, b) => a + b.toUpperCase());
+/* LE NOM D'UN COURS, À PEU PRÈS (3.5.159, UE 250 : « 4.1.Techniques de positionnement… » pour le cours « Technique de
+   positionnement… ») : sans numéro de tête, sans accents ni ponctuation, et chaque mot sans son « s » final. */
+const NUMERO_TETE = /^\s*\d+(\.\d+)+\.?\s*/;
+export const cleCours = x => String(x || '').replace(NUMERO_TETE, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').map(w => (w.length > 3 ? w.replace(/s$/, '') : w)).join(' ');
+export const memeCours = (a, b) => {
+  const x = cleCours(a), y = cleCours(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  // L'un contient l'autre, à longueur voisine : « Pratique des écrits » pour « Pratique des écrits - Psychomotricité », jamais une
+  // phrase du programme qui cite « médecine nucléaire » en passant.
+  if ((x.includes(y) || y.includes(x)) && Math.min(x.length, y.length) / Math.max(x.length, y.length) >= 0.55) return true;
+  // Les mêmes mots, à une variante près (« Anatomie humaine, physiologie… » pour « Anatomie, physiologie… » ; « résonnance » pour
+  // « résonance » ; « soins de base » pour « soins de ») : au moins 70 % de mots communs.
+  const mots = z => new Set(z.split(' ').filter(w => w.length > 2 && !VIDES.has(w)).map(w => w.replace(/nn/g, 'n')));
+  const A = mots(x), B = mots(y);
+  if (A.size < 2 || B.size < 2) return false;
+  const communs = [...A].filter(w => B.has(w)).length;
+  return communs / new Set([...A, ...B]).size >= 0.7;
+};
+const VIDES = new Set(['des', 'les', 'aux', 'une', 'par', 'pour', 'dans', 'sur', 'avec', 'autonomie']);
+/* Un intertitre numéroté (« 4.1.Techniques… », « 1.2. Finalités particulières ») : un numéro à deux niveaux au moins, puis un
+   intitulé court qui ne ferme pas une phrase. */
+const estNumerote = l => NUMERO_TETE.test(l) && /^\s*\d+(\.\d+)+\.?\s*\p{Lu}/u.test(l) && l.length < 160 && !/[;:]$/.test(l.trim());
+const intertitreNumerote = l => l.trim().replace(/^(\d+(?:\.\d+)+\.?)\s*/, '$1 ').replace(/\s*:$/, '');
 
 export const RUBRIQUES_DP = ['Finalités', 'Capacités préalables', "Acquis d'apprentissage", 'Degré de maîtrise',
   'Programme', 'Constitution des groupes', 'Chargés de cours'];
@@ -22,7 +51,7 @@ export function texteVersHtml(texte, { intertitre = 'strong' } = {}) {
       const n = Math.floor(puce[1].length / 2) + 1;
       if (n > ouverts) { while (ouverts < n) { h += '<ul><li>'; ouverts++; } h = h.replace(/<li>$/, '<li>'); }
       else { fermer(n); h += '</li><li>'; }
-      h += `<p>${esc(puce[2])}</p>`;
+      h += `<p>${esc(majuscule(puce[2]))}</p>`;
       continue;
     }
     const l = brut.trim();
@@ -64,14 +93,27 @@ export function texteDesRubriques(rubriques) {
  * Word les rend. Un texte qui porte déjà des marques n'est pas touché. */
 const SOUS_TITRES = /^(finalit[ée]s g[ée]n[ée]rales|finalit[ée]s particuli[èe]res|capacit[ée]s|titres? (pouvant en )?ten(ant|ir) lieu)\s*:?$/i;
 export function structurerAPlat(texte, intitulesCours = []) {
-  const t = String(texte || '');
+  let t = String(texte || '');
   if (!t.trim() || /^###\s/m.test(t)) return t;
-  const norme = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  const cours = new Set(intitulesCours.map(norme).filter(Boolean));
+  const estCours = l => !/[;,]$/.test(l.trim()) && intitulesCours.some(n => memeCours(l, n));
+  /* LES INTITULÉS COLLÉS (3.5.159, UE 70 : « L’étudiant sera capable : Théorie et concepts de l’éducation… », « …procédés de
+     l’intervention psychomotrice ; Méthodologie de l’observation… ») : l'import a mis l'intitulé d'un cours au bout d'une ligne.
+     On le remet sur sa propre ligne. Et le tiret long d'une énumération (« – ») vaut une puce. */
+  const decoller = l => {
+    // Chaque coupure possible (« ; », « : », « , » suivis d'une majuscule), de la dernière à la première : la queue qui nomme un
+    // cours devient sa ligne, et ce qui précède se relit de même (deux intitulés collés sur une ligne).
+    const coupures = [...l.matchAll(/[;:,]\s+(?=\p{Lu})/gu)].reverse();
+    for (const c of coupures) {
+      const queue = l.slice(c.index + c[0].length).trim();
+      if (!/[;:]/.test(queue) && intitulesCours.some(n => memeCours(queue, n))) return [...decoller(l.slice(0, c.index + 1)), queue];
+    }
+    return [l];
+  };
+  const titre = l => estCours(l) || estNumerote(l) || SOUS_TITRES.test(l.trim().replace(NUMERO_TETE, ''));
+  t = t.split('\n').flatMap(l => decoller(l.replace(/^(\s*)[–•]\s+/, '$1- '))).join('\n');
   // Déjà ses puces (programme importé en 3.1.342) : il ne lui manque que ses intertitres.
   if (/^( *)- /m.test(t)) {
-    return t.split('\n').map(l => (!/^\s*- /.test(l) && (cours.has(norme(l)) || SOUS_TITRES.test(l.trim()))
-      ? `### ${l.trim().replace(/\s*:$/, '')}` : l)).join('\n');
+    return t.split('\n').map(l => (!/^\s*- /.test(l) && titre(l) ? `### ${intertitreNumerote(l)}` : l)).join('\n');
   }
   const out = []; let liste = false; let sous = false;
   for (const brut of t.split('\n')) {
@@ -80,7 +122,7 @@ export function structurerAPlat(texte, intitulesCours = []) {
     // Les sous-points d'un point en « : » — jusqu'à celui qui ferme par « ; » ou « . ».
     if (sous) { out.push(`  - ${l}`); if (/[;.]$/.test(l)) sous = false; continue; }
     // Un intertitre (un cours, « Finalités générales ») ouvre une liste : ses points suivent.
-    if (cours.has(norme(l)) || SOUS_TITRES.test(l)) { out.push(`### ${l.replace(/\s*:$/, '')}`); liste = true; sous = false; continue; }
+    if (titre(l)) { out.push(`### ${intertitreNumerote(l)}`); liste = true; sous = false; continue; }
     // Un point en « : » au milieu d'une liste : c'est une puce, et ce qui suit, ses sous-puces.
     if (/:$/.test(l) && liste && /^- /.test(out[out.length - 1] || '')) { out.push(`- ${l}`); sous = true; continue; }
     if (/:$/.test(l)) { out.push(l); liste = true; continue; }
@@ -121,7 +163,6 @@ export function rubriquesDuDossier(texte, intitulesCours = []) {
  * « Programme », un « ### » par cours) ; l'écran le découpe en une introduction commune et un bloc par
  * cours, et le recompose à chaque frappe. Chaque cours de l'UE a son bloc, même vide ; un intertitre
  * qui ne nomme aucun cours garde le sien. */
-const normeCours = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 export function decouperProgramme(texte, intitulesCours = []) {
   const blocs = []; const pre = [];
   let cur = null;
@@ -133,7 +174,7 @@ export function decouperProgramme(texte, intitulesCours = []) {
   const cours = blocs.map(b => ({ nom: b.nom, texte: b.lignes.join('\n').trim() }));
   // Un intertitre du dossier qui nomme un cours à peu près (« Pratique des écrits » pour « Pratique des
   // écrits - Psychomotricité ») vaut ce cours : on ne lui ajoute pas un second bloc vide.
-  const proche = (a, b) => { const x = normeCours(a), y = normeCours(b); return x && y && (x === y || x.includes(y) || y.includes(x)); };
+  const proche = memeCours;
   for (const n of intitulesCours) if (n && !cours.some(c => proche(c.nom, n))) cours.push({ nom: n, texte: '' });
   return { preambule: pre.join('\n').trim(), cours };
 }
