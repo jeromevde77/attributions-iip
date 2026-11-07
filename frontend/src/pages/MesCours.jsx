@@ -919,7 +919,7 @@ export default function MesCours({ espace = null }) {
                     if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
                   }
                   return parUnite.map(u => (
-                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[5px] rounded-carte overflow-hidden"
+                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[5px] rounded-carte"
                       style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
                       <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
                         <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
