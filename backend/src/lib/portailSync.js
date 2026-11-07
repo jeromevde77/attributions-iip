@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 // ─────────────────────────────────────────────────────────────────────────────
 // LUCIE ET LE PORTAIL DES ÉTUDIANTS — LE PASSAGE À SENS UNIQUE (3.1.477, Charles, 30 octobre 2026 : « un mur
 // de Berlin infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants »).
@@ -23,7 +24,7 @@ import { deposerDOffice } from './depotEspace.js';
 import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
-import { parcoursPortail, fraisPortail } from './portailEspace.js';
+import { parcoursPortail, fraisPortail, docsDesUnites } from './portailEspace.js';
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
@@ -421,11 +422,23 @@ export async function passerPortail() {
       try { await deposerDocumentsEnseignants(appel); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
     }
     if (tours % 12 === 0) { await deposer(); await deposerDocuments(); }
+    if (toursDocsUE++ % 60 === 0) { try { await deposerDocsUE(); } catch (e) { console.error('[espace] DUE et dossiers :', e.message); } }
     tours++;
   } catch (e) {
     if (tours % 30 === 0) console.error('[portail]', e.message);   // un portail arrêté ne remplit pas le journal
     tours++;
   } finally { enCours = false; }
+}
+
+/* LA DUE ET LE DOSSIER PÉDAGOGIQUE DES UNITÉS (3.5.194) : toutes les dix minutes, seul ce qui a changé (empreinte). */
+let toursDocsUE = 0;
+async function deposerDocsUE() {
+  const annee = anneeActive();
+  const connus = (await appel('GET', `/interne/ue-docs/empreintes?annee=${encodeURIComponent(annee)}`)).empreintes || {};
+  const docs = (await docsDesUnites(annee)).map(d => ({ ...d, annee,
+    empreinte: d.html ? createHash('sha256').update(d.html).digest('hex').slice(0, 32) : '' }));
+  const changes = docs.filter(d => (connus[`${d.ue_num}|${d.quoi}`] || '') !== d.empreinte);
+  for (let i = 0; i < changes.length; i += 20) await appel('POST', '/interne/ue-docs', { docs: changes.slice(i, i + 20) });
 }
 
 export function planifierPortail() {

@@ -24,10 +24,14 @@
 import db from '../db/index.js';
 import { getUserSections } from '../middleware/auth.js';
 
-const d2s = d => d.toISOString().slice(0, 10);
-const s2d = s => new Date(`${s}T00:00:00Z`);
+/* UNE DATE ILLISIBLE NE FAIT PLUS TOMBER L'AGENDA (3.5.193, « Invalid time value » partout : l'UE 90 portait « 23/08/2026 »).
+   jj/mm/aaaa est lu ; ce qui reste illisible rend null au lieu de lever. */
+const iso = s => { const t = String(s ?? '').trim(); const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : t.slice(0, 10); };
+const d2s = d => (Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10));
+const s2d = s => new Date(`${iso(s)}T00:00:00Z`);
 export const plus = (s, n) => d2s(new Date(s2d(s).getTime() + n * 86400000));
-export const lundiDe = s => plus(s, -((s2d(s).getUTCDay() + 6) % 7));
+export const lundiDe = s => { const d = s2d(s); return Number.isNaN(d.getTime()) ? null : plus(iso(s), -((d.getUTCDay() + 6) % 7)); };
 const err = (m, status = 409) => Object.assign(new Error(m), { status });
 const essai = (f, d) => { try { return f(); } catch { return d; } };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,6 +40,13 @@ export const PEINT_ETABLISSEMENT = ['admin', 'directeur', 'directeur_adjoint'];
 export const TYPES_COURS = { cours: 'Cours', vacances: 'Vacances', ev1: 'Évaluations (1)', ev2: 'Évaluations (2)', stage: 'Stage' };
 
 export function migrerAgenda(base = db) {
+  // Les dates d'organisation écrites jj/mm/aaaa remises au format de Lucie (3.5.193).
+  for (const c of ['date_debut', 'date_fin']) {
+    try {
+      base.exec(`UPDATE organisation_ue SET ${c} = substr(${c}, 7, 4) || '-' || substr(${c}, 4, 2) || '-' || substr(${c}, 1, 2)
+        WHERE ${c} GLOB '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]'`);
+    } catch { /* table absente */ }
+  }
   base.exec(`
     CREATE TABLE IF NOT EXISTS agenda_semaine (
       annee TEXT NOT NULL, lundi TEXT NOT NULL, fermeture TEXT NOT NULL,      -- totale | partielle

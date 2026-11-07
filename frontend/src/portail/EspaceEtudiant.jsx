@@ -518,7 +518,7 @@ const PARCOURS_ETAT = {
 /* LE SCHÉMA DE LUCIE (3.5.026) : le composant de la fiche, en lecture (mode « etudiant »), sur les données déposées — les
    flèches contournent les cases comme partout. Un lot d'avant (une chaîne SVG) se montre encore en image, le temps du
    prochain dépôt. Le composant ne fait que dessiner : aucune donnée de Lucie ne passe par lui. */
-function SchemaParcours({ schema }) {
+function SchemaParcours({ schema, onNoeud = null }) {
   if (typeof schema === 'string') {
     const src = `data:image/svg+xml;utf8,${encodeURIComponent(schema)}`;
     return <section className="bg-white border border-slate-200 rounded-carte p-3"><div className="overflow-x-auto"><img src={src} alt="Schéma de capitalisation" style={{ maxWidth: 'none' }} /></div></section>;
@@ -526,7 +526,7 @@ function SchemaParcours({ schema }) {
   return (
     <section className="bg-white border border-slate-200 rounded-carte p-3">
       <p className="sm:hidden text-xs text-slate-500 mb-1">Faites glisser le schéma de côté ; « + » l’agrandit.</p>
-      <SchemaCapitalisation data={schema} mode="etudiant" titre="Mon schéma de capitalisation" />
+      <SchemaCapitalisation data={schema} mode="etudiant" titre="Mon schéma de capitalisation" onNoeud={onNoeud} />
     </section>
   );
 }
@@ -534,6 +534,13 @@ function SchemaParcours({ schema }) {
 /** MON PARCOURS (3.1.517) : le schéma de l'année — chaque unité de ses sections, par bloc, et les crédits acquis. */
 function MonParcours({ onErreur }) {
   const [p, setP] = useState(null);
+  const [ouverte, setOuverte] = useState(null);
+  const [doc, setDoc] = useState(null);
+  const ouvrirDoc = (u, quoi) => {
+    setDoc({ u, quoi });
+    appel('GET', `/ue/${u.ue_num}/${quoi}`).then(j => setDoc({ u, quoi, html: j.html }))
+      .catch(e => setDoc({ u, quoi, erreur: e.message || 'Document indisponible.' }));
+  };
   const charger = useCallback(() => appel('GET', '/parcours').then(setP).catch(onErreur), [onErreur]);
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (!p || p.pret) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [p, charger]);
@@ -551,27 +558,54 @@ function MonParcours({ onErreur }) {
           <div className="h-2 rounded-full bg-slate-200 overflow-hidden"><div className="h-full" style={{ width: `${pc}%`, background: 'var(--c-reussi, #3E7D5E)' }} /></div>
         </> : <div className="text-sm"><b>{x.unites.filter(u => u.etat === 'acquise').length}</b> unité(s) acquise(s) sur {x.unites.length} — {x.sections.join(', ')} · {x.annee}</div>}
       </div>
-      {x.schema && <SchemaParcours schema={x.schema} />}
-      <h2 className="intertitre pt-1">Où j’en suis cette année</h2>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-        {Object.entries(PARCOURS_ETAT).map(([k, [f, t, l]]) => (
-          <span key={k} className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm border border-slate-300" style={{ background: f }} />{l}</span>))}
+      {x.schema && <SchemaParcours schema={x.schema} onNoeud={n => { setOuverte(n); setTimeout(() => document.getElementById(`ue-${n}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); }} />}
+      {/* LES UNITÉS ET LEURS COURS (3.5.194, Charles : « double emploi… le schéma suffit ; il faudrait que les cours apparaissent ;
+          la DUE et le dossier pédagogique de chaque UE ») : une seule liste, liseré de l'état à gauche ; une unité se déplie sur
+          ses cours ; la DUE (validée) et le dossier pédagogique s'ouvrent dans une fenêtre. Toucher une UE du schéma l'ouvre ici. */}
+      <h2 className="intertitre pt-1">Mes unités et leurs cours</h2>
+      <div className="pile-etats">
+        {blocs.flatMap(b => x.unites.filter(u => u.bloc === b)).map(u => {
+          const lib = (PARCOURS_ETAT[u.etat] || PARCOURS_ETAT.pas_encore)[2];
+          const etat = { acquise: 'reussi', programme: 'disponible', accessible: 'neutre', attente: 'surveiller', pas_encore: 'indisponible' }[u.etat] || 'neutre';
+          const ouv = ouverte === u.ue_num;
+          return (
+            <div key={u.ue_num} id={`ue-${u.ue_num}`} className="bloc-etat px-4 py-2.5" data-etat={etat}>
+              <button type="button" className="w-full text-left flex items-center gap-3" onClick={() => setOuverte(ouv ? null : u.ue_num)}>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 flex-wrap">
+                    <b className="text-sm text-iip-texte">UE {u.ue_num}{u.epreuve ? ' ★' : ''}</b>
+                    <span className="text-sm text-iip-texte">{u.ue_nom}</span>
+                  </span>
+                  <span className="block text-second text-slate-500">{[u.bloc !== '—' ? u.bloc : null, u.ects ? `${u.ects} ECTS` : null, lib,
+                    u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison].filter(Boolean).join(' · ')}{u.cours?.length ? ` · ${u.cours.length} cours` : ''}</span>
+                </span>
+                <span className="text-slate-400 text-sm flex-none">{ouv ? '▴' : '▾'}</span>
+              </button>
+              {ouv && (
+                <div className="mt-2 space-y-2">
+                  {u.cours?.length > 0 && (
+                    <ul className="text-sm divide-y divide-slate-100">
+                      {u.cours.map(k => (
+                        <li key={k.code} className="py-1 flex items-baseline gap-2">
+                          <span className="tabular-nums text-slate-500 w-14 flex-none">{k.code}</span>
+                          <span className="min-w-0 flex-1 text-iip-texte">{k.nom}</span>
+                          <span className="text-second text-slate-500 flex-none">{k.autonomie ? 'travail personnel' : k.per ? `${k.per} p.` : ''}</span>
+                        </li>))}
+                    </ul>)}
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => ouvrirDoc(u, 'due')}><IconFileText size={15} /> La DUE</button>
+                    <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => ouvrirDoc(u, 'dp')}><IconBook size={15} /> Le dossier pédagogique</button>
+                  </div>
+                </div>)}
+            </div>);
+        })}
       </div>
-      {blocs.map(b => (
-        <section key={b} className="space-y-1.5">
-          {blocs.length > 1 || b !== '—' ? <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">{b}</h2> : null}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {x.unites.filter(u => u.bloc === b).map(u => {
-              const [f, t] = PARCOURS_ETAT[u.etat] || PARCOURS_ETAT.pas_encore;
-              return (
-                <div key={u.ue_num} className="rounded-champ px-2.5 py-2 text-xs border min-w-0" style={{ background: f, color: t, borderColor: u.etat === 'accessible' ? t : 'transparent' }}>
-                  <div className="font-bold">UE {u.ue_num}{u.epreuve ? ' ★' : ''}{u.va ? ` · ${u.va === true ? 'VA' : u.va}` : ''}</div>
-                  <div className="truncate" title={u.ue_nom}>{u.ue_nom}</div>
-                  <div className="opacity-80">{u.ects ? `${u.ects} ECTS` : ''}{u.raison ? ` · ${u.raison}` : ''}</div>
-                </div>);
-            })}
-          </div>
-        </section>))}
+      {doc && (
+        <FenetreEspace titre={`${doc.quoi === 'due' ? 'DUE' : 'Dossier pédagogique'} — UE ${doc.u.ue_num}`} sous={doc.u.ue_nom} onFermer={() => setDoc(null)}>
+          {doc.erreur ? <p className="text-sm text-slate-600">{doc.erreur}</p>
+            : !doc.html ? <p className="text-sm text-slate-500">Chargement…</p>
+              : <iframe title={doc.quoi} srcDoc={doc.html} sandbox="" className="w-full bg-white border-0" style={{ height: '70vh' }} />}
+        </FenetreEspace>)}
       <p className="text-xs text-slate-500">★ épreuve intégrée. Ce schéma suit les règles de votre programme ; ce qui fait foi reste la décision du Conseil des études et votre PAE.</p>
     </div>
   );
