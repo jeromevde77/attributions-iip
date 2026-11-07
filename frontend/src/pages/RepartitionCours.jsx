@@ -411,11 +411,11 @@ export default function RepartitionCours() {
     const numsClasseur = new Set(classeur.lignes.map(l => rangGroupe(l.groupe)));
     const blocs = {}, ambigus = {}, sansGroupes = [];
     for (const code of codesUE) {
+      // UN COURS QUE LE CLASSEUR NE NOMME PAS N'A RIEN À DEMANDER (3.5.175) : le fichier de 257.2 ouvert sur l'UE 254
+      // demandait encore quelle activité de 254.1 devait le recevoir.
+      if (!classeur.lignes.some(l => !l.cours || l.cours.includes(code))) continue;
       const cands = coursAvecGroupes.filter(c => c.cours_code === code);
-      if (!cands.length) {
-        if (classeur.lignes.some(l => !l.cours || l.cours.includes(code))) sansGroupes.push(code);
-        continue;
-      }
+      if (!cands.length) { sansGroupes.push(code); continue; }
       const couvre = c => [...numsClasseur].filter(n => c.groupes.some(g => rangGroupe(g.groupe) === n)).length;
       const tri = [...cands].sort((a, b) => couvre(b) - couvre(a));
       if (choixBloc[code]) blocs[code] = cands.find(c => c.cle === choixBloc[code]) || tri[0];
@@ -540,6 +540,14 @@ export default function RepartitionCours() {
             <span className="text-slate-500">
               {classeur.lignes.length} étudiants lus · {new Set(classeur.lignes.map(l => l.groupe)).size} groupes · appliqué à l'UE {ueNum}
             </span>
+            {/* LE CLASSEUR D'UNE AUTRE UNITÉ (3.5.175) : il le dit, au lieu de « Placer 0 affectation ». */}
+            {(() => {
+              const nommes = [...new Set(classeur.lignes.flatMap(l => l.cours || []))];
+              const ici = new Set((data?.cours || []).map(c => c.cours_code));
+              return nommes.length > 0 && !nommes.some(c => ici.has(c))
+                ? <span className="basis-full font-semibold" style={{ color: 'var(--c-attente, #B45309)' }}>Ce classeur concerne {nommes.join(', ')}, pas l’UE {ueNum} : choisissez l’UE {String(nommes[0]).split('.')[0]} en haut.</span>
+                : null;
+            })()}
             <button onClick={appliquerClasseur} disabled={!apercu.poses.length}
               className="bouton bouton-fort ml-auto">
               Placer {apercu.poses.length} affectation{apercu.poses.length > 1 ? 's' : ''} dans la grille
