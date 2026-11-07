@@ -1520,7 +1520,9 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
  * 1. UNE EXPLICATION N'EST PAS UN ÉTAT. Un bloc « neutre » (ou sans état) n'a rien à signaler : il perd son cadre, son
  *    liseré et son fond, et se lit comme une ligne de texte. Le cadre reste à ce qui porte un état (à corriger, à
  *    surveiller, réussi, disponible…) et aux tuiles, qui détachent un chiffre. */
-.bloc-etat:is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande):not(.tuile-compacte) {
+/* (3.5.206) Un bloc qui porte son état par une classe (etat-reussi, etat-neutre…) n'est pas « sans état », et un bloc qu'on clique
+   ou qu'on coche (bouton, case, lien) est un choix : tous deux gardent leur cadre. */
+.bloc-etat:is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande):not(.tuile-compacte):not(:is(.etat-reussi, .etat-faveur, .etat-disponible, .etat-surveiller, .etat-corriger, .etat-neutre)):not(:is(button, label, a)) {
   border: 0; border-radius: 0; background: transparent; padding-left: 0; padding-right: 0;
   color: var(--c-texte_doux, rgb(var(--gris-600)));
 }

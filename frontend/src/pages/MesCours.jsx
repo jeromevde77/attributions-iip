@@ -887,7 +887,7 @@ export default function MesCours({ espace = null }) {
         }
         const carte = x => (
           <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-            style={{ '--e': couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }}
+            style={{ '--e': couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }} data-etat="fort"
             className="bloc-etat w-full text-left px-3 py-2 hover:brightness-[.98] flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>
@@ -938,7 +938,7 @@ export default function MesCours({ espace = null }) {
                     if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
                   }
                   return parUnite.map(u => (
-                    <section key={`${u.ue_num}|${u.section}`} className="bloc-etat overflow-hidden"
+                    <section key={`${u.ue_num}|${u.section}`} data-etat="fort" className="bloc-etat overflow-hidden"
                       style={couleurBloc(u.ue_niv) ? { '--e': couleurBloc(u.ue_niv) } : undefined}>
                       <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
                         <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
