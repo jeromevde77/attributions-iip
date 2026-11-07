@@ -3,6 +3,7 @@
  * et les gestes (question de recherche, remise) attendent son relevé, qui les juge. Serveur : portail/src/serveur.js
  * (/api/portail/tfe, /api/portail/stage) ; Lucie : backend/src/lib/portailTfeStage.js. */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import ChargementLucie from '../components/ChargementLucie.jsx';
 import { IconUpload, IconCheck, IconClock, IconMapPin, IconCalendarEvent, IconAlertTriangle, IconClipboardList } from '@tabler/icons-react';
 
 const jourFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
@@ -34,7 +35,7 @@ export function MonTfe({ appel, jeton, onErreur }) {
   // Un geste attend le relevé de Lucie (quelques secondes) : on relit jusqu'à ce qu'il soit passé.
   useEffect(() => { if (!p || (p.pret && !p.en_attente?.length)) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [p, charger]);
   useEffect(() => { if (p?.refus?.length) appel('POST', '/tfe/refus-lus').catch(() => {}); }, [p, appel]);
-  if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!p) return <ChargementLucie />;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre TFE… quelques secondes.</p>;
   if (!p.tfe?.length) return <p className="text-sm text-slate-500">Aucun TFE n’est encore encodé pour vous cette année. Votre coordination l’encode avec votre titre et votre promoteur.</p>;
   return (
@@ -136,7 +137,7 @@ export function MonStage({ appel, onErreur }) {
   const charger = useCallback(() => appel('GET', '/stage').then(setP).catch(onErreur), [appel, onErreur]);
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (!p || p.pret) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [p, charger]);
-  if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!p) return <ChargementLucie />;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre stage… quelques secondes.</p>;
   if (!p.stage?.length) return <p className="text-sm text-slate-500">Aucun stage n’est encore encodé pour vous cette année.</p>;
   const auj = new Date().toISOString().slice(0, 10);
