@@ -22,11 +22,15 @@ export function parcoursPortail(e, annee) {
   const vaDe = db.prepare(`SELECT porte, base_code FROM etudiant_valorisation WHERE etudiant_id = ? AND ue_num = ? AND type = 'complete'
     ORDER BY id DESC LIMIT 1`);
   const sigle = n => sigleVA(vaDe.get(e.id, n) || {});
+  // LES COURS DE CHAQUE UNITÉ (3.5.194, Charles : « il faudrait que les cours apparaissent »).
+  const coursDe = db.prepare(`SELECT cours_code AS code, MAX(cours_nom) AS nom, MAX(cours_per) AS per, MAX(ct_pp) AS ct_pp, MIN(cours_num) AS n
+    FROM cours WHERE ue_num = ? AND annee_scolaire = ? GROUP BY cours_code ORDER BY n, cours_code`);
   const unites = (c.pae || []).map(u => {
     const acquise = !!(u.deja_reussie || u.va_complete);
     const etat = acquise ? 'acquise' : u.inscrite ? 'programme' : u.en_attente ? 'attente' : u.accessible ? 'accessible' : 'pas_encore';
     return { ue_num: u.ue_num, ue_nom: u.ue_nom, bloc: u.ue_niv || '—', ects: Number(ects.get(u.ue_num, annee)?.ects) || 0, etat,
       va: u.va_complete ? sigle(u.ue_num) : null, epreuve: !!u.epreuve_integree,
+      cours: coursDe.all(u.ue_num, annee).map(k => ({ code: k.code, nom: String(k.nom || '').replace(/^\d+(\.\d+)*\.\s*/, ''), per: Number(k.per) || null, autonomie: k.ct_pp === 'Z' })),
       raison: etat === 'pas_encore' ? (u.prereq_manquants?.length ? `prérequis : UE ${u.prereq_manquants.join(', ')}` : u.epreuve_integree ? 'tout le reste d’abord' : null) : null };
   });
   const total = unites.reduce((s, u) => s + u.ects, 0);
@@ -61,4 +65,25 @@ export async function fraisPortail(e, annee) {
     virement: f.restant > 0 && v.iban ? { iban: v.iban, beneficiaire: v.beneficiaire, communication: v.communication, montant: v.montant,
       qr: v.epc ? await qrSvg(v.epc, 180) : null } : null,
   };
+}
+
+
+/* LA DUE ET LE DOSSIER PÉDAGOGIQUE DE CHAQUE UNITÉ (3.5.194, Charles : « il faudrait en fait la DUE… et le dossier pédagogique de
+   chaque UE »). Un dépôt COMMUN au portail (pas un par étudiant) : l'empreinte dit ce qui a changé, seul le changé repart. La DUE
+   n'est montrée qu'une fois validée par la direction (tranché) ; le dossier pédagogique, toujours. */
+export async function docsDesUnites(annee) {
+  let documentDUE = null, dpHtml = null;
+  try { documentDUE = (await import('../routes/due.js')).documentDUE; } catch { /* */ }
+  try { dpHtml = (await import('./portailEnseignants.js')).dossierPedagogiqueHtml; } catch { /* */ }
+  const ues = db.prepare(`SELECT ue_num, MAX(section) AS section FROM ue WHERE annee_scolaire = ? GROUP BY ue_num`).all(annee);
+  const valide = db.prepare(`SELECT statut FROM due WHERE ue_num = ? AND annee_scolaire = ?`);
+  const out = [];
+  for (const u of ues) {
+    let due = null, dp = null;
+    try { if (documentDUE && valide.get(u.ue_num, annee)?.statut === 'validee') due = documentDUE(u.ue_num, annee); } catch { due = null; }
+    try { dp = dpHtml ? dpHtml(u.ue_num, annee, u.section) : null; } catch { dp = null; }
+    out.push({ ue_num: u.ue_num, quoi: 'due', html: due || null });
+    out.push({ ue_num: u.ue_num, quoi: 'dp', html: dp || null });
+  }
+  return out;
 }

@@ -105,6 +105,16 @@ export const NATURES = [
 export const NATURES_PAR_PARTIES = ['reglement', 'procedure', 'note'];
 
 export function migrerDocumentation(dbx) {
+  /* RDE/ROI ET PROJET PÉDAGOGIQUE AUSSI POUR LES ÉTUDIANTS (3.5.194, Charles : « mis à jour automatiquement depuis Lucie »).
+     Une seule fois : les destinataires se règlent ensuite dans Documentation. L'espace reçoit chaque nouvelle version. */
+  try {
+    const fait = dbx.prepare("SELECT 1 FROM lucie_config WHERE cle = 'corpus_etudiants_3_5_194'").get();
+    if (!fait) {
+      dbx.prepare(`INSERT OR IGNORE INTO corpus_destinataire (document_id, role) SELECT id, 'etudiant' FROM corpus_document
+        WHERE retire_le IS NULL AND (cle LIKE 'reglement-des-etudes-et-reglement-d-ordre-interieur%' OR cle = 'projet-pedagogique-social-et-culturel')`).run();
+      dbx.prepare("INSERT OR IGNORE INTO lucie_config (cle, valeur) VALUES ('corpus_etudiants_3_5_194', '1')").run();
+    }
+  } catch { /* tables pas encore là : au démarrage suivant */ }
   try {
     dbx.exec(`
     CREATE TABLE IF NOT EXISTS corpus_document (

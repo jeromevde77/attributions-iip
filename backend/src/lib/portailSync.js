@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 // ─────────────────────────────────────────────────────────────────────────────
 // LUCIE ET LE PORTAIL DES ÉTUDIANTS — LE PASSAGE À SENS UNIQUE (3.1.477, Charles, 30 octobre 2026 : « un mur
 // de Berlin infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants »).
@@ -23,7 +24,7 @@ import { deposerDOffice } from './depotEspace.js';
 import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
-import { parcoursPortail, fraisPortail } from './portailEspace.js';
+import { parcoursPortail, fraisPortail, docsDesUnites } from './portailEspace.js';
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
@@ -362,13 +363,33 @@ async function deposerDocuments() {
   }
   const ids = new Set([...visibles, ...candidatsValides().filter(c => fonctionPour('espace.candidats', { etudiantId: c.id })).map(c => ({ id: c.id, donnees: fonctionsDonnees(c.id) }))]
     .filter(e => e.donnees.includes('documents')).map(e => e.id));
-  const connus = new Set((await appel('GET', '/interne/documents/connus')).ids || []);
+  const lu = await appel('GET', '/interne/documents/connus');
+  const connus = new Set(lu.ids || []);
   let envois = [];
   try {
-    envois = db.prepare(`SELECT m.id, m.destinataire_id, m.sujet, m.nom_fichier, m.envoye_le, m.reference FROM envoi_mail m
+    envois = db.prepare(`SELECT m.id, m.destinataire_id, m.sujet, m.contenu, m.nom_fichier, m.envoye_le, m.reference FROM envoi_mail m
       JOIN envoi_copie c ON c.envoi_id = m.id WHERE m.destinataire_type = 'etudiant' AND m.statut IN ('envoye','simule','depose')
       ORDER BY m.id DESC`).all();
   } catch { return; }
+  /* UNE PIÈCE DE SECONDE SESSION POUR QUI N'Y ÉTAIT PAS SE RETIRE (3.5.193) : l'UE 333 avait envoyé une attestation « Session 2 » à
+     des réussis de S1. Le registre la garde ; l'espace ne la montre plus. */
+  const { decisionDeSession } = await import('../routes/acquis.js');
+  envois = envois.filter(m => {
+    const x = /^Session 2 — UE (\d+)/.exec(String(m.contenu || '')), a = /(\d{4}-\d{4})/.exec(String(m.sujet || ''));
+    if (!x || !a) return true;
+    try { return !!decisionDeSession(m.destinataire_id, Number(x[1]), a[1], 2).resultat; } catch { return true; }
+  });
+  /* UN TITRE QUI DIT LEQUEL (3.5.192, Charles : « pourquoi le document est deux fois ? ») : deux envois de délibération (S1 puis
+     S2) portaient le même sujet générique ; le registre garde ce qu'ils contiennent (« Session 2 — UE 333 : motivation de refus »).
+     Les documents déjà déposés sont renommés. */
+  const titreDe = m => {
+    const g = /^Documents de délibération — (\d{4}-\d{4})$/.exec(String(m.sujet || '').trim());
+    return g && String(m.contenu || '').trim() ? `${String(m.contenu).trim()} — ${g[1]}` : m.sujet;
+  };
+  if (lu.sujets) {
+    const titres = envois.filter(m => connus.has(m.id) && lu.sujets[m.id] != null && lu.sujets[m.id] !== titreDe(m)).map(m => ({ id: m.id, sujet: titreDe(m) }));
+    if (titres.length) await appel('POST', '/interne/documents/titres', { titres }).catch(() => {});
+  }
   const aRetirer = [...connus].filter(id => !envois.some(m => m.id === id && ids.has(m.destinataire_id)));
   if (aRetirer.length) await appel('POST', '/interne/documents/retirer', { ids: aRetirer });
   const lot = [];
@@ -377,7 +398,7 @@ async function deposerDocuments() {
     if (connus.has(m.id) || !ids.has(m.destinataire_id)) continue;
     const c = await copieDeLEnvoi(m.id);
     if (c.erreur) continue;
-    lot.push({ id: m.id, etudiant_id: m.destinataire_id, sujet: m.sujet, nom_fichier: c.nom, envoye_le: m.envoye_le,
+    lot.push({ id: m.id, etudiant_id: m.destinataire_id, sujet: titreDe(m), nom_fichier: c.nom, envoye_le: m.envoye_le,
       reference: m.reference, mime: c.type, contenu_b64: Buffer.from(c.corps).toString('base64') });
   }
   if (lot.length) await appel('POST', '/interne/documents', { documents: lot });
@@ -401,11 +422,23 @@ export async function passerPortail() {
       try { await deposerDocumentsEnseignants(appel); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
     }
     if (tours % 12 === 0) { await deposer(); await deposerDocuments(); }
+    if (toursDocsUE++ % 60 === 0) { try { await deposerDocsUE(); } catch (e) { console.error('[espace] DUE et dossiers :', e.message); } }
     tours++;
   } catch (e) {
     if (tours % 30 === 0) console.error('[portail]', e.message);   // un portail arrêté ne remplit pas le journal
     tours++;
   } finally { enCours = false; }
+}
+
+/* LA DUE ET LE DOSSIER PÉDAGOGIQUE DES UNITÉS (3.5.194) : toutes les dix minutes, seul ce qui a changé (empreinte). */
+let toursDocsUE = 0;
+async function deposerDocsUE() {
+  const annee = anneeActive();
+  const connus = (await appel('GET', `/interne/ue-docs/empreintes?annee=${encodeURIComponent(annee)}`)).empreintes || {};
+  const docs = (await docsDesUnites(annee)).map(d => ({ ...d, annee,
+    empreinte: d.html ? createHash('sha256').update(d.html).digest('hex').slice(0, 32) : '' }));
+  const changes = docs.filter(d => (connus[`${d.ue_num}|${d.quoi}`] || '') !== d.empreinte);
+  for (let i = 0; i < changes.length; i += 20) await appel('POST', '/interne/ue-docs', { docs: changes.slice(i, i + 20) });
 }
 
 export function planifierPortail() {

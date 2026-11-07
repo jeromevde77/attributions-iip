@@ -4,6 +4,7 @@ import { codeGroupe, suiteGroupes, trierCodes, rangCouleur } from '../lib/groupe
 import { estDirection } from '../lib/modules.js';
 import { useDroits } from '../lib/droits.js';
 import { VoletRail, Fenetre, Chevron, Encadre } from '../components/ui.jsx';
+import ImportAttributionsHistorique from '../components/ImportAttributionsHistorique.jsx';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -414,6 +415,7 @@ export default function Attributions() {
   const [showAnnulation, setShowAnnulation] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [showCopierSection, setShowCopierSection] = useState(false);
+  const [showImportHisto, setShowImportHisto] = useState(false);
   const [rapportHtml, setRapportHtml] = useState(null); // { html, nom }
 
   const [selected, setSelected] = useState(new Set());
@@ -2326,6 +2328,7 @@ export default function Attributions() {
                   {peutAdminAttr && <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification récente"
                     className="bouton flex items-center gap-2"><IconArrowBackUp size={16}/>Annuler</button>}
                   {peutAdminAttr && <button onClick={()=>setShowCopierSection(true)} className="bouton flex items-center gap-2"><IconClipboardText size={16}/>Copier section</button>}
+                  {peutAdminAttr && <button onClick={()=>setShowImportHisto(true)} title="Importer les attributions d'années passées (CSV)" className="bouton flex items-center gap-2"><IconFileImport size={16}/>Années passées</button>}
                   <button onClick={()=>api.exportExcel()} className="bouton flex items-center gap-2"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
                     {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="bouton bouton-detruire flex items-center gap-2"><IconTrash size={16}/>Sélection ({selected.size})</button>}
@@ -2638,6 +2641,7 @@ export default function Attributions() {
         onClose={()=>setNewCoursForm(null)}
         onSaved={(code)=>{ const sec=newCoursForm.section; setNewCoursForm(null); load(); setEditRow({section: sec, code_cours: code}); }}/>}
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
+      {showImportHisto && <ImportAttributionsHistorique onFermer={()=>setShowImportHisto(false)} onFait={load}/>}
       {showCopierSection && <CopierSectionModal sections={sections} anneeActive={getAnnee()} isAdmin={isAdmin} onClose={()=>setShowCopierSection(false)} onCopied={load}/>}
       {confirmViderSection && (
         <Fenetre icone={IconAlertTriangle} titre="Supprimer toutes les attributions" large="petite" ton="alerte"

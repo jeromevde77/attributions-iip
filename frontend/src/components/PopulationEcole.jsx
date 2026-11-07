@@ -31,6 +31,12 @@ export default function PopulationEcole({ annee: anneeProp }) {
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState('');   // '' = toute l'école
   const [tour, setTour] = useState(0);
+  // LES EFFECTIFS DE L'ANNÉE (3.5.196) : la même source que la liste des étudiants.
+  const [eff, setEff] = useState(null);
+  useEffect(() => {
+    fetch(`/api/pilotage/effectifs?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setEff).catch(() => setEff(null));
+  }, [annee]);
 
   /* CORRIGER UN CHIFFRE DE RÉFÉRENCE (14 octobre 2026) : la direction clique une case d'une année
      de référence ; la valeur d'origine reste en base, la case corrigée s'écrit en italique. */
@@ -82,6 +88,17 @@ export default function PopulationEcole({ annee: anneeProp }) {
         <span className="text-second text-slate-400 ml-auto">{d.annee} · inscrits au {d.ref.split('-').reverse().join('/')}, hors archivés</span>
       </div>
 
+      {eff && !section && (
+        <div className="flex flex-wrap gap-3">
+          <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" valeur={k0(eff.au_15_10.total)} libelle="inscrits au 15/10"
+            precision={eff.au_15_10.fige ? 'référence de l’année, gelée' : 'reconstruit, indicatif — gelé d’office à partir de 2027-2028'} /></div>
+          <div className="flex-1 min-w-[150px]"><TuileEtat valeur={eff.au10 ? k0(eff.au10.total) : '—'} libelle="réguliers au 1er dixième"
+            precision={eff.au10 ? `${eff.au10.ues_atteintes} UE sur ${eff.au10.ues} ont passé leur 1/10` : ''} /></div>
+          <div className="flex-1 min-w-[150px]"><TuileEtat valeur={eff.au50 ? k0(eff.au50.total) : '—'} libelle="réguliers au 5e dixième"
+            precision={eff.au50 ? `${eff.au50.ues_atteintes} UE sur ${eff.au50.ues} ont passé leur 5/10` : ''} /></div>
+          <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(eff.en_parcours)} libelle="encore en parcours"
+            precision={`une UE encore ouverte · ${k0(eff.inscrits)} inscrits non archivés${eff.sortis ? `, dont ${eff.sortis} sorti(s)` : ''}`} /></div>
+        </div>)}
       <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" valeur={k0(v.n)} libelle="inscrits" precision={section ? NOM_SECTION(section) : `${d.sections.length} sections`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(v.primo)} libelle="nouveaux étudiants" precision={`${pc(v.primo, v.n)} — aucune inscription avant ${d.annee}`} /></div>

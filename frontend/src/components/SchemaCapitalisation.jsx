@@ -558,9 +558,15 @@ export default function SchemaCapitalisation({
                     transform={enDeplacement ? `translate(${drag.dx},${drag.dy})` : undefined}
                     opacity={enDeplacement ? 0.85 : 1}
                     style={{ cursor: deplacable ? (enDeplacement ? 'grabbing' : 'grab') : onNoeud ? 'pointer' : 'default' }}>
-                    <title>{`UE ${n.ue_num} — ${n.ue_nom || ''}${n.ue_niv ? ' · ' + n.ue_niv : ''}${
-                      n.prerequis?.length ? '\nPrérequis : ' + n.prerequis.join(', ') : ''}${
-                      n.prereq_manquants?.length ? '\nManquants : ' + n.prereq_manquants.join(', ') : ''}`}</title>
+                    {/* LA BULLE DIT TOUT CE QUE LA CASE COUPE (3.5.194, Charles : « bien penser l'info bulle ») : le nom entier, l'état
+                        en mots, la note, ce qui manque encore, et ce que fait un clic. */}
+                    <title>{[`UE ${n.ue_num} — ${n.ue_nom || ''}`,
+                      [n.ue_niv, LIBELLE_CAP[statut] || null, n.inscrite ? 'au programme cette année' : null].filter(Boolean).join(' · '),
+                      n.reussite ? `Réussie${n.reussite.annee ? ' en ' + n.reussite.annee : ''}${n.reussite.va ? ' par ' + (n.reussite.sigle || 'VA') : n.reussite.note != null ? ` — ${n.reussite.note}/20` : ''}` : null,
+                      n.prerequis?.length ? 'Prérequis : UE ' + n.prerequis.join(', ') : null,
+                      n.prereq_manquants?.length ? 'Il manque encore : UE ' + n.prereq_manquants.join(', ') : null,
+                      onNoeud ? (mode === 'etudiant' ? 'Toucher : ses cours, sa DUE, son dossier pédagogique' : 'Cliquer : ses notes') : null,
+                    ].filter(Boolean).join('\n')}</title>
                     <path d={boite(p.x, p.y, layout.L, layout.H, 6)}
                       style={{ fill: co.fond, stroke: actif ? 'var(--c-accent)' : co.bord }}
                       strokeWidth={actif ? 2.2 : 1}

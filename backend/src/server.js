@@ -3048,6 +3048,7 @@ app.use('/api/envois', express.json({ limit: '60mb' }));
 app.use('/api/impression', express.json({ limit: '120mb' }));
 app.use('/api/documentation/mode-emploi/pdf', express.json({ limit: '60mb' }));
 app.use('/api/communication', express.json({ limit: '30mb' }));   // pièces jointes des messages (3.5.131)
+app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)
 app.use(express.json({ limit: '5mb' }));
 
 /* QUI EST EN TRAIN DE DEMANDER — POUR TOUTE LA DURÉE DE LA REQUÊTE.
@@ -3296,6 +3297,7 @@ app.use('/api/aa',              garderModule('aa'), aaRoutes);
 app.use('/api/config',          garderModule('config'), (await import('./routes/config.js')).default);
 app.use('/api/annulation', (await import('./routes/annulation.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
+app.use('/api/mes-frais', (await import('./routes/mesFrais.js')).default);   // confidentiel, à son titulaire (3.5.197)
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);
 app.use('/api/temps-travail', (await import('./routes/tempsTravail.js')).default);
 app.use('/api/agenda-ecole', (await import('./routes/agendaEcole.js')).default);

@@ -50,6 +50,14 @@ import { trouverOuCreerEtudiant } from '../lib/etudiantUnique.js';
 import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 const r = Router();
 
+// LES EFFECTIFS DE L'ANNÉE (3.5.196) : la même source que Gestion (lib/effectifs.js), pour l'en-tête de la liste.
+r.get('/effectifs', authRequired, async (req, res) => {
+  try {
+    const { effectifsAnnee } = await import('../lib/effectifs.js');
+    res.json(effectifsAnnee(req.query.annee || anneeDeTravail(req), { avecReguliers: req.query.reguliers === '1' }));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Intitulé, niveau et section d'une UE, indépendamment de l'année.
 // Le référentiel est dupliqué par année scolaire ; cette vue en donne une
 // lecture pérenne : le millésime de l'année demandée s'il existe, sinon le

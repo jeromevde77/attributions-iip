@@ -100,6 +100,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS pae_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, maj_le TEXT);
   -- MON PARCOURS ET MES FRAIS (3.1.517), déposés par Lucie avec le lot de l'étudiant.
   CREATE TABLE IF NOT EXISTS espace_lot (etudiant_id INTEGER PRIMARY KEY, parcours TEXT, frais TEXT, maj_le TEXT);
+  -- LA DUE (validée) ET LE DOSSIER PÉDAGOGIQUE DE CHAQUE UNITÉ (3.5.194) : un dépôt commun, pas un par étudiant.
+  CREATE TABLE IF NOT EXISTS ue_doc (annee TEXT NOT NULL, ue_num INTEGER NOT NULL, quoi TEXT NOT NULL, empreinte TEXT, html TEXT,
+    maj_le TEXT, PRIMARY KEY (annee, ue_num, quoi));
   -- L'APERÇU DE LA DIRECTION (3.1.518) : un jeton à usage unique, fabriqué à la demande de Lucie (port interne), qui ouvre
   -- l'espace d'un étudiant EN LECTURE SEULE. Rien de ce qu'on y regarde ne compte comme vu par l'étudiant.
   CREATE TABLE IF NOT EXISTS apercu_jeton (jeton_hash TEXT PRIMARY KEY, etudiant_id INTEGER NOT NULL, par TEXT,
@@ -676,6 +679,17 @@ pub.get('/api/portail/parcours', connecte, exige('parcours'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
   res.json({ pret: !!l, parcours: l ? JSON.parse(l.parcours || 'null') : null, maj_le: l?.maj_le || null });
 });
+// La DUE ou le dossier pédagogique d'une unité de SON parcours (3.5.194). Les autres unités ne s'ouvrent pas d'ici.
+pub.get('/api/portail/ue/:ue/:quoi', connecte, exige('parcours'), (req, res) => {
+  const quoi = req.params.quoi === 'due' ? 'due' : req.params.quoi === 'dp' ? 'dp' : null;
+  const l = lotEspace(req.etudiant.id);
+  const p = l ? JSON.parse(l.parcours || 'null') : null;
+  const ue = Number(req.params.ue);
+  if (!quoi || !p?.unites?.some(u => Number(u.ue_num) === ue)) return res.status(404).json({ error: 'Unité inconnue.' });
+  const d = db.prepare('SELECT html FROM ue_doc WHERE annee = ? AND ue_num = ? AND quoi = ?').get(String(p.annee || ''), ue, quoi);
+  if (!d?.html) return res.status(404).json({ error: quoi === 'due' ? 'La DUE de cette unité n’est pas encore publiée.' : 'Le dossier pédagogique n’est pas encore disponible.' });
+  res.json({ html: d.html });
+});
 pub.get('/api/portail/frais', connecte, exige('frais'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
   res.json({ pret: !!l, frais: l ? JSON.parse(l.frais || 'null') : null, maj_le: l?.maj_le || null });
@@ -986,7 +1000,28 @@ int.post('/interne/apercu', (req, res) => {
   res.json({ url: `${URL_PUBLIQUE}/?apercu=${jeton}` });
 });
 
-int.get('/interne/documents/connus', (req, res) => res.json({ ids: db.prepare('SELECT id FROM document').all().map(x => x.id) }));
+int.get('/interne/ue-docs/empreintes', (req, res) => {
+  const l = db.prepare('SELECT ue_num, quoi, empreinte FROM ue_doc WHERE annee = ?').all(String(req.query.annee || ''));
+  res.json({ empreintes: Object.fromEntries(l.map(x => [`${x.ue_num}|${x.quoi}`, x.empreinte || ''])) });
+});
+int.post('/interne/ue-docs', (req, res) => {
+  const l = Array.isArray(req.body?.docs) ? req.body.docs : [];
+  const i = db.prepare(`INSERT INTO ue_doc (annee, ue_num, quoi, empreinte, html, maj_le) VALUES (?,?,?,?,?, datetime('now'))
+    ON CONFLICT(annee, ue_num, quoi) DO UPDATE SET empreinte = excluded.empreinte, html = excluded.html, maj_le = excluded.maj_le`);
+  db.transaction(() => { for (const d of l) i.run(String(d.annee || ''), Number(d.ue_num), d.quoi === 'due' ? 'due' : 'dp', String(d.empreinte || ''), d.html ? String(d.html) : null); })();
+  res.json({ ok: true, n: l.length });
+});
+int.get('/interne/documents/connus', (req, res) => {
+  const l = db.prepare('SELECT id, sujet FROM document').all();
+  res.json({ ids: l.map(x => x.id), sujets: Object.fromEntries(l.map(x => [x.id, x.sujet])) });
+});
+// RENOMMER UN DOCUMENT DÉJÀ DÉPOSÉ (3.5.192) : Lucie corrige le titre, le contenu ne bouge pas.
+int.post('/interne/documents/titres', (req, res) => {
+  const u = db.prepare('UPDATE document SET sujet = ? WHERE id = ?');
+  const l = Array.isArray(req.body?.titres) ? req.body.titres : [];
+  db.transaction(() => { for (const t of l) u.run(String(t.sujet || ''), Number(t.id)); })();
+  res.json({ ok: true, n: l.length });
+});
 int.post('/interne/documents', (req, res) => {
   const l = Array.isArray(req.body?.documents) ? req.body.documents : [];
   const i = db.prepare(`INSERT OR REPLACE INTO document (id, etudiant_id, sujet, nom_fichier, envoye_le, reference, mime, contenu) VALUES (?,?,?,?,?,?,?,?)`);

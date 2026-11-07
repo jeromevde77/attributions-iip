@@ -1,3 +1,4 @@
+import { effectifsAnnee, gelerSiTemps } from '../lib/effectifs.js';
 import { donneesPopulation, inscrits, corrigerReference } from '../lib/populationEcole.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { sectionRattachement } from './etudiants.js';
@@ -255,6 +256,15 @@ r.get('/totaux', authRequired, (req, res) => {
 r.put('/inscrits-reference', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
   try { corrigerReference(req.body || {}, req.user?.email || req.user?.nom || null); res.json({ ok: true }); }
   catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+// LES EFFECTIFS DE L'ANNÉE (3.5.196) : au 15/10, réguliers au 1/10 et au 5/10, en parcours — la source de Gestion ET de la liste.
+r.get('/effectifs', authRequired, (req, res) => {
+  try {
+    const annee = req.query.annee || anneeDeTravail(req);
+    try { gelerSiTemps(annee); } catch { /* */ }
+    res.json(effectifsAnnee(annee, { avecReguliers: req.query.reguliers !== '0' }));
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 r.get('/population-ecole', authRequired, (req, res) => {
