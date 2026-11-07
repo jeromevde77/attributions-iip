@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
-import { couleurBloc, rangBloc } from '../lib/blocs.js';
+import { couleurBloc, rangBloc, OR_EPREUVE } from '../lib/blocs.js';
 import { ordonnerCouches, placerCouches, redresserPassages, courbeParPoints } from '../lib/schemaCouches.js';
+
+// Les teintes du dessin lisent les réglages (Thèmes et couleurs) : états, gris, marine et or de l'épreuve.
+const BLANC = 'var(--blanc)', FILET = 'var(--c-filet, rgb(var(--gris-200)))', ENCRE = 'var(--c-texte)', MARINE = 'var(--c-principal)';
+const BLEU = 'var(--c-disponible)', GRIS_FLECHE = 'rgb(var(--gris-300))', GRIS_LISERE = 'rgb(var(--gris-400))', GRIS_TEXTE = 'rgb(var(--gris-600))';
+const FOND_INDISPO = 'var(--c-fond_indispo, rgb(var(--gris-100)))', ROUGE = 'var(--c-refuse)';
 
 /**
  * LE PARCOURS EN PETITES TUILES, AVEC SES FLÈCHES (Charles, 2 octobre 2026 :
@@ -119,15 +124,15 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   const fonce = c => `color-mix(in srgb, ${c} 62%, #000)`;
   const plein = c => ({ fond: c, bord: c, lisere: fonce(c), texte: '#fff' });
   const etatTuile = n => {
-    if (n.epreuve_integree && !['acquise'].includes(n.statut)) return { fond: '#fff', bord: '#D8DCE4', lisere: '#C9A227', texte: '#16406A' };
+    if (n.epreuve_integree && !['acquise'].includes(n.statut)) return { fond: BLANC, bord: FILET, lisere: OR_EPREUVE, texte: ENCRE };
     // ACQUISE PAR VALORISATION : CONTOUR VERT ET « VA » ÉCRIT (Charles, 7 octobre
     // 2026) — le vert plein reste à l'unité réussie en délibération.
-    if (n.statut === 'acquise' && n.reussite?.va && !n.reussite?.faveur) return { fond: '#fff', bord: 'var(--c-reussi, #3E7D5E)', lisere: 'var(--c-reussi, #3E7D5E)', texte: '#16406A', epais: 2, va: true };
-    if (n.statut === 'acquise') return plein(n.reussite?.faveur ? 'var(--c-faveur, #6B46C1)' : 'var(--c-reussi, #3E7D5E)');
-    if (auPAE(n.ue_num)) return plein('var(--c-disponible, #2F6FB0)');
-    if (n.statut === 'en_attente') return { fond: '#fff', bord: '#D8DCE4', lisere: 'var(--c-refuse, #9D4A38)', texte: '#16406A' };
-    if (n.statut === 'accessible' || n.statut === 'sous_reserve') return { fond: '#fff', bord: '#D8DCE4', lisere: '#94A3B8', texte: '#475569' };
-    return { fond: '#F4F5F7', bord: '#D8DCE4', lisere: '#C3C9D3', texte: '#8C95A5' };
+    if (n.statut === 'acquise' && n.reussite?.va && !n.reussite?.faveur) return { fond: BLANC, bord: 'var(--c-reussi)', lisere: 'var(--c-reussi)', texte: ENCRE, epais: 2, va: true };
+    if (n.statut === 'acquise') return plein(n.reussite?.faveur ? 'var(--c-faveur)' : 'var(--c-reussi)');
+    if (auPAE(n.ue_num)) return plein(BLEU);
+    if (n.statut === 'en_attente') return { fond: BLANC, bord: FILET, lisere: ROUGE, texte: ENCRE };
+    if (n.statut === 'accessible' || n.statut === 'sous_reserve') return { fond: BLANC, bord: FILET, lisere: GRIS_LISERE, texte: GRIS_TEXTE };
+    return { fond: FOND_INDISPO, bord: FILET, lisere: GRIS_FLECHE, texte: 'rgb(var(--gris-500))' };
   };
   const R = 5, LIS = 4;
   const forme = (x, y) => `M${x},${y} h${L - R} a${R},${R} 0 0 1 ${R},${R} v${H - 2 * R} a${R},${R} 0 0 1 -${R},${R} h-${L - R} z`;
@@ -146,8 +151,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
       : (memeCol
       ? `M${x1},${y1} C${x1 + 12},${y1} ${x2 + 12},${y2} ${x2},${y2}`
       : `M${x1},${y1} C${x1 + 18},${y1} ${x2 - 18},${y2} ${x2},${y2}`);
-    const couleur = relief ? '#16406A' : fort ? '#2F6FB0' : '#CBD5E1';
-    return <path key={`${e.from}-${e.to}`} d={d} fill="none" stroke={couleur}
+    const couleur = relief ? MARINE : fort ? BLEU : GRIS_FLECHE;
+    return <path key={`${e.from}-${e.to}`} d={d} fill="none" style={{ stroke: couleur }}
       strokeWidth={relief ? 1.6 : fort ? 1.1 : 0.7} strokeDasharray={e.type === 'interne' ? '4 3' : undefined}
       opacity={survol != null && !relief ? 0.35 : 1}
       markerEnd={`url(#pc-${relief ? 'r' : fort ? 'f' : 'g'})`} />;
@@ -166,17 +171,17 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
       <svg viewBox={`0 0 ${plan.largeur} ${plan.hauteur}`} width={plan.largeur} height={plan.hauteur}
         role="img" aria-label="Schéma du parcours" style={{ maxWidth: '100%', height: 'auto' }}>
         <defs>
-          {[['f', '#2F6FB0'], ['g', '#CBD5E1'], ['r', '#16406A']].map(([k, c]) => (
+          {[['f', BLEU], ['g', GRIS_FLECHE], ['r', MARINE]].map(([k, c]) => (
             <marker key={k} id={`pc-${k}`} markerWidth="5" markerHeight="5" refX="4.5" refY="2.25" orient="auto">
-              <path d="M0,0 L0,4.5 L4.5,2.25 z" fill={c} />
+              <path d="M0,0 L0,4.5 L4.5,2.25 z" style={{ fill: c }} />
             </marker>
           ))}
         </defs>
         {plan.cols.map((c, i) => (
           <g key={c.cle}>
-            <text x={c.x + c.w / 2} y={11} textAnchor="middle" fontSize="10" fontWeight="700" fill="#64748b" letterSpacing=".4">{c.label.toUpperCase()}</text>
+            <text x={c.x + c.w / 2} y={11} textAnchor="middle" fontSize="10" fontWeight="700" letterSpacing=".4" style={{ fill: 'rgb(var(--gris-500))' }}>{c.label.toUpperCase()}</text>
             <rect x={c.x - 3} y={16} width={c.w + 6} height={3} rx={1.2}
-              style={{ fill: c.cle === 'EI' ? '#C9A227' : (couleurBloc(c.cle) || '#CBD5E1') }} />
+              style={{ fill: c.cle === 'EI' ? OR_EPREUVE : (couleurBloc(c.cle) || GRIS_FLECHE) }} />
           </g>
         ))}
         {plan.edges.filter(e => !(auPAE(e.from) || auPAE(e.to))).map(fleche)}
@@ -190,43 +195,43 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
               opacity={survol != null && !relief ? 0.45 : 1}>
               <title>{`${n.ue_num} ${n.ue_nom || ''}`}</title>
               <path d={forme(x, y)}
-                style={{ fill: t.fond, stroke: n.ue_num === survol ? '#16406A' : t.bord }}
+                style={{ fill: t.fond, stroke: n.ue_num === survol ? MARINE : t.bord }}
                 strokeWidth={n.ue_num === survol ? 1.8 : (t.epais || 1)} />
               <rect x={x} y={y} width={LIS} height={H} style={{ fill: t.lisere }} />
               <text x={x + (L + LIS) / 2} y={y + (t.va ? 12.5 : 15.5)} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
-              {t.va && <text x={x + (L + LIS) / 2} y={y + H - 3} textAnchor="middle" fontSize="7.5" fontWeight="700" style={{ fill: 'var(--c-reussi, #3E7D5E)' }}>{n.reussite?.sigle || 'VA'}</text>}
+              {t.va && <text x={x + (L + LIS) / 2} y={y + H - 3} textAnchor="middle" fontSize="7.5" fontWeight="700" style={{ fill: 'var(--c-reussi)' }}>{n.reussite?.sigle || 'VA'}</text>}
               {/* Repères : refusée une fois (rouge, haut gauche), déterminante
                   (marine, haut droit), report ou VA (gris, bas droit). */}
-              {n.refusee && <circle cx={x} cy={y} r={3.6} fill="#C0392B" stroke="#fff" strokeWidth={1} />}
-              {n.determinante && <circle cx={x + L} cy={y} r={3.6} fill="#16406A" stroke="#fff" strokeWidth={1} />}
-              {dispenses.has(n.ue_num) && !t.va && <circle cx={x + L - 6} cy={y + H - 6} r={3.6} fill={auPAE(n.ue_num) ? '#fff' : '#475569'} stroke="#16406A" strokeWidth={1} />}
+              {n.refusee && <circle cx={x} cy={y} r={3.6} strokeWidth={1} style={{ fill: ROUGE, stroke: '#fff' }} />}
+              {n.determinante && <circle cx={x + L} cy={y} r={3.6} strokeWidth={1} style={{ fill: MARINE, stroke: '#fff' }} />}
+              {dispenses.has(n.ue_num) && !t.va && <circle cx={x + L - 6} cy={y + H - 6} r={3.6} strokeWidth={1} style={{ fill: auPAE(n.ue_num) ? '#fff' : GRIS_TEXTE, stroke: MARINE }} />}
             </g>
           );
         })}
       </svg>
       <div className="min-h-[20px] mt-1 text-second text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
       <div className="text-xs text-slate-500 leading-[1.9] mt-1">
-        <Leg fond="var(--c-reussi, #3E7D5E)" lisere="color-mix(in srgb, var(--c-reussi, #3E7D5E) 62%, #000)" /> réussie ·
-        <Leg lisere="var(--c-reussi, #3E7D5E)" contour="var(--c-reussi, #3E7D5E)" /> acquise par VA ·
-        <Leg fond="var(--c-faveur, #6B46C1)" lisere="color-mix(in srgb, var(--c-faveur, #6B46C1) 62%, #000)" /> faveur ·
-        <Leg fond="var(--c-disponible, #2F6FB0)" lisere="color-mix(in srgb, var(--c-disponible, #2F6FB0) 62%, #000)" /> au PAE ·
-        <Leg fond="var(--c-disponible, #2F6FB0)" lisere="color-mix(in srgb, var(--c-disponible, #2F6FB0) 62%, #000)" point /> avec report ou VA ·
-        <Leg lisere="#94A3B8" /> accessible ·
-        <Leg fond="#F4F5F7" lisere="#C3C9D3" /> pas encore ·
-        <Leg lisere="var(--c-refuse, #9D4A38)" /> ajournée ·
-        <Leg lisere="#C9A227" /> épreuve ·
-        <Rep c="#C0392B" g /> refusée une fois ·
-        <Rep c="#16406A" /> déterminante<br />
+        <Leg fond="var(--c-reussi)" lisere="color-mix(in srgb, var(--c-reussi) 62%, #000)" /> réussie ·
+        <Leg lisere="var(--c-reussi)" contour="var(--c-reussi)" /> acquise par VA ·
+        <Leg fond="var(--c-faveur)" lisere="color-mix(in srgb, var(--c-faveur) 62%, #000)" /> faveur ·
+        <Leg fond={BLEU} lisere="color-mix(in srgb, var(--c-disponible) 62%, #000)" /> au PAE ·
+        <Leg fond={BLEU} lisere="color-mix(in srgb, var(--c-disponible) 62%, #000)" point /> avec report ou VA ·
+        <Leg lisere={GRIS_LISERE} /> accessible ·
+        <Leg fond={FOND_INDISPO} lisere={GRIS_FLECHE} /> pas encore ·
+        <Leg lisere={ROUGE} /> ajournée ·
+        <Leg lisere={OR_EPREUVE} /> épreuve ·
+        <Rep c={ROUGE} g /> refusée une fois ·
+        <Rep c={MARINE} /> déterminante<br />
         Flèche bleue pleine : elle touche le PAE de l'année · grise : le reste du parcours · pointillés : prérequis recommandé.
       </div>
     </div>
   );
 }
 
-function Leg({ fond = '#fff', lisere, point = false, contour = null }) {
+function Leg({ fond = BLANC, lisere, point = false, contour = null }) {
   return (
     <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: '0 3px 3px 0', background: fond,
-      border: contour ? `2px solid ${contour}` : '1px solid #D8DCE4', borderLeft: `3px solid ${lisere}` }}>
+      border: contour ? `2px solid ${contour}` : `1px solid ${FILET}`, borderLeft: `3px solid ${lisere}` }}>
       {point && <span className="absolute right-[2px] bottom-[2px] w-[4px] h-[4px] rounded-full bg-white" />}
     </span>
   );
@@ -234,7 +239,7 @@ function Leg({ fond = '#fff', lisere, point = false, contour = null }) {
 
 function Rep({ c, g = false }) {
   return (
-    <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, border: '1.5px solid #94A3B8', background: 'var(--blanc)' }}>
+    <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, border: `1.5px solid ${GRIS_LISERE}`, background: 'var(--blanc)' }}>
       <span className="absolute w-[7px] h-[7px] rounded-full" style={{ background: c, top: -4, [g ? 'left' : 'right']: -4, border: '1px solid #fff' }} />
     </span>
   );

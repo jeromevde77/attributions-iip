@@ -330,11 +330,11 @@ function BarrePinceaux({ pinceau, setPinceau, peutEtab, sections, peutSections, 
           className={pinceau?.cle === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{x.mot}</button>)}
       </div>
       {pinceau?.cle === 'section' && (
-        <select className="controle border border-slate-300 rounded-champ text-sm flex-none" value={pinceau.section || ''} onChange={e => setPinceau({ ...pinceau, section: e.target.value })} aria-label="Section">
+        <select className="controle text-sm flex-none" value={pinceau.section || ''} onChange={e => setPinceau({ ...pinceau, section: e.target.value })} aria-label="Section">
           {peutSections.filter(s => sections.some(x => x.section === s)).map(s => <option key={s} value={s}>{s}</option>)}
         </select>)}
       {pinceau && valeurs.length > 0 && (
-        <select className="controle border border-slate-300 rounded-champ text-sm flex-none" value={pinceau.valeur || ''} onChange={e => setPinceau({ ...pinceau, valeur: e.target.value })} aria-label="Valeur">
+        <select className="controle text-sm flex-none" value={pinceau.valeur || ''} onChange={e => setPinceau({ ...pinceau, valeur: e.target.value })} aria-label="Valeur">
           {valeurs.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>)}
       {pinceau && <span className="text-mention text-slate-500 whitespace-nowrap">{occupe ? 'Enregistrement…' : debut ? `Depuis le ${fmt(debut)} : touchez la dernière semaine (la même pour une seule).` : `Touchez la première semaine sur la rangée « ${PINCEAUX[pinceau.cle].rangee === 'fermeture' ? 'École' : PINCEAUX[pinceau.cle].rangee === 'moments' ? 'Moments' : PINCEAUX[pinceau.cle].rangee === 'section' ? pinceau.section : PINCEAUX[pinceau.cle].mot} ».`}</span>}
@@ -448,38 +448,38 @@ export function SaisieManuelle({ ag, annee, peutEtab, peutSections, onFermer, on
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="space-y-3 text-sm min-w-0">
           <label className="block"><span className="text-second text-slate-600">Quoi</span>
-            <select className="controle border border-slate-300 rounded-champ w-full mt-1" value={quoi} onChange={e => setQuoi(e.target.value)}>
+            <select className="controle w-full mt-1" value={quoi} onChange={e => setQuoi(e.target.value)}>
               {QUOI.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
           {valeurs && valeurs.length > 0 && <label className="block"><span className="text-second text-slate-600">{quoi === 'moment' ? 'Nature' : 'Valeur'}</span>
-            <select className="controle border border-slate-300 rounded-champ w-full mt-1" value={valeur || ''} onChange={e => setValeur(e.target.value)}>
+            <select className="controle w-full mt-1" value={valeur || ''} onChange={e => setValeur(e.target.value)}>
               {valeurs.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>}
           {quoi === 'moment' && <>
             <div className="grid grid-cols-2 gap-2">
               <label className="block"><span className="text-second text-slate-600">Domaine</span>
-                <select className="controle border border-slate-300 rounded-champ w-full mt-1" value={domaine} onChange={e => setDomaine(e.target.value)}>
+                <select className="controle w-full mt-1" value={domaine} onChange={e => setDomaine(e.target.value)}>
                   <option value="">—</option>{Object.entries(ag.domaines || {}).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
               <label className="block"><span className="text-second text-slate-600">Heure (facultative)</span>
-                <span className="flex items-center gap-1 mt-1"><input type="time" className="controle border border-slate-300 rounded-champ w-full" value={heure} onChange={e => setHeure(e.target.value)} />
-                  <input type="time" className="controle border border-slate-300 rounded-champ w-full" value={heureFin} onChange={e => setHeureFin(e.target.value)} /></span></label>
+                <span className="flex items-center gap-1 mt-1"><input type="time" className="controle w-full" value={heure} onChange={e => setHeure(e.target.value)} />
+                  <input type="time" className="controle w-full" value={heureFin} onChange={e => setHeureFin(e.target.value)} /></span></label>
             </div>
             <div><span className="text-second text-slate-600">Pour qui (rien coché : tout le monde)</span>
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">{Object.entries(ag.pour || {}).map(([k, l]) => (
                 <label key={k} className="inline-flex items-center gap-1.5 text-second"><input type="checkbox" checked={pour.includes(k)} onChange={e => setPour(p => (e.target.checked ? [...p, k] : p.filter(x => x !== k)))} />{l}</label>))}</div></div>
             <label className="block"><span className="text-second text-slate-600">Répéter</span>
               <span className="flex flex-wrap items-center gap-1 mt-1">
-                <select className="controle border border-slate-300 rounded-champ" value={repeter} onChange={e => setRepeter(e.target.value)}>
+                <select className="controle" value={repeter} onChange={e => setRepeter(e.target.value)}>
                   <option value="">Non, une fois</option><option value="semaine">Chaque semaine</option><option value="quinzaine">Une semaine sur deux</option><option value="mois">Chaque mois</option></select>
-                {repeter === 'mois' && <select className="controle border border-slate-300 rounded-champ" value={rang} onChange={e => setRang(e.target.value)}>
+                {repeter === 'mois' && <select className="controle" value={rang} onChange={e => setRang(e.target.value)}>
                   {[[1, '1er'], [2, '2e'], [3, '3e'], [4, '4e'], [-1, 'dernier']].map(([k, l]) => <option key={k} value={k}>le {l} {du ? ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'][(new Date(`${du}T00:00:00Z`).getUTCDay() + 6) % 7] : 'jour'} du mois</option>)}</select>}
-                {repeter && <>jusqu’au <input type="date" className="controle border border-slate-300 rounded-champ" value={jusquau} onChange={e => setJusquau(e.target.value)} /></>}
+                {repeter && <>jusqu’au <input type="date" className="controle" value={jusquau} onChange={e => setJusquau(e.target.value)} /></>}
               </span>
               {repeter && <span className="text-mention text-slate-500">Le jour de la semaine est celui du premier jour choisi ; les semaines où l’école est fermée et les jours fermés sont sautés.</span>}</label>
           </>}
           {quoi === 'section' && <label className="block"><span className="text-second text-slate-600">Section</span>
-            <select className="controle border border-slate-300 rounded-champ w-full mt-1" value={section} onChange={e => setSection(e.target.value)}>
+            <select className="controle w-full mt-1" value={section} onChange={e => setSection(e.target.value)}>
               {peutSections.map(s => <option key={s} value={s}>{s}</option>)}</select></label>}
           {besoinTitre && <label className="block"><span className="text-second text-slate-600">Nom</span>
-            <input className="controle border border-slate-300 rounded-champ w-full mt-1" value={titre} onChange={e => setTitre(e.target.value)}
+            <input className="controle w-full mt-1" value={titre} onChange={e => setTitre(e.target.value)}
               placeholder={quoi === 'jour' ? 'Mardi gras' : quoi === 'fermeture' ? 'Vacances d’hiver' : 'Remise des diplômes'} /></label>}
           <p className="text-second text-slate-500 m-0">{quoi === 'jour' ? 'Un jour fermé par l’école compte comme presté pour le personnel ; la trace de qui l’a posé reste au relevé.'
             : quoi === 'fermeture' ? 'Fermée : congé pour tout le personnel. En partie : chacun choisit, la direction valide.'
@@ -502,7 +502,7 @@ function MiniCalendrier({ mois, setMois, du, au, onJour, ag }) {
   const fermes = new Set(ag.jours_fermes.map(j => j.date));
   const ferm = new Map(ag.semaines.map((l, i) => [l, ag.fermetures[i]]));
   return (
-    <div className="border rounded-carte p-2 self-start" style={{ borderColor: 'var(--c-filet, #E2E8F0)' }}>
+    <div className="carte p-2 self-start">
       <div className="flex items-center justify-between mb-1">
         <button type="button" className="bouton px-1.5 py-0.5" onClick={() => changer(-1)} aria-label="Mois précédent"><IconChevronLeft size={14} /></button>
         <span className="text-sm font-semibold text-iip-texte">{MOIS_LONG[m - 1]} {y}</span>

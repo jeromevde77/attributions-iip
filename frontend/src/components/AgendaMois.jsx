@@ -26,7 +26,7 @@ export default function AgendaMois({ annee, ag, recharger, onChange = null }) {
   const [zone, setZone] = useState(null);
   const glisse = useRef({ actif: false, a: null, bouge: false });
   if (!ag) return <div className="px-4 py-3 text-sm text-slate-500">Chargement de l’agenda…</div>;
-  if (ag.erreur) return <div className="px-4 py-3 text-sm text-red-700">{ag.erreur}</div>;
+  if (ag.erreur) return <div className="px-4 py-3 text-sm" style={{ color: 'var(--c-refuse)' }}>{ag.erreur}</div>;
   const peutEtab = ag.peut?.etablissement;
   // Du mois du premier jour de l'année (mi-août) au mois du dernier (mi-août suivant) ; les jours hors de l'année sont pâles.
   const premier = ag.semaines[0], dernier = plus(ag.semaines[ag.semaines.length - 1], 6);
@@ -74,7 +74,7 @@ export default function AgendaMois({ annee, ag, recharger, onChange = null }) {
         <div className="flex flex-nowrap gap-1 flex-none">
           {Object.entries(ag.natures || {}).map(([k, l]) => { const off = masquees.includes(k);
             return <button key={k} type="button" onClick={() => setMasquees(x => (off ? x.filter(y => y !== k) : [...x, k]))} title={off ? 'Montrer' : 'Masquer'}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-champ text-second border ${off ? 'text-slate-400 line-through' : 'text-iip-texte'}`} style={{ borderColor: 'var(--c-filet, #E2E8F0)' }}>
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-champ text-second border ${off ? 'text-slate-400 line-through' : 'text-iip-texte'}`} style={{ borderColor: 'var(--c-filet)' }}>
               <span className="inline-block w-2.5 h-2.5 rounded-[2px]" style={{ background: COULEUR_NATURE[k], opacity: off ? 0.3 : 1 }} />{l}</button>; })}
         </div>
         {peutEtab && <span className="text-mention text-slate-500 whitespace-nowrap">Glissez sur des jours (ou touchez un jour) pour y poser un élément.</span>}
@@ -94,7 +94,7 @@ export default function AgendaMois({ annee, ag, recharger, onChange = null }) {
               return { e, a, b, k };
             });
             return (
-              <div key={mo} className="border-t py-1" style={{ borderColor: 'var(--c-filet, #E2E8F0)' }}>
+              <div key={mo} className="border-t py-1" style={{ borderColor: 'var(--c-filet)' }}>
                 {places.length > 0 && (
                   <div className="grid gap-y-0.5 mb-0.5" style={{ gridTemplateColumns: COLS, gridTemplateRows: `repeat(${couloirs.length}, 1.1rem)` }}>
                     {places.map(({ e, a, b, k }, i) => (
@@ -113,7 +113,7 @@ export default function AgendaMois({ annee, ag, recharger, onChange = null }) {
                       <div key={d} data-jour={d} 
                         title={[ferie, f ? `École ${f.fermeture === 'totale' ? 'fermée' : 'en partie fermée'} — ${f.libelle}` : null].filter(Boolean).join(' · ')}
                         className={`h-9 mx-px rounded-[3px] flex flex-col items-center justify-center leading-none ${peutEtab ? 'cursor-crosshair' : ''} ${dansZone(d) ? 'ring-2 ring-[var(--c-accent)]' : ''} ${hors ? 'opacity-30' : ''}`}
-                        style={{ background: f?.fermeture === 'totale' ? 'color-mix(in srgb, var(--c-texte) 14%, transparent)' : f?.fermeture === 'partielle' ? 'color-mix(in srgb, var(--c-texte) 7%, transparent)' : we ? HACHURE : 'color-mix(in srgb, var(--c-filet, #E2E8F0) 45%, transparent)' }}>
+                        style={{ background: f?.fermeture === 'totale' ? 'color-mix(in srgb, var(--c-texte) 14%, transparent)' : f?.fermeture === 'partielle' ? 'color-mix(in srgb, var(--c-texte) 7%, transparent)' : we ? HACHURE : 'color-mix(in srgb, var(--c-filet) 45%, transparent)' }}>
                         <span className="text-[9px] text-slate-400">{JS[w]}</span>
                         <span className={`text-second tabular-nums ${ferie ? 'text-[var(--c-refuse)] font-semibold' : 'text-iip-texte'}`}>{Number(d.slice(8))}</span>
                       </div>);
