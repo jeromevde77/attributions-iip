@@ -4127,8 +4127,8 @@ export default function Etudiants() {
                       vert quand le PAE est validé dans la revue, gris sinon ; un
                       clic ouvre la revue — la fenêtre « œil » — sur cet étudiant.
                       La fiche, elle, reste la vue du parcours et des notes. */}
-                  <td className="px-2 py-1" onClick={ev => ev.stopPropagation()}>
-                    <button type="button" className="p-0.5 rounded hover:bg-slate-100"
+                  <td className="px-2 py-1 whitespace-nowrap" onClick={ev => ev.stopPropagation()}>
+                    <button type="button" className="p-0.5 rounded hover:bg-slate-100 align-middle"
                       onClick={() => setRevuePAE([{ id: e.id, nom: e.nom, prenom: e.prenom,
                         section: e.section_rattachement || null, niveau: e.niveau || null }])}
                       title={e.pae_valide ? `PAE validé le ${quandLocal(e.pae_valide.le)} par ${e.pae_valide.par || '—'} — ouvrir la revue`
@@ -4137,7 +4137,7 @@ export default function Etudiants() {
                     </button>
                     {/* L'ŒIL DANS LA LISTE (3.5.174, Charles : « plus rapide ») : voir son espace étudiant — la direction. */}
                     {passeRole('admin') && (
-                      <button type="button" className="p-0.5 ml-1 rounded hover:bg-slate-100 text-iip-blue" onClick={() => voirEspaceEtudiant(e.id)}
+                      <button type="button" className="p-0.5 ml-1 rounded hover:bg-slate-100 text-iip-blue align-middle" onClick={() => voirEspaceEtudiant(e.id)}
                         title="Voir son espace étudiant (lecture seule)" aria-label="Voir son espace étudiant"><IconEye size={15} /></button>)}
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">

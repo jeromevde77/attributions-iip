@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
+import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope } from '@tabler/icons-react';
@@ -1166,19 +1167,18 @@ function Espace() {
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
       <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}</span></div>
-      <nav aria-label="Mon espace" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto md:sticky md:top-0 md:h-screen">
-        <div className="hidden md:block px-2 pb-4"><LogoLucie hauteur={30} className="" /><div className="text-second text-slate-500 pl-1">espace étudiant · Institut Ilya Prigogine</div></div>
-        {FACES.map(([k, l, I]) => (
-          <button key={k} type="button" onClick={() => setFace(k)} aria-current={face === k ? 'page' : undefined}
-            className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left whitespace-nowrap"
-            style={face === k ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
-            <I size={18} /> <span className="md:hidden">{k === 'messages' ? l : COURT[k] || l}</span><span className="hidden md:inline">{l}</span>
-          </button>))}
+      {/* LE MÊME RAIL QUE L'ESPACE ENSEIGNANT (3.5.184) : étroit, icônes et bulles, le logo seul ; les onglets du bas (aide,
+          compte) au pied, comme chez les enseignants. */}
+      <nav aria-label="Mon espace" className="md:w-14 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:px-1.5 md:py-4 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen">
+        <div className="hidden md:flex justify-center pb-4"><LogoLucie hauteur={26} sansTexte className="" /></div>
+        {FACES.filter(([k]) => !['aide', 'compte'].includes(k)).map(([k, l, I]) => (
+          <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (k === 'messages' ? l : COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
         <div className="hidden md:block flex-1" />
-        <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
-          <span className="hidden md:block font-semibold text-sm">{nom}</span>
-          {d?.etudiant?.matricule && <span className="hidden md:block text-second text-slate-500">{d.etudiant.matricule}</span>}
-          <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0" onClick={quitter}><IconLogout size={15} /> Se déconnecter</button>
+        {FACES.filter(([k]) => ['aide', 'compte'].includes(k)).map(([k, l, I]) => (
+          <BoutonRail key={k} etroit f={{ k, l, I }} actif={face === k} onClick={() => setFace(k)} />))}
+        <div className="md:border-t border-slate-200 md:pt-3 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
+          <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0 md:justify-center" onClick={quitter}
+            title="Se déconnecter"><IconLogout size={15} /><span className="md:hidden"> Se déconnecter</span></button>
         </div>
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">
@@ -1187,7 +1187,7 @@ function Espace() {
         {d?.apercu && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</div>}
         {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
-        <h1 className="m-0 text-2xl font-semibold text-iip-texte">{(FACES.find(([k]) => k === face) || [])[1] || 'Mon espace'}</h1>
+        <h1 className="titre-ecran">{(FACES.find(([k]) => k === face) || [])[1] || 'Mon espace'}{nom ? <span className="compte">{nom}</span> : null}</h1>
 
         {d && face === 'resultats' && (d.resultats.length ? d.resultats.map(a => (
           <section key={a.annee} className="bg-white border border-slate-200 rounded-carte overflow-hidden">

@@ -681,6 +681,37 @@ r.get('/deliberations', authRequired, (req, res) => {
   res.json({ annee, seances });
 });
 
+/* TOUT CE QUI TOUCHE À L'ÉVALUATION DE MES UNITÉS (3.5.181, Charles : « compléter avec date d'évaluation(s), délibérations, visite
+   des copies, seconde session… toutes les données liées à l'évaluation »). Par unité : ses cours (les miens marqués), l'épreuve
+   de chaque session (date, heure, local, adresse) et sa visite des copies — calendrier des sessions (`epreuve_session1`,
+   `deliberation_session2`) ; les séances de délibération (par organisation), leur visite des copies, la seconde session annoncée
+   (`session2_*`), la publication, la clôture ; et le dernier délai d'encodage des points (J-2 de la séance). Lecture seule. */
+r.get('/evaluations', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const profId = profDe(req);
+  const attrs = profId ? attributionsDe(profId, annee) : [];
+  const ues = [...new Set(attrs.map(a => Number(a.ue_num)).filter(Boolean))].sort((a, b) => a - b);
+  const miens = new Set(attrs.map(a => String(a.code_cours || '')).filter(Boolean));
+  const lire = (sql, ...p) => { try { return db.prepare(sql).all(...p); } catch { return []; } };
+  const moinsJours = (d, n) => { if (!d) return null; const x = new Date(`${String(d).slice(0, 10)}T12:00:00Z`); x.setUTCDate(x.getUTCDate() - n); return x.toISOString().slice(0, 10); };
+  const out = ues.map(u => {
+    const nom = db.prepare('SELECT MAX(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(u, annee)?.n || null;
+    const cours = lire(`SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND UPPER(COALESCE(ct_pp, '')) <> 'Z' ORDER BY cours_code`, u, annee)
+      .map(c => ({ ...c, mien: miens.has(c.cours_code) }));
+    const ep = k => lire(`SELECT cours_code, ${k}_date date, ${k}_heure heure, ${k}_local local, ${k}_adresse adresse,
+        ${k}_visite_date visite_date, ${k}_visite_heure visite_heure, ${k}_visite_local visite_local
+      FROM ${k === 's1' ? 'epreuve_session1' : 'deliberation_session2'} WHERE ue_num = ? AND annee_scolaire = ?`, u, annee)
+      .map(e => ({ ...e, cours_code: e.cours_code || null }));
+    const seances = lire(`SELECT COALESCE(session, 1) session, COALESCE(num_organisation, 0) org, date_seance date, heure_seance heure,
+        visite_date, visite_heure, visite_local, visite_mention, session2_date, session2_heure, session2_local, session2_adresse,
+        publie_le, COALESCE(cloturee, 0) close
+      FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? ORDER BY session, org`, u, annee)
+      .map(x => ({ ...x, close: !!x.close, delai_encodage: x.date ? moinsJours(x.date, 2) : null }));
+    return { ue_num: u, ue_nom: nom, cours, epreuves: { 1: ep('s1'), 2: ep('s2') }, seances };
+  });
+  res.json({ annee, ues: out });
+});
+
 /* MES DATES (3.5.142) : examens et délibérations de mes cours et unités, et l'agenda de l'école, dans l'ordre du temps. */
 r.get('/dates', authRequired, async (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);

@@ -60,50 +60,74 @@ export default function DatesDeliberation({ annee = getAnnee() }) {
     </div>);
 }
 
-/* ÉVALUATIONS ET DÉLIBÉRATIONS (3.5.176, Charles : « ceci doit devenir : Évaluations et délibérations »). Par unité, une colonne
-   par session : les épreuves de MES cours (date, heure, local — calendrier des sessions) puis la délibération. Lu de
-   `GET /api/mes-cours/dates` (épreuves) et `/deliberations` (séances, organisation comprise). */
+/* ÉVALUATIONS ET DÉLIBÉRATIONS (3.5.176, complété en 3.5.181, Charles : « date d'évaluation(s), délibérations, visite des copies,
+   seconde session… toutes les données liées à l'évaluation »). Une carte par unité, une colonne par session ; dans chacune, dans
+   l'ordre du temps : les épreuves (mes cours en gras), la visite des copies, le dernier délai d'encodage des points, la
+   délibération, la publication. Lu de `GET /api/mes-cours/evaluations`. */
+const jour = d => {
+  if (!d) return null;
+  const [a, m, j] = String(d).slice(0, 10).split('-').map(Number);
+  return `${JOURS[new Date(a, m - 1, j).getDay()]} ${String(j).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a}`;
+};
+const hh = h => (h ? ` à ${String(h).slice(0, 5)}` : '');
+function Ligne({ libelle, quand: q, detail, fort = false, vide = 'date à poser' }) {
+  return (
+    <div className="flex gap-2 py-0.5">
+      <span className="text-mention font-semibold uppercase tracking-wide text-slate-500 w-32 shrink-0 pt-0.5">{libelle}</span>
+      <span className={`min-w-0 ${fort ? 'font-semibold text-iip-texte' : ''}`}>
+        {q ? <span className="tabular-nums">{q}</span> : <span className="text-slate-400 font-normal">{vide}</span>}
+        {detail ? <span className="text-slate-500 font-normal"> · {detail}</span> : null}
+      </span>
+    </div>);
+}
 export function EvaluationsDeliberations({ annee = getAnnee() }) {
-  const delibs = useDatesDeliberation(annee);
-  const [items, setItems] = useState(null);
+  const [d, setD] = useState(null);
   useEffect(() => {
-    fetch(`/api/mes-cours/dates?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : { items: [] })).then(j => setItems((j.items || []).filter(x => x.type === 'examen'))).catch(() => setItems([]));
+    fetch(`/api/mes-cours/evaluations?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : { ues: [] })).then(j => setD(j.ues || [])).catch(() => setD([]));
   }, [annee]);
-  if (!delibs || !items) return <p className="text-slate-500">Chargement…</p>;
-  const noms = new Map(delibs.map(s => [s.ue_num, s.ue_nom]));
-  const ues = [...new Set([...delibs.map(s => s.ue_num), ...items.map(x => x.ue_num)])].sort((a, b) => a - b);
-  if (!ues.length) return <p className="text-slate-500">Aucune épreuve ni délibération pour vos unités en {annee}.</p>;
-  const cellule = (u, session) => {
-    const ep = items.filter(x => x.ue_num === u && x.session === session);
-    const de = delibs.filter(s => s.ue_num === u && s.session === session);
+  if (!d) return <p className="text-slate-500">Chargement…</p>;
+  if (!d.length) return <p className="text-slate-500">Aucune unité attribuée en {annee}.</p>;
+  const session = (u, n) => {
+    const eps = u.epreuves?.[n] || [];
+    const seances = (u.seances || []).filter(s => s.session === n);
+    const nomCours = c => u.cours.find(x => x.cours_code === c);
+    const lignesEp = eps.length ? eps : [{ cours_code: null }];
     return (
-      <div className="space-y-1">
-        {ep.map(x => (
-          <div key={x.uid} className="flex gap-2">
-            <span className="text-mention font-semibold uppercase tracking-wide text-slate-500 w-20 shrink-0 pt-0.5">Épreuve</span>
-            <span><span className="text-slate-700">{x.cours_code ? x.cours_code : 'toute l’unité'}</span> · {quand(x)}{x.lieu ? <span className="text-slate-500"> · {x.lieu}</span> : null}</span>
-          </div>))}
-        {(de.length ? de : [null]).map((s, i) => (
-          <div key={`d${i}`} className="flex gap-2">
-            <span className="text-mention font-semibold uppercase tracking-wide text-slate-500 w-20 shrink-0 pt-0.5">Délibération</span>
-            <span>{s?.org ? <span className="text-slate-500">org. {s.org} · </span> : null}{quand(s)}</span>
+      <div className="space-y-2">
+        <div>
+          {lignesEp.map((e, i) => {
+            const c = e.cours_code ? nomCours(e.cours_code) : null;
+            const qui = e.cours_code ? `${e.cours_code}${c?.cours_nom ? ` ${c.cours_nom}` : ''}` : 'toute l’unité';
+            return (
+              <div key={`e${i}`}>
+                <Ligne libelle={eps.length ? 'Épreuve' : 'Épreuve'} fort={!!c?.mien}
+                  quand={e.date ? `${jour(e.date)}${hh(e.heure)}` : null} detail={[eps.length ? qui : null, e.local, e.adresse].filter(Boolean).join(' · ') || null} />
+                {(e.visite_date || eps.length > 0) && <Ligne libelle="Visite des copies" quand={e.visite_date ? `${jour(e.visite_date)}${hh(e.visite_heure)}` : null} detail={e.visite_local || null} />}
+              </div>);
+          })}
+        </div>
+        {(seances.length ? seances : [null]).map((s, i) => (
+          <div key={`s${i}`} className={seances.length > 1 ? 'border-t border-slate-100 pt-1' : ''}>
+            {s?.org ? <div className="text-second text-slate-500">Organisation {s.org}</div> : null}
+            <Ligne libelle="Encodage des points" quand={s?.delai_encodage ? `jusqu’au ${jour(s.delai_encodage)}` : null} vide="suit la date de délibération" />
+            <Ligne libelle="Délibération" fort quand={s?.date ? `${jour(s.date)}${hh(s.heure)}` : null} detail={s?.close ? 'close' : null} />
+            {(s?.visite_date || s?.visite_mention) && <Ligne libelle="Visite des copies" quand={s.visite_date ? `${jour(s.visite_date)}${hh(s.visite_heure)}` : null} detail={[s.visite_local, s.visite_mention].filter(Boolean).join(' · ') || null} />}
+            {s?.publie_le && <Ligne libelle="Publication" quand={jour(s.publie_le)} />}
+            {n === 1 && s?.session2_date && <Ligne libelle="2e session prévue" quand={`${jour(s.session2_date)}${hh(s.session2_heure)}`} detail={[s.session2_local, s.session2_adresse].filter(Boolean).join(' · ') || null} />}
           </div>))}
       </div>);
   };
   return (
-    <div className="carte overflow-hidden">
-      <EnteteCarte icone={IconGavel} titre="Évaluations et délibérations" sous={`Les épreuves de mes cours et les délibérations de mes unités, ${annee}`} />
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr><th className="px-3 py-1.5 text-left">Unité</th><th className="px-3 py-1.5 text-left">1re session</th><th className="px-3 py-1.5 text-left">2e session</th></tr></thead>
-          <tbody>{ues.map(u => (
-            <tr key={u} className="border-t border-slate-100 align-top">
-              <td className="px-3 py-2"><b>UE {u}</b>{noms.get(u) ? <div className="text-slate-500 text-second">{noms.get(u)}</div> : null}</td>
-              <td className="px-3 py-2">{cellule(u, 1)}</td>
-              <td className="px-3 py-2">{cellule(u, 2)}</td>
-            </tr>))}</tbody>
-        </table>
-      </div>
+    <div className="space-y-3">
+      {d.map(u => (
+        <section key={u.ue_num} className="carte overflow-hidden">
+          <EnteteCarte icone={IconGavel} titre={`UE ${u.ue_num}${u.ue_nom ? ` — ${u.ue_nom}` : ''}`}
+            sous={u.cours.length ? u.cours.map(c => `${c.cours_code}${c.mien ? ' (le mien)' : ''}`).join(' · ') : null} />
+          <div className="grid md:grid-cols-2 gap-x-6 gap-y-3 px-4 py-3 text-sm">
+            <div><div className="intertitre mb-1">1re session</div>{session(u, 1)}</div>
+            <div><div className="intertitre mb-1">2e session</div>{session(u, 2)}</div>
+          </div>
+        </section>))}
     </div>);
 }

@@ -10,6 +10,7 @@ import { useDatesDeliberation, LigneDeliberation, EvaluationsDeliberations } fro
 import { preparerLucie } from './relais.js';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import TrainUE from '../components/TrainUE.jsx';
+import { BoutonRail as BoutonFace } from '../components/RailEspace.jsx';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
 const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
@@ -921,6 +922,86 @@ function MesDates({ moi }) {
     </div>);
 }
 
+/* LA LIGNE DU TEMPS DE L'ÉCOLE (3.5.182, Charles : « une vision sur l'agenda — timeline — de l'école ; important ; avec les
+   journées portes ouvertes, les événements, les inscriptions, les salons… »). L'année en largeur (de la mi-août à la mi-août), une
+   rangée par sorte d'événement, chaque événement à sa place et à sa durée ; aujourd'hui en trait rouge ; au survol, le détail.
+   Sous la ligne, la liste des événements à venir. Les mêmes données que « Mes dates » (les moments de l'agenda de l'école qui
+   concernent les enseignants, les congés, les fériés, mes examens et délibérations). */
+const RANGEES_ECOLE = [
+  ['Portes ouvertes', m => m.genre === 'Portes ouvertes', '#7C3AED'],
+  ['Inscriptions', m => m.genre === 'Inscriptions' || m.genre === 'Rentrée', '#2F6FB0'],
+  ['Salons', m => m.genre === 'Salon, SIEP', '#0E7490'],
+  ['Examens', m => m.type === 'examen' || m.genre === 'Examens', '#B45309'],
+  ['Délibérations', m => m.type === 'deliberation' || m.genre === 'Délibérations', '#19537E'],
+  ['Cérémonies', m => m.genre === 'Remise des diplômes' || m.genre === 'Cérémonie', '#C9A227'],
+  ['Formations, réunions', m => m.type === 'formation' || ['Journée de formation', 'Réunion', 'Conseil', 'Qualité', 'Échéance, document'].includes(m.genre), '#3E7D5E'],
+  ['Congés', m => ['conge', 'ferme', 'ferie'].includes(m.type), '#94A3B8'],
+  ['Autres', () => true, '#64748B'],
+];
+function TimelineEcole({ moi, annee }) {
+  const [d, setD] = useState(null);
+  const [vu, setVu] = useState(null);
+  useEffect(() => {
+    fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
+      .then(setD).catch(() => setD({ items: [] }));
+  }, [annee]);
+  if (!d) return <p className="text-slate-500">Chargement…</p>;
+  const a0 = Number(String(d.annee || annee || moi.aujourdhui).slice(0, 4));
+  const debut = new Date(Date.UTC(a0, 7, 15)), fin = new Date(Date.UTC(a0 + 1, 7, 15));
+  const jours = (fin - debut) / 864e5;
+  const pos = iso => Math.max(0, Math.min(100, ((new Date(`${String(iso).slice(0, 10)}T00:00:00Z`) - debut) / 864e5 / jours) * 100));
+  const rangees = RANGEES_ECOLE.map(([l, f, c]) => ({ l, f, c, items: [] }));
+  for (const x of d.items || []) { const r = rangees.find(z => z.f(x)); if (r) r.items.push(x); }
+  const visibles = rangees.filter(r => r.items.length);
+  const mois = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(a0, 8 + i, 1)));
+  const auj = moi.aujourdhui;
+  const dateCourte = iso => { const [a, m, j] = String(iso).slice(0, 10).split('-').map(Number); return `${j} ${MOIS_FR[m - 1].slice(0, 4)}.`; };
+  const aVenir = (d.items || []).filter(x => (x.au || x.date) >= auj && !['ferie'].includes(x.type)).slice(0, 40);
+  return (
+    <div className="space-y-4">
+      <section className="bg-white border border-slate-200 rounded-carte p-4 overflow-x-auto">
+        <div className="min-w-[760px]">
+          <div className="relative h-6 ml-40 border-b border-slate-200">
+            {mois.map(m => <span key={m.toISOString()} className="absolute top-0 text-mention text-slate-500 first-letter:uppercase" style={{ left: `${pos(m.toISOString())}%` }}>{MOIS_FR[m.getUTCMonth()].slice(0, 4)}.</span>)}
+          </div>
+          {visibles.map(r => (
+            <div key={r.l} className="flex items-center border-b border-slate-100 last:border-0">
+              <div className="w-40 shrink-0 pr-3 py-2 text-second font-semibold text-iip-texte flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.c }} />{r.l}</div>
+              <div className="relative flex-1 h-9">
+                {mois.map(m => <span key={m.toISOString()} className="absolute top-0 bottom-0 w-px bg-slate-100" style={{ left: `${pos(m.toISOString())}%` }} />)}
+                {auj >= debut.toISOString().slice(0, 10) && auj < fin.toISOString().slice(0, 10) && <span className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: `${pos(auj)}%`, background: 'var(--c-refuse, #9D4A38)' }} />}
+                {r.items.map((x, i) => {
+                  const g = pos(x.date), dr = pos(x.au || x.date);
+                  return (
+                    <button key={i} type="button" onMouseEnter={() => setVu(x)} onMouseLeave={() => setVu(null)} onClick={() => setVu(x)}
+                      className="absolute top-1.5 h-6 rounded-md hover:ring-2 hover:ring-offset-1"
+                      style={{ left: `${g}%`, width: `max(8px, ${dr - g}%)`, background: r.c, opacity: (x.au || x.date) < auj ? 0.45 : 0.9, '--tw-ring-color': r.c }}
+                      aria-label={`${x.titre} — ${dateCourte(x.date)}`} />);
+                })}
+              </div>
+            </div>))}
+          {!visibles.length && <p className="text-slate-500 m-0">Rien dans l’agenda de l’école pour cette année.</p>}
+        </div>
+        <div className="mt-3 min-h-[2.5rem] text-sm">
+          {vu ? <><b>{vu.titre}</b> <span className="text-slate-600">· {dateCourte(vu.date)}{vu.au && vu.au !== vu.date ? ` → ${dateCourte(vu.au)}` : ''}{vu.heure ? ` · ${String(vu.heure).slice(0, 5)}` : ''}{vu.lieu ? ` · ${vu.lieu}` : ''}</span></>
+            : <span className="text-slate-400">Survolez (ou touchez) un événement pour son détail. Le trait rouge, c’est aujourd’hui.</span>}
+        </div>
+      </section>
+      <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+        <div className="entete-carte px-4 py-2 font-semibold text-iip-texte">À venir</div>
+        {aVenir.map((x, i) => { const r = rangees.find(z => z.f(x));
+          return (
+            <div key={i} className="flex items-start gap-3 px-4 py-2 border-t border-slate-100 text-sm">
+              <span className="w-32 shrink-0 tabular-nums"><b>{dateCourte(x.date)}</b>{x.au && x.au !== x.date ? <span className="text-slate-500"> → {dateCourte(x.au)}</span> : null}</span>
+              <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: r?.c || '#64748B' }}>{r?.l || 'École'}</span>
+              <span className="flex-1 min-w-0">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</span>
+            </div>); })}
+        {!aVenir.length && <p className="px-4 py-3 m-0 text-slate-500">Rien à venir.</p>}
+      </section>
+    </div>);
+}
+
 /* MON AGENDA : la semaine (avec les journées de l'école), et deux portes — les visites de stage, l'horaire dans le téléphone. */
 function MonAgenda({ moi, onPresences }) {
   const [ouvert, setOuvert] = useState(null);
@@ -943,7 +1024,9 @@ function MonAgenda({ moi, onPresences }) {
         // LES DÉLIBÉRATIONS DE MES UNITÉS (3.5.160, Charles : « ceci doit aller dans agenda ») : le tableau quitte Mes unités.
         : vue === 'deliberations' ? <EvaluationsDeliberations annee={annee || undefined} />
         : vue === 'semaine' ? <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
-        : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
+        : <div className="space-y-5"><TimelineEcole moi={moi} annee={annee} />
+            <div><div className="intertitre mb-2">Semaine par semaine</div>
+              <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense></div></div>}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
         {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
@@ -969,27 +1052,7 @@ function LEcole() {
     </div>);
 }
 
-/* LE RAIL DE L'ESPACE, COMME CELUI DE LUCIE (3.5.173, Charles : « je veux savoir où je suis, l'icône en surbrillance, et une
-   info-bulle immédiate comme dans Lucie »). L'entrée ouverte : fond du menu actif, icône et texte au principal, filet à gauche.
-   Rail étroit : le nom dans la bulle marine de Lucie, au survol, sans délai. */
-function BoutonFace({ f, actif, onClick, etroit = false }) {
-  /* LES MESURES DU RAIL DE LUCIE (3.5.178, Charles : « taille des icônes un peu grande, fais comme dans Lucie, tout ») : rail
-     étroit = cases carrées de 36 px, icône 19 trait 1,8, grise ; l'entrée ouverte = pastille pâle cernée d'un filet, icône à
-     l'accent ; survol = ombre légère. Déplié : la même icône, le libellé à côté. */
-  const style = actif
-    ? { background: 'var(--menu-survol)', color: 'var(--menu-texte)', boxShadow: 'inset 0 0 0 1px var(--menu-actif-bord)' }
-    : { color: 'var(--menu-texte-doux)' };
-  return (
-    <button type="button" onClick={onClick} aria-current={actif ? 'page' : undefined} aria-label={f.l}
-      className={`group relative shrink-0 inline-flex items-center text-sm text-left transition-colors duration-150 ${actif ? 'font-semibold' : 'hover:shadow-pose'}
-        ${etroit ? 'min-h-11 px-3 gap-2.5 rounded-carte md:min-h-0 md:w-9 md:h-9 md:mx-auto md:px-0 md:justify-center' : 'min-h-11 md:min-h-10 px-2.5 gap-3 rounded-carte'}`}
-      style={style}>
-      <f.I size={19} stroke={1.8} className="flex-shrink-0" style={{ color: actif ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />
-      <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
-      {etroit && <span role="tooltip" className="hidden md:group-hover:block md:group-focus-visible:block pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50 px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium text-xs whitespace-nowrap"
-        style={{ background: 'var(--c-principal, #16406A)' }}>{f.l}</span>}
-    </button>);
-}
+/* LE BOUTON DU RAIL : commun aux deux espaces (3.5.184), dans components/RailEspace.jsx. */
 
 /* LA LOUPE (3.5.161, Charles : « il n'y a pas la petite loupe, ni l'aide ») : « Où aller ? » de l'espace — les entrées, mes unités
    et mes cours (un cours ouvre ses notes), mes étudiants (leur fiche), et la question posée au mode d'emploi. ⌘K / Ctrl+K partout. */
@@ -1089,7 +1152,6 @@ export default function EspaceEnseignant() {
   const ouvrirSeance = (action, s) => { setDemande({ action, s, n: Date.now() }); setFace(action === 'presences' ? 'presences' : 'notes'); };
   const [tic, setTic] = useState(0);
   const [questionAide, setQuestionAide] = useState('');
-  const [deplie, setDeplie] = useState(null);   // null : la règle ; true / false : le choix de la personne
   const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -1126,9 +1188,10 @@ export default function EspaceEnseignant() {
   }
   if (!moi) return <p className="p-6 text-slate-500">{erreur || 'Chargement…'}</p>;
   const quitter = () => { poser(null); setToken(null); setMoi(null); };
-  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); setDeplie(null); };
+  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); };
   // Étroit hors d'Aujourd'hui, sauf si on l'a déplié (ou replié) soi-même ; changer d'entrée rend la règle.
-  const etroit = deplie === null ? face !== 'aujourdhui' : !deplie;
+  // TOUJOURS ÉTROIT (3.5.180, Charles : « je n'ai plus besoin de la largeur totale ; laisse juste l'icône et l'info-bulle »).
+  const etroit = true;
   const chercher = <RechercheEspace faces={[...FACES, ...FACES_BAS]} onFace={aller}
     onCours={code => { setDemande({ action: 'notes', s: { cours_code: code }, n: Date.now() }); setFace('notes'); }}
     onAide={q => { setQuestionAide(q); aller('aide'); }} />;
@@ -1148,10 +1211,6 @@ export default function EspaceEnseignant() {
         {FACES.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
         {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
-        <button type="button" className="hidden md:inline-flex items-center justify-center min-h-9 rounded-champ text-slate-500 hover:bg-slate-50"
-          onClick={() => setDeplie(d => !d)} title={etroit ? 'Déplier le menu' : 'Réduire le menu'} aria-label={etroit ? 'Déplier le menu' : 'Réduire le menu'}>
-          {etroit ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
-        </button>
         <div className={`md:border-t border-slate-200 md:pt-3 ${etroit ? '' : 'md:px-2'} flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0`}>
           {!etroit && <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>}
           <button type="button" className={`text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0 ${etroit ? 'md:justify-center' : ''}`} onClick={quitter}
