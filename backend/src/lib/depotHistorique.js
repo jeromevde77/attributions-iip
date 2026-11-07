@@ -43,9 +43,14 @@ const dejaDepose = () => db.prepare(`SELECT 1 FROM portail_depot WHERE etudiant_
  * `ecrire` faux : compte seulement (par année et par section, ce qui manque au référentiel).
  * Vrai : compose et dépose ce qui ne l'est pas encore. Rend le bilan.
  */
+/* L'ANNÉE EN COURS AUSSI (3.5.187, Charles : « pourquoi pas de document ? Elle a réussi » — AKSIT Dilara, UE 333, séances closes
+   avant la mise en service du dépôt d'office ; tranché : « ajouter l'année en cours au rattrapage »). La borne passe à l'année
+   qui suit l'année active : les réussites déjà délibérées de l'année entrent aussi. Le dépôt d'office ne reprend que les
+   séances closes après sa mise en service : les deux ne se recouvrent pas. */
+const anneeSuivante = a => (/^(\d{4})-(\d{4})$/.test(a) ? `${Number(a.slice(0, 4)) + 1}-${Number(a.slice(5)) + 1}` : a);
 export function deposerHistorique({ ecrire = false, par = 'Lucie (années passées)', limite = 50 } = {}) {
   migrerDepot();
-  const active = anneeActive();
+  const active = anneeSuivante(anneeActive());
   const deja = dejaDepose();
   const nAttendues = attendues(), nDeposees = deposees();
   const noter = db.prepare(`INSERT OR IGNORE INTO portail_depot (etudiant_id, annee_scolaire, ue_num, session, nature, envoi_id, avise_le)

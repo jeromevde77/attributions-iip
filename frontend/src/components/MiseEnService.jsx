@@ -50,8 +50,8 @@ function AnneesPassees() {
     <section className="carte overflow-hidden">
       <EnteteCarte icone={IconCertificate} titre="Les années passées dans les espaces" />
       <div className="px-4 py-3 space-y-3">
-      <p className="text-second text-slate-500">Pour chaque étudiant, archivés compris : une attestation de réussite par unité réussie avant
-        l’année active, une attestation par valorisation complète, et un document qui les réunit toutes. Ce sont les pièces d’Éditions. Elles
+      <p className="text-second text-slate-500">Pour chaque étudiant, archivés compris : une attestation de réussite par unité déjà réussie —
+        années passées et délibérations déjà closes de l’année en cours —, une attestation par valorisation complète, et un document qui les réunit toutes. Ce sont les pièces d’Éditions. Elles
         entrent au registre des envois et paraissent dans « Mes documents » dès que l’espace est ouvert à l’étudiant. <b>Aucun courriel ne part</b> ;
         une pièce déjà déposée ne l’est pas deux fois.</p>
       <div className="flex flex-wrap items-center gap-2">
@@ -63,7 +63,7 @@ function AnneesPassees() {
         const x = b || fait;
         return (
           <div className="text-second text-slate-700 space-y-1.5">
-            <p className="m-0"><b>{x.pieces}</b> pièce(s) {fait ? (fait.encours ? 'déposée(s) — dépôt en cours…' : 'déposée(s)') : 'à déposer'} pour <b>{x.etudiants}</b> étudiant(s) (années avant {x.annee_active})
+            <p className="m-0"><b>{x.pieces}</b> pièce(s) {fait ? (fait.encours ? 'déposée(s) — dépôt en cours…' : 'déposée(s)') : 'à déposer'} pour <b>{x.etudiants}</b> étudiant(s) (jusqu’aux délibérations déjà closes)
               {x.deja ? ` · ${x.deja} déjà déposée(s)` : ''}.</p>
             {Object.keys(x.par_nature).length > 0 && <p className="m-0">{Object.entries(x.par_nature).map(([k, n]) => `${n} ${NATURES_HIST[k] || k}`).join(' · ')}</p>}
             {Object.keys(x.par_annee).length > 0 && <p className="m-0 text-slate-500">Par année : {Object.entries(x.par_annee).sort().map(([k, n]) => `${k === 'toutes' ? 'toutes années' : k} ${n}`).join(' · ')}</p>}
