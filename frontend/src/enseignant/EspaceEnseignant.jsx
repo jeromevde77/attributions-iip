@@ -1089,7 +1089,6 @@ export default function EspaceEnseignant() {
   const ouvrirSeance = (action, s) => { setDemande({ action, s, n: Date.now() }); setFace(action === 'presences' ? 'presences' : 'notes'); };
   const [tic, setTic] = useState(0);
   const [questionAide, setQuestionAide] = useState('');
-  const [deplie, setDeplie] = useState(null);   // null : la règle ; true / false : le choix de la personne
   const [lucie, setLucie] = useState(false);   // les écrans de Lucie prêts (compte et année lus par le relais)
   const [seance, setSeance] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -1126,9 +1125,10 @@ export default function EspaceEnseignant() {
   }
   if (!moi) return <p className="p-6 text-slate-500">{erreur || 'Chargement…'}</p>;
   const quitter = () => { poser(null); setToken(null); setMoi(null); };
-  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); setDeplie(null); };
+  const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); };
   // Étroit hors d'Aujourd'hui, sauf si on l'a déplié (ou replié) soi-même ; changer d'entrée rend la règle.
-  const etroit = deplie === null ? face !== 'aujourdhui' : !deplie;
+  // TOUJOURS ÉTROIT (3.5.180, Charles : « je n'ai plus besoin de la largeur totale ; laisse juste l'icône et l'info-bulle »).
+  const etroit = true;
   const chercher = <RechercheEspace faces={[...FACES, ...FACES_BAS]} onFace={aller}
     onCours={code => { setDemande({ action: 'notes', s: { cours_code: code }, n: Date.now() }); setFace('notes'); }}
     onAide={q => { setQuestionAide(q); aller('aide'); }} />;
@@ -1148,10 +1148,6 @@ export default function EspaceEnseignant() {
         {FACES.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
         {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
-        <button type="button" className="hidden md:inline-flex items-center justify-center min-h-9 rounded-champ text-slate-500 hover:bg-slate-50"
-          onClick={() => setDeplie(d => !d)} title={etroit ? 'Déplier le menu' : 'Réduire le menu'} aria-label={etroit ? 'Déplier le menu' : 'Réduire le menu'}>
-          {etroit ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
-        </button>
         <div className={`md:border-t border-slate-200 md:pt-3 ${etroit ? '' : 'md:px-2'} flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0`}>
           {!etroit && <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>}
           <button type="button" className={`text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0 ${etroit ? 'md:justify-center' : ''}`} onClick={quitter}
