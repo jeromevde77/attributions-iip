@@ -50,15 +50,32 @@ const garde = (req, res, next) => (ROLES.includes(req.user?.role) ? next() : res
 const sienne = (req, id) => db.prepare('SELECT * FROM frais_piece WHERE id = ? AND user_id = ?').get(Number(id), req.user.id);
 /* LE DOMICILE (3.5.199, Charles : « ce n'est pas forcément depuis Lennik, cela peut être de chez moi — tu as l'adresse ») :
    repris de la fiche du personnel reliée au compte, tant que le profil n'en porte pas un autre. */
-function domicileFiche(uid) {
+/* La fiche du personnel de la personne connectée : celle reliée au compte, sinon celle qui porte son nom (le compte de la direction
+   n'est pas toujours relié à sa fiche — Charles : « tu sais qui je suis, regarde ma fiche »). Prénom et nom se lisent de l'adresse
+   d'école (prenom.nom@…) ou du nom du compte ; une seule fiche doit répondre, sinon rien n'est deviné. */
+const cleNom = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+function ficheDe(uid) {
   try {
-    const p = db.prepare(`SELECT p.adresse_rue, p.code_postal, p.commune FROM utilisateur u JOIN professeur p ON p.id = u.professeur_id WHERE u.id = ?`).get(uid);
-    return p ? [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
-  } catch { return ''; }
+    const u = db.prepare('SELECT professeur_id, email, nom_complet FROM utilisateur WHERE id = ?').get(uid) || {};
+    const champs = 'id, nom, prenom, adresse_rue, code_postal, commune';
+    if (u.professeur_id) return db.prepare(`SELECT ${champs} FROM professeur WHERE id = ?`).get(u.professeur_id) || null;
+    const local = String(u.email || '').split('@')[0].split(/[._-]/).map(cleNom).filter(Boolean);
+    const mots = String(u.nom_complet || '').split(/\s+/).map(cleNom).filter(Boolean);
+    const l = db.prepare(`SELECT ${champs} FROM professeur`).all().filter(p => {
+      const n = cleNom(p.nom), pr = cleNom(p.prenom);
+      return n && pr && ((local.includes(pr) && local.some(m => m === n || n.startsWith(m))) || (mots.includes(pr) && mots.some(m => m === n)));
+    });
+    return l.length === 1 ? l[0] : null;
+  } catch { return null; }
+}
+function domicileFiche(uid) {
+  const p = ficheDe(uid);
+  return p ? [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
 }
 const profilDe = uid => {
   const p = db.prepare('SELECT * FROM frais_profil WHERE user_id = ?').get(uid) || {};
-  return { ...p, domicile: p.domicile || domicileFiche(uid) || null };
+  const f = (!p.domicile || !p.prenom || !p.nom) ? ficheDe(uid) : null;
+  return { ...p, domicile: p.domicile || domicileFiche(uid) || null, prenom: p.prenom || f?.prenom || null, nom: p.nom || f?.nom || null };
 };
 const departDe = (prof, type, autre) => (type === 'domicile' ? prof.domicile : type === 'autre' ? autre : prof.depart || DEPART_DEFAUT);
 const DEPART_DEFAUT = 'Route de Lennik 808, 1070 Anderlecht';
