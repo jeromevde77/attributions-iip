@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconArrowsSplit, IconCheck, IconAlertTriangle, IconHistory, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
-import { TuileEtat, EnteteCarte } from '../components/ui.jsx';
+import { TuileEtat, EnteteCarte, Encadre, PastilleEtat } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 /**
@@ -60,7 +60,7 @@ function Zone({ lettre, titre, sous, children, droite }) {
       {/* La lettre de la zone porte le principal : l'or est celui de
           l'épreuve intégrée, et il ne dit que cela. */}
       <EnteteCarte sous={sous || null} titre={<>
-        <span className="w-[20px] h-[20px] rounded-full bg-iip-blue/10 text-iip-blue text-xs font-bold grid place-items-center flex-none">{lettre}</span>
+        <span className="w-[20px] h-[20px] rounded-full bg-iip-blue text-white text-mention font-bold grid place-items-center flex-none">{lettre}</span>
         {titre}</>}>
         {droite || null}
       </EnteteCarte>
@@ -234,7 +234,7 @@ export default function PonderationsUE({ ueFixe = null }) {
           {annee} est une année reprise des classeurs, dont les délibérations sont tenues : ses poids se lisent ici, ils ne se modifient pas.
         </p>
       )}
-      {erreur && <div className="carte p-2.5 text-second text-iip-texte flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
+      {erreur && <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur} />}
       {message && <div className="text-second text-iip-texte flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
 
       {!ueFixe && !ues.length && section && <p className="text-sm text-slate-400">Aucune unité pour {section} en {annee}.</p>}
@@ -257,16 +257,16 @@ export default function PonderationsUE({ ueFixe = null }) {
             </div>
 
             {liens.epreuve_integree ? (
-              <p className="bloc-etat etat-faveur text-second text-violet-800 px-2.5 py-1.5">
+              <Encadre etat="disponible">
                 Épreuve intégrée : les acquis se pèsent pour l'unité, sans cours. Leur poids se règle au tracé (« Relier au tracé »).
-              </p>
+              </Encadre>
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-2 text-second">
-                  <span className="inline-flex rounded-champ border border-slate-300 overflow-hidden" role="group" aria-label="Base du poids des cours">
-                    {[['periodes', 'Poids = périodes du DP'], ['saisi', 'Poids saisis (exception)']].map(([v, l], i) => (
+                  <span className="segments" role="group" aria-label="Base du poids des cours">
+                    {[['periodes', 'Poids = périodes du DP'], ['saisi', 'Poids saisis (exception)']].map(([v, l]) => (
                       <button key={v} disabled={!peutRegler} onClick={() => setBase(v)}
-                        className={`px-2.5 py-1 font-semibold ${i ? 'border-l border-slate-300' : ''} ${base === v ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:cursor-default`}>{l}</button>
+                        className={`${base === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'} disabled:cursor-default`}>{l}</button>
                     ))}
                   </span>
                   <span className="text-slate-400">Pour {annee} seulement ; les autres années gardent les leurs.</span>
@@ -287,7 +287,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                   {coursEval.map((c, i) => {
                     const p = base === 'saisi' ? Number(poidsSaisis[c.cours_code]) || 0 : poidsCoursDe[c.cours_code] || 0;
                     return (
-                      <div key={c.cours_code} style={{ width: `${p}%`, background: `rgb(var(--e-donnees-${[600, 400, 300, 500, 700][i % 5]}))`, color: [1, 2].includes(i % 5) ? 'var(--c-texte)' : '#fff' }}
+                      <div key={c.cours_code} style={{ width: `${p}%`, background: `rgb(var(--e-donnees-${[600, 400, 300, 500, 700][i % 5]}))`, color: [1, 2].includes(i % 5) ? 'var(--c-texte)' : 'var(--blanc, #fff)' }}
                         className="flex items-center px-2 text-second font-semibold whitespace-nowrap overflow-hidden min-w-0">
                         {c.cours_code} · {fr(p, 0)} %
                       </div>
@@ -301,13 +301,13 @@ export default function PonderationsUE({ ueFixe = null }) {
                       <div className="truncate" title={c.cours_nom}>{c.cours_nom}</div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {!evalue(c)
-                          ? <span className="text-xs font-semibold px-1.5 rounded-full border border-slate-300 text-slate-500">{c.non_evalue ? 'pas évalué' : 'activité Z'}</span>
-                          : <span className={`text-xs font-semibold px-1.5 rounded-full border ${coursJuste(c.cours_code) ? 'border-emerald-300 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</span>}
+                          ? <PastilleEtat etat="neutre">{c.non_evalue ? 'pas évalué' : 'activité Z'}</PastilleEtat>
+                          : <PastilleEtat etat={coursJuste(c.cours_code) ? 'reussi' : 'surveiller'}>{fr(somme(c.cours_code))} / 10</PastilleEtat>}
                         {base === 'saisi' && evalue(c) && (
                           <label className="flex items-center gap-1 text-xs">
                             <input type="number" min="0" max="100" step="1" value={poidsSaisis[c.cours_code] ?? ''} disabled={!peutRegler}
                               onChange={e => setPoidsSaisis(p => ({ ...p, [c.cours_code]: e.target.value === '' ? '' : Number(e.target.value) }))}
-                              className="w-14 border border-slate-300 rounded-champ px-1.5 py-0.5 text-right tabular-nums" aria-label={`Poids de ${c.cours_code}, en pour cent`} /> %
+                              className="controle w-16 !h-7 !px-1.5 text-right tabular-nums" aria-label={`Poids de ${c.cours_code}, en pour cent`} /> %
                           </label>
                         )}
                       </div>
@@ -342,7 +342,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                         const eteint = aaSuivi && aaSuivi !== a.aa_code;
                         return (
                           <tr key={a.aa_code} className={eteint ? 'opacity-35' : ''}>
-                            <td className="sticky left-0 z-[1] bg-white border-t border-slate-100 px-2.5 py-1.5 cursor-pointer"
+                            <td className="sticky left-0 z-[1] border-t border-slate-200 px-2.5 py-1.5 cursor-pointer" style={{ background: 'var(--c-fond_ligne, #fff)' }}
                               onClick={() => setAaSuivi(s => (s === a.aa_code ? null : a.aa_code))}>
                               <div className="font-bold text-slate-800">{a.aa_code}</div>
                               <div className="text-slate-500 truncate max-w-[260px]" title={a.description}>{a.description}</div>
@@ -358,14 +358,14 @@ export default function PonderationsUE({ ueFixe = null }) {
                             {coursEval.map(c => {
                               const v = brouillon[c.cours_code]?.[a.aa_code] || 0;
                               return (
-                                <td key={c.cours_code} className="border-t border-slate-100 px-1.5 py-1.5 text-center">
+                                <td key={c.cours_code} className="border-t border-slate-200 px-1.5 py-1.5 text-center">
                                   {peutRegler ? (
                                     v ? (
                                       <input type="number" min="0" max="10" step="0.5" value={v}
                                         onChange={e => poser(c.cours_code, a.aa_code, e.target.value)}
                                         aria-label={`Points de ${a.aa_code} dans ${c.cours_code}`}
-                                        className="w-14 h-7 rounded-champ border-[1.5px] text-center font-bold tabular-nums bg-white"
-                                        style={{ borderColor: t, color: t }} />
+                                        className="w-14 h-7 rounded-champ border-[1.5px] text-center font-bold tabular-nums"
+                                        style={{ borderColor: t, color: t, background: 'var(--c-fond_champ, #fff)' }} />
                                     ) : (
                                       <button onClick={() => poser(c.cours_code, a.aa_code, 1)}
                                         aria-label={`Relier ${a.aa_code} à ${c.cours_code}`}
@@ -430,7 +430,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                             <input type="number" min="0" max="10" step="0.5" value={v || ''} placeholder="0"
                               onChange={e => poser(coursC.cours_code, a.aa_code, e.target.value)}
                               aria-label={`Points de ${a.aa_code} dans ${coursC.cours_code}`}
-                              className="w-full border border-slate-300 rounded-champ px-1.5 py-0.5 text-right tabular-nums text-second" />
+                              className="controle w-full !h-7 !px-1.5 text-right tabular-nums text-second" />
                           ) : <span className="text-right font-bold tabular-nums text-second">{fr(v)} <span className="font-normal text-slate-400">/ 10</span></span>}
                         </div>
                       );
@@ -439,9 +439,9 @@ export default function PonderationsUE({ ueFixe = null }) {
                       <span className="text-second tabular-nums">Total : <b>{fr(somme(coursC.cours_code))} / 10</b>
                         {pasJuste(coursC.cours_code) && <span className="text-amber-700"> · par pas de 0,5</span>}</span>
                       {coursJuste(coursC.cours_code)
-                        ? <span className="text-xs font-semibold px-1.5 rounded-full border border-emerald-300 text-iip-texte">réparti</span>
-                        : <span className="text-xs font-semibold px-1.5 rounded-full border border-amber-300 text-amber-700">
-                            {somme(coursC.cours_code) > 10 ? `dépasse de ${fr(somme(coursC.cours_code) - 10)}` : `manque ${fr(10 - somme(coursC.cours_code))}`} point</span>}
+                        ? <PastilleEtat etat="reussi">réparti</PastilleEtat>
+                        : <PastilleEtat etat="surveiller">
+                            {somme(coursC.cours_code) > 10 ? `dépasse de ${fr(somme(coursC.cours_code) - 10)}` : `manque ${fr(10 - somme(coursC.cours_code))}`} point</PastilleEtat>}
                       {peutRegler && modifie(coursC.cours_code) && (
                         <button className="bouton bouton-fort" disabled={!coursJuste(coursC.cours_code)}
                           onClick={() => enregistrerCours(coursC.cours_code)}>Enregistrer {coursC.cours_code}</button>
