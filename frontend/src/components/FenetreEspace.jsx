@@ -4,6 +4,7 @@
  *  large ? » ; « 80 % de la largeur, et sur petit écran 100 % ») : un texte, un document, une DUE s'y lisent ; une petite fenêtre
  *  le demande (`large`). */
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { IconX } from '@tabler/icons-react';
 
 export default function FenetreEspace({ titre, sous, onFermer, pied = null, large = null, children }) {
@@ -12,8 +13,10 @@ export default function FenetreEspace({ titre, sous, onFermer, pied = null, larg
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [onFermer]);
-  return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center p-2 sm:p-4" style={{ paddingTop: 'max(6vh, 12px)' }}>
+  /* AU-DESSUS DE TOUT (3.5.177, Charles : « bug » — la fenêtre « Urgence », ouverte depuis le rail collant, passait SOUS la
+     journée) : le rail `sticky` fait un contexte d'empilement ; la fenêtre se monte donc à la racine du document. */
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-4" style={{ paddingTop: 'max(6vh, 12px)' }}>
       <div className="absolute inset-0" style={{ background: 'rgba(22, 64, 106, .32)', backdropFilter: 'blur(3px)' }} onClick={onFermer} />
       <div role="dialog" aria-modal="true" aria-label={titre}
         className={`relative w-full bg-white flex flex-col overflow-hidden ${large ? '' : 'sm:w-[80vw]'}`}
@@ -25,5 +28,5 @@ export default function FenetreEspace({ titre, sous, onFermer, pied = null, larg
         <div className="flex-1 min-h-0 overflow-auto px-6 py-5">{children}</div>
         {pied && <div className="shrink-0 border-t border-slate-200 px-6 py-3 flex flex-wrap items-center gap-3">{pied}</div>}
       </div>
-    </div>);
+    </div>, document.body);
 }
