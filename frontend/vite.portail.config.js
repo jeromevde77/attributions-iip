@@ -3,11 +3,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve, dirname } from 'path';
+import { cpSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+/* LES CAPTURES DU MODE D'EMPLOI (3.5.161) : l'aide de l'espace enseignant est celle de Lucie, et ses images (`/guide/*.png`)
+   doivent venir du même site (la politique de sécurité n'admet que 'self'). Copiées à la construction — rien d'autre du
+   dossier public du personnel ne passe. */
+const copierGuide = () => ({ name: 'copier-guide', closeBundle() {
+  const src = resolve(__dirname, 'public/guide');
+  if (existsSync(src)) cpSync(src, resolve(__dirname, 'dist-portail/guide'), { recursive: true });
+} });
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), copierGuide()],
   server: { port: 5174, proxy: {
     '/api/portail': { target: process.env.VITE_PORTAIL_URL || 'http://localhost:3101', changeOrigin: true },
     '/api/enseignant': { target: process.env.VITE_PORTAIL_URL || 'http://localhost:3101', changeOrigin: true } } },

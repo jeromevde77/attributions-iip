@@ -368,11 +368,12 @@ export function Point({ p, n, delai = 0 }) {
   );
 }
 
-export default function Aide({ integre = false }) {
+export default function Aide({ integre = false, rechercheInitiale = '' }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [voir, setVoir] = useState('tous');
-  const [recherche, setRecherche] = useState('');
+  const [recherche, setRecherche] = useState(rechercheInitiale);
+  useEffect(() => { if (rechercheInitiale) setRecherche(rechercheInitiale); }, [rechercheInitiale]);
   const [erreurGuide, setErreurGuide] = useState(null);
   const [pdfEnCours, setPdfEnCours] = useState(false);
   const [cle, setCle] = useState(() => (window.location.hash || '').replace(/^#/, '') || null);
