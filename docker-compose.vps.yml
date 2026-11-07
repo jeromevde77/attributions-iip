@@ -29,7 +29,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     # Les deux portails (3.1.477) : Caddy est le SEUL conteneur qui touche à la fois Lucie et le portail.
-    networks: [lucie-prod, lucie-dev, lucie-portail, lucie-portail-dev]
+    # Et la surveillance (Beszel), pour servir monitor.lucie-iip.be.
+    networks: [lucie-prod, lucie-dev, lucie-portail, lucie-portail-dev, lucie-surveillance]
 
   # ----------------------------------------------------------------- DEV
   backend-dev:
@@ -231,6 +232,54 @@ services:
       lucie-portail-dev:
         aliases: [portail-frontend]
 
+  # ════════════════════════════════════════════════════════════════════════
+  # LA SURVEILLANCE — Beszel : RAM, disque, réseau, CPU, avec historique et
+  # alertes (ntfy). Le 5 novembre 2026, le VPS est resté figé onze minutes sans
+  # que rien ne le montre ; on ne l'a vu qu'après coup, dans le journal du noyau.
+  #
+  # Le hub (la page, https://monitor.lucie-iip.be) est derrière Caddy, sur son
+  # propre réseau, avec sa propre authentification (compte admin créé au
+  # premier accès : le créer AUSSITÔT le conteneur lancé).
+  # L'agent tourne en réseau hôte pour voir le vrai trafic de l'interface ; il
+  # n'écoute que sur un socket Unix partagé avec le hub — aucun port.
+  #
+  # PAS DE SOCKET DOCKER pour l'agent (choix du 7 novembre 2026) : il donnerait
+  # le détail par conteneur, mais aussi un accès équivalent à root sur tous les
+  # conteneurs, portail compris — contraire au mur. Pour l'ajouter :
+  #   - /var/run/docker.sock:/var/run/docker.sock:ro   (volumes de l'agent)
+  #
+  # VERSIONS ÉPINGLÉES, et hors de mise-a-jour.sh : une montée de version de
+  # Beszel se fait à la main.
+  # ════════════════════════════════════════════════════════════════════════
+  beszel:
+    image: henrygd/beszel:0.21.1
+    container_name: lucie-beszel
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Brussels
+      APP_URL: https://monitor.lucie-iip.be
+    volumes:
+      - ./surveillance/beszel_data:/beszel_data
+      - ./surveillance/beszel_socket:/beszel_socket
+    mem_limit: 128m
+    networks: [lucie-surveillance]
+
+  beszel-agent:
+    image: henrygd/beszel-agent:0.21.1
+    container_name: lucie-beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LISTEN: /beszel_socket/beszel.sock
+      # La clé PUBLIQUE que le hub affiche à « Ajouter un système » ; dans .env.
+      # Vide au premier démarrage : l'agent redémarre en boucle jusqu'à ce
+      # qu'elle y soit, sans gêner le reste.
+      KEY: ${BESZEL_KEY:-}
+    volumes:
+      - ./surveillance/beszel_agent_data:/var/lib/beszel-agent
+      - ./surveillance/beszel_socket:/beszel_socket
+    mem_limit: 64m
+
 networks:
   lucie-prod:
     driver: bridge
@@ -239,6 +288,8 @@ networks:
   lucie-portail:
     driver: bridge
   lucie-portail-dev:
+    driver: bridge
+  lucie-surveillance:
     driver: bridge
 
 volumes:
