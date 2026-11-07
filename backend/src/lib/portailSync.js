@@ -362,13 +362,25 @@ async function deposerDocuments() {
   }
   const ids = new Set([...visibles, ...candidatsValides().filter(c => fonctionPour('espace.candidats', { etudiantId: c.id })).map(c => ({ id: c.id, donnees: fonctionsDonnees(c.id) }))]
     .filter(e => e.donnees.includes('documents')).map(e => e.id));
-  const connus = new Set((await appel('GET', '/interne/documents/connus')).ids || []);
+  const lu = await appel('GET', '/interne/documents/connus');
+  const connus = new Set(lu.ids || []);
   let envois = [];
   try {
-    envois = db.prepare(`SELECT m.id, m.destinataire_id, m.sujet, m.nom_fichier, m.envoye_le, m.reference FROM envoi_mail m
+    envois = db.prepare(`SELECT m.id, m.destinataire_id, m.sujet, m.contenu, m.nom_fichier, m.envoye_le, m.reference FROM envoi_mail m
       JOIN envoi_copie c ON c.envoi_id = m.id WHERE m.destinataire_type = 'etudiant' AND m.statut IN ('envoye','simule','depose')
       ORDER BY m.id DESC`).all();
   } catch { return; }
+  /* UN TITRE QUI DIT LEQUEL (3.5.192, Charles : « pourquoi le document est deux fois ? ») : deux envois de délibération (S1 puis
+     S2) portaient le même sujet générique ; le registre garde ce qu'ils contiennent (« Session 2 — UE 333 : motivation de refus »).
+     Les documents déjà déposés sont renommés. */
+  const titreDe = m => {
+    const g = /^Documents de délibération — (\d{4}-\d{4})$/.exec(String(m.sujet || '').trim());
+    return g && String(m.contenu || '').trim() ? `${String(m.contenu).trim()} — ${g[1]}` : m.sujet;
+  };
+  if (lu.sujets) {
+    const titres = envois.filter(m => connus.has(m.id) && lu.sujets[m.id] != null && lu.sujets[m.id] !== titreDe(m)).map(m => ({ id: m.id, sujet: titreDe(m) }));
+    if (titres.length) await appel('POST', '/interne/documents/titres', { titres }).catch(() => {});
+  }
   const aRetirer = [...connus].filter(id => !envois.some(m => m.id === id && ids.has(m.destinataire_id)));
   if (aRetirer.length) await appel('POST', '/interne/documents/retirer', { ids: aRetirer });
   const lot = [];
@@ -377,7 +389,7 @@ async function deposerDocuments() {
     if (connus.has(m.id) || !ids.has(m.destinataire_id)) continue;
     const c = await copieDeLEnvoi(m.id);
     if (c.erreur) continue;
-    lot.push({ id: m.id, etudiant_id: m.destinataire_id, sujet: m.sujet, nom_fichier: c.nom, envoye_le: m.envoye_le,
+    lot.push({ id: m.id, etudiant_id: m.destinataire_id, sujet: titreDe(m), nom_fichier: c.nom, envoye_le: m.envoye_le,
       reference: m.reference, mime: c.type, contenu_b64: Buffer.from(c.corps).toString('base64') });
   }
   if (lot.length) await appel('POST', '/interne/documents', { documents: lot });

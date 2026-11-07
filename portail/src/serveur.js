@@ -986,7 +986,17 @@ int.post('/interne/apercu', (req, res) => {
   res.json({ url: `${URL_PUBLIQUE}/?apercu=${jeton}` });
 });
 
-int.get('/interne/documents/connus', (req, res) => res.json({ ids: db.prepare('SELECT id FROM document').all().map(x => x.id) }));
+int.get('/interne/documents/connus', (req, res) => {
+  const l = db.prepare('SELECT id, sujet FROM document').all();
+  res.json({ ids: l.map(x => x.id), sujets: Object.fromEntries(l.map(x => [x.id, x.sujet])) });
+});
+// RENOMMER UN DOCUMENT DÉJÀ DÉPOSÉ (3.5.192) : Lucie corrige le titre, le contenu ne bouge pas.
+int.post('/interne/documents/titres', (req, res) => {
+  const u = db.prepare('UPDATE document SET sujet = ? WHERE id = ?');
+  const l = Array.isArray(req.body?.titres) ? req.body.titres : [];
+  db.transaction(() => { for (const t of l) u.run(String(t.sujet || ''), Number(t.id)); })();
+  res.json({ ok: true, n: l.length });
+});
 int.post('/interne/documents', (req, res) => {
   const l = Array.isArray(req.body?.documents) ? req.body.documents : [];
   const i = db.prepare(`INSERT OR REPLACE INTO document (id, etudiant_id, sujet, nom_fichier, envoye_le, reference, mime, contenu) VALUES (?,?,?,?,?,?,?,?)`);
