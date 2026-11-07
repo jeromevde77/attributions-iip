@@ -4250,7 +4250,7 @@ function choixInitial(d) {
   if (d.type === 'partielle') {
     return { branche: 'partielle', cible: d.cible === 'aa' ? 'acquis' : 'cours',
       coches: String(d.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean),
-      motif: '' };
+      motif: '', remarque: d.commentaire || '' };
   }
   return { branche: 'totale', cible: 'cours', coches: [], motif: '' };
 }
@@ -4391,6 +4391,9 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
   const [peutValider, setPeutValider] = useState(false);
   const [bases, setBases] = useState([]);
   const [motifs, setMotifs] = useState({ refus: [], partiel: [] });
+  const [constatPartiel, setConstatPartiel] = useState('');
+  const [membres, setMembres] = useState([]);
+  const [absents, setAbsents] = useState(() => new Set());
   const [section, setSection] = useState('');
   const [dateCE, setDateCE] = useState(aujourdHui());
   const [baseCommune, setBaseCommune] = useState('');
@@ -4413,7 +4416,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => {
     fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : null)).then(j => { setBases(j?.bases || []); setMotifs(j?.motifs || { refus: [], partiel: [] }); }).catch(() => {});
+      .then(r => (r.ok ? r.json() : null)).then(j => { setBases(j?.bases || []); setMotifs(j?.motifs || { refus: [], partiel: [] }); setConstatPartiel(j?.constat_partiel || ''); }).catch(() => {});
   }, []);
 
   const sections = useMemo(() => [...new Set((dossiers || []).map(d => d.section).filter(Boolean))].sort(), [dossiers]);
@@ -4452,13 +4455,26 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
 
   useEffect(() => {
     const init = {};
-    for (const d of lignes) init[d.id] = choixDepuisAvis(d);
+    for (const d of lignes) init[d.id] = d.valide_le ? choixDepuisAvis(d) : avecConstat(choixDepuisAvis(d));
     setChoix(init);
     setErreur(null); setBloquants(null); setInstruits(new Set());
     const b = lignes.map(d => d.base_code).find(Boolean);
     if (b && !baseCommune) setBaseCommune(b);
     // eslint-disable-next-line
-  }, [cle, dossiers]);
+  }, [cle, dossiers, constatPartiel]);
+
+  /* LES PRÉSENTS DE LA SÉANCE (3.5.190) : les membres du Conseil des unités à l'écran, présents d'office, l'absent se décoche ;
+     arrêter les décisions ouvre la séance de chaque unité (PV d'annexe 4) avec ces présences. */
+  const uesEcran = [...new Set(lignes.map(d => d.ue_num))].sort((a, b) => a - b).join(',');
+  useEffect(() => {
+    if (!uesEcran) { setMembres([]); return; }
+    fetch(`/api/etudiants/valorisations/seance/membres?annee=${encodeURIComponent(annee)}&ues=${uesEcran}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => {
+        const l = Array.isArray(j?.membres) ? j.membres : [];
+        setMembres(l);
+        setAbsents(a => { const n = new Set(a); for (const m of l) if (!m.present) n.add(m.cle); return n; });
+      }).catch(() => setMembres([]));
+  }, [uesEcran, annee]);
 
   useEffect(() => {
     for (const d of lignes) {
@@ -4468,7 +4484,20 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
     }
   }, [choix, lignes, composantes, annee]);
 
-  const poser = (id, patch) => setChoix(c => ({ ...c, [id]: { ...c[id], ...patch, propose: false } }));
+  /* LE CONSTAT PROPOSÉ D'UN ACCORD PARTIEL (3.5.190, Charles : « proposer le constat d'office ») : tant que la remarque est vide
+     ou n'est que la proposition, elle suit les cours cochés ; dès qu'on l'écrit, elle est au Conseil. */
+  const avecConstat = x => {
+    if (x?.branche !== 'partielle' || !constatPartiel) return x;
+    if (!x.auto && String(x.remarque || '').trim()) return x;
+    const liste = (x.coches || []).join(', ');
+    if (!liste) return { ...x, remarque: '', auto: true };
+    return { ...x, remarque: constatPartiel.replace('{cours}', `${x.cible === 'acquis' ? "l'acquis" : 'le cours'}${(x.coches || []).length > 1 ? 's' : ''} ${liste}`), auto: true };
+  };
+  const poser = (id, patch) => setChoix(c => {
+    const n = { ...c[id], ...patch, propose: false };
+    if ('remarque' in patch) n.auto = false;
+    return { ...c, [id]: avecConstat(n) };
+  });
   const signature = c => JSON.stringify([c?.branche || '', c?.cible || '', [...(c?.coches || [])].sort(), (c?.motif || '').trim(), c?.base || '', (c?.remarque || '').trim()]);
   const aEcrire = d => {
     const c = choix[d.id];
@@ -4520,7 +4549,8 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
         });
         const r = await fetch('/api/etudiants/valorisations/lot/decisions', {
           method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ decision_ce_date: dateCE, lignes: corps }) });
+          body: JSON.stringify({ decision_ce_date: dateCE, lignes: corps,
+            ...(membres.length ? { presents: membres.filter(m => !absents.has(m.cle)).map(m => m.cle) } : {}) }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) { setErreur(j.error || 'Enregistrement refusé.'); if (Array.isArray(j.bloquants)) setBloquants(j.bloquants); await charger(); return; }
         n += lot.length; valides += j.valides || 0;
@@ -4602,6 +4632,19 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
           {bases.map(b => <option key={b.code} value={b.code}>{b.code} — {b.libelle}</option>)}
         </select>
       </div>
+
+      {membres.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-3 mb-3 border-b border-slate-200 text-second text-slate-600">
+          <span className="font-semibold">Présents <BulleAide titre="Présences de la séance">Les membres du Conseil des unités à l'écran. Décochez les absents : en arrêtant les décisions, Lucie ouvre la séance de chaque unité (date, communication, présidence, présences) et le procès-verbal comme les attestations peuvent sortir.</BulleAide></span>
+          {membres.map(m => (
+            <label key={m.cle} className="inline-flex items-center gap-1 cursor-pointer" title={`${m.qualite || ''} · UE ${m.ues.join(', ')}`}>
+              <input type="checkbox" checked={!absents.has(m.cle)}
+                onChange={e => setAbsents(a => { const n = new Set(a); if (e.target.checked) n.delete(m.cle); else n.add(m.cle); return n; })} />
+              <span className={absents.has(m.cle) ? 'line-through text-slate-400' : ''}>{m.nom}</span>
+            </label>
+          ))}
+        </div>
+      )}
 
       {!dossiers ? <p className="text-sm text-slate-400">Chargement…</p>
         : !groupes.length ? <p className="text-sm text-slate-500">Aucune demande de valorisation en {annee}{section ? ` pour ${section}` : ''}.</p>

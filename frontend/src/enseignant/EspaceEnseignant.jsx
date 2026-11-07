@@ -888,6 +888,7 @@ function MesDates({ moi }) {
   const [passees, setPassees] = useState(false);
   const [filtre, setFiltre] = useState('tout');
   let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
+  if (!/^\d{4}-\d{4}$/.test(String(annee || ''))) annee = null;
   useEffect(() => {
     fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
       .then(setD).catch(() => setD({ items: [] }));
@@ -1007,7 +1008,13 @@ function MonAgenda({ moi, onPresences }) {
   const [ouvert, setOuvert] = useState(null);
   // L'ANNÉE DE L'ÉCOLE (3.5.140, Charles : « l'agenda de l'année, basé sur ce qu'on a créé ») : l'agenda de l'école de Lucie, en lecture.
   const [vue, setVue] = useState('dates');
+  // UNE ANNÉE LISIBLE OU CELLE DU JOUR (3.5.190 : « Invalid time value » — le navigateur gardait une année illisible, « null »).
   let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
+  if (!/^\d{4}-\d{4}$/.test(String(annee || ''))) {
+    const [a, m, j] = String(moi.aujourdhui || new Date().toISOString()).slice(0, 10).split('-').map(Number);
+    const a0 = (m > 8 || (m === 8 && j >= 15)) ? a : a - 1;
+    annee = `${a0}-${a0 + 1}`;
+  }
   return (
     <div className="space-y-4">
       <h1 className="titre-ecran">Mon agenda</h1>
