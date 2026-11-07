@@ -492,9 +492,13 @@ r.get('/', authRequired, (req, res) => {
     c.groupes.push(`${a.activite_libelle ? `${a.activite_libelle} · ` : ''}Org ${a.org}${a.groupe ? ` · Gr. ${a.groupe}` : ''}`);
     parCours.set(a.code_cours, c);
   }
+  // Les ECTS de l'unité, pour le petit train (3.5.157).
+  const ectsDe = db.prepare(`SELECT ects FROM ue WHERE ue_num = ? AND ects IS NOT NULL AND (? IS NULL OR section = ?)
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`);
   const cours = [...parCours.values()].map(c => {
     const d = etudiantsDuCours(profId, c.cours_code, annee);
-    return { ...c, a_moi: true, nb_etudiants: d ? d.etudiants.length : 0,
+    try { c.ects = ectsDe.get(c.ue_num, c.section, c.section, annee)?.ects ?? null; } catch { c.ects = null; }
+    return { ...c, a_moi: true, nb_etudiants: d ? d.etudiants.length : 0, etudiants_ids: d ? d.etudiants.map(e => e.id) : [],
       repartition: d ? d.repartition : false };
   });
   // Les autres cours de la section, pour la coordination.

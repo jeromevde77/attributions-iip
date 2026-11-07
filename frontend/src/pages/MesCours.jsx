@@ -4,7 +4,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useRef, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2 } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -23,6 +23,7 @@ import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 import AtelierUE from './AtelierUE.jsx';
 import DatesDeliberation from '../components/DatesDeliberation.jsx';
+import TrainUE from '../components/TrainUE.jsx';
 
 /**
  * MES COURS — la porte du professeur.
@@ -401,7 +402,36 @@ export default function MesCours({ espace = null }) {
               <div className="space-y-1.5">
                 {aSection && <div className="intertitre">Mes attributions</div>}
                 {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
-                {parSection.map(g => (
+                {/* DANS L'ESPACE ENSEIGNANT, LA CARTE DE L'UNITÉ (3.5.157, Charles : « je veux la même pour mes présences ») :
+                    le dessin de Mes étudiants — liseré du bloc, petit train, puis un cours par ligne. */}
+                {espace && (() => {
+                  const parUnite = [];
+                  for (const x of [...miens].sort(tri)) {
+                    const g = parUnite.find(y => y.ue_num === x.ue_num && y.section === x.section);
+                    if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
+                  }
+                  return parUnite.map(u => (
+                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[5px] rounded-carte overflow-hidden"
+                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
+                      <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
+                        <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
+                          {u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
+                        <TrainUE section={u.section} niveau={u.ue_niv} ects={u.ects} nbCours={u.cours.length}
+                          nbEtudiants={new Set(u.cours.flatMap(c => c.etudiants_ids || [])).size || Math.max(...u.cours.map(c => c.nb_etudiants || 0))} />
+                      </div>
+                      {u.cours.map(x => (
+                        <button key={x.cours_code} type="button" onClick={() => ouvrir(x.cours_code)}
+                          className="w-full text-left px-4 py-3 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50">
+                          <span className="flex-1 min-w-0">{x.cours_nom || x.cours_code}</span>
+                          <span className="text-second text-slate-500 text-right">{(() => {
+                            const gr = (x.groupes || []).map(g => g.replace(/(^| · )Org 1( · |$)/, '$1').replace(/ · $/, '')).filter(Boolean).join(' + ');
+                            return `${gr ? `${gr} · ` : ''}${x.nb_etudiants} étudiant${x.nb_etudiants > 1 ? 's' : ''}`;
+                          })()}</span>
+                          <IconChevronRight size={16} className="text-slate-400" />
+                        </button>))}
+                    </section>));
+                })()}
+                {!espace && parSection.map(g => (
                   <div key={g.section} className="space-y-1.5">
                     {(parSection.length > 1 || aSection) && <div className="text-sm font-semibold text-iip-blue pt-1">{g.section}</div>}
                     <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>

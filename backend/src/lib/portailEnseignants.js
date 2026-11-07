@@ -23,7 +23,7 @@ import { etatLecture, derniereVersion } from '../routes/documentation.js';
 import { corpsImprimable, STYLES_IMPRESSION } from './textesParties.js';
 import { copieDeLEnvoi } from '../routes/envois.js';
 import { modeEmploiPour } from './modeEmploi.js';
-import { rubriquesDuDossier, texteVersHtml, RUBRIQUES_DP } from './texteDossier.js';
+import { rubriquesDuDossier, texteVersHtml, RUBRIQUES_DP, decouperProgramme, memeCours } from './texteDossier.js';
 
 const URL_ENS = () => (process.env.ENSEIGNANTS_URL_PUBLIQUE || 'https://enseignants.lucie-iip.be').replace(/\/$/, '');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -110,20 +110,51 @@ const anneeActive = () => db.prepare('SELECT code FROM annee_scolaire WHERE acti
 /* LE DOSSIER PÉDAGOGIQUE DE L'UE (3.5.133, Charles : « je voudrais aussi le dossier pédagogique » dans l'espace enseignant).
    Le texte officiel de `ue.ue_dp`, rangé par rubriques comme l'étape 0 de l'unité dans Lucie, en lecture. */
 const escHtml = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-export function dossierPedagogiqueHtml(ueNum, annee) {
-  const ue = db.prepare('SELECT ue_num, ue_nom, ue_code_fwb, section, ects, ue_dp FROM ue WHERE ue_num = ? AND annee_scolaire = ? ORDER BY (ue_dp IS NULL) LIMIT 1').get(ueNum, annee);
+/* LE DOSSIER PÉDAGOGIQUE, MIS EN PAGE (3.5.159, Charles : « un peu de mise en page ; le numéro de l'UE dans une tuile, avec le
+   repère couleur, le bloc, les périodes et les ECTS, comme dans Mes étudiants ») : en tête, la tuile de l'unité et son petit train ;
+   puis les rubriques ; le programme, cours par cours, chacun dans sa carte avec ses périodes. */
+const TEINTE_BLOC = { BA1: '#F9B619', BA2: '#05B7E6', BA3: '#19537E' };
+export function dossierPedagogiqueHtml(ueNum, annee, sectionAttr = null) {
+  const ue = db.prepare(`SELECT ue_num, ue_nom, ue_code_fwb, section, ects, ue_niv, ue_dp FROM ue WHERE ue_num = ? AND annee_scolaire = ?
+    ORDER BY (ue_dp IS NULL), (section = ?) DESC LIMIT 1`).get(ueNum, annee, sectionAttr || '');
   if (!ue?.ue_dp || !String(ue.ue_dp).trim()) return null;
   let cours = [];
-  try { cours = db.prepare(`SELECT cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND UPPER(COALESCE(ct_pp, '')) <> 'Z'`).all(ueNum, annee).map(c => c.cours_nom).filter(Boolean); } catch { /* */ }
-  const R = rubriquesDuDossier(ue.ue_dp, cours);
+  try { cours = db.prepare(`SELECT cours_code, cours_nom, cours_per FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND UPPER(COALESCE(ct_pp, '')) <> 'Z'
+    ORDER BY cours_code`).all(ueNum, annee).filter(c => c.cours_nom); } catch { /* */ }
+  const noms = cours.map(c => c.cours_nom);
+  const periodes = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
+  const bloc = (/^\s*B[AE]\s*(\d)/i.exec(ue.ue_niv || '') || [])[1];
+  const teinte = TEINTE_BLOC[`BA${bloc}`] || '#94A3B8';
+  const R = rubriquesDuDossier(ue.ue_dp, noms);
   const ordre = [...RUBRIQUES_DP.filter(k => R[k]), ...Object.keys(R).filter(k => !RUBRIQUES_DP.includes(k))];
-  const corps = ordre.filter(k => String(R[k] || '').trim()).map(k => `<h2>${escHtml(k)}</h2>${texteVersHtml(R[k], { intertitre: 'strong' })}`).join('');
+  const programme = texte => {
+    const p = decouperProgramme(texte, noms);
+    const cartes = p.cours.filter(c => String(c.texte || '').trim()).map(c => {
+      const x = cours.find(k => memeCours(k.cours_nom, c.nom));
+      return `<div class="cours"><div class="cours-t"><span>${escHtml(c.nom.replace(/^\d+(\.\d+)+\.?\s*/, ''))}</span>${x?.cours_per ? `<span class="per">${escHtml(x.cours_per)} périodes</span>` : ''}</div>${texteVersHtml(c.texte, { intertitre: 'strong' })}</div>`;
+    }).join('');
+    return `${p.preambule ? texteVersHtml(p.preambule, { intertitre: 'strong' }) : ''}${cartes}`;
+  };
+  const corps = ordre.filter(k => String(R[k] || '').trim())
+    .map(k => `<section><h2>${escHtml(k)}</h2>${k === 'Programme' ? programme(R[k]) : texteVersHtml(R[k], { intertitre: 'strong' })}</section>`).join('');
+  const wagon = (v, l) => `<span class="w"><b>${escHtml(v)}</b><i>${escHtml(l)}</i></span>`;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
-    body{font:14px/1.5 -apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#16406A;margin:0;padding:8px 4px}
-    h1{font-size:19px;margin:0 0 4px} .sous{color:#64748b;font-size:13px;margin:0 0 14px}
-    h2{font-size:15px;margin:18px 0 6px;padding-bottom:3px;border-bottom:1px solid #E4E7EC} p{margin:0 0 6px} ul{margin:0 0 6px;padding-left:20px}
-  </style></head><body><h1>UE ${escHtml(ue.ue_num)} — ${escHtml(ue.ue_nom || '')}</h1>
-  <p class="sous">${[ue.section, ue.ue_code_fwb ? `code ${escHtml(ue.ue_code_fwb)}` : '', ue.ects ? `${escHtml(ue.ects)} ECTS` : '', `dossier pédagogique · ${escHtml(annee)}`].filter(Boolean).join(' · ')}</p>
+    body{font:14px/1.55 -apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#16406A;margin:0;padding:6px 4px 24px}
+    .tete{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:0 0 18px}
+    .tuile{border:1px solid #D8DCE4;border-left:6px solid ${teinte};border-radius:0 10px 10px 0;padding:8px 16px;background:#fff}
+    .tuile b{display:block;font-size:26px;line-height:1.1} .tuile i{font-style:normal;color:#64748b;font-size:12px}
+    .titre{flex:1;min-width:14rem} .titre h1{font-size:19px;margin:0 0 2px;line-height:1.3} .titre p{margin:0;color:#64748b;font-size:13px}
+    .train{display:inline-flex;border:1px solid #D8DCE4;border-left:4px solid ${teinte};border-radius:0 10px 10px 0;background:#fff}
+    .w{padding:5px 12px;line-height:1.2} .w+.w{border-left:1px solid #E4E7EC} .w b{display:block;font-size:14px} .w i{font-style:normal;color:#64748b;font-size:11px}
+    section{margin:0 0 16px} h2{font-size:15px;margin:0 0 8px;padding-bottom:4px;border-bottom:1px solid #E4E7EC}
+    p{margin:0 0 6px} ul{margin:0 0 8px;padding-left:20px} li{margin:0 0 3px} li p{margin:0}
+    .cours{border:1px solid #E4E7EC;border-left:4px solid ${teinte};border-radius:0 10px 10px 0;padding:10px 14px;margin:10px 0}
+    .cours-t{display:flex;gap:10px;align-items:baseline;justify-content:space-between;font-weight:600;margin:0 0 6px}
+    .per{font-weight:400;color:#64748b;font-size:12px;white-space:nowrap}
+  </style></head><body>
+  <div class="tete"><span class="tuile"><i>UE</i><b>${escHtml(ue.ue_num)}</b></span>
+    <div class="titre"><h1>${escHtml(ue.ue_nom || '')}</h1><p>${[ue.ue_code_fwb ? `code ${escHtml(ue.ue_code_fwb)}` : '', `dossier pédagogique · ${escHtml(annee)}`].filter(Boolean).join(' · ')}</p></div>
+    <span class="train">${wagon(ue.section || '—', 'section')}${wagon(ue.ue_niv || '—', 'bloc')}${periodes ? wagon(periodes, 'périodes') : ''}${ue.ects ? wagon(ue.ects, 'ECTS') : ''}${wagon(cours.length, 'cours')}</span></div>
   ${corps}</body></html>`;
 }
 
@@ -152,7 +183,7 @@ async function tableauDe(u, profId, annee, documentDUE) {
       let due = null;
       try { due = documentDUE ? documentDUE(a.ue_num, annee) : null; } catch { due = null; }
       let dp = null;
-      try { dp = dossierPedagogiqueHtml(a.ue_num, annee); } catch { dp = null; }
+      try { dp = dossierPedagogiqueHtml(a.ue_num, annee, a.section); } catch { dp = null; }
       /* LE PETIT TRAIN DE L'UNITÉ (3.5.156, Charles : « on ne comprend pas si c'est Bac 1, 2 ») : son bloc dans la section de
          l'attribution, ses ECTS. */
       let ects = null;
