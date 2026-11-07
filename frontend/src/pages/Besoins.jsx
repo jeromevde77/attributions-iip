@@ -5,25 +5,25 @@ import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
   IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
-import { PageHeader, Fenetre, Encadre, TuileEtat, OutilFenetre } from '../components/ui.jsx';
+import { PageHeader, Fenetre, Encadre, TuileEtat, OutilFenetre, PastilleEtat, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
 
 const PORTEE = {
-  requis:    { label: 'Titre requis',    classe: 'bg-iip-blue/10 text-iip-blue' },
-  suffisant: { label: 'Titre suffisant', classe: 'bg-emerald-500 text-white' },
-  penurie:   { label: 'Pénurie',         classe: 'bg-amber-500 text-white' },
-  ajoute:    { label: 'Ajouté',          classe: 'bg-slate-100 text-slate-600' },
+  requis:    { label: 'Titre requis',    etat: 'disponible' },
+  suffisant: { label: 'Titre suffisant', etat: 'reussi' },
+  penurie:   { label: 'Pénurie',         etat: 'surveiller' },
+  ajoute:    { label: 'Ajouté',          etat: 'neutre' },
 };
 
 const STATUT_OFFRE = {
-  brouillon: { label: 'Brouillon', classe: 'bg-slate-100 text-slate-600' },
-  publiee:   { label: 'Publiée',   classe: 'bg-emerald-500 text-white' },
-  pourvue:   { label: 'Pourvue',   classe: 'bg-iip-blue/10 text-iip-blue' },
-  close:     { label: 'Close',     classe: 'bg-slate-100 text-slate-500' },
-  ouvert:    { label: 'Ouverte',   classe: 'bg-emerald-500 text-white' },
+  brouillon: { label: 'Brouillon', etat: 'neutre' },
+  publiee:   { label: 'Publiée',   etat: 'reussi' },
+  pourvue:   { label: 'Pourvue',   etat: 'disponible' },
+  close:     { label: 'Close',     etat: 'indisponible' },
+  ouvert:    { label: 'Ouverte',   etat: 'reussi' },
 };
 
 /**
@@ -189,12 +189,12 @@ export default function Besoins({ annee: anneeProp }) {
         } />
 
       {message && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3
-          ${message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
-                                  : 'bg-red-500 text-white border border-red-500'}`}>
-          <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)}><IconX size={15} /></button>
-        </div>
+        <Encadre etat={message.type === 'ok' ? 'reussi' : 'corriger'}>
+          <div className="flex items-center justify-between gap-3">
+            <span>{message.texte}</span>
+            <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-600" title="Fermer"><IconX size={15} /></button>
+          </div>
+        </Encadre>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -209,14 +209,13 @@ export default function Besoins({ annee: anneeProp }) {
       <div className="flex gap-1 border-b border-slate-200">
         {[['besoins', `Besoins (${besoins.length})`], ['offres', `Offres (${offres.length})`]].map(([k, l]) => (
           <button key={k} onClick={() => setOnglet(k)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${onglet === k
-              ? 'border-iip-turquoise text-iip-blue' : 'border-transparent text-slate-500'}`}>
+            className={onglet === k ? 'onglet-page onglet-page-actif' : 'onglet-page'}>
             {l}
           </button>
         ))}
         {sections.length > 1 && onglet === 'besoins' && (
           <select value={section} onChange={e => setSection(e.target.value)}
-            className="ml-auto mb-1 border border-slate-300 rounded-lg px-2 py-1 text-sm">
+            className="controle ml-auto mb-1 text-sm">
             <option value="">Toutes les sections</option>
             {sections.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -228,39 +227,36 @@ export default function Besoins({ annee: anneeProp }) {
       {/* ── BESOINS ── */}
       {!chargement && onglet === 'besoins' && (
         besoins.length ? (
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="tab-entete">
-                  <th className="px-3 py-2 text-left">Cours</th>
-                  <th className="px-3 py-2 text-left w-24">Section</th>
-                  <th className="px-3 py-2 text-left w-20">Quadri</th>
-                  <th className="px-3 py-2 text-left w-28">Groupes</th>
-                  <th className="px-3 py-2 text-left w-32">À pourvoir</th>
-                  <th className="px-3 py-2 w-40"></th>
-                </tr>
-              </thead>
+            <Tableau>
+              <TableauEntete>
+                  <Th>Cours</Th>
+                  <Th largeur="w-24">Section</Th>
+                  <Th largeur="w-20">Quadri</Th>
+                  <Th largeur="w-28">Groupes</Th>
+                  <Th largeur="w-32">À pourvoir</Th>
+                  <Th largeur="w-40"></Th>
+              </TableauEntete>
               <tbody>
                 {besoins.map((b, i) => (
-                  <tr key={i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                    <td className="px-3 py-2.5">
+                  <Tr key={i}>
+                    <Td>
                       <div className="font-medium text-slate-800">{b.cours_nom || b.code_cours}</div>
                       <div className="text-xs text-slate-500">
                         UE {b.ue_num}{b.ue_nom ? ` · ${b.ue_nom}` : ''} · {b.code_cours}
                         {b.type_cours ? ` · ${b.type_cours}` : ''}
                       </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-600">{b.section}</td>
-                    <td className="px-3 py-2.5 text-slate-600">{b.quadrimestre || '—'}</td>
-                    <td className="px-3 py-2.5">
+                    </Td>
+                    <Td className="text-slate-600">{b.section}</Td>
+                    <Td className="text-slate-600">{b.quadrimestre || '—'}</Td>
+                    <Td>
                       <span className="font-semibold text-iip-blue">{b.nb_groupes}</span>
                       {b.groupes && <span className="text-xs text-slate-500 ml-1">({b.groupes})</span>}
-                    </td>
-                    <td className="px-3 py-2.5">
+                    </Td>
+                    <Td>
                       <div className="font-semibold text-iip-blue">{b.total_periodes} pér.</div>
                       <div className="text-xs text-slate-500">{b.periodes_par_groupe} / groupe</div>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
+                    </Td>
+                    <Td align="droite">
                       {b.offres_existantes > 0
                         ? <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1 justify-end">
                             <IconCheck size={13} /> {b.offres_existantes} offre(s)
@@ -269,14 +265,13 @@ export default function Besoins({ annee: anneeProp }) {
                             className="bouton flex items-center gap-1.5 ml-auto">
                             <IconBriefcase size={14} /> Créer l'offre
                           </button>}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Tableau>
         ) : (
-          <div className="border border-dashed border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">
+          <div className="carte p-8 text-center text-sm text-slate-500">
             {data?.message || 'Aucun cours à pourvoir : toutes les attributions sont assignées.'}
           </div>
         )
@@ -289,7 +284,7 @@ export default function Besoins({ annee: anneeProp }) {
             {offres.map(o => {
               const s = STATUT_OFFRE[o.statut] || STATUT_OFFRE.brouillon;
               return (
-                <div key={o.id} className="border border-slate-200 rounded-xl px-4 py-3 bg-white flex items-center gap-3 flex-wrap">
+                <div key={o.id} className="carte px-4 py-3 flex items-center gap-3 flex-wrap">
                   <div className="flex-1 min-w-[200px]">
                     <button onClick={() => ouvrirOffre(o.id)} className="text-left">
                       <div className="font-medium text-slate-800">{o.intitule}</div>
@@ -300,7 +295,7 @@ export default function Besoins({ annee: anneeProp }) {
                       </div>
                     </button>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-champ text-xs font-bold ${s.classe}`}>{s.label}</span>
+                  <PastilleEtat etat={s.etat}>{s.label}</PastilleEtat>
                   <button onClick={() => ouvrirApercu(o)}
                     className="bouton flex items-center gap-1">
                     <IconEye size={14} /> Aperçu
@@ -328,7 +323,7 @@ export default function Besoins({ annee: anneeProp }) {
             })}
           </div>
         ) : (
-          <div className="border border-dashed border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">
+          <div className="carte p-8 text-center text-sm text-slate-500">
             Aucune offre. Créez-en une depuis l'onglet Besoins.
           </div>
         )
@@ -348,7 +343,7 @@ export default function Besoins({ annee: anneeProp }) {
             <Champ label="Intitulé">
               <input value={brouillon.intitule}
                 onChange={e => setBrouillon(b => ({ ...b, intitule: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+                className="controle w-full" />
             </Champ>
 
             <div className="grid grid-cols-3 gap-3">
@@ -357,25 +352,25 @@ export default function Besoins({ annee: anneeProp }) {
                   onChange={e => setBrouillon(b => ({ ...b,
                     periodes_cours: e.target.value,
                     total_periodes: (Number(e.target.value) || 0) * (Number(b.nb_groupes) || 0) }))}
-                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+                  className="controle w-full" />
               </Champ>
               <Champ label="Groupes">
                 <input type="number" value={brouillon.nb_groupes || ''}
                   onChange={e => setBrouillon(b => ({ ...b,
                     nb_groupes: e.target.value,
                     total_periodes: (Number(b.periodes_cours) || 0) * (Number(e.target.value) || 0) }))}
-                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+                  className="controle w-full" />
               </Champ>
               <Champ label="Total à pourvoir">
                 <input value={`${brouillon.total_periodes || 0} pér.`} readOnly
-                  className="w-full border border-slate-200 bg-slate-50 rounded-lg px-2.5 py-1.5 font-semibold text-iip-blue" />
+                  className="controle w-full font-semibold text-iip-blue" />
               </Champ>
             </div>
 
             <Champ label="Postes à pourvoir">
               <input type="number" value={brouillon.nb_postes || ''}
                 onChange={e => setBrouillon(b => ({ ...b, nb_postes: e.target.value }))}
-                className="w-28 border border-slate-300 rounded-lg px-2.5 py-1.5" />
+                className="controle w-28" />
               <span className="text-xs text-slate-500 ml-2">
                 un seul professeur peut assurer plusieurs groupes
               </span>
@@ -407,10 +402,9 @@ export default function Besoins({ annee: anneeProp }) {
           </> : null}>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-champ text-xs font-bold
-                ${(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).classe}`}>
+              <PastilleEtat etat={(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).etat}>
                 {(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).label}
-              </span>
+              </PastilleEtat>
               <span className="text-slate-600">
                 {detail.total_periodes} périodes · {detail.nb_groupes} groupe(s) · {detail.nb_postes} poste(s)
               </span>
@@ -431,8 +425,8 @@ export default function Besoins({ annee: anneeProp }) {
                 <div className="flex flex-wrap gap-1.5">
                   {detail.titres.map(t => {
                     const p = PORTEE[t.portee] || PORTEE.requis;
-                    return <span key={t.id} className={`px-2 py-1 rounded-lg text-xs font-medium ${p.classe}`}>
-                      {t.libelle} <span className="opacity-60">· {p.label}</span></span>;
+                    return <PastilleEtat key={t.id} etat={p.etat}>
+                      {t.libelle} <span className="opacity-70">· {p.label}</span></PastilleEtat>;
                   })}
                 </div>
               </div>
@@ -446,9 +440,9 @@ export default function Besoins({ annee: anneeProp }) {
                 <ul className="space-y-1">
                   {detail.acquis.map(a => (
                     <li key={a.aa_code} className="text-sm text-slate-700 flex gap-2">
-                      <span className="text-mention font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded h-fit">
+                      <PastilleEtat etat="neutre" className="h-fit flex-none">
                         {a.aa_code}
-                      </span>
+                      </PastilleEtat>
                       <span>{a.description}</span>
                     </li>
                   ))}
@@ -483,13 +477,11 @@ export default function Besoins({ annee: anneeProp }) {
           <div className="space-y-3">
             {envoi.fait ? (
               <>
-                <div className={`px-3 py-2.5 rounded-lg text-sm ${envoi.mode === 'smtp'
-                  ? 'bg-emerald-500 text-white border border-emerald-500'
-                  : 'bg-amber-500 text-white border border-amber-500'}`}>
+                <Encadre etat={envoi.mode === 'smtp' ? 'reussi' : 'surveiller'}>
                   {envoi.mode === 'smtp'
                     ? `Offre envoyée à ${envoi.nb} destinataire(s). L'envoi est tracé dans Lucie.`
                     : envoi.avertissement}
-                </div>
+                </Encadre>
               </>
             ) : (
               <>
@@ -500,7 +492,7 @@ export default function Besoins({ annee: anneeProp }) {
                 <textarea rows={3} value={envoi.destinataires} autoFocus
                   onChange={e => setEnvoi(v => ({ ...v, destinataires: e.target.value }))}
                   placeholder="forem@exemple.be, federation@exemple.be…"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+                  className="controle w-full !h-auto !whitespace-pre-wrap !leading-normal py-2 text-sm" />
                 {envoi.erreur && <div className="text-sm text-red-700">{envoi.erreur}</div>}
               </>
             )}
@@ -515,7 +507,7 @@ export default function Besoins({ annee: anneeProp }) {
    ce que la direction doit écrire. La charge et les titres viennent du besoin
    et du référentiel ; le reste se saisit ici, dans le même ordre que la pièce. */
 function ChampsAppel({ valeur, poser }) {
-  const champ = 'w-full border border-slate-300 rounded-lg px-2.5 py-1.5';
+  const champ = 'controle w-full';
   const [catalogue, setCatalogue] = useState([]);
   useEffect(() => {
     fetch('/api/besoins/titres', { headers: authHeaders() }).then(r => r.json())
@@ -563,7 +555,7 @@ function ChampsAppel({ valeur, poser }) {
       </Champ>
       <Champ label="Contenu synthétique — les acquis du cours, puis les points du programme">
         <textarea rows={8} value={valeur.description || ''} data-reponses="offre-contenu"
-          onChange={e => poser('description', e.target.value)} className={champ} />
+          onChange={e => poser('description', e.target.value)} className={`${champ} !h-auto !whitespace-pre-wrap !leading-normal py-1.5`} />
         <div className="flex flex-wrap items-start gap-2 mt-1">
           {valeur.code_cours && (
             <button type="button" className="text-second underline text-iip-blue" onClick={reprendre}>
@@ -575,7 +567,7 @@ function ChampsAppel({ valeur, poser }) {
       </Champ>
       <Champ label="Profil du/de la candidat·e">
         <textarea rows={3} value={valeur.profil || ''} data-reponses="offre-profil"
-          onChange={e => poser('profil', e.target.value)} className={champ} />
+          onChange={e => poser('profil', e.target.value)} className={`${champ} !h-auto !whitespace-pre-wrap !leading-normal py-1.5`} />
       </Champ>
       <Champ label="Titres">
         {catalogue.length ? (
@@ -587,8 +579,8 @@ function ChampsAppel({ valeur, poser }) {
               return (
                 <button key={id} type="button" disabled={fixe} onClick={() => basculer(id)}
                   title={fixe ? 'Rattaché au cours dans le référentiel' : ''}
-                  className={`px-2 py-1 rounded-lg text-xs font-medium border ${pris
-                    ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-slate-600 border-slate-300'}`}>
+                  data-etat={pris ? 'disponible' : 'neutre'}
+                  className={`pastille-etat ${pris ? '' : 'opacity-70'}`}>
                   {t.libelle}
                 </button>
               );

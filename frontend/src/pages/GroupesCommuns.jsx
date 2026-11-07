@@ -5,7 +5,7 @@ import { choisir, demander, informer, saisir } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { EnteteCarte } from '../components/ui.jsx';
+import { EnteteCarte, Encadre, TuileEtat } from '../components/ui.jsx';
 
 /**
  * LES GROUPES COMMUNS (Charles, 9 octobre 2026 : « des TP par 4, par 6, par 8
@@ -114,8 +114,8 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
           <option value="">— Section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
-        <div className="segments flex h-9">
-          {BLOCS.map(b => <button key={b} onClick={() => setBloc(b)} className={`px-3 text-sm ${bloc === b ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{b}</button>)}
+        <div className="segments">
+          {BLOCS.map(b => <button key={b} onClick={() => setBloc(b)} className={`text-sm ${bloc === b ? 'bg-iip-blue text-white' : 'text-slate-600'}`}>{b}</button>)}
         </div></>}
         <span className="flex-1" />
         {peutEcrire && c && <>
@@ -125,10 +125,10 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
             <IconUsersGroup size={15} /> Remplir les groupes…</button>
         </>}
       </div>
-      {erreur && <div className="text-sm" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
 
       {simu && (
-        <div className="carte p-3 space-y-2" style={{ borderLeft: '4px solid var(--c-disponible)' }}>
+        <div className="bloc-etat p-3 space-y-2" data-etat="disponible">
           <div className="flex items-center gap-3 flex-wrap">
             <b className="text-sm">Simulation</b>
             <span className="text-sm text-slate-600">{simu.a_poser} placement(s) nouveaux · {simu.a_changer} changement(s) · {simu.inchanges} déjà en place</span>
@@ -146,7 +146,7 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
         <div className="carte overflow-hidden">
           <EnteteCarte titre={`Activités à groupes — ${section} · ${bloc}`}
             sous={<>{c.etudiants.length} étudiant(s) · <b>{B} brique(s)</b> : le plus petit nombre qui convient à tous les découpages cochés</>} />
-          <table className="w-full text-second">
+          <table className="tableau-maison w-full text-second">
             <thead><tr className="tab-entete text-left">
               <th className="px-3 py-1.5">Dans les briques</th><th className="px-3 py-1.5">Cours · activité</th>
               <th className="px-3 py-1.5">Groupes en attribution</th><th className="px-3 py-1.5">Découpage (attributions)</th>
@@ -330,7 +330,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
   const NOMS_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const gabarit = { gridTemplateColumns: `13rem repeat(${nb}, minmax(0,1fr))` };
   const fond = t => (t === 'ev1' || t === 'ev2' ? 'color-mix(in srgb, var(--c-attente, #B45309) 14%, transparent)'
-    : t === 'cours' ? 'transparent' : 'color-mix(in srgb, #64748B 9%, transparent)');
+    : t === 'cours' ? 'transparent' : 'color-mix(in srgb, rgb(var(--gris-500)) 9%, transparent)');
   const etiq = a => `${a.cours_code} ${a.tout_le_bloc && (!a.groupe || a.groupe === 'Tous' || a.groupe === 'Ts') ? '' : `· ${a.groupe}`}`;
   const [dates, setDates] = useState({});
   const [msg, setMsg] = useState(null);
@@ -349,7 +349,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
       {cal.map((c, i) => <div key={i} style={{ background: fond(c.type), boxShadow: i + 1 === colDe.get(semaine) ? 'inset 0 0 0 999px rgba(22,64,106,.08)' : undefined }} />)}
     </div>);
   return (
-    <details open className="border border-slate-200 rounded-carte">
+    <details open className="border-t border-slate-200">
       <summary className="px-3 py-2 cursor-pointer text-sm font-semibold">Ligne du temps de l’année — {acts.length} activité(s), {sim.stages?.length || 0} stage(s), {nb} semaines</summary>
       <div className="overflow-x-auto px-3 pb-3">
         <div className="min-w-[860px] text-xs">
@@ -400,7 +400,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
                 <button key={i} onClick={() => onSemaine(b.w)} title={`${a.cours_code} ${a.groupe || ''} — ${b.n} séance(s)${b.propose ? ' · proposé' : ''}`}
                   className="h-[14px] rounded-pastille mx-px relative"
                   style={{ gridColumn: `${b.de + 1} / ${b.a + 2}`, gridRow: 1, background: teinteCours(a.cours_code),
-                    ...(b.propose && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: 1, opacity: 0.75 } : {}) }} />))}
+                    ...(b.propose && sim.plan?.lignes?.n ? { outline: '1.5px dashed rgb(var(--gris-500))', outlineOffset: 1, opacity: 0.75 } : {}) }} />))}
             </div>))}
           {/* La légende des fonds. */}
           <div className="flex items-center gap-4 pt-2 text-slate-500">
@@ -454,7 +454,7 @@ function LocauxActivites({ sim, section, bloc, annee, peutEcrire, onEnregistre }
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
   return (
-    <details className="border border-slate-200 rounded-carte">
+    <details className="border-t border-slate-200">
       <summary className="px-3 py-2 cursor-pointer text-sm font-semibold">
         Locaux des activités{aDesigner ? <span className="font-normal" style={{ color: 'var(--c-attente)' }}> — {aDesigner} activité(s) sans local désigné</span> : ''}
       </summary>
@@ -676,7 +676,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
           <button className="bouton" onClick={retablir} disabled={enCours} title="Remettre les séances importées qu’un versement avait remplacées">Rétablir l’horaire importé</button></>}
 
       </div>
-      {erreur && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
 
       {/* LES PLAGES ET LES PRIORITÉS SE RÈGLENT DANS « LE PLANNING » (Charles, 10 octobre
           2026) : la base de l'école, puis ce qu'on peint pour la section, le bloc, l'UE,
@@ -698,8 +698,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
             [`${sim.actuel.heures} h`, `horaire actuel — ${sim.actuel.seances} séance(s)${sim.actuel.derniere ? `, jusqu’au ${sim.actuel.derniere.slice(8, 10)}/${sim.actuel.derniere.slice(5, 7)}` : ''}`, sim.actuel.heures < sim.heures_attribuees ? 'surveiller' : 'reussi'],
             [`${Math.round(sim.seances.reduce((t, x) => t + x.minutes, 0) / 60)} h`, `proposition de Lucie — ${sim.nb_seances} séance(s)`, sim.restes.length ? 'corriger' : 'reussi'],
             [sim.restes.length ? `${sim.restes.reduce((t, r) => t + r.manque, 0)}` : '0', sim.restes.length ? 'séances sans place dans la proposition' : 'tout est placé', sim.restes.length ? 'corriger' : 'reussi']].map(([v, l, e]) => (
-            <div key={l} className="bloc-etat px-3 py-2" data-etat={e}>
-              <div className="text-lg font-bold">{v}</div><div className="text-xs text-slate-500">{l}</div></div>))}
+            <TuileEtat key={l} etat={e} valeur={v} libelle={l} />))}
         </div>
         {/* CE QUE LA SIMULATION A LU DU LABORATOIRE : d'où vient chaque contrainte. */}
         {sim.liens && (
@@ -718,7 +717,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
         <LocauxActivites sim={sim} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} onEnregistre={simuler} />
         <LigneDuTemps sim={sim} filtre={pourQui} semaine={semaine} onSemaine={setSemaine} peutEcrire={peutEcrire} onRecharger={() => simuler(mode, true)} />
         {/* LA RÉGULARITÉ SE LIT : un créneau fixe par groupe, ses semaines. */}
-        <details className="border border-slate-200 rounded-carte">
+        <details className="border-t border-slate-200">
           <summary className="px-3 py-2 cursor-pointer text-sm font-semibold">
             Créneaux fixes — {sim.activites.filter(a => a.creneaux_fixes?.length && !a.irreguliers).length} sur {sim.activites.length} activité(s) entièrement régulières
           </summary>
@@ -784,9 +783,9 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
             </optgroup>
           </select>
           <button className="bouton bouton-sortir" onClick={imprimerHoraire} title="La semaine type et les séances de l’année, pour la sélection">Imprimer l’horaire</button>
-          <div className="segments flex h-8">
+          <div className="segments">
             {[['proposition', 'Proposition de Lucie'], ['actuel', 'Horaire actuel'], ['deux', 'Côte à côte']].map(([k, l]) => (
-              <button key={k} onClick={() => setVueSem(k)} className={`px-3 text-second ${vueSem === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>))}
+              <button key={k} onClick={() => setVueSem(k)} className={`text-second ${vueSem === k ? 'bg-iip-blue text-white' : 'text-slate-600'}`}>{l}</button>))}
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -836,7 +835,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
                             <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-second leading-tight overflow-hidden text-[color:var(--c-principal,_#1B2B4B)] flex flex-col items-start justify-center gap-0.5"
                               title={`${s.cours_code} ${s.cours_nom || ''}\n${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
                               style={{ ...styleTuileCours(s.cours_code),
-                                ...(s.etat === 'propose' && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: -2 } : {}),
+                                ...(s.etat === 'propose' && sim.plan?.lignes?.n ? { outline: '1.5px dashed rgb(var(--gris-500))', outlineOffset: -2 } : {}),
                                 ...(s.conflits?.length ? { outline: '2px solid var(--c-refuse)', outlineOffset: -2 } : {}) }}>
                               {/* Le numéro du cours, et le groupe dans sa pastille ; le nom quand il y a la place ; le reste au survol. */}
                               <span className="flex items-center gap-1.5 max-w-full min-w-0">

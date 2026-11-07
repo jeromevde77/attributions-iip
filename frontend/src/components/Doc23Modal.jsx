@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { nomDoc } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, GroupeFenetre, PieceFenetre, Encadre } from './ui.jsx';
 import { IconFileText } from '@tabler/icons-react';
 
 // Catégorie EPROM selon ct_pp
@@ -346,7 +346,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
           <div>
             <label className="block text-xs text-gray-500 mb-1">Organisation</label>
             <select value={numOrg} onChange={e => setNumOrg(parseInt(e.target.value))}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
+              className="controle w-full text-sm">
               {orgs.length > 0
                 ? orgs.map(o => <option key={o.num_organisation} value={o.num_organisation}>
                     Org {o.num_organisation} — {o.date_debut||'?'} → {o.date_fin||'?'}
@@ -355,7 +355,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
               }
             </select>
             {orgs.length === 0 && (
-              <p className="text-xs text-orange-500 mt-1">⚠ Configurez d'abord les organisations via 🗓 dans le menu + de l'UE</p>
+              <Encadre etat="surveiller" className="mt-1">Configurez d'abord les organisations de l'UE, par le calendrier du menu + de l'UE.</Encadre>
             )}
           </div>
 
@@ -371,37 +371,27 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
                 <div>Périodes prévues : <b>{data.tot_prevu}</b> · Réelles : <b>{data.tot_reel}</b></div>
               </div>
 
-              {/* Boutons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => ouvrir(genDoc2Html(data, annee), nomDoc('DOC2', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))}
-                  className="bouton bouton-sortir justify-center">
-                  <IconFileText size={15} /> DOC2 (populations)
-                </button>
-                <button onClick={() => ouvrir(genDoc3Html(data, annee, null), nomDoc('DOC3', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))}
-                  className="bouton bouton-sortir justify-center">
-                  <IconFileText size={15} /> DOC3 (attributions)
-                </button>
-              </div>
+              {/* Les pièces */}
+              <GroupeFenetre titre="L'unité">
+                <PieceFenetre icone={IconFileText} titre="DOC2 (populations)"
+                  onClick={() => ouvrir(genDoc2Html(data, annee), nomDoc('DOC2', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))} />
+                <PieceFenetre icone={IconFileText} titre="DOC3 (attributions)"
+                  onClick={() => ouvrir(genDoc3Html(data, annee, null), nomDoc('DOC3', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))} />
+              </GroupeFenetre>
 
               {/* DOC3 par cours */}
               {data.cours?.length > 0 && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-2">DOC3 par cours individuel :</div>
-                  <div className="space-y-1">
+                <GroupeFenetre titre="DOC3 par cours individuel">
                     {data.cours.map(c => (
-                      <button key={c.cours_code}
-                        onClick={() => ouvrir(genDoc3Html(data, annee, c.cours_code), nomDoc('DOC3', 'UE'+ue_num, c.cours_nom, 'Org'+numOrg, annee))}
-                        className="w-full text-left text-xs border border-gray-200 rounded px-3 py-1.5 h-9 hover:bg-gray-50 flex justify-between items-center">
-                        <span><b>{c.num_activite}</b> — {c.cours_nom}</span>
-                        <IconFileText size={14} className="text-slate-400" />
-                      </button>
+                      <PieceFenetre key={c.cours_code} icone={IconFileText}
+                        titre={<><b>{c.num_activite}</b> — {c.cours_nom}</>}
+                        onClick={() => ouvrir(genDoc3Html(data, annee, c.cours_code), nomDoc('DOC3', 'UE'+ue_num, c.cours_nom, 'Org'+numOrg, annee))} />
                     ))}
-                  </div>
-                </div>
+                </GroupeFenetre>
               )}
             </div>
           ) : (
-            <div className="text-red-400 text-sm text-center py-4">Erreur de chargement</div>
+            <Encadre etat="corriger">Erreur de chargement</Encadre>
           )}
         </div>
     </Fenetre>

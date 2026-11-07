@@ -441,7 +441,7 @@ function Btn({ onClick, active, disabled, title, children, danger }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={title}
       className={`h-7 px-1.5 rounded text-sm flex items-center justify-center transition min-w-[26px]
-        ${active ? 'bg-iip-gold text-white' : danger ? 'text-white hover:bg-red-500' : 'text-gray-700 hover:bg-gray-100'}
+        ${active ? 'bg-iip-blue text-white' : danger ? 'text-red-600 hover:bg-slate-100' : 'text-gray-700 hover:bg-gray-100'}
         ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}>
       {children}
     </button>
@@ -888,7 +888,7 @@ export default function Editeur() {
                   <div className="segments flex">
                     {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
                       <button key={key} onClick={() => setFormat(key)}
-                        className={`flex-1 px-2 py-1.5 text-second ${format === key ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                        className={`flex-1 text-second ${format === key ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
                         {key === 'A4P' ? <IconRectangleVertical size={14} className="inline -mt-0.5 mr-1" /> : <IconRectangle size={14} className="inline -mt-0.5 mr-1" />}{pf.label}</button>))}
                   </div>
                 </div>
@@ -908,7 +908,7 @@ export default function Editeur() {
                 </div>
               </div>)}
           </div>
-          <div className="segments flex h-9" title="Façon de composer le modèle">
+          <div className="segments" title="Façon de composer le modèle">
             {[['atelier', 'Atelier', 'L’atelier de Lucie : glisser des éléments tout faits sur la feuille'], ['texte', 'Texte', 'Écrire comme dans un traitement de texte'],
               ['html', 'HTML', 'Le HTML du modèle, tel qu’il est enregistré']].map(([k, l, t]) => {
               const actif = k === 'atelier' ? atelier : k === 'html' ? (!atelier && modeCode) : (!atelier && !modeCode);
@@ -923,17 +923,17 @@ export default function Editeur() {
                   if (atelier) { editor?.commands.setContent(sortieAtelier.current.html || '<p></p>'); setCodeHtml(sortieAtelier.current.html || ''); setAtelier(false); }
                   if (k === 'html') versCode(); else if (modeCode) versVisuel();
                 }}
-                  className={`px-3 text-sm ${actif ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>);
+                  className={`text-sm ${actif ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>);
             })}
           </div>
           <div className="relative">
             {/* UN SEUL BOUTON, COUPÉ D'UN FILET : l'aperçu, et la flèche qui choisit l'exemple. */}
-            <div className="inline-flex h-9 rounded-champ border border-[#16406A] overflow-hidden bg-white">
-              <button onClick={generer} disabled={generating} className="px-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#16406A] hover:bg-slate-50"
+            <div className="segments !border-[color:var(--c-principal)]">
+              <button onClick={generer} disabled={generating} className="gap-1.5 text-sm font-medium text-[color:var(--c-principal)] hover:bg-slate-50"
                 title="Composer la pièce sur les données d'exemple choisies">
                 <IconEye size={15} /> {generating ? 'Composition…' : 'Aperçu'}</button>
               <span className="w-px bg-[color:var(--c-principal)]/30 my-1.5" />
-              <button onClick={() => setShowExemple(v => !v)} className="px-2 text-[#16406A] hover:bg-slate-50"
+              <button onClick={() => setShowExemple(v => !v)} className="!px-2 text-[color:var(--c-principal)] hover:bg-slate-50"
                 title="Sur quelles données composer l'aperçu"><IconChevronDown size={13} /></button>
             </div>
             {showExemple && (
@@ -963,8 +963,7 @@ export default function Editeur() {
         {!atelier && !modeCode && <Toolbar editor={editor} />}
         {modeCode && !atelier ? (
           <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-            <div className="flex-none px-4 py-2 text-second text-amber-900 bg-amber-50
-                            border-b border-amber-200">
+            <div className="bloc-etat !rounded-none flex-none px-4 py-2 text-second text-slate-700" data-etat="surveiller">
               Le HTML du modèle. « Enregistrer » écrit ce que vous voyez ici.
               <b> Repasser en visuel</b> fait relire ce code par l'éditeur, qui ne
               garde que ce qu'il sait représenter : une balise ou un attribut

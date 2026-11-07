@@ -5,16 +5,17 @@ import {
   IconNotes, IconFileImport, IconLogin, IconTrash as IconCorbeille, IconAward } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
+import { PastilleEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
 
 const STATUTS_PIECE = {
-  manquante:   { label: 'Manquante',    classe: 'bg-red-500 text-white' },
-  a_demander:  { label: 'À demander',   classe: 'bg-amber-500 text-white' },
-  recue:       { label: 'Au dossier',   classe: 'bg-emerald-500 text-white' },
-  transmise:   { label: 'Transmise',    classe: 'bg-emerald-500 text-white' },
-  non_requise: { label: 'Non requise',  classe: 'bg-slate-100 text-slate-500' },
-  expiree:     { label: 'Expirée',      classe: 'bg-red-500 text-white' },
+  manquante:   { label: 'Manquante',    etat: 'corriger' },
+  a_demander:  { label: 'À demander',   etat: 'surveiller' },
+  recue:       { label: 'Au dossier',   etat: 'reussi' },
+  transmise:   { label: 'Transmise',    etat: 'reussi' },
+  non_requise: { label: 'Non requise',  etat: 'indisponible' },
+  expiree:     { label: 'Expirée',      etat: 'corriger' },
 };
 
 const TYPES_ABSENCE = [
@@ -32,7 +33,7 @@ const TYPES_ENTRETIEN = [
 
 function Pastille({ statut }) {
   const s = STATUTS_PIECE[statut] || STATUTS_PIECE.manquante;
-  return <span className={`px-2 py-0.5 rounded-champ text-xs font-bold ${s.classe}`}>{s.label}</span>;
+  return <PastilleEtat etat={s.etat}>{s.label}</PastilleEtat>;
 }
 
 // ═══ DOSSIER ADMINISTRATIF ═════════════════════════════════════════════════
@@ -86,21 +87,18 @@ export function DossierAdmin({ profId, peutEcrire }) {
         )}
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="tab-entete">
-              <th className="px-3 py-2 text-left">Pièce</th>
-              <th className="px-3 py-2 text-left w-32">Référence</th>
-              <th className="px-3 py-2 text-left w-32">Reçue le</th>
-              <th className="px-3 py-2 text-left w-28">Statut</th>
-              {peutEcrire && <th className="px-3 py-2 w-36"></th>}
-            </tr>
-          </thead>
+      <Tableau>
+          <TableauEntete>
+              <Th>Pièce</Th>
+              <Th largeur="w-32">Référence</Th>
+              <Th largeur="w-32">Reçue le</Th>
+              <Th largeur="w-28">Statut</Th>
+              {peutEcrire && <Th largeur="w-36"></Th>}
+          </TableauEntete>
           <tbody>
             {data.pieces.map(p => (
-              <tr key={p.code_piece} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                <td className="px-3 py-2">
+              <Tr key={p.code_piece}>
+                <Td>
                   <div className={`${p.statut === 'non_requise' ? 'text-slate-400' : 'text-slate-800'}`}>
                     {p.libelle}
                   </div>
@@ -110,9 +108,9 @@ export function DossierAdmin({ profId, peutEcrire }) {
                   {p.base_legale && (
                     <div className="text-mention text-slate-400 mt-0.5">{p.base_legale}</div>
                   )}
-                </td>
-                <td className="px-3 py-2 text-slate-600">{p.annexe || '—'}</td>
-                <td className="px-3 py-2">
+                </Td>
+                <Td className="text-slate-600">{p.annexe || '—'}</Td>
+                <Td>
                   {peutEcrire ? (
                     <input type="date" value={p.date_reception || ''}
                       onChange={e => majPiece(p.code_piece, {
@@ -120,36 +118,35 @@ export function DossierAdmin({ profId, peutEcrire }) {
                         date_reception: e.target.value || null,
                       })}
                       disabled={enCours === p.code_piece}
-                      className="border border-slate-300 rounded-lg px-2 py-1 text-sm w-full" />
+                      className="controle !h-8 text-sm w-full" />
                   ) : fr(p.date_reception)}
-                </td>
-                <td className="px-3 py-2"><Pastille statut={p.statut} /></td>
+                </Td>
+                <Td><Pastille statut={p.statut} /></Td>
                 {peutEcrire && (
-                  <td className="px-3 py-2">
+                  <Td>
                     <div className="flex gap-1">
                       {p.statut !== 'transmise' && p.statut !== 'non_requise' && (
                         <button onClick={() => majPiece(p.code_piece, {
                             statut: 'transmise', date_reception: p.date_reception,
                             date_transmission: new Date().toISOString().slice(0, 10) })}
-                          className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                          className="bouton bouton-compact">
                           GEDI
                         </button>
                       )}
                       {p.statut !== 'non_requise' && (
                         <button onClick={() => majPiece(p.code_piece, { statut: 'non_requise' })}
                           title="Marquer non requise"
-                          className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 text-slate-500">
+                          className="bouton bouton-compact text-slate-500">
                           N/A
                         </button>
                       )}
                     </div>
-                  </td>
+                  </Td>
                 )}
-              </tr>
+              </Tr>
             ))}
           </tbody>
-        </table>
-      </div>
+      </Tableau>
       <p className="text-xs text-slate-400">
         Les pièces transmises via GEDI portent la date de transmission. Le titre de
         capacité est repris automatiquement de la fiche s'il y est encodé.
@@ -214,12 +211,12 @@ export function Absences({ profId, peutEcrire }) {
       </div>
 
       {form && (
-        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
+        <div className="carte p-4 space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="text-xs">
               <span className="intertitre block mb-1">Type</span>
               <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                className="controle w-full text-sm">
                 {TYPES_ABSENCE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
@@ -227,19 +224,19 @@ export function Absences({ profId, peutEcrire }) {
               <span className="intertitre block mb-1">Début</span>
               <input type="date" value={form.date_debut}
                 onChange={e => setForm(f => ({ ...f, date_debut: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                className="controle w-full text-sm" />
             </label>
             <label className="text-xs">
               <span className="intertitre block mb-1">Fin</span>
               <input type="date" value={form.date_fin || ''}
                 onChange={e => setForm(f => ({ ...f, date_fin: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                className="controle w-full text-sm" />
             </label>
             <label className="text-xs">
               <span className="intertitre block mb-1">Code CAD / DI</span>
               <input value={form.code_cad || ''} placeholder="ex. CAD 12"
                 onChange={e => setForm(f => ({ ...f, code_cad: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                className="controle w-full text-sm" />
             </label>
           </div>
           <div className="flex gap-2">
@@ -248,7 +245,7 @@ export function Absences({ profId, peutEcrire }) {
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
-              className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+              className="bouton">Annuler</button>
           </div>
           <p className="text-xs text-slate-500">
             L'enregistrement crée les échéances liées : déclaration CAMMAT et, au-delà
@@ -258,7 +255,7 @@ export function Absences({ profId, peutEcrire }) {
       )}
 
       {!data.absences.length && (
-        <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">
+        <div className="carte text-sm text-slate-500 py-6 text-center">
           Aucune absence enregistrée.
         </div>
       )}
@@ -266,7 +263,7 @@ export function Absences({ profId, peutEcrire }) {
       {data.absences.map(a => {
         const libelle = TYPES_ABSENCE.find(([v]) => v === a.type)?.[1] || a.type;
         return (
-          <div key={a.id} className="border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+          <div key={a.id} className="carte px-4 py-3 flex items-center gap-3 flex-wrap">
             <div className="text-sm font-semibold text-iip-blue min-w-[150px]">
               {fr(a.date_debut)}{a.date_fin ? ` → ${fr(a.date_fin)}` : ''}
             </div>
@@ -278,20 +275,16 @@ export function Absences({ profId, peutEcrire }) {
             </div>
             <button onClick={() => peutEcrire && basculer(a, 'cammat_declare')}
               disabled={!peutEcrire}
-              className={`text-xs px-2 py-1 rounded-champ font-bold ${a.cammat_declare
-                ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+              data-etat={a.cammat_declare ? 'reussi' : 'surveiller'} className="pastille-etat">
               CAMMAT {a.cammat_declare ? '✓' : '✗'}
             </button>
             <button onClick={() => peutEcrire && basculer(a, 'certificat_recu')}
               disabled={!peutEcrire}
-              className={`text-xs px-2 py-1 rounded-champ font-bold ${a.certificat_recu
-                ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
+              data-etat={a.certificat_recu ? 'reussi' : 'indisponible'} className="pastille-etat">
               Certificat {a.certificat_recu ? '✓' : '✗'}
             </button>
             {a.remplacement_requis === 1 && (
-              <span className="text-xs px-2 py-1 rounded-champ bg-red-500 text-white font-bold">
-                Remplacement requis
-              </span>
+              <PastilleEtat etat="corriger">Remplacement requis</PastilleEtat>
             )}
             {peutEcrire && (
               <button onClick={() => supprimer(a.id)} className="text-slate-300 hover:text-red-600">
@@ -319,20 +312,20 @@ function EntretienForm({ entretien: e, onSave, onClose }) {
         <label className="text-xs">
           <span className="intertitre block mb-1">Date tenue</span>
           <input type="date" value={dat} onChange={e => setDat(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+            className="controle w-full text-sm" />
         </label>
         <label className="text-xs">
           <span className="intertitre block mb-1">Lieu</span>
           <input value={lieu} onChange={e => setLieu(e.target.value)}
             placeholder="bureau, salle…"
-            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+            className="controle w-full text-sm" />
         </label>
       </div>
       <label className="text-xs block">
         <span className="intertitre block mb-1">Notes et compte rendu</span>
         <textarea rows={4} value={notes} onChange={e => setNotes(e.target.value)}
           placeholder="Points abordés, décisions, suites à donner…"
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+          className="controle w-full !h-auto !whitespace-pre-wrap !leading-normal py-2 text-sm" />
       </label>
       <div className="flex gap-2">
         <button onClick={() => onSave({ date_tenue: dat || null, lieu: lieu || null, compte_rendu_html: notes || null })}
@@ -340,7 +333,7 @@ function EntretienForm({ entretien: e, onSave, onClose }) {
           Enregistrer
         </button>
         <button onClick={onClose}
-          className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+          className="bouton">Annuler</button>
       </div>
     </div>
   );
@@ -393,12 +386,12 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
       </div>
 
       {form && (
-        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
+        <div className="carte p-4 space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="text-xs">
               <span className="intertitre block mb-1">Type</span>
               <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                className="controle w-full text-sm">
                 {TYPES_ENTRETIEN.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
@@ -406,13 +399,13 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
               <span className="intertitre block mb-1">Date prévue</span>
               <input type="date" value={form.date_prevue || ''}
                 onChange={e => setForm(f => ({ ...f, date_prevue: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                className="controle w-full text-sm" />
             </label>
             <label className="text-xs">
               <span className="intertitre block mb-1">Mené par</span>
               <input value={form.mene_par || ''}
                 onChange={e => setForm(f => ({ ...f, mene_par: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                className="controle w-full text-sm" />
             </label>
             <label className="text-xs flex items-end gap-2 pb-1.5">
               <input type="checkbox" checked={!!form.confidentiel}
@@ -426,13 +419,13 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
-              className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+              className="bouton">Annuler</button>
           </div>
         </div>
       )}
 
       {!data.entretiens.length && (
-        <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">
+        <div className="carte text-sm text-slate-500 py-6 text-center">
           Aucun entretien enregistré.
         </div>
       )}
@@ -440,7 +433,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
       {data.entretiens.map(e => {
         const libelle = TYPES_ENTRETIEN.find(([v]) => v === e.type)?.[1] || e.type;
         return (
-          <div key={e.id} className="border border-slate-200 rounded-xl px-4 py-3">
+          <div key={e.id} className="carte px-4 py-3">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="text-sm font-semibold text-iip-blue min-w-[90px]">
                 {fr(e.date_tenue || e.date_prevue)}
@@ -452,10 +445,9 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
                 </div>
                 {e.mene_par && <div className="text-xs text-slate-500">{e.mene_par}</div>}
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-champ font-bold ${e.date_tenue
-                ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+              <PastilleEtat etat={e.date_tenue ? 'reussi' : 'surveiller'}>
                 {e.date_tenue ? 'Tenu' : 'Prévu'}
-              </span>
+              </PastilleEtat>
               {(e.compte_rendu_html || e.masque) && !e.masque && (
                 <button onClick={() => setOuvert(ouvert === e.id ? null : e.id)}
                   className="text-second text-iip-turquoise font-semibold">
@@ -464,7 +456,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
               )}
               {peutEcrire && (
                 <button onClick={() => setOuvert(ouvert === e.id ? null : e.id)}
-                  className="text-second px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:border-iip-turquoise hover:text-iip-turquoise">
+                  className="bouton bouton-compact">
                   {ouvert === e.id ? 'Fermer' : e.date_tenue ? 'Modifier' : 'Compléter'}
                 </button>
               )}
@@ -578,19 +570,19 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
         </div>
         {peutEcrire && (
           <button onClick={() => setRdv(r => r ? null : { type: 'suivi', date_prevue: '' })}
-            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
+            className="bouton">
             <IconCalendarPlus size={14} /> {rdv ? 'Annuler le rendez-vous' : 'Planifier un rendez-vous'}
           </button>
         )}
       </div>
 
       {rdv && peutEcrire && (
-        <div className="border border-iip-turquoise/40 rounded-xl p-3 bg-iip-turquoise/5 space-y-2">
+        <div className="carte p-3 space-y-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <label className="text-xs">
               <span className="intertitre block mb-1">Type</span>
               <select value={rdv.type} onChange={e => setRdv(r => ({ ...r, type: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                className="controle w-full text-sm">
                 {TYPES_RDV.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
@@ -598,17 +590,17 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
               <span className="intertitre block mb-1">Date prévue</span>
               <input type="date" value={rdv.date_prevue}
                 onChange={e => setRdv(r => ({ ...r, date_prevue: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+                className="controle w-full text-sm" />
             </label>
             <label className="text-xs">
               <span className="intertitre block mb-1">Mené par</span>
               <input value={rdv.mene_par || ''} onChange={e => setRdv(r => ({ ...r, mene_par: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+                className="controle w-full text-sm" />
             </label>
             <label className="text-xs">
               <span className="intertitre block mb-1">Lieu</span>
               <input value={rdv.lieu || ''} onChange={e => setRdv(r => ({ ...r, lieu: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+                className="controle w-full text-sm" />
             </label>
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -626,10 +618,10 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
       )}
 
       {peutEcrire && (
-        <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-2">
+        <div className="carte p-3 space-y-2">
           <textarea rows={2} value={texte} onChange={e => setTexte(e.target.value)}
             placeholder="Noter une remarque datée… (inaltérable après enregistrement)"
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
+            className="controle w-full !h-auto !whitespace-pre-wrap !leading-normal py-2 text-sm" />
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <label className="flex items-center gap-2 text-second text-slate-700">
               <input type="checkbox" checked={confidentiel}
@@ -646,7 +638,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
       )}
 
       {!items.length && (
-        <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">
+        <div className="carte text-sm text-slate-500 py-6 text-center">
           Aucun événement au dossier pour l'instant.
         </div>
       )}
@@ -658,7 +650,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
           const Icone = g.icone;
           return (
             <div key={`${it.genre}-${it.id ?? i}`} className="relative pb-4 last:pb-0">
-              <div className="absolute -left-5 top-0.5 w-[15px] h-[15px] rounded-full bg-white border-2 border-iip-turquoise" />
+              <div className="absolute -left-5 top-0.5 w-[15px] h-[15px] rounded-full border-2 border-iip-turquoise" style={{ background: 'var(--c-fond_tuile, #fff)' }} />
               <div className="flex items-start gap-2">
                 <Icone size={15} className="text-slate-400 mt-0.5 flex-none" />
                 <div className="min-w-0 flex-1">

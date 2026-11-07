@@ -1688,3 +1688,7 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
 .pile-etats { overflow: clip; }
 .pile-etats .bloc-etat { padding-left: 1rem !important; padding-right: 1rem !important; }
 .pile-etats .bloc-etat:is([data-etat="neutre"], :not([data-etat])) { box-shadow: none; color: inherit; background: transparent; }
+
+/* UNE ZONE DE TEXTE N'EST PAS UNE LIGNE (3.5.205) : `.controle` fixe la hauteur et interdit le retour à la ligne ; posé sur un
+   <textarea>, il l'écrasait. Le défaut est corrigé ici, une fois, pour tous les écrans. */
+textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; line-height: 1.45; padding-top: .45rem; padding-bottom: .45rem; }

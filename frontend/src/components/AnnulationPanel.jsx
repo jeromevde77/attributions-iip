@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconArrowBackUp, IconRefresh, IconAlertTriangle } from '@tabler/icons-react';
+import { IconArrowBackUp, IconRefresh, IconAlertTriangle, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, OutilFenetre, Encadre, PastilleEtat } from './ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 /**
@@ -14,10 +14,10 @@ import { demander } from '../lib/dialogue.jsx';
  */
 
 const ACTIONS = {
-  create:   { libelle: 'Création',     cls: 'bg-emerald-500 text-white border-emerald-500' },
-  update:   { libelle: 'Modification', cls: 'bg-sky-500 text-white border-sky-500' },
-  delete:   { libelle: 'Suppression',  cls: 'bg-red-500 text-white border-red-500' },
-  rollback: { libelle: 'Restauration', cls: 'bg-violet-500 text-white border-violet-500' },
+  create:   { libelle: 'Création',     etat: 'reussi' },
+  update:   { libelle: 'Modification', etat: 'disponible' },
+  delete:   { libelle: 'Suppression',  etat: 'corriger' },
+  rollback: { libelle: 'Restauration', etat: 'neutre' },
 };
 
 export default function AnnulationPanel({ annee, onClose, onRestaure }) {
@@ -63,47 +63,39 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
   return (
     <Fenetre icone={IconArrowBackUp} titre="Annuler une modification" large="moyenne" onFermer={onClose}
       sous={`Dernières écritures sur les attributions${annee ? ` — ${annee}` : ''}`}
-      outils={(
-        <button onClick={charger} className="text-blue-200 hover:text-white" title="Actualiser">
-          <IconRefresh size={17} />
-        </button>
-      )}>
+      outils={<OutilFenetre Icone={IconRefresh} titre="Actualiser" onClick={charger} />}>
         <div className="space-y-3">
           {historiqueInactif && (
-            <div className="bloc-etat etat-surveiller flex items-start gap-2 px-3 py-2.5 text-sm text-amber-800">
-              <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
-              <span>
-                L'historique est <b>désactivé</b> : les modifications ne sont plus enregistrées et
-                ne pourront pas être annulées. Activez-le dans Configuration → Historique.
-              </span>
-            </div>
+            <Encadre etat="surveiller" icone={IconAlertTriangle} titre="Historique désactivé">
+              L'historique est <b>désactivé</b> : les modifications ne sont plus enregistrées et
+              ne pourront pas être annulées. Activez-le dans Configuration → Historique.
+            </Encadre>
           )}
 
           {message && (
-            <div className={`px-3 py-2 rounded-lg text-sm flex items-center justify-between ${
-              message.type === 'ok'
-                ? 'bg-emerald-500 text-white border border-emerald-500'
-                : 'bg-red-500 text-white border border-red-500'}`}>
-              <span>{message.texte}</span>
-              <button onClick={() => setMessage(null)} className="opacity-60 ml-3">✕</button>
-            </div>
+            <Encadre etat={message.type === 'ok' ? 'reussi' : 'corriger'}>
+              <div className="flex items-center justify-between">
+                <span>{message.texte}</span>
+                <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-600 ml-3" title="Fermer">
+                  <IconX size={14} />
+                </button>
+              </div>
+            </Encadre>
           )}
 
           {!items ? (
             <div className="text-sm text-slate-400 py-6 text-center">Chargement…</div>
           ) : !items.length ? (
-            <div className="text-sm text-slate-400 py-8 text-center border-2 border-dashed rounded-xl">
+            <div className="carte text-sm text-slate-400 py-8 text-center">
               Aucune modification enregistrée.
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-[52vh] overflow-auto">
+            <div className="carte overflow-hidden divide-y divide-slate-100 max-h-[52vh] overflow-y-auto">
               {items.map(it => {
                 const a = ACTIONS[it.action] || ACTIONS.update;
                 return (
-                  <div key={it.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/60">
-                    <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium flex-none ${a.cls}`}>
-                      {a.libelle}
-                    </span>
+                  <div key={it.id} className="ligne-maison flex items-center gap-3 px-3 py-2.5">
+                    <PastilleEtat etat={a.etat} className="flex-none">{a.libelle}</PastilleEtat>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm text-slate-800 truncate">
                         <b className="text-iip-blue">UE {it.ue_num ?? '—'}</b>

@@ -9,6 +9,7 @@ import DiplomeEditeur from './DiplomeEditeur.jsx';
 import { IconPlus, IconTrash, IconEye, IconDownload, IconCopy, IconLock, IconUpload, IconDeviceFloppy, IconFileZip
 } from '@tabler/icons-react';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { PastilleEtat } from '../components/ui.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { chargerIdentite, useIdentite } from '../lib/identite.js';
 
@@ -305,8 +306,8 @@ function deriveLigne(l, cfgBySec = null) {
   return { ...l, _scores: scores, mention: valide ? calc.mention : '',
            ue_determinantes: detLines, ue_integree: intLine, _calcPct: has ? calc.pct : 0, _complet: complet };
 }
-function mentionColorClass(pct) {
-  return pct >= 70 ? 'text-white bg-green-500' : pct >= 50 ? 'text-white bg-amber-500' : 'text-white bg-red-500';
+function etatMention(pct) {
+  return pct >= 70 ? 'reussi' : pct >= 50 ? 'surveiller' : 'corriger';
 }
 
 /* ── Données pré-importées TIM BA1 2025-2026 ───────────────────────────────── */
@@ -686,7 +687,7 @@ export default function Attestation() {
   const renderRow = (l, idx) => {
     const sc = l._scores || {};
     return (
-      <tr key={l.id} className={idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50/50 hover:bg-gray-100'}>
+      <tr key={l.id} className="ligne-maison">
         <td className="px-2 py-1 text-center"><input type="checkbox" checked={selection.has(l.id)} onChange={() => toggleSel(l.id)} /></td>
         {COLS.map(c => (
           <td key={c.key} className={`px-2 py-1 ${c.w}`}>
@@ -709,9 +710,9 @@ export default function Attestation() {
         )}
         <td className="px-2 py-1 text-center">
           {l.mention
-            ? <span className={`text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap ${mentionColorClass(l._calcPct)}`}>{l._calcPct}% — {l.mention}</span>
+            ? <PastilleEtat etat={etatMention(l._calcPct)}>{l._calcPct}% — {l.mention}</PastilleEtat>
             : l._complet
-              ? <span className="text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap text-white bg-red-500">{l._calcPct}% — Échec</span>
+              ? <PastilleEtat etat="corriger">{l._calcPct}% — Échec</PastilleEtat>
               : <span className="text-gray-300" title="UE manquantes">—</span>}
         </td>
         <td className="px-2 py-1">
@@ -796,13 +797,13 @@ export default function Attestation() {
             className="bouton flex items-center gap-1.5">
             <IconDownload size={15}/> Exporter la liste
           </button>
-          <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+          <div className="segments">
             <button onClick={() => setDocType('attestation')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='attestation' ? 'bg-white text-iip-blue shadow-pose' : 'text-gray-500 hover:text-iip-blue'}`}>
+              className={docType==='attestation' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Attestation
             </button>
             <button onClick={() => setDocType('diplome')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='diplome' ? 'bg-white text-iip-blue shadow-pose' : 'text-gray-500 hover:text-iip-blue'}`}>
+              className={docType==='diplome' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>
               Diplôme
             </button>
           </div>
@@ -820,14 +821,14 @@ export default function Attestation() {
       </div>
 
       {/* Filtres */}
-      <div className="flex items-center gap-2 flex-wrap bg-white border border-gray-200 rounded-xl px-3 py-2">
+      <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un nom…"
-          className="border border-gray-200 rounded px-2 py-1 text-xs w-48 focus:border-iip-turquoise focus:outline-none" />
-        <select value={filtreUe} onChange={e => setFiltreUe(e.target.value)} className="border border-gray-200 rounded px-2 py-1 text-xs bg-white">
+          className="controle text-sm w-48" />
+        <select value={filtreUe} onChange={e => setFiltreUe(e.target.value)} className="controle text-sm">
           <option value="">— UE —</option>
           {UE_KEYS.map(u => <option key={u} value={u}>UE {u}</option>)}
         </select>
-        <select value={filtrePresence} onChange={e => setFiltrePresence(e.target.value)} className="border border-gray-200 rounded px-2 py-1 text-xs bg-white">
+        <select value={filtrePresence} onChange={e => setFiltrePresence(e.target.value)} className="controle text-sm">
           <option value="">note : indifférent</option>
           <option value="avec">avec note</option>
           <option value="sans">sans note</option>
@@ -836,15 +837,15 @@ export default function Attestation() {
           <button onClick={() => { setQ(''); setFiltreUe(''); setFiltrePresence(''); setSortCol('nom'); setSortDir('asc'); }}
             className="text-xs text-gray-400 hover:text-iip-blue underline">réinitialiser</button>
         )}
-        <span className="ml-auto text-xs text-gray-500">{selection.size > 0 ? selection.size + ' sélectionné(s) · ' : ''}{lignesAffichees.filter(l => l.nom).length} affiché(s) / {lignes.filter(l => l.nom).length}</span>
+        <span className="ml-auto text-xs text-gray-500 whitespace-nowrap">{selection.size > 0 ? selection.size + ' sélectionné(s) · ' : ''}{lignesAffichees.filter(l => l.nom).length} affiché(s) / {lignes.filter(l => l.nom).length}</span>
       </div>
 
       {/* Tableau */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="carte overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="tableau-maison w-full text-xs">
             <thead>
-              <tr className="bande-entete border-b border-gray-200">
+              <tr className="tab-entete">
                 <th className="px-2 py-2 w-8 text-center"><input type="checkbox" checked={tousSel} onChange={toggleTous} title="Tout sélectionner (affichés)" /></th>
                 {COLS.map(c => (
                   <th key={c.key} onClick={() => trier(c.key)} className={`text-left px-2 py-2 font-semibold text-gray-500 cursor-pointer select-none hover:text-iip-blue ${c.w}`}>{c.label}{fleche(c.key)}</th>
@@ -868,19 +869,19 @@ export default function Attestation() {
                 const complets = lignesAffichees.filter(l => l.nom && l._complet);
                 const autres   = lignesAffichees.filter(l => !(l.nom && l._complet));
                 const sec = (titre, n, cls) => (
-                  <tr key={'sec-' + titre}><td colSpan={NB_COLS} className={'px-3 py-1.5 text-xs font-bold uppercase tracking-wide ' + cls}>{titre} — {n}</td></tr>
+                  <tr key={'sec-' + titre} className="tab-repere"><td colSpan={NB_COLS} className={'px-3 py-1.5 text-xs font-bold uppercase tracking-wide ' + cls}>{titre} — {n}</td></tr>
                 );
                 return (<>
-                  {complets.length > 0 && sec('Dossiers complets (toutes les UE notées)', complets.length, 'bg-green-50 text-green-700')}
+                  {complets.length > 0 && sec('Dossiers complets (toutes les UE notées)', complets.length, 'text-green-700')}
                   {complets.map((l, i) => renderRow(l, i))}
-                  {autres.length > 0 && sec('Dossiers incomplets (UE manquantes)', autres.length, 'bg-amber-50 text-amber-700')}
+                  {autres.length > 0 && sec('Dossiers incomplets (UE manquantes)', autres.length, 'text-amber-700')}
                   {autres.map((l, i) => renderRow(l, i))}
                 </>);
               })()}
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
+        <div className="px-4 py-2 border-t border-slate-200 text-xs text-gray-500">
           Notes sur /20 — {cfgActive.det.length} UE déterminantes (total {cfgActive.det.reduce((a, u) => a + (u.periodes || 0), 0)} périodes cours+autonomie, pondération 2/3){cfgActive.intUe ? ` + UE ${cfgActive.intUe} épreuve intégrée (1/3)` : ''}. Mention calculée automatiquement.
         </div>
       </div>

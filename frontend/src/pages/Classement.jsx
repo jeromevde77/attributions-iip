@@ -5,7 +5,7 @@ import {
   IconAlertTriangle, IconX, IconScale,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { EnteteCarte } from '../components/ui.jsx';
+import { EnteteCarte, Encadre, PastilleEtat, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 const fr = iso => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
@@ -107,38 +107,38 @@ export default function Classement({ annee: anneeProp }) {
         <span className="text-xs font-bold">{lignes.length}</span>
       </EnteteCarte>
       {lignes.length ? (
-        <table className="w-full text-sm">
+        <Tableau className="!border-0 !rounded-none">
           <tbody>
             {lignes.map((l, i) => (
-              <tr key={l.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                <td className="px-4 py-2 w-8 text-xs text-slate-400 font-bold">{i + 1}</td>
-                <td className="px-2 py-2">
+              <Tr key={l.id}>
+                <Td className="w-8 text-xs text-slate-400 font-bold">{i + 1}</Td>
+                <Td>
                   <span className="font-medium text-slate-800">{nomPropre(l.nom, l.prenom)}</span>
                   {l.exclu_tp && (
-                    <span className="ml-2 text-mention px-1.5 py-0.5 rounded-champ bg-amber-500 text-white font-bold">
+                    <PastilleEtat etat="surveiller" className="ml-2">
                       définitif TP — demande écrite (15/04) manquante
-                    </span>
+                    </PastilleEtat>
                   )}
-                </td>
-                <td className="px-2 py-2 w-28">
+                </Td>
+                <Td className="w-28">
                   <input type="number" min="0" defaultValue={l.jours}
                     onBlur={e => Number(e.target.value) !== l.jours
                       && majLigne(l, { jours: Number(e.target.value) })}
-                    className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-sm text-right" />
+                    className="controle !h-8 w-24 text-sm text-right" />
                   <span className="text-mention text-slate-400 ml-1">j</span>
-                </td>
-                <td className="px-2 py-2 w-32">
+                </Td>
+                <Td className="w-32">
                   <label className="flex items-center gap-1.5 text-xs text-slate-600">
                     <input type="checkbox" checked={!!l.sur_deux_annees}
                       onChange={e => majLigne(l, { sur_deux_annees: e.target.checked ? 1 : 0 })} />
                     sur 2 années
                   </label>
-                </td>
-                <td className="px-2 py-2 w-44">
+                </Td>
+                <Td className="w-44">
                   <select value={l.statut_mdp || ''}
                     onChange={e => majLigne(l, { statut_mdp: e.target.value || null,
                       demande_tp_le: e.target.value === 'definitif_tp' ? l.demande_tp_le : null })}
-                    className="border border-slate-300 rounded-lg px-2 py-1 text-second w-full">
+                    className="controle !h-8 text-second w-full">
                     <option value="">Temporaire</option>
                     <option value="definitif_tp">Définitif temps partiel</option>
                     <option value="definitif">Définitif temps plein</option>
@@ -147,13 +147,13 @@ export default function Classement({ annee: anneeProp }) {
                     <input type="date" value={l.demande_tp_le || ''}
                       title="Date de la demande écrite (avant le 15 avril)"
                       onChange={e => majLigne(l, { statut_mdp: 'definitif_tp', demande_tp_le: e.target.value || null })}
-                      className="mt-1 border border-slate-300 rounded-lg px-2 py-0.5 text-xs w-full" />
+                      className="controle !h-7 mt-1 text-xs w-full" />
                   )}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
           </tbody>
-        </table>
+        </Tableau>
       ) : (
         <div className="px-4 py-4 text-sm text-slate-400">Personne dans ce groupe.</div>
       )}
@@ -175,19 +175,18 @@ export default function Classement({ annee: anneeProp }) {
       </div>
 
       {message && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3 ${message.type === 'ok'
-          ? 'bg-emerald-500 text-white border border-emerald-500'
-          : 'bg-red-500 text-white border border-red-500'}`}>
-          <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)}><IconX size={15} /></button>
-        </div>
+        <Encadre etat={message.type === 'ok' ? 'reussi' : 'corriger'}>
+          <div className="flex items-center justify-between gap-3">
+            <span>{message.texte}</span>
+            <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-600" title="Fermer"><IconX size={15} /></button>
+          </div>
+        </Encadre>
       )}
 
       <div className="flex gap-1 border-b border-slate-200">
         {[['classement', 'Classement par fonction'], ['prioritaires', `Registre des prioritaires${prior ? ` (${prior.total})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setOnglet(k)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${onglet === k
-              ? 'border-iip-turquoise text-iip-blue font-semibold' : 'border-transparent text-slate-500'}`}>
+            className={onglet === k ? 'onglet-page onglet-page-actif' : 'onglet-page'}>
             {l}
           </button>
         ))}
@@ -199,7 +198,7 @@ export default function Classement({ annee: anneeProp }) {
             <div>
               <label className="intertitre block mb-1">Fonction</label>
               <select value={fonction} onChange={e => setFonction(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm min-w-[260px]">
+                className="controle text-sm min-w-[260px]">
                 {fonctions.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
@@ -250,21 +249,21 @@ export default function Classement({ annee: anneeProp }) {
           </div>
 
           {form && (
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
+            <div className="carte p-4 space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <label className="text-xs"><span className="intertitre block mb-1">Nom</span>
                   <input value={form.nom || ''} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+                    className="controle w-full text-sm" /></label>
                 <label className="text-xs"><span className="intertitre block mb-1">Prénom</span>
                   <input value={form.prenom || ''} onChange={e => setForm(f => ({ ...f, prenom: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+                    className="controle w-full text-sm" /></label>
                 <label className="text-xs"><span className="intertitre block mb-1">Reçue le</span>
                   <input type="date" value={form.date_reception}
                     onChange={e => setForm(f => ({ ...f, date_reception: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+                    className="controle w-full text-sm" /></label>
                 <label className="text-xs"><span className="intertitre block mb-1">Voie</span>
                   <select value={form.voie} onChange={e => setForm(f => ({ ...f, voie: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                    className="controle w-full text-sm">
                     <option value="recommandee">Lettre recommandée</option>
                     <option value="electronique">Voie électronique</option>
                   </select></label>
@@ -272,10 +271,10 @@ export default function Classement({ annee: anneeProp }) {
               <label className="text-xs block"><span className="intertitre block mb-1">Fonction(s) visée(s)</span>
                 <input value={form.fonctions} onChange={e => setForm(f => ({ ...f, fonctions: e.target.value }))}
                   placeholder="ex. Professeur de cours techniques"
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+                  className="controle w-full text-sm" /></label>
               <label className="text-xs block"><span className="intertitre block mb-1">Établissement(s)</span>
                 <input value={form.etablissements || ''} onChange={e => setForm(f => ({ ...f, etablissements: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+                  className="controle w-full text-sm" /></label>
               <div className="flex gap-2">
                 <button onClick={creerPrioritaire} disabled={!form.fonctions || !form.nom}
                   className="bouton bouton-fort">
@@ -288,47 +287,44 @@ export default function Classement({ annee: anneeProp }) {
           )}
 
           <div className="carte overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="tab-entete">
-                  <th className="px-3 py-2 text-left w-28">Reçue le</th>
-                  <th className="px-3 py-2 text-left">Candidat</th>
-                  <th className="px-3 py-2 text-left">Fonction(s)</th>
-                  <th className="px-3 py-2 text-left w-32">Voie</th>
-                  <th className="px-3 py-2 text-left w-28">Délai</th>
-                  <th className="px-3 py-2 w-10"></th>
-                </tr>
-              </thead>
+            <Tableau className="!border-0 !rounded-none">
+              <TableauEntete>
+                  <Th largeur="w-28">Reçue le</Th>
+                  <Th>Candidat</Th>
+                  <Th>Fonction(s)</Th>
+                  <Th largeur="w-32">Voie</Th>
+                  <Th largeur="w-28">Délai</Th>
+                  <Th largeur="w-10"></Th>
+              </TableauEntete>
               <tbody>
                 {prior.candidatures.map(c => (
-                  <tr key={c.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                    <td className="px-3 py-2 font-medium text-iip-blue">{fr(c.date_reception)}</td>
-                    <td className="px-3 py-2 text-slate-800">
+                  <Tr key={c.id}>
+                    <Td className="font-medium text-iip-blue">{fr(c.date_reception)}</Td>
+                    <Td>
                       {c.prof_nom ? `${c.prof_nom} ${c.prof_prenom}` : `${c.nom || ''} ${c.prenom || ''}`}
-                    </td>
-                    <td className="px-3 py-2 text-slate-600">{c.fonctions}</td>
-                    <td className="px-3 py-2 text-slate-600 text-second">
+                    </Td>
+                    <Td className="text-slate-600">{c.fonctions}</Td>
+                    <Td ton="secondaire">
                       {c.voie === 'electronique' ? 'Électronique' : 'Recommandée'}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={`px-2 py-0.5 rounded-champ text-xs font-bold ${c.recevable
-                        ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+                    </Td>
+                    <Td>
+                      <PastilleEtat etat={c.recevable ? 'reussi' : 'corriger'}>
                         {c.recevable ? 'Recevable' : 'Hors délai'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
+                      </PastilleEtat>
+                    </Td>
+                    <Td>
                       <button onClick={() => supprimerPrioritaire(c.id)}
-                        className="text-slate-300 hover:text-red-600"><IconTrash size={15} /></button>
-                    </td>
-                  </tr>
+                        className="text-slate-300 hover:text-red-600" title="Supprimer"><IconTrash size={15} /></button>
+                    </Td>
+                  </Tr>
                 ))}
                 {!prior.candidatures.length && (
-                  <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400 text-sm">
+                  <TableauVide colonnes={6}>
                     Aucune candidature enregistrée pour {annee}.
-                  </td></tr>
+                  </TableauVide>
                 )}
               </tbody>
-            </table>
+            </Tableau>
           </div>
           <p className="text-xs text-slate-400">
             Art. 34ter § 1er : candidature par lettre recommandée ou par voie
