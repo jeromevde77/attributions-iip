@@ -43,6 +43,9 @@ export default function MaJournee({ onAgir, onSemaine }) {
   const [data, setData] = useState(null);
   const [jour, setJour] = useState(null);           // null : aujourd'hui (le serveur le dit)
   const [choisie, setChoisie] = useState(null);     // id de séance
+  /* UNE SÉANCE TOUCHÉE OUVRE SES PRÉSENCES (3.5.164, Charles : « quand je clique ici, cela doit ouvrir les présences ») ; une
+     séance annulée n'en a pas, elle se sélectionne seulement. Le QR, les notes et la liste restent sous la frise. */
+  const toucher = x => { setChoisie(x.id); if (onAgir && !x.annule) onAgir('presences', x); };
   const [projetee, setProjetee] = useState(null);
   // LA PRÉSENCE PAR QR ET LE TICKET suivent Configuration → Mise en service (3.5.001) : éteints, pas de bouton.
   const [qrOuvert, setQrOuvert] = useState(false);
@@ -115,7 +118,7 @@ export default function MaJournee({ onAgir, onSemaine }) {
             <div className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: pct(maintenant), background: 'var(--c-refuse)' }} title="Maintenant" />
           )}
           {seances.map(x => (
-            <button key={x.id} type="button" onClick={() => setChoisie(x.id)} data-etat={etat(x)}
+            <button key={x.id} type="button" onClick={() => toucher(x)} data-etat={etat(x)}
               className={`bloc-etat absolute text-left px-2 py-1 overflow-hidden ${x.id === choisie ? 'ring-2 ring-iip-blue' : ''}`}
               style={{ left: pct(min(x.heure_debut)), width: `calc(${pct(min(x.heure_fin || x.heure_debut) + (x.heure_fin ? 0 : 60))} - ${pct(min(x.heure_debut))} - 3px)`,
                 top: 18 + x.rang * 50, height: 46 }}
@@ -131,7 +134,7 @@ export default function MaJournee({ onAgir, onSemaine }) {
       {seances.length > 0 && (
         <div className="sm:hidden space-y-1.5">
           {seances.map(x => (
-            <button key={x.id} type="button" onClick={() => setChoisie(x.id)} data-etat={etat(x)}
+            <button key={x.id} type="button" onClick={() => toucher(x)} data-etat={etat(x)}
               className={`bloc-etat w-full text-left px-3 py-2 ${x.id === choisie ? 'ring-2 ring-iip-blue' : ''}`}>
               <div className={`text-sm font-semibold ${x.annule ? 'line-through text-slate-400' : ''}`}>{hm(x.heure_debut)}–{hm(x.heure_fin)} · {x.cours_code} · {x.cours_nom || x.matiere}</div>
               {(x.local || x.sous_groupe) && <div className="text-second text-slate-500">{x.local}{x.sous_groupe ? ` · gr. ${x.sous_groupe}` : ''}</div>}

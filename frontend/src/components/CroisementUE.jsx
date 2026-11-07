@@ -29,6 +29,7 @@ import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { EnteteCarte } from './ui.jsx';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
+const majuscule = t => String(t ?? '').replace(/^([«"“(\s]*)(\p{Ll})/u, (m, a, b) => a + b.toUpperCase());
 
 const ANNEE_POINTS = '2026-2027';
 const norm = t => String(t || '').replace(/\s+/g, ' ').trim();
@@ -304,10 +305,11 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         const aActuel = !!actuel[co] && Object.keys(actuel[co]).length > 0;
         return (
           <section key={co} className="carte overflow-hidden">
-            <EnteteCarte titre={`${co} — ${x.cours_nom || ''}`} sous={`${pts.length} point(s) du programme · ${total} croix`} />
+            <EnteteCarte titre={`${co} — ${String(x.cours_nom || '').replace(/^\d+(\.\d+)+\.?\s*/, '')}`} sous={`${pts.length} point(s) du programme · ${total} croix`} />
             <div className="overflow-x-auto">
               <table className="w-full text-second border-collapse">
                 <thead><tr className="tab-entete">
+                  <th className="w-10 px-2 py-1 text-right font-semibold text-slate-600">N°</th>
                   <th className="text-left px-3 py-1 font-semibold text-slate-600">Point du programme</th>
                   {acquis.map(a => (
                     <th key={a.aa_code} title={a.description} className={`px-1.5 py-1 w-16 text-center ${lies.has(a.aa_code) ? 'text-iip-blue' : 'text-slate-500 font-normal'}`}>
@@ -316,17 +318,20 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                 </tr></thead>
                 <tbody>
                   {!pts.length && (
-                    <tr><td colSpan={acquis.length + 1} className="px-3 py-2 text-slate-400">
+                    <tr><td colSpan={acquis.length + 2} className="px-3 py-2 text-slate-400">
                       Le programme ne nomme aucun point pour ce cours. Ajoutez-les ci-dessous : ils rejoindront le descriptif.
                     </td></tr>)}
-                  {pts.map(pt => (
-                    <tr key={pt} className="border-t border-slate-100 bg-white">
-                      <td className="px-3 py-1 text-slate-800">
+                  {/* NUMÉROTÉS, ET UNE MAJUSCULE À CHAQUE POINT (3.5.165, Charles : « il faut que cela soit clair, numéroté ») : le
+                      numéro est celui du point dans le cours (250.1 · 3) ; le texte du dossier n'est pas modifié, seul l'affichage. */}
+                  {pts.map((pt, ip) => (
+                    <tr key={pt} className="border-t border-slate-100 bg-white align-top">
+                      <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">{ip + 1}</td>
+                      <td className="px-3 py-1.5 text-slate-800">
                         {(() => {
                           const st = structure[co]?.[pt];
-                          if (!st || !st.sous.length) return pt;
+                          if (!st || !st.sous.length) return majuscule(pt);
                           return (<>
-                            {st.principal}
+                            {majuscule(st.principal)}
                             <ul className="list-[circle] pl-5 mt-0.5 mb-0 text-slate-600">
                               {st.sous.map((y, i) => <li key={i}>{y.texte}
                                 {y.sous.length > 0 && <ul className="list-[square] pl-5 m-0">{y.sous.map((z, j) => <li key={j}>{z}</li>)}</ul>}</li>)}
@@ -349,6 +354,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                     </tr>))}
                   {!lecture && (
                     <tr className="border-t border-slate-100">
+                      <td />
                       <td colSpan={acquis.length + 1} className="px-3 py-1">
                         <div className="flex items-center gap-2">
                           <input className="controle flex-1 min-w-0 h-8" placeholder="Ajouter un point du programme à ce cours…"
@@ -361,16 +367,16 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                 </tbody>
                 <tfoot className="text-slate-600">
                   <tr className="border-t border-slate-200">
-                    <td className="px-3 py-1 text-right">Croix</td>
+                    <td colSpan={2} className="px-3 py-1 text-right">Croix</td>
                     {acquis.map(a => <td key={a.aa_code} className="text-center font-semibold">{n[a.aa_code] || ''}</td>)}
                   </tr>
                   <tr>
-                    <td className="px-3 py-1 text-right">Pondération qui en découle (sur 10)</td>
+                    <td colSpan={2} className="px-3 py-1 text-right">Pondération qui en découle (sur 10)</td>
                     {acquis.map(a => <td key={a.aa_code} className="text-center font-semibold text-iip-blue">{prop[a.aa_code] ? fr(prop[a.aa_code]) : ''}</td>)}
                   </tr>
                   {aActuel && (
                     <tr>
-                      <td className="px-3 py-1 text-right">Pondération enregistrée ({annee})</td>
+                      <td colSpan={2} className="px-3 py-1 text-right">Pondération enregistrée ({annee})</td>
                       {acquis.map(a => <td key={a.aa_code} className="text-center text-slate-500">{actuel[co]?.[a.aa_code] ? fr(actuel[co][a.aa_code]) : ''}</td>)}
                     </tr>)}
                 </tfoot>
