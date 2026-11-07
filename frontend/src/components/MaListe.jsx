@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconListDetails, IconChevronDown, IconPrinter, IconFileSpreadsheet, IconMail, IconColumns } from '@tabler/icons-react';
 import { Fenetre, OutilFenetre } from './ui.jsx';
+import { authHeaders, getAnnee } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /* COMPOSER SA LISTE (3.5.147, Charles : « pouvoir composer des listes comme dans Éditions, avec mail, matricule… »). Les colonnes à
    garder, dans l'ordre ; des colonnes vides à remplir à la main ; un titre. Le N° est toujours là. Aperçu/PDF par le serveur (la
@@ -107,4 +109,31 @@ export default function MaListe({ etudiants, groupe, cours, onImprimer, occupe }
         </div>)}
       {composer && <Composer etudiants={etudiants} cours={cours} groupe={groupe} onImprimer={onImprimer} onFermer={() => setComposer(false)} />}
     </div>);
+}
+
+/* UNE LISTE SUR MESURE, DEPUIS N'IMPORTE OÙ (3.5.160, Charles : « le petit avion pour exporter des listes sur mesure ») : la
+   fenêtre « Composer une liste » pour un cours, sans ouvrir sa feuille de notes. Les étudiants viennent de Mes cours, la feuille
+   imprimée de la même route que « Ma liste ». */
+export function ListeSurMesure({ cours, groupe = '', annee = getAnnee(), onFermer }) {
+  const [etudiants, setEtudiants] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => {
+    fetch(`/api/mes-cours/${encodeURIComponent(cours)}/etudiants?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.error || `Erreur ${r.status}`)))))
+      .then(j => setEtudiants((j.etudiants || []).filter(e => !groupe || String(e.groupe || '').split(' + ').map(x => x.trim()).includes(groupe))))
+      .catch(e => setErreur(e.message));
+  }, [cours, groupe, annee]);
+  async function imprimer(opt) {
+    try {
+      const q = `&colonnes=${encodeURIComponent(opt.colonnes)}&vides=${encodeURIComponent(opt.vides || '')}&titre=${encodeURIComponent(opt.titre || '')}`;
+      const r = await fetch(`/api/mes-cours/${encodeURIComponent(cours)}/listes?annee=${encodeURIComponent(annee)}&format=html${groupe ? `&groupe=${encodeURIComponent(groupe)}` : ''}${q}`, { headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      ouvrirApercu({ html: j.html, titre: `Liste — ${cours}${groupe ? ` · groupe ${groupe}` : ''}`, nomFichier: j.nom, envoiPossible: false,
+        pdf: { orientation: opt.paysage ? 'landscape' : 'portrait' } });
+    } catch (e) { setErreur(e.message); }
+  }
+  if (erreur) return <Fenetre titre="Composer une liste" onFermer={onFermer}><p className="text-red-700">{erreur}</p></Fenetre>;
+  if (!etudiants) return <Fenetre titre="Composer une liste" onFermer={onFermer}><p className="text-slate-500">Chargement…</p></Fenetre>;
+  return <Composer etudiants={etudiants} cours={cours} groupe={groupe} onImprimer={imprimer} onFermer={onFermer} />;
 }

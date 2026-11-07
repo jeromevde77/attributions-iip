@@ -4,7 +4,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useRef, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -22,7 +22,6 @@ import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 import AtelierUE from './AtelierUE.jsx';
-import DatesDeliberation from '../components/DatesDeliberation.jsx';
 import TrainUE from '../components/TrainUE.jsx';
 
 /**
@@ -245,219 +244,9 @@ export default function MesCours({ espace = null }) {
 
   const c = (cours || []).find(x => x.cours_code === ouvert);
 
-  return (
-    /* L'ESPACE SERT (Jérôme, 24 septembre 2026 : « optimiser sur l'espace,
-       valable partout »). Une colonne de 768 px au milieu de l'écran mettait
-       le nom à un bout de la ligne et la note à l'autre, et renvoyait le
-       bouton à la ligne. La page prend la largeur ; le tableau, lui, ne
-       prend que celle qu'il lui faut. */
-    <>
-    {/* LE RAIL DE MES COURS (Charles, 2 octobre 2026 : « le rail n'est pas
-        visible dans Mes cours ») : la liste, les avis à rendre, et — un cours
-        ouvert — ses deux faces. */}
-    {agenda && <AgendaAbonnement onFermer={() => setAgenda(false)} />}
-    {messages && <MessagesEtudiants titre="Écrire à mes étudiants" onFermer={() => setMessages(false)} />}
-    {semaine && <MonHoraireSemaine onFermer={() => setSemaine(false)} />}
-    {visites && <VisitesStage onFermer={() => setVisites(false)} />}
-    {!espace && <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
-      sections={[{ items: [
-        { key: 'liste', label: 'Mes cours de l’année', icon: IconBook2, actif: !ouvert && !vueDue,
-          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); } },
-        { key: 'due', label: 'Mes unités : croisement et DUE', icon: IconFileDescription, actif: vueDue,
-          onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },
-        { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
-          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
-        { key: 'semaine', label: 'Mon horaire de la semaine', icon: IconCalendarWeek, onClick: () => setSemaine(true) },
-        { key: 'agenda', label: 'Mon horaire dans mon agenda', icon: IconCalendarShare, onClick: () => setAgenda(true) },
-        // LES VISITES DE STAGE (3.5.058) : dans l'agenda, avec le lieu de l'étudiant ; et la fiche de transport.
-        { key: 'visites', label: 'Mes visites de stage', icon: IconCar, onClick: () => setVisites(true) },
-        // LES MESSAGES AUX ÉTUDIANTS (3.1.516) : les inscrits de ses UE ; leurs réponses reviennent ici.
-        { key: 'messages', label: 'Écrire à mes étudiants', icon: IconMessages, onClick: () => setMessages(true) },
-        { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
-          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
-        ...(vueDue ? [
-          { key: 'due-dossier', label: '0. Lire le dossier pédagogique', icon: IconFileText, actif: faceDue === 'dossier', onClick: () => setFaceDue('dossier') },
-          { key: 'due-croisement', label: '1. Croiser les acquis et le programme', icon: IconTable, actif: faceDue === 'croisement', onClick: () => setFaceDue('croisement') },
-          { key: 'due-descriptif', label: '3. Décrire l’unité (DUE)', icon: IconFileText, actif: faceDue === 'descriptif', onClick: () => setFaceDue('descriptif') },
-        ] : []),
-        ...(ouvert && !vueDue ? [
-          { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
-          { key: 'carnet', label: 'Carnet de cotes — tests, travaux', icon: IconNotebook, actif: face === 'carnet', onClick: () => setFace('carnet') },
-          { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
-          // PAS ENCORE EN SERVICE (Charles, 11 octobre 2026) : grisé, badge « soon », bloqué.
-          // EN SERVICE DEPUIS « MA JOURNÉE » (28 octobre 2026) — bloquée depuis le 11 octobre.
-          { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
-        ] : []),
-      ] }]} />}
-    {vueDue && espace && (
-      <div className="px-4 md:px-6 pt-1 pb-3 flex flex-wrap items-center gap-2">
-        <h1 className="text-lg font-semibold text-iip-blue m-0 mr-2">Mes unités</h1>
-        <div className="segments">
-          {[['dossier', '0. Dossier pédagogique'], ['croisement', '1. Croiser acquis et programme'], ['ponderation', '2. Pondérer'], ['descriptif', '3. La DUE']].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setFaceDue(k)} className={faceDue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
-        </div>
-      </div>)}
-    {vueDue && espace && <div className="px-4 md:px-6 pb-3"><DatesDeliberation annee={annee} /></div>}
-    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={espace ? ['dossier', 'croisement', 'ponderation', 'descriptif'] : ['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
-    <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
-      <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>
-        <IconBooks size={20} className="text-iip-turquoise" />
-        <h1 className="text-lg font-semibold text-iip-blue m-0">{{ aujourdhui: 'Ma journée', rendre: 'À rendre', notes: 'Mes notes', presences: 'Mes présences' }[vueEspace] || 'Mes cours'}</h1>
-        <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
-          title="L'année des cours affichés — sans changer l'année de travail du reste de Lucie"
-          className="controle border border-slate-300 rounded-champ bg-white text-sm font-semibold">
-          {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-        {/* MON HORAIRE, À LA VUE (3.1.480, Charles : « je ne vois pas où le prof voit son horaire ») : il n'était que
-            dans le rail, une icône nommée au survol — qui n'existe pas au doigt. */}
-        {!espace && <button type="button" className="bouton bouton-fort ml-auto inline-flex items-center gap-1.5" onClick={() => setSemaine(true)}>
-          <IconCalendarWeek size={16} /> Mon horaire de la semaine</button>}
-      </div>
-
-      {erreur && (
-        <div className="bloc-etat etat-corriger px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-          <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
-        </div>
-      )}
-
-      {/* LES PRÉSENCES DU JOUR, EN TÊTE : le QR de la séance en cours, sans rien chercher. */}
-      {!ouvert && (!espace || vueEspace === 'aujourdhui') && <MaJournee onAgir={agir} onSemaine={() => (espace ? espace.allerA?.('agenda') : setSemaine(true))} />}
-
-      {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
-      {!ouvert && (!espace || vueEspace === 'rendre') && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}
-      {!ouvert && (!espace || vueEspace === 'rendre') && <div id="avis-ar"><AvisAmenagementProf annee={annee} /></div>}
-
-      {!ouvert && cours && (!espace || vueEspace === 'notes' || vueEspace === 'presences') && (() => {
-        /* DEUX LISTES : mes cours, puis ceux de ma section (coordination —
-           Charles, 26 septembre 2026). La seconde se lit par UNITÉ et se
-           filtre : une section, ce sont des dizaines de cours. */
-        const q = filtre.trim().toLowerCase();
-        /* UNE SECTION À LA FOIS, POUR QUI EN A PLUSIEURS (Charles, 30 septembre
-           2026). Le filtre ne paraît que s'il y a le choix. */
-        const sectionsDispo = [...new Set(cours.map(x => x.section).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
-        const garde = x => (!filtreSection || x.section === filtreSection)
-          && (!q || `${x.cours_code} ${x.cours_nom || ''} ${x.ue_num} ${x.ue_nom || ''} ${(x.enseignants || []).join(' ')}`.toLowerCase().includes(q));
-        const miens = cours.filter(x => x.a_moi !== false).filter(garde);
-        const section = cours.filter(x => x.a_moi === false).filter(garde);
-        /* PAR SECTION, PUIS PAR BLOC (Charles, 27 septembre 2026) : le titre
-           d'une section, ses cours de BA1, de BA2, de BA3 ; puis l'autre
-           section. Le bloc se lit au liseré, épais et droit — orange, bleu
-           clair, marine —, la couleur du bloc et rien d'autre. */
-        const tri = (a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || (a.ue_num - b.ue_num)
-          || String(a.cours_code).localeCompare(String(b.cours_code), 'fr', { numeric: true });
-        const parSection = [];
-        for (const x of [...miens].sort(tri)) {
-          const s0 = x.section || 'Sans section';
-          const g = parSection.find(y => y.section === s0);
-          if (g) g.cours.push(x); else parSection.push({ section: s0, cours: [x] });
-        }
-        parSection.sort((a, b) => a.section.localeCompare(b.section, 'fr'));
-        section.sort(tri);
-        const parUe = [];
-        for (const x of section) {
-          const g = parUe.find(y => y.ue_num === x.ue_num);
-          if (g) g.cours.push(x); else parUe.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, cours: [x] });
-        }
-        const carte = x => (
-          <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-            style={{ borderLeftColor: couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }}
-            className="w-full text-left bg-white border border-slate-200 border-l-[5px] rounded-l-none rounded-r-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>
-              <div className="text-second text-slate-500 truncate">
-                {x.a_moi === false ? (x.section || '') : <>UE {x.ue_num}{x.ue_nom ? ` — ${x.ue_nom}` : ''} · {x.groupes.join(' + ')}</>}
-              </div>
-              <div className="text-second text-slate-600 truncate" title={(x.enseignants || []).join(', ')}>
-                {(x.enseignants || []).length ? x.enseignants.join(', ') : <span className="text-slate-400">aucun titulaire attribué</span>}
-              </div>
-            </div>
-            <span className="flex-none text-second font-semibold text-iip-turquoise-dark text-right">
-              {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
-              {!x.repartition && x.nb_etudiants > 0 && (
-                <span className="block font-normal text-slate-400">toute l'unité</span>
-              )}
-            </span>
-          </button>
-        );
-        const aSection = cours.some(x => x.a_moi === false);
-        return (
-          <div className="space-y-3">
-            {(aSection || sectionsDispo.length > 1) && (
-              <div className="flex flex-wrap items-center gap-2">
-                {sectionsDispo.length > 1 && (
-                  <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)} aria-label="Section"
-                    className="controle border border-slate-300 rounded-champ bg-white">
-                    <option value="">Toutes mes sections</option>
-                    {sectionsDispo.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
-                  </select>
-                )}
-                {aSection && (
-                  <input value={filtre} onChange={e => setFiltre(e.target.value)}
-                    placeholder="Chercher un cours, une unité, un enseignant…"
-                    className="controle w-72 max-w-full border border-slate-300 rounded-champ bg-white" />
-                )}
-              </div>
-            )}
-            {(miens.length > 0 || !aSection) && (
-              <div className="space-y-1.5">
-                {aSection && <div className="intertitre">Mes attributions</div>}
-                {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
-                {/* DANS L'ESPACE ENSEIGNANT, LA CARTE DE L'UNITÉ (3.5.157, Charles : « je veux la même pour mes présences ») :
-                    le dessin de Mes étudiants — liseré du bloc, petit train, puis un cours par ligne. */}
-                {espace && (() => {
-                  const parUnite = [];
-                  for (const x of [...miens].sort(tri)) {
-                    const g = parUnite.find(y => y.ue_num === x.ue_num && y.section === x.section);
-                    if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
-                  }
-                  return parUnite.map(u => (
-                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[5px] rounded-carte overflow-hidden"
-                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
-                      <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
-                        <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
-                          {u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
-                        <TrainUE section={u.section} niveau={u.ue_niv} ects={u.ects} nbCours={u.cours.length}
-                          nbEtudiants={new Set(u.cours.flatMap(c => c.etudiants_ids || [])).size || Math.max(...u.cours.map(c => c.nb_etudiants || 0))} />
-                      </div>
-                      {u.cours.map(x => (
-                        <button key={x.cours_code} type="button" onClick={() => ouvrir(x.cours_code)}
-                          className="w-full text-left px-4 py-3 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50">
-                          <span className="flex-1 min-w-0">{x.cours_nom || x.cours_code}</span>
-                          <span className="text-second text-slate-500 text-right">{(() => {
-                            const gr = (x.groupes || []).map(g => g.replace(/(^| · )Org 1( · |$)/, '$1').replace(/ · $/, '')).filter(Boolean).join(' + ');
-                            return `${gr ? `${gr} · ` : ''}${x.nb_etudiants} étudiant${x.nb_etudiants > 1 ? 's' : ''}`;
-                          })()}</span>
-                          <IconChevronRight size={16} className="text-slate-400" />
-                        </button>))}
-                    </section>));
-                })()}
-                {!espace && parSection.map(g => (
-                  <div key={g.section} className="space-y-1.5">
-                    {(parSection.length > 1 || aSection) && <div className="text-sm font-semibold text-iip-blue pt-1">{g.section}</div>}
-                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {parUe.length > 0 && (
-              <div className="space-y-2">
-                <div className="intertitre">
-                  Les cours de ma section <span className="normal-case font-normal">— en tant que coordination</span>
-                </div>
-                {parUe.map(g => (
-                  <div key={g.ue_num} className="space-y-1">
-                    <div className="text-second font-semibold text-iip-blue">UE {g.ue_num}{g.ue_nom ? ` — ${g.ue_nom}` : ''}</div>
-                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {q && !miens.length && !parUe.length && <p className="text-sm text-slate-400">Aucun cours ne correspond.</p>}
-          </div>
-        );
-      })()}
-
-      {ouvert && (() => {
+  /* LE COURS OUVERT, ÉCRIT UNE FOIS (3.5.160) : à pleine page dans Lucie ; dans l'espace enseignant, DÉPLIÉ DANS LA TUILE de
+     son unité, sous la ligne du cours (Charles : « la tuile doit juste s'ouvrir et faire apparaître les données »). */
+  const rendreOuvert = () => {
         const cols = colonnes(feuille);
         const nEtu = feuille?.etudiants?.length || 0;
         const seconde = feuille?.session === 2;
@@ -579,7 +368,8 @@ export default function MesCours({ espace = null }) {
         return (
           <div className="space-y-3">
             {/* LE COURS DANS UNE TUILE (Charles, 26 septembre 2026). */}
-            <div data-etat="fort" className="bloc-etat px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-2">
+            {/* Dans la tuile dépliée de l'espace, l'en-tête du cours redirait ce que la tuile dit déjà. */}
+            {!espace && <div data-etat="fort" className="bloc-etat px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-2">
               <div className="min-w-0 flex-1">
                 <button onClick={() => { setOuvert(null); setFeuille(null); }}
                   className="text-second text-slate-500 hover:text-iip-blue inline-flex items-center gap-1">
@@ -606,7 +396,7 @@ export default function MesCours({ espace = null }) {
                   <div className="h-full" style={{ width: `${total ? (saisies / total) * 100 : 0}%`, background: 'var(--c-disponible)' }} />
                 </div>
               </div>
-            </div>
+            </div>}
 
             {/* DEUX FACES DU MÊME COURS (29 septembre 2026) : les notes, et les
                 présences séance par séance — celles-ci partent sur les
@@ -620,7 +410,7 @@ export default function MesCours({ espace = null }) {
               ))}
             </div>
             {/* LES LISTES : VERSION TEMPORAIRE (Charles, 11 octobre 2026). */}
-            <Encadre etat="surveiller" titre="Liste temporaire">Les listes d’étudiants ne sont pas encore validées par les coordinations : des groupes doivent encore être encodés et certains étudiants retirés. Ce sera fait dans les prochains jours.</Encadre>
+            {!espace && <Encadre etat="surveiller" titre="Liste temporaire">Les listes d’étudiants ne sont pas encore validées par les coordinations : des groupes doivent encore être encodés et certains étudiants retirés. Ce sera fait dans les prochains jours.</Encadre>}
             {feuille && (
               <div className="flex flex-wrap items-center gap-2">
                 {/* LA SESSION, À CÔTÉ DES GROUPES : elle ne paraît que s'il y a le choix. */}
@@ -962,7 +752,223 @@ export default function MesCours({ espace = null }) {
             )}
           </div>
         );
+  };
+
+  return (
+    /* L'ESPACE SERT (Jérôme, 24 septembre 2026 : « optimiser sur l'espace,
+       valable partout »). Une colonne de 768 px au milieu de l'écran mettait
+       le nom à un bout de la ligne et la note à l'autre, et renvoyait le
+       bouton à la ligne. La page prend la largeur ; le tableau, lui, ne
+       prend que celle qu'il lui faut. */
+    <>
+    {/* LE RAIL DE MES COURS (Charles, 2 octobre 2026 : « le rail n'est pas
+        visible dans Mes cours ») : la liste, les avis à rendre, et — un cours
+        ouvert — ses deux faces. */}
+    {agenda && <AgendaAbonnement onFermer={() => setAgenda(false)} />}
+    {messages && <MessagesEtudiants titre="Écrire à mes étudiants" onFermer={() => setMessages(false)} />}
+    {semaine && <MonHoraireSemaine onFermer={() => setSemaine(false)} />}
+    {visites && <VisitesStage onFermer={() => setVisites(false)} />}
+    {!espace && <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
+      sections={[{ items: [
+        { key: 'liste', label: 'Mes cours de l’année', icon: IconBook2, actif: !ouvert && !vueDue,
+          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); } },
+        { key: 'due', label: 'Mes unités : croisement et DUE', icon: IconFileDescription, actif: vueDue,
+          onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },
+        { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
+          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
+        { key: 'semaine', label: 'Mon horaire de la semaine', icon: IconCalendarWeek, onClick: () => setSemaine(true) },
+        { key: 'agenda', label: 'Mon horaire dans mon agenda', icon: IconCalendarShare, onClick: () => setAgenda(true) },
+        // LES VISITES DE STAGE (3.5.058) : dans l'agenda, avec le lieu de l'étudiant ; et la fiche de transport.
+        { key: 'visites', label: 'Mes visites de stage', icon: IconCar, onClick: () => setVisites(true) },
+        // LES MESSAGES AUX ÉTUDIANTS (3.1.516) : les inscrits de ses UE ; leurs réponses reviennent ici.
+        { key: 'messages', label: 'Écrire à mes étudiants', icon: IconMessages, onClick: () => setMessages(true) },
+        { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
+          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
+        ...(vueDue ? [
+          { key: 'due-dossier', label: '0. Lire le dossier pédagogique', icon: IconFileText, actif: faceDue === 'dossier', onClick: () => setFaceDue('dossier') },
+          { key: 'due-croisement', label: '1. Croiser les acquis et le programme', icon: IconTable, actif: faceDue === 'croisement', onClick: () => setFaceDue('croisement') },
+          { key: 'due-descriptif', label: '3. Décrire l’unité (DUE)', icon: IconFileText, actif: faceDue === 'descriptif', onClick: () => setFaceDue('descriptif') },
+        ] : []),
+        ...(ouvert && !vueDue ? [
+          { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
+          { key: 'carnet', label: 'Carnet de cotes — tests, travaux', icon: IconNotebook, actif: face === 'carnet', onClick: () => setFace('carnet') },
+          { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
+          // PAS ENCORE EN SERVICE (Charles, 11 octobre 2026) : grisé, badge « soon », bloqué.
+          // EN SERVICE DEPUIS « MA JOURNÉE » (28 octobre 2026) — bloquée depuis le 11 octobre.
+          { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
+        ] : []),
+      ] }]} />}
+    {vueDue && espace && (
+      <div className="px-4 md:px-6 pt-1 pb-3 flex flex-wrap items-center gap-2">
+        <h1 className="text-lg font-semibold text-iip-blue m-0 mr-2">Mes unités</h1>
+        <div className="segments">
+          {[['dossier', '0. Dossier pédagogique'], ['croisement', '1. Croiser acquis et programme'], ['ponderation', '2. Pondérer'], ['descriptif', '3. La DUE']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setFaceDue(k)} className={faceDue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        </div>
+      </div>)}
+    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={espace ? ['dossier', 'croisement', 'ponderation', 'descriptif'] : ['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
+    <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
+      <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>
+        <IconBooks size={20} className="text-iip-turquoise" />
+        <h1 className="text-lg font-semibold text-iip-blue m-0">{{ aujourdhui: 'Ma journée', rendre: 'À rendre', notes: 'Mes notes', presences: 'Mes présences' }[vueEspace] || 'Mes cours'}</h1>
+        <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
+          title="L'année des cours affichés — sans changer l'année de travail du reste de Lucie"
+          className="controle border border-slate-300 rounded-champ bg-white text-sm font-semibold">
+          {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        {/* MON HORAIRE, À LA VUE (3.1.480, Charles : « je ne vois pas où le prof voit son horaire ») : il n'était que
+            dans le rail, une icône nommée au survol — qui n'existe pas au doigt. */}
+        {!espace && <button type="button" className="bouton bouton-fort ml-auto inline-flex items-center gap-1.5" onClick={() => setSemaine(true)}>
+          <IconCalendarWeek size={16} /> Mon horaire de la semaine</button>}
+      </div>
+
+      {erreur && (
+        <div className="bloc-etat etat-corriger px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+          <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
+        </div>
+      )}
+
+      {/* LES PRÉSENCES DU JOUR, EN TÊTE : le QR de la séance en cours, sans rien chercher. */}
+      {!ouvert && (!espace || vueEspace === 'aujourdhui') && <MaJournee onAgir={agir} onSemaine={() => (espace ? espace.allerA?.('agenda') : setSemaine(true))} />}
+
+      {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
+      {!ouvert && (!espace || vueEspace === 'rendre') && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}
+      {!ouvert && (!espace || vueEspace === 'rendre') && <div id="avis-ar"><AvisAmenagementProf annee={annee} /></div>}
+
+      {(!ouvert || espace) && cours && (!espace || vueEspace === 'notes' || vueEspace === 'presences') && (() => {
+        /* DEUX LISTES : mes cours, puis ceux de ma section (coordination —
+           Charles, 26 septembre 2026). La seconde se lit par UNITÉ et se
+           filtre : une section, ce sont des dizaines de cours. */
+        const q = filtre.trim().toLowerCase();
+        /* UNE SECTION À LA FOIS, POUR QUI EN A PLUSIEURS (Charles, 30 septembre
+           2026). Le filtre ne paraît que s'il y a le choix. */
+        const sectionsDispo = [...new Set(cours.map(x => x.section).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+        const garde = x => (!filtreSection || x.section === filtreSection)
+          && (!q || `${x.cours_code} ${x.cours_nom || ''} ${x.ue_num} ${x.ue_nom || ''} ${(x.enseignants || []).join(' ')}`.toLowerCase().includes(q));
+        const miens = cours.filter(x => x.a_moi !== false).filter(garde);
+        const section = cours.filter(x => x.a_moi === false).filter(garde);
+        /* PAR SECTION, PUIS PAR BLOC (Charles, 27 septembre 2026) : le titre
+           d'une section, ses cours de BA1, de BA2, de BA3 ; puis l'autre
+           section. Le bloc se lit au liseré, épais et droit — orange, bleu
+           clair, marine —, la couleur du bloc et rien d'autre. */
+        const tri = (a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || (a.ue_num - b.ue_num)
+          || String(a.cours_code).localeCompare(String(b.cours_code), 'fr', { numeric: true });
+        const parSection = [];
+        for (const x of [...miens].sort(tri)) {
+          const s0 = x.section || 'Sans section';
+          const g = parSection.find(y => y.section === s0);
+          if (g) g.cours.push(x); else parSection.push({ section: s0, cours: [x] });
+        }
+        parSection.sort((a, b) => a.section.localeCompare(b.section, 'fr'));
+        section.sort(tri);
+        const parUe = [];
+        for (const x of section) {
+          const g = parUe.find(y => y.ue_num === x.ue_num);
+          if (g) g.cours.push(x); else parUe.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, cours: [x] });
+        }
+        const carte = x => (
+          <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
+            style={{ borderLeftColor: couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }}
+            className="w-full text-left bg-white border border-slate-200 border-l-[5px] rounded-l-none rounded-r-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>
+              <div className="text-second text-slate-500 truncate">
+                {x.a_moi === false ? (x.section || '') : <>UE {x.ue_num}{x.ue_nom ? ` — ${x.ue_nom}` : ''} · {x.groupes.join(' + ')}</>}
+              </div>
+              <div className="text-second text-slate-600 truncate" title={(x.enseignants || []).join(', ')}>
+                {(x.enseignants || []).length ? x.enseignants.join(', ') : <span className="text-slate-400">aucun titulaire attribué</span>}
+              </div>
+            </div>
+            <span className="flex-none text-second font-semibold text-iip-turquoise-dark text-right">
+              {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
+              {!x.repartition && x.nb_etudiants > 0 && (
+                <span className="block font-normal text-slate-400">toute l'unité</span>
+              )}
+            </span>
+          </button>
+        );
+        const aSection = cours.some(x => x.a_moi === false);
+        return (
+          <div className="space-y-3">
+            {(aSection || sectionsDispo.length > 1) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {sectionsDispo.length > 1 && (
+                  <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)} aria-label="Section"
+                    className="controle border border-slate-300 rounded-champ bg-white">
+                    <option value="">Toutes mes sections</option>
+                    {sectionsDispo.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
+                  </select>
+                )}
+                {aSection && (
+                  <input value={filtre} onChange={e => setFiltre(e.target.value)}
+                    placeholder="Chercher un cours, une unité, un enseignant…"
+                    className="controle w-72 max-w-full border border-slate-300 rounded-champ bg-white" />
+                )}
+              </div>
+            )}
+            {(miens.length > 0 || !aSection) && (
+              <div className="space-y-1.5">
+                {aSection && <div className="intertitre">Mes attributions</div>}
+                {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
+                {/* DANS L'ESPACE ENSEIGNANT, LA CARTE DE L'UNITÉ (3.5.157, Charles : « je veux la même pour mes présences ») :
+                    le dessin de Mes étudiants — liseré du bloc, petit train, puis un cours par ligne. */}
+                {espace && (() => {
+                  const parUnite = [];
+                  for (const x of [...miens].sort(tri)) {
+                    const g = parUnite.find(y => y.ue_num === x.ue_num && y.section === x.section);
+                    if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
+                  }
+                  return parUnite.map(u => (
+                    <section key={`${u.ue_num}|${u.section}`} className="bg-white border border-slate-200 border-l-[5px] rounded-carte overflow-hidden"
+                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || undefined }}>
+                      <div className="bg-white px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
+                        <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}
+                          {u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
+                        <TrainUE section={u.section} niveau={u.ue_niv} ects={u.ects} nbCours={u.cours.length}
+                          nbEtudiants={new Set(u.cours.flatMap(c => c.etudiants_ids || [])).size || Math.max(...u.cours.map(c => c.nb_etudiants || 0))} />
+                      </div>
+                      {u.cours.map(x => (<div key={x.cours_code}>
+                        <button type="button" aria-expanded={ouvert === x.cours_code}
+                          onClick={() => (ouvert === x.cours_code ? (setOuvert(null), setFeuille(null)) : ouvrir(x.cours_code))}
+                          className={`w-full text-left px-4 py-3 border-t border-slate-100 flex items-center gap-3 hover:bg-slate-50 ${ouvert === x.cours_code ? 'font-semibold' : ''}`}>
+                          {ouvert === x.cours_code ? <IconChevronDown size={16} className="text-slate-500" /> : <IconChevronRight size={16} className="text-slate-500" />}
+                          <span className="flex-1 min-w-0">{x.cours_nom || x.cours_code}</span>
+                          <span className="text-second text-slate-500 text-right">{(() => {
+                            const gr = (x.groupes || []).map(g => g.replace(/(^| · )Org 1( · |$)/, '$1').replace(/ · $/, '')).filter(Boolean).join(' + ');
+                            return `${gr ? `${gr} · ` : ''}${x.nb_etudiants} étudiant${x.nb_etudiants > 1 ? 's' : ''}`;
+                          })()}</span>
+                        </button>
+                        {ouvert === x.cours_code && <div className="px-4 pb-4 pt-1 border-t border-slate-100">{rendreOuvert()}</div>}
+                      </div>))}
+                    </section>));
+                })()}
+                {!espace && parSection.map(g => (
+                  <div key={g.section} className="space-y-1.5">
+                    {(parSection.length > 1 || aSection) && <div className="text-sm font-semibold text-iip-blue pt-1">{g.section}</div>}
+                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {parUe.length > 0 && (
+              <div className="space-y-2">
+                <div className="intertitre">
+                  Les cours de ma section <span className="normal-case font-normal">— en tant que coordination</span>
+                </div>
+                {parUe.map(g => (
+                  <div key={g.ue_num} className="space-y-1">
+                    <div className="text-second font-semibold text-iip-blue">UE {g.ue_num}{g.ue_nom ? ` — ${g.ue_nom}` : ''}</div>
+                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {q && !miens.length && !parUe.length && <p className="text-sm text-slate-400">Aucun cours ne correspond.</p>}
+          </div>
+        );
       })()}
+
+      {ouvert && !espace && rendreOuvert()}
     </div>
     )}
     </>

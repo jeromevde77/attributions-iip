@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
 import { FournisseurRail } from '../components/ui.jsx';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeliberation.jsx';
+import DatesDeliberation, { useDatesDeliberation, LigneDeliberation } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import TrainUE from '../components/TrainUE.jsx';
@@ -18,8 +18,9 @@ const SemaineLucie = lazy(() => import('../components/MonHoraireSemaine.jsx'));
 const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
 const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
 const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
+const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -460,6 +461,7 @@ function MesUE() {
   const [fiche, setFiche] = useState(null);
   const [due, setDue] = useState(null);
   const [dp, setDp] = useState(null);
+  const [liste, setListe] = useState(null);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
   const delibs = useDatesDeliberation(t?.annee || undefined);
   if (!t) return <p className="text-slate-500">Chargement…</p>;
@@ -486,11 +488,17 @@ function MesUE() {
             const k = `${u.ue_num}|${c.code}`;
             return (
               <div key={c.code} className="border-t border-slate-100">
-                <button type="button" className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50" onClick={() => setOuvert(o => ({ ...o, [k]: !o[k] }))}>
-                  {ouvert[k] ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                  <span className="flex-1 min-w-0">{c.nom || c.code}</span>
-                  <span className="text-second text-slate-500">{(c.groupes || []).length ? `${c.groupes.length > 1 ? 'groupes' : 'groupe'} ${c.groupes.join(', ')} · ` : ''}{c.etudiants.length} étudiant(s)</span>
-                </button>
+                <div className="flex items-center hover:bg-slate-50">
+                  <button type="button" className="flex-1 min-w-0 text-left px-4 py-3 flex items-center gap-3" onClick={() => setOuvert(o => ({ ...o, [k]: !o[k] }))}>
+                    {ouvert[k] ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                    <span className="flex-1 min-w-0">{c.nom || c.code}</span>
+                    <span className="text-second text-slate-500">{(c.groupes || []).length ? `${c.groupes.length > 1 ? 'groupes' : 'groupe'} ${c.groupes.join(', ')} · ` : ''}{c.etudiants.length} étudiant(s)</span>
+                  </button>
+                  {/* LA LISTE SUR MESURE (3.5.160, Charles : « le petit avion pour exporter des listes sur mesure ») : colonnes au choix,
+                      aperçu, PDF ou Excel — une feuille par groupe. */}
+                  <button type="button" className="mr-3 w-9 h-9 grid place-items-center rounded-champ text-iip-blue hover:bg-white border border-transparent hover:border-slate-200"
+                    title="Exporter une liste sur mesure (PDF ou Excel)" aria-label="Exporter une liste sur mesure" onClick={() => setListe(c.code)}><IconSend size={18} /></button>
+                </div>
                 {ouvert[k] && <ListeParGroupe etudiants={c.etudiants} onFiche={setFiche} />}
               </div>);
           })}
@@ -498,6 +506,7 @@ function MesUE() {
       {fiche && <FicheEtudiant id={fiche} onFermer={() => setFiche(null)} />}
       {due && <VoirDUE ue={due} onFermer={() => setDue(null)} />}
       {dp && <VoirDP ue={dp} onFermer={() => setDp(null)} />}
+      {liste && <Suspense fallback={null}><ListeSurMesureLucie cours={liste} annee={t.annee || undefined} onFermer={() => setListe(null)} /></Suspense>}
     </div>);
 }
 
@@ -960,7 +969,7 @@ function MonAgenda({ moi, onPresences }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['annee', 'L’année de l’école']].map(([k, l]) => (
+        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Délibérations'], ['annee', 'L’année de l’école']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
         <span className="flex-1" />
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
@@ -969,6 +978,8 @@ function MonAgenda({ moi, onPresences }) {
       {vue === 'dates' ? <MesDates moi={moi} />
         // MA SEMAINE À L'ÉCHELLE DES HEURES (3.5.150, Charles : « une structure par heures, comme dans l'horaire normal ») : la
         // semaine de Lucie, avec l'agenda de l'école au-dessus de chaque jour ; une séance ouvre ses présences.
+        // LES DÉLIBÉRATIONS DE MES UNITÉS (3.5.160, Charles : « ceci doit aller dans agenda ») : le tableau quitte Mes unités.
+        : vue === 'deliberations' ? <DatesDeliberation annee={annee || undefined} />
         : vue === 'semaine' ? <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
         : <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>{annee ? <AgendaEcoleLucie annee={annee} simple /> : <p className="text-slate-500">Année inconnue.</p>}</Suspense>}
       <Suspense fallback={null}>
