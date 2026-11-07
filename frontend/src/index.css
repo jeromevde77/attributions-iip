@@ -1678,3 +1678,6 @@ table[data-numeros="oui"] tbody tr:not(.ligne-total):not(.tab-repere):not([data-
 .pastille-groupe-bouton:focus-visible { outline: 2px solid var(--c-principal, #19537E); outline-offset: 2px; }
 .pastille-groupe-bouton:hover { background: color-mix(in srgb, var(--c-principal, #19537E) 8%, #fff); }
 .pastille-groupe-active, .pastille-groupe-active:hover { background: var(--c-principal, #19537E); color: #fff; }
+
+/* L'ENTRÉE DES ESPACES (3.5.202) : une seule carte ; les formulaires posés dedans n'ont pas de cadre à eux. */
+.entree-espace .carte { border: 0; background: transparent; padding: 0; }

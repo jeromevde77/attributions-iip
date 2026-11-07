@@ -39,16 +39,6 @@ async function appel(methode, chemin, corps, brut = false) {
   return j;
 }
 
-const Tete = ({ sous, onQuitter }) => (
-  <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-3">
-    <LogoLucie hauteur={28} className="shrink-0" />
-    <div className="leading-tight flex-1 min-w-0 border-l border-slate-200 pl-3">
-      <div className="text-sm font-bold text-iip-texte">Institut Ilya Prigogine</div>
-      <div className="text-xs text-slate-500 truncate">{sous || 'Mon espace étudiant'}</div>
-    </div>
-    {onQuitter && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={onQuitter}><IconLogout size={15} /> Quitter</button>}
-  </div>
-);
 
 // Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
 const COURT = { aujourdhui: 'Aujourd’hui', messages: 'Messages', parcours: 'Parcours', documents: 'Documents', demarches: 'Démarches', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
@@ -145,9 +135,9 @@ function Verification({ reference }) {
   const Ligne = ({ l, v }) => v ? <div className="grid grid-cols-[8rem_1fr] gap-3 py-1.5 border-t border-slate-100 first:border-t-0">
     <span className="text-second text-slate-500">{l}</span><span className="text-sm text-iip-texte">{v}</span></div> : null;
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Tete sous="Vérification d’une pièce" />
-      <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
+    <div className="min-h-screen px-4 py-8" style={{ background: 'var(--page-fond)' }}>
+      <div className="max-w-[560px] mx-auto space-y-4">
+        <div className="flex items-center gap-3"><LogoLucie hauteur={30} className="" /><div className="text-second text-slate-500">Vérification d’une pièce · Institut Ilya Prigogine</div></div>
         {!r ? <p className="text-sm text-slate-500">Vérification…</p> : r.trouve ? (
           <div className="bloc-etat px-5 py-4 space-y-3" data-etat="reussi">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldCheck size={22} style={{ color: 'var(--c-reussi, #3E7D5E)' }} /> Pièce authentique</h1>
@@ -956,12 +946,14 @@ function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
 }
 
 /* Hors du composant : défini dedans, il serait un nouveau composant à chaque frappe, et le champ perdrait le focus. */
+/* LA MÊME ENTRÉE QUE L'ESPACE ENSEIGNANT (3.5.202, Charles : « tout doit être semblable ») : une carte blanche au milieu de la
+   page, le logo et le nom de l'espace en tête ; les formulaires s'y posent sans cadre à eux (`.entree-espace`). */
 const Cadre = ({ horsBe, erreur, children }) => (
-  <div className="min-h-screen bg-slate-100">
-    <Tete />
-    <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
+  <div className="min-h-screen grid place-items-center px-4 py-8" style={{ background: 'var(--page-fond)' }}>
+    <div className="entree-espace w-full max-w-md bg-white border border-slate-200 rounded-carte p-6 space-y-4">
+      <div className="flex items-center gap-3"><LogoLucie hauteur={30} className="" /><div className="text-second text-slate-500">Espace étudiant · Institut Ilya Prigogine</div></div>
       {horsBe && <HorsBelgique texte={horsBe} />}
-      {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+      {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
       {children}
     </div>
   </div>);
