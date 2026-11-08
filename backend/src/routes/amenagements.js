@@ -324,8 +324,32 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
       .all(d.id).map(x => x.ue_num);
   }
 
-  res.json({ dossiers, courant: courant || null, piece_valide: pieceValide,
+  // CE QUE L'ÉTUDIANT A DÉPOSÉ OU ÉCRIT DEPUIS SON ESPACE (3.5.235) : la pièce de sa demande en ligne, ses messages.
+  let enLigne = { fichiers: [], messages: [] };
+  try {
+    enLigne = {
+      fichiers: courant ? db.prepare('SELECT id, nom, mime, depose_par, depose_le FROM amenagement_fichier WHERE dossier_id = ? ORDER BY id').all(courant.id) : [],
+      messages: db.prepare('SELECT id, texte, recu_le, lu_le, lu_par FROM amenagement_message WHERE etudiant_id = ? ORDER BY id DESC LIMIT 20').all(etudId),
+    };
+  } catch { /* tables absentes */ }
+  res.json({ dossiers, courant: courant || null, piece_valide: pieceValide, en_ligne: enLigne,
              catalogue: catalogueAR(), circuit: courant ? circuitDe(courant, req) : null });
+});
+
+// La pièce déposée en ligne (3.5.235) : secret professionnel — ceux qui instruisent les aménagements seulement.
+r.get('/fichier/:fid', authRequired, peutAmenager, async (req, res) => {
+  const f = db.prepare('SELECT * FROM amenagement_fichier WHERE id = ?').get(Number(req.params.fid));
+  if (!f) return res.status(404).json({ error: 'Pièce introuvable.' });
+  const fs = await import('node:fs');
+  if (!fs.existsSync(f.chemin)) return res.status(404).json({ error: 'Fichier absent du disque.' });
+  res.setHeader('Content-Type', f.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(f.nom || 'piece')}`);
+  fs.createReadStream(f.chemin).pipe(res);
+});
+// Marquer lu un message de l'étudiant.
+r.post('/message/:mid/lu', authRequired, peutAmenager, (req, res) => {
+  db.prepare(`UPDATE amenagement_message SET lu_le = datetime('now'), lu_par = ? WHERE id = ? AND lu_le IS NULL`).run(req.user.nom || req.user.email, Number(req.params.mid));
+  res.json({ ok: true });
 });
 
 // ── Création et mise à jour ─────────────────────────────────────────────────

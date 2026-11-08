@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
+import MonAmenagement from './MonAmenagement.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
@@ -999,6 +1000,10 @@ function Espace() {
   const [erreur, setErreur] = useState(null);
   const [horsBe, setHorsBe] = useState(null);
   const [d, setD] = useState(null);
+  /* LA FENÊTRE DES MOTS DE PASSE NE RESTE PAS SUR UN CHAMP DISPARU (3.5.235, capture de Charles : le trousseau de Safari restait
+     ouvert par-dessus l'espace, accroché au champ d'identifiant de la page d'entrée, que l'aperçu affiche un instant). L'espace ouvert,
+     on retire le focus. */
+  useEffect(() => { if (d && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!d]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [face, setFace] = useState('aujourdhui');
   const [sous, setSous] = useState({});
   const [texte, setTexte] = useState(null);   // règlement ouvert
@@ -1202,7 +1207,7 @@ function Espace() {
   const a_ = k => ouvertes.includes(k);
   const SOUS = {
     parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
-    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable']].filter(([k]) => a_(k)),
   };
   const FACES = [
     ['aujourdhui', 'Aujourd’hui', IconHome],
@@ -1227,7 +1232,7 @@ function Espace() {
     /* LE MÊME DESSIN QUE L'ESPACE ENSEIGNANT : le rail étroit à gauche (icônes, bulle au survol), une bande sur téléphone. */
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond)' }}>
       <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}</span></div>
-      <nav aria-label="Mon espace" className="md:w-14 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:px-1.5 md:py-4 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen">
+      <nav aria-label="Mon espace" className="md:z-30 md:w-14 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:px-1.5 md:py-4 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen">
         <div className="hidden md:flex justify-center pb-4"><LogoLucie hauteur={26} sansTexte className="" /></div>
         {FACES.filter(([k]) => !['aide', 'compte'].includes(k)).map(([k, l, I]) => (
           <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (k === 'messages' ? l : COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
@@ -1316,6 +1321,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'tfe' && <MonTfe appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'stage' && <MonStage appel={appel} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
         {d && face === 'aide' && <AideRegles />}

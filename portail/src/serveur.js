@@ -145,6 +145,13 @@ db.exec(`CREATE TABLE IF NOT EXISTS cm_geste (id INTEGER PRIMARY KEY AUTOINCREME
   du TEXT NOT NULL, au TEXT NOT NULL, nom TEXT, taille INTEGER, contenu BLOB,
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
 
+/* L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : la demande (cadre A, sa pièce) ou un message à la personne de référence ; noté ici,
+   jugé et écrit par Lucie au relevé. */
+db.exec(`CREATE TABLE IF NOT EXISTS ar_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+  type TEXT NOT NULL, texte TEXT, nom TEXT, taille INTEGER, contenu BLOB,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
+try { db.exec('ALTER TABLE espace_lot ADD COLUMN ar TEXT'); } catch { /* déjà là */ }
+
 /* LA MOTIVATION PAR ACQUIS (3.5.006) : un type de geste de plus et sa colonne. Une contrainte CHECK ne se
    modifie pas en SQLite : la table se reconstruit, ses lignes recopiées. */
 if (!/'motiver'/.test(db.prepare("SELECT sql FROM sqlite_master WHERE name = 'va_geste'").get()?.sql || '')) {
@@ -170,7 +177,8 @@ pub.disable('x-powered-by');
 pub.set('trust proxy', 2);
 // Le relais de Mes cours (3.5.137) lit lui-même son corps, brut, jusqu'à 25 Mo : il ne passe pas par la limite de 50 Ko.
 const json50 = express.json({ limit: '50kb' });
-pub.use((req, res, next) => (req.path.startsWith('/api/enseignant/relais/') ? next() : json50(req, res, next)));
+// La demande d'aménagement porte sa pièce (3.5.235) : elle a son propre lecteur, à 16 Mo.
+pub.use((req, res, next) => (req.path.startsWith('/api/enseignant/relais/') || req.path === '/api/portail/amenagement' ? next() : json50(req, res, next)));
 pub.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 const essais = new Map();
@@ -412,7 +420,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements'];
 const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
 const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
@@ -792,6 +800,35 @@ pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw(
 pub.use('/api/portail/certificat', (err, req, res, next) => (err?.type === 'entity.too.large'
   ? res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' }) : next(err)));
 
+// ── L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) ──
+pub.get('/api/portail/amenagement', connecte, exige('amenagements'), (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  res.json({ pret: !!l?.ar, ar: l?.ar ? JSON.parse(l.ar) : null,
+    gestes: db.prepare('SELECT id, type, nom, cree_le, releve_le, erreur, resultat FROM ar_geste WHERE etudiant_id = ? ORDER BY id DESC LIMIT 20').all(req.etudiant.id) });
+});
+pub.post('/api/portail/amenagement', connecte, exige('amenagements'), express.json({ limit: '16mb' }), (req, res) => {
+  const b = req.body || {};
+  if (db.prepare(`SELECT COUNT(*) n FROM ar_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 10) {
+    return res.status(429).json({ error: 'Trop d’envois en une heure. Réessayez plus tard.' });
+  }
+  if (b.type === 'message') {
+    const t = String(b.texte || '').trim();
+    if (!t) return res.status(400).json({ error: 'Le message est vide.' });
+    db.prepare('INSERT INTO ar_geste (etudiant_id, type, texte) VALUES (?,?,?)').run(req.etudiant.id, 'message', JSON.stringify({ texte: t.slice(0, 3000) }));
+    return res.json({ ok: true });
+  }
+  const buf = b.fichier ? Buffer.from(String(b.fichier), 'base64') : null;
+  if (!buf?.length) return res.status(400).json({ error: 'Joignez la pièce (PDF ou photo).' });
+  if (!estImageOuPdf(buf)) return res.status(400).json({ error: 'La pièce doit être un PDF ou une photo (JPEG, PNG).' });
+  if (buf.length > 10 * 1024 * 1024) return res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' });
+  const { fichier, nom, ...champs } = b;
+  db.prepare('INSERT INTO ar_geste (etudiant_id, type, texte, nom, taille, contenu) VALUES (?,?,?,?,?,?)')
+    .run(req.etudiant.id, 'demande', JSON.stringify(champs).slice(0, 20000), String(nom || 'piece').slice(0, 150), buf.length, buf);
+  res.json({ ok: true });
+});
+pub.use('/api/portail/amenagement', (err, req, res, next) => (err?.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' }) : next(err)));
+
 // ── LES MESSAGES (3.1.516) ──
 pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const id = req.etudiant.id;
@@ -968,6 +1005,7 @@ int.post('/interne/va', (req, res) => {
   const ie = db.prepare(`INSERT INTO espace_lot (etudiant_id, parcours, frais, maj_le) VALUES (?,?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET parcours = excluded.parcours, frais = excluded.frais, maj_le = excluded.maj_le`);
   const its = db.prepare(`UPDATE espace_lot SET tfe = ?, stage = ? WHERE etudiant_id = ?`);
+  const iar = db.prepare(`INSERT INTO espace_lot (etudiant_id, ar, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET ar = excluded.ar`);
   const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
   db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
@@ -975,6 +1013,7 @@ int.post('/interne/va', (req, res) => {
     if (x.pae !== undefined) ip.run(Number(x.etudiant_id), JSON.stringify(x.pae ?? null));
     if (x.parcours !== undefined || x.frais !== undefined) ie.run(Number(x.etudiant_id), JSON.stringify(x.parcours ?? null), JSON.stringify(x.frais ?? null));
     if (x.tfe !== undefined || x.stage !== undefined) its.run(JSON.stringify(x.tfe ?? null), JSON.stringify(x.stage ?? null), Number(x.etudiant_id));
+    if (x.ar !== undefined) iar.run(Number(x.etudiant_id), JSON.stringify(x.ar ?? null));
   } })();
   res.json({ ok: true, n: l.length });
 });
@@ -984,6 +1023,11 @@ int.get('/interne/va/piece/:id', (req, res) => {
   res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
 });
 
+int.get('/interne/ar/piece/:id', (req, res) => {
+  const g = db.prepare('SELECT contenu FROM ar_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
+  if (!g?.contenu) return res.status(404).end();
+  res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
+});
 int.get('/interne/cm/piece/:id', (req, res) => {
   const g = db.prepare('SELECT contenu FROM cm_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
   if (!g?.contenu) return res.status(404).end();
@@ -1093,6 +1137,7 @@ int.get('/interne/releve', (req, res) => {
     pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     ts: db.prepare('SELECT id, etudiant_id, type, tfe_id, jalon_id, nom, taille, texte FROM ts_geste WHERE releve_le IS NULL ORDER BY id LIMIT 30').all(),
     cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
+    ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
   });
@@ -1120,6 +1165,11 @@ int.post('/interne/acquitter', (req, res) => {
         .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM cm_geste WHERE releve_le < datetime('now', '-180 days')").run();
+    for (const g of Array.isArray(req.body?.ar) ? req.body.ar : []) {
+      db.prepare("UPDATE ar_geste SET releve_le = datetime('now'), erreur = ?, resultat = ?, contenu = NULL WHERE id = ?")
+        .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
+    }
+    db.prepare("DELETE FROM ar_geste WHERE releve_le < datetime('now', '-365 days')").run();
     for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {
       db.prepare("UPDATE pae_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }

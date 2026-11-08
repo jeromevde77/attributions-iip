@@ -27,6 +27,7 @@ import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCo
 import { parcoursPortail, fraisPortail, docsDesUnites } from './portailEspace.js';
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { deposer as deposerCertificat } from './certificatMedical.js';
+import { offreAR, demandeEnLigne, messageAR } from './portailAmenagements.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
 import { supportsActifs, contenuDe as contenuSupport } from './supportsCours.js';
@@ -182,7 +183,9 @@ async function deposerVA(ids) {
       lots.push({ etudiant_id: e.id, offre: f.has('va') ? offreVA(e, annee) : null, etat: f.has('va') ? etatVA(e, annee) : [],
         pae: !f.has('pae') ? null : offrePAE(e),
         parcours: !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null,
-        tfe: f.has('tfe') ? tfePortail(e, anneeActive()) : null, stage: f.has('stage') ? stagePortail(e, anneeActive()) : null });
+        tfe: f.has('tfe') ? tfePortail(e, anneeActive()) : null, stage: f.has('stage') ? stagePortail(e, anneeActive()) : null,
+        // L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : les unités et leur délai, les mesures, la référente, le dossier.
+        ar: f.has('amenagements') ? offreAR(e, anneeActive()) : null });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
@@ -192,7 +195,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], ts: [], cm: [], messages_lus: [], messages_reponses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], ts: [], cm: [], ar: [], messages_lus: [], messages_reponses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -313,6 +316,28 @@ async function relever() {
     } catch (x) { console.error('[portail] certificat :', x.message); erreur = 'Le certificat n’a pas pu être enregistré : réessayez, ou remettez-le au secrétariat.'; }
     ok.cm.push({ id: g.id, erreur, resultat });
   }
+  // L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : la demande (cadre A + pièce) ou le message à la personne de référence.
+  for (const g of r.ar || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null, resultat = null;
+    try {
+      if (!e) erreur = 'Votre accès à l’espace n’est plus valable : adressez-vous au secrétariat.';
+      else if (!fonctionPour('espace.amenagements', { etudiantId: e.id })) erreur = 'La demande en ligne n’est pas ouverte : adressez-vous à la personne de référence.';
+      else {
+        const x = JSON.parse(g.texte || '{}');
+        if (g.type === 'message') { const m = messageAR(e, anneeActive(), x.texte); erreur = m.erreur || null; resultat = m.resultat || null; }
+        else {
+          const contenu = g.taille ? await lireBinaire(`/interne/ar/piece/${g.id}`) : null;
+          const h = contenu?.toString('hex', 0, 4) || '';
+          const mime = contenu?.toString('latin1', 0, 4) === '%PDF' ? 'application/pdf' : h.startsWith('ffd8ff') ? 'image/jpeg' : h === '89504e47' ? 'image/png' : null;
+          const d = demandeEnLigne(e, anneeActive(), x, contenu?.length && mime ? { nom: g.nom, mime, buffer: contenu } : null);
+          erreur = d.erreur || null; resultat = d.resultat || null;
+        }
+      }
+    } catch (x) { console.error('[portail] aménagement :', x.message); erreur = 'Votre demande n’a pas pu être enregistrée : réessayez, ou écrivez à la personne de référence.'; }
+    ok.ar.push({ id: g.id, erreur, resultat });
+    touches.add(Number(g.etudiant_id));
+  }
   // LES MESSAGES (3.1.516) : ✓ lu, et les réponses (au fil, l'auteur prévenu).
   if ((r.messages_lus || []).length || (r.messages_reponses || []).length) {
     const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [] });
@@ -320,7 +345,7 @@ async function relever() {
     for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || [])]) touches.add(Number(x.etudiant_id));
     tours = 0;
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.ts.length || ok.cm.length
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.ts.length || ok.cm.length || ok.ar.length
     || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);

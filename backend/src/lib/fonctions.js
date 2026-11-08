@@ -42,6 +42,8 @@ export const CATALOGUE = [
     quoi: "Les fichiers que les professeurs déposent pour un cours (Mes cours → le cours → Supports) ; les inscrits les trouvent dans Mon parcours, sous le cours, avec la marque « nouveau » pendant une semaine." },
   { cle: 'espace.certificats', famille: 'espace', titre: 'Mes absences — certificat médical',
     quoi: "L'étudiant dépose son certificat médical (PDF ou photo) et les dates de son absence ; remis dans les 3 jours ouvrables, ses absences de la période sont justifiées ; professeurs et secrétariat sont prévenus." },
+  { cle: 'espace.amenagements', famille: 'espace', titre: 'Aménagement raisonnable — la demande en ligne',
+    quoi: "L'étudiant remplit la demande (cadre A : unités, aménagements demandés, difficultés, pièce jointe) au moins 10 jours ouvrables avant l'ouverture de l'unité ; au-delà, il est renvoyé vers la personne de référence, à qui il écrit depuis son espace. La personne de référence est prévenue et reprend le dossier." },
   { cle: 'espace.candidats', famille: 'espace', titre: "Le code d'accès des candidats",
     quoi: "Un candidat sans adresse d'institut reçoit à son adresse privée un code pour entrer dans l'espace (demande de VA, documents, frais, messages)." },
   { cle: 'enseignant.espace', famille: 'personnel', titre: 'L’espace enseignant',

@@ -296,6 +296,26 @@ export default function Amenagements({ etudId, annee }) {
         </div>
       )}
 
+      {/* DEPUIS SON ESPACE (3.5.235) : la pièce de la demande en ligne, et les messages de l'étudiant à la personne de référence. */}
+      {(data.en_ligne?.fichiers?.length > 0 || data.en_ligne?.messages?.length > 0) && (
+        <div data-etat="disponible" className="bloc-etat px-3 py-2 text-sm space-y-1.5">
+          <div className="font-semibold">Depuis son espace</div>
+          {data.en_ligne.fichiers.map(f => (
+            <div key={f.id} className="flex items-center gap-2">Pièce déposée le {String(f.depose_le).slice(0, 10).split('-').reverse().join('/')} :
+              <button type="button" className="underline text-iip-blue" onClick={async () => {
+                const r = await fetch(`/api/amenagements/fichier/${f.id}`, { headers: authHeaders() });
+                if (!r.ok) { setMessage({ type: 'err', texte: 'La pièce n’a pas pu être ouverte.' }); return; }
+                const u = URL.createObjectURL(await r.blob()); window.open(u, '_blank'); setTimeout(() => URL.revokeObjectURL(u), 60000);
+              }}>{f.nom}</button></div>))}
+          {data.en_ligne.messages.map(m => (
+            <div key={m.id} className="border-t border-slate-200 pt-1.5">
+              <div className="text-second text-slate-500">Message du {String(m.recu_le).slice(0, 10).split('-').reverse().join('/')}{m.lu_le ? ` · lu par ${m.lu_par}` : ''}</div>
+              <div className="whitespace-pre-line">{m.texte}</div>
+              {!m.lu_le && <button type="button" className="text-second underline text-iip-blue" onClick={async () => { await fetch(`/api/amenagements/message/${m.id}/lu`, { method: 'POST', headers: authHeaders() }); charger(); }}>Marquer lu</button>}
+            </div>))}
+          <div className="text-second text-slate-500">On lui répond par Étudiants → Écrire aux étudiants (il le lit dans ses messages).</div>
+        </div>)}
+
       {/* La pièce vaut au-delà de l'année : une ligne, pas un bandeau. */}
       {data.piece_valide && (
         <div className="flex items-start gap-1.5 text-second" style={{ color: data.piece_valide.perime ? 'var(--c-attente, #B45309)' : 'rgb(var(--gris-600))' }}>
