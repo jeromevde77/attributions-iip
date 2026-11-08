@@ -1021,11 +1021,11 @@ function Espace() {
     if (apercu) {
       window.history.replaceState(null, '', '/');
       /* LES DONNÉES ARRIVENT APRÈS LE LIEN (3.5.128) : Lucie dépose les pièces de l'étudiant en arrière-plan — une
-         vingtaine d'attestations prennent ~45 s. L'aperçu se relit donc toutes les 15 s pendant trois minutes (3.5.216,
+         vingtaine d'attestations prennent ~45 s. L'aperçu se relit donc toutes les 5 s pendant trois minutes (3.5.216, 5 s depuis 3.5.218 : « il faut parfois cliquer ailleurs » ;
          Charles : « pourquoi ATEMEZEM Maylis n'a pas ses documents ? » — ils arrivaient 45 s après l'ouverture). */
       appel('POST', '/apercu', { jeton: apercu }).then(j => {
         poser(j.token); setConnecte(true); charger();
-        let n = 0; const t = setInterval(() => { if (++n > 12) clearInterval(t); else charger(); }, 15000);
+        let n = 0; const t = setInterval(() => { if (++n > 36) clearInterval(t); else charger(); }, 5000);
       }).catch(e => setErreur(e.message));
       return;
     }

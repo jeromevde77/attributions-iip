@@ -1611,6 +1611,74 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, gesteRequis('valorisation.
   res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue, annee) });
 });
 
+/* LES SÉANCES DE VALORISATION EN LOT (3.5.219, Charles, 8 novembre 2026, devant quinze unités de TIM bloquées par « la séance
+   de valorisation n'a pas encore été ouverte » : « impossible, il faut un patch pour le faire d'un coup »). Pour les unités
+   choisies d'une année : la date de la séance est REPRISE des décisions encodées (`decision_ce_date`) quand elles s'accordent
+   sur une date — plusieurs dates veulent dire plusieurs séances, Lucie n'en choisit pas une : la ligne attend une date tapée ;
+   la date de communication et la présidence se saisissent une fois pour toutes. Les présences ne sont pas touchées (la règle
+   de la séance : la composition arrive présente, on décoche les absents dans la séance de l'unité). Une séance clôturée ne
+   bouge pas. GET = l'état de chaque unité ; POST = simulation (`ecrire` faux) puis écriture, tout ou rien. */
+function etatSeancesLot(annee, ues) {
+  return ues.map(ueNum => {
+    const s = db.prepare('SELECT * FROM valorisation_seance WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee) || null;
+    const dates = db.prepare(`SELECT decision_ce_date d, COUNT(*) n FROM etudiant_valorisation
+      WHERE ue_num = ? AND annee_scolaire = ? AND decision_le IS NOT NULL AND decision_ce_date IS NOT NULL
+      GROUP BY decision_ce_date ORDER BY decision_ce_date`).all(ueNum, annee);
+    const ue = db.prepare('SELECT ue_nom, section FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1').get(ueNum, annee) || {};
+    return { ue_num: ueNum, ue_nom: ue.ue_nom || '', section: ue.section || null, seance: s, dates,
+      date_proposee: s?.date_seance || (dates.length === 1 ? dates[0].d : null) };
+  });
+}
+function uesPermises(req, ues) {
+  const permises = getUserSections(req.user);
+  if (!permises) return [];
+  return ues.filter(n => !db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(n)
+    .some(x => permises.includes(x.section)));
+}
+r.get('/valorisation/seances/lot', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
+  const annee = req.query.annee;
+  const ues = String(req.query.ues || '').split(',').map(Number).filter(Boolean);
+  if (!annee || !ues.length) return res.status(400).json({ error: 'annee et ues requis' });
+  const hors = uesPermises(req, ues);
+  if (hors.length) return res.status(403).json({ error: `Hors de votre périmètre : UE ${hors.join(', ')}.` });
+  const derniere = db.prepare(`SELECT president_nom, president_titre FROM valorisation_seance WHERE president_nom IS NOT NULL
+    ORDER BY maj_le DESC LIMIT 1`).get() || {};
+  res.json({ unites: etatSeancesLot(annee, ues), president_nom: derniere.president_nom || '', president_titre: derniere.president_titre || '' });
+});
+r.post('/valorisation/seances/lot', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
+  const { annee, lignes, communication_date, president_nom, president_titre, ecrire } = req.body || {};
+  if (!annee || !Array.isArray(lignes) || !lignes.length) return res.status(400).json({ error: 'annee et lignes requises' });
+  const jour = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
+  const ues = lignes.map(l => Number(l.ue_num)).filter(Boolean);
+  const hors = uesPermises(req, ues);
+  if (hors.length) return res.status(403).json({ error: `Hors de votre périmètre : UE ${hors.join(', ')}.` });
+  if (!jour(communication_date)) return res.status(400).json({ error: 'La date de communication des résultats est requise.' });
+  if (!String(president_nom || '').trim()) return res.status(400).json({ error: 'Le nom du président de séance est requis.' });
+  const etats = new Map(etatSeancesLot(annee, ues).map(e => [e.ue_num, e]));
+  const refus = [], plan = [];
+  for (const l of lignes) {
+    const e = etats.get(Number(l.ue_num));
+    const date = l.date_seance || e?.date_proposee;
+    if (e?.seance?.cloturee) { refus.push(`UE ${e.ue_num} : séance clôturée.`); continue; }
+    if (!jour(date)) { refus.push(`UE ${l.ue_num} : date de séance à préciser${e?.dates?.length > 1 ? ` (décisions du ${e.dates.map(x => x.d.split('-').reverse().join('/')).join(', ')})` : ''}.`); continue; }
+    if (communication_date < date) { refus.push(`UE ${l.ue_num} : la communication (${communication_date}) précède la séance (${date}).`); continue; }
+    plan.push({ ue_num: e.ue_num, date_seance: date, existe: !!e.seance });
+  }
+  if (refus.length) return res.status(409).json({ error: 'Le lot ne passe pas : rien n’a été écrit.', refus, plan });
+  if (!ecrire) return res.json({ simulation: true, plan });
+  const par = req.user?.username || null;
+  db.transaction(() => {
+    for (const p of plan) {
+      db.prepare(`INSERT INTO valorisation_seance (ue_num, annee_scolaire, date_seance, communication_date, president_nom, president_titre, maj_par)
+        VALUES (?,?,?,?,?,?,?)
+        ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET date_seance = excluded.date_seance, communication_date = excluded.communication_date,
+          president_nom = excluded.president_nom, president_titre = excluded.president_titre, maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par`)
+        .run(p.ue_num, annee, p.date_seance, communication_date, String(president_nom).trim(), String(president_titre || '').trim() || null, par);
+    }
+  })();
+  res.json({ ok: true, plan });
+});
+
 r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisation.instruire'), async (req, res) => {
   if (!unitePermise(req, res)) return;
   const ueNum = Number(req.params.ueNum);
