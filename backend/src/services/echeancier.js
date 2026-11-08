@@ -422,3 +422,46 @@ export function marquerSectionNotifications(db) {
     maj.run(e.section, `% — ${lib}`);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LA FIN DE FONCTION DES TEMPORAIRES (3.5.231, circ. 9760 : C4, attestation de services rendus, rapport éventuel). L'ancre
+// `contrat_fin` n'était appelée nulle part : l'échéance « fin_fonction_docs » ne naissait jamais. Est temporaire ici un chargé de
+// cours (hors experts) dont les périodes de l'année dépassent ses nominations définitives ; sa fin de fonction est la fin de la
+// dernière organisation d'unité où il est attribué (à défaut, le 30 juin). Une échéance déjà posée et jamais touchée suit la date.
+// ─────────────────────────────────────────────────────────────────────────────
+export function poserFinsDeFonction(db, anneeScolaire) {
+  const a1 = Number(String(anneeScolaire).slice(5, 9)) || (Number(String(anneeScolaire).slice(0, 4)) + 1);
+  const type = db.prepare(`SELECT id FROM echeance_type WHERE code = 'fin_fonction_docs' AND actif = 1`).get();
+  if (!type) return 0;
+  let profs = [];
+  try {
+    profs = db.prepare(`SELECT v.professeur_id AS id, MAX(p.nom) AS nom, MAX(p.prenom) AS prenom,
+        SUM(COALESCE(v.total_attribue_professeur, v.periodes_attribuees, 0)) AS per,
+        MAX((SELECT MAX(o.date_fin) FROM organisation_ue o WHERE o.ue_num = v.ue_num AND o.annee_scolaire = v.annee_scolaire
+             AND (v.num_organisation IS NULL OR COALESCE(o.num_organisation, 1) = v.num_organisation))) AS fin
+      FROM v_attribution_complete v JOIN professeur p ON p.id = v.professeur_id
+      WHERE v.annee_scolaire = ? AND v.professeur_id IS NOT NULL
+        AND UPPER(COALESCE((SELECT a.statut_exception FROM attribution a WHERE a.id = v.id), p.statut, '')) <> 'EXP'
+      GROUP BY v.professeur_id`).all(anneeScolaire);
+  } catch { return 0; }
+  const nomme = db.prepare('SELECT COALESCE(SUM(periodes), 0) n FROM nomination_definitive WHERE professeur_id = ? AND actif = 1');
+  let n = 0;
+  for (const p of profs) {
+    if (!(p.per > 0)) continue;
+    let def = 0; try { def = nomme.get(p.id).n; } catch { def = 0; }
+    if (def >= p.per) continue;                                   // entièrement définitif : pas de fin de fonction
+    const fin = /^\d{4}-\d{2}-\d{2}/.test(String(p.fin || '')) ? String(p.fin).slice(0, 10) : `${a1}-06-30`;
+    const libelle = [p.nom, p.prenom].filter(Boolean).join(' ');
+    // Une échéance déjà posée, générée et jamais touchée, suit la nouvelle date de fin.
+    const deja = db.prepare(`SELECT id, date_due FROM echeance WHERE type_id = ? AND annee_scolaire = ? AND source_type = 'professeur' AND source_id = ?`).all(type.id, anneeScolaire, p.id);
+    if (deja.length) {
+      const due = (() => { const d = new Date(`${fin}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 5); return d.toISOString().slice(0, 10); })();
+      for (const e of deja) if (e.date_due !== due) {
+        try { db.prepare(`UPDATE echeance SET date_due = ? WHERE id = ? AND genere_auto = 1 AND statut IN ('a_faire','en_retard') AND (commentaire IS NULL OR commentaire = '')`).run(due, e.id); } catch { /* colonne commentaire absente */ }
+      }
+      continue;
+    }
+    n += declencher(db, { ancre: 'contrat_fin', dateRef: fin, anneeScolaire, sourceType: 'professeur', sourceId: p.id, libelle, codes: ['fin_fonction_docs'] });
+  }
+  return n;
+}
