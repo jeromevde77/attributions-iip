@@ -8,6 +8,7 @@ import {
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison, EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat, Encadre, BadgePrimo } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
+import SeancesValorisationLot from '../components/SeancesValorisationLot.jsx';
 import NotificationVA from '../components/NotificationVA.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
 import { demander, saisir } from '../lib/dialogue.jsx';
@@ -66,6 +67,7 @@ const DECISIONS = [
 export default function Valorisations() {
   const [annee, setAnnee] = useState(getAnnee());
   const [lignes, setLignes] = useState(null);
+  const [seancesLot, setSeancesLot] = useState(false);
   const [deplie, setDeplie] = useState(() => new Set());
   const [ajout, setAjout] = useState(false);
   const [serie, setSerie] = useState(false);
@@ -267,11 +269,14 @@ export default function Valorisations() {
         </div>
 
         {/* LES TROIS PORTES, dans l'ordre du circuit. */}
-        {peutInstruireVA && <div className="grid gap-2.5 md:grid-cols-3">
+        {peutInstruireVA && <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
           {[
             ['1', 'Introduire des demandes', 'La matrice : un étudiant par ligne, une UE par colonne, VA ou VAE. On y ajoute aussi des étudiants.', () => setMatrice(true), false],
             ['2', 'Instruire en série', 'Dates, recevabilité, avis : en lot, sur les demandes cochées. Les chargés de cours rendent leur avis dans Mes cours.', () => setAnalyse(true), false],
             ['3', 'Séance du conseil', 'Par étudiant ou par UE — une décision par UE, la même pour plusieurs si le Conseil l’a dit. Puis la validation.', () => setDeciderEtudiant(true), true],
+            /* 3.5.220 (Charles : « je ne vois pas ton bouton » — il était dans Éditions) : la séance du PV d'annexe 4 se pose
+               ici aussi, en lot, juste après la décision. */
+            ['4', 'Séances et PV en lot', 'Date de séance, communication et présidence de toutes les unités décidées, d’un coup : le PV et les attestations peuvent sortir.', () => setSeancesLot(true), false],
           ].map(([n, t, sous, go, fort]) => (
             <button key={n} type="button" onClick={go} data-etat={fort ? 'fort' : 'neutre'}
               className="bloc-etat text-left flex items-start gap-2.5 px-3 py-2.5 hover:brightness-[.98]">
@@ -282,6 +287,10 @@ export default function Valorisations() {
         </div>}
 
         {erreur && <div className="text-second text-rose-700">{erreur}</div>}
+        {seancesLot && (
+          <SeancesValorisationLot annee={annee}
+            ues={[...new Set((lignes || []).filter(l => l.ue_num > 0 && l.decision_le).map(l => Number(l.ue_num)))].sort((a, b) => a - b)}
+            onClose={() => setSeancesLot(false)} />)}
 
       {/* LE REFUS, DANS UNE FENÊTRE — parce qu'il répond à un clic délibéré et
           qu'il doit être lu. Il porte les mots du SERVEUR, pas une reformulation
