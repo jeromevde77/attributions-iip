@@ -12,17 +12,19 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { IconSearch } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Encadre } from './ui.jsx';
-import { demander, informer } from '../lib/dialogue.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 const API = '/api/presences-ue';
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().slice(0, 2).join('/') : '');
 const frl = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 const hm = m => { const x = Math.round(m || 0); return `${Math.floor(x / 60)}h${String(x % 60).padStart(2, '0')}`; };
 const nb = v => String(v ?? '').replace('.', ',');
-const CODE = c => (!c?.statut ? '' : c.statut === 'present' ? (c.retard ? 'P*' : 'P') : { absent: 'A', justifie: 'J', non_concerne: '—', dispense: 'D' }[c.statut] || '');
+// Les codes de la circulaire 9764 (3.5.237) : M à distance, CM certificat de l'étudiant, NC non concerné (« — » voudrait dire absent).
+const CODE = c => (!c?.statut ? '' : c.statut === 'present' ? (c.distance ? 'M' : 'P') + (c.retard ? '*' : '') : c.statut === 'justifie' ? (c.motif === 'medical' ? 'CM' : 'J')
+  : { absent: 'A', non_concerne: 'NC', dispense: 'D', sortie: '', non_encode: 'NE' }[c.statut] || '');
 const TEINTE = { present: 'var(--c-reussi)', absent: 'var(--c-refuse)', justifie: 'var(--c-attente)' };
-const CHOIX = [['present', 'P', 'Présent'], ['retard', 'P*', 'Présent, en retard'], ['absent', 'A', 'Absent'],
-  ['justifie', 'J', 'Absence justifiée'], ['non_concerne', '—', 'Non concerné'], ['', '×', 'Effacer']];
+const CHOIX = [['present', 'P', 'Présent'], ['retard', 'P*', 'Présent, en retard'], ['distance', 'M', 'Présent, à distance'], ['absent', 'A', 'Absent'],
+  ['justifie', 'J', 'Absence justifiée (CM si certificat de l’étudiant)'], ['non_concerne', 'NC', 'Non concerné'], ['', '×', 'Effacer']];
 
 async function appel(chemin, options = {}) {
   const r = await fetch(API + chemin, { ...options, headers: { 'Content-Type': 'application/json', ...authHeaders() } });
@@ -87,12 +89,12 @@ export default function PresencesUE({ ueInitiale = null }) {
 
   async function poser(li, si, choix, mot = null) {
     const l = d.lignes.find(x => x.etudiant.id === li); const s = d.seances[si];
-    const statut = choix === 'retard' ? 'present' : choix || null;
+    const statut = (choix === 'retard' || choix === 'distance') ? 'present' : choix || null;
     if (statut === 'justifie' && !mot) return;
     setMenu(null);
     try {
       await appel(`/ue/${ue}/presences`, { method: 'PUT', body: JSON.stringify({ annee,
-        lignes: [{ seance_id: s.id, etudiant_id: l.etudiant.id, statut, motif: mot, retard: choix === 'retard' }] }) });
+        lignes: [{ seance_id: s.id, etudiant_id: l.etudiant.id, statut, motif: mot, retard: choix === 'retard', distance: choix === 'distance' }] }) });
       await charger();
     } catch (e) { setErreur(e.message); }
   }
@@ -201,10 +203,17 @@ export default function PresencesUE({ ueInitiale = null }) {
                   <td className="px-2 py-1 sticky left-0 bg-white z-10 whitespace-nowrap">
                     <b>{String(l.etudiant.nom || '').toUpperCase()}</b> {l.etudiant.prenom}
                     {l.etudiant.id_ecampus && <span className="block text-xs text-slate-400">{l.etudiant.id_ecampus}</span>}
+                    {/* L'ABANDON (3.5.237, circulaire 9764) : sa date, au registre. */}
+                    <button type="button" className="block text-xs underline text-slate-500" onClick={async () => {
+                      const v = await saisir({ titre: `Abandon — ${String(l.etudiant.nom || '').toUpperCase()} ${l.etudiant.prenom || ''}`, message: 'Date de l’abandon (aaaa-mm-jj). Vide : l’étudiant n’est plus en abandon.', valeur: l.sortie_le || new Date().toLocaleDateString('sv-SE'), confirmer: 'Enregistrer' });
+                      if (v == null) return;
+                      const r = await fetch(`/api/presences-ue/ue/${ue}/abandon`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee, etudiant_id: l.etudiant.id, date: v || null }) });
+                      if (r.ok) charger();
+                    }}>{l.sortie_le ? `abandon le ${frl(l.sortie_le)}` : 'abandon…'}</button>
                   </td>
                   {d.seances.map((s, i) => {
                     const c = l.cases[i]; const code = CODE(c);
-                    const futur = s.date > d.aujourdhui; const fige = s.annule || futur || c?.statut === 'dispense';
+                    const futur = s.date > d.aujourdhui; const fige = s.annule || futur || c?.statut === 'dispense' || c?.statut === 'sortie';
                     return (
                       <Fragment key={s.id}>
                         <td className="p-0 text-center">
@@ -232,7 +241,7 @@ export default function PresencesUE({ ueInitiale = null }) {
       )}
       {d && d.seances.length > 0 && (
         <p className="text-second text-slate-500 m-0">
-          P présent · P* en retard · A absent · J justifié · — non concerné · D dispensé · « · » non encodé. Les colonnes dorées : la séance du
+          P présent · P* en retard · M à distance · A absent · CM certificat médical de l’étudiant · J autre absence justifiée · NC non concerné · D dispense partielle · NE non encodé. Les colonnes dorées : la séance du
           1er et du 5e dixième, puis la régularité. Un badge pointillé a été inversé à la main ; un point après R/IR signale des séances non encodées avant le jalon.
           Chaque changement s’écrit au journal des présences, à votre nom.
         </p>)}
@@ -245,7 +254,7 @@ export default function PresencesUE({ ueInitiale = null }) {
               {CHOIX.map(([k, l, t]) => (
                 <button key={k || 'x'} type="button" title={t} onClick={() => (k === 'justifie' ? null : poser(menu.li, menu.si, k))}
                   className={`h-8 flex-1 rounded-champ border text-second font-semibold ${k === 'justifie' ? 'cursor-default' : ''}`}
-                  style={{ borderColor: 'rgb(var(--gris-300))', color: TEINTE[k === 'retard' ? 'present' : k] || 'var(--c-texte)' }}>{l}</button>))}
+                  style={{ borderColor: 'rgb(var(--gris-300))', color: TEINTE[(k === 'retard' || k === 'distance') ? 'present' : k] || 'var(--c-texte)' }}>{l}</button>))}
             </div>
             <div className="flex gap-1 items-center">
               <select className="controle h-8 flex-1 min-w-0 border border-slate-300 rounded-champ text-second" value={motif} onChange={e => setMotif(e.target.value)}>

@@ -44,7 +44,11 @@ export const STATUTS_PRESENCE = {
    par justifier ce que la réglementation ne justifie pas, et c'est l'employeur
    qui en paierait le prix au contrôle. */
 export const MOTIFS_JUSTIFIES = {
-  medical: 'Certificat médical (le travailleur ou un membre de sa famille)',
+  /* DEUX CERTIFICATS, DEUX SENS (3.5.237, circulaire 9764) : seul le certificat AU NOM DE L'APPRENANT (médecin INAMI, dates de début
+     et de fin) s'écrit « CM » au registre et compte comme présence au comptage ; celui d'un membre de la famille justifie l'absence pour
+     le congé-éducation, sans être un « CM ». */
+  medical: "Certificat médical de l'apprenant",
+  medical_proche: "Certificat médical d'un membre de la famille",
   greve: 'Grève des transports publics ou des enseignants',
   fermeture: "Fermeture de l'établissement",
   intemperies: 'Intempéries hivernales graves',
@@ -108,6 +112,15 @@ export function migrerCep(base = db) {
   for (const t of ['presence', 'presence_journal']) {
     if (!base.prepare(`PRAGMA table_info(${t})`).all().some(c => c.name === 'retard')) {
       base.exec(`ALTER TABLE ${t} ADD COLUMN retard INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
+  /* L'ABANDON (3.5.237, circulaire 9764, p. 26) : sa date s'écrit au registre (colonne observation, trait continu ensuite). */
+  try { if (!base.prepare('PRAGMA table_info(etudiant_inscription)').all().some(c => c.name === 'sortie_le')) base.exec('ALTER TABLE etudiant_inscription ADD COLUMN sortie_le TEXT'); } catch { /* table pas encore créée */ }
+  /* À DISTANCE (3.5.237, circulaire 9764) : dans une UE hybride, ou par décision du Conseil des études (aménagement), une présence à
+     un cours à distance s'écrit « M ». Une PRÉSENCE avec une marque, comme le retard. */
+  for (const t of ['presence', 'presence_journal']) {
+    if (!base.prepare(`PRAGMA table_info(${t})`).all().some(c => c.name === 'distance')) {
+      base.exec(`ALTER TABLE ${t} ADD COLUMN distance INTEGER NOT NULL DEFAULT 0`);
     }
   }
 }
@@ -440,14 +453,14 @@ export function ecrirePresences(lignes, par, source = 'manuel') {
       return { erreur: "Une absence justifiée demande son motif — seuls ceux que reconnaît le congé-éducation payé." };
     }
   }
-  const lire = db.prepare('SELECT statut, motif, retard FROM presence WHERE seance_id = ? AND etudiant_id = ?');
-  const poser = db.prepare(`INSERT INTO presence (seance_id, etudiant_id, statut, motif, encode_par, encode_le, source, retard)
-      VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?)
+  const lire = db.prepare('SELECT statut, motif, retard, distance FROM presence WHERE seance_id = ? AND etudiant_id = ?');
+  const poser = db.prepare(`INSERT INTO presence (seance_id, etudiant_id, statut, motif, encode_par, encode_le, source, retard, distance)
+      VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?)
       ON CONFLICT (seance_id, etudiant_id) DO UPDATE SET statut = excluded.statut, motif = excluded.motif,
-        encode_par = excluded.encode_par, encode_le = excluded.encode_le, source = excluded.source, retard = excluded.retard`);
+        encode_par = excluded.encode_par, encode_le = excluded.encode_le, source = excluded.source, retard = excluded.retard, distance = excluded.distance`);
   const effacer = db.prepare('DELETE FROM presence WHERE seance_id = ? AND etudiant_id = ?');
-  const journal = db.prepare(`INSERT INTO presence_journal (seance_id, etudiant_id, avant, apres, motif, par, source, retard)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  const journal = db.prepare(`INSERT INTO presence_journal (seance_id, etudiant_id, avant, apres, motif, par, source, retard, distance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   /* LE CERTIFICAT MÉDICAL COUVRE AUSSI LES ABSENCES ENCODÉES APRÈS LUI (3.5.125) : une absence posée sur une séance d'une
      période couverte par un certificat accepté devient « justifiée — certificat médical ». */
   let couvre = null;
@@ -462,11 +475,12 @@ export function ecrirePresences(lignes, par, source = 'manuel') {
       const avant = lire.get(l.seance_id, l.etudiant_id);
       const motif = l.statut === 'justifie' ? l.motif : null;
       const retard = l.statut === 'present' && l.retard ? 1 : 0;
+      const distance = l.statut === 'present' && l.distance ? 1 : 0;
       if ((avant?.statut || null) === (l.statut || null) && (avant?.motif || null) === motif
-        && (avant?.retard || 0) === retard) continue;
-      if (l.statut) poser.run(l.seance_id, l.etudiant_id, l.statut, motif, par, source, retard);
+        && (avant?.retard || 0) === retard && (avant?.distance || 0) === distance) continue;
+      if (l.statut) poser.run(l.seance_id, l.etudiant_id, l.statut, motif, par, source, retard, distance);
       else effacer.run(l.seance_id, l.etudiant_id);
-      journal.run(l.seance_id, l.etudiant_id, avant?.statut || null, l.statut || null, motif, par, source, retard);
+      journal.run(l.seance_id, l.etudiant_id, avant?.statut || null, l.statut || null, motif, par, source, retard, distance);
       ecrites++;
     }
   })();

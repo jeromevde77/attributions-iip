@@ -17,6 +17,7 @@
  *     efface la marque.
  */
 import db from '../db/index.js';
+import { dixiemeUE } from './datesReelles.js';
 import { grilleUE } from './grillePresence.js';
 import { jalonDesSeances } from './datesReelles.js';
 import { minutesDe } from './cep.js';
@@ -68,7 +69,8 @@ export function regulariteAuJalon(g, ligne, jalon, aujourdhui = new Date().toISO
 /** La grille de l'UE, enrichie de la régularité à chaque jalon (calcul + marque manuelle). */
 export function presencesDeLUE(ueNum, annee, choisis = [10, 50]) {
   const { g, opts } = grilleUE(Number(ueNum), annee);
-  const jalons = jalonsDeLUE(g.seances, choisis);
+  // LES JALONS SUR LES DATES DE L'UE (3.5.237, circulaire 9764) : le dixième théorique, puis la séance la plus proche.
+  const jalons = Object.fromEntries(choisis.map(j => [j, (() => { try { return dixiemeUE(Number(ueNum), annee, { pct: j, seances: g.seances })?.date || null; } catch { return null; } })()]));
   const marques = new Map(db.prepare('SELECT etudiant_id, jalon, valeur, par, le FROM regularite_marque WHERE annee_scolaire = ? AND ue_num = ?')
     .all(annee, Number(ueNum)).map(m => [`${m.etudiant_id}|${m.jalon}`, m]));
   const aujourdhui = new Date().toISOString().slice(0, 10);

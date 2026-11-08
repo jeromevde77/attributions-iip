@@ -85,29 +85,43 @@ export function jalonDesSeances(dates, pct) {
 }
 
 /**
- * LE PREMIER DIXIÈME D'UNE UE — UNE SEULE RÈGLE POUR TOUT LUCIE (Charles,
- * 28 octobre 2026 : les frais, le droit d'inscription et l'échéancier « aussi »).
- * L'horaire réel d'abord : 1/10 entre la première et la dernière séance, séance la
- * plus proche. À défaut — pas de séance, ou une UE en plusieurs organisations, que
- * l'horaire ne sépare pas —, les dates de l'organisation (`numOrganisation`, sinon
- * la plus tôt). Rend { date, source: 'horaire' | 'dates' } ou null.
+ * LE PREMIER (ET LE CINQUIÈME) DIXIÈME D'UNE UE — UNE SEULE RÈGLE POUR TOUT LUCIE.
+ *
+ * LA CIRCULAIRE 9764 DU 13/07/2026 TRANCHE (3.5.237, Charles, 8 novembre 2026 : « les dates de l'UE » font foi) : les premier et
+ * cinquième dixièmes se définissent par les dates d'OUVERTURE et de FERMETURE de l'UE (Documents A, jours calendaires) ; le registre
+ * porte ces dixièmes « théoriques » ; quand aucune séance ne tombe ce jour-là, on prend la séance la plus proche. (Avant : la
+ * méthode de la vérificatrice — 1/10 entre la première et la dernière séance de l'horaire.) Les dates doivent suivre la réalité de
+ * l'horaire, dit la même circulaire : « Comparer à l'horaire réel » et « Aligner » (Dates des UE) y veillent.
+ * L'organisation `numOrganisation` d'abord, sinon la plus tôt ; sans dates, l'horaire seul, à défaut.
+ * Rend { date, theorique, source: 'dates' | 'horaire', premiere, derniere, pct } ou null.
  */
-export function premierDixiemeUE(ueNum, annee, { section = null, numOrganisation = null, pct = 10 } = {}) {
+export function dixiemeUE(ueNum, annee, { pct = 10, section = null, numOrganisation = null, seances = null } = {}) {
   const ue = Number(ueNum);
   const orgs = db.prepare(`SELECT num_organisation, date_debut, date_fin FROM organisation_ue
     WHERE ue_num = ? AND annee_scolaire = ? ${section ? 'AND section = ?' : ''}`).all(...(section ? [ue, annee, section] : [ue, annee]));
-  // Plusieurs organisations : l'horaire ne dit pas à laquelle appartient une séance.
-  if (new Set(orgs.map(o => o.num_organisation)).size <= 1) {
-    const dates = db.prepare(`SELECT s.date FROM horaire_seance s
-      WHERE s.annee_scolaire = ? AND COALESCE(s.annule, 0) = 0 ${section ? 'AND (s.section IS NULL OR s.section = ?)' : ''}
-        AND (s.ue_num = ? OR s.cours_code IN (SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?))`)
-      .all(...(section ? [annee, section] : [annee]), ue, ue, annee).map(x => x.date);
-    const d = jalonDesSeances(dates, pct);
-    if (d) return { date: d, source: 'horaire' };
-  }
+  const datesSeances = () => {
+    const l = Array.isArray(seances) ? seances.filter(x => !x.annule && x.date).map(x => x.date)
+      : db.prepare(`SELECT s.date FROM horaire_seance s
+          WHERE s.annee_scolaire = ? AND COALESCE(s.annule, 0) = 0 ${section ? 'AND (s.section IS NULL OR s.section = ?)' : ''}
+            AND (s.ue_num = ? OR s.cours_code IN (SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?))`)
+        .all(...(section ? [annee, section] : [annee]), ue, ue, annee).map(x => x.date);
+    return [...new Set(l.map(x => String(x).slice(0, 10)))].sort();
+  };
   const o = orgs.filter(x => x.date_debut && x.date_fin && x.date_fin >= x.date_debut)
     .sort((a, b) => ((a.num_organisation === numOrganisation) ? -1 : 0) - ((b.num_organisation === numOrganisation) ? -1 : 0)
       || String(a.date_debut).localeCompare(String(b.date_debut)))[0];
-  if (!o) return null;
-  return { date: iso(jour(o.date_debut) + (jour(o.date_fin) - jour(o.date_debut)) * pct / 100), source: 'dates' };
+  if (o) {
+    const cible = jour(o.date_debut) + (jour(o.date_fin) - jour(o.date_debut)) * pct / 100;
+    const theorique = iso(cible);
+    // La séance la plus proche, dans les dates de l'organisation ; à défaut de séance, le jour théorique.
+    const d = datesSeances().filter(x => x >= String(o.date_debut).slice(0, 10) && x <= String(o.date_fin).slice(0, 10));
+    return { date: d.length ? proche(d, cible) : theorique, theorique, source: 'dates', premiere: String(o.date_debut).slice(0, 10), derniere: String(o.date_fin).slice(0, 10), pct };
+  }
+  const d = datesSeances();
+  const j = jalonDesSeances(d, pct);
+  return j ? { date: j, theorique: j, source: 'horaire', premiere: d[0], derniere: d[d.length - 1], pct } : null;
+}
+/** Le premier dixième (et, avec `pct`, n'importe quel dixième) : `dixiemeUE`. */
+export function premierDixiemeUE(ueNum, annee, { section = null, numOrganisation = null, pct = 10 } = {}) {
+  return dixiemeUE(ueNum, annee, { pct, section, numOrganisation });
 }

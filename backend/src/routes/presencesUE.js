@@ -38,9 +38,9 @@ r.get('/ue/:ue', authRequired, EDITEUR, (req, res) => {
       motifs: MOTIFS_JUSTIFIES, statuts: STATUTS_PRESENCE, aujourdhui: new Date().toISOString().slice(0, 10),
       seances: x.g.seances.map(s => ({ id: s.id, date: s.date, heure_debut: s.heure_debut, heure_fin: s.heure_fin,
         cours_code: s.cours_code, sous_groupe: s.sous_groupe, annule: !!s.annule })),
-      lignes: x.g.lignes.map(l => ({ etudiant: l.etudiant, cases: l.cases.map(c => ({ statut: c.statut, motif: c.motif, retard: !!c.retard })),
+      lignes: x.g.lignes.map(l => ({ etudiant: l.etudiant, cases: l.cases.map(c => ({ statut: c.statut, motif: c.motif, retard: !!c.retard, distance: !!c.distance, code: c.code })),
         present: l.present, justifie: l.justifie, absent: l.absent, du: l.du, non_encodees: l.non_encodees,
-        taux_injustifie: l.taux_injustifie, regularite: l.regularite })) });
+        taux_injustifie: l.taux_injustifie, regularite: l.regularite, sortie_le: l.sortie_le || null, tardif: !!l.tardif, incomplet: !!l.incomplet })) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -57,7 +57,7 @@ r.put('/ue/:ue/presences', authRequired, EDITEUR, (req, res) => {
     if (s.annule) return res.status(409).json({ error: `La séance du ${s.date} est annulée : pas de présence.` });
     if (s.date > aujourdhui) return res.status(409).json({ error: `La séance du ${s.date} n’a pas encore eu lieu.` });
     if (!inscrits.has(Number(l?.etudiant_id))) return res.status(400).json({ error: 'Un étudiant n’est pas inscrit à cette UE.' });
-    lignes.push({ seance_id: s.id, etudiant_id: Number(l.etudiant_id), statut: l.statut || null, motif: l.motif || null, retard: !!l.retard });
+    lignes.push({ seance_id: s.id, etudiant_id: Number(l.etudiant_id), statut: l.statut || null, motif: l.motif || null, retard: !!l.retard, distance: !!l.distance });
   }
   if (!lignes.length) return res.status(400).json({ error: 'Rien à enregistrer.' });
   const out = ecrirePresences(lignes, qui(req));
@@ -108,6 +108,17 @@ r.post('/ue/:ue/remplir', authRequired, EDITEUR, (req, res) => {
   res.json({ ok: true, ...out, ...resume });
 });
 
+/* L'ABANDON (3.5.237, circulaire 9764, p. 26) : sa date s'écrit sur l'inscription ; le registre la porte en observation et trace un
+   trait continu à partir de là. Vide = l'étudiant n'est plus en abandon. Le journal des modifications garde le geste. */
+r.put('/ue/:ue/abandon', authRequired, EDITEUR, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const d = req.body?.date || null;
+  if (d && !/^\d{4}-\d{2}-\d{2}$/.test(String(d))) return res.status(400).json({ error: 'Date attendue (aaaa-mm-jj).' });
+  const n = db.prepare('UPDATE etudiant_inscription SET sortie_le = ? WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?')
+    .run(d, Number(req.body?.etudiant_id), Number(req.params.ue), annee).changes;
+  if (!n) return res.status(404).json({ error: 'Inscription introuvable.' });
+  res.json({ ok: true });
+});
 r.put('/ue/:ue/regularite', authRequired, EDITEUR, (req, res) => {
   const x = marquerRegularite(req.params.ue, anneeDe(req), req.body?.etudiant_id, Number(req.body?.jalon), String(req.body?.valeur || ''), qui(req));
   if (x.erreur) return res.status(400).json({ error: x.erreur });

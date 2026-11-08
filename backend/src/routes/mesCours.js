@@ -15,7 +15,7 @@ import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
-import { donneesGrille, htmlGrille, excelGrille, premierDixieme, grillePermise, seancesDeLUE, grilleUE, dispensesUE } from '../lib/grillePresence.js';
+import { donneesGrille, htmlGrille, excelGrille, premierDixieme, contexteGrille, grillePermise, seancesDeLUE, grilleUE, dispensesUE } from '../lib/grillePresence.js';
 import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 import { logoCourant } from '../lib/identite.js';
@@ -558,7 +558,7 @@ const periode = q => {
 function grilleUEPermise(req, ueNum) {
   return grillePermise(req.user?.role, getUserSections(req.user), ueNum);
 }
-async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cours = {}, nom, annee }) {
+async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cours = {}, nom, annee, entete = null, signataires = [] }) {
   const fichier = nom.replace(/[^A-Za-z0-9_.-]+/g, '_');
   if (req.query.format === 'xlsx') {
     const buf = await excelGrille(g, { titre: `${titre} — ${sous} — ${ligne}`, ue, cours });
@@ -566,7 +566,7 @@ async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cou
     res.setHeader('Content-Disposition', `attachment; filename="${fichier}.xlsx"`);
     return res.end(Buffer.from(buf));
   }
-  const html = htmlGrille(g, { titre, sous, ligne, ue, cours });
+  const html = htmlGrille(g, { titre, sous, ligne, ue, cours, entete, signataires });
   if (req.query.format === 'html') return res.json({ html, nom: fichier });
   const cap = await capacitePdf();
   if (!cap.disponible) return res.json({ html, nom: fichier });
@@ -599,12 +599,14 @@ r.get('/:coursCode/grille-presences', authRequired, async (req, res) => {
   const nom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(code, annee)?.cours_nom || '';
   const p = periode(req.query);
   // Le premier dixième est celui de l'UE, pas du cours : il se calcule sur toutes ses séances.
+  // Le registre selon la circulaire 9764 (3.5.237) : dixièmes des dates de l'UE, inscription, abandon, dossier, en-tête, signatures.
+  const cx = contexteGrille(d.ueNum, annee, seancesDeLUE(d.ueNum, annee).seances, { coursCode: code });
   const g = donneesGrille({ seances: seancesDuCours(req, d, code, annee), etudiants: d.etudiants, du: p.du, au: p.au,
-    dixieme: premierDixieme(seancesDeLUE(d.ueNum, annee).seances), dispensesParEtudiant: dispensesUE(d.etudiants, d.ueNum, annee) });
+    dixieme: cx.dixieme, cinquieme: cx.cinquieme, infos: cx.infos, dispensesParEtudiant: dispensesUE(d.etudiants, d.ueNum, annee) });
   const profs = enseignantsParCours(annee).get(code) || [];
-  await repondreGrille(req, res, g, { titre: `Grille de présence — ${code}${nom ? ` · ${nom}` : ''}`,
+  await repondreGrille(req, res, g, { titre: `Registre de présence — ${code}${nom ? ` · ${nom}` : ''}`,
     sous: `UE ${d.ueNum}${profs.length ? ` · ${profs.join(', ')}` : ''} · ${annee}`, ligne: p.ligne,
-    nom: `Presences_${code}_${annee}`, annee });
+    nom: `Presences_${code}_${annee}`, annee, entete: cx.entete, signataires: cx.signataires });
 });
 
 // ── LA PRÉSENCE PAR QR, CÔTÉ ENSEIGNANT (28 octobre 2026) ──────────────────
@@ -1399,9 +1401,9 @@ r.get('/:coursCode/presences', authRequired, (req, res) => {
   const ids = seances.map(x => x.id);
   const pres = {};
   if (ids.length) {
-    for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, retard, encode_par, encode_le FROM presence
+    for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, retard, distance, encode_par, encode_le FROM presence
         WHERE seance_id IN (${ids.map(() => '?').join(',')})`).all(...ids)) {
-      (pres[p.seance_id] ||= {})[p.etudiant_id] = { statut: p.statut, motif: p.motif, retard: !!p.retard, par: p.encode_par, le: p.encode_le };
+      (pres[p.seance_id] ||= {})[p.etudiant_id] = { statut: p.statut, motif: p.motif, retard: !!p.retard, distance: !!p.distance, par: p.encode_par, le: p.encode_le };
     }
   }
   let cep = new Set();
@@ -1430,7 +1432,7 @@ r.post('/:coursCode/presences/:seanceId', authRequired, (req, res) => {
   }
   const miens = new Set(d.etudiants.map(e => e.id));
   const lignes = (req.body?.presences || []).map(p => ({ seance_id: s.id, etudiant_id: Number(p.etudiant_id),
-    statut: p.statut || null, motif: p.motif || null, retard: !!p.retard }));
+    statut: p.statut || null, motif: p.motif || null, retard: !!p.retard, distance: !!p.distance }));
   const etrangers = lignes.filter(l => !miens.has(l.etudiant_id));
   if (etrangers.length) return res.status(400).json({ error: `${etrangers.length} étudiant(s) hors de la liste de ce cours.` });
   const out = ecrirePresences(lignes, req.user?.email || req.user?.nom || null);

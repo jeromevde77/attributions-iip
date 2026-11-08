@@ -18,9 +18,12 @@ const BOUTONS = [
   ['present', 'P', 'Présent', 'var(--c-reussi)'],
   // Le retard : présent (ses heures comptent), marqué « P* » dans la grille.
   ['retard', 'P*', 'Présent, arrivé en retard', 'var(--c-reussi)'],
+  // À DISTANCE (3.5.237, circulaire 9764) : un cours suivi à distance (UE hybride, ou décision du Conseil des études) — « M ».
+  ['distance', 'M', 'Présent, à distance', 'var(--c-reussi)'],
   ['absent', 'A', 'Absent', 'var(--c-refuse)'],
-  ['justifie', 'J', 'Absence justifiée', 'var(--c-attente)'],
-  ['non_concerne', '—', 'Non concerné (autre sous-groupe)', 'var(--c-disponible)'],
+  ['justifie', 'J', 'Absence justifiée (certificat médical de l’étudiant : « CM »)', 'var(--c-attente)'],
+  // « — » veut dire « absent » pour la vérification : le non-concerné s'écrit « NC ».
+  ['non_concerne', 'NC', 'Non concerné (autre groupe)', 'var(--c-disponible)'],
 ];
 
 export default function PresencesCours({ coursCode, annee, seanceInitiale = null }) {
@@ -55,7 +58,7 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
     if (!data || !seance) return;
     const enreg = data.presences[seance.id] || {};
     setSaisie(Object.fromEntries(data.etudiants.map(e => [e.id, enreg[e.id]
-      ? { statut: enreg[e.id].statut, motif: enreg[e.id].motif, retard: !!enreg[e.id].retard } : { statut: null, motif: null, retard: false }])));
+      ? { statut: enreg[e.id].statut, motif: enreg[e.id].motif, retard: !!enreg[e.id].retard, distance: !!enreg[e.id].distance } : { statut: null, motif: null, retard: false, distance: false }])));
     setFait(null);
   }, [data, seanceId]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -65,17 +68,18 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
     const enreg = data.presences[seance.id] || {};
     return data.etudiants.filter(e => (saisie[e.id]?.statut || null) !== (enreg[e.id]?.statut || null)
       || (saisie[e.id]?.motif || null) !== (enreg[e.id]?.motif || null)
-      || !!saisie[e.id]?.retard !== !!enreg[e.id]?.retard);
+      || !!saisie[e.id]?.retard !== !!enreg[e.id]?.retard || !!saisie[e.id]?.distance !== !!enreg[e.id]?.distance);
   }, [data, seance, saisie]);
   const sansMotif = data ? data.etudiants.filter(e => saisie[e.id]?.statut === 'justifie' && !saisie[e.id]?.motif) : [];
 
   const choisi = (v, k) => (k === 'retard' ? v.statut === 'present' && !!v.retard
-    : k === 'present' ? v.statut === 'present' && !v.retard : v.statut === k);
+    : k === 'distance' ? v.statut === 'present' && !!v.distance
+    : k === 'present' ? v.statut === 'present' && !v.retard && !v.distance : v.statut === k);
   const poser = (id, k) => setSaisie(s => {
     const v = s[id] || {};
-    if (choisi(v, k)) return { ...s, [id]: { statut: null, motif: null, retard: false } };
-    const statut = k === 'retard' ? 'present' : k;
-    return { ...s, [id]: { statut, motif: statut === 'justifie' ? v.motif || null : null, retard: k === 'retard' } };
+    if (choisi(v, k)) return { ...s, [id]: { statut: null, motif: null, retard: false, distance: false } };
+    const statut = (k === 'retard' || k === 'distance') ? 'present' : k;
+    return { ...s, [id]: { statut, motif: statut === 'justifie' ? v.motif || null : null, retard: k === 'retard', distance: k === 'distance' } };
   });
   const tousPresents = () => setSaisie(s => Object.fromEntries(Object.entries(s).map(([k, v]) =>
     [k, v.statut ? v : { statut: 'present', motif: null, retard: false }])));
