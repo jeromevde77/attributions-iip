@@ -24,6 +24,16 @@ export const ajouts = {
         "Le registre s'édite en fin d'année et se conserve trente ans.",
       ],
     },
+    {
+      titre: "Évaluations et dates des UE : ce qui manque",
+      pour: 'sec dir',
+      ou: "Éditions → Organisation → Listes et rapports → Évaluations et dates des UE : ce qui manque.",
+      texte: "Un rapport pour voir, avant les sessions, ce qui reste à poser : pour chaque UE qui a des inscrits, chaque cours et son épreuve de 1re session (date, heure, local, professeurs), chaque organisation et ses dates de début et de fin, et la date de la délibération de 1re session. Le PDF ne garde que ce qui manque, avec une synthèse par section ; le tableur donne tout, en trois onglets (synthèse, évaluations, dates).",
+      savoir: [
+        "Une épreuve posée pour l'unité entière couvre tous ses cours.",
+        "Les épreuves se posent dans Organisation → L'année → Sessions : épreuves et délibérations, ou depuis l'Agenda de l'école ; les dates dans Dates des UE.",
+      ],
+    },
   ],
   espace: [
     {

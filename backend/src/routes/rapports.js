@@ -1400,6 +1400,132 @@ function documentRegistreMatricule(p) {
   };
 }
 
+/* CE QUI MANQUE AUX ÉVALUATIONS ET AUX DATES DES UE (3.5.239, Charles, 8 novembre 2026 : « peut-on sortir la liste des
+   évaluations pour voir ce qui manque ? et les dates UE ? » ; « fais-en un rapport dans Éditions »). Pour chaque UE qui a des
+   inscrits : chaque cours et son épreuve de 1re session (calendrier des sessions, `epreuve_session1` ; une épreuve d'unité
+   entière, cours vide, couvre tous ses cours), date, heure, local, professeurs ; et chaque organisation, ses dates et sa
+   délibération de 1re session. La seconde session n'y est pas : elle se pose après chaque délibération. */
+export function evaluationsManquantes(p) {
+  const A = p.annee;
+  const q = (sql, ...a) => { try { return db.prepare(sql).all(...a); } catch { return []; } };
+  const ins = q(`SELECT i.ue_num, COUNT(*) n,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num ORDER BY (u.annee_scolaire = ?) DESC LIMIT 1) nom,
+      (SELECT section FROM ue u WHERE u.ue_num = i.ue_num ORDER BY (u.annee_scolaire = ?) DESC LIMIT 1) section
+    FROM etudiant_inscription i WHERE i.annee_scolaire = ? GROUP BY i.ue_num`, A, A, A)
+    .filter(u => !p.section || u.section === p.section)
+    .sort((a, b) => String(a.section || '').localeCompare(String(b.section || '')) || a.ue_num - b.ue_num);
+  const cours = q('SELECT cours_code, ue_num, cours_nom, COALESCE(is_stage, 0) stage FROM cours WHERE annee_scolaire = ? ORDER BY cours_code', A);
+  const crs = new Map(); for (const c of cours) (crs.get(c.ue_num) || crs.set(c.ue_num, []).get(c.ue_num)).push(c);
+  const profs = new Map();
+  for (const a of q(`SELECT a.ue_num, COALESCE(a.code_cours, '') cc, UPPER(pr.nom) || ' ' || pr.prenom n FROM attribution a
+      JOIN professeur pr ON pr.id = a.professeur_id WHERE a.annee_scolaire = ?`, A)) {
+    for (const k of [`${a.ue_num}|${a.cc}`, `${a.ue_num}|*`]) (profs.get(k) || profs.set(k, new Set()).get(k)).add(a.n);
+  }
+  const ep = new Map(q('SELECT * FROM epreuve_session1 WHERE annee_scolaire = ?', A).map(e => [`${e.ue_num}|${e.cours_code || ''}`, e]));
+  const orgs = new Map(); for (const o of q('SELECT * FROM organisation_ue WHERE annee_scolaire = ? ORDER BY num_organisation', A))
+    (orgs.get(o.ue_num) || orgs.set(o.ue_num, []).get(o.ue_num)).push(o);
+  const dl = q('SELECT ue_num, num_organisation org, date_seance, heure_seance FROM deliberation_seance WHERE annee_scolaire = ? AND session = 1', A);
+  const evaluations = [], dates = [];
+  for (const u of ins) {
+    const ueEp = ep.get(`${u.ue_num}|`);
+    const lst = crs.get(u.ue_num) || [{ cours_code: '', cours_nom: '(aucun cours pour cette année)', stage: 0 }];
+    for (const c of lst) {
+      const e = ep.get(`${u.ue_num}|${c.cours_code}`) || ueEp || null;
+      const m = [];
+      if (!e) m.push(c.stage ? 'stage : épreuve à dater ou à exclure' : 'épreuve non datée');
+      else { if (!e.s1_heure) m.push('heure'); if (!e.s1_local) m.push('local'); }
+      const pr = [...(profs.get(`${u.ue_num}|${c.cours_code}`) || profs.get(`${u.ue_num}|*`) || [])].sort().join(', ');
+      if (!pr) m.push('aucun professeur attribué');
+      evaluations.push({ section: u.section || '', ue_num: u.ue_num, ue_nom: u.nom || '', inscrits: u.n, cours: c.cours_code || '—',
+        cours_nom: c.cours_nom || '', professeurs: pr, portee: e ? (e === ueEp ? 'UE entière' : 'cours') : '',
+        date: e?.s1_date ? String(e.s1_date).slice(0, 10) : '', heure: e?.s1_heure || '', local: e?.s1_local || '',
+        manque: m.join(' · ') || 'complet', etat: !e && !c.stage ? 'corriger' : m.length ? 'surveiller' : 'complet' });
+    }
+    for (const o of (orgs.get(u.ue_num) || [null])) {
+      const m = [];
+      if (!o) m.push('aucune organisation : dates absentes');
+      else { if (!o.date_debut) m.push('date de début'); if (!o.date_fin) m.push('date de fin');
+        if (o.date_debut && o.date_fin && o.date_fin < o.date_debut) m.push('fin avant début'); }
+      const ds = dl.filter(d => d.ue_num === u.ue_num && (!o || d.org === o.num_organisation || d.org === 0));
+      const d = ds.find(x => x.date_seance) || null;
+      if (!d) m.push('délibération de 1re session non datée');
+      dates.push({ section: u.section || '', ue_num: u.ue_num, ue_nom: u.nom || '', inscrits: u.n, org: o?.num_organisation ?? '',
+        debut: o?.date_debut ? String(o.date_debut).slice(0, 10) : '', fin: o?.date_fin ? String(o.date_fin).slice(0, 10) : '',
+        hybride: o?.hybride ? 'H' : '', delib: d?.date_seance ? String(d.date_seance).slice(0, 10) : '', delib_heure: d?.heure_seance || '',
+        manque: m.join(' · ') || 'complet', etat: (!o || !o.date_debut || !o.date_fin) ? 'corriger' : m.length ? 'surveiller' : 'complet' });
+    }
+  }
+  const sections = [...new Set(ins.map(u => u.section || ''))];
+  const synthese = sections.map(sec => ({ section: sec || '(sans section)',
+    ue: ins.filter(u => (u.section || '') === sec).length,
+    cours: evaluations.filter(x => x.section === sec).length,
+    sans_epreuve: evaluations.filter(x => x.section === sec && !x.date).length,
+    sans_dates: dates.filter(x => x.section === sec && x.etat === 'corriger').length,
+    sans_delib: dates.filter(x => x.section === sec && !x.delib).length }));
+  return { evaluations, dates, synthese };
+}
+
+export function documentEvaluationsManquantes(p) {
+  const { evaluations, dates, synthese } = evaluationsManquantes(p);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  const coul = e => (e === 'corriger' ? '#9D4A38' : e === 'surveiller' ? '#B45309' : '#3E7D5E');
+  const voir = x => p.tout ? true : x.etat !== 'complet';
+  const tot = k => synthese.reduce((t, s) => t + s[k], 0);
+  const tuiles = [['UE avec inscrits', tot('ue'), ''], ['Cours sans épreuve datée', tot('sans_epreuve'), 'corriger'],
+    ['Organisations sans dates', tot('sans_dates'), 'corriger'], ['Sans délibération de 1re session datée', tot('sans_delib'), 'surveiller']];
+  const ev = evaluations.filter(voir), dt = dates.filter(voir);
+  const corps = `
+    <div style="display:flex;gap:3mm;margin:0 0 4mm">${tuiles.map(([l, v, e]) => `<div style="flex:1;border:0.3mm solid #D8DCE4;border-left:1mm solid ${e ? coul(e) : '#1B2B4B'};border-radius:0 2.6mm 2.6mm 0;padding:2mm 3mm"><div style="font-size:14pt;font-weight:700">${v}</div><div style="font-size:8pt;color:#475569">${l}</div></div>`).join('')}</div>
+    <table class="serre"><thead><tr><th>Section</th><th class="n">UE</th><th class="n">Cours</th><th class="n">Sans épreuve datée</th><th class="n">Organisations sans dates</th><th class="n">Sans délibération S1</th></tr></thead>
+      <tbody>${synthese.map(s => `<tr><td>${esc(s.section)}</td><td class="n">${s.ue}</td><td class="n">${s.cours}</td><td class="n">${s.sans_epreuve}</td><td class="n">${s.sans_dates}</td><td class="n">${s.sans_delib}</td></tr>`).join('')}</tbody></table>
+    <h3 class="partie">Évaluations de 1re session${p.tout ? '' : ' — ce qui manque'} (${ev.length})</h3>
+    ${ev.length ? `<table class="serre"><thead><tr><th>Section</th><th class="n">UE</th><th>Cours</th><th>Professeur(s)</th><th>Date</th><th>Heure</th><th>Local</th><th>Ce qui manque</th></tr></thead>
+      <tbody>${ev.map(x => `<tr><td>${esc(x.section)}</td><td class="n">${x.ue_num}</td><td><b>${esc(x.cours)}</b> ${esc(x.cours_nom)}<br><span style="color:#64748b">${esc(x.ue_nom)} · ${x.inscrits} inscrits</span></td>
+        <td>${esc(x.professeurs)}</td><td>${esc(fr(x.date))}${x.portee === 'UE entière' ? '<br><i>UE entière</i>' : ''}</td><td>${esc(x.heure)}</td><td>${esc(x.local)}</td>
+        <td style="color:${coul(x.etat)}">${esc(x.manque)}</td></tr>`).join('')}</tbody></table>` : '<p class="fin">Rien ne manque.</p>'}
+    <h3 class="partie">Dates des UE${p.tout ? '' : ' — ce qui manque'} (${dt.length})</h3>
+    ${dt.length ? `<table class="serre"><thead><tr><th>Section</th><th class="n">UE</th><th>Intitulé</th><th class="n">Org.</th><th>Début</th><th>Fin</th><th>Délibération S1</th><th>Ce qui manque</th></tr></thead>
+      <tbody>${dt.map(x => `<tr><td>${esc(x.section)}</td><td class="n">${x.ue_num}</td><td>${esc(x.ue_nom)} <span style="color:#64748b">· ${x.inscrits} inscrits</span></td><td class="n">${esc(x.org)}${x.hybride ? ' H' : ''}</td>
+        <td>${esc(fr(x.debut))}</td><td>${esc(fr(x.fin))}</td><td>${esc(fr(x.delib))}${x.delib_heure ? ` ${esc(String(x.delib_heure).slice(0, 5))}` : ''}</td><td style="color:${coul(x.etat)}">${esc(x.manque)}</td></tr>`).join('')}</tbody></table>` : '<p class="fin">Rien ne manque.</p>'}
+    <p class="fin">Les épreuves se posent dans Organisation → L’année → Sessions : épreuves et délibérations (ou l’Agenda de l’école) ; les dates des UE dans Organisation → L’année → Dates des UE. Une épreuve posée pour l’unité entière couvre tous ses cours. La seconde session se pose après chaque délibération.</p>`;
+  return {
+    corps, titre: 'Évaluations et dates des UE : ce qui manque',
+    entete: { titre: 'Évaluations et dates des UE : ce qui manque', sous: `Année ${p.annee}${p.section ? ` · ${p.section}` : ''} · état au ${new Date().toLocaleDateString('fr-BE', { timeZone: 'Europe/Brussels' })}` },
+    orientation: 'paysage', nom: `Evaluations-dates-UE-${p.annee}${p.section ? `-${p.section}` : ''}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING,
+  };
+}
+
+export async function excelEvaluationsManquantes(p) {
+  const { evaluations, dates, synthese } = evaluationsManquantes(p);
+  const wb = new ExcelJS.Workbook(); wb.creator = 'Lucie — Institut Ilya Prigogine'; wb.created = new Date();
+  const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  const ROUGE = 'FFF6E3DE', OCRE = 'FFFBF0DC';
+  const feuille = (nom, cols, lignes) => {
+    const ws = wb.addWorksheet(nom);
+    ws.columns = cols.map(([header, key, width]) => ({ header, key, width }));
+    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2B4B' } };
+    for (const l of lignes) {
+      const r = ws.addRow(l);
+      if (l.etat === 'corriger' || l.etat === 'surveiller') r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: l.etat === 'corriger' ? ROUGE : OCRE } };
+      r.alignment = { wrapText: true, vertical: 'top' };
+    }
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+  };
+  feuille('Synthèse', [['Section', 'section', 18], ['UE avec inscrits', 'ue', 14], ['Cours', 'cours', 10], ['Cours sans épreuve datée', 'sans_epreuve', 20],
+    ['Organisations sans dates', 'sans_dates', 20], ['Sans délibération S1 datée', 'sans_delib', 22]], synthese);
+  feuille('Évaluations 1re session', [['Section', 'section', 12], ['UE', 'ue_num', 6], ['Intitulé de l’UE', 'ue_nom', 34], ['Inscrits', 'inscrits', 8],
+    ['Cours', 'cours', 9], ['Intitulé du cours', 'cours_nom', 34], ['Professeur(s)', 'professeurs', 30], ['Portée', 'portee', 10], ['Date', 'date', 11],
+    ['Heure', 'heure', 7], ['Local', 'local', 14], ['Ce qui manque', 'manque', 32]], evaluations.map(x => ({ ...x, date: fr(x.date) })));
+  feuille('Dates des UE', [['Section', 'section', 12], ['UE', 'ue_num', 6], ['Intitulé', 'ue_nom', 40], ['Inscrits', 'inscrits', 8], ['Org.', 'org', 6],
+    ['Début', 'debut', 11], ['Fin', 'fin', 11], ['Hybride', 'hybride', 8], ['Délibération S1', 'delib', 13], ['Heure', 'delib_heure', 7], ['Ce qui manque', 'manque', 40]],
+    dates.map(x => ({ ...x, debut: fr(x.debut), fin: fr(x.fin), delib: fr(x.delib) })));
+  return { nom: `Evaluations-dates-UE-${p.annee}${p.section ? `-${p.section}` : ''}`, buffer: await wb.xlsx.writeBuffer() };
+}
+
 function documentRegistreAbsences(p) {
   const l = registreAbsences(p);
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -2578,6 +2704,18 @@ export const RAPPORTS = [
   },
 
   // ── ORGANISATION ────────────────────────────────────────────────────────
+  {
+    id: 'evaluations-manquantes', domaine: 'organisation', params: ['annee', 'section'],
+    libelle: 'Évaluations et dates des UE : ce qui manque',
+    aide: "Pour chaque UE qui a des inscrits : chaque cours et son épreuve de 1re session (date, heure, local, professeurs), chaque organisation et ses dates, et la date de la délibération. Le PDF ne montre que ce qui manque ; le tableur donne tout, en trois onglets (synthèse, évaluations, dates).",
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur'],
+    tableur: true,
+    colonnes: COLS([['section', 'Section', 12], ['ue_num', 'UE', 6], ['cours', 'Cours', 9], ['cours_nom', 'Intitulé du cours', 34], ['professeurs', 'Professeur(s)', 30],
+      ['date', 'Date', 11], ['heure', 'Heure', 7], ['local', 'Local', 14], ['manque', 'Ce qui manque', 32]]),
+    lignes: (p) => evaluationsManquantes(p).evaluations,
+    document: (p) => documentEvaluationsManquantes(p),
+    xlsx: (p) => excelEvaluationsManquantes(p),
+  },
   {
     id: 'registre-matricule', domaine: 'etudiants', params: ['annee', 'section'],
     libelle: 'Registre matricule des apprenants et DI',

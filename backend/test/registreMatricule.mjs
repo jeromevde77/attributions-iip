@@ -37,5 +37,31 @@ const b = l.find(x => x.nom === 'BERNARD');
 t('date de naissance et matricule', b.date_naissance === '1999-05-06' && b.matricule === 'M2');
 const prec = R.registreMatricule({ annee: '2025-2026' });
 t('l’année précédente le porte', prec.length === 1 && prec[0].nom === 'ANCIEN', prec.map(x => x.nom));
+// Évaluations et dates des UE (3.5.239)
+db.exec("CREATE TABLE IF NOT EXISTS attribution (id INTEGER PRIMARY KEY, annee_scolaire TEXT, ue_num INTEGER, code_cours TEXT, professeur_id INTEGER)");
+db.exec("CREATE TABLE IF NOT EXISTS professeur (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS epreuve_session1 (ue_num INTEGER, annee_scolaire TEXT, cours_code TEXT, s1_date TEXT, s1_heure TEXT, s1_local TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS deliberation_seance (ue_num INTEGER, annee_scolaire TEXT, session INTEGER, num_organisation INTEGER, date_seance TEXT, heure_seance TEXT)");
+try { db.exec("ALTER TABLE cours ADD COLUMN is_stage INTEGER"); } catch {}
+for (const c of ["session INTEGER", "num_organisation INTEGER", "date_seance TEXT", "heure_seance TEXT"]) try { db.exec("ALTER TABLE deliberation_seance ADD COLUMN " + c); } catch {}
+db.prepare("INSERT INTO cours (cours_code, annee_scolaire, cours_nom, ue_num) VALUES ('300.1', ?, 'Anatomie 1', 300), ('300.2', ?, 'Anatomie 2', 300), ('301.1', ?, 'Physique', 301)").run(A, A, A);
+db.prepare("INSERT INTO professeur (id, nom, prenom) VALUES (1, 'Martin', 'Paul')").run();
+db.prepare("INSERT INTO attribution (id, annee_scolaire, ue_num, code_cours, professeur_id) VALUES (1, ?, 300, '300.1', 1)").run(A);
+db.prepare("INSERT INTO epreuve_session1 (ue_num, annee_scolaire, cours_code, s1_date, s1_heure, s1_local) VALUES (300, ?, '300.1', '2027-01-10', '09:00', NULL), (301, ?, '', '2027-06-20', '13:00', 'P.12')").run(A, A);
+db.prepare("INSERT INTO deliberation_seance (ue_num, annee_scolaire, session, num_organisation, date_seance, heure_seance) VALUES (301, ?, 1, 0, '2027-06-28', '17:00')").run(A);
+db.prepare("UPDATE organisation_ue SET date_fin = NULL WHERE ue_num = 300 AND annee_scolaire = ?").run(A);
+const M = R.evaluationsManquantes({ annee: A });
+const E = c => M.evaluations.find(x => x.cours === c);
+t('cours avec épreuve sans local : à compléter', E('300.1').manque === 'local' && E('300.1').etat === 'surveiller', E('300.1'));
+t('cours sans épreuve : à dater', /épreuve non datée/.test(E('300.2').manque) && E('300.2').etat === 'corriger');
+t('l’épreuve de l’UE entière couvre son cours', E('301.1').portee === 'UE entière' && E('301.1').date === '2027-06-20');
+const D = u => M.dates.find(x => x.ue_num === u);
+t('date de fin manquante, délibération non datée', /date de fin/.test(D(300).manque) && /délibération/.test(D(300).manque) && D(300).etat === 'corriger');
+t('UE complète', D(301).manque === 'complet', D(301));
+t('synthèse', M.synthese[0].sans_epreuve === 1 && M.synthese[0].sans_dates === 1, M.synthese);
+const doc = R.documentEvaluationsManquantes({ annee: A });
+t('le PDF : tuiles, ce qui manque seulement', /Cours sans épreuve datée/.test(doc.corps) && /300\.2/.test(doc.corps) && /aucun professeur/.test(doc.corps));
+const x = await R.excelEvaluationsManquantes({ annee: A });
+t('le tableur', x.buffer && x.buffer.byteLength > 2000);
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);
