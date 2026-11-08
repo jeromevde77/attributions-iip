@@ -87,7 +87,12 @@ r.get('/', (req, res) => {
   const pieces = db.prepare('SELECT * FROM frais_piece WHERE user_id = ? ORDER BY COALESCE(date, cree_le) DESC, id DESC').all(req.user.id)
     .map(x => ({ ...x,
       trajets: db.prepare('SELECT * FROM frais_trajet WHERE piece_id = ? ORDER BY date, id').all(x.id),
-      justificatifs: db.prepare('SELECT id, nom, mime, taille FROM frais_justificatif WHERE piece_id = ? ORDER BY id').all(x.id) }));
+      justificatifs: db.prepare('SELECT id, nom, mime, taille FROM frais_justificatif WHERE piece_id = ? ORDER BY id').all(x.id) }))
+    /* UNE PIÈCE SE CLASSE PAR LA DATE DE CE QU'ELLE PORTE (3.5.251, Charles : « pourquoi tu classes différemment ? ») : un relevé de
+       parcours, par son dernier trajet (sa date de création ne dit rien des déplacements) ; les autres, par la date de la dépense. */
+    .map(x => { const ds = x.trajets.map(t => String(t.date || '').slice(0, 10)).filter(Boolean).sort();
+      return { ...x, date_du: ds[0] || null, date_au: ds[ds.length - 1] || null, date_tri: (x.nature === 'km' && ds.length ? ds[ds.length - 1] : String(x.date || x.cree_le || '').slice(0, 10)) }; })
+    .sort((a, b) => String(b.date_tri).localeCompare(String(a.date_tri)) || b.id - a.id);
   const lieux = db.prepare('SELECT * FROM frais_lieu WHERE user_id = ? ORDER BY nom COLLATE NOCASE').all(req.user.id);
   res.json({ profil: { entite: 'Institut Ilya Prigogine', fonction: 'Directeur(rice)', ...p, depart: p.depart || DEPART_DEFAUT }, pieces, lieux });
 });
