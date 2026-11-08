@@ -78,6 +78,11 @@ export const CATALOGUE = [
     pour: "Le secrétariat et la coordination de la section.",
     quand: "Quand une épreuve de 2e session tombe moins de 10 jours après la délibération de 1re session.",
     urgent: "Le matin, une fois par date." },
+  // LES PRESTATIONS DES EXPERTS (3.5.241) : la fiche mensuelle, au plus tard le 5e jour ouvrable avant la fin du mois.
+  { cle: 'experts_prestations', titre: 'Experts — déclarer les prestations du mois',
+    pour: "Les experts (attributions d'expert de l'année) qui ont un compte.",
+    quand: "Trois jours ouvrables avant le délai (le 5e jour ouvrable avant la fin du mois), puis le jour du délai, tant que le mois n'est pas déclaré.",
+    urgent: "Le jour du délai part aussitôt ; trois jours avant, le matin." },
   { cle: 'bilan_lundi', titre: 'Le bilan du lundi',
     pour: "Le secrétariat et la direction (tout) ; la coordination (ses sections, sans les frais ni la validation des VA).",
     quand: "Chaque lundi : VA à instruire, à valider, à notifier, à encoder dans eProm ; absences au-delà du seuil non prévenues ; soldes de frais échus ; aménagements à décider, notifier, communiquer.",

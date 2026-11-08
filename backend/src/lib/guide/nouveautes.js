@@ -244,6 +244,17 @@ export const ajouts = {
   ],
   personnel: [
     {
+      titre: "Les prestations des experts, déclarées en ligne",
+      pour: 'sec dir',
+      ou: "Personnel → rail → Prestations des experts.",
+      texte: "Chaque expert déclare son mois depuis son espace enseignant (Mes prestations), au plus tard le 5e jour ouvrable avant la fin du mois. Ici, le mois choisi en haut, chaque expert et son état : déclarée, validée, renvoyée, ou rien encore. Le chevron montre le détail (cours, dates, périodes, remarque). [[Valider|IconCheck|fort]] fait de la déclaration l'A27 du mois, qui s'ouvre remplie, signée et cachetée ; [[Renvoyer|IconArrowBackUp]] demande un mot, que l'expert lit dans son espace.",
+      savoir: [
+        "Un mois validé ne se modifie plus, ni par l'expert ni par le secrétariat.",
+        "Les prestations ne sont payées qu'une fois validées.",
+        "Le rappel aux experts (trois jours ouvrables avant le délai, puis le jour même) s'allume dans Configuration → Courriels → Rappels.",
+      ],
+    },
+    {
       titre: "Les candidatures des enseignants",
       pour: 'ens sec coo dir',
       ou: "Espace enseignant → Ma candidature. Côté école : Personnel → Candidatures → Candidatures des enseignants.",

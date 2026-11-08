@@ -29,11 +29,12 @@ const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
 const MaCandidatureLucie = lazy(() => import('../components/MaCandidature.jsx'));
 const VoyagesLucie = lazy(() => import('../components/VoyagesEtudes.jsx'));
 const MesExamensLucie = lazy(() => import('../components/MesExamens.jsx'));
+const MesPrestationsLucie = lazy(() => import('../components/MesPrestations.jsx'));
 const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'));
 import AnnulerGestes from '../components/AnnulerGestes.jsx';
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconClipboardText, IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
+import { IconClipboardText, IconClockHour4, IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -799,6 +800,7 @@ const FACES = [
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'À rendre', I: IconChecklist },
   { k: 'examens', l: 'Mes examens', I: IconClipboardText },
+  { k: 'prestations', l: 'Mes prestations', I: IconClockHour4, expert: true },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool },
   { k: 'stages', l: 'Mes stages', I: IconBriefcase },
@@ -847,6 +849,9 @@ export default function EspaceEnseignant() {
     appel('GET', '/moi').then(setMoi).catch(e => { if (e.session) setToken(null); else setErreur(e.message); });
   }, [token, definir]);
   useEffect(() => { if (moi) preparerLucie().finally(() => setLucie(true)); }, [moi]);
+  // « Mes prestations » ne paraît que pour un expert (3.5.241) : Lucie le sait par ses attributions.
+  const [expert, setExpert] = useState(false);
+  useEffect(() => { if (lucie) fetch('/api/prestations-experts/moi').then(r => r.json()).then(j => setExpert(!!j?.expert)).catch(() => {}); }, [lucie]);
   // Le trousseau du navigateur ne reste pas accroché au champ d'identifiant de l'entrée (3.5.235).
   useEffect(() => { if (moi && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!moi]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!token) return <>{erreur && <div className="bloc-etat px-3 py-2 text-sm m-4" data-etat="corriger">{erreur}</div>}<Entree onEntre={entrer} /></>;
@@ -883,7 +888,7 @@ export default function EspaceEnseignant() {
         </div>
         {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
         <div className={`hidden md:flex items-center gap-2 pb-3 ${etroit ? 'flex-col' : 'px-2'}`}><BoutonContact compact={etroit} />{chercher}{outils}</div>
-        {FACES.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
+        {FACES.filter(f => !f.expert || expert).map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
         {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className={`md:border-t border-slate-200 md:pt-3 ${etroit ? '' : 'md:px-2'} flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0`}>
@@ -921,6 +926,7 @@ export default function EspaceEnseignant() {
           // MA CANDIDATURE (3.5.229) : les formulaires 013 et 014, dans la campagne ouverte par la direction.
           // MES EXAMENS (3.5.234) : la page de garde de chaque épreuve, préremplie par Lucie.
           : face === 'examens' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesExamensLucie /></Suspense> : <ChargementLucie />)
+          : face === 'prestations' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesPrestationsLucie /></Suspense> : <ChargementLucie />)
           : face === 'candidature' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MaCandidatureLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
