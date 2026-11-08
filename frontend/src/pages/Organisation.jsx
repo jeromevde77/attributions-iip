@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconBook2, IconCalendar, IconChalkboard, IconUsers, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconMailbox, IconPlane, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconWriting, IconPlane, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -140,7 +140,7 @@ export default function Organisation({ ongletInitial }) {
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <CentrePlanification annee={annee} face={face} /></Suspense> })),
         /* EXAMENS : PRÉPARER ET IMPRIMER (3.5.226) — les pièces de l'enveloppe d'examen, après les sessions qui datent les épreuves. */
-        { key: 'examens', module: 'planification', label: 'Examens : préparer et imprimer', icone: IconMailbox,
+        { key: 'examens', module: 'planification', label: 'Examens : préparer et imprimer', icone: IconWriting,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><ExamensPreparer annee={annee} /></Suspense> },
         /* LE LABORATOIRE TEMPOREL DE LUCIE (10 octobre 2026) : les UE posées sur
            l'année en tuiles, leurs couches, et le verre de chacune — sur la

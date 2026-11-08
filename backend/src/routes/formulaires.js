@@ -39,7 +39,7 @@ function membre(profId) {
 }
 
 /** Les attributions de l'année, agrégées comme pour l'EA12. */
-function attributions(profId, annee, { expert = null } = {}) {
+export function attributions(profId, annee, { expert = null } = {}) {
   let l = [];
   // expert : true → les seules lignes d'expert (A1 ter, A27) ; false → les
   // autres ; null → toutes. Le statut d'une ligne est celui de son exception,
@@ -197,7 +197,7 @@ function seancesDuMois(profId, annee, mois, coursCode) {
   } catch { return null; }
 }
 /** Ce que Lucie propose pour une annexe saisissable. */
-function proposition(cle, profId, annee, mois) {
+export function proposition(cle, profId, annee, mois) {
   const d = donnees(cle, profId, annee, mois);
   const sig = signataire(annee);
   const aujourdhui = new Date().toISOString().slice(0, 10);
@@ -245,7 +245,7 @@ function proposition(cle, profId, annee, mois) {
   return null;
 }
 /** Ce qui manque encore : le Word ne se produit pas à trous. */
-function manques(cle, v) {
+export function manques(cle, v) {
   const m = [];
   if (cle === 'A27') {
     if (!(v.ues || []).length) m.push("aucune prestation d'expert pour cette année");

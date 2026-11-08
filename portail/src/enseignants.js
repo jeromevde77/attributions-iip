@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 const COOKIE = 'ens_appareil';
 const MAX_APPAREILS = 3;
@@ -57,6 +58,7 @@ export function monterEnseignants(pub, int, o) {
   // L'APERÇU DE LA DIRECTION (3.5.084) : un professeur déposé pour le seul aperçu n'existe pour aucune porte de l'espace.
   try { db.exec('ALTER TABLE ens ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
   try { db.exec('ALTER TABLE ens ADD COLUMN qr INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+  try { db.exec('ALTER TABLE ens ADD COLUMN mdp_lucie TEXT'); } catch { /* déjà là */ }
   db.exec(`CREATE TABLE IF NOT EXISTS ens_requete (id INTEGER PRIMARY KEY AUTOINCREMENT, ens_id INTEGER NOT NULL, apercu INTEGER NOT NULL DEFAULT 0,
     methode TEXT NOT NULL, chemin TEXT NOT NULL, type TEXT, corps BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')), prise_le TEXT,
     statut INTEGER, rep_type TEXT, rep_disposition TEXT, rep_corps BLOB, fini_le TEXT)`);
@@ -111,7 +113,8 @@ export function monterEnseignants(pub, int, o) {
   // ── L'ENTRÉE ──
   pub.get('/api/enseignant/appareil', (req, res) => {
     const a = courant(req); const e = a && db.prepare('SELECT email FROM ens WHERE id = ?').get(a.ens_id);
-    res.json(e ? { reconnu: true, identifiant: e.email } : { reconnu: false });
+    const lucie = (() => { try { return JSON.parse(db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'qr'").get()?.valeur || 'null')?.url || null; } catch { return null; } })();
+    res.json(e ? { reconnu: true, identifiant: e.email, lucie } : { reconnu: false, lucie });
   });
   pub.post('/api/enseignant/lien', (req, res) => {
     const reponse = { ok: true, message: "Si cette adresse est connue, un lien part dans la minute vers votre adresse de l'institut. Il vaut 30 minutes et ne sert qu'une fois." };
@@ -142,11 +145,17 @@ export function monterEnseignants(pub, int, o) {
     const e = trouver(req.body?.identifiant);
     const c = e && db.prepare('SELECT * FROM ens_compte WHERE ens_id = ?').get(e.id);
     if (c?.bloque_jusqu_a && c.bloque_jusqu_a > maintenant()) return res.status(429).json({ error: 'Trop d’essais : réessayez dans un quart d’heure, ou demandez un lien.' });
-    const bon = verifierMdp(req.body?.mot_de_passe, c?.mdp);
-    if (!e || !c || !bon) {
-      if (c) db.prepare(`UPDATE ens_compte SET echecs = echecs + 1, bloque_jusqu_a = CASE WHEN echecs + 1 >= 10 THEN datetime('now', '+15 minutes') END WHERE ens_id = ?`).run(e.id);
-      if (e && !c) return res.status(401).json({ premiere: true, error: 'Vous n’avez pas encore choisi de mot de passe : demandez votre lien de première visite.' });
-      return res.status(401).json({ error: 'Adresse ou mot de passe incorrect.' });
+    /* Le mot de passe de Lucie d'abord (3.5.242 : son empreinte bcrypt, déposée par Lucie) ; celui qu'un enseignant aurait
+       choisi pour l'espace avant reste accepté. Les échecs se comptent dans ens_compte (créé au besoin, sans mot de passe). */
+    const mdp = String(req.body?.mot_de_passe || '');
+    let bon = false;
+    if (e?.mdp_lucie && mdp) { try { bon = bcrypt.compareSync(mdp, e.mdp_lucie); } catch { bon = false; } }
+    if (!bon && c?.mdp) bon = verifierMdp(mdp, c.mdp);
+    if (!e || !bon) {
+      if (e) db.prepare(`INSERT INTO ens_compte (ens_id, mdp, echecs, bloque_jusqu_a) VALUES (?, '', 1, NULL) ON CONFLICT(ens_id) DO UPDATE SET echecs = echecs + 1,
+        bloque_jusqu_a = CASE WHEN echecs + 1 >= 10 THEN datetime('now', '+15 minutes') END`).run(e.id);
+      if (e && !e.mdp_lucie && !c?.mdp) return res.status(401).json({ premiere: true, error: 'Votre compte de Lucie n’a pas de mot de passe : demandez votre lien de première visite.' });
+      return res.status(401).json({ error: 'Adresse ou mot de passe incorrect. C’est le mot de passe de Lucie.' });
     }
     db.prepare('UPDATE ens_compte SET echecs = 0, bloque_jusqu_a = NULL WHERE ens_id = ?').run(e.id);
     const a = courant(req);
@@ -479,8 +488,9 @@ export function monterEnseignants(pub, int, o) {
       for (const t of b.textes || []) if (Number(t.version_id)) itx.run(Number(t.version_id), String(t.titre || ''), Number(t.numero) || null, t.publiee_le || null, String(t.html || ''), t.source_url || null);
       const it = db.prepare('INSERT OR REPLACE INTO ens_tableau (ens_id, contenu) VALUES (?,?)');
       for (const t of b.tableaux || []) if (Number(t.ens_id)) it.run(Number(t.ens_id), JSON.stringify(t.contenu || {}));
-      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul, qr) VALUES (?,?,?,?, datetime('now'), ?, ?)");
-      for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email), e.apercu_seul ? 1 : 0, e.qr ? 1 : 0);
+      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul, qr, mdp_lucie) VALUES (?,?,?,?, datetime('now'), ?, ?, ?)");
+      for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email), e.apercu_seul ? 1 : 0, e.qr ? 1 : 0,
+        /^\$2[aby]\$\d\d\$/.test(String(e.mdp_lucie || '')) ? String(e.mdp_lucie) : null);
       const is = db.prepare(`INSERT OR REPLACE INTO ens_seance (id, ens_id, date, heure_debut, heure_fin, cours_code, cours_nom, ue_num, matiere, local, annule, visite)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
       const ii = db.prepare('INSERT OR IGNORE INTO ens_inscrit (seance_id, etudiant_id) VALUES (?,?)');

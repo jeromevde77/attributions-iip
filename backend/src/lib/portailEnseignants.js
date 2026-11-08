@@ -249,7 +249,12 @@ export async function deposerEnseignants(appel) {
   const du = rentree < decaler(jour, -30) ? rentree : decaler(jour, -30), au = decaler(jour, 21);
   const enseignants = [], seances = [], etudiants = new Map(), presences = [];
   for (const u of aDeposer()) {
-    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul,
+    /* LE MOT DE PASSE DE LUCIE OUVRE L'ESPACE (3.5.242, Charles : « tu demandes de choisir un nouveau mot de passe alors qu'ils
+       en avaient un » ; tranché : le mot de passe de Lucie). L'EMPREINTE bcrypt du compte part avec lui, jamais le mot de passe :
+       le portail la compare ; un changement dans Lucie suit au dépôt suivant (deux minutes). Pas pour un aperçu. */
+    let mdpLucie = null;
+    if (u.id > 0 && !u.apercu_seul) { try { mdpLucie = db.prepare('SELECT password_hash FROM utilisateur WHERE id = ?').get(u.id)?.password_hash || null; } catch { /* */ } }
+    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul, mdp_lucie: mdpLucie,
       // LE QR DE PRÉSENCE (3.5.136) : la même fonction que dans Lucie (Mise en service → Présence par QR).
       qr: u.id > 0 && fonctionPour('presence.qr', { userId: u.id }) });
     const x = seancesPourEspace(u, du, au);

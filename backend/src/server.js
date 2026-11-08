@@ -2960,6 +2960,10 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
   const tourExamens = async () => { try { const { genererRappelsExamens } = await import('./lib/rappelsExamens.js'); const r = genererRappelsExamens(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels examens]', r); } catch (e) { console.error('[rappels examens]', e.message); } };
   setTimeout(tourExamens, 55_000).unref?.();
   setInterval(tourExamens, 60 * 60 * 1000).unref?.();
+  // LES PRESTATIONS DES EXPERTS (3.5.241) : trois jours ouvrables avant le délai du mois, puis le jour même.
+  const tourExperts = async () => { try { const { genererRappelsExperts } = await import('./lib/prestationsExperts.js'); const r = genererRappelsExperts(anneeActiveRappels(db)); if (r.rappels) console.log('[rappels experts]', r); } catch (e) { console.error('[rappels experts]', e.message); } };
+  setTimeout(tourExperts, 65_000).unref?.();
+  setInterval(tourExperts, 60 * 60 * 1000).unref?.();
   // LES RAPPELS AUX ÉTUDIANTS (3.1.525) : la file partout (si le portail existe), l'avis du jour en production.
   const tourEtudiants = () => { try { const r = genererRappelsEtudiants(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels étudiants]', r); } catch (e) { console.error('[rappels étudiants]', e.message); } };
   setTimeout(tourEtudiants, 105_000).unref?.();
@@ -3320,6 +3324,7 @@ app.use('/api/mes-disponibilites', (await import('./routes/mesDisponibilites.js'
 app.use('/api/examens', (await import('./routes/examens.js')).default);
 // LES CANDIDATURES DES ENSEIGNANTS (3.5.229) — les routes posent leurs rôles.
 app.use('/api/candidatures', (await import('./routes/candidatures.js')).default);
+app.use('/api/prestations-experts', (await import('./routes/prestationsExperts.js')).default);
 // LES VOYAGES D'ÉTUDES (3.5.230) — les routes posent leurs rôles.
 app.use('/api/voyages', (await import('./routes/voyages.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);

@@ -25,6 +25,7 @@ const Besoins = lazy(() => import('./Besoins.jsx'));
 const Classement = lazy(() => import('./Classement.jsx'));
 const TempsTravail = lazy(() => import('./TempsTravail.jsx'));
 const CandidaturesMDP = lazy(() => import('../components/CandidaturesMDP.jsx'));
+const PrestationsExperts = lazy(() => import('../components/PrestationsExperts.jsx'));
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 
 /**
@@ -2310,6 +2311,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           ...((estDirection(getUser()) || ['coordination', 'secretariat', 'editeur'].includes(getUser()?.role)) ? [{ label: 'Candidatures', items: [
             { key: 'nav-candidatures', label: 'Candidatures des enseignants', icon: IconFileDescription, actif: vue === 'candidatures', onClick: () => setVue('candidatures') },
           ]}] : []),
+          // LES PRESTATIONS DES EXPERTS (3.5.241) : le secrétariat et la direction valident le mois, l'A27 en sort.
+          ...((estDirection(getUser()) || ['secretariat', 'editeur'].includes(getUser()?.role)) ? [{ label: 'Experts', items: [
+            { key: 'nav-prestations', label: 'Prestations des experts', icon: IconClockHour4, actif: vue === 'prestations', onClick: () => setVue('prestations') },
+          ]}] : []),
           // LE TEMPS DE TRAVAIL (3.5.039) : la direction, et les personnes qu'elle a désignées (le secrétariat).
           ...(ttMoi?.gere || ttMoi?.designe ? [{ label: 'Temps de travail', items: [
             { key: 'nav-temps', label: 'Temps de travail', icon: IconClockHour4, actif: vue === 'temps', onClick: () => setVue('temps') },
@@ -2331,6 +2336,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           {vue === 'classement' && <Classement />}
           {vue === 'temps' && <TempsTravail />}
           {vue === 'candidatures' && <CandidaturesMDP />}
+          {vue === 'prestations' && <PrestationsExperts />}
         </Suspense>
       ) : (<>
       {/* UN SEUL FORMAT DE TITRE, celui de PageHeader : icône turquoise,

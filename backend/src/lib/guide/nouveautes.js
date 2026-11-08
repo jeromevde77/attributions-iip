@@ -244,6 +244,17 @@ export const ajouts = {
   ],
   personnel: [
     {
+      titre: "Les prestations des experts, déclarées en ligne",
+      pour: 'sec dir',
+      ou: "Personnel → rail → Prestations des experts.",
+      texte: "Chaque expert déclare son mois depuis son espace enseignant (Mes prestations), au plus tard le 5e jour ouvrable avant la fin du mois. Ici, le mois choisi en haut, chaque expert et son état : déclarée, validée, renvoyée, ou rien encore. Le chevron montre le détail (cours, dates, périodes, remarque). [[Valider|IconCheck|fort]] fait de la déclaration l'A27 du mois, qui s'ouvre remplie, signée et cachetée ; [[Renvoyer|IconArrowBackUp]] demande un mot, que l'expert lit dans son espace.",
+      savoir: [
+        "Un mois validé ne se modifie plus, ni par l'expert ni par le secrétariat.",
+        "Les prestations ne sont payées qu'une fois validées.",
+        "Le rappel aux experts (trois jours ouvrables avant le délai, puis le jour même) s'allume dans Configuration → Courriels → Rappels.",
+      ],
+    },
+    {
       titre: "Les candidatures des enseignants",
       pour: 'ens sec coo dir',
       ou: "Espace enseignant → Ma candidature. Côté école : Personnel → Candidatures → Candidatures des enseignants.",
@@ -434,7 +445,7 @@ export const ajouts = {
       titre: "L'espace enseignant : où trouver quoi",
       pour: 'ens coo dir', enTete: true,
       ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur ; installable sur l'écran d'accueil.",
-      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie ; tout ce que faisait Mes cours y est. À gauche (en haut sur téléphone) : Aujourd'hui — votre tableau de bord et la frise de la journée (présences, QR, ticket de sortie) ; Mes notes — vos cours, et pour chacun Le cours, Notes, Carnet, Supports, Indicateurs ; Mes présences — la grille de chaque cours ; Mes étudiants — vos unités, leurs étudiants et leur fiche, « Écrire à mes étudiants » ; Mes unités — dossier pédagogique, croisement, pondération, DUE ; À rendre — les avis de valorisation et d'aménagement ; Aménagements — vos étudiants qui ont un aménagement raisonnable, cours par cours ; Mes TFE — vos jurys et vos fiches ; Mes stages ; Mon agenda — Mes dates (examens, délibérations), Ma semaine, l'année de l'école, Mes disponibilités, Signaler une absence, Mes visites de stage, l'agenda du téléphone. En bas : Ma fiche, Aide, L'école (textes à lire, documents reçus, Mes réunions), Mon compte. En haut, à côté de la loupe : l'ampoule (proposer une amélioration) et la flèche qui revient en arrière (annuler mes derniers gestes). La première fois : « Première visite », votre adresse de l'institut, un lien arrive, vous choisissez un mot de passe pour cet espace ; sur un nouvel appareil, un code à six chiffres en plus.",
+      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie ; tout ce que faisait Mes cours y est. À gauche (en haut sur téléphone) : Aujourd'hui — votre tableau de bord et la frise de la journée (présences, QR, ticket de sortie) ; Mes notes — vos cours, et pour chacun Le cours, Notes, Carnet, Supports, Indicateurs ; Mes présences — la grille de chaque cours ; Mes étudiants — vos unités, leurs étudiants et leur fiche, « Écrire à mes étudiants » ; Mes unités — dossier pédagogique, croisement, pondération, DUE ; À rendre — les avis de valorisation et d'aménagement ; Aménagements — vos étudiants qui ont un aménagement raisonnable, cours par cours ; Mes TFE — vos jurys et vos fiches ; Mes stages ; Mon agenda — Mes dates (examens, délibérations), Ma semaine, l'année de l'école, Mes disponibilités, Signaler une absence, Mes visites de stage, l'agenda du téléphone. En bas : Ma fiche, Aide, L'école (textes à lire, documents reçus, Mes réunions), Mon compte. En haut, à côté de la loupe : l'ampoule (proposer une amélioration) et la flèche qui revient en arrière (annuler mes derniers gestes). Vous y entrez avec votre adresse de l'institut et votre mot de passe de Lucie ; sur un nouvel appareil, un code à six chiffres en plus.",
       savoir: [
         "Ce que vous enregistrez part dans Lucie en quelques secondes, à votre nom ; si Lucie refuse (une séance close, par exemple), l'écran le dit.",
         "Il ne s'ouvre que depuis la Belgique, comme l'espace des étudiants.",
