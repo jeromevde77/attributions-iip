@@ -72,7 +72,7 @@ export default function MesFrais() {
               return (
                 <Tr key={x.id} actif={x.id === ouverte} className="cursor-pointer" onClick={() => setOuverte(x.id)}>
                   <Td><span className="inline-flex items-center gap-1.5"><N.I size={15} className="text-slate-500" />{N.l}</span></Td>
-                  <Td>{jj(x.date)}</Td>
+                  <Td>{x.nature === 'km' && x.date_du ? (x.date_du === x.date_au ? jj(x.date_du) : `${jj(x.date_du)} → ${jj(x.date_au)}`) : jj(x.date)}</Td>
                   <Td>{x.nature === 'km' ? `${x.trajets.length} trajet(s)${x.periode ? ` · ${x.periode}` : ''}` : x.fournisseur || '—'}{x.periode && x.nature === 'note' ? ` · ${x.periode}` : ''}</Td>
                   <Td align="droite">{x.nature === 'km' ? `${Math.round(km * 10) / 10} km` : eur(x.montant)}</Td>
                   <Td align="droite">{x.justificatifs.length || ''}</Td>
