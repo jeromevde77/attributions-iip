@@ -73,7 +73,7 @@ export default function MesPrestations() {
                   <Tr key={`c${i}-${k}`}>
                     <Td>{c.denomination}{c.depuis_horaire && !dc ? <span className="text-second text-slate-500"> · repris de l’horaire</span> : ''}</Td>
                     <Td><input className="controle !h-8 w-full" disabled={fige} placeholder="ex. 03, 10, 17/11" value={c.dates || ''} onChange={e => maj(i, k, 'dates', e.target.value)} /></Td>
-                    <Td align="droite"><input type="number" min="0" className="controle !h-8 w-20 text-right" disabled={fige} value={c.periodes ?? ''} onChange={e => maj(i, k, 'periodes', e.target.value)} /></Td>
+                    <Td align="droite"><input type="number" min="0" className="controle !h-8 w-20 text-right" disabled={fige} value={c.periodes === '' || c.periodes == null ? 0 : c.periodes} onChange={e => maj(i, k, 'periodes', e.target.value === '' ? 0 : e.target.value)} /></Td>
                   </Tr>)),
               ])}
             </tbody>
