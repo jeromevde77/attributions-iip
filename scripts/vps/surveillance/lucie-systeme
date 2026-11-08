@@ -1,7 +1,9 @@
 #!/bin/sh
 # /usr/local/bin/lucie-systeme — prévient sur le téléphone (ntfy) quand le VPS
 # attend un geste : redémarrage nécessaire, ou correctifs de sécurité qui ne
-# s'appliquent pas. Lancé chaque matin par /etc/systemd/system/lucie-systeme.timer.
+# s'appliquent pas ; et la garde SSH : fail2ban ou lucie-ssh arrêté, essais SSH
+# refusés au-delà de SEUIL_SSH en 24 h (SEUIL_SSH=0 : le bilan chaque matin).
+# Lancé chaque matin par /etc/systemd/system/lucie-systeme.timer.
 #
 # Les correctifs de sécurité s'installent seuls la nuit (unattended-upgrades),
 # mais JAMAIS le redémarrage : il coupe Lucie et peut laisser un conteneur sous
@@ -35,7 +37,26 @@ if [ -e /var/run/reboot-required ]; then
     "Le VPS doit redémarrer pour appliquer : ${paquets:-une mise à jour du système}. À faire à un moment calme, puis vérifier les noms des conteneurs (docker ps)."
 fi
 
-# 2. Correctifs de sécurité en attente depuis plus de JOURS_TOLERES jours :
+# 2. La garde SSH. fail2ban bannit les adresses qui insistent ; lucie-ssh
+#    prévient à chaque connexion réussie. Si l'un des deux s'arrête, personne
+#    ne le verrait.
+for service in fail2ban lucie-ssh; do
+  systemctl is-active --quiet "$service" || envoyer "Lucie - $service arrete" urgent \
+    "Le service $service ne tourne plus sur le VPS : sudo systemctl status $service, puis sudo systemctl restart $service."
+done
+
+# 3. Les essais SSH refusés des dernières 24 h. Seule la clé est acceptée : un
+#    essai ne passe pas, mais une vague inhabituelle mérite d'être vue.
+SEUIL_SSH=${SEUIL_SSH:-2000}
+essais=$(journalctl --since "24 hours ago" -o cat SYSLOG_IDENTIFIER=sshd SYSLOG_IDENTIFIER=sshd-session SYSLOG_IDENTIFIER=sshd-auth 2>/dev/null \
+  | grep -cE '^(Invalid user|Failed |Connection closed by authenticating user|Disconnected from authenticating user)')
+if [ "$essais" -ge "$SEUIL_SSH" ]; then
+  bannies=$(fail2ban-client status sshd 2>/dev/null | sed -n 's/.*Currently banned:[[:space:]]*//p')
+  envoyer "Lucie - essais SSH" default \
+    "$essais essais SSH refusés en 24 h (seuil $SEUIL_SSH), ${bannies:-?} adresses bannies en ce moment par fail2ban. Aucun n'est entré : seule la clé est acceptée."
+fi
+
+# 4. Correctifs de sécurité en attente depuis plus de JOURS_TOLERES jours :
 #    unattended-upgrades ne passe plus. La liste vient du dernier « apt update »
 #    (fait chaque nuit par apt-daily) ; on ne le relance pas ici.
 securite=$(apt list --upgradable 2>/dev/null | grep -- '-security' | cut -d/ -f1 | tr '\n' ' ')

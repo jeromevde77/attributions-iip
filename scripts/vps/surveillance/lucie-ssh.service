@@ -1,0 +1,12 @@
+# /etc/systemd/system/lucie-ssh.service — alerte ntfy à chaque connexion SSH réussie
+[Unit]
+Description=Lucie : alerte à chaque connexion SSH réussie (notification ntfy)
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/lucie-ssh
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
