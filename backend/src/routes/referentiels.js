@@ -1340,20 +1340,19 @@ r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) 
    sa situation fiscale. Statut, ancienneté, titres et matricule restent à
    l'administration. Rien ne s'écrit : une demande part dans le registre des
    demandes, où la direction la valide ou la refuse. */
-const CHAMPS_PROPOSABLES_PROF = ['mail_prive', 'adresse_rue', 'code_postal', 'commune', 'tel_gsm',
-  'sexe', 'niss', 'nationalite', 'lieu_naissance_ville', 'lieu_naissance_pays', 'date_naissance',
-  'iban', 'bic', 'compte_titulaire', 'photo', 'etat_civil', 'handicap',
-  'conjoint_nom', 'conjoint_prenom', 'conjoint_handicap', 'conjoint_alloc_foyer', 'conjoint_revenus',
-  'ce883_actif', 'ce883_date_debut', 'ce883_caisse', 'ce883_num_inscription'];
+/* LA PARTIE 2 SEULEMENT (3.5.243, Charles : « dans la fiche prof, ils ne peuvent changer que la partie 2 ; le reste en gris, seul
+   le service administratif le peut ; ils ne peuvent pas non plus changer l'adresse mail école ») : adresse, téléphone, e-mail
+   privé, compte bancaire. L'identité, l'adresse de l'institut et les titres de capacité restent à l'administration. */
+const CHAMPS_PROPOSABLES_PROF = ['mail_prive', 'adresse_rue', 'code_postal', 'commune', 'tel_gsm', 'iban', 'bic', 'compte_titulaire'];
 r.patch('/professeurs/:id', authRequired, (req, res, next) => {
   if (!SOI_SEUL.includes(req.user?.role)) return next();
   const id = Number(req.params.id);
   if (professeurDe(req.user) !== id) return res.status(404).json({ error: 'Introuvable.' });
-  const refuses = Object.keys(req.body || {}).filter(k => !CHAMPS_PROPOSABLES_PROF.includes(k) && k !== 'titres');
+  const refuses = Object.keys(req.body || {}).filter(k => !CHAMPS_PROPOSABLES_PROF.includes(k));
   const apres = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => CHAMPS_PROPOSABLES_PROF.includes(k)));
   /* LES TITRES DE CAPACITÉ se proposent aussi (Charles, 6 octobre 2026) : la
      liste entière, comparée à celle en place, part dans la même demande. */
-  const titresProposes = Array.isArray(req.body?.titres) ? normaliserTitres(req.body.titres) : null;
+  const titresProposes = null;   // les titres restent à l'administration (3.5.243)
   if (!Object.keys(apres).length && !titresProposes) {
     return res.status(403).json({ error: 'Ces champs relèvent de l’administration : signalez la correction au secrétariat.' });
   }

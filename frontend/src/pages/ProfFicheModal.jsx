@@ -71,13 +71,13 @@ function Labelled({ label, children }) {
   );
 }
 
-function TextField({ label, value, onChange, type = 'text', placeholder }) {
+function TextField({ label, value, onChange, type = 'text', placeholder, disabled = false }) {
   return (
     <Labelled label={label}>
-      <input type={type} value={value ?? ''} placeholder={placeholder}
+      <input type={type} value={value ?? ''} placeholder={placeholder} disabled={disabled}
         autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
         name={`field_${label?.replace(/[^a-zA-Z]/g, '') || 'x'}_${Math.random().toString(36).slice(2, 8)}`}
-        onChange={e => onChange(e.target.value)} className={FIELD_CLS} />
+        onChange={e => onChange(e.target.value)} className={`${FIELD_CLS}${disabled ? ' opacity-60 cursor-not-allowed' : ''}`} />
     </Labelled>
   );
 }
@@ -491,8 +491,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
       <form id="fiche-personnel" onSubmit={handleSubmit} autoComplete="off"
         className="space-y-3">
 
-          {/* Import optionnel depuis la carte eID belge */}
-          <div className="carte p-3 flex items-start gap-3">
+          {/* Import optionnel depuis la carte eID belge — pas pour l'enseignant lui-même : l'identité est au service administratif. */}
+          {!restreint && <div className="carte p-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="titre-carte flex items-center gap-1.5">
                 <IconId size={15}/> Pré-remplir depuis la carte eID
@@ -516,10 +516,12 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               className="bouton bouton-fort flex-shrink-0">
               {eidBusy ? 'Lecture…' : 'Lire la carte'}
             </button>
-          </div>
+          </div>}
 
           {/* 1. Identité civile */}
+          {restreint && <Encadre etat="neutre" titre="Ce que vous pouvez modifier">La partie 2 seulement : votre adresse, votre téléphone, votre e-mail privé et votre compte bancaire. Le reste, et votre adresse de l’institut, ne se modifie que par le service administratif : signalez-lui une correction.</Encadre>}
           <Section titre="1 · Identité civile" ouvert={open.identite} onToggle={() => toggle('identite')}>
+            <fieldset disabled={restreint} className={`m-0 p-0 border-0 min-w-0 space-y-3${restreint ? ' opacity-60' : ''}`}>
             {form.photo && (
               <div className="flex items-center gap-3">
                 <img src={form.photo} alt="Photo d'identité"
@@ -549,6 +551,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               <TextField label="Lieu de naissance — ville" value={form.lieu_naissance_ville} onChange={v => set('lieu_naissance_ville', v)} />
               <Labelled label="Lieu de naissance — pays"><ChoixPays value={form.lieu_naissance_pays} onChange={v => set('lieu_naissance_pays', v)} className={FIELD_CLS} /></Labelled>
             </div>
+            </fieldset>
           </Section>
 
           {/* 2. Coordonnées */}
@@ -560,7 +563,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                 poser={(k, v) => set({ cp: 'code_postal', localite: 'commune', rue: 'adresse_rue' }[k], v)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <TextField label="E-mail" type="email" value={form.adresse_mail} onChange={v => set('adresse_mail', v)} />
+              <TextField label={restreint ? 'E-mail de l’institut' : 'E-mail'} type="email" value={form.adresse_mail} onChange={v => set('adresse_mail', v)} disabled={restreint} />
               <TextField label="Tél. / GSM" value={form.tel_gsm} onChange={v => set('tel_gsm', v)} />
             </div>
             <TextField label="E-mail privé" type="email" value={form.mail_prive} onChange={v => set('mail_prive', v)} />
@@ -575,6 +578,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               6 octobre 2026) : le professeur les propose, la direction valide. */}
           <Section titre="3 · Titres de capacité" sous={`${titres.length} titre(s)`}
             ouvert={open.titres} onToggle={() => toggle('titres')}>
+            <fieldset disabled={restreint} className={`m-0 p-0 border-0 min-w-0 space-y-2${restreint ? ' opacity-60' : ''}`}>
             <p className="text-xs text-slate-500">Diplômes, brevets, certificats, attestations, reconnaissance d'expérience utile…</p>
             {titres.map((t, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-slate-100 pb-2">
@@ -592,7 +596,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addTitre} className="bouton !h-8"><IconPlus size={14} /> Ajouter un titre</button>
+            {!restreint && <button type="button" onClick={addTitre} className="bouton !h-8"><IconPlus size={14} /> Ajouter un titre</button>}
+            </fieldset>
           </Section>
 
           {!restreint && (<>

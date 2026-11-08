@@ -12,10 +12,11 @@ avant d'allumer « Espace enseignant » pour tous (Configuration → Accès → 
 
 ## 1. Entrer (sur le téléphone ET l'ordinateur du professeur)
 
-- [ ] « Première visite » : le lien arrive à l'adresse de l'institut, il ouvre « Choisissez votre mot de passe ».
+- [ ] Entrer avec l'adresse de l'institut et le mot de passe de Lucie (3.5.242) — aucun mot de passe à choisir.
 - [ ] Connexion sur un 2e appareil : le code à six chiffres arrive.
 - [ ] Ajout à l'écran d'accueil (iPhone : Safari → Partager ; Android : menu du navigateur) : l'icône Lucie s'ouvre bien.
-- [ ] Mon compte : changer de mot de passe, voir et oublier un appareil.
+- [ ] Mon compte : voir et oublier un appareil ; le mot de passe se change dans Lucie (le bouclier en haut à droite).
+- [ ] Ma fiche : seule la partie 2 se modifie (adresse, téléphone, e-mail privé, compte) ; le reste et l'adresse de l'institut sont grisés.
 
 ## 2. Le travail du jour
 
