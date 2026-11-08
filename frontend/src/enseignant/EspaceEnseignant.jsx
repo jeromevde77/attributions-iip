@@ -827,7 +827,7 @@ const VUES_LUCIE = new Set(['notes', 'presences', 'ue', 'rendre']);
    faces sous elle ; un second clic sur l'entrée ouverte la replie. */
 const GROUPES = [
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
-  { k: 'g-cours', l: 'Mes cours', I: IconPencil, enfants: ['notes', 'presences', 'etudiants', 'ue', 'examens'] },
+  { k: 'g-cours', l: 'Mes cours', I: IconPencil, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens'] },
   { k: 'g-rendre', l: 'À rendre', I: IconChecklist, enfants: ['rendre', 'amenagements', 'prestations'] },
   { k: 'g-suivis', l: 'Mes suivis', I: IconSchool, enfants: ['tfe', 'stages'] },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
