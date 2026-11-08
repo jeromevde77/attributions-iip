@@ -218,12 +218,21 @@ async function tableauDe(u, profId, annee, documentDUE) {
   }
   // Les aménagements raisonnables : les MESURES accordées seulement (secret professionnel, décret du 30 juin 2016, art. 5).
   try {
-    const m = db.prepare(`SELECT d.etudiant_id, m.libelle, m.precisions, m.ue_num FROM amenagement_dossier d JOIN amenagement_mesure m ON m.dossier_id = d.id
+    /* La règle de Mes cours (3.5.223) : une mesure liée à une unité ne vaut que pour elle, et les unités cochées au dossier
+       (`amenagement_ue` ; aucune = toutes) bornent tout le dossier. */
+    let unitesDossier = () => null;
+    try {
+      const q = db.prepare('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ?');
+      unitesDossier = id => { const l = q.all(id).map(x => Number(x.ue_num)); return l.length ? l : null; };
+    } catch { /* table absente : toutes les unités */ }
+    const m = db.prepare(`SELECT d.id AS dossier_id, d.etudiant_id, m.libelle, m.precisions, m.ue_num FROM amenagement_dossier d JOIN amenagement_mesure m ON m.dossier_id = d.id
       WHERE d.annee_scolaire = ? AND d.statut IN ('accepte','partiel','recours') AND m.accorde = 1`).all(annee);
     for (const x of m) {
       const f = fiches.get(x.etudiant_id); if (!f) continue;
+      const ues = unitesDossier(x.dossier_id);
       if (x.ue_num && !f.cours.some(c => c.ue_num === x.ue_num)) continue;
-      f.amenagements.push({ libelle: x.libelle, precisions: x.precisions || null, ue_num: x.ue_num || null });
+      if (ues && !f.cours.some(c => ues.includes(Number(c.ue_num)))) continue;
+      f.amenagements.push({ libelle: x.libelle, precisions: x.precisions || null, ue_num: x.ue_num || null, ues });
     }
   } catch { /* module absent */ }
   const textes = textesPour(u, versionsTextes);

@@ -5,7 +5,7 @@ import ChargementLucie from '../components/ChargementLucie.jsx';
 import { FriseJournee } from '../components/FriseJournee.jsx';
 import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
-import { FournisseurRail, ListeEtats, LigneEtat, Encadre, Tableau, Tr, Td } from '../components/ui.jsx';
+import { FournisseurRail, ListeEtats, LigneEtat, Encadre, Tableau, TableauEntete, Th, Tr, Td } from '../components/ui.jsx';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { EvaluationsDeliberations } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
@@ -26,7 +26,7 @@ const MesStagesLucie = lazy(() => import('../components/MesStages.jsx'));
 const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignants.jsx').then(m => ({ default: m.SignalerAbsence })));
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId } from '@tabler/icons-react';
+import { IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -719,6 +719,53 @@ function RechercheEspace({ faces, onFace, onCours, onAide }) {
     </>);
 }
 
+/* LES AMÉNAGEMENTS RAISONNABLES DE MES COURS (3.5.223, Charles, 8 novembre 2026 : « il manque les aménagements raisonnables dans
+   l'espace prof, non ? »). Ils n'étaient que dans la fiche d'un étudiant, au survol d'une pastille des notes, et dans « À rendre »
+   quand un avis est attendu. Ici, cours par cours : les étudiants qui ont un aménagement accordé et leurs MESURES — rien d'autre
+   (secret professionnel, décret du 30 juin 2016, art. 5 : ni la pièce, ni la situation, ni la motivation). Une mesure liée à une
+   unité ne paraît que sous cette unité. Lu du tableau déposé par Lucie (`tableauDe`). Imprimable pour préparer un examen. */
+function MesAmenagements() {
+  const [t, setT] = useState(null);
+  useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
+  if (!t) return <ChargementLucie />;
+  const parId = new Map((t.etudiants || []).map(e => [e.id, e]));
+  const blocs = [];
+  for (const u of [...(t.ues || [])].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num)) {
+    for (const c of u.cours || []) {
+      const lignes = (c.etudiants || []).map(x => parId.get(x.id)).filter(Boolean)
+        .map(e => ({ e, mesures: (e.amenagements || []).filter(m => (!m.ue_num || Number(m.ue_num) === Number(u.ue_num)) && (!m.ues || m.ues.includes(Number(u.ue_num)))) }))
+        .filter(x => x.mesures.length)
+        .sort((a, b) => String(a.e.nom).localeCompare(String(b.e.nom), 'fr'));
+      if (lignes.length) blocs.push({ u, c, lignes });
+    }
+  }
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="titre-ecran !mb-0 flex-1">Aménagements raisonnables{t.annee ? <span className="compte">{t.annee}</span> : null}</h1>
+        {blocs.length > 0 && <button type="button" className="bouton controle inline-flex items-center gap-1.5 print:hidden" onClick={() => window.print()}><IconPrinter size={16} /> Imprimer</button>}
+      </div>
+      <p className="text-second text-slate-500">Les mesures accordées par la direction aux étudiants de vos cours. Elles s’appliquent à vos évaluations ; la situation de l’étudiant, elle, reste couverte par le secret professionnel et n’apparaît pas ici. Une question : le ou la référent·e des aménagements raisonnables.</p>
+      {!blocs.length && <Encadre etat="neutre" titre="Aucun aménagement">Aucun étudiant de vos cours n’a d’aménagement raisonnable accordé cette année.</Encadre>}
+      {blocs.map(({ u, c, lignes }) => (
+        <section key={`${u.ue_num}-${c.code}`} className="carte overflow-hidden break-inside-avoid">
+          <div className="px-4 py-3 border-b border-slate-100 font-semibold text-iip-texte">
+            {c.nom} <span className="font-normal text-slate-500">· UE {u.ue_num} — {u.ue_nom}{u.section ? ` · ${u.section}` : ''}</span>
+          </div>
+          <Tableau dense className="!border-0 !rounded-none">
+            <TableauEntete><Th>Étudiant</Th><Th>Mesures accordées</Th></TableauEntete>
+            <tbody>
+              {lignes.map(({ e, mesures }) => (
+                <Tr key={e.id}>
+                  <Td className="whitespace-nowrap align-top">{String(e.nom || '').toUpperCase()} {e.prenom || ''}</Td>
+                  <Td><ul className="m-0 pl-4 list-disc">{mesures.map((m, i) => <li key={i}>{m.libelle}{m.precisions ? ` — ${m.precisions}` : ''}</li>)}</ul></Td>
+                </Tr>))}
+            </tbody>
+          </Tableau>
+        </section>))}
+    </div>);
+}
+
 /* LA STRUCTURE (3.5.138, Charles, 6 novembre 2026 : « c'est la structure que je veux changer » ; « mes notes, mes présences, mes
    étudiants » ; Aujourd'hui garde la frise de Lucie). Les entrées de travail en haut ; l'école et le compte en bas. */
 const FACES = [
@@ -728,6 +775,7 @@ const FACES = [
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool },
   { k: 'stages', l: 'Mes stages', I: IconBriefcase },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
@@ -830,6 +878,7 @@ export default function EspaceEnseignant() {
         {lucie && face === 'aujourdhui' && <TableauDeBord allerA={k => aller(k)}
           apresEntete={<Suspense fallback={null}><MaJourneeLucie onAgir={ouvrirSeance} onSemaine={() => aller('agenda')} /></Suspense>} />}
         {!seance && (face === 'etudiants' ? <MesUE />
+          : face === 'amenagements' ? <MesAmenagements />
           : face === 'agenda' ? <MonAgenda moi={moi} onPresences={s => ouvrirSeance('presences', s)} />
           // L'AIDE INTERACTIVE (3.5.161) : le mode d'emploi illustré de Lucie, celui des enseignants (le serveur filtre par rôle).
           : face === 'aide' ? (lucie ? <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8"><Suspense fallback={<ChargementLucie />}><AideLucie rechercheInitiale={questionAide} /></Suspense></div> : <ChargementLucie />)

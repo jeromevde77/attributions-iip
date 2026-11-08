@@ -577,10 +577,13 @@ export default function MesCours({ espace = null }) {
                               title="Dispensé de ce cours par la valorisation des acquis : il ne se note pas ici">dispensé · {e.dispense}</span>}
                             {/* Les mesures accordées, et elles seules : le survol les
                                 énumère, la nature de la situation n'est jamais là. */}
-                            {e.amenagements?.length > 0 && <span data-etat="disponible" className="ml-2 pastille-etat cursor-help"
+                            {/* AU DOIGT AUSSI (3.5.223) : le survol n'existe pas sur iPad — un toucher ouvre la liste. */}
+                            {e.amenagements?.length > 0 && <button type="button" data-etat="disponible" className="ml-2 pastille-etat cursor-pointer"
                               title={`Aménagements raisonnables accordés :\n${e.amenagements.map(m =>
-                                `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`}>
-                              AR · {e.amenagements.length}</span>}</td>
+                                `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`}
+                              onClick={() => informer(`Aménagements raisonnables accordés — ${String(e.nom || '').toUpperCase()} ${e.prenom || ''}\n\n${e.amenagements.map(m =>
+                                `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`)}>
+                              AR · {e.amenagements.length}</button>}</td>
                           {feuille.repartition && (
                             <td className="py-0.5 pr-4 text-second text-slate-500 whitespace-nowrap">{e.groupe}</td>
                           )}
