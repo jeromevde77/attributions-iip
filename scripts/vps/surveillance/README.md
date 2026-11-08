@@ -4,6 +4,12 @@ En place depuis le 7 novembre 2026. Les alertes partent vers un sujet **ntfy**
 (app ntfy sur le téléphone) ; le sujet est un secret : il vit dans
 `/etc/lucie-disque.conf` (root, chmod 600), jamais dans ce dépôt.
 
+**Toujours en IPv4 (`curl -4`).** ntfy.sh compte son quota gratuit (≈ 250
+messages par jour) par bloc IPv6 /64, et chez OVH ce bloc est partagé avec
+d'autres clients : le 8 novembre 2026, il était épuisé par d'autres (IPv6 : 429,
+IPv4 : 200), et les alertes du VPS se perdaient. Beszel, dans Docker (réseau
+IPv4 seulement), n'est pas concerné.
+
 | Quoi | Fichiers | Quand | Alerte |
 |---|---|---|---|
 | Disque de `/` | `lucie-disque` + `.service` + `.timer` | toutes les 30 min | ≥ 80 %, ≥ 90 % (répétée chaque jour), retour à la normale |
