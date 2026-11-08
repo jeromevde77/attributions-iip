@@ -1679,7 +1679,7 @@ r.post('/valorisation/seances/lot', authRequired, gesteRequis('valorisation.inst
   res.json({ ok: true, plan });
 });
 
-r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisation.instruire'), async (req, res) => {
+async function documentsValorisationUE(req, res) {
   if (!unitePermise(req, res)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee;
@@ -2188,6 +2188,58 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
       ? ["Le nombre de pages n'a pas pu être compté (rendu PDF indisponible) : "
          + 'le procès-verbal garde les pointillés du modèle.'] : [],
   });
+}
+r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisation.instruire'), documentsValorisationUE);
+
+/* TOUS LES PV D'UN COUP (3.5.221, Charles, 8 novembre 2026 : « on devrait pouvoir sortir tous les PV d'un coup »). Pour les
+   unités cochées d'une année : chaque unité passe par la MÊME composition que « PV et attestations » (`documentsValorisationUE` —
+   mêmes contrôles, même comptage des pages), est rendue en PDF à part (sa pagination et son pied à elle : « le présent
+   procès-verbal comporte N pages » reste vrai), puis tout se réunit en un seul fichier (pdf-lib). `quoi` = 'pv' (les PV seuls)
+   ou 'tout' (chaque PV suivi de ses attestations). Une unité qui ne peut pas sortir (séance incomplète, motivation absente…)
+   n'arrête pas les autres : elle est nommée dans l'en-tête X-Lucie-Ecartees (JSON), et si AUCUNE ne sort, 409 avec la liste. */
+r.post('/valorisation/ues/documents', authRequired, gesteRequis('valorisation.instruire'), async (req, res) => {
+  const annee = req.body?.annee;
+  const ues = [...new Set((req.body?.ues || []).map(Number).filter(n => n > 0))];
+  const quoi = req.body?.quoi === 'tout' ? 'tout' : 'pv';
+  if (!annee || !ues.length) return res.status(400).json({ error: 'annee et ues requis' });
+  const cap = await capacitePdf();
+  if (!cap.disponible) return res.status(503).json({ error: 'Ce serveur ne sait pas produire de PDF.', detail: cap.raison });
+  const { PDFDocument } = await import('pdf-lib');
+  const tout = await PDFDocument.create();
+  const ecartees = [];
+  let faites = 0;
+  for (const ueNum of ues) {
+    let statut = 200, corps = null;
+    const faux = { status(c) { statut = c; return this; }, json(b) { corps = b; return this; }, setHeader() {}, end() {} };
+    try {
+      await documentsValorisationUE({ ...req, params: { ueNum: String(ueNum) }, body: { annee } }, faux);
+    } catch (e) { statut = 500; corps = { error: e.message }; }
+    if (statut !== 200 || !corps?.html) {
+      ecartees.push({ ue_num: ueNum, raison: corps?.error || `refus ${statut}`, manques: corps?.manques || [] });
+      continue;
+    }
+    try {
+      const html = quoi === 'tout' ? corps.html : corps.html_pv;
+      const { htmlSigne } = await protegerSignature(html, { piece: `Valorisation UE ${ueNum}`, destinataire: null });
+      const pdf = await rendrePdf(htmlSigne, {
+        marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
+        pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
+        pagination: 'si-plusieurs', delaiMs: 180_000,
+      });
+      const src = await PDFDocument.load(pdf);
+      for (const pg of await tout.copyPages(src, src.getPageIndices())) tout.addPage(pg);
+      faites++;
+    } catch (e) { ecartees.push({ ue_num: ueNum, raison: `rendu PDF : ${e.message}`, manques: [] }); }
+  }
+  if (!faites) return res.status(409).json({ error: 'Aucun procès-verbal n’a pu sortir.', ecartees });
+  const octets = Buffer.from(await tout.save());
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="Valorisation_PV_${String(annee).replace(/\W/g, '')}.pdf"`);
+  res.setHeader('X-Lucie-Ecartees', encodeURIComponent(JSON.stringify(ecartees)));
+  res.setHeader('X-Lucie-Faites', String(faites));
+  res.setHeader('Access-Control-Expose-Headers', 'X-Lucie-Ecartees, X-Lucie-Faites');
+  res.setHeader('Content-Length', octets.length);
+  res.end(octets);
 });
 
 export default r;

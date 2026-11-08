@@ -200,6 +200,30 @@ function OngletValorisation({ initial = null }) {
   // tirent pour lui, toutes ou certaines.
   const [vue, setVue] = useState('unite');
   const [lot, setLot] = useState(false);
+  // TOUS LES PV D'UN COUP (3.5.221) : les unités cochées, un seul PDF.
+  const [cochees, setCochees] = useState(new Set());
+  const [sortie, setSortie] = useState(null);
+  const sortirPV = async quoi => {
+    setSortie({ enCours: true });
+    try {
+      const r = await fetch('/api/attestations/valorisation/ues/documents', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, ues: [...cochees], quoi }) });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        setSortie({ erreur: j.error || 'Production refusée.', ecartees: j.ecartees || [] });
+        return;
+      }
+      let ecartees = [];
+      try { ecartees = JSON.parse(decodeURIComponent(r.headers.get('X-Lucie-Ecartees') || '%5B%5D')); } catch { /* rien */ }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `Valorisation_${quoi === 'tout' ? 'PV_et_attestations' : 'PV'}_${String(annee).replace(/\W/g, '')}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setSortie({ faites: Number(r.headers.get('X-Lucie-Faites')) || 0, ecartees });
+    } catch (e) { setSortie({ erreur: e.message, ecartees: [] }); }
+  };
   const [rechargement, setRechargement] = useState(0);
 
   useEffect(() => {
@@ -308,8 +332,25 @@ function OngletValorisation({ initial = null }) {
       {/* UNE LISTE, PAS DES TUILES (3.5.037, Charles : « réduire les tailles, ne pas faire des tuiles ») : un tableau, une
           ligne par unité, l'action au bout de la ligne. */}
       {vue === 'unite' && unites.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-second text-slate-500">{cochees.size ? `${cochees.size} unité(s) cochée(s)` : 'Cochez les unités dont vous voulez les PV.'}</span>
+          <button type="button" className="bouton-sortir" disabled={!cochees.size || sortie?.enCours} onClick={() => sortirPV('pv')}>
+            {sortie?.enCours ? 'Production…' : 'Sortir les PV cochés (un PDF)'}</button>
+          <button type="button" className="bouton" disabled={!cochees.size || sortie?.enCours} onClick={() => sortirPV('tout')}>PV et attestations</button>
+        </div>)}
+      {vue === 'unite' && sortie && !sortie.enCours && (
+        <div className="text-second space-y-1">
+          {sortie.erreur && <div style={{ color: 'var(--c-refuse)' }}>{sortie.erreur}</div>}
+          {sortie.faites > 0 && <div style={{ color: 'var(--c-reussi)' }}>✓ {sortie.faites} procès-verbal(aux) dans le PDF téléchargé.</div>}
+          {(sortie.ecartees || []).map(e => (
+            <div key={e.ue_num} className="text-slate-600">UE {e.ue_num} — pas sortie : {e.raison}{e.manques?.length ? ` (${e.manques.slice(0, 3).join(' · ')}${e.manques.length > 3 ? '…' : ''})` : ''}</div>))}
+        </div>)}
+      {vue === 'unite' && unites.length > 0 && (
         <Tableau dense>
           <TableauEntete>
+            <Th largeur="w-8"><input type="checkbox" aria-label="Tout cocher"
+              checked={unites.length > 0 && unites.every(u => cochees.has(u.ue_num))}
+              onChange={e => setCochees(e.target.checked ? new Set(unites.map(u => u.ue_num)) : new Set())} /></Th>
             <Th largeur="w-[5.5rem]">Unité</Th><Th>Intitulé</Th><Th>Section</Th>
             <Th align="droite">Dossiers</Th><Th align="droite">Partielles</Th><Th align="droite">Refus</Th>
             <Th align="droite">Non validés</Th><Th />
@@ -317,6 +358,8 @@ function OngletValorisation({ initial = null }) {
           <tbody>
             {unites.map(u => (
               <Tr key={u.ue_num}>
+                <Td><input type="checkbox" aria-label={`UE ${u.ue_num}`} checked={cochees.has(u.ue_num)}
+                  onChange={() => setCochees(c => { const x = new Set(c); x.has(u.ue_num) ? x.delete(u.ue_num) : x.add(u.ue_num); return x; })} /></Td>
                 <Td ton="fort" className="whitespace-nowrap">{u.ue_num === 0 ? 'Admission' : `UE ${u.ue_num}`}</Td>
                 <Td>{u.ue_num === 0 ? 'Admission de section' : u.ue_nom}</Td>
                 <Td ton="secondaire">{u.section || 'à déduire'}</Td>
