@@ -2949,7 +2949,7 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
   // LES ÉCHÉANCES QUE LUCIE VOIT FAITES (3.5.066) : au démarrage, puis toutes les heures.
   const tourConstats = async () => { try { const { constaterEcheances } = await import('./lib/echeancesConstatees.js'); const r = constaterEcheances(anneeActiveRappels(db)); if (Object.keys(r).length) console.log('[échéances constatées]', r); } catch (e) { console.error('[échéances constatées]', e.message); } };
   // LA FIN DE FONCTION DES TEMPORAIRES (3.5.231) : le C4 et l'attestation de services rendus, à la fin de leur dernière unité.
-  const tourFins = async () => { try { const { poserFinsDeFonction } = await import('./services/echeancier.js'); const n = poserFinsDeFonction(db, anneeActiveRappels(db)); if (n) console.log('[fins de fonction]', n); } catch (e) { console.error('[fins de fonction]', e.message); } };
+  const tourFins = async () => { try { const { poserFinsDeFonction, renouvelerA18 } = await import('./services/echeancier.js'); const n = poserFinsDeFonction(db, anneeActiveRappels(db)); if (n) console.log('[fins de fonction]', n); const a18 = renouvelerA18(db, anneeActiveRappels(db)); if (a18) console.log('[A18 à renouveler]', a18); } catch (e) { console.error('[fins de fonction]', e.message); } };
   setTimeout(tourFins, 25 * 1000).unref?.();
   setInterval(tourFins, 6 * 60 * 60 * 1000).unref?.();
   setTimeout(tourConstats, 20 * 1000).unref?.();

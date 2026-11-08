@@ -35,6 +35,7 @@ function construireData(ea12Row, donnees) {
   // Attributions du prof pour l'année, agrégées par (codification, cours, type)
   const lignes = db.prepare(`
     SELECT codification_unite, nom_cours, type_cours, niveau, MIN(section) AS section,
+           CASE WHEN UPPER(COALESCE(cours_ept_ad, '')) = 'EPT' THEN 1 ELSE 0 END AS ept,
            SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) AS periodes
     FROM v_attribution_complete v
     WHERE professeur_id = ? AND annee_scolaire = ?
@@ -43,8 +44,8 @@ function construireData(ea12Row, donnees) {
          ligne est celui de son exception, sinon celui du membre. */
       AND UPPER(COALESCE((SELECT a.statut_exception FROM attribution a WHERE a.id = v.id),
                          (SELECT p.statut FROM professeur p WHERE p.id = v.professeur_id), '')) <> 'EXP'
-    GROUP BY codification_unite, nom_cours, type_cours
-    ORDER BY codification_unite, nom_cours
+    GROUP BY codification_unite, nom_cours, type_cours, ept
+    ORDER BY codification_unite, nom_cours, ept
   `).all(ea12Row.professeur_id, ea12Row.annee_scolaire);
 
   // Déterminer TC/TL : tout TC sauf si la section du prof est de niveau Master -> TL.
@@ -57,7 +58,10 @@ function construireData(ea12Row, donnees) {
          (dotation) ; pour les UE du brevet d'assistant en soins infirmiers,
          toujours « BAESI » — c'est la section AeSI, ouverte en 2026-2027. */
       f: l.section === 'AeSI' ? 'BAESI' : 'D',
-      denomination: l.nom_cours || '',
+      /* L'EXPERTISE PÉDAGOGIQUE ET TECHNIQUE SUR SA PROPRE LIGNE (3.5.232, circ. 9760 V.1.3.9.1) : les périodes d'EPT se séparent
+         de celles de la fonction à laquelle elles sont rattachées, et leur libellé est précédé de « EPT ». La ligne de l'attribution
+         le dit (`cours_ept_ad = 'EPT'`, colonne EPT/AD des attributions). */
+      denomination: l.ept ? `EPT ${l.nom_cours || ''}`.trim() : (l.nom_cours || ''),
       cla: l.type_cours || '',
       periode_occ: '',
       tctl: 'TC',                        // TODO Master->TL quand niveau dispo
