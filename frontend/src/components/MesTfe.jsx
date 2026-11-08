@@ -12,7 +12,7 @@ import { informer } from '../lib/dialogue.jsx';
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 const valeurDe = n => (n ? (n.mention || (n.points == null ? '' : String(n.points).replace('.', ','))) : '');
 
-function Fiche({ tfeId, fiche, onFait }) {
+export function Fiche({ url, fiche, onFait, children }) {
   const [vals, setVals] = useState(() => Object.fromEntries(fiche.criteres.map(c => [c.aa_code, valeurDe(c.note)])));
   const [erreur, setErreur] = useState(null);
   const [envoi, setEnvoi] = useState(false);
@@ -20,7 +20,7 @@ function Fiche({ tfeId, fiche, onFait }) {
   const enregistrer = async () => {
     setEnvoi(true); setErreur(null);
     try {
-      const r = await fetch(`/api/mes-cours/tfe/${tfeId}/fiche/${fiche.id}`, { method: 'PUT', headers: authHeaders(),
+      const r = await fetch(url, { method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ notes: fiche.criteres.map(c => ({ aa_code: c.aa_code, valeur: vals[c.aa_code] || '' })) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'Enregistrement refusé.');
@@ -50,6 +50,7 @@ function Fiche({ tfeId, fiche, onFait }) {
                   onChange={e => setVals(v => ({ ...v, [c.aa_code]: e.target.value }))} aria-label={`Note ${c.aa_code}`} />
               : <span className="text-sm tabular-nums text-right w-28">{valeurDe(c.note) || '—'}</span>}
           </div>))}
+        {children}
         {!fiche.criteres.length && <div className="text-second text-slate-500">Cette fiche n’a pas encore de critères : la coordination la règle.</div>}
         {fiche.a_moi && fiche.criteres.length > 0 && (
           <div className="flex items-center gap-3 justify-end">
@@ -129,7 +130,7 @@ export default function MesTfe() {
                     </div>
                   </div>
                   {t.fiches.length > 0
-                    ? t.fiches.map(f => <Fiche key={f.id} tfeId={t.id} fiche={f} onFait={charger} />)
+                    ? t.fiches.map(f => <Fiche key={f.id} url={`/api/mes-cours/tfe/${t.id}/fiche/${f.id}`} fiche={f} onFait={charger} />)
                     : <div className="text-second text-slate-500">Aucune fiche d’évaluation n’est encore réglée pour cette unité (Organisation → TFE → Fiches d’évaluation).</div>}
                 </div>
               </LigneEtat>);

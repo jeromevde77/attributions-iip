@@ -505,9 +505,8 @@ r.get('/notifications', (req, res) => {
   const u = req.user;
   const notifs = db.prepare(`
     SELECT * FROM lucie_notification
-    WHERE cible_role IS NULL
-       OR cible_role = ?
-       OR (cible_user_id IS NOT NULL AND cible_user_id = ?)
+    WHERE (cible_user_id IS NULL AND (cible_role IS NULL OR cible_role = ?))
+       OR cible_user_id = ?   -- une notification nominative ne va qu'à sa personne (3.5.213)
     ORDER BY cree_le DESC LIMIT 50
   `).all(u.role, u.id).filter(n => notificationVisible(u, n.section));   // 3.1.481 : pas les rappels d'une autre section
 

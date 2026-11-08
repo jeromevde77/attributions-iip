@@ -16,8 +16,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { acquisDuCours } from './mesCours.js';
-import { lireValeur, notesParAcquis, noteDEnsemble } from '../lib/carnet.js';
+import { fichesPour, ecrireFiche } from '../lib/fichesNotes.js';
 import { migrerFiches, REMPLI_PAR } from './fichesEvaluation.js';
 import { tfeEspaceDe } from '../lib/portailTfeStage.js';
 
@@ -34,27 +33,7 @@ const rolesDans = (tfeId, profId) => db.prepare('SELECT role FROM tfe_membre WHE
 /** Une fiche se remplit par qui elle nomme ; « jury » = le promoteur l'encode. */
 const remplit = (fiche, roles) => roles.includes(fiche.rempli_par) || (fiche.rempli_par === 'jury' && roles.includes('promoteur'));
 
-function fichesDuTfe(t, roles) {
-  migrerFiches();
-  const fiches = db.prepare(`SELECT * FROM fiche_modele WHERE annee_scolaire = ? AND domaine = 'tfe' AND ue_num = ? ORDER BY ordre, id`)
-    .all(t.annee_scolaire, t.ue_num);
-  const crit = db.prepare('SELECT aa_code, poids, consigne FROM fiche_critere WHERE fiche_id = ? ORDER BY ordre, aa_code');
-  const noteAA = db.prepare('SELECT points, mention, saisi_par, saisi_le FROM carnet_note_aa WHERE evaluation_id = ? AND etudiant_id = ? AND aa_code = ?');
-  const ensemble = db.prepare('SELECT points, mention FROM carnet_note WHERE evaluation_id = ? AND etudiant_id = ?');
-  return fiches.map(f => {
-    const libelles = new Map(acquisDuCours(f.cours_code, f.ue_num, f.annee_scolaire).map(a => [a.aa_code, a.description]));
-    const criteres = crit.all(f.id).map(c => ({
-      ...c, description: libelles.get(c.aa_code) || db.prepare('SELECT description FROM aa WHERE aa_code = ?').get(c.aa_code)?.description || '',
-      note: f.evaluation_id ? noteAA.get(f.evaluation_id, t.etudiant_id, c.aa_code) || null : null,
-    }));
-    return {
-      id: f.id, intitule: f.intitule, moment: f.moment, sur: f.sur, cours_code: f.cours_code,
-      rempli_par: f.rempli_par, rempli_par_libelle: REMPLI_PAR.tfe[f.rempli_par] || f.rempli_par,
-      a_moi: remplit(f, roles), criteres,
-      ensemble: f.evaluation_id ? ensemble.get(f.evaluation_id, t.etudiant_id) || null : null,
-    };
-  });
-}
+const fichesDuTfe = (t, roles) => fichesPour('tfe', t.annee_scolaire, t.ue_num, t.etudiant_id, f => remplit(f, roles));
 
 r.get('/', authRequired, (req, res) => {
   const profId = profDe(req);
@@ -113,39 +92,9 @@ r.put('/:tfeId/fiche/:ficheId', authRequired, (req, res) => {
     .get(Number(req.params.ficheId), t.ue_num, t.annee_scolaire);
   if (!f || !f.evaluation_id) return res.status(404).json({ error: 'Fiche introuvable pour ce TFE.' });
   if (!remplit(f, roles)) return res.status(403).json({ error: `Cette fiche se remplit par : ${REMPLI_PAR.tfe[f.rempli_par] || f.rempli_par}.` });
-  const ev = db.prepare('SELECT * FROM carnet_evaluation WHERE id = ?').get(f.evaluation_id);
-  if (!ev) return res.status(404).json({ error: 'L’évaluation du carnet de cette fiche est introuvable.' });
-  const liens = new Set(db.prepare('SELECT aa_code FROM carnet_evaluation_aa WHERE evaluation_id = ?').all(ev.id).map(x => x.aa_code));
-  const lues = [], erreurs = [];
-  for (const l of Array.isArray(req.body?.notes) ? req.body.notes : []) {
-    const aa = String(l?.aa_code || '');
-    if (!liens.has(aa)) { erreurs.push(`acquis ${aa || '(aucun)'} hors de cette fiche`); continue; }
-    const v = lireValeur(l?.valeur, ev.sur);
-    if (v.erreur) { erreurs.push(`${aa} : ${v.erreur}`); continue; }
-    lues.push({ aa, ...v });
-  }
-  if (erreurs.length) return res.status(400).json({ error: erreurs.join(' · '), erreurs });
-  const evx = { ...ev, aa: db.prepare('SELECT aa_code, poids FROM carnet_evaluation_aa WHERE evaluation_id = ?').all(ev.id) };
-  const poserAA = db.prepare(`INSERT INTO carnet_note_aa (evaluation_id, etudiant_id, aa_code, points, mention, saisi_par, saisi_le)
-    VALUES (?,?,?,?,?,?,datetime('now'))
-    ON CONFLICT(evaluation_id, etudiant_id, aa_code) DO UPDATE SET points = excluded.points, mention = excluded.mention,
-      saisi_par = excluded.saisi_par, saisi_le = excluded.saisi_le`);
-  const oterAA = db.prepare('DELETE FROM carnet_note_aa WHERE evaluation_id = ? AND etudiant_id = ? AND aa_code = ?');
-  const poser = db.prepare(`INSERT INTO carnet_note (evaluation_id, etudiant_id, points, mention, saisi_par, saisi_le)
-    VALUES (?,?,?,?,?,datetime('now'))
-    ON CONFLICT(evaluation_id, etudiant_id) DO UPDATE SET points = excluded.points, mention = excluded.mention,
-      saisi_par = excluded.saisi_par, saisi_le = excluded.saisi_le`);
-  const oter = db.prepare('DELETE FROM carnet_note WHERE evaluation_id = ? AND etudiant_id = ?');
-  let n = 0;
-  db.transaction(() => {
-    for (const x of lues) {
-      if (x.points == null && !x.mention) n += oterAA.run(ev.id, t.etudiant_id, x.aa).changes;
-      else { poserAA.run(ev.id, t.etudiant_id, x.aa, x.points, x.mention, qui(req)); n++; }
-    }
-    const tot = noteDEnsemble(evx, (notesParAcquis([evx]).get(ev.id) || new Map()).get(t.etudiant_id));
-    if (!tot) oter.run(ev.id, t.etudiant_id); else poser.run(ev.id, t.etudiant_id, tot.points, tot.mention, qui(req));
-  })();
-  res.json({ ok: true, ecrites: n });
+  const x = ecrireFiche(f, t.etudiant_id, req.body?.notes, qui(req));
+  if (!x.ok) return res.status(x.status).json({ error: x.error, erreurs: x.erreurs });
+  res.json(x);
 });
 
 export default r;
