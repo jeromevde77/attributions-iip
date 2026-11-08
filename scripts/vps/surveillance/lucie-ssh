@@ -11,7 +11,9 @@
 # sans bruit). Les couples connus : /var/lib/lucie-ssh/connues.
 #
 # Réglages dans /etc/lucie-disque.conf : SUJET (ntfy), et SSH_SILENCE="compte …"
-# pour des comptes qui ne préviennent jamais (aucun par défaut).
+# pour les comptes des automatismes (lucie-ops se connecte toutes les quelques
+# secondes quand Claude travaille) : pour eux, PAS de notification minimale —
+# mais une adresse nouvelle sonne toujours (une clé volée viendrait d'ailleurs).
 # Essai : lucie-ssh --essai
 
 CONF=${LUCIE_DISQUE_CONF:-/etc/lucie-disque.conf}
@@ -46,9 +48,9 @@ journal() {
 journal | while read -r ligne; do
   case "$ligne" in "Accepted "*) ;; *) continue ;; esac
   read -r _ methode _ compte _ ip _ <<< "$ligne"
-  case "$SILENCE" in *" $compte "*) continue ;; esac
   cle=""; case "$ligne" in *": "*) cle=" — clé ${ligne##*: }" ;; esac
   if grep -qxF "$compte $ip" "$CONNUES"; then
+    case "$SILENCE" in *" $compte "*) continue ;; esac
     envoyer "Lucie - connexion SSH" min "$compte depuis $ip ($methode)$cle."
   else
     echo "$compte $ip" >> "$CONNUES"
