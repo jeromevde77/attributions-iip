@@ -82,5 +82,9 @@ R.genererRappelsExamens(A, { jour: '2026-11-04' });
 t('veille de la visite des copies', file().some(x => x.cle === 'examens_visite' && /Demain/.test(x.titre)));
 R.genererRappelsExamens(A, { jour: '2026-11-06' });
 t('lendemain : archivage', file().some(x => x.cle === 'examens_archivage'));
+// ── La page de garde de l'enseignant (3.5.234) ──
+const pg = X.garde({ ...l[0], aa_choisis: [{ aa_code: 'AA256.1', description: 'Réaliser un examen scanner', questions: 'Q1, Q3', points: 25 }], etudiants: [], pages: 6 });
+t('page vierge : une seule page, questions, points et total', (pg.match(/Examen — 1re session/g) || []).length === 1 && pg.includes('Q1, Q3') && pg.includes('…… / 25') && pg.includes('6</b> page(s)'), pg.slice(0, 200));
+t('elle porte l’établissement', /class="etab"/.test(pg));
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

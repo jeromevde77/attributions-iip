@@ -28,11 +28,12 @@ const MesDisponibilitesLucie = lazy(() => import('../components/MesDisponibilite
 const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
 const MaCandidatureLucie = lazy(() => import('../components/MaCandidature.jsx'));
 const VoyagesLucie = lazy(() => import('../components/VoyagesEtudes.jsx'));
+const MesExamensLucie = lazy(() => import('../components/MesExamens.jsx'));
 const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'));
 import AnnulerGestes from '../components/AnnulerGestes.jsx';
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
+import { IconClipboardText, IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -797,6 +798,7 @@ const FACES = [
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'examens', l: 'Mes examens', I: IconClipboardText },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool },
   { k: 'stages', l: 'Mes stages', I: IconBriefcase },
@@ -915,6 +917,8 @@ export default function EspaceEnseignant() {
           // MES STAGES (3.5.213) : superviseur — ses stages, ses fiches, le lien du maître de stage.
           : face === 'stages' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesStagesLucie /></Suspense> : <ChargementLucie />)
           // MA CANDIDATURE (3.5.229) : les formulaires 013 et 014, dans la campagne ouverte par la direction.
+          // MES EXAMENS (3.5.234) : la page de garde de chaque épreuve, préremplie par Lucie.
+          : face === 'examens' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesExamensLucie /></Suspense> : <ChargementLucie />)
           : face === 'candidature' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MaCandidatureLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />

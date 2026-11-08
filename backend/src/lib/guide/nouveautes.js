@@ -339,6 +339,13 @@ export const ajouts = {
   ],
   mescours: [
     {
+      titre: "Mes examens : la page de garde",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → Mes examens.",
+      texte: "Vos cours de l'année, avec la date de leurs épreuves de 1re et de 2e session quand elles sont posées au calendrier des sessions. Touchez un cours : la page de garde réglementaire s'ouvre, déjà remplie — établissement, année, session, section et bloc, unité, cours, votre nom, date et horaire (2 h pour tous). Cochez les acquis que l'examen évalue, indiquez pour chacun vos questions (« Q1, Q3 ») et ses points ; le total se calcule et se ramène sur 20 pour l'étudiant. Indiquez le nombre de pages et le matériel autorisé, puis [[Produire la page de garde|fort]] : une page vierge, ou une page par étudiant (nom et matricule déjà écrits).",
+      savoir: ["Le questionnaire, avec sa page de garde, part au secrétariat (examens@institut-prigogine.be) un mois avant l'épreuve ; celui de la 2e session en même temps.", "Les acquis proposés sont ceux pondérés pour votre cours cette année (Mes unités → Pondérer)."],
+    },
+    {
       titre: "Mes stages : superviser et faire évaluer par le maître de stage",
       pour: 'ens coo dir',
       ou: "Espace enseignant → Mes stages (dans Lucie : Mes cours → rail → Mes stages).",
