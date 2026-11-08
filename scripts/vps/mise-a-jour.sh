@@ -43,7 +43,7 @@ alerter() { # $1 = clé, $2 = message
   mkdir -p /opt/lucie/.alertes
   [ -n "$(find "$marque" -mmin -60 2>/dev/null)" ] && return
   touch "$marque"
-  [ -n "$SUJET" ] && curl -fsS -m 30 -H "Title: Lucie - mise a jour" -H "Priority: high" \
+  [ -n "$SUJET" ] && curl -4 -fsS -m 30 -H "Title: Lucie - mise a jour" -H "Priority: high" \
     -H "Tags: arrows_counterclockwise,warning" --data-binary "$2" "https://ntfy.sh/$SUJET" >/dev/null
 }
 
