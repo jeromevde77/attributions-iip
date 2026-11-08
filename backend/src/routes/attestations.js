@@ -21,6 +21,7 @@ import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
 import { sectionDuDossier } from '../lib/sectionDossier.js';
 import { protegerSignature } from '../lib/protectionSignature.js';
 import db from '../db/index.js';
+import { delibererUE } from './acquis.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
 import { gesteRequis } from '../lib/gestes.js';
@@ -175,6 +176,24 @@ export const frDate = d => {
   return '………';
 };
 
+/* UNE RÉUSSITE SANS NOTE D'UNITÉ, MAIS AVEC SES NOTES PAR ACQUIS (3.5.217, Charles, 8 novembre 2026 : « les UE déjà réussies ne
+   donnent pas lieu à des documents dans l'espace » ; tranché : « calculer, sinon signaler »). Les années reprises d'Excel ont
+   811 réussites sans note d'unité : l'attestation exige le pourcentage obtenu, elle n'était pas composée. Quand les notes par
+   acquis existent, la note d'unité se CALCULE à la lecture, par la délibération (`delibererUE`), pour la session de la réussite —
+   rien n'est écrit. Sans aucune note, elle reste vide et la pièce est nommée dans les manques. */
+let s2Connue = null;
+const aS2 = () => (s2Connue ??= db.prepare("SELECT 1 FROM pragma_table_info('etudiant_inscription') WHERE name = 'resultat_s2'").get() ? true : false);
+function noteCalculee(etudId, i) {
+  try {
+    const n = db.prepare(`SELECT COUNT(*) n FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND points IS NOT NULL`).get(etudId, i.annee_scolaire, i.ue_num).n;
+    if (!n) return null;
+    const session = sessionDeReussite(etudId, i.ue_num, i.annee_scolaire) || (i.resultat_s2 === 'reussi' ? 2 : 1);
+    const note = delibererUE(etudId, i.ue_num, i.annee_scolaire, session)?.ue?.note;
+    return note == null || !Number.isFinite(Number(note)) ? null : Number(note);
+  } catch { return null; }
+}
+
 /** Les UE réussies par un étudiant pour une année, avec ce qu'exige le modèle. */
 /**
  * @param {object} [surcharge] points arrêtés pour UNE session, par ue_num.
@@ -186,12 +205,12 @@ export const frDate = d => {
  */
 export function unitesReussies(etudId, annee, surcharge = null) {
   const insc = db.prepare(`
-    SELECT i.ue_num, i.points, i.annee_scolaire
+    SELECT i.ue_num, i.points, i.annee_scolaire${aS2() ? ', i.resultat_s2' : ''}
     FROM etudiant_inscription i
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ? AND i.resultat = 'reussi'
     ORDER BY i.ue_num
   `).all(etudId, annee).map(i => (surcharge && surcharge[i.ue_num] !== undefined
-    ? { ...i, points: surcharge[i.ue_num] } : i));
+    ? { ...i, points: surcharge[i.ue_num] } : { ...i, points: i.points ?? noteCalculee(etudId, i) }));
 
   return insc.map(i => decrireUnite(i.ue_num, i.annee_scolaire, { points: i.points }, { etudiant_id: etudId }));
 }

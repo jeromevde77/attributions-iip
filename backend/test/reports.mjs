@@ -150,6 +150,25 @@ t('le report du cours porte les notes réelles des acquis, pas un 10 forfaitaire
   JSON.stringify(e.cours[0].aas.map(a => a.note).sort()) === JSON.stringify([12, 14]),
   JSON.stringify(e.cours[0].aas));
 
+
+console.log('\n— Une réussite reprise sans note d’unité (3.5.217) —');
+{
+  for (const [tb, c] of [['etudiant_inscription', 'points REAL'], ['ue', 'hors_cursus INTEGER'], ['ue', 'ects REAL'], ['ue', 'domaine TEXT'], ['ue', 'type_enseignement TEXT'], ['ue', 'ue_code_fwb TEXT'], ['ue', 'ue_per_etudiants INTEGER'], ['ue', 'ue_aut INTEGER'], ['ue', 'is_epreuve_integree INTEGER'], ['section', 'domaine TEXT'], ['section', 'type_enseignement TEXT'], ['section', 'libelle TEXT'], ['etudiant_note_detail', 'mention TEXT'], ['etudiant_note_detail', 'origine TEXT'], ['deliberation_ajustement', 'session INTEGER NOT NULL DEFAULT 1']]) { try { db.exec(`ALTER TABLE ${tb} ADD COLUMN ${c}`); } catch { /* déjà là */ } }
+  db.exec('CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, section_rattachement TEXT)');
+  const T = await import('../src/routes/attestations.js');
+  db.prepare(`INSERT OR REPLACE INTO etudiant_inscription (etudiant_id, ue_num, annee_scolaire, resultat) VALUES (50, 900, '2025-2026', 'reussi')`).run();
+  for (const [cc, aa, pts] of [['C1','AA900.1',14],['C1','AA900.2',12],['C2','AA900.3',16],['C2','AA900.4',10]]) {
+    db.prepare(`INSERT INTO etudiant_note_detail (etudiant_id, ue_num, annee_scolaire, type, code, cours_code, points, non_evalue)
+      VALUES (50, 900, '2025-2026', 'aa', ?, ?, ?, 0)`).run('s1|' + cc + '|' + aa, cc, pts);
+  }
+  db.prepare(`INSERT OR REPLACE INTO etudiant_inscription (etudiant_id, ue_num, annee_scolaire, resultat) VALUES (51, 900, '2025-2026', 'reussi')`).run();
+  const [u50] = T.unitesReussies(50, '2025-2026');
+  const [u51] = T.unitesReussies(51, '2025-2026');
+  t('avec ses notes par acquis, le pourcentage se calcule (13/20 → 65 %)', u50 && u50.pourcentage === 65, JSON.stringify(u50 && { p: u50.pourcentage, m: u50.manques }));
+  t('le pourcentage calculé ne manque plus', u50 && !u50.manques.includes('le pourcentage obtenu'));
+  t('sans aucune note, le pourcentage reste manquant (signalé)', u51 && u51.manques.includes('le pourcentage obtenu'), JSON.stringify(u51 && u51.manques));
+}
+
 console.log(`\n${ok} vérifications passées, ${ko} en défaut.`);
 fs.rmSync(dir, { recursive: true, force: true });
 process.exit(ko ? 1 : 0);
