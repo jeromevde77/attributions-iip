@@ -357,7 +357,7 @@ async function deposer() {
   }
 }
 
-async function deposerDocuments() {
+async function deposerDocuments({ prioritaires = [] } = {}) {
   // D'abord le dépôt d'office des pièces de délibération (3.1.510) : elles entrent au registre, puis partent ci-dessous.
   const visibles = etudiantsVisibles();
   const office = visibles.filter(e => e.fonctions.includes('depot_office') && e.fonctions.includes('documents'));
@@ -395,19 +395,46 @@ async function deposerDocuments() {
   }
   const aRetirer = [...connus].filter(id => !envois.some(m => m.id === id && ids.has(m.destinataire_id)));
   if (aRetirer.length) await appel('POST', '/interne/documents/retirer', { ids: aRetirer });
+  /* Les pièces d'un étudiant ouvert en aperçu passent devant (3.5.214) : avec les 5 497 attestations des années passées, celles
+     d'un étudiant pouvaient attendre plusieurs passages derrière celles des autres. */
+  const devant = new Set(prioritaires.map(Number));
+  if (devant.size) envois = [...envois.filter(m => devant.has(m.destinataire_id)), ...envois.filter(m => !devant.has(m.destinataire_id))];
   const lot = [];
+  let echecs = 0, dernierEchec = null;
   for (const m of envois) {
     if (lot.length >= 20) break;
     if (connus.has(m.id) || !ids.has(m.destinataire_id)) continue;
     const c = await copieDeLEnvoi(m.id);
-    if (c.erreur) continue;
+    if (c.erreur) { echecs++; dernierEchec = `envoi ${m.id} : ${c.erreur}`; continue; }
     lot.push({ id: m.id, etudiant_id: m.destinataire_id, sujet: titreDe(m), nom_fichier: c.nom, envoye_le: m.envoye_le,
       reference: m.reference, mime: c.type, contenu_b64: Buffer.from(c.corps).toString('base64') });
   }
   if (lot.length) await appel('POST', '/interne/documents', { documents: lot });
+  try { db.prepare('UPDATE portail_etape SET n = ? WHERE etape = ?').run(lot.length, devant.size ? 'apercu_documents' : 'documents'); } catch { /* table créée au premier passage */ }
+  if (echecs) throw new Error(`${echecs} pièce(s) non composée(s) — ${dernierEchec}`);
 }
 
 let tours = 0, enCours = false;
+
+/* CHAQUE ÉTAPE DU PASSAGE EST À PART, ET SON RÉSULTAT SE LIT (3.5.214, Charles, 8 novembre 2026 : « dans l'espace étudiant, il n'y a
+   plus les attestations »). Le relevé, le dépôt des données et celui des documents s'enchaînaient dans un seul `try` : une erreur
+   du relevé (ou du dépôt) arrêtait tout ce qui suivait, pour tout le monde, et ne s'écrivait au journal qu'un passage sur trente.
+   Désormais chaque étape tourne seule, et `portail_etape` garde, par étape, le dernier succès, la dernière erreur et sa durée —
+   lisible en base (`lecture`) sans les journaux du conteneur. */
+function noterEtape(etape, debut, erreur) {
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS portail_etape (etape TEXT PRIMARY KEY, ok_le TEXT, erreur TEXT, erreur_le TEXT, duree_ms INTEGER, n INTEGER)`);
+    if (erreur) db.prepare(`INSERT INTO portail_etape (etape, erreur, erreur_le, duree_ms) VALUES (?,?,datetime('now'),?)
+      ON CONFLICT(etape) DO UPDATE SET erreur = excluded.erreur, erreur_le = excluded.erreur_le, duree_ms = excluded.duree_ms`).run(etape, String(erreur).slice(0, 500), Date.now() - debut);
+    else db.prepare(`INSERT INTO portail_etape (etape, ok_le, duree_ms) VALUES (?,datetime('now'),?)
+      ON CONFLICT(etape) DO UPDATE SET ok_le = excluded.ok_le, duree_ms = excluded.duree_ms`).run(etape, Date.now() - debut);
+  } catch { /* la trace ne bloque rien */ }
+}
+async function etape(nom, fn) {
+  const debut = Date.now();
+  try { const x = await fn(); noterEtape(nom, debut, null); return x; }
+  catch (e) { console.error(`[portail] ${nom} :`, e.message); noterEtape(nom, debut, e.stack || e.message); return null; }
+}
 /** Le prochain passage (dans les dix secondes) dépose tout : après un geste de l'école que le portail doit voir vite. */
 export const deposerBientot = () => { tours = 0; };
 export async function passerPortail() {
@@ -415,7 +442,7 @@ export async function passerPortail() {
   enCours = true;
   try {
     migrerPortail();
-    await relever();
+    await etape('releve', relever);
     // L'ESPACE ENSEIGNANT (3.5.076) : relevé à chaque passage ; déposé toutes les deux minutes, et aussitôt après des
     // présences reprises (pour qu'il voie ce que Lucie a gardé). Une panne ici n'arrête pas l'espace des étudiants.
     // Le relevé de l'espace enseignant a sa propre boucle, rapide (3.5.135, `releverEnseignantsVite`).
@@ -424,7 +451,7 @@ export async function passerPortail() {
       try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); }
       try { await deposerDocumentsEnseignants(appel); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
     }
-    if (tours % 12 === 0) { await deposer(); await deposerDocuments(); }
+    if (tours % 12 === 0) { await etape('deposer', deposer); await etape('documents', deposerDocuments); }
     if (toursDocsUE++ % 60 === 0) { try { await deposerDocsUE(); } catch (e) { console.error('[espace] DUE et dossiers :', e.message); } }
     if (tours % 6 === 0) { try { await deposerSupports(); } catch (e) { console.error('[espace] supports de cours :', e.message); } }
     tours++;
@@ -590,8 +617,9 @@ export async function ouvrirApercu(etudiantId, par) {
     try { url = await lien(); }
     catch (e) { if (!/404/.test(e.message)) throw e; await deposer(); url = await lien(); }
     (async () => {
-      try { await deposer(); await deposerVA([Number(etudiantId)]); await deposerDocuments(); }
-      catch (e) { console.error('[portail] aperçu, dépôt :', e.message); }
+      await etape('apercu_deposer', deposer);
+      await etape('apercu_va', () => deposerVA([Number(etudiantId)]));
+      await etape('apercu_documents', () => deposerDocuments({ prioritaires: [Number(etudiantId)] }));
     })();
     return { url };
   } catch (e) {
