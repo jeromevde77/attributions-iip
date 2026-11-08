@@ -158,7 +158,7 @@ async function demanderMotifs(refus) {
 }
 
 const SENS_PUCE = { r: 'réussie', f: 'réussie par faveur', i: 'inscrite cette année',
-  a: 'ajournée, en attente', o: 'atteignable, non prise', n: 'pas encore atteignable' };
+  a: 'ajournée, en attente', o: 'atteignable, non prise', n: 'pas encore atteignable', x: 'échouée deux fois' };
 function FriseParcours({ ues, codes, ects = null }) {
   if (!ues?.length || !codes) return null;
   const groupes = [];

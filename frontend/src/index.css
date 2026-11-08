@@ -1175,6 +1175,7 @@ select[multiple], select[size]:not([size="1"]) {
 .puce-ue[data-c="f"] { --e: var(--c-faveur); }
 .puce-ue[data-c="i"] { --e: var(--c-disponible); }
 .puce-ue[data-c="a"] { --e: var(--c-attente); }
+.puce-ue[data-c="x"] { --e: var(--c-refuse); background: var(--e); border-color: var(--e); color: #fff; }
 .puce-ue[data-c="o"] { background: var(--blanc); border-color: var(--c-filet, rgb(var(--gris-200))); color: rgb(var(--gris-500)); }
 .puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: var(--c-filet, rgb(var(--gris-200))); border-left-color: rgb(var(--gris-200)); color: rgb(var(--gris-400)); }
 /* ── LA GÉLULE DE BLOC (Charles, 27 septembre 2026 : « cette mise en forme,
@@ -1199,6 +1200,7 @@ select[multiple], select[size]:not([size="1"]) {
 .gelule > span[data-c="f"] { background: var(--c-faveur); color: #fff; }
 .gelule > span[data-c="i"] { background: var(--c-disponible); color: #fff; }
 .gelule > span[data-c="a"] { background: var(--c-attente); color: #fff; }
+.gelule > span[data-c="x"] { background: var(--c-refuse); color: #fff; }   /* échouée deux fois (3.5.215) */
 .gelule > span[data-c="o"] { color: rgb(var(--gris-500)); }
 .gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: rgb(var(--gris-400)); }
 

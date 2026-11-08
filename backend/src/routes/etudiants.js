@@ -1315,6 +1315,9 @@ r.get('/frises', authRequired, (req, res) => {
       AND annee_scolaire = (SELECT MAX(u2.annee_scolaire) FROM ue u2 WHERE u2.ue_num = ue.ue_num AND u2.ects IS NOT NULL AND u2.annee_scolaire <= ?)
       GROUP BY ue_num`).all(annee).map(x => [x.ue_num, Number(x.e) || 0]));
 
+  // ÉCHOUÉE DEUX FOIS (3.5.215) : refusée deux années distinctes — puce rouge (« x ») dans la frise, comme dans le schéma.
+  const echecDouble = new Set(db.prepare(`SELECT etudiant_id, ue_num FROM etudiant_inscription WHERE resultat = 'refuse'
+      GROUP BY etudiant_id, ue_num HAVING COUNT(DISTINCT annee_scolaire) >= 2`).all().map(x => `${x.etudiant_id}|${x.ue_num}`));
   const graphes = {};
   const graphe = sec => {
     if (graphes[sec] !== undefined) return graphes[sec];
@@ -1348,6 +1351,7 @@ r.get('/frises', authRequired, (req, res) => {
       const u = n.ue_num;
       const st = faits.etats.get(u)?.statut || 'bloquee';
       if (st === 'acquise') return faveurs.has(`${e.id}|${u}|${reussiesAn.get(`${e.id}|${u}`)}`) ? 'f' : 'r';
+      if (echecDouble.has(`${e.id}|${u}`)) return 'x';
       if (inscrites.has(u)) return 'i';
       if (st === 'en_attente') return 'a';
       if (st === 'accessible' || st === 'sous_reserve') return 'o';
@@ -1368,6 +1372,7 @@ r.get('/frises', authRequired, (req, res) => {
         const u = n.ue_num;
         const st = faits.etats.get(u)?.statut || 'bloquee';
         if (st === 'acquise') return faveurs.has(`${e.id}|${u}|${reussiesAn.get(`${e.id}|${u}`)}`) ? 'f' : 'r';
+        if (echecDouble.has(`${e.id}|${u}`)) return 'x';
         if (inscrites.has(u)) return 'i';
         if (st === 'en_attente') return 'a';
         if (st === 'accessible' || st === 'sous_reserve') return 'o';
@@ -7065,7 +7070,16 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
   const nums = (g.nodes || []).map(n => n.ue_num);
   const determinantes = new Set(nums.length ? db.prepare(`SELECT DISTINCT ue_num FROM ue
       WHERE ue_det = 'x' AND ue_num IN (${nums.map(() => '?').join(',')})`).all(...nums).map(r0 => r0.ue_num) : []);
-  for (const n of g.nodes || []) { n.refusee = refusees.has(n.ue_num); n.determinante = determinantes.has(n.ue_num); }
+  /* ÉCHOUÉE DEUX FOIS : TOUTE LA TUILE EN ROUGE (3.5.215, Charles, 8 novembre 2026 : « quand une UE est échouée à deux reprises,
+     par exemple en 24-25 et 25-26, les profs veulent qu'elle soit rouge dans le schéma, partout où il y en a un »). Deux années
+     scolaires distinctes avec un refus (la décision finale de l'année), tant que l'unité n'est pas acquise depuis. */
+  const refusAnnees = new Map(db.prepare(`SELECT ue_num, COUNT(DISTINCT annee_scolaire) n FROM etudiant_inscription
+      WHERE etudiant_id = ? AND resultat = 'refuse' GROUP BY ue_num`).all(etudId).map(r0 => [r0.ue_num, r0.n]));
+  for (const n of g.nodes || []) {
+    n.refusee = refusees.has(n.ue_num); n.determinante = determinantes.has(n.ue_num);
+    n.refus_annees = refusAnnees.get(n.ue_num) || 0;
+    n.echec_double = n.refus_annees >= 2 && n.statut !== 'acquise';
+  }
 
   return { ...g, sections, annee, archives };
 }

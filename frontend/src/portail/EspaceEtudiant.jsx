@@ -1020,7 +1020,13 @@ function Espace() {
     const apercu = new URLSearchParams(window.location.search).get('apercu');
     if (apercu) {
       window.history.replaceState(null, '', '/');
-      appel('POST', '/apercu', { jeton: apercu }).then(j => { poser(j.token); setConnecte(true); charger(); }).catch(e => setErreur(e.message));
+      /* LES DONNÉES ARRIVENT APRÈS LE LIEN (3.5.128) : Lucie dépose les pièces de l'étudiant en arrière-plan — une
+         vingtaine d'attestations prennent ~45 s. L'aperçu se relit donc toutes les 15 s pendant trois minutes (3.5.216,
+         Charles : « pourquoi ATEMEZEM Maylis n'a pas ses documents ? » — ils arrivaient 45 s après l'ouverture). */
+      appel('POST', '/apercu', { jeton: apercu }).then(j => {
+        poser(j.token); setConnecte(true); charger();
+        let n = 0; const t = setInterval(() => { if (++n > 12) clearInterval(t); else charger(); }, 15000);
+      }).catch(e => setErreur(e.message));
       return;
     }
     if (lire()) { charger(); return; }

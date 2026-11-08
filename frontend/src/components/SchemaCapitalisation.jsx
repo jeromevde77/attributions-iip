@@ -532,7 +532,10 @@ export default function SchemaCapitalisation({
                    26 septembre 2026 — « qu'elles ressortent ; pas le liseré noir,
                    c'est moche »). Une UE déjà acquise reste verte. */
                 const auProgramme = n.inscrite && statut !== 'acquise' && statut !== 'faveur' && mode === 'etudiant';
-                const base = auProgramme
+                /* ÉCHOUÉE DEUX FOIS (3.5.215) : rouge plein, écriture blanche — passe devant le bleu du programme. */
+                const base = n.echec_double && mode === 'etudiant'
+                  ? { fond: 'var(--c-refuse)', bord: 'var(--c-refuse)', rail: 'color-mix(in srgb, var(--c-refuse) 70%, #000)', texte: '#FFFFFF' }
+                  : auProgramme
                   ? { fond: 'var(--c-disponible)', bord: 'var(--c-disponible)', rail: 'color-mix(in srgb, var(--c-disponible) 70%, #000)', texte: '#FFFFFF' }
                   : couleursCap(statut);
                 const ei = !!n.epreuve_integree;
@@ -562,6 +565,7 @@ export default function SchemaCapitalisation({
                         en mots, la note, ce qui manque encore, et ce que fait un clic. */}
                     <title>{[`UE ${n.ue_num} — ${n.ue_nom || ''}`,
                       [n.ue_niv, LIBELLE_CAP[statut] || null, n.inscrite ? 'au programme cette année' : null].filter(Boolean).join(' · '),
+                      n.echec_double ? `Échouée ${n.refus_annees} fois (refusée deux années)` : null,
                       n.reussite ? `Réussie${n.reussite.annee ? ' en ' + n.reussite.annee : ''}${n.reussite.va ? ' par ' + (n.reussite.sigle || 'VA') : n.reussite.note != null ? ` — ${n.reussite.note}/20` : ''}` : null,
                       n.prerequis?.length ? 'Prérequis : UE ' + n.prerequis.join(', ') : null,
                       n.prereq_manquants?.length ? 'Il manque encore : UE ' + n.prereq_manquants.join(', ') : null,
@@ -735,6 +739,9 @@ export default function SchemaCapitalisation({
               ))}
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-3.5 h-3 rounded-sm" style={{ background: 'var(--c-disponible)' }} /> au programme cette année
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3 rounded-sm" style={{ background: 'var(--c-refuse)' }} /> échouée deux fois
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-3.5 h-3 rounded-r-sm border border-slate-200"

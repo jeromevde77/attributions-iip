@@ -124,6 +124,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   const fonce = c => `color-mix(in srgb, ${c} 62%, #000)`;
   const plein = c => ({ fond: c, bord: c, lisere: fonce(c), texte: '#fff' });
   const etatTuile = n => {
+    // ÉCHOUÉE DEUX FOIS (3.5.215) : rouge plein, devant tout le reste.
+    if (n.echec_double) return plein(ROUGE);
     if (n.epreuve_integree && !['acquise'].includes(n.statut)) return { fond: BLANC, bord: FILET, lisere: OR_EPREUVE, texte: ENCRE };
     // ACQUISE PAR VALORISATION : CONTOUR VERT ET « VA » ÉCRIT (Charles, 7 octobre
     // 2026) — le vert plein reste à l'unité réussie en délibération.
@@ -220,6 +222,7 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
         <Leg fond={FOND_INDISPO} lisere={GRIS_FLECHE} /> pas encore ·
         <Leg lisere={ROUGE} /> ajournée ·
         <Leg lisere={OR_EPREUVE} /> épreuve ·
+        <Leg fond={ROUGE} lisere="color-mix(in srgb, var(--c-refuse) 62%, #000)" /> échouée deux fois ·
         <Rep c={ROUGE} g /> refusée une fois ·
         <Rep c={MARINE} /> déterminante<br />
         Flèche bleue pleine : elle touche le PAE de l'année · grise : le reste du parcours · pointillés : prérequis recommandé.
