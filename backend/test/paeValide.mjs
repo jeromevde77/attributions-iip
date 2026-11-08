@@ -34,5 +34,15 @@ db.prepare("INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_nu
 db.prepare("INSERT OR REPLACE INTO etudiant_pae VALUES (1,'2026-2027','2026-10-01 10:00:00','dir@x')").run();
 const b = await dans({ method: 'PUT', headers: { 'x-lucie-modifier-pae': '1' } }, ecrire);
 t('avec l’accord : écrit, et la validation tombe', b.retirees.length === 1 && b.confirmation_retiree === true);
+// Après le 1/10 (3.5.238) : retirer est refusé sans accord, l'accord écrit.
+db.exec("CREATE TABLE IF NOT EXISTS organisation_ue (ue_num INTEGER, annee_scolaire TEXT, section TEXT, num_organisation INTEGER, date_debut TEXT, date_fin TEXT, hybride INTEGER)");
+db.exec("CREATE TABLE IF NOT EXISTS horaire_seance (id INTEGER PRIMARY KEY, annee_scolaire TEXT, date TEXT, ue_num INTEGER, cours_code TEXT, annule INTEGER, section TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS cours (cours_code TEXT, ue_num INTEGER, annee_scolaire TEXT)");
+db.prepare("INSERT INTO organisation_ue VALUES (256,'2026-2027','TIM',1,'2026-09-01','2026-10-31',0)").run();
+db.prepare("INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num) VALUES (1,'2026-2027',256)").run();
+let e2 = null; try { await dans({ method: 'PUT', headers: {} }, ecrire); } catch (e) { e2 = e; }
+t('après le 1/10 : refus 409 « apres_dixieme »', e2?.code === 'apres_dixieme' && /abandon/.test(e2.message), e2?.message);
+const c = await dans({ method: 'PUT', headers: { 'x-lucie-apres-dixieme': '1' } }, ecrire);
+t('avec l’accord : retirée', c.retirees.length === 1);
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

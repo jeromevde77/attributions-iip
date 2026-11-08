@@ -83,7 +83,32 @@ export const MOTIFS_DI = [
   { code: 'obligation',    libelle: "Obligation imposée par une autorité publique" },
   { code: 'fle_a2',        libelle: 'Français langue étrangère, niveau A2 au plus' },
   { code: 'alpha',         libelle: 'Alphabétisation ou secondaire inférieur sans CEB requis' },
+  /* Les cas que la circulaire 9764 (dossier de l'apprenant) ajoute ou distingue (3.5.238) : chacun a sa pièce, et la
+     vérification lit le motif en clair sur la fiche d'inscription et au registre matricule. */
+  { code: 'mutuelle',      libelle: 'Chômeur complet qui, au 1/10, émarge à la mutuelle' },
+  { code: 'fedasil',       libelle: 'Hébergé dans un centre FEDASIL ou d\u2019un organisme agréé' },
+  { code: 'aesi_allocation', libelle: 'BES AeSI — allocation d\u2019études (décret du 18/11/2021)' },
+  { code: 'codiplomation', libelle: 'Programme d\u2019études en codiplômation' },
+  { code: 'incarcere',     libelle: 'Personne incarcérée (billet d\u2019écrou ou attestation de l\u2019établissement pénitentiaire)' },
+  { code: 'aide_soignant_7p', libelle: '7e professionnelle « Aide-soignant » — formation complémentaire' },
+  { code: 'numerique_educatif', libelle: 'Chargé de cours en fonction — numérique éducatif ou conseiller technopédagogique' },
+  { code: 'alternative_7e', libelle: 'Alternatives 7e reprises par l\u2019EA (circulaire 9537)' },
 ];
+
+/* L'EXEMPTION EST PAR ANNÉE, ET SA PIÈCE A UNE DATE (3.5.238, circulaire 9764 : « les documents permettant d'obtenir une
+   exonération restent valables pour toute l'année académique, à condition que le 1/10e de l'UE se situe dans cette même année » ;
+   les pièces valent pour les UE dont le 1/10 est postérieur à la date à laquelle l'apprenant remplit la condition). L'exemption
+   vivait sur la fiche de l'étudiant, sans année : celle de 2025-2026 valait encore en 2026-2027. Table `di_exemption`, une ligne par
+   étudiant et par année ; à défaut, la fiche (les années d'avant). */
+export function exemptionDI(etudId, annee) {
+  let r = null;
+  try { r = db.prepare('SELECT * FROM di_exemption WHERE etudiant_id = ? AND annee_scolaire = ?').get(etudId, annee); } catch { /* table absente */ }
+  if (r) return { exonere: !!r.exonere, motif: r.exonere ? (r.motif || null) : null, justif_date: r.justif_date || null,
+    organisme: r.organisme || null, source: 'annee' };
+  const e = db.prepare('SELECT di_exonere, di_motif FROM etudiant WHERE id = ?').get(etudId) || {};
+  return { exonere: !!e.di_exonere, motif: e.di_exonere ? (e.di_motif || null) : null, justif_date: null, organisme: null, source: 'fiche' };
+}
+export const libelleMotifDI = code => MOTIFS_DI.find(m => m.code === code)?.libelle || code || '';
 
 // Motifs d'exemption du DIS — A.E. 25-09-1991, article 1er
 export const MOTIFS_DIS = [
@@ -127,6 +152,11 @@ export function migrerDroitInscription(dbx) {
     // vient le DI ») : qui perçoit, et pourquoi.
     addCol('di_tiers TEXT');
     addCol('di_tiers_motif TEXT');
+    dbx.exec(`CREATE TABLE IF NOT EXISTS di_exemption (
+      etudiant_id INTEGER NOT NULL, annee_scolaire TEXT NOT NULL,
+      exonere INTEGER NOT NULL DEFAULT 0, motif TEXT, justif_date TEXT, organisme TEXT,
+      par TEXT, maj_le TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (etudiant_id, annee_scolaire))`);
     dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`)
       .run('di.sections_tiers', 'Orthoptie=HELB', "Sections dont les droits et frais sont perçus par un tiers (Section=Payeur, séparés par des virgules)", null, 'couts');
     console.log('[migration] di_bareme + champs droit d\u2019inscription');
@@ -278,7 +308,8 @@ export function calculerDI(etudId, annee) {
   const montantSup = supRetenues * b.tarif_superieur;
   const brut = detail.length ? b.forfait + montantSec + montantSup : 0;
 
-  const exonere = !!e.di_exonere;
+  const exo = exemptionDI(etudId, annee);
+  const exonere = exo.exonere;
   const du = exonere ? 0 : Math.round(brut * 100) / 100;
 
   // Arrondi aux 5 cents les plus proches — uniquement sur le montant perçu
@@ -299,7 +330,10 @@ export function calculerDI(etudId, annee) {
     montant_du: du,
     montant_arrondi: percu,
     exonere,
-    motif: e.di_motif || null,
+    motif: exo.motif,
+    motif_libelle: exo.motif ? libelleMotifDI(exo.motif) : null,
+    justif_date: exo.justif_date,
+    organisme: exo.organisme,
     tiers: payeurTiers(etudId, annee),
   };
 }
@@ -353,6 +387,17 @@ r.get('/etudiant/:id', authRequired, async (req, res) => {
 // ── Situation de l'étudiant au regard des deux droits ──────────────────────
 r.put('/etudiant/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { di_exonere, di_motif, dis_soumis, dis_motif_exemption, dis_periodes_hebdo } = req.body;
+  /* Avec une année (3.5.238), l'exemption s'écrit pour CETTE année (di_exemption) ; la fiche suit, comme repère de la dernière. */
+  const annee = req.body.annee || req.query.annee || null;
+  if (annee) {
+    const u = req.user || {};
+    db.prepare(`INSERT INTO di_exemption (etudiant_id, annee_scolaire, exonere, motif, justif_date, organisme, par)
+      VALUES (?,?,?,?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET exonere = excluded.exonere, motif = excluded.motif,
+        justif_date = excluded.justif_date, organisme = excluded.organisme, par = excluded.par, maj_le = datetime('now')`)
+      .run(Number(req.params.id), annee, di_exonere ? 1 : 0, di_exonere ? (di_motif || null) : null,
+        di_exonere ? (req.body.di_justif_date || null) : null, di_exonere ? (String(req.body.di_organisme || '').trim() || null) : null,
+        u.nom_complet || u.email || null);
+  }
   db.prepare(`
     UPDATE etudiant SET
       di_exonere = ?, di_motif = ?,

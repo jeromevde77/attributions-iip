@@ -23,7 +23,8 @@ import { donneesInscritsUnites } from './etudiants.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE, aRepresenterParCours } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
-import { MOTIFS_DI } from './droitInscription.js';
+import { MOTIFS_DI, calculerDI, libelleMotifDI, exemptionDI } from './droitInscription.js';
+import { dixiemeUE } from '../lib/datesReelles.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
 import { financesFormations, donneesCout, syntheseCout } from '../lib/coutFormation.js';
 import { getParamNum } from './parametres.js';
@@ -1329,6 +1330,76 @@ function registreAbsences(p) {
   } catch { /* table absente */ }
   return lignes.sort((x, y) => x.date.localeCompare(y.date) || x.nom.localeCompare(y.nom, 'fr'));
 }
+/* LE REGISTRE MATRICULE DES APPRENANTS ET DI (3.5.238, circulaire 9764, note 12) : « organisé par ordre alphabétique, il recense
+   tous les apprenants inscrits à tout moment de l'année académique et reprend, sous forme de colonnes, les informations de la fiche
+   d'inscription : nom, prénom, date de naissance, codes des UE suivies, montant du DI ou motif d'exemption. Il regroupe l'ensemble des
+   étudiants inscrits dans des UE dont la date du 1er/10e se situe au cours de cette année académique. » Édité à la fin de l'année,
+   conservé trente ans. Le 1/10 : dixiemeUE (dates de l'organisation de l'étudiant). L'année académique : 1er septembre → 31 août. */
+export function registreMatricule(p) {
+  const [a0] = String(p.annee || '').split('-').map(Number);
+  if (!a0) return [];
+  const du = `${a0}-09-01`, au = `${a0 + 1}-08-31`;
+  const prec = `${a0 - 1}-${a0}`;
+  const ins = db.prepare(`SELECT i.etudiant_id, i.annee_scolaire, i.ue_num, i.num_organisation, i.date_inscription,
+      e.nom, e.prenom, e.date_naissance, e.matricule
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire IN (?, ?)`).all(p.annee, prec);
+  const code = db.prepare(`SELECT ue_code_fwb, section FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`);
+  const dix = new Map(), codes = new Map();
+  const dixDe = (u, an, org) => { const k = `${u}|${an}|${org || ''}`; if (!dix.has(k)) { let d = null; try { d = dixiemeUE(u, an, { numOrganisation: org || null })?.date || null; } catch { /* */ } dix.set(k, d); } return dix.get(k); };
+  const codeDe = u => { if (!codes.has(u)) { let c = null; try { c = code.get(u, p.annee) || null; } catch { /* */ } codes.set(u, c); } return codes.get(u); };
+  const parEtud = new Map();
+  for (const x of ins) {
+    const d = dixDe(x.ue_num, x.annee_scolaire, x.num_organisation);
+    // Une UE sans date ni séance : on la tient de l'année de son inscription, faute de mieux (elle est signalée).
+    if (d ? (d < du || d > au) : x.annee_scolaire !== p.annee) continue;
+    if (p.section && codeDe(x.ue_num)?.section !== p.section) continue;
+    const e = parEtud.get(x.etudiant_id) || parEtud.set(x.etudiant_id, { id: x.etudiant_id, nom: x.nom, prenom: x.prenom,
+      date_naissance: x.date_naissance, matricule: x.matricule, ues: [], annees: new Set() }).get(x.etudiant_id);
+    e.ues.push({ ue_num: x.ue_num, code: codeDe(x.ue_num)?.ue_code_fwb || '', dixieme: d, sans_date: !d });
+    e.annees.add(x.annee_scolaire);
+  }
+  const eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
+  return [...parEtud.values()]
+    .sort((a, b) => String(a.nom || '').localeCompare(String(b.nom || ''), 'fr') || String(a.prenom || '').localeCompare(String(b.prenom || ''), 'fr'))
+    .map(e => {
+      // Le DI de l'année d'inscription (ou des deux, quand une UE de l'an dernier atteint son 1/10 dans cette année).
+      const annees = [...e.annees].sort();
+      // L'exemption se lit d'elle-même (exemptionDI) : un calcul du montant qui échoue ne doit pas la faire passer pour « 0,00 € ».
+      const exo = annees.map(an => exemptionDI(e.id, an)).find(x => x.exonere);
+      let dis = [], echec = false;
+      for (const an of annees) { try { const d = calculerDI(e.id, an); if (d) dis.push(d); } catch { echec = true; } }
+      const tiers = dis.find(d => d.tiers)?.tiers;
+      const di = exo ? `Exempté — ${libelleMotifDI(exo.motif) || 'motif à préciser'}`
+        : tiers ? `Perçu par ${tiers.payeur}` : echec ? 'à vérifier (calcul impossible)' : eur(dis.reduce((t, d) => t + (Number(d.montant_arrondi) || 0), 0));
+      e.ues.sort((a, b) => a.ue_num - b.ue_num);
+      return { nom: String(e.nom || '').toUpperCase(), prenom: e.prenom || '', date_naissance: e.date_naissance ? String(e.date_naissance).slice(0, 10) : '',
+        matricule: e.matricule || '', ues: e.ues.map(u => `${u.ue_num}${u.code ? ` (${u.code})` : ''}`).join(', '), nb_ue: e.ues.length,
+        di, exempte: !!exo, sans_date: e.ues.some(u => u.sans_date), ue_liste: e.ues };
+    });
+}
+
+function documentRegistreMatricule(p) {
+  const l = registreMatricule(p);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  const exemptes = l.filter(x => x.exempte).length;
+  const corps = !l.length ? '<p class="fin">Aucun apprenant inscrit dans une UE dont le premier dixième tombe dans cette année.</p>'
+    : `<p class="fin">${l.length} apprenant(s), dont ${exemptes} exempté(s) du droit d’inscription. Ordre alphabétique.</p>
+      <table class="serre"><thead><tr><th class="n" style="width:10mm">N°</th><th>Nom</th><th>Prénom</th><th style="width:20mm">Né(e) le</th>
+        <th style="width:22mm">Matricule</th><th>Unités d’enseignement (code administratif)</th><th style="width:48mm">Droit d’inscription ou motif d’exemption</th></tr></thead>
+      <tbody>${l.map((x, i) => `<tr><td class="n">${i + 1}</td><td><b>${esc(x.nom)}</b></td><td>${esc(x.prenom)}</td><td>${esc(fr(x.date_naissance))}</td>
+        <td>${esc(x.matricule)}</td><td>${esc(x.ues)}${x.sans_date ? ' <i>(UE sans dates d’organisation)</i>' : ''}</td><td>${esc(x.di)}</td></tr>`).join('')}</tbody></table>`;
+  return {
+    corps: corps + `<p class="fin">Registre matricule des apprenants et DI tenu selon la circulaire 9764 : il regroupe les apprenants inscrits dans des unités dont le premier dixième se situe entre le 1er septembre ${String(p.annee).slice(0, 4)} et le 31 août ${Number(String(p.annee).slice(0, 4)) + 1}. Édité à la fin de l’année académique, archivé au siège administratif par ordre alphabétique ; conservation : trente ans.</p>`,
+    titre: 'Registre matricule des apprenants et DI',
+    entete: { titre: 'Registre matricule des apprenants et DI', sous: `Année académique ${p.annee}${p.section ? ` · ${p.section}` : ''}` },
+    orientation: 'paysage',
+    nom: `Registre-matricule-${p.annee}${p.section ? `-${p.section}` : ''}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING,
+  };
+}
+
 function documentRegistreAbsences(p) {
   const l = registreAbsences(p);
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -2507,6 +2578,16 @@ export const RAPPORTS = [
   },
 
   // ── ORGANISATION ────────────────────────────────────────────────────────
+  {
+    id: 'registre-matricule', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Registre matricule des apprenants et DI',
+    aide: "Tous les apprenants inscrits dans une UE dont le premier dixième tombe dans l’année académique, par ordre alphabétique : nom, prénom, date de naissance, matricule, codes des UE suivies, montant du droit d’inscription ou motif d’exemption (circulaire 9764). À éditer en fin d’année et à conserver trente ans.",
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur'],
+    colonnes: COLS([['n', 'N°', 6], ['nom', 'Nom', 22], ['prenom', 'Prénom', 18], ['date_naissance', 'Né(e) le', 12], ['matricule', 'Matricule', 14],
+      ['ues', 'UE (code administratif)', 50], ['di', 'DI ou motif d’exemption', 34]]),
+    lignes: (p) => registreMatricule(p).map((x, i) => ({ ...x, n: i + 1 })),
+    document: (p) => documentRegistreMatricule(p),
+  },
   {
     id: 'listes-examens', domaine: 'etudiants', params: ['annee', 'section', 'session'],
     libelle: 'Listes d’examens',

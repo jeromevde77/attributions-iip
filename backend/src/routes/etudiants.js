@@ -1,4 +1,5 @@
 import { requeteCourante } from '../lib/contexteRequete.js';
+import { dixiemeUE } from '../lib/datesReelles.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1023,6 +1024,29 @@ export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], ori
       const quand = String(v.confirme_le).slice(0, 10).split('-').reverse().join('/');
       throw Object.assign(new Error(`Le PAE ${annee} de ${String(e.nom || '').toUpperCase()} ${e.prenom || ''} a été validé le ${quand}${v.confirme_par ? ` par ${v.confirme_par}` : ''}. Le modifier retire sa validation : il devra être validé à nouveau.`),
         { status: 409, code: 'pae_valide', donnees: { etudiant_id: etudId, annee, valide_le: v.confirme_le, valide_par: v.confirme_par || null } });
+    }
+  }
+  /* UNE INSCRIPTION NE S'EFFACE PLUS APRÈS LE 1/10 SANS LE DIRE (3.5.238, circulaire 9764 : l'apprenant inscrit au premier dixième
+     compte dans le registre matricule et dans le registre de présence ; s'il cesse de venir, il est déclaré EN ABANDON, avec sa
+     date — Suivi des présences → Par UE). Depuis un écran (mode strict), retirer une UE dont le 1/10 de l'organisation de
+     l'étudiant est passé est refusé (409, code « apres_dixieme ») tant que la requête ne porte pas « X-Lucie-Apres-Dixieme » :
+     la fenêtre commune demande, puis renvoie. Les imports et les tâches sans requête ne sont pas arrêtés. */
+  if (!simulation && !refus.length && mode === 'strict' && req0 && retirables.length
+      && !/^(1|oui|true)$/i.test(String(req0.headers?.['x-lucie-apres-dixieme'] || ''))) {
+    const auj = new Date().toISOString().slice(0, 10);
+    const orgDe = db.prepare('SELECT num_organisation FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+    const passees = [];
+    for (const u of retirables) {
+      let dx = null;
+      try { dx = dixiemeUE(u, annee, { numOrganisation: orgDe.get(etudId, annee, u)?.num_organisation || null }); } catch { /* sans dates */ }
+      if (dx?.date && dx.date <= auj) passees.push({ ue_num: u, dixieme: dx.date });
+    }
+    if (passees.length) {
+      const fr = d => String(d).slice(0, 10).split('-').reverse().join('/');
+      throw Object.assign(new Error(`${passees.map(x => `L'UE ${x.ue_num} a passé son premier dixième (${fr(x.dixieme)})`).join(' ; ')}. `
+        + 'L\u2019étudiant y compte au registre matricule et au registre de présence : s\u2019il a cessé de venir, déclarez-le plutôt en abandon '
+        + '(Suivi des présences → Par UE). Retirer l\u2019unité n\u2019est juste que pour corriger une erreur d\u2019inscription.'),
+        { status: 409, code: 'apres_dixieme', donnees: { etudiant_id: etudId, annee, ues: passees } });
     }
   }
   if (simulation || refus.length) return bilan;
@@ -10763,6 +10787,16 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // que l'étudiant lit en premier. La légende reste écrite UNE fois en tête :
   // la répéter à chaque UE aurait triplé la hauteur du tableau pour une
   // information constante.
+  /* CE QUE LA CIRCULAIRE 9764 DEMANDE EN PLUS (3.5.238) : le code administratif de l'UE, le « H » d'une UE hybride, la date du
+     1/10, le niveau du DI, le motif d'exemption EN CLAIR, et le contrôle de la pièce d'exemption (valable pour les UE dont le 1/10
+     tombe après la date à laquelle l'apprenant remplit la condition). */
+  const frD = v => String(v || '').slice(0, 10).split('-').reverse().join('/');
+  const codeFwbDe = (() => { const q = db.prepare(`SELECT ue_code_fwb FROM ue WHERE ue_num = ? AND COALESCE(TRIM(ue_code_fwb), '') <> '' ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`);
+    const m = new Map(); return n => { if (!m.has(n)) { let c = null; try { c = q.get(n, annee)?.ue_code_fwb || null; } catch { /* */ } m.set(n, c); } return m.get(n); }; })();
+  const hybrideDe = (n, org) => { try { return !!db.prepare(`SELECT 1 FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ? AND COALESCE(hybride, 0) = 1 ${org ? 'AND num_organisation = ?' : ''} LIMIT 1`).get(...(org ? [n, annee, org] : [n, annee])); } catch { return false; } };
+  const dixMemo = new Map();
+  const dixDe = i => { if (!dixMemo.has(i.ue_num)) { let x = null; try { x = dixiemeUE(i.ue_num, annee, { numOrganisation: i.num_organisation || null })?.date || null; } catch { /* */ } dixMemo.set(i.ue_num, x); } return dixMemo.get(i.ue_num); };
+  const nonCouverte = i => !!(di?.exonere && di.justif_date && dixDe(i) && dixDe(i) < di.justif_date);
   const lignesInsc = inscriptions.map(i => {
     const sit = situationDe(i.ue_num);
     const sr = sit.etat === 'sous_reserve' ? sit.chaine : null;
@@ -10790,7 +10824,8 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     <tr class="ue-titre">
       <td colspan="7">
         <span class="ue-num">${i.ue_num}</span>
-        <b>${esc(i.ue_nom || '')}</b>${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${
+        <b>${esc(i.ue_nom || '')}</b>${codeFwbDe(i.ue_num) ? ` <span class="code-ue">${esc(codeFwbDe(i.ue_num))}</span>` : ''}${
+        hybrideDe(i.ue_num, i.num_organisation) ? ' <b>(H)</b>' : ''}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${
         sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${
         dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en '
           + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${alerte}
@@ -10800,10 +10835,13 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
       <td>${d?.dispensee ? 'Dispense complète' : (i.dispense_complete ? 'Dispense complète' : '—')}</td>
-      <td style="text-align:center;white-space:nowrap">${dates[0]}${dates[1] ? ' <span style="color:#94a3b8">→ ' + dates[1] + '</span>' : ''}</td>
+      <td style="text-align:center;white-space:nowrap">${dates[0]}${dates[1] ? ' <span style="color:#94a3b8">→ ' + dates[1] + '</span>' : ''}${
+        dixDe(i) ? `<br><span class="dix">1/10 : ${frD(dixDe(i))}</span>` : ''}</td>
       <td style="text-align:right;white-space:nowrap">${d ? d.periodes_brutes : '—'}${
         d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
-      <td style="text-align:right;white-space:nowrap">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
+      <td style="text-align:right">${d?.dispensee ? '—' : di?.exonere
+        ? `<span class="exo">exempté${nonCouverte(i) ? ' <b style="color:#9D4A38">— pièce postérieure au 1/10</b>' : ''}</span>`
+        : d ? `${eur(d.montant)}<br><span class="dix">${d.niveau === 'superieur' ? 'supérieur' : 'secondaire'}</span>` : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
     </tr>`;
   }).join('');
@@ -10828,7 +10866,9 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       Plafond de ${di.bareme.plafond_periodes} périodes atteint : ${di.retenues.secondaire + di.retenues.superieur}
       période(s) facturée(s) sur ${di.periodes.total}, le secondaire étant compté en premier.</td></tr>` : ''}
     ${di.exonere ? `<tr><td colspan="7" style="font-size:10px;color:#065f46">
-      Exonération du droit d'inscription${di.motif ? ' — motif enregistré' : ''}.</td></tr>` : ''}
+      Exemption du droit d'inscription — <b>${esc(di.motif_libelle || 'motif à préciser')}</b>${
+        di.organisme ? ` · pièce délivrée par ${esc(di.organisme)}` : ''}${di.justif_date ? ` le ${frD(di.justif_date)}` : ' · <b>date de la pièce à encoder</b>'}.${
+        inscriptions.some(nonCouverte) ? ` <b style="color:#9D4A38">La pièce est postérieure au 1/10 de l'UE ${inscriptions.filter(nonCouverte).map(x => x.ue_num).join(', ')} : elle ne la couvre pas.</b>` : ''}</td></tr>` : ''}
     ${dis && dis.soumis ? `<tr class="tot"><td colspan="5" style="text-align:right">
       Droit d'inscription spécifique (${dis.periodes_hebdo} pér./sem.)</td>
       <td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
@@ -10906,11 +10946,15 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .engagement { break-before: auto; }
 
   .footer { margin-top: 6mm; font-size: 7.5pt; color: #64748b; line-height: 1.4; }
+  .code-ue { font-size: 7.5pt; color: #475569; font-weight: 400; margin-left: 1mm; }
+  .dix, .exo { font-size: 7.5pt; color: #475569; }
 `;
   const corpsFiche = `
 <div class="meta">
-  ${esc(e.titre || '')} <b>${esc(e.nom)} ${esc(e.prenom)}</b>
-  ${e.date_naissance ? ' · né(e) le ' + esc(e.date_naissance) : ''}
+  ${esc(e.titre || '')} <b>${esc(e.nom)} ${esc(e.prenom)}</b>${e.matricule ? ' · matricule ' + esc(e.matricule) : ''}
+  ${e.date_naissance ? ' · né(e) le ' + esc(String(e.date_naissance).slice(0, 10).split('-').reverse().join('/')) : ''}${e.lieu_naissance ? ' à ' + esc(e.lieu_naissance) : ''}
+  ${e.sexe ? ' · ' + esc(/^(f|w)/i.test(e.sexe) ? 'féminin' : /^(m|h)/i.test(e.sexe) ? 'masculin' : e.sexe) : ''}
+  ${e.nationalite ? ' · nationalité ' + esc(e.nationalite) : ''}
   ${e.num_national ? ' · RN ' + esc(e.num_national) : ''}<br>
   ${esc([e.adresse, e.cp, e.localite].filter(Boolean).join(', '))}
   ${e.email_ecole ? ' · ' + esc(e.email_ecole) : ''}
@@ -11001,10 +11045,12 @@ ${(() => {
     Signature de l'apprenant
     <span class="mention">précédée de la mention « lu et approuvé »</span>
   </div>
-  <div>Pour l'établissement</div>
+  <div>Le chef d'établissement ou son représentant${identiteEtablissement()?.directeur ? `<span class="mention">${esc(identiteEtablissement().directeur)}</span>` : ''}</div>
+  <div>Paraphe du vérificateur</div>
 </div>
+<p class="footer">Fiche imprimée le ${new Date().toLocaleDateString('fr-BE', { timeZone: 'Europe/Brussels' })} — à réimprimer et reclasser au dossier à chaque modification.</p>
 <div class="footer">
-  Mention « CH » : UE suivie dans le cadre d'un programme d'études en codiplômation.
+  Mention « H » : UE organisée en enseignement hybride. Mention « CH » : UE suivie dans le cadre d'un programme d'études en codiplômation.
   « Sous réserve » : l'accès effectif dépend de la réussite de l'UE prérequise organisée la même année.
 </div>
 `;

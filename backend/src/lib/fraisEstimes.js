@@ -10,7 +10,7 @@
  * étudiant. Le forfait d'analyse des VA et les dispenses n'y entrent pas : une unité dispensée n'est pas cochable.
  */
 import db from '../db/index.js';
-import { bareme as baremeDI, calculerDIS, payeurTiers } from '../routes/droitInscription.js';
+import { bareme as baremeDI, calculerDIS, payeurTiers, exemptionDI } from '../routes/droitInscription.js';
 import { bareme as baremeFrais, sectionsSansFrais } from '../routes/fraisScolarite.js';
 import { sectionRattachement } from '../routes/etudiants.js';
 import { periodesDI, periodesEtudiantUE } from './periodesUE.js';
@@ -39,7 +39,7 @@ export function tarifPAE(etudId, annee, ueNums) {
   return {
     annee, forfait: bd.forfait, tarif_secondaire: bd.tarif_secondaire, tarif_superieur: bd.tarif_superieur,
     plafond: bd.plafond_periodes, frais_fixes: bf.frais_fixes, par_periode: bf.par_periode,
-    exonere_di: !!e.di_exonere, sans_frais: !!tiers || (!!sec && sectionsSansFrais().has(sec)),
+    exonere_di: exemptionDI(etudId, annee).exonere, sans_frais: !!tiers || (!!sec && sectionsSansFrais().has(sec)),
     tiers: tiers?.payeur || null, dis: dis?.soumis ? arrondi(dis.montant_du) : 0, unites,
   };
 }

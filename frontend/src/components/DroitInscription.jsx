@@ -33,7 +33,8 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
       await fetch(`/api/droit-inscription/etudiant/${etudId}`, {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
-          di_exonere: data.di.exonere, di_motif: data.di.motif,
+          annee, di_exonere: data.di.exonere, di_motif: data.di.motif,
+          di_justif_date: data.di.justif_date || null, di_organisme: data.di.organisme || null,
           dis_soumis: data.dis.soumis || data.dis.exempte,
           dis_motif_exemption: data.dis.motif_exemption,
           dis_periodes_hebdo: data.dis.periodes_hebdo,
@@ -177,6 +178,19 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                   {motifs_di.map(m => <option key={m.code} value={m.code}>{m.libelle}</option>)}
                 </select>
+              )}
+              {/* LA PIÈCE ET SA DATE (3.5.238, circulaire 9764) : l'exemption vaut pour l'année, et pour les UE dont le 1/10 tombe
+                  après la date de la pièce — la fiche d'inscription le contrôle. */}
+              {di.exonere && (
+                <div className="flex flex-wrap items-end gap-2 text-sm">
+                  <label><span className="block text-xs text-slate-500">Pièce datée du</span>
+                    <input type="date" className="controle mt-1" disabled={!peutEcrire || enregistrement} defaultValue={di.justif_date || ''}
+                      onBlur={e => e.target.value !== (di.justif_date || '') && enregistrer({ di_exonere: true, di_justif_date: e.target.value || null })} /></label>
+                  <label className="flex-1 min-w-[10rem]"><span className="block text-xs text-slate-500">Délivrée par (CPAS, Actiris, Forem…)</span>
+                    <input className="controle mt-1 w-full" disabled={!peutEcrire || enregistrement} defaultValue={di.organisme || ''}
+                      onBlur={e => e.target.value.trim() !== (di.organisme || '') && enregistrer({ di_exonere: true, di_organisme: e.target.value.trim() || null })} /></label>
+                  {!di.justif_date && <span className="text-xs" style={{ color: 'var(--c-attente)' }}>Sans date de pièce, la vérification ne peut contrôler le 1/10.</span>}
+                </div>
               )}
 
               {/* PERÇU PAR UN TIERS (Charles, 7 octobre 2026 : Orthoptie, inscription
