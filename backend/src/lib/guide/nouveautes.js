@@ -216,6 +216,13 @@ export const ajouts = {
   ],
   personnel: [
     {
+      titre: "Les candidatures des enseignants",
+      pour: 'ens sec coo dir',
+      ou: "Espace enseignant → Ma candidature. Côté école : Personnel → Candidatures → Candidatures des enseignants.",
+      texte: "Les formulaires de candidature à titre temporaire et à titre définitif, en ligne. La direction fixe la campagne : l'année visée, du … au …. Pendant la campagne, l'enseignant retrouve sa situation de l'année en cours, coche ce qu'il demande — le maintien de ses attributions, une augmentation de charge (en périodes au total), la renonciation à toute sa charge, un engagement temporaire dans des cours, un engagement à titre définitif dans des unités —, choisit les cours, confirme les conditions légales et [[Déposer ma candidature|fort]] : le dépôt vaut accusé de réception, daté. Il la remplace ou la retire tant qu'elle n'est pas analysée. Côté école, une ligne par candidature : la coordination l'analyse (ses sections), la direction la transmet au CA et la dit retenue ou non retenue (avec un mot). La pièce imprimable reprend le formulaire, coché.",
+      savoir: ["Rien ne s'écrit dans les attributions : la proposition d'attributions suit son propre chemin."],
+    },
+    {
       titre: "Voir l'espace d'un professeur ou d'un étudiant, comme lui",
       pour: 'dir',
       ou: "Fiche d'un membre du personnel, ou fiche d'un étudiant → l'œil dans la barre bleue, à côté de l'avion.",

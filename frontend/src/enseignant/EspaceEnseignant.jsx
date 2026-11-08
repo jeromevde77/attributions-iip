@@ -26,11 +26,12 @@ const MesStagesLucie = lazy(() => import('../components/MesStages.jsx'));
 const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignants.jsx').then(m => ({ default: m.SignalerAbsence })));
 const MesDisponibilitesLucie = lazy(() => import('../components/MesDisponibilites.jsx'));
 const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
+const MaCandidatureLucie = lazy(() => import('../components/MaCandidature.jsx'));
 const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'));
 import AnnulerGestes from '../components/AnnulerGestes.jsx';
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
+import { IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -802,6 +803,7 @@ const FACES = [
 ];
 const FACES_BAS = [
   { k: 'fiche', l: 'Ma fiche', I: IconId },
+  { k: 'candidature', l: 'Ma candidature', I: IconFileCheck },
   { k: 'aide', l: 'Aide', I: IconHelpCircle },
   { k: 'ecole', l: 'L’école', I: IconBuilding },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
@@ -911,6 +913,8 @@ export default function EspaceEnseignant() {
           : face === 'tfe' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesTfeLucie /></Suspense> : <ChargementLucie />)
           // MES STAGES (3.5.213) : superviseur — ses stages, ses fiches, le lien du maître de stage.
           : face === 'stages' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesStagesLucie /></Suspense> : <ChargementLucie />)
+          // MA CANDIDATURE (3.5.229) : les formulaires 013 et 014, dans la campagne ouverte par la direction.
+          : face === 'candidature' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MaCandidatureLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}
