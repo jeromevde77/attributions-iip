@@ -1216,9 +1216,10 @@ export default function Configuration() {
           <div className="flex justify-end -mt-2"><AnneeDuReferentiel onglet={tab} /></div>
         )}
         {ongletActif?.faces && (
-          <div className="segments mb-2">
+          /* Les faces d'un même écran : des onglets SOULIGNÉS, jamais des segments pleins (3.5.245, Charles : « moche »). */
+          <div className="flex flex-nowrap border-b border-slate-200 mb-3 overflow-x-auto">
             {ongletActif.faces.map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setTab(k)} className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
+              <button key={k} type="button" onClick={() => setTab(k)} className={`onglet-page whitespace-nowrap ${tab === k ? 'onglet-page-actif' : ''}`}>{l}</button>
             ))}
           </div>
         )}
