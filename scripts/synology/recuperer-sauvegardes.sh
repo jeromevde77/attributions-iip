@@ -76,4 +76,7 @@ done
 
 # 3. Ménage côté Synology, indépendant du VPS
 find "$DEST" -maxdepth 1 -name '*.db' -mtime +$JOURS_GARDES -delete
+# Les copies d'avant mise à jour de la prod (prod-avant-maj_*) : 14 jours suffisent,
+# la sauvegarde de la nuit couvre le reste.
+find "$DEST" -maxdepth 1 -name 'prod-avant-maj_*.db' -mtime +14 -delete
 exit 0
