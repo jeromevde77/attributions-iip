@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconReceipt, IconCreditCard, IconCar, IconDeviceMobile, IconFileTypePdf, IconTrash, IconPaperclip, IconPlus, IconUser, IconLock } from '@tabler/icons-react';
+import { IconReceipt, IconCreditCard, IconCar, IconDeviceMobile, IconFileTypePdf, IconTrash, IconPaperclip, IconPlus, IconUser, IconLock, IconDeviceFloppy } from '@tabler/icons-react';
 import { EnteteCarte, Encadre, Fenetre, OutilFenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { demander } from '../lib/dialogue.jsx';
@@ -146,6 +146,25 @@ function FenetrePiece({ p, profil, lieux, onFermer, recharger }) {
     const r = await fetch(`/api/mes-frais/justificatif/${j.id}`, { headers: authHeaders() });
     if (r.ok) window.open(URL.createObjectURL(await r.blob()), '_blank');
   };
+  /* UN BOUTON ENREGISTRER (3.5.250, Charles : « pas de bouton sauver ! »). Les champs s'enregistraient déjà en les quittant ;
+     le bouton écrit tout ce qui diffère encore de la pièce, puis ferme — et dit « enregistré » quand rien ne restait. */
+  const [enreg, setEnreg] = useState(false);
+  const enregistrer = async () => {
+    setErr(null); setEnreg(true);
+    const champs = ['date', 'date_piece', 'carte', 'fournisseur', 'montant', 'periode', 'a_charge', 'objet', 'commentaire', 'motif', 'description'];
+    const patch = Object.fromEntries(Object.entries(v).filter(([k, x]) => (champs.includes(k) || (k in p && typeof x !== 'object')) && String(x ?? '') !== String(p[k] ?? '') && k !== 'id'));
+    try {
+      if (Object.keys(patch).length) await appel('PUT', `/piece/${p.id}`, patch);
+      // Un trajet saisi mais pas encore ajouté ne se perd plus : il s'ajoute avec le reste.
+      if (p.nature === 'km' && (t.cp || t.rue || t.km)) {
+        if (!t.cp || !t.rue) throw new Error('Le trajet en cours n’a pas d’adresse d’arrivée complète (code postal et rue).');
+        await appel('POST', `/piece/${p.id}/trajet`, { ...t, arrivee });
+        if (t.favori) await appel('POST', '/lieu', { nom: t.entreprise || arrivee, entreprise: t.entreprise, rue: t.rue, cp: t.cp, localite: t.localite, raison: t.raison });
+      }
+      await recharger(); onFermer();
+    }
+    catch (e) { setErr(e.message); } finally { setEnreg(false); }
+  };
   const supprimer = async () => {
     if (!(await demander('Supprimer cette pièce et ses justificatifs ?'))) return;
     try { await appel('DELETE', `/piece/${p.id}`); await recharger(); onFermer(); } catch (e) { setErr(e.message); }
@@ -171,8 +190,10 @@ function FenetrePiece({ p, profil, lieux, onFermer, recharger }) {
   return (
     <Fenetre icone={N.I} large="grande" titre={N.l} sous={`${profil.prenom || ''} ${profil.nom || ''}`.trim() || 'Complétez « Mes coordonnées »'} onFermer={onFermer}
       outils={<OutilFenetre Icone={IconFileTypePdf} titre="Le PDF au modèle de l’ASBL" onClick={pdf} />}
-      pied={<><span className="text-second text-slate-500 min-w-0 flex-1">{err || 'Chaque champ s’enregistre en le quittant.'}</span>
-        <button className="bouton bouton-detruire inline-flex items-center gap-1.5" onClick={supprimer}><IconTrash size={15} />Supprimer</button></>}>
+      pied={<><button className="bouton bouton-detruire inline-flex items-center gap-1.5" onClick={supprimer}><IconTrash size={15} />Supprimer</button>
+        <span className="text-second min-w-0 flex-1 text-right" style={err ? { color: 'var(--c-refuse)' } : { color: 'rgb(var(--gris-500))' }}>{err || ''}</span>
+        <button className="bouton" onClick={onFermer}>Fermer</button>
+        <button className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={enreg} onClick={enregistrer}><IconDeviceFloppy size={15} />{enreg ? 'Enregistrement…' : 'Enregistrer'}</button></>}>
       <div className="space-y-4">
         <div className="grid sm:grid-cols-3 gap-3">
           <Champ l="Date de la dépense"><input type="date" {...c('date')} /></Champ>
