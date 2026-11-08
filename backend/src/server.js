@@ -3356,7 +3356,7 @@ app.get('/api/logo-iip-blanc', (_req, res) => {
 // Erreurs
 app.use((err, req, res, next) => {
   console.error('[ERR]', err);
-  res.status(err.status || 500).json({ error: err.message || 'Erreur serveur' });
+  res.status(err.status || 500).json({ error: err.message || 'Erreur serveur', ...(err.code && typeof err.code === 'string' && !err.code.startsWith('SQLITE') ? { code: err.code } : {}), ...(err.donnees ? err.donnees : {}) });
 });
 
 // ── Moteur de l'échéancier : premier passage 20 s après le démarrage, puis /6 h

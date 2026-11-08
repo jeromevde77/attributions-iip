@@ -1,3 +1,4 @@
+import { requeteCourante } from '../lib/contexteRequete.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -988,7 +989,8 @@ export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], ori
   const aRetirer = [...new Set(retirer.map(Number).filter(Boolean))].filter(u => dejaLa.has(u));
   const final = new Set([...dejaLa, ...aAjouter].filter(u => !aRetirer.includes(u)));
 
-  const ecarts = controlerAjouts(etudId, annee, aAjouter, final);
+  // Sans ajout, aucune règle à juger (le contrôle ne regarde que les ajouts) : on s'épargne les faits du PAE.
+  const ecarts = aAjouter.length ? controlerAjouts(etudId, annee, aAjouter, final) : [];
   const motifDe = u => String(motifs[u] ?? motifs[String(u)] ?? '').trim()
     || (mode === 'signaler' ? `inscription reprise de l'import (${origine})` : '');
   const refus = mode === 'strict' ? ecarts.filter(x => !motifDe(x.ue_num)) : [];
@@ -1006,6 +1008,23 @@ export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], ori
   }
   const bilan = { simulation, origine, ajoutees: aAjouter, retirees: retirables, conservees, ecarts,
     refus, confirmation_retiree: false };
+  /* UN PAE VALIDÉ NE SE MODIFIE PAS SANS LE DIRE (3.5.233, Charles, 8 novembre 2026 : « si un PAE est validé, on ne peut plus y
+     toucher sans forcer la chose ; un pop-up "vous allez modifier un PAE" ; il faudra le valider à nouveau »). Depuis un écran
+     (une requête, mode strict), un changement d'un programme confirmé est refusé (409, code « pae_valide ») tant que la requête ne
+     porte pas l'en-tête « X-Lucie-Modifier-PAE » — que la fenêtre commune de l'écran pose après avoir demandé. Le PAE perd alors sa
+     validation (règle de toujours, plus bas). Les imports (mode « signaler »), la confirmation elle-même et les tâches sans requête
+     ne sont pas arrêtés. */
+  const req0 = requeteCourante();
+  if (!simulation && !refus.length && mode === 'strict' && origine !== 'confirmation' && req0 && (aAjouter.length || retirables.length)
+      && !/^(1|oui|true)$/i.test(String(req0.headers?.['x-lucie-modifier-pae'] || ''))) {
+    const v = db.prepare('SELECT confirme_le, confirme_par FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ? AND confirme_le IS NOT NULL').get(etudId, annee);
+    if (v) {
+      const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(etudId) || {};
+      const quand = String(v.confirme_le).slice(0, 10).split('-').reverse().join('/');
+      throw Object.assign(new Error(`Le PAE ${annee} de ${String(e.nom || '').toUpperCase()} ${e.prenom || ''} a été validé le ${quand}${v.confirme_par ? ` par ${v.confirme_par}` : ''}. Le modifier retire sa validation : il devra être validé à nouveau.`),
+        { status: 409, code: 'pae_valide', donnees: { etudiant_id: etudId, annee, valide_le: v.confirme_le, valide_par: v.confirme_par || null } });
+    }
+  }
   if (simulation || refus.length) return bilan;
 
   const date = dateInscription || new Date().toISOString().slice(0, 10);
