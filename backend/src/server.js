@@ -2952,6 +2952,10 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
   setInterval(tourConstats, 60 * 60 * 1000).unref?.();
   setTimeout(tourDelib, 45_000).unref?.();
   setInterval(tourDelib, 60 * 60 * 1000).unref?.();
+  // LES RAPPELS DES EXAMENS (3.5.227) : toutes les heures, la file seulement ; l'envoi suit les interrupteurs de Configuration.
+  const tourExamens = async () => { try { const { genererRappelsExamens } = await import('./lib/rappelsExamens.js'); const r = genererRappelsExamens(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels examens]', r); } catch (e) { console.error('[rappels examens]', e.message); } };
+  setTimeout(tourExamens, 55_000).unref?.();
+  setInterval(tourExamens, 60 * 60 * 1000).unref?.();
   // LES RAPPELS AUX ÉTUDIANTS (3.1.525) : la file partout (si le portail existe), l'avis du jour en production.
   const tourEtudiants = () => { try { const r = genererRappelsEtudiants(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels étudiants]', r); } catch (e) { console.error('[rappels étudiants]', e.message); } };
   setTimeout(tourEtudiants, 105_000).unref?.();

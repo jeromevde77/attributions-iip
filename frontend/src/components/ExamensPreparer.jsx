@@ -97,7 +97,7 @@ export default function ExamensPreparer({ annee }) {
         : <Tableau dense>
             <TableauEntete>
               <Th largeur="w-8"><input type="checkbox" checked={tous} onChange={() => setCoches(tous ? new Set() : new Set(liste.map(e => e.cle)))} aria-label="Tout cocher" /></Th>
-              <Th>Date</Th><Th>Horaire</Th><Th>Local</Th><Th>Épreuve</Th><Th>Professeur(s)</Th><Th>Surveillant(s)</Th><Th>Type</Th><Th>Durée</Th><Th>Matériel autorisé</Th><Th>Effectif</Th><Th>AR</Th>
+              <Th>Date</Th><Th>Horaire</Th><Th>Local</Th><Th>Épreuve</Th><Th>Professeur(s)</Th><Th>Surveillant(s)</Th><Th>Type</Th><Th>Durée</Th><Th>Matériel autorisé</Th><Th>Effectif</Th><Th>AR</Th><Th>Questionnaire</Th>
             </TableauEntete>
             <tbody>{liste.map(e => (
               <Tr key={e.cle}>
@@ -114,6 +114,12 @@ export default function ExamensPreparer({ annee }) {
                 <Td><Champ valeur={e.materiel} largeur="w-40" placeholder="par défaut" onPoser={v => poser(e, 'materiel', v)} /></Td>
                 <Td className="text-center tabular-nums">{e.etudiants}</Td>
                 <Td className="text-center tabular-nums">{e.ar || ''}</Td>
+                {/* LE QUESTIONNAIRE REÇU (3.5.227) : tant qu'il ne l'est pas, Lucie le rappelle au professeur, puis à la coordination. */}
+                <Td className="whitespace-nowrap">{e.session === 2 ? <span className="text-mention text-slate-400">avec la 1re session</span> : (
+                  <label className="inline-flex items-center gap-1.5 text-second">
+                    <input type="checkbox" checked={!!e.questionnaire_recu_le} onChange={x => poser(e, 'questionnaire_recu_le', x.target.checked ? new Date().toLocaleDateString('sv-SE') : null)} />
+                    {e.questionnaire_recu_le ? `reçu le ${fr(e.questionnaire_recu_le)}` : <span className={e.delai_questionnaire && e.delai_questionnaire < new Date().toLocaleDateString('sv-SE') ? 'text-red-700 font-semibold' : 'text-slate-500'}>pour le {fr(e.delai_questionnaire)}</span>}
+                  </label>)}</Td>
               </Tr>))}</tbody>
           </Tableau>}
     </div>);

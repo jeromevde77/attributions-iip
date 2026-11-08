@@ -28,12 +28,13 @@ export function migrerExamens(dbx = db) {
     materiel       TEXT,
     consignes      TEXT,
     copies_reserve INTEGER NOT NULL DEFAULT 3,
+    questionnaire_recu_le TEXT,                       -- le secrétariat a reçu le questionnaire (procédure : un mois avant)
     maj_par        TEXT,
     maj_le         TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (annee_scolaire, session, ue_num, cours_code)
   )`);
 }
-try { migrerExamens(); } catch (e) { console.error('[migration] epreuve_detail :', e.message); }
+try { migrerExamens(); try { db.exec('ALTER TABLE epreuve_detail ADD COLUMN questionnaire_recu_le TEXT'); } catch { /* déjà là */ } } catch (e) { console.error('[migration] epreuve_detail :', e.message); }
 
 const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const nomP = x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim();
@@ -54,6 +55,7 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
   const t = s2 ? 'deliberation_session2' : 'epreuve_session1', k = s2 ? 's2' : 's1';
   let l = essai(() => db.prepare(`SELECT e.ue_num, COALESCE(e.cours_code, '') AS cours_code, e.${k}_date AS date, e.${k}_heure AS heure,
       e.${k}_local AS local, e.${k}_adresse AS adresse,
+      e.${k}_visite_date AS visite_date, e.${k}_visite_heure AS visite_heure, e.${k}_visite_local AS visite_local,
       (SELECT u.ue_nom FROM ue u WHERE u.ue_num = e.ue_num AND u.annee_scolaire = e.annee_scolaire LIMIT 1) AS ue_nom,
       (SELECT u.section FROM ue u WHERE u.ue_num = e.ue_num AND u.annee_scolaire = e.annee_scolaire LIMIT 1) AS section,
       (SELECT u.ue_niv FROM ue u WHERE u.ue_num = e.ue_num AND u.annee_scolaire = e.annee_scolaire LIMIT 1) AS niveau,
@@ -90,7 +92,7 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
       ...e, annee, cle: cle(e),
       type: d.type || 'ecrit', duree_min: duree, heure_fin: plusMinutes(e.heure, duree),
       surveillants: d.surveillants || '', materiel: d.materiel || '', consignes: d.consignes || '',
-      copies_reserve: d.copies_reserve ?? 3,
+      copies_reserve: d.copies_reserve ?? 3, questionnaire_recu_le: d.questionnaire_recu_le || null,
       professeurs: essai(() => profs.all(annee, e.ue_num, e.cours_code, e.cours_code), []).map(nomP).join(', '),
       etudiants: lesEtudiants,
       ar: lesEtudiants.filter(x => x.ar.length),
@@ -113,7 +115,7 @@ function mesuresParEtudiant(annee) {
 }
 
 /** Écrire le détail d'une épreuve. */
-export function ecrireDetail({ annee, session, ue_num, cours_code = '', type, duree_min, surveillants, materiel, consignes, copies_reserve }, par) {
+export function ecrireDetail({ annee, session, ue_num, cours_code = '', type, duree_min, surveillants, materiel, consignes, copies_reserve, questionnaire_recu_le }, par) {
   const s = Number(session) === 2 ? 2 : 1;
   const d = essai(() => db.prepare('SELECT * FROM epreuve_detail WHERE annee_scolaire = ? AND session = ? AND ue_num = ? AND cours_code = ?').get(annee, s, Number(ue_num), cours_code || ''), null) || {};
   const v = {
@@ -123,13 +125,14 @@ export function ecrireDetail({ annee, session, ue_num, cours_code = '', type, du
     materiel: materiel !== undefined ? String(materiel || '').slice(0, 1000) || null : (d.materiel ?? null),
     consignes: consignes !== undefined ? String(consignes || '').slice(0, 2000) || null : (d.consignes ?? null),
     copies_reserve: copies_reserve !== undefined ? Math.max(0, Math.min(50, Number(copies_reserve) || 0)) : (d.copies_reserve ?? 3),
+    questionnaire_recu_le: questionnaire_recu_le !== undefined ? (/^\d{4}-\d{2}-\d{2}$/.test(String(questionnaire_recu_le || '')) ? questionnaire_recu_le : null) : (d.questionnaire_recu_le ?? null),
   };
-  db.prepare(`INSERT INTO epreuve_detail (annee_scolaire, session, ue_num, cours_code, type, duree_min, surveillants, materiel, consignes, copies_reserve, maj_par, maj_le)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?, datetime('now'))
+  db.prepare(`INSERT INTO epreuve_detail (annee_scolaire, session, ue_num, cours_code, type, duree_min, surveillants, materiel, consignes, copies_reserve, questionnaire_recu_le, maj_par, maj_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'))
     ON CONFLICT(annee_scolaire, session, ue_num, cours_code) DO UPDATE SET type = excluded.type, duree_min = excluded.duree_min,
       surveillants = excluded.surveillants, materiel = excluded.materiel, consignes = excluded.consignes,
-      copies_reserve = excluded.copies_reserve, maj_par = excluded.maj_par, maj_le = excluded.maj_le`)
-    .run(annee, s, Number(ue_num), cours_code || '', v.type, v.duree_min, v.surveillants, v.materiel, v.consignes, v.copies_reserve, par);
+      copies_reserve = excluded.copies_reserve, questionnaire_recu_le = excluded.questionnaire_recu_le, maj_par = excluded.maj_par, maj_le = excluded.maj_le`)
+    .run(annee, s, Number(ue_num), cours_code || '', v.type, v.duree_min, v.surveillants, v.materiel, v.consignes, v.copies_reserve, v.questionnaire_recu_le, par);
   return v;
 }
 
@@ -348,4 +351,16 @@ export function composer(liste, pieces) {
     }
   }
   return blocs.map((b, k) => `<section class="piece"${saut(k)}>${b}</section>`).join('');
+}
+
+/** LE DÉLAI DU QUESTIONNAIRE (procédure 2026-2027, point 2) : un mois avant l'épreuve ; pour les examens de janvier, au plus tard
+ *  le 1er décembre ; de mai à septembre, au plus tard le 15 avril. Le plus tôt des deux. */
+export function delaiQuestionnaire(date) {
+  const d = String(date || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  const x = new Date(`${d}T12:00:00Z`); x.setUTCMonth(x.getUTCMonth() - 1);
+  let delai = x.toISOString().slice(0, 10);
+  const [an, mois] = d.split('-').map(Number);
+  const fixe = mois === 1 ? `${an - 1}-12-01` : (mois >= 5 && mois <= 9) ? `${an}-04-15` : null;
+  if (fixe && fixe < delai) delai = fixe;
+  return delai;
 }

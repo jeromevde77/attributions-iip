@@ -7,7 +7,7 @@ import { Router } from 'express';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopperDocument } from '../lib/document.js';
-import { epreuves, ecrireDetail, composer, PIECES, STYLES_EXAMENS } from '../lib/examens.js';
+import { epreuves, ecrireDetail, composer, PIECES, STYLES_EXAMENS, delaiQuestionnaire } from '../lib/examens.js';
 import db from '../db/index.js';
 
 const r = Router();
@@ -18,7 +18,7 @@ const params = (q) => ({ annee: q.annee || null, session: Number(q.session) === 
 
 r.get('/', authRequired, garde, (req, res) => {
   const p = params(req.query); p.annee ||= anneeDeTravail(req);
-  const l = epreuves({ ...p, sections: perimetre(req) }).map(e => ({ ...e, etudiants: e.etudiants.length, ar: e.ar.length }));
+  const l = epreuves({ ...p, sections: perimetre(req) }).map(e => ({ ...e, etudiants: e.etudiants.length, ar: e.ar.length, delai_questionnaire: e.session === 1 ? delaiQuestionnaire(e.date) : null }));
   const personnes = db.prepare(`SELECT nom, prenom FROM professeur ORDER BY nom, prenom`).all()
     .map(x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim());
   res.json({ ...p, epreuves: l, pieces: PIECES, personnes });

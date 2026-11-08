@@ -59,6 +59,8 @@ export const ajouts = {
         "La liste des aménagements ne porte que les mesures accordées, jamais la situation de l'étudiant (secret professionnel).",
         "Une épreuve sans surveillant ou sans local sort avec une ligne à compléter à la main : l'écran le compte avant l'impression.",
         "La coordination prépare et imprime pour ses sections.",
+        "La colonne « Questionnaire » se coche quand le secrétariat le reçoit. Tant qu'elle ne l'est pas, Lucie le rappelle au professeur une semaine avant le délai (un mois avant l'épreuve ; janvier : 1er décembre ; mai à septembre : 15 avril) et le jour même, puis prévient la coordination le lendemain.",
+        "Lucie rappelle aussi la visite des copies la veille, la remise des copies à l'archivage le lendemain, et signale au secrétariat et à la coordination une 2e session datée moins de 10 jours après la délibération. Ces rappels s'allument dans Configuration → Courriels → Rappels.",
       ],
     },
     {
