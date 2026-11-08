@@ -507,7 +507,7 @@ r.get('/feed', authRequired, (req, res) => {
   try {
     const notifs = db.prepare(`
       SELECT * FROM lucie_notification
-      WHERE (cible_role IS NULL OR cible_role = ? OR cible_user_id = ?)
+      WHERE ((cible_user_id IS NULL AND (cible_role IS NULL OR cible_role = ?)) OR cible_user_id = ?)   -- nominative : à sa personne seule (3.5.213)
         AND cree_le >= datetime('now', '-${Number(jours)} days')
       ORDER BY cree_le DESC LIMIT 50
     `).all(u.role, u.id);

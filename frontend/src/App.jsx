@@ -52,6 +52,7 @@ import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import { ETOILES, TRAITS, ECLAT, DISCRETES, POINTS_L } from './lib/logoVierge.js';
 import PresenceQR from './pages/PresenceQR.jsx';
+import EvaluationStage from './pages/EvaluationStage.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
 import AnnulerGestes from './components/AnnulerGestes.jsx';
 import { BoutonUrgence } from './components/TuileQuiEstLa.jsx';
@@ -838,6 +839,7 @@ export default function App() {
       {/* LA PRÉSENCE PAR QR : publique, l'étudiant n'a pas de compte (28 octobre 2026). */}
       <Route path="/presence/*" element={<PresenceQR />} />
       <Route path="/presence" element={<PresenceQR />} />
+      <Route path="/evaluation-stage/:jeton" element={<EvaluationStage />} />
       <Route path="/"             element={<Navigate to="/accueil" replace />} />
       <Route path="/attributions" element={<Navigate to="/organisation" replace />} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />

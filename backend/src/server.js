@@ -3286,6 +3286,8 @@ app.use('/api/perimetre', garderModule('perimetre'), perimetreRoutes);
 app.use('/api/mes-cours/carnet', garderModule('mes-cours'), (await import('./routes/carnet.js')).default);
 app.use('/api/mes-cours/ticket', garderModule('mes-cours'), (await import('./routes/ticketSortie.js')).default);
 app.use('/api/mes-cours/tfe', garderModule('mes-cours'), (await import('./routes/mesTfe.js')).default);   // Mes TFE (3.5.210)
+app.use('/api/mes-cours/stages', garderModule('mes-cours'), (await import('./routes/mesStages.js')).default);   // Mes stages, superviseur (3.5.213)
+app.use('/api/evaluation-stage', (await import('./routes/mesStages.js')).publique);   // le lien du maître de stage, sans compte (3.5.213)
 app.use('/api/mes-cours/supports', garderModule('mes-cours'), (await import('./routes/supports.js')).default);   // supports de cours (3.5.211)
 app.use('/api/mes-cours/absence', garderModule('mes-cours'), (await import('./routes/absencesProf.js')).prof);   // signaler une absence (3.5.210)
 app.use('/api/absences-enseignants', (await import('./routes/absencesProf.js')).admin);   // le secrétariat décide (3.5.210)

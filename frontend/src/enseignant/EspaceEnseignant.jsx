@@ -22,10 +22,11 @@ const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiant
 const AideLucie = lazy(() => import('../pages/Aide.jsx'));
 const MaFicheLucie = lazy(() => import('../pages/Professeurs.jsx'));
 const MesTfeLucie = lazy(() => import('../components/MesTfe.jsx'));
+const MesStagesLucie = lazy(() => import('../components/MesStages.jsx'));
 const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignants.jsx').then(m => ({ default: m.SignalerAbsence })));
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconSchool, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId } from '@tabler/icons-react';
+import { IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -728,6 +729,7 @@ const FACES = [
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'À rendre', I: IconChecklist },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool },
+  { k: 'stages', l: 'Mes stages', I: IconBriefcase },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
 ];
 const FACES_BAS = [
@@ -837,6 +839,8 @@ export default function EspaceEnseignant() {
               <Suspense fallback={<ChargementLucie />}><MaFicheLucie /></Suspense></MemoryRouter> : <ChargementLucie />)
           // MES TFE (3.5.210) : ses TFE, leur suivi, les fiches de son rôle — l'écran de Lucie, par le relais.
           : face === 'tfe' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesTfeLucie /></Suspense> : <ChargementLucie />)
+          // MES STAGES (3.5.213) : superviseur — ses stages, ses fiches, le lien du maître de stage.
+          : face === 'stages' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesStagesLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}

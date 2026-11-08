@@ -311,6 +311,18 @@ export const ajouts = {
   ],
   mescours: [
     {
+      titre: "Mes stages : superviser et faire évaluer par le maître de stage",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → Mes stages (dans Lucie : Mes cours → rail → Mes stages).",
+      texte: "Une ligne par stage dont vous êtes le professeur de stage : l'étudiant, le lieu, la période et ce qui reste à remplir. Dépliée, elle montre l'unité, l'adresse du lieu, le maître de stage et ses coordonnées, les visites faites et prévues. En dessous, les fiches d'évaluation de l'unité : celle du superviseur se remplit critère par critère, puis [[Enregistrer la fiche|IconCheck|fort]]. Pour la fiche du maître de stage, deux possibilités : l'encoder vous-même, ou [[Envoyer le lien au maître de stage|IconSend]].",
+      savoir: [
+        "Le maître de stage n'a pas besoin de compte : il reçoit un lien personnel, valable 60 jours, qui lui montre l'étudiant, le lieu et les critères. Il peut y revenir pour corriger. Un nouveau lien remplace l'ancien.",
+        "Vous êtes prévenu quand il a rempli la fiche ; la ligne dit aussi si le lien a été ouvert.",
+        "La note va dans le carnet du cours (une note par acquis, et la note de la fiche) ; elle rejoint la feuille de notes par « Reprendre dans la feuille de notes ».",
+        "Le professeur de stage est celui indiqué sur le stage (Organisation → Stages) ; les fiches sont réglées par la coordination (Organisation → Stages → Fiches d'évaluation).",
+      ],
+    },
+    {
       titre: "Mes TFE : mes jurys et mes fiches",
       pour: 'ens coo dir',
       ou: "Espace enseignant → Mes TFE (dans Lucie : Mes cours → rail → Mes TFE).",
