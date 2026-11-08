@@ -11,6 +11,11 @@
  * avec une bande de couleur sur le côté — ici elle sera verte ; un signe "nouveau" ») : celui des boîtes de lib/dialogue.jsx —
  * blanche, arrondie à droite, liseré de 4 px à gauche dans la couleur, icône dans la couleur, texte à l'encre. Et le mot de
  * passe est celui de Lucie (3.5.242) : plus de « Première visite ».
+ *
+ * PLUS DE « RESTER DANS LUCIE » (3.5.247, Charles : « il faut les forcer à aller dans le nouvel espace ; votre accès précédent
+ * disparaîtrait au profit de cet espace individuel et encore plus sécurisé » ; tranché : annonce, puis fermeture à une date).
+ * Un seul bouton : Ouvrir mon espace. La date est celle de la bascule (Mise en service, lib/bascule.js) ; passée, Lucie elle-même
+ * refuse l'entrée. La fenêtre revient à chaque connexion d'ici là.
  */
 import { useEffect, useState } from 'react';
 import { IconExternalLink, IconSun, IconUserCheck, IconCalendarWeek, IconSparkles } from '@tabler/icons-react';
@@ -21,11 +26,12 @@ const VERT = 'var(--c-reussi)';
 
 export default function PontEspaceEnseignant() {
   const [url, setUrl] = useState(null);
+  const [date, setDate] = useState(null);
   useEffect(() => {
     if (getUser()?.role !== 'professeur') return;
     try { if (sessionStorage.getItem(VU)) return; } catch { /* navigation privée */ }
     fetch('/api/fonctions/moi', { headers: authHeaders() }).then(r => (r.ok ? r.json() : {}))
-      .then(f => { if (f.espace_enseignant_url) setUrl(f.espace_enseignant_url); }).catch(() => {});
+      .then(f => { if (f.espace_enseignant_url) { setUrl(f.espace_enseignant_url); setDate(f.bascule_le || null); } }).catch(() => {});
   }, []);
   useEffect(() => {
     if (!url) return undefined;
@@ -55,11 +61,11 @@ export default function PontEspaceEnseignant() {
               <li className="flex items-start gap-2"><IconUserCheck size={16} className="flex-none mt-0.5 text-slate-500" /> Vos notes, votre carnet, vos présences et vos étudiants.</li>
               <li className="flex items-start gap-2"><IconCalendarWeek size={16} className="flex-none mt-0.5 text-slate-500" /> Vos unités, les avis à rendre, et votre agenda : examens, délibérations, congés.</li>
             </ul>
+            <p className="m-0 leading-relaxed bloc-etat px-3 py-2" data-etat="surveiller">Votre accès précédent à Lucie disparaîtra {date ? <>le <b>{date.split('-').reverse().join('/')}</b></> : <b>prochainement</b>}, au profit de cet espace individuel et encore plus sécurisé.</p>
             <p className="m-0 text-slate-600 leading-relaxed">Vous y entrez avec <b>votre adresse de l’institut et votre mot de passe de Lucie</b> ; un code à six chiffres vous est envoyé la première fois sur un nouvel appareil. Tout ce que vous faites dans Mes cours s’y fait aussi.</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">
-          <button type="button" className="bouton" onClick={rester}>Rester dans Lucie pour cette fois</button>
           <a className="bouton bouton-fort inline-flex items-center gap-1.5" href={url}><IconExternalLink size={15} /> Ouvrir mon espace</a>
         </div>
       </div>

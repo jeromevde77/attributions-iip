@@ -806,7 +806,7 @@ const FACES = [
   { k: 'presences', l: 'Mes présences', I: IconUserCheck },
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
-  { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'rendre', l: 'Les avis à rendre', I: IconChecklist },
   { k: 'examens', l: 'Mes examens', I: IconWriting },
   { k: 'prestations', l: 'Mes prestations', I: IconClockHour4, expert: true },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
@@ -822,12 +822,28 @@ const FACES_BAS = [
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
 const VUES_LUCIE = new Set(['notes', 'presences', 'ue', 'rendre']);
+/* SIX ENTRÉES, CHACUNE SON TIROIR (3.5.245, Charles : « le menu devient bien trop long et peu clair » ; tranché : six entrées et des
+   tiroirs, les outils dans une barre en haut). Une entrée à tiroir ouvre sa première face (ou celle où l'on était) et déplie ses
+   faces sous elle ; un second clic sur l'entrée ouverte la replie. */
+const GROUPES = [
+  { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
+  { k: 'g-cours', l: 'Mes cours', I: IconPencil, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens'] },
+  { k: 'g-rendre', l: 'À rendre', I: IconChecklist, enfants: ['rendre', 'amenagements', 'prestations'] },
+  { k: 'g-suivis', l: 'Mes suivis', I: IconSchool, enfants: ['tfe', 'stages'] },
+  { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
+  { k: 'g-moi', l: 'Moi et l’école', I: IconUserCircle, enfants: ['fiche', 'candidature', 'ecole', 'compte', 'aide'] },
+];
+const FACE = Object.fromEntries([...FACES, ...FACES_BAS].map(f => [f.k, f]));
+const groupeDe = k => GROUPES.find(g => g.k === k || (g.enfants || []).includes(k));
 
 export default function EspaceEnseignant() {
   const [token, setToken] = useState(lire());
   const [definir, setDefinir] = useState(false);
   const [moi, setMoi] = useState(null);
   const [face, setFace] = useState('aujourdhui');
+  const [tiroir, setTiroir] = useState(null);
+  // Le tiroir suit la face ouverte, d'où qu'on y arrive (recherche, lien du tableau de bord…).
+  useEffect(() => { const g = groupeDe(face); setTiroir(g?.enfants ? g.k : null); }, [face]);
   // UN SEUL ÉCRAN DE PRÉSENCES (3.5.144, Charles : « les présences se font à plusieurs endroits ») : celui de Mes cours. La frise et
   // la semaine y envoient une demande { action, s, n }.
   const [demande, setDemande] = useState(null);
@@ -894,18 +910,36 @@ export default function EspaceEnseignant() {
         <div className={`hidden md:flex items-center gap-2.5 pb-4 ${etroit ? 'justify-center' : 'px-2'}`}>
           {etroit ? <LogoLucie hauteur={26} sansTexte className="" /> : <div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div>}
         </div>
-        {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
-        <div className={`hidden md:flex items-center gap-2 pb-3 ${etroit ? 'flex-col' : 'px-2'}`}><BoutonContact compact={etroit} />{chercher}{outils}</div>
-        {FACES.filter(f => !f.expert || expert).map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
+        {GROUPES.map(g => {
+          const enfants = (g.enfants || []).map(k => FACE[k]).filter(f => f && (!f.expert || expert));
+          const dedans = g.k === face || enfants.some(f => f.k === face);
+          const ouvertG = enfants.length > 0 && tiroir === g.k;
+          return (
+            <div key={g.k} className="contents md:block">
+              <BoutonFace f={g} etroit={etroit} actif={dedans && !seance && !ouvertG}
+                onClick={() => {
+                  if (!enfants.length) { setTiroir(null); return aller(g.k); }
+                  if (ouvertG && dedans) return setTiroir(null);
+                  setTiroir(g.k);
+                  if (!dedans) aller(enfants[0].k);
+                }} />
+              {ouvertG && (
+                <div className="contents md:flex md:flex-col md:gap-1 md:my-1 md:py-1 md:border-y" style={{ borderColor: 'var(--menu-sous, rgb(var(--gris-200)))' }}>
+                  {enfants.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
+                </div>)}
+            </div>);
+        })}
         <div className="hidden md:block flex-1" />
-        {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className={`md:border-t border-slate-200 md:pt-3 ${etroit ? '' : 'md:px-2'} flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0`}>
           {!etroit && <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>}
           <button type="button" className={`text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0 ${etroit ? 'md:justify-center' : ''}`} onClick={quitter}
             title="Se déconnecter"><IconLogout size={15} /><span className={etroit ? 'md:hidden' : ''}> Se déconnecter</span></button>
         </div>
       </nav>
-      <main className="flex-1 min-w-0 p-4 md:p-8"><Garde cle={face}>
+      <main className="flex-1 min-w-0 p-4 md:p-8 md:pt-4">
+        {/* LES OUTILS EN HAUT (3.5.245) : Contacter, chercher, proposer une idée, annuler — une barre, plus dans le rail. */}
+        <div className="hidden md:flex items-center justify-end gap-2 mb-4"><BoutonContact />{chercher}{outils}</div>
+        <Garde cle={face}>
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
         {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}

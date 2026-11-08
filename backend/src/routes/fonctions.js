@@ -23,6 +23,8 @@ r.get('/moi', authRequired, (req, res) => {
   const relie = !!db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(req.user.id)?.professeur_id;
   if (f['enseignant.espace'] && relie && portailActif()) {
     f.espace_enseignant_url = (process.env.ENSEIGNANTS_URL_PUBLIQUE || 'https://enseignants.lucie-iip.be').replace(/\/$/, '');
+    // La date de la bascule (3.5.212), pour que la fenêtre d'annonce la dise (3.5.247).
+    f.bascule_le = lireBascule()?.date || null;
   }
   res.json(f);
 });

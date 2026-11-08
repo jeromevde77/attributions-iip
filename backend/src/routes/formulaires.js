@@ -208,7 +208,8 @@ export function proposition(cle, profId, annee, mois) {
       ues: (d.ues || []).map(u => ({ ...u, cours: u.cours.map(c => {
         const a = Object.values(codes).find(z => z.nom_cours === c.denomination);
         const s = seancesDuMois(profId, annee, mois, a?.code_cours);
-        return { ...c, dates: s?.dates || '', periodes: s?.periodes ?? '', depuis_horaire: !!s };
+        // Sans date déclarée, 0 période (3.5.248, Charles : « si pas de date déclarée, tu dois mettre 0 de base »).
+        return { ...c, dates: s?.dates || '', periodes: s?.periodes ?? 0, depuis_horaire: !!s };
       }) })),
       date_signature: aujourdhui,
       signataire: [sig.prenom, sig.nom].filter(Boolean).join(' '),
@@ -250,7 +251,8 @@ export function manques(cle, v) {
   if (cle === 'A27') {
     if (!(v.ues || []).length) m.push("aucune prestation d'expert pour cette année");
     for (const u of v.ues || []) for (const c of u.cours || [])
-      if (!String(c.dates || '').trim() || c.periodes === '' || c.periodes == null) m.push(`${c.denomination || 'un cours'} : dates et périodes du mois`);
+      // Pas de date = pas de prestation ce mois-ci : 0 période, et rien ne manque. Des périodes sans date, si.
+      if (Number(c.periodes) > 0 && !String(c.dates || '').trim()) m.push(`${c.denomination || 'un cours'} : les dates des ${c.periodes} période(s)`);
     if (!v.signataire) m.push('le signataire');
   }
   if (cle === 'A1ter') {
@@ -271,6 +273,8 @@ function donneesCompletes(cle, profId, annee, mois) {
   if (!d.membre) return { d, manques: [] };
   const s = saisieDe(cle, profId, annee, mois);
   const valeurs = s ? { ...proposition(cle, profId, annee, mois), ...s.donnees } : proposition(cle, profId, annee, mois);
+  // A27 : une période laissée vide vaut 0 sur la pièce (3.5.248).
+  if (cle === 'A27') for (const u of valeurs.ues || []) for (const c of u.cours || []) if (c.periodes === '' || c.periodes == null) c.periodes = 0;
   return { d: { ...d, ...valeurs }, manques: s ? manques(cle, valeurs) : ['vérifiez ce que Lucie propose dans la fenêtre de la pièce, puis enregistrez'] };
 }
 

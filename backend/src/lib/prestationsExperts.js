@@ -93,7 +93,7 @@ function nettoyer(ues, propose) {
   return (Array.isArray(ues) ? ues : []).map(u => ({ ...u, cours: (u.cours || []).map(c => {
     const k = `${u.intitule || ''}|${c.denomination}`;
     if (!base.has(k)) return null;
-    const per = c.periodes === '' || c.periodes == null ? '' : Math.max(0, Math.round(Number(c.periodes) || 0));
+    const per = Math.max(0, Math.round(Number(c.periodes) || 0));   // vide = 0 (pas de prestation ce mois-ci)
     const { depuis_horaire, ...cb } = base.get(k).c; return { ...cb, dates: String(c.dates || '').slice(0, 200), periodes: per };
   }).filter(Boolean) })).filter(u => u.cours.length);
 }
@@ -106,9 +106,9 @@ export function declarer(profId, annee, mois, { ues, remarque }, par) {
   if (avant?.statut === 'validee') throw Object.assign(new Error('Ce mois est déjà validé par le secrétariat : il ne se modifie plus.'), { status: 409 });
   const propose = proposition('A27', profId, annee, m)?.ues || [];
   const net = nettoyer(ues, propose);
-  const trous = net.flatMap(u => u.cours).filter(c => c.periodes === '' || (Number(c.periodes) > 0 && !String(c.dates || '').trim()));
+  const trous = net.flatMap(u => u.cours).filter(c => Number(c.periodes) > 0 && !String(c.dates || '').trim());
   if (!net.length) throw Object.assign(new Error('Aucune prestation à déclarer.'), { status: 400 });
-  if (trous.length) throw Object.assign(new Error(`Indiquez les dates et les périodes de : ${trous.map(c => c.denomination).join(', ')} (0 si rien ce mois-ci).`), { status: 400 });
+  if (trous.length) throw Object.assign(new Error(`Indiquez les dates des périodes déclarées pour : ${trous.map(c => c.denomination).join(', ')}.`), { status: 400 });
   db.prepare(`INSERT INTO prestation_expert (professeur_id, annee_scolaire, mois, ues, remarque, statut, declare_le, declare_par)
       VALUES (?,?,?,?,?, 'declaree', datetime('now'), ?)
     ON CONFLICT (professeur_id, annee_scolaire, mois) DO UPDATE SET ues = excluded.ues, remarque = excluded.remarque, statut = 'declaree',

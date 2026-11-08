@@ -129,7 +129,7 @@ function FormA27({ v, maj }) {
                     {c.depuis_horaire && <div className="text-mention text-slate-400 mt-0.5">repris de l'horaire</div>}
                   </td>
                   <td className="px-2 py-1">
-                    <input type="number" min="0" step="1" value={c.periodes ?? ''} onChange={e => majCours(iu, ic, { periodes: e.target.value === '' ? '' : Math.round(Number(e.target.value)) })} className={champ} />
+                    <input type="number" min="0" step="1" value={c.periodes === '' || c.periodes == null ? 0 : c.periodes} onChange={e => majCours(iu, ic, { periodes: e.target.value === '' ? 0 : Math.round(Number(e.target.value)) })} className={champ} />
                   </td>
                 </tr>
               ))}
