@@ -59,6 +59,32 @@ export function attributions(profId, annee, { expert = null } = {}) {
   return l.filter(x => Number(x.periodes) > 0);
 }
 
+/* LA PÉRIODE D'OCCUPATION D'UN EXPERT (3.5.249, circ. 9760 : « les prestations "expert" sont des prestations mensuelles (mois
+   entier) quels que soient les jours prestés durant le mois, et reprises dans le contrat » ; PS 314/95 : regrouper le volume
+   prévisible sans interruptions fictives ; tranché par Charles : les mois entiers de l'UE). Du 1er jour du mois d'ouverture de
+   l'UE au dernier jour du mois de sa fermeture, au format jjmmaa-jjmmaa. Une UE sans dates : vide, à compléter. */
+function periodeOccupation(a, annee) {
+  try {
+    const o = db.prepare(`SELECT MIN(date_debut) AS d, MAX(date_fin) AS f FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ?
+      ${a.section ? 'AND (section = ? OR NOT EXISTS (SELECT 1 FROM organisation_ue x WHERE x.ue_num = ? AND x.annee_scolaire = ? AND x.section = ?))' : ''}`)
+      .get(...(a.section ? [a.ue_num, annee, a.section, a.ue_num, annee, a.section] : [a.ue_num, annee]));
+    if (!o?.d || !o?.f) return '';
+    const [y1, m1] = String(o.d).slice(0, 10).split('-').map(Number), [y2, m2] = String(o.f).slice(0, 10).split('-').map(Number);
+    const fin = new Date(Date.UTC(y2, m2, 0)).getUTCDate();
+    const jjmmaa = (j, m, y) => `${String(j).padStart(2, '0')}${String(m).padStart(2, '0')}${String(y).slice(-2)}`;
+    return `${jjmmaa(1, m1, y1)}-${jjmmaa(fin, m2, y2)}`;
+  } catch { return ''; }
+}
+
+/** Une saisie enregistrée avant 3.5.249 garde sa période vide : on la complète de la proposition (même UE, même cours). */
+function completerPeriodes(valeurs, propose) {
+  for (const a of valeurs?.attributions || []) {
+    if (String(a.periode_occ || '').trim()) continue;
+    const p = (propose?.attributions || []).find(x => x.ue === a.ue && x.denomination === a.denomination);
+    if (p?.periode_occ) a.periode_occ = p.periode_occ;
+  }
+}
+
 /** Le directeur de l'année, tel que les fonctions le disent. */
 function directeur(annee) {
   try {
@@ -92,7 +118,7 @@ function donnees(cle, profId, annee, mois) {
   if (cle === 'A1ter') {
     // Les périodes d'EPT sur leur propre ligne, précédées de « EPT » (circ. 9760 V.1.3.9.1 ; 3.5.232).
     d.attributions = attrs.map(a => ({ ue: a.codification_unite || '', f: F(a), denomination: a.ept ? `EPT ${a.nom_cours || ''}`.trim() : (a.nom_cours || ''),
-      cla: a.type_cours || '', sous_niveau: 'SU', periode_occ: '', nb_periodes: String(Math.round(a.periodes)), di: '' }));
+      cla: a.type_cours || '', sous_niveau: 'SU', periode_occ: periodeOccupation(a, annee), nb_periodes: String(Math.round(a.periodes)), di: '' }));
   }
   if (cle === 'A6') {
     d.directeur = directeur(annee);
@@ -273,6 +299,7 @@ function donneesCompletes(cle, profId, annee, mois) {
   if (!d.membre) return { d, manques: [] };
   const s = saisieDe(cle, profId, annee, mois);
   const valeurs = s ? { ...proposition(cle, profId, annee, mois), ...s.donnees } : proposition(cle, profId, annee, mois);
+  if (cle === 'A1ter') completerPeriodes(valeurs, proposition(cle, profId, annee, mois));
   // A27 : une période laissée vide vaut 0 sur la pièce (3.5.248).
   if (cle === 'A27') for (const u of valeurs.ues || []) for (const c of u.cours || []) if (c.periodes === '' || c.periodes == null) c.periodes = 0;
   return { d: { ...d, ...valeurs }, manques: s ? manques(cle, valeurs) : ['vérifiez ce que Lucie propose dans la fenêtre de la pièce, puis enregistrez'] };
@@ -295,6 +322,7 @@ r.get('/:cle/saisie', authRequired, PEUT, (req, res) => {
   const propose = proposition(cle, profId, annee, mois);
   const s = saisieDe(cle, profId, annee, mois);
   const valeurs = s ? { ...propose, ...s.donnees } : propose;
+  if (cle === 'A1ter') completerPeriodes(valeurs, propose);
   res.json({ cle, propose, valeurs, enregistre: s ? { par: s.modifie_par, le: s.modifie_le } : null, manques: manques(cle, valeurs) });
 });
 r.put('/:cle/saisie', authRequired, PEUT, (req, res) => {

@@ -23,7 +23,7 @@ SILENCE=" ${SSH_SILENCE:-} "
 
 envoyer() { # $1 titre (ASCII), $2 priorité, $3 message
   [ -n "$SUJET" ] || { printf '%s [%s]\n%s\n' "$1" "$2" "$3"; return; }
-  curl -fsS -m 30 -H "Title: $1" -H "Priority: $2" -H "Tags: key" \
+  curl -4 -fsS -m 30 -H "Title: $1" -H "Priority: $2" -H "Tags: key" \
        --data-binary "$3" "https://ntfy.sh/$SUJET" >/dev/null \
     || logger -t lucie-ssh "notification ntfy non envoyée"
 }
