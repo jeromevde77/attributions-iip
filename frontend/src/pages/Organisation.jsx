@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconBook2, IconCalendar, IconChalkboard, IconUsers, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconMailbox, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconMailbox, IconPlane, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -18,6 +18,7 @@ import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const ExamensPreparer = lazy(() => import('../components/ExamensPreparer.jsx'));
+const VoyagesEtudes = lazy(() => import('../components/VoyagesEtudes.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
@@ -109,7 +110,7 @@ export default function Organisation({ ongletInitial }) {
             { key: 'absences-prof' },
           ] },
         { key: 'g-etudiants', label: 'Les étudiants', icone: IconUsers,
-          enfants: [{ key: 'repartition' }, { key: 'stages' }, { key: 'tfe' }] },
+          enfants: [{ key: 'repartition' }, { key: 'stages' }, { key: 'tfe' }, { key: 'voyages' }] },
       ]}
       onglets={[
         { key: 'attributions', module: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
@@ -167,6 +168,10 @@ export default function Organisation({ ongletInitial }) {
         { key: 'tfe', roles: STAGES_TFE, label: 'Travaux de fin d’études', icone: IconFileCertificate,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    {annee ? <TfeOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
+        /* LES VOYAGES D'ÉTUDES (3.5.230) : la demande, le devis, le financement, la validation, les participants. */
+        { key: 'voyages', roles: STAGES_TFE, label: 'Voyages d’études', icone: IconPlane,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
+                   <div className="space-y-3"><h1 className="titre-ecran">Voyages d’études</h1>{annee ? <VoyagesEtudes annee={annee} /> : null}</div></Suspense> },
         /* LES ABSENCES DES ENSEIGNANTS (3.5.210) : le professeur signale, le secrétariat décide séance par séance et prévient. */
         { key: 'absences-prof', roles: STAGES_TFE, label: 'Absences des enseignants', icone: IconUserOff,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><AbsencesEnseignants /></Suspense> },

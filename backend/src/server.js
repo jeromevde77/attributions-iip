@@ -3316,6 +3316,8 @@ app.use('/api/mes-disponibilites', (await import('./routes/mesDisponibilites.js'
 app.use('/api/examens', (await import('./routes/examens.js')).default);
 // LES CANDIDATURES DES ENSEIGNANTS (3.5.229) — les routes posent leurs rôles.
 app.use('/api/candidatures', (await import('./routes/candidatures.js')).default);
+// LES VOYAGES D'ÉTUDES (3.5.230) — les routes posent leurs rôles.
+app.use('/api/voyages', (await import('./routes/voyages.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
 app.use('/api/mes-frais', (await import('./routes/mesFrais.js')).default);   // confidentiel, à son titulaire (3.5.197)
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);

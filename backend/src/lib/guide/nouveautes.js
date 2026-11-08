@@ -50,6 +50,13 @@ export const ajouts = {
   ],
   organisation: [
     {
+      titre: "Les voyages d'études",
+      pour: 'ens sec coo dir',
+      ou: "Organisation → Les étudiants → Voyages d'études ; dans l'espace enseignant : L'école → Voyages d'études.",
+      texte: "[[Nouveau voyage|IconPlus|fort]] ouvre la demande, dont vous êtes le référent. Le projet (section, cursus, dates, destination, groupe cible, nombre d'étudiants et d'accompagnateurs, programme), le devis en deux parties — étudiants, accompagnateurs — par lignes (transport, logement, activités, frais de bouche ; dates, tarif × nombre), le financement (participation des étudiants, Conseil social, haute école) : les totaux se calculent. [[Soumettre à la direction|fort]] fige la demande ; la direction la valide, la renvoie avec un mot, ou l'annule, et le référent en est prévenu. Les participants s'ajoutent depuis les étudiants de la section (un par un ou tous), plus les accompagnateurs ; la liste se complète même après la validation. L'imprimante du bandeau sort la demande entière, liste comprise.",
+      savoir: ["Une demande incomplète (dates, destination, section, nombre d'étudiants, devis) ne se soumet pas : Lucie dit ce qui manque.", "La coordination lit les demandes de ses sections ; le secrétariat, toutes."],
+    },
+    {
       titre: "Examens : préparer et imprimer",
       pour: 'sec coo dir',
       ou: "Organisation → L'année → Examens : préparer et imprimer.",

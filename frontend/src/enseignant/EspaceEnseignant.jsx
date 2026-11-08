@@ -27,6 +27,7 @@ const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignant
 const MesDisponibilitesLucie = lazy(() => import('../components/MesDisponibilites.jsx'));
 const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
 const MaCandidatureLucie = lazy(() => import('../components/MaCandidature.jsx'));
+const VoyagesLucie = lazy(() => import('../components/VoyagesEtudes.jsx'));
 const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'));
 import AnnulerGestes from '../components/AnnulerGestes.jsx';
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
@@ -631,11 +632,11 @@ function LEcole({ initiale = 'textes' }) {
     <div className="space-y-4">
       <h1 className="titre-ecran">L’école</h1>
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200">
-        {[['textes', 'Textes à lire'], ['documents', 'Mes documents'], ['reunions', 'Mes réunions']].map(([k, l]) => (
+        {[['textes', 'Textes à lire'], ['documents', 'Mes documents'], ['reunions', 'Mes réunions'], ['voyages', 'Voyages d’études']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setF(k)} className={`onglet-page ${f === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
       </div>
       {/* MES RÉUNIONS (3.5.224) : celles où je suis convoqué·e, en lecture — ordre du jour, ce qui a été dit et décidé. */}
-      {f === 'documents' ? <MesDocuments /> : f === 'reunions' ? <Suspense fallback={<ChargementLucie />}><MesReunionsLucie /></Suspense> : <TextesEcole />}
+      {f === 'documents' ? <MesDocuments /> : f === 'voyages' ? <Suspense fallback={<ChargementLucie />}><VoyagesLucie /></Suspense> : f === 'reunions' ? <Suspense fallback={<ChargementLucie />}><MesReunionsLucie /></Suspense> : <TextesEcole />}
     </div>);
 }
 
