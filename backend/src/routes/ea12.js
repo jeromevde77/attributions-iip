@@ -5,6 +5,18 @@ import { buildEA12Html } from '../services/ea12_html.js';
 
 const r = Router();
 
+/* UN EA12 TRANSMIS NE SE MODIFIE PLUS, IL SE RECTIFIE (3.5.228, circ. 9760 V.1.2-1.3.1) : la transmission à GEDI se note
+   (`transmis_le`, `transmis_par`) ; ensuite le document ne se modifie ni ne se supprime — on crée un RECTIFICATIF, qui prend le
+   numéro suivant et garde le lien (`remplace_id`). */
+try {
+  const cols = db.prepare("PRAGMA table_info(ea12)").all().map(c => c.name);
+  for (const [c, t] of [['transmis_le', 'TEXT'], ['transmis_par', 'TEXT'], ['remplace_id', 'INTEGER']]) if (cols.length && !cols.includes(c)) db.exec(`ALTER TABLE ea12 ADD COLUMN ${c} ${t}`);
+} catch (e) { console.error('[migration] ea12 transmis :', e.message); }
+const LIGNES_CC = `FROM v_attribution_complete v
+    WHERE professeur_id = ? AND annee_scolaire = ?
+      AND UPPER(COALESCE((SELECT a.statut_exception FROM attribution a WHERE a.id = v.id),
+                         (SELECT p.statut FROM professeur p WHERE p.id = v.professeur_id), '')) <> 'EXP'`;
+
 /* ---------- Helpers ---------- */
 
 // Convertit une date ISO (AAAA-MM-JJ) en JJ/MM/AAAA (format officiel EA12).
@@ -60,9 +72,12 @@ function construireData(ea12Row, donnees) {
        date saisie, celle du document précédent de la même personne et de la
        même année, s'il existe. */
     dernier_doc12: dateFr(donnees.dernier_doc12) || (() => {
-      const prec = db.prepare(`SELECT modifie_le FROM ea12 WHERE professeur_id = ? AND annee_scolaire = ?
-        AND num_doc < ? ORDER BY num_doc DESC LIMIT 1`).get(ea12Row.professeur_id, ea12Row.annee_scolaire, ea12Row.num_doc || 0);
-      return prec?.modifie_le ? dateFr(String(prec.modifie_le).slice(0, 10)) : '';
+      // « Même année scolaire ou non » (circ. 9760) : le précédent, cette année ou une année d'avant ; la date de transmission
+      // quand elle est notée, sinon la dernière modification.
+      const prec = db.prepare(`SELECT COALESCE(transmis_le, modifie_le) AS d FROM ea12 WHERE professeur_id = ? AND id <> ?
+        AND (annee_scolaire < ? OR (annee_scolaire = ? AND num_doc < ?)) ORDER BY annee_scolaire DESC, num_doc DESC LIMIT 1`)
+        .get(ea12Row.professeur_id, ea12Row.id || 0, ea12Row.annee_scolaire, ea12Row.annee_scolaire, ea12Row.num_doc || 0);
+      return prec?.d ? dateFr(String(prec.d).slice(0, 10)) : '';
     })(),
     transitoire_baesi: !!donnees.transitoire_baesi,
     etab,
@@ -118,6 +133,48 @@ r.get('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   res.json(db.prepare(sql).all(...args));
 });
 
+/* LE CONTRÔLE DE RENTRÉE (3.5.228, circ. 9760 V.1.2 : un Doc12 par membre et par rentrée, même sans changement) : qui porte des
+   périodes de chargé de cours cette année sans aucun EA12, et quels EA12 ne sont pas encore notés transmis. */
+r.get('/controle', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const profs = db.prepare(`SELECT DISTINCT professeur_id AS id FROM v_attribution_complete WHERE annee_scolaire = ? AND professeur_id IS NOT NULL`).all(annee);
+  const per = db.prepare(`SELECT SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) n ${LIGNES_CC}`);
+  const p = db.prepare('SELECT id, nom, prenom FROM professeur WHERE id = ?');
+  const sans = [], nonTransmis = [];
+  for (const { id } of profs) {
+    const n = Math.round(per.get(id, annee)?.n || 0);
+    if (!n) continue;
+    const docs = db.prepare('SELECT id, num_doc, transmis_le FROM ea12 WHERE professeur_id = ? AND annee_scolaire = ?').all(id, annee);
+    const x = p.get(id); if (!x) continue;
+    const nom = `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim();
+    if (!docs.length) sans.push({ id, nom, periodes: n });
+    else if (!docs.some(d => d.transmis_le)) nonTransmis.push({ id, nom, periodes: n, docs: docs.length });
+  }
+  const tri = (a, b) => a.nom.localeCompare(b.nom, 'fr');
+  res.json({ annee, sans_ea12: sans.sort(tri), non_transmis: nonTransmis.sort(tri) });
+});
+
+// Noter la transmission à GEDI (le document se verrouille).
+r.post('/:id/transmis', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.date || '')) ? req.body.date : new Date().toISOString().slice(0, 10);
+  db.prepare('UPDATE ea12 SET transmis_le = ?, transmis_par = ? WHERE id = ?').run(d, req.user?.nom || req.user?.email || null, row.id);
+  res.json({ ok: true, transmis_le: d });
+});
+
+// Le rectificatif : une copie du document, au numéro suivant, liée à celui qu'elle corrige.
+r.post('/:id/rectificatif', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
+  const m = db.prepare('SELECT COALESCE(MAX(num_doc), 0) m FROM ea12 WHERE professeur_id = ? AND annee_scolaire = ?').get(row.professeur_id, row.annee_scolaire).m;
+  const donnees = { ...JSON.parse(row.donnees_json || '{}'), dernier_doc12: row.transmis_le || null };
+  const info = db.prepare(`INSERT INTO ea12 (professeur_id, annee_scolaire, variante, num_doc, donnees_json, cree_par, remplace_id) VALUES (?,?,?,?,?,?,?)`)
+    .run(row.professeur_id, row.annee_scolaire, row.variante, m + 1, JSON.stringify(donnees), req.user?.id || null, row.id);
+  res.json({ id: Number(info.lastInsertRowid), num_doc: m + 1 });
+});
+
 // Lire un EA12
 r.get('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
@@ -146,6 +203,7 @@ r.put('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { donnees, variante, statut_doc } = req.body || {};
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
+  if (row.transmis_le) return res.status(409).json({ error: `Ce Doc12 a été transmis le ${dateFr(row.transmis_le)} : il ne se modifie plus. Créez un rectificatif.` });
   db.prepare(`UPDATE ea12 SET donnees_json = ?, variante = ?, statut_doc = ?, modifie_le = CURRENT_TIMESTAMP WHERE id = ?`)
     .run(JSON.stringify(donnees ?? JSON.parse(row.donnees_json)), variante || row.variante, statut_doc || row.statut_doc, req.params.id);
   res.json({ ok: true });
@@ -153,6 +211,8 @@ r.put('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 
 // Supprimer un EA12
 r.delete('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const row = db.prepare('SELECT transmis_le FROM ea12 WHERE id = ?').get(req.params.id);
+  if (row?.transmis_le) return res.status(409).json({ error: `Ce Doc12 a été transmis le ${dateFr(row.transmis_le)} : il ne se supprime pas. Un rectificatif le remplace.` });
   db.prepare('DELETE FROM ea12 WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });

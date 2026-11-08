@@ -1289,6 +1289,67 @@ function documentExamens(p) {
   };
 }
 
+const MOTIFS_ABSENCE = { maladie_1j: "Maladie d'un jour", maladie: 'Maladie', maternite: 'Maternité', accident_travail: 'Accident du travail',
+  accident_hors_service: 'Accident hors service', anrj: 'Absence non réglementairement justifiée', greve: 'Grève', cad: 'Congé (CAD)', autre: 'Autre' };
+function registreAbsences(p) {
+  const [a0] = String(p.annee || '').split('-').map(Number);
+  const du = p.du || `${a0}-08-15`, au = p.au || `${a0 + 1}-08-14`;
+  const lignes = [];
+  const jours = (a, b) => { const out = []; for (let d = new Date(`${a}T12:00:00Z`); d <= new Date(`${b}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10)); return out; };
+  const premiere = (() => { try { return db.prepare(`SELECT MIN(heure_debut) h FROM horaire_seance WHERE professeur_id = ? AND date = ?`); } catch { return null; } })();
+  const aSeances = (() => { try { return db.prepare(`SELECT COUNT(*) n FROM horaire_seance WHERE professeur_id = ? AND annee_scolaire = ?`); } catch { return null; } })();
+  const prof = db.prepare('SELECT nom, prenom, matricule FROM professeur WHERE id = ?');
+  const ajouter = (pid, debut, fin, motif, source) => {
+    const x = prof.get(pid); if (!x) return;
+    const enseigne = (aSeances?.get(pid, p.annee)?.n || 0) > 0;
+    const long = fin && (new Date(`${fin}T12:00:00Z`) - new Date(`${debut}T12:00:00Z`)) / 864e5 > 31;
+    for (const d of jours(debut > du ? debut : du, (fin || debut) < au ? (fin || debut) : au)) {
+      const wd = new Date(`${d}T12:00:00Z`).getUTCDay(); if (wd === 0 || wd === 6) continue;
+      const h = premiere?.get(pid, d)?.h || null;
+      if (enseigne && !h) continue;               // un enseignant n'est dû que les jours où son horaire le met en service
+      lignes.push({ date: d, nom: `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim(), matricule: x.matricule || '', motif,
+        debut, fin: fin || '', heure: h ? String(h).slice(0, 5) : '', long, source });
+    }
+  };
+  try {
+    for (const a of db.prepare(`SELECT professeur_id, type, date_debut, date_fin, motif FROM absence_personnel WHERE date_debut <= ? AND COALESCE(date_fin, date_debut) >= ?`).all(au, du)) {
+      ajouter(a.professeur_id, String(a.date_debut).slice(0, 10), a.date_fin ? String(a.date_fin).slice(0, 10) : null,
+        `${MOTIFS_ABSENCE[a.type] || a.type}${a.motif ? ` — ${a.motif}` : ''}`, 'dossier du personnel');
+    }
+  } catch { /* table absente */ }
+  try {
+    const deja = new Set(lignes.map(l => `${l.date}|${l.nom}`));
+    for (const a of db.prepare(`SELECT professeur_id, du, au, motif FROM absence_prof WHERE retiree_le IS NULL AND du <= ? AND au >= ?`).all(au, du)) {
+      const avant = lignes.length;
+      ajouter(a.professeur_id, String(a.du).slice(0, 10), String(a.au).slice(0, 10), a.motif || 'Absence signalée', 'signalée par l’enseignant');
+      // Un même jour déjà inscrit depuis le dossier ne se double pas.
+      const nouvelles = lignes.splice(avant).filter(l => !deja.has(`${l.date}|${l.nom}`));
+      lignes.push(...nouvelles);
+    }
+  } catch { /* table absente */ }
+  return lignes.sort((x, y) => x.date.localeCompare(y.date) || x.nom.localeCompare(y.nom, 'fr'));
+}
+function documentRegistreAbsences(p) {
+  const l = registreAbsences(p);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const fr = d => (d ? String(d).split('-').reverse().join('/') : '');
+  const jour = d => new Date(`${d}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const parJour = new Map(); for (const x of l) (parJour.get(x.date) || parJour.set(x.date, []).get(x.date)).push(x);
+  const corps = !l.length ? '<p class="fin">Aucune absence encodée pour cette période.</p>'
+    : `<table class="serre"><thead><tr><th style="width:24mm">Date</th><th>Membre du personnel</th><th style="width:22mm">Matricule</th><th style="width:14mm">1re heure</th>
+        <th>Motif</th><th style="width:20mm">Depuis</th><th style="width:22mm">Fin prévue / effective</th><th style="width:42mm">Observations (justificatifs)</th></tr></thead>
+      <tbody>${[...parJour].map(([d, xs]) => xs.map((x, i) => `<tr>${i ? '' : `<td rowspan="${xs.length}"><b>${esc(jour(d))}</b></td>`}<td>${esc(x.nom)}</td><td>${esc(x.matricule)}</td>
+        <td>${esc(x.heure)}</td><td>${esc(x.motif)}${x.long ? ' <i>(plus d’un mois)</i>' : ''}</td><td>${esc(fr(x.debut))}</td><td>${esc(fr(x.fin))}</td><td></td></tr>`).join('')).join('')}</tbody></table>`;
+  return {
+    corps: corps + `<p class="fin">Registre tenu selon la circulaire 9760 (V.15.1.1) et l’AGCF du 28 février 1994 : chaque absence s’inscrit le jour même, dès la première heure de service ; tout membre du personnel peut y faire acter un élément justificatif à son retour. Pour une absence de plus d’un mois, la durée prévue, le motif et la fin effective sont indiqués.</p>`,
+    titre: 'Registre des absences du personnel',
+    entete: { titre: 'Registre des absences du personnel', sous: `${p.du || p.au ? `Du ${fr(p.du) || '…'} au ${fr(p.au) || '…'}` : `Année ${p.annee}`}` },
+    orientation: 'paysage',
+    nom: `Registre-absences-${p.du || p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING,
+  };
+}
+
 function documentListesUE(p) {
   const d = donneesListesUE(p.annee, p.section);
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -1956,6 +2017,20 @@ export const RAPPORTS = [
   },
 
   // ── PERSONNEL ───────────────────────────────────────────────────────────
+  /* LE REGISTRE DES ABSENCES DU PERSONNEL (3.5.229, circ. 9760 V.15.1.1, AGCF du 28/02/1994). Par jour, les membres du personnel
+     absents ; pour un enseignant, seulement les jours où son horaire le met en service. Durée prévue, motif et fin effective pour une
+     absence de plus d'un mois ; une colonne d'observations pour les justificatifs. Sources : les absences du dossier du personnel
+     (`absence_personnel`) et celles que les enseignants signalent (`absence_prof`). Consultable par le membre du personnel et
+     l'Administration : on l'imprime à la demande. */
+  {
+    id: 'registre-absences', domaine: 'personnel', params: ['annee', 'periode'],
+    libelle: 'Registre des absences du personnel',
+    aide: "Par jour, les membres du personnel absents (nom, matricule, motif, depuis quand, fin prévue ou effective), avec une colonne d'observations pour les justificatifs (circulaire 9760, V.15.1.1). Toute l'année, ou du … au ….",
+    colonnes: COLS([['date', 'Date', 12], ['nom', 'Membre du personnel', 28], ['matricule', 'Matricule', 14], ['motif', 'Motif', 24],
+      ['debut', 'Depuis', 12], ['fin', 'Fin prévue ou effective', 14], ['heure', 'Première heure due', 10], ['source', 'Encodé dans', 18]]),
+    lignes: (p) => registreAbsences(p),
+    document: (p) => documentRegistreAbsences(p),
+  },
   {
     id: 'personnel-liste', domaine: 'personnel', params: ['annee'],
     libelle: 'Membres du personnel et leur charge',
