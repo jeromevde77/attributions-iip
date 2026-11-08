@@ -8,7 +8,8 @@ En place depuis le 7 novembre 2026. Les alertes partent vers un sujet **ntfy**
 |---|---|---|---|
 | Disque de `/` | `lucie-disque` + `.service` + `.timer` | toutes les 30 min | ≥ 80 %, ≥ 90 % (répétée chaque jour), retour à la normale |
 | Mise à jour en échec (pull, sauvegarde, démarrage) | `../mise-a-jour.sh` (sujet : `NTFY_SUJET` dans `/opt/lucie/.env`) | toutes les 5 min | une même alerte au plus une fois par heure |
-| Redémarrage nécessaire, correctifs de sécurité bloqués | `lucie-systeme` + `.service` + `.timer` | chaque jour, 08:00 UTC | redémarrage en attente ; correctifs `-security` en attente depuis plus de 2 jours |
+| Redémarrage nécessaire, correctifs de sécurité bloqués, garde SSH | `lucie-systeme` + `.service` + `.timer` | chaque jour, 08:00 UTC | redémarrage en attente ; correctifs `-security` en attente depuis plus de 2 jours ; `fail2ban` ou `lucie-ssh` arrêté ; plus de `SEUIL_SSH` (2000) essais SSH refusés en 24 h |
+| Connexion SSH réussie | `lucie-ssh` + `.service` | en continu (suit le journal) | à chaque connexion : priorité haute si le compte vient d'une adresse jamais vue, minimale sinon ; rien pour les comptes de `SSH_SILENCE` déjà connus de cette adresse (`lucie-ops`) |
 
 Complètent ces deux scripts :
 - **Beszel** (`docker-compose.vps.yml`, https://monitor.lucie-iip.be) : RAM, CPU,
@@ -26,11 +27,11 @@ Complètent ces deux scripts :
 ## Installer
 
 ```bash
-sudo install -m 755 lucie-disque lucie-systeme /usr/local/bin/
+sudo install -m 755 lucie-disque lucie-systeme lucie-ssh /usr/local/bin/
 sudo install -m 644 lucie-*.service lucie-*.timer /etc/systemd/system/
 printf 'SUJET=<sujet-ntfy>\nSEUIL_ALERTE=80\nSEUIL_CRITIQUE=90\n' | sudo tee /etc/lucie-disque.conf >/dev/null
 sudo chmod 600 /etc/lucie-disque.conf
 sudo systemctl daemon-reload
-sudo systemctl enable --now lucie-disque.timer lucie-systeme.timer
-sudo lucie-disque --essai && sudo lucie-systeme --essai
+sudo systemctl enable --now lucie-disque.timer lucie-systeme.timer lucie-ssh.service
+sudo lucie-disque --essai && sudo lucie-systeme --essai && sudo lucie-ssh --essai
 ```

@@ -1,0 +1,60 @@
+#!/bin/bash
+# /usr/local/bin/lucie-ssh — prévient sur le téléphone (ntfy) à CHAQUE connexion
+# SSH réussie : compte, adresse, clé. Tourne en continu (lucie-ssh.service).
+#
+# Pourquoi pas le nombre d'échecs : tout serveur sur Internet en reçoit des
+# centaines par jour, et seule la clé est acceptée — ils échouent tous. Ce qui
+# compte, c'est quand quelqu'un ENTRE. (Le bilan des échecs est dans lucie-systeme.)
+#
+# Une adresse jamais vue pour ce compte : priorité haute (le téléphone sonne).
+# Un compte déjà venu de cette adresse : priorité minimale (dans la liste ntfy,
+# sans bruit). Les couples connus : /var/lib/lucie-ssh/connues.
+#
+# Réglages dans /etc/lucie-disque.conf : SUJET (ntfy), et SSH_SILENCE="compte …"
+# pour les comptes des automatismes (lucie-ops se connecte toutes les quelques
+# secondes quand Claude travaille) : pour eux, PAS de notification minimale —
+# mais une adresse nouvelle sonne toujours (une clé volée viendrait d'ailleurs).
+# Essai : lucie-ssh --essai
+
+CONF=${LUCIE_DISQUE_CONF:-/etc/lucie-disque.conf}
+[ -r "$CONF" ] && . "$CONF"
+CONNUES=${LUCIE_SSH_CONNUES:-/var/lib/lucie-ssh/connues}
+SILENCE=" ${SSH_SILENCE:-} "
+
+envoyer() { # $1 titre (ASCII), $2 priorité, $3 message
+  [ -n "$SUJET" ] || { printf '%s [%s]\n%s\n' "$1" "$2" "$3"; return; }
+  curl -fsS -m 30 -H "Title: $1" -H "Priority: $2" -H "Tags: key" \
+       --data-binary "$3" "https://ntfy.sh/$SUJET" >/dev/null \
+    || logger -t lucie-ssh "notification ntfy non envoyée"
+}
+
+if [ "$1" = "--essai" ]; then
+  envoyer "Lucie - essai SSH" default "L'alerte des connexions SSH est en place."
+  exit 0
+fi
+
+mkdir -p "$(dirname "$CONNUES")"; touch "$CONNUES"
+
+# Debian 13 (OpenSSH 10) : le « Accepted » vient de sshd-session ; sshd et
+# sshd-auth pour le cas où une version le déplacerait. LUCIE_SSH_ENTREE : un
+# fichier à la place du journal, pour les essais.
+journal() {
+  if [ -n "${LUCIE_SSH_ENTREE:-}" ]; then cat "$LUCIE_SSH_ENTREE"
+  else journalctl -f -n 0 -o cat SYSLOG_IDENTIFIER=sshd SYSLOG_IDENTIFIER=sshd-session SYSLOG_IDENTIFIER=sshd-auth
+  fi
+}
+
+# « Accepted publickey for debian from 203.0.113.7 port 51234 ssh2: ED25519 SHA256:… »
+journal | while read -r ligne; do
+  case "$ligne" in "Accepted "*) ;; *) continue ;; esac
+  read -r _ methode _ compte _ ip _ <<< "$ligne"
+  cle=""; case "$ligne" in *": "*) cle=" — clé ${ligne##*: }" ;; esac
+  if grep -qxF "$compte $ip" "$CONNUES"; then
+    case "$SILENCE" in *" $compte "*) continue ;; esac
+    envoyer "Lucie - connexion SSH" min "$compte depuis $ip ($methode)$cle."
+  else
+    echo "$compte $ip" >> "$CONNUES"
+    envoyer "Lucie - connexion SSH, nouvelle adresse" high \
+      "$compte depuis $ip, une adresse jamais vue pour ce compte ($methode)$cle. Si ce n'est ni toi ni Charles : sudo loginctl, puis retirer la clé de ~$compte/.ssh/authorized_keys."
+  fi
+done
