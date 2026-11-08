@@ -209,18 +209,25 @@ export function peindreFermeture(annee, lundis, fermeture, libelle, par) {
 export function desaccords(annee) {
   const ferm = fermetures(annee);
   const cal = essai(() => db.prepare('SELECT id, date_debut, type, label FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY date_debut').all(annee), []);
+  // L'AGENDA EST-IL PEINT ? (3.5.225, circulaire 9760 : le calendrier des cours de 2026-2027 gardait l'ancienne graine — automne
+  // au 2/11, carnaval au 15/2, Pâques au 29/3, « Pentecôte » le 17/5.) Quand la direction a peint au moins cinq semaines de
+  // fermeture, une semaine « vacances » qu'aucune fermeture ne porte est un désaccord, où qu'elle tombe ; avant, seulement si une
+  // fermeture était à une ou deux semaines (un congé décalé).
+  const peint = ferm.size >= 5;
   const out = [];
   for (const c of cal) {
     const l = lundiDe(c.date_debut), f = ferm.get(l);
     if (f?.fermeture === 'totale' && c.type !== 'vacances') out.push({ id: c.id, lundi: l, avant: c.type, apres: 'vacances', label: f.libelle || c.label || 'Fermeture', raison: `école fermée (${f.libelle || 'fermeture'}) mais semaine de ${TYPES_COURS[c.type] || c.type}` });
-    // Une semaine « vacances » sans fermeture n'est un désaccord que si une fermeture se trouve à une ou deux semaines d'elle : un
-    // congé DÉCALÉ (l'automne 2026 : fermé les 19 et 26/10, « vacances » le 2/11). Un congé que l'agenda n'a pas peint reste tel quel.
-    else if (c.type === 'vacances' && !f && [-14, -7, 7, 14].some(n => ferm.has(plus(l, n)))) out.push({ id: c.id, lundi: l, avant: 'vacances', apres: 'cours', label: null, raison: `« ${c.label || 'vacances'} » alors que l’école est ouverte` });
+    // Un congé scolaire où l'école reste EN PARTIE ouverte (carnaval, printemps) : les cours s'arrêtent d'ordinaire ; proposé, à cocher.
+    else if (f?.fermeture === 'partielle' && c.type === 'cours') out.push({ id: c.id, lundi: l, avant: c.type, apres: 'vacances', label: f.libelle || 'Congé', partielle: true, raison: `congé (${f.libelle || 'fermeture partielle'}), école en partie ouverte, mais semaine de cours` });
+    else if (c.type === 'vacances' && !f && (peint || [-14, -7, 7, 14].some(n => ferm.has(plus(l, n))))) out.push({ id: c.id, lundi: l, avant: 'vacances', apres: 'cours', label: null, raison: `« ${c.label || 'vacances'} » alors que l’école est ouverte` });
   }
   return out;
 }
-export function aligner(annee, par, ecrire = false) {
-  const l = desaccords(annee);
+/** `ids` : les semaines retenues (l'écran les coche) ; absent = toutes. */
+export function aligner(annee, par, ecrire = false, ids = null) {
+  const garde = Array.isArray(ids) ? new Set(ids.map(Number)) : null;
+  const l = desaccords(annee).filter(x => !garde || garde.has(x.id));
   if (!ecrire) return { changements: l };
   db.transaction(() => {
     for (const x of l) {

@@ -323,6 +323,7 @@ export function migrerEcheancier(db) {
   // ═══ SEED du référentiel ════════════════════════════════════════════════
   seedEcheanceTypes(db);
   seedPieceTypes(db);
+  corrigerSelonCirculaire9760(db);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -452,9 +453,9 @@ const ECHEANCE_TYPES = [
     responsable_defaut:'secretariat', rappels_defaut:'[1]',
     base_legale:'Circ. 9760 IV.3 / circ. 9626 du 11/12/2025' },
 
-  { code:'remplacement_10j', libelle:"Absence de plus de 10 jours ouvrables : engager le remplacement",
-    description:"Au-delà de 10 jours ouvrables d'absence, le remplacement du membre du personnel doit être organisé.",
-    zone:'personnel', categorie:'statutaire', regle_date:'rel:absence_debut+10jo',
+  { code:'remplacement_10j', libelle:"Absence de 6 jours ouvrables : engager le remplacement",
+    description:"En enseignement pour adultes, un membre du personnel absent au moins 6 jours ouvrables consécutifs peut être remplacé (un jour ouvrable est un jour d'ouverture de l'école) : le remplacement s'organise dès ce terme.",
+    zone:'personnel', categorie:'statutaire', regle_date:'rel:absence_debut+6jo',
     responsable_defaut:'admin', rappels_defaut:'[3,1]',
     base_legale:'Circ. 9760 III.2.8' },
 
@@ -561,8 +562,8 @@ const PIECE_TYPES = [
   { code:'titre',    libelle:"Copie du titre / diplôme", annexe:null,
     base_legale:'Régime des titres et fonctions', obligatoire:'tous', delai_jours:5, ordre:100 },
   { code:'casier',   libelle:"Extrait de casier judiciaire (modèle 2)", annexe:null,
-    base_legale:'Circ. 9577 du 28/08/2025', obligatoire:'tous', delai_jours:5,
-    duree_validite_mois:12, ordre:110 },
+    base_legale:'Circ. 9760 IV.2 et III.3.7 (modèle 2, moins de 6 mois)', obligatoire:'tous', delai_jours:5,
+    duree_validite_mois:6, ordre:110 },
   { code:'naissance',libelle:"Extrait d'acte de naissance", annexe:null,
     base_legale:'Première entrée en fonction', obligatoire:'tous', delai_jours:30, ordre:120 },
   { code:'menage',   libelle:"Composition de ménage", annexe:null,
@@ -599,6 +600,20 @@ function seedEcheanceTypes(db) {
     const total = db.prepare('SELECT COUNT(*) n FROM echeance_type').get().n;
     console.log(`[migration] echeance_type : ${n} type(s) ajouté(s), ${total} au total`);
   } catch (e) { console.error('[migration] seed echeance_type :', e.message); }
+}
+
+/* LA CIRCULAIRE 9760 RELUE (3.5.225) : les graines ne réécrivent pas une ligne qui existe. Le remplacement d'un absent est
+   possible dès 6 jours ouvrables (III.2.8), pas 10 ; le casier se demande de moins de 6 mois (IV.2), pas 12. Corrigé seulement là
+   où la direction n'a rien retouché. */
+export function corrigerSelonCirculaire9760(db) {
+  try {
+    db.prepare(`UPDATE echeance_type SET regle_date = 'rel:absence_debut+6jo',
+        libelle = 'Absence de 6 jours ouvrables : engager le remplacement',
+        description = 'En enseignement pour adultes, un membre du personnel absent au moins 6 jours ouvrables consécutifs peut être remplacé (un jour ouvrable est un jour d''ouverture de l''école) : le remplacement s''organise dès ce terme.'
+      WHERE code = 'remplacement_10j' AND regle_date = 'rel:absence_debut+10jo'`).run();
+    db.prepare(`UPDATE piece_type SET duree_validite_mois = 6, base_legale = 'Circ. 9760 IV.2 et III.3.7 (modèle 2, moins de 6 mois)'
+      WHERE code = 'casier' AND duree_validite_mois = 12`).run();
+  } catch (e) { console.error('[migration] circulaire 9760 :', e.message); }
 }
 
 function seedPieceTypes(db) {

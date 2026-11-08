@@ -188,18 +188,29 @@ r.post('/:profId/absences', authRequired, exigerPerimetreProfesseur, peutEcrire,
 
   const id = Number(info.lastInsertRowid);
 
-  // Échéances déclenchées : déclaration CAMMAT, remplacement au-delà de
-  // 10 jours ouvrables (circ. 9760 III.2.8).
+  // ÉCHÉANCES DÉCLENCHÉES SELON LE TYPE D'ABSENCE (3.5.225, circ. 9760) : la CAMMAT ne vaut que pour la maladie, la maternité et
+  // l'accident du travail (IV.3) ; le remplacement se prépare dès 6 jours ouvrables (III.2.8), pas pour une grève ni une absence
+  // d'un jour ; une grève appelle l'A15 dans les 5 jours ouvrables (V.14), un accident sa déclaration (V.12).
   const prof = db.prepare('SELECT nom, prenom FROM professeur WHERE id = ?').get(profId);
+  const nomProf = prof ? `${prof.nom} ${prof.prenom}` : null;
+  const ouvrables = (a, b) => { let n = 0; for (let d = new Date(`${a}T12:00:00Z`); d <= new Date(`${b}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) if (d.getUTCDay() % 6) n++; return n; };
+  const codesAbsence = [];
+  if (['maladie_1j', 'maladie', 'maternite', 'accident_travail'].includes(type)) codesAbsence.push('cammat_declaration');
+  if (!['greve', 'anrj', 'maladie_1j'].includes(type) && (!date_fin || ouvrables(date_debut, date_fin) >= 6)) codesAbsence.push('remplacement_10j');
+  const codesEvenement = { greve: ['greve_a15'], accident_travail: ['accident_travail_decl'], accident_hors_service: ['accident_hors_service'] }[type] || [];
   try {
-    declencher(db, {
-      ancre: 'absence_debut', dateRef: date_debut, anneeScolaire: annee,
-      sourceType: 'absence', sourceId: id,
-      libelle: prof ? `${prof.nom} ${prof.prenom}` : null,
-    });
+    if (codesAbsence.length) declencher(db, { ancre: 'absence_debut', dateRef: date_debut, anneeScolaire: annee, sourceType: 'absence', sourceId: id, libelle: nomProf, codes: codesAbsence });
+    if (codesEvenement.length) declencher(db, { ancre: 'evenement', dateRef: date_debut, anneeScolaire: annee, sourceType: 'absence', sourceId: id, libelle: nomProf, codes: codesEvenement });
   } catch (e) { console.error('[dossier] échéances absence :', e.message); }
+  // LES JOURS DE MALADIE SANS CERTIFICAT SE COMPTENT (circ. 9760, rentrée 2026) : au-delà de trois dans l'année, l'absence se traite
+  // comme non justifiée. Lucie le dit ; elle ne change pas le type.
+  let avertissement = null;
+  if (type === 'maladie_1j' && !certificat_recu) {
+    const n = db.prepare(`SELECT COUNT(*) n FROM absence_personnel WHERE professeur_id = ? AND annee_scolaire = ? AND type = 'maladie_1j' AND COALESCE(certificat_recu, 0) = 0`).get(profId, annee).n;
+    if (n > 3) avertissement = `${n}e jour de maladie sans certificat cette année (dans cet établissement) : dès le 4e, la Direction de gestion le convertit en absence non justifiée (ANRJ), sans traitement (D. 22/12/1994, art. 7 et 20 ; circ. 9760 IV.3).`;
+  }
 
-  res.json(db.prepare('SELECT * FROM absence_personnel WHERE id = ?').get(id));
+  res.json({ ...db.prepare('SELECT * FROM absence_personnel WHERE id = ?').get(id), avertissement });
 });
 
 r.patch('/absences/:id', authRequired, peutEcrire, (req, res) => {

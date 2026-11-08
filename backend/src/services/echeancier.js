@@ -201,13 +201,14 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
  * Appelée depuis les routes (engagement d'un candidat, délibération encodée…).
  * @param ancre  'engagement' | 'publication' | 'deliberation' | 'contrat_fin' | 'evenement'
  */
-export function declencher(db, { ancre, dateRef, anneeScolaire, sourceType, sourceId, libelle }) {
+// `codes` (3.5.225) : ne créer que ces types-là — une grève ne déclare pas une CAMMAT.
+export function declencher(db, { ancre, dateRef, anneeScolaire, sourceType, sourceId, libelle, codes = null }) {
   const anneeDebut = anneeDebutDe(anneeScolaire);
   const estEnConge = chargerPeriodesConges(db, anneeScolaire);
   colonnePersonne(db);
   const types = db.prepare(
     `SELECT * FROM echeance_type WHERE actif = 1 AND regle_date LIKE ?`
-  ).all(`rel:${ancre}%`);
+  ).all(`rel:${ancre}%`).filter(t => !Array.isArray(codes) || codes.includes(t.code));
 
   const insert = db.prepare(`
     INSERT INTO echeance

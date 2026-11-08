@@ -41,7 +41,7 @@ r.put('/cours', authRequired, (req, res) => {
 // ALIGNER LES COURS SUR LA FERMETURE (3.5.148) : simulation d'abord (`ecrire: false`), la direction confirme.
 r.post('/aligner', authRequired, (req, res) => {
   if (!direction(req, res)) return;
-  try { res.json(aligner(annee(req), nomDe(req.user), req.body?.ecrire === true)); } catch (e) { faute(res, e); }
+  try { res.json(aligner(annee(req), nomDe(req.user), req.body?.ecrire === true, req.body?.ids ?? null)); } catch (e) { faute(res, e); }
 });
 r.put('/jour-ferme/:date', authRequired, (req, res) => {
   if (!direction(req, res)) return;

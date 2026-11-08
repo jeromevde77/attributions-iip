@@ -769,12 +769,13 @@ try {
   // Seed calendrier 2026-2027 si absent
   const _cal2627 = db.prepare("SELECT COUNT(*) AS n FROM annee_calendrier WHERE annee_scolaire = '2026-2027'").get();
   if (_cal2627.n === 0) {
+    // Les congés 2026-2027 de la circulaire 9760 (II.3.2.2) : automne du 19/10 au 30/10, hiver du 21/12 au 01/01, détente du 22/02
+    // au 05/03, printemps du 26/04 au 07/05 (3.5.225 ; l'ancienne graine suivait le calendrier d'avant la réforme).
     const VACANCES_2627 = [
-      ['2026-11-02', 1, 'vacances', 'Congé automne'],
-      ['2026-12-21', 2, 'vacances', 'Vacances Noël'],
-      ['2027-02-15', 1, 'vacances', 'Congé carnaval'],
-      ['2027-03-29', 2, 'vacances', 'Vacances Pâques'],
-      ['2027-05-17', 1, 'vacances', 'Congé Pentecôte'],
+      ['2026-10-19', 2, 'vacances', 'Congé d’automne'],
+      ['2026-12-21', 2, 'vacances', 'Vacances d’hiver'],
+      ['2027-02-22', 2, 'vacances', 'Congé de détente'],
+      ['2027-04-26', 2, 'vacances', 'Vacances de printemps'],
     ];
     const EV_2627 = [
       ['2027-01-04', 3, 'ev1', 'Évaluations 1re session'],
