@@ -44,6 +44,7 @@ export function teintesSchema() {
     sous_reserve: etat(C.disponible), en_attente: etat(C.attente),
     bloquee: { rail: '#C3CAD6', fond: C.fond_indispo || '#F4F5F7', bord: '#E3E6EB', texte: '#7A879E' },
     programme: { rail: fonce(C.disponible, 0.3), fond: C.disponible, bord: C.disponible, texte: '#FFFFFF' },
+    echec_double: { rail: fonce(C.refuse || '#9D4A38', 0.3), fond: C.refuse || '#9D4A38', bord: C.refuse || '#9D4A38', texte: '#FFFFFF' },
     blocs: { BA1: C.ba1, BA2: C.ba2, BA3: C.ba3 },
     or: C.epreuve || '#C9A84C', faveurHex: C.faveur, reussiHex: C.reussi, incoherence: '#B45309',
   };
@@ -124,7 +125,7 @@ export function schemaSvg(data) {
     if (!p) return '';
     const statut = n.statut === 'acquise' && n.reussite?.faveur ? 'faveur' : n.statut;
     const auProgramme = n.inscrite && statut !== 'acquise' && statut !== 'faveur';
-    let co = auProgramme ? T.programme : (T[statut] || T.bloquee);
+    let co = n.echec_double ? T.echec_double : auProgramme ? T.programme : (T[statut] || T.bloquee);   // deux refus : rouge plein (3.5.215)
     if (n.epreuve_integree && !auProgramme) co = { ...co, rail: T.or };
     const aNote = (statut === 'acquise' || statut === 'faveur') && n.reussite;
     const max = (aNote ? 11 : 17) - (n.epreuve_integree ? 2 : 0);
@@ -155,7 +156,7 @@ export function legendeSchemaHtml() {
   const pastille = (co, pointille = false) =>
     `<span style="display:inline-block;width:3.5mm;height:3mm;background:${co.fond};border:0.3mm ${pointille ? 'dashed' : 'solid'} ${co.bord};border-left:0.9mm solid ${co.rail};border-radius:0 0.8mm 0.8mm 0;vertical-align:-0.5mm;margin-right:1.2mm"></span>`;
   const l = [
-    [T.acquise, 'réussie'], [T.faveur, 'réussie par faveur'], [T.programme, 'au programme cette année'],
+    [T.acquise, 'réussie'], [T.faveur, 'réussie par faveur'], [T.programme, 'au programme cette année'], [T.echec_double, 'échouée deux fois'],
     [T.accessible, 'disponible'], [T.sous_reserve, 'disponible sous réserve', true],
     [T.en_attente, 'ajournée, en attente'], [T.bloquee, 'encore indisponible'],
   ];
