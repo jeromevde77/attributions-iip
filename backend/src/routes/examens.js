@@ -7,7 +7,7 @@ import { Router } from 'express';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopperDocument } from '../lib/document.js';
-import { epreuves, ecrireDetail, composer, PIECES, STYLES_EXAMENS, delaiQuestionnaire, acquisDe, garde as pageDeGarde } from '../lib/examens.js';
+import { epreuves, ecrireDetail, composer, PIECES, STYLES_EXAMENS, delaiQuestionnaire, acquisDe, garde as pageDeGarde, nettoyerGrille, lireGrille, ecrireGrille } from '../lib/examens.js';
 import { accesCours } from './mesCours.js';
 import db from '../db/index.js';
 
@@ -91,18 +91,36 @@ r.get('/mes-epreuves', authRequired, (req, res) => {
 r.get('/cours/:cours', authRequired, (req, res) => {
   const e = epreuveDuCours(req, req.params.cours, Number(req.query.session) === 2 ? 2 : 1);
   if (!e) return res.status(404).json({ error: 'Cours introuvable dans vos cours.' });
-  res.json({ ...e, etudiants: e.etudiants.length });
+  res.json({ ...e, etudiants: e.etudiants.length, grille: lireGrille(e) || [] });
+});
+// La grille de l'examen se garde sans produire la page (3.5.240).
+r.put('/cours/:cours/grille', authRequired, (req, res) => {
+  const b = req.body || {};
+  const e = epreuveDuCours(req, req.params.cours, Number(b.session) === 2 ? 2 : 1);
+  if (!e) return res.status(404).json({ error: 'Cours introuvable dans vos cours.' });
+  const g = nettoyerGrille(b.questions, new Set(e.acquis.map(a => a.aa_code)));
+  ecrireGrille(e, g, req.user?.nom_complet || req.user?.email);
+  res.json({ ok: true, grille: g });
 });
 r.post('/cours/:cours/page-de-garde', authRequired, (req, res) => {
   const b = req.body || {};
   const session = Number(b.session) === 2 ? 2 : 1;
   const e = epreuveDuCours(req, req.params.cours, session);
   if (!e) return res.status(404).json({ error: 'Cours introuvable dans vos cours.' });
+  // La grille de questions (3.5.240) : elle se garde, et elle fait les acquis évalués.
+  if (Array.isArray(b.questions)) {
+    const g = nettoyerGrille(b.questions, new Set(e.acquis.map(a => a.aa_code)));
+    if (!g.length) return res.status(400).json({ error: 'Ajoutez au moins une question.' });
+    if (g.some(q => !q.aa_code)) return res.status(400).json({ error: `Chaque question se rattache à un acquis (${g.filter(q => !q.aa_code).map(q => q.num).join(', ')}).` });
+    if (g.some(q => !q.points)) return res.status(400).json({ error: `Chaque question porte ses points (${g.filter(q => !q.points).map(q => q.num).join(', ')}).` });
+    ecrireGrille(e, g, req.user?.nom_complet || req.user?.email);
+    b.acquis = null; e.grille = g;
+  }
   const choisis = Array.isArray(b.acquis) ? b.acquis : null;
   const parCode = new Map(e.acquis.map(a => [a.aa_code, a]));
   const aa = choisis ? choisis.filter(x => parCode.has(x.aa_code)).map(x => ({ ...parCode.get(x.aa_code), questions: String(x.questions || '').slice(0, 60), points: Number(x.points) > 0 ? Number(x.points) : null })) : e.acquis;
-  if (!aa.length) return res.status(400).json({ error: 'Cochez au moins un acquis évalué.' });
-  const ep = { ...e, aa_choisis: aa, date: b.date || e.date, heure: b.heure || e.heure, materiel: b.materiel ?? e.materiel, consignes: b.consignes ?? e.consignes,
+  if (!aa.length && !e.grille) return res.status(400).json({ error: 'Cochez au moins un acquis évalué.' });
+  const ep = { ...e, aa_choisis: e.grille ? null : aa, grille: e.grille || undefined, date: b.date || e.date, heure: b.heure || e.heure, materiel: b.materiel ?? e.materiel, consignes: b.consignes ?? e.consignes,
     pages: Number(b.pages) > 0 ? Math.round(Number(b.pages)) : null, etudiants: b.nominatif ? e.etudiants : [] };
   if (b.heure && !b.heure_fin) { const [h, m] = String(b.heure).split(':').map(Number); const t = h * 60 + (m || 0) + (ep.duree_min || 120); ep.heure_fin = `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
   const titre = `Page de garde — ${e.cours_code}`;

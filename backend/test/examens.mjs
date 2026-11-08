@@ -86,5 +86,13 @@ t('lendemain : archivage', file().some(x => x.cle === 'examens_archivage'));
 const pg = X.garde({ ...l[0], aa_choisis: [{ aa_code: 'AA256.1', description: 'Réaliser un examen scanner', questions: 'Q1, Q3', points: 25 }], etudiants: [], pages: 6 });
 t('page vierge : une seule page, questions, points et total', (pg.match(/Examen — 1re session/g) || []).length === 1 && pg.includes('Q1, Q3') && pg.includes('…… / 25') && pg.includes('6</b> page(s)'), pg.slice(0, 200));
 t('elle porte l’établissement', /class="etab"/.test(pg));
+// ── La grille de l'examen (3.5.240) ──
+const gr = X.nettoyerGrille([{ num: 'Q1', libelle: 'Décrire', aa_code: 'AA256.1', points: '6.5' }, { libelle: 'Hors acquis', aa_code: 'AA999', points: 3 },
+  { num: 'Q3', aa_code: 'AA256.1', points: 7.3 }, {}], new Set(['AA256.1']));
+t('grille nettoyée : vide écartée, acquis inconnu retiré, demi-points', gr.length === 3 && gr[1].aa_code === '' && gr[1].num === 'Q2' && gr[2].points === 7.5, gr);
+X.ecrireGrille(l[0], gr.filter(q => q.aa_code), 'test');
+t('la grille se garde et se relit', X.lireGrille(l[0]).length === 2);
+const pg2 = X.garde({ ...l[0], etudiants: [] });
+t('la page de garde lit la grille : questions, sommes par acquis, total', pg2.includes('Grille de correction') && pg2.includes('Décrire') && pg2.includes('Q1, Q3') && pg2.includes('…… / 14') && pg2.includes('× 1,429'), pg2.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 900));
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

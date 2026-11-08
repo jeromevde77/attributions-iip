@@ -24,6 +24,16 @@ export const ajouts = {
         "Le registre s'édite en fin d'année et se conserve trente ans.",
       ],
     },
+    {
+      titre: "Évaluations et dates des UE : ce qui manque",
+      pour: 'sec dir',
+      ou: "Éditions → Organisation → Listes et rapports → Évaluations et dates des UE : ce qui manque.",
+      texte: "Un rapport pour voir, avant les sessions, ce qui reste à poser : pour chaque UE qui a des inscrits, chaque cours et son épreuve de 1re session (date, heure, local, professeurs), chaque organisation et ses dates de début et de fin, et la date de la délibération de 1re session. Le PDF ne garde que ce qui manque, avec une synthèse par section ; le tableur donne tout, en trois onglets (synthèse, évaluations, dates).",
+      savoir: [
+        "Une épreuve posée pour l'unité entière couvre tous ses cours.",
+        "Les épreuves se posent dans Organisation → L'année → Sessions : épreuves et délibérations, ou depuis l'Agenda de l'école ; les dates dans Dates des UE.",
+      ],
+    },
   ],
   espace: [
     {
@@ -349,6 +359,17 @@ export const ajouts = {
     },
   ],
   mescours: [
+    {
+      titre: "La grille complète de l'examen",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → Mes examens → un cours.",
+      texte: "Composez la grille de votre examen : une ligne par question, avec son numéro, son intitulé, l'acquis qu'elle évalue et ses points. Les sommes se font seules, par acquis et pour l'examen, avec le coefficient qui ramène sur 20. La grille se garde d'elle-même ; la page de garde l'imprime, avec une case de correction par question, puis le résultat par acquis.",
+      savoir: [
+        "[[Ajouter une question|IconPlus]] ajoute une ligne ; le « + » d'un acquis, dans le tableau par acquis, ajoute une question sur cet acquis.",
+        "Un acquis sans question n'est pas évalué par l'épreuve : il est signalé et sort de la page de garde.",
+        "La page de garde ne se produit que si chaque question a son acquis et ses points.",
+      ],
+    },
     {
       titre: "Mes examens : la page de garde",
       pour: 'ens coo dir',
