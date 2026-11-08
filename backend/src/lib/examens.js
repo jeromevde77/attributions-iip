@@ -33,6 +33,13 @@ export function migrerExamens(dbx = db) {
     maj_le         TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (annee_scolaire, session, ue_num, cours_code)
   )`);
+  /* LA GRILLE DE L'EXAMEN (3.5.240, Charles : « créer la grille complète de l'examen : autant de lignes que de questions, attribuées
+     à un AA, avec somme automatique »). Une ligne par question : numéro, intitulé, acquis, points. Gardée par épreuve, pour la
+     reprendre et la retoucher ; la page de garde la lit. */
+  dbx.exec(`CREATE TABLE IF NOT EXISTS examen_grille (
+    annee_scolaire TEXT NOT NULL, session INTEGER NOT NULL, ue_num INTEGER NOT NULL, cours_code TEXT NOT NULL DEFAULT '',
+    questions TEXT NOT NULL DEFAULT '[]', maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (annee_scolaire, session, ue_num, cours_code))`);
 }
 try { migrerExamens(); try { db.exec('ALTER TABLE epreuve_detail ADD COLUMN questionnaire_recu_le TEXT'); } catch { /* déjà là */ } } catch (e) { console.error('[migration] epreuve_detail :', e.message); }
 
@@ -273,9 +280,43 @@ export function acquisDe(e) {
     GROUP BY p.aa_code ORDER BY p.aa_code`).all(e.annee, e.ue_num, e.cours_code, e.cours_code), [])
     .filter((x, i, t) => t.findIndex(y => y.aa_code === x.aa_code) === i);
 }
+/** Nettoie une grille de questions : numéro, intitulé, acquis (parmi `permis` s'il est donné), points (au demi-point). */
+export function nettoyerGrille(questions, permis = null) {
+  return (Array.isArray(questions) ? questions : []).slice(0, 200).map((q, i) => ({
+    num: String(q?.num || `Q${i + 1}`).trim().slice(0, 12),
+    libelle: String(q?.libelle || '').trim().slice(0, 300),
+    aa_code: permis && !permis.has(String(q?.aa_code || '')) ? '' : String(q?.aa_code || '').slice(0, 30),
+    points: Number(q?.points) > 0 ? Math.round(Number(q.points) * 2) / 2 : 0,
+  })).filter(q => q.libelle || q.aa_code || q.points);
+}
+export function lireGrille(e) {
+  const r = essai(() => db.prepare('SELECT questions FROM examen_grille WHERE annee_scolaire = ? AND session = ? AND ue_num = ? AND cours_code = ?')
+    .get(e.annee, Number(e.session) === 2 ? 2 : 1, e.ue_num, e.cours_code || ''), null);
+  return r ? essai(() => JSON.parse(r.questions), []) : null;
+}
+export function ecrireGrille(e, questions, par) {
+  db.prepare(`INSERT INTO examen_grille (annee_scolaire, session, ue_num, cours_code, questions, maj_par) VALUES (?,?,?,?,?,?)
+    ON CONFLICT(annee_scolaire, session, ue_num, cours_code) DO UPDATE SET questions = excluded.questions, maj_par = excluded.maj_par, maj_le = datetime('now')`)
+    .run(e.annee, Number(e.session) === 2 ? 2 : 1, e.ue_num, e.cours_code || '', JSON.stringify(questions), par || null);
+}
+/** Les acquis vus par la grille : chacun avec ses questions et la somme de ses points. */
+export function acquisDeLaGrille(acquis, questions) {
+  return acquis.map(a => {
+    const qs = questions.filter(q => q.aa_code === a.aa_code);
+    return { ...a, questions: qs.map(q => q.num).join(', '), points: qs.reduce((t, q) => t + q.points, 0) || null };
+  }).filter(a => a.points);
+}
+
 export function garde(e) {
-  // Les acquis choisis par l'enseignant (avec ses questions et ses points), sinon tous ceux du cours (3.5.234).
-  const aa = Array.isArray(e.aa_choisis) ? e.aa_choisis : acquisDe(e);
+  // La grille de l'examen (3.5.240) quand elle existe ; sinon les acquis choisis (3.5.234), sinon tous ceux du cours.
+  const grille = Array.isArray(e.grille) ? e.grille : (Array.isArray(e.aa_choisis) ? null : lireGrille(e));
+  const aa = grille?.length ? acquisDeLaGrille(acquisDe(e), grille) : Array.isArray(e.aa_choisis) ? e.aa_choisis : acquisDe(e);
+  const totalG = (grille || []).reduce((t, q) => t + q.points, 0);
+  const fmt = n => String(n).replace('.', ',');
+  const tableGrille = grille?.length ? `<h3>Grille de correction</h3>
+    <table class="grille"><thead><tr><th style="width:12mm">N°</th><th>Question</th><th style="width:24mm">Acquis</th><th style="width:26mm">Points</th></tr></thead>
+      <tbody>${grille.map(q => `<tr><td>${esc(q.num)}</td><td class="petit">${esc(q.libelle)}</td><td>${esc(q.aa_code || '—')}</td><td>…… / ${fmt(q.points)}</td></tr>`).join('')}
+      <tr><td colspan="3"><b>Total</b>${totalG && totalG !== 20 ? ` <span class="petit">(ramené sur 20 : × ${fmt(Math.round(20 / totalG * 1000) / 1000)})</span>` : ''}</td><td><b>…… / ${fmt(totalG)}</b></td></tr></tbody></table>` : '';
   // L'ÉTABLISSEMENT DE LA SECTION en tête de la page que reçoit l'étudiant (l'en-tête du document ne paraît qu'en première page).
   const etab = essai(() => db.prepare(`SELECT etab_nom FROM etablissement WHERE id = COALESCE((SELECT etablissement_id FROM section WHERE code = ?), 1)`).get(e.section)?.etab_nom, null)
     || essai(() => db.prepare('SELECT etab_nom FROM etablissement WHERE id = 1').get()?.etab_nom, null) || 'Institut Ilya Prigogine';
@@ -292,10 +333,11 @@ export function garde(e) {
     <p class="mention">Indiquez votre nom, votre prénom et votre matricule en haut à droite de chaque page. Impression recto : le verso sert de brouillon. Durée : 2 heures pour tous (l’épreuve est conçue pour 1 h 30).</p>
     <h3>Matériel autorisé et consignes</h3>
     <div class="cadre">${esc(e.materiel || '')}${e.consignes ? `<br>${esc(e.consignes)}` : ''}</div>
+    ${tableGrille}
     <h3>Résultat par acquis d’apprentissage</h3>
     ${aa.length ? `<table class="grille"><thead><tr><th style="width:24mm">Acquis</th><th>Énoncé</th><th style="width:22mm">Questions</th><th style="width:22mm">Points</th><th style="width:18mm">/ 20</th></tr></thead>
-      <tbody>${aa.map(a => `<tr><td>${esc(a.aa_code)}</td><td class="petit">${esc(String(a.description || '').slice(0, 220))}</td><td>${esc(a.questions || '')}</td><td>…… / ${esc(a.points || '……')}</td><td></td></tr>`).join('')}
-      ${aa.some(a => a.points) ? `<tr><td colspan="3"><b>Total</b></td><td><b>…… / ${aa.reduce((t, a) => t + (Number(a.points) || 0), 0)}</b></td><td><b>…… / 20</b></td></tr>` : ''}</tbody></table>`
+      <tbody>${aa.map(a => `<tr><td>${esc(a.aa_code)}</td><td class="petit">${esc(String(a.description || '').slice(0, 220))}</td><td>${esc(a.questions || '')}</td><td>…… / ${esc(a.points ? fmt(a.points) : '……')}</td><td></td></tr>`).join('')}
+      ${aa.some(a => a.points) ? `<tr><td colspan="3"><b>Total</b></td><td><b>…… / ${fmt(aa.reduce((t, a) => t + (Number(a.points) || 0), 0))}</b></td><td><b>…… / 20</b></td></tr>` : ''}</tbody></table>`
       : '<p class="vide">Aucun acquis pondéré pour ce cours cette année (Organisation → l’unité → Pondérer).</p>'}`;
   const liste = e.etudiants.length ? e.etudiants : [null];
   return liste.map((x, k) => `<section class="piece"${saut(k)}>${tete(x)}</section>`).join('');

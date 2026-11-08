@@ -360,6 +360,17 @@ export const ajouts = {
   ],
   mescours: [
     {
+      titre: "La grille complète de l'examen",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → Mes examens → un cours.",
+      texte: "Composez la grille de votre examen : une ligne par question, avec son numéro, son intitulé, l'acquis qu'elle évalue et ses points. Les sommes se font seules, par acquis et pour l'examen, avec le coefficient qui ramène sur 20. La grille se garde d'elle-même ; la page de garde l'imprime, avec une case de correction par question, puis le résultat par acquis.",
+      savoir: [
+        "[[Ajouter une question|IconPlus]] ajoute une ligne ; le « + » d'un acquis, dans le tableau par acquis, ajoute une question sur cet acquis.",
+        "Un acquis sans question n'est pas évalué par l'épreuve : il est signalé et sort de la page de garde.",
+        "La page de garde ne se produit que si chaque question a son acquis et ses points.",
+      ],
+    },
+    {
       titre: "Mes examens : la page de garde",
       pour: 'ens coo dir',
       ou: "Espace enseignant → Mes examens.",
