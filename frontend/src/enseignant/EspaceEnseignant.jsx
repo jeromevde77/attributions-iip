@@ -78,7 +78,8 @@ function Entree({ onEntre }) {
   const [appareils, setAppareils] = useState(null);
   const [msg, setMsg] = useState(null);
   const [erreur, setErreur] = useState(null);
-  useEffect(() => { appel('GET', '/appareil').then(r => { if (r.reconnu) setIdent(r.identifiant); }).catch(() => {}); }, []);
+  const [lucieUrl, setLucieUrl] = useState(null);
+  useEffect(() => { appel('GET', '/appareil').then(r => { if (r.reconnu) setIdent(r.identifiant); setLucieUrl(r.lucie || null); }).catch(() => {}); }, []);
   const entrer = async ev => {
     ev?.preventDefault(); setErreur(null);
     try {
@@ -105,10 +106,10 @@ function Entree({ onEntre }) {
           <form onSubmit={entrer} className="space-y-3">
             <label className="block text-second text-slate-600">Votre adresse de l’institut
               <input className="controle w-full mt-1" type="email" autoComplete="username" value={ident} onChange={e => setIdent(e.target.value)} required /></label>
-            <label className="block text-second text-slate-600">Votre mot de passe
+            <label className="block text-second text-slate-600">Votre mot de passe de Lucie
               <input className="controle w-full mt-1" type="password" autoComplete="current-password" value={mdp} onChange={e => setMdp(e.target.value)} required /></label>
             <button type="submit" className="bouton bouton-fort controle w-full">Entrer</button>
-            <button type="button" className="text-second text-iip-blue underline" onClick={() => { setVue('lien'); setErreur(null); }}>Première visite, ou mot de passe oublié ?</button>
+            <button type="button" className="text-second text-iip-blue underline" onClick={() => { setVue('oubli'); setErreur(null); }}>Mot de passe oublié ?</button>
           </form>)}
         {vue === 'code' && (
           <form onSubmit={valider} className="space-y-3">
@@ -121,6 +122,13 @@ function Entree({ onEntre }) {
           <div className="space-y-2">
             <p className="text-sm">Choisissez l’appareil que celui-ci remplace :</p>
             {(appareils || []).map(a => <button key={a.id} type="button" className="bouton controle w-full justify-start" onClick={e => valider(e, a.id)}><IconDevices size={15} /> {a.nom} · vu le {court(a.vu_le || a.cree_le)}</button>)}
+          </div>)}
+        {vue === 'oubli' && (
+          <div className="space-y-3">
+            <p className="text-sm">Votre mot de passe est celui de Lucie. S’il est oublié, choisissez-en un nouveau depuis la page de connexion de Lucie
+              (« Mot de passe oublié ») : il vaudra ici deux minutes plus tard.</p>
+            {lucieUrl && <a className="bouton bouton-fort controle w-full justify-center" href={`${lucieUrl}/login`} target="_blank" rel="noreferrer">Ouvrir Lucie</a>}
+            <button type="button" className="text-second text-iip-blue underline" onClick={() => setVue('connexion')}>Retour</button>
           </div>)}
         {vue === 'lien' && (
           <form onSubmit={lien} className="space-y-3">
@@ -413,8 +421,8 @@ function MonCompte({ moi, onToken }) {
           </div>))}
       </section>
       <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-        <div className="entete-carte px-4 py-3 font-semibold text-iip-texte inline-flex items-center gap-2 w-full"><IconLock size={16} /> Changer mon mot de passe</div>
-        <div className="p-4"><ChoisirMotDePasse avecActuel onFait={onToken} /></div>
+        <div className="entete-carte px-4 py-3 font-semibold text-iip-texte inline-flex items-center gap-2 w-full"><IconLock size={16} /> Mon mot de passe</div>
+        <div className="p-4 text-sm text-slate-600">C’est celui de Lucie (3.5.242) : pour le changer, dans Lucie, le bouclier en haut à droite (Mon compte). Le nouveau vaut ici deux minutes plus tard.</div>
       </section>
     </div>
   );
