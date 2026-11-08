@@ -3,6 +3,7 @@
  * l'absence, ses absences de la période sont justifiées ; au-delà, la direction décide. Serveur : portail/src/serveur.js
  * (/api/portail/certificats, /api/portail/certificat) ; Lucie : backend/src/lib/certificatMedical.js. */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import ChargementLucie from '../components/ChargementLucie.jsx';
 import { IconUpload, IconCheck, IconClock, IconAlertTriangle } from '@tabler/icons-react';
 
 const jourFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
@@ -36,7 +37,7 @@ export default function MesAbsences({ appel, jeton, onErreur }) {
     } catch (e) { onErreur(e); } finally { setEnvoi(false); }
   }
 
-  if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!p) return <ChargementLucie />;
   return (
     <div className="space-y-4">
       <div className="carte p-4 space-y-3">

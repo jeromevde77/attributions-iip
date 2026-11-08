@@ -8,6 +8,7 @@ const CLE = 'lucie.enseignant';
 let installe = false;
 
 export function installerRelais() {
+  window.__lucieRelais = true;   // les écrans de Lucie montés dans l'espace le savent (ex. l'adresse du QR de présence)
   if (installe) return;
   installe = true;
   const origine = window.fetch.bind(window);

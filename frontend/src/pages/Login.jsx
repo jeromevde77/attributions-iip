@@ -161,6 +161,10 @@ function NetworkBg() {
   );
 }
 
+// Une adresse dans un message (la bascule des professeurs, 3.5.212) devient un lien.
+const avecLien = t => String(t || '').split(/(https:\/\/[^\s]+)/).map((x, i) => (x.startsWith('https://')
+  ? <a key={i} href={x} style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>{x}</a> : x));
+
 export default function Login() {
   if (isAuthenticated()) return <Navigate to="/" replace />;
   const [email, setEmail]       = useState('');
@@ -453,7 +457,7 @@ export default function Login() {
               <span style={{fontSize:'15px',marginTop:'1px'}}>⚠</span>
               <div>
                 <div style={{fontWeight:600,marginBottom:'2px'}}>Vérification impossible</div>
-                <div style={{opacity:.8,fontSize:'12px'}}>{error}</div>
+                <div style={{opacity:.8,fontSize:'12px'}}>{avecLien(error)}</div>
               </div>
             </div>
           )}
@@ -525,7 +529,7 @@ export default function Login() {
               <span style={{fontSize:'15px',marginTop:'1px'}}>⚠</span>
               <div>
                 <div style={{fontWeight:600,marginBottom:'2px'}}>Connexion impossible</div>
-                <div style={{opacity:.8,fontSize:'12px'}}>{error}</div>
+                <div style={{opacity:.8,fontSize:'12px'}}>{avecLien(error)}</div>
               </div>
             </div>
           )}

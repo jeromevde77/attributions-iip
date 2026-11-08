@@ -5,6 +5,7 @@ import MesAbsences from './MesAbsences.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
+import ChargementLucie from '../components/ChargementLucie.jsx';
 import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
 import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome } from '@tabler/icons-react';
 
@@ -104,7 +105,7 @@ function MesAppareils({ onErreur, onOublieCourant }) {
   const [l, setL] = useState(null);
   const charger = useCallback(() => appel('GET', '/appareils').then(setL).catch(onErreur), [onErreur]);
   useEffect(() => { charger(); }, [charger]);
-  if (!l) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!l) return <ChargementLucie />;
   const oublier = async a => {
     try { await appel('POST', `/appareils/${a.id}/oublier`); if (a.courant) onOublieCourant(); else charger(); } catch (e) { onErreur(e); }
   };
@@ -266,7 +267,7 @@ function MesValorisations({ onErreur }) {
   // Tant que Lucie n'a pas relevé (quelques secondes), on regarde à nouveau.
   const attend = v && (!v.pret || v.en_attente.length > 0);
   useEffect(() => { if (!attend) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [attend, v, charger]);
-  if (!v) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!v) return <ChargementLucie />;
   if (!v.pret) return <p className="text-sm text-slate-500">Préparation de vos unités… quelques secondes.</p>;
 
   const geste = async (chemin, corps, ok) => {
@@ -533,8 +534,20 @@ function MonParcours({ onErreur }) {
   };
   const charger = useCallback(() => appel('GET', '/parcours').then(setP).catch(onErreur), [onErreur]);
   useEffect(() => { charger(); }, [charger]);
+  // LES SUPPORTS DE COURS (3.5.211) : fermés pour cet étudiant, la route répond 404 et rien ne s'affiche.
+  const [supports, setSupports] = useState([]);
+  useEffect(() => { appel('GET', '/supports').then(j => setSupports(j.supports || [])).catch(() => setSupports([])); }, []);
+  const recent = s => s.depose_le && (Date.now() - new Date(String(s.depose_le).replace(' ', 'T') + 'Z').getTime()) < 7 * 86400000;
+  const ouvrirSupport = async s => {
+    const w = window.open('', '_blank');
+    try {
+      const r = await appel('GET', `/supports/${s.id}`, null, true);
+      const url = URL.createObjectURL(await r.blob());
+      if (w) w.location = url; else window.location.href = url;
+    } catch (e) { if (w) w.close(); onErreur(e); }
+  };
   useEffect(() => { if (!p || p.pret) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [p, charger]);
-  if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!p) return <ChargementLucie />;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre parcours… quelques secondes.</p>;
   const x = p.parcours;
   if (!x?.unites?.length) return <p className="text-sm text-slate-500">Votre parcours n’est pas encore disponible : votre section n’a pas d’unités organisées cette année.</p>;
@@ -567,7 +580,8 @@ function MonParcours({ onErreur }) {
                     <span className="text-sm text-iip-texte">{u.ue_nom}</span>
                   </span>
                   <span className="block text-second text-slate-500">{[u.bloc !== '—' ? u.bloc : null, u.ects ? `${u.ects} ECTS` : null, lib,
-                    u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison].filter(Boolean).join(' · ')}{u.cours?.length ? ` · ${u.cours.length} cours` : ''}</span>
+                    u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison].filter(Boolean).join(' · ')}{u.cours?.length ? ` · ${u.cours.length} cours` : ''}
+                    {(() => { const n = supports.filter(sp => Number(sp.ue_num) === Number(u.ue_num) && recent(sp)).length; return n ? <b style={{ color: 'var(--c-disponible)' }}> · {n} nouveau{n > 1 ? 'x' : ''} support{n > 1 ? 's' : ''}</b> : null; })()}</span>
                 </span>
                 <span className="text-slate-400 text-sm flex-none">{ouv ? '▴' : '▾'}</span>
               </button>
@@ -576,10 +590,18 @@ function MonParcours({ onErreur }) {
                   {u.cours?.length > 0 && (
                     <ul className="text-sm divide-y divide-slate-100">
                       {u.cours.map(k => (
-                        <li key={k.code} className="py-1 flex items-baseline gap-2">
-                          <span className="tabular-nums text-slate-500 w-14 flex-none">{k.code}</span>
-                          <span className="min-w-0 flex-1 text-iip-texte">{k.nom}</span>
-                          <span className="text-second text-slate-500 flex-none">{k.autonomie ? 'travail personnel' : k.per ? `${k.per} p.` : ''}</span>
+                        <li key={k.code} className="py-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="tabular-nums text-slate-500 w-14 flex-none">{k.code}</span>
+                            <span className="min-w-0 flex-1 text-iip-texte">{k.nom}</span>
+                            <span className="text-second text-slate-500 flex-none">{k.autonomie ? 'travail personnel' : k.per ? `${k.per} p.` : ''}</span>
+                          </div>
+                          {supports.filter(sp => sp.cours_code === k.code).map(sp => (
+                            <button key={sp.id} type="button" className="ml-16 mt-1 flex items-center gap-1.5 text-left text-second hover:underline" onClick={() => ouvrirSupport(sp)}>
+                              <IconFileText size={14} className="text-slate-500 flex-none" /><span className="text-iip-texte">{sp.titre}</span>
+                              <span className="text-slate-500">· {jourFr(sp.depose_le)}</span>
+                              {recent(sp) && <span className="pastille-etat" data-etat="disponible">nouveau</span>}
+                            </button>))}
                         </li>))}
                     </ul>)}
                   <div className="flex flex-wrap gap-2">
@@ -593,7 +615,7 @@ function MonParcours({ onErreur }) {
       {doc && (
         <FenetreEspace titre={`${doc.quoi === 'due' ? 'DUE' : 'Dossier pédagogique'} — UE ${doc.u.ue_num}`} sous={doc.u.ue_nom} onFermer={() => setDoc(null)}>
           {doc.erreur ? <p className="text-sm text-slate-600">{doc.erreur}</p>
-            : !doc.html ? <p className="text-sm text-slate-500">Chargement…</p>
+            : !doc.html ? <ChargementLucie />
               : <iframe title={doc.quoi} srcDoc={doc.html} sandbox="" className="w-full bg-white border-0" style={{ height: '70vh' }} />}
         </FenetreEspace>)}
       <p className="text-xs text-slate-500">★ épreuve intégrée. Ce schéma suit les règles de votre programme ; ce qui fait foi reste la décision du Conseil des études et votre PAE.</p>
@@ -608,7 +630,7 @@ function MesFrais({ onErreur }) {
   const charger = useCallback(() => appel('GET', '/frais').then(setP).catch(onErreur), [onErreur]);
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (!p || p.pret) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [p, charger]);
-  if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!p) return <ChargementLucie />;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de vos frais… quelques secondes.</p>;
   const f = p.frais;
   if (!f) return <p className="text-sm text-slate-500">Aucun frais pour l’instant.</p>;
@@ -703,7 +725,7 @@ function MesMessages({ onErreur, onLus }) {
   const enCoursFil = l?.some(m => m.fil.some(f => f.en_cours));
   // Une réponse en route : on regarde vite ; sinon toutes les trente secondes (une réponse de l'école arrive).
   useEffect(() => { const t = setTimeout(charger, enCoursFil ? 5000 : 30000); return () => clearTimeout(t); }, [enCoursFil, l, charger]);
-  if (!l) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!l) return <ChargementLucie />;
   if (!l.length) return <p className="text-sm text-slate-500">Aucun message pour l’instant. Les messages du secrétariat, de votre coordination et de vos enseignants paraîtront ici.</p>;
   const ouvrir = async m => {
     setOuvert(o => (o === m.id ? null : m.id)); setTexte('');
@@ -807,7 +829,7 @@ function MonPAE({ onErreur, email }) {
       : o.programme?.some(u => cochables.has(Number(u))) ? o.programme : o.unites.filter(u => u.propose && u.cochable).map(u => u.ue_num);
     setChoix(new Set(depart.map(Number).filter(u => cochables.has(u))));
   }, [o, choix]);
-  if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!p) return <ChargementLucie />;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre PAE… quelques secondes.</p>;
   if (!o?.annee) return <p className="text-sm text-slate-500">Votre PAE n’est pas encore disponible.</p>;
   const nomUE = n => o.unites?.find(u => u.ue_num === n)?.ue_nom || '';
@@ -1160,6 +1182,8 @@ function Espace() {
     );
   }
 
+  // L'OUVERTURE SE VOIT (3.5.208) : connecté, en attendant ses données, le logo et les étoiles plutôt qu'une page vide.
+  if (!d && !erreur) return <ChargementLucie pleine texte="Ouverture de votre espace…" />;
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const docsASigner = d ? d.documents.filter(x => !x.signe_le) : [];
   const reglASigner = d ? d.reglements.filter(x => !x.signe_le) : [];

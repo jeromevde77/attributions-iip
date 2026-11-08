@@ -1,0 +1,8 @@
+# /etc/systemd/system/lucie-systeme.service — lancé par lucie-systeme.timer
+[Unit]
+Description=Lucie : redémarrage nécessaire et correctifs de sécurité (notification ntfy)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/lucie-systeme

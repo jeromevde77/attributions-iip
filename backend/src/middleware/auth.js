@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { estBascule, refusBascule } from '../lib/bascule.js';
 import crypto from 'crypto';
 import db from '../db/index.js';
 import { litLaConfiguration, ecritLaConfiguration } from './permissions.js';
@@ -66,6 +67,8 @@ export function authRequired(req, res, next) {
     if (req.user.preview && req.method !== 'GET') {
       return res.status(403).json({ error: 'Mode aperçu (voir comme) — lecture seule. Revenez à votre compte pour modifier.' });
     }
+    // LA BASCULE (3.5.212) : passé la date fixée par la direction, un professeur n'entre plus dans Lucie (le relais de son espace, si).
+    if (estBascule(req.user)) return res.status(403).json(refusBascule());
     next();
   } catch (e) {
     return res.status(401).json({ error: 'Token invalide ou expiré' });

@@ -774,7 +774,10 @@ r.get('/:coursCode/qr/:seanceId', authRequired, (req, res) => {
   if (!s) return res.status(404).json({ error: 'Séance introuvable dans vos séances de ce cours.' });
   const x = qrDeLaSeance(s, req.user);
   if (x.erreur) return res.status(409).json({ ...x, error: x.message });
-  res.json({ ...x, compteur: compteurSeance(s) });
+  // L'ADRESSE OÙ L'ÉTUDIANT SCANNE (3.5.209) : projeté depuis l'espace enseignant, le QR ne doit pas pointer vers le site des
+  // enseignants (la page /presence/ est celle de Lucie). Le serveur dit l'adresse publique de Lucie ; l'écran la préfère à la sienne.
+  const lucie = process.env.LUCIE_URL ? String(process.env.LUCIE_URL).replace(/\/+$/, '') : null;
+  res.json({ ...x, compteur: compteurSeance(s), lucie_url: lucie });
 });
 
 r.get('/:coursCode/qr/:seanceId/compteur', authRequired, (req, res) => {

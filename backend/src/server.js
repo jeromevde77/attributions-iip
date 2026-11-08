@@ -2982,6 +2982,8 @@ try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.me
 try { migrerTfe(db); } catch (e) { console.error('[migration] tfe :', e.message); }
 try { migrerFiches(db); } catch (e) { console.error('[migration] fiches d’évaluation :', e.message); }
 try { (await import('./lib/portailTfeStage.js')).migrerTfeEspace(db); } catch (e) { console.error('[migration] TFE de l’espace :', e.message); }
+try { (await import('./lib/supportsCours.js')).migrerSupports(db); } catch (e) { console.error('[migration] supports de cours :', e.message); }
+try { (await import('./lib/absencesEnseignant.js')).migrerAbsences(db); } catch (e) { console.error('[migration] absences des enseignants :', e.message); }
 try { db.exec('ALTER TABLE attribution ADD COLUMN fonds_propres INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
 // La coordination qui supervise un groupe du tronc commun (3.5.109) : `lib/supervisionGroupes.js`.
 (await import('./lib/supervisionGroupes.js')).migrerSupervision();
@@ -3049,6 +3051,7 @@ app.use('/api/impression', express.json({ limit: '120mb' }));
 app.use('/api/documentation/mode-emploi/pdf', express.json({ limit: '60mb' }));
 app.use('/api/communication', express.json({ limit: '30mb' }));   // pièces jointes des messages (3.5.131)
 app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)
+app.use('/api/mes-cours/supports', express.json({ limit: '25mb' }));   // supports de cours (3.5.211) : 15 Mo en base64
 app.use(express.json({ limit: '5mb' }));
 
 /* QUI EST EN TRAIN DE DEMANDER — POUR TOUTE LA DURÉE DE LA REQUÊTE.
@@ -3282,6 +3285,10 @@ app.use('/api/perimetre', garderModule('perimetre'), perimetreRoutes);
 // Le carnet de cotes, AVANT les routes paramétriques de Mes cours (« /:coursCode/… »).
 app.use('/api/mes-cours/carnet', garderModule('mes-cours'), (await import('./routes/carnet.js')).default);
 app.use('/api/mes-cours/ticket', garderModule('mes-cours'), (await import('./routes/ticketSortie.js')).default);
+app.use('/api/mes-cours/tfe', garderModule('mes-cours'), (await import('./routes/mesTfe.js')).default);   // Mes TFE (3.5.210)
+app.use('/api/mes-cours/supports', garderModule('mes-cours'), (await import('./routes/supports.js')).default);   // supports de cours (3.5.211)
+app.use('/api/mes-cours/absence', garderModule('mes-cours'), (await import('./routes/absencesProf.js')).prof);   // signaler une absence (3.5.210)
+app.use('/api/absences-enseignants', (await import('./routes/absencesProf.js')).admin);   // le secrétariat décide (3.5.210)
 app.use('/api/mes-cours', garderModule('mes-cours'), mesCoursRoutes);
 // LES PROPOSITIONS EN ATTENTE ENTRENT DANS L'ENCODAGE (reprise automatique, 8 octobre 2026) —
 // celles d'avant ce choix, une fois au démarrage ; ensuite, à chaque enregistrement.

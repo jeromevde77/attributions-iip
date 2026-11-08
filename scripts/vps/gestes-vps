@@ -72,6 +72,18 @@ version() {
   done
 }
 
+# LE VERROU DES MISES À JOUR, partagé avec mise-a-jour.sh (cron toutes les 5 min).
+# Sans lui, un maj-dev et le cron recréaient les mêmes conteneurs à la même
+# seconde : « The container name … is already in use » (25 septembre, 1er et
+# 7 novembre 2026 — la cause du « second passage » ci-dessous). Le geste ATTEND
+# que le cron ait fini (15 min au plus) ; le cron, lui, saute son tour.
+verrouiller_maj() {
+  local v=$LUCIE/.mise-a-jour.lock
+  [ -e "$v" ] || { : > "$v"; chmod 644 "$v"; }
+  exec 9<"$v"
+  flock -w 900 9 || refus "une mise à jour automatique tourne depuis plus de 15 minutes"
+}
+
 case "$VERBE" in
   version)
     journal "ok"; version ;;
@@ -80,6 +92,7 @@ case "$VERBE" in
     sauvegarder manuel ;;
 
   maj-dev)
+    verrouiller_maj
     cd "$LUCIE"
     # LE PORTAIL DE LA DEV AVEC LUI (3.5.006) : l'espace des étudiants se construit avec Lucie ; sans lui, une
     # nouveauté de l'espace restait invisible sur la dev. Absents du compose (avant l'installation) : ignorés.
@@ -97,6 +110,7 @@ case "$VERBE" in
     journal "ok"; sleep 8; version ;;
 
   maj-prod)
+    verrouiller_maj
     # LA SAUVEGARDE N'EST PAS UNE OPTION : elle fait partie du geste. Si elle
     # échoue, rien n'est mis à jour.
     sauvegarder merge

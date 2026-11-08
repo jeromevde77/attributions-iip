@@ -1,6 +1,7 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
+import ChargementLucie from '../components/ChargementLucie.jsx';
 import { FriseJournee } from '../components/FriseJournee.jsx';
 import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
@@ -19,9 +20,12 @@ const VisitesStageLucie = lazy(() => import('../components/VisitesStage.jsx'));
 const AgendaAbonnementLucie = lazy(() => import('../components/AgendaAbonnement.jsx'));
 const MessagesEtudiantsLucie = lazy(() => import('../components/MessagesEtudiants.jsx'));
 const AideLucie = lazy(() => import('../pages/Aide.jsx'));
+const MaFicheLucie = lazy(() => import('../pages/Professeurs.jsx'));
+const MesTfeLucie = lazy(() => import('../components/MesTfe.jsx'));
+const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignants.jsx').then(m => ({ default: m.SignalerAbsence })));
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch } from '@tabler/icons-react';
+import { IconSchool, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -164,7 +168,7 @@ function LireTexte({ vid, onFermer }) {
         : <><span className="flex-1 min-w-0 text-second text-slate-600">La direction vous demande d’en prendre connaissance.</span>
             <button type="button" className="bouton bouton-fort controle" disabled={envoi} onClick={confirmer}>Je confirme avoir pris connaissance</button></>)}>
       {erreur && <Encadre etat="corriger" className="mb-3">{erreur}</Encadre>}
-      {!t ? !erreur && <p className="text-slate-500">Chargement…</p> : (
+      {!t ? !erreur && <ChargementLucie /> : (
         <div className="space-y-4">
           <iframe title={t.titre} srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${t.html}`}
             sandbox="" className="w-full border-0" style={{ height: '58vh' }} />
@@ -177,7 +181,7 @@ function TextesEcole() {
   const [lire, setLire] = useState(null);
   const charger = () => appel('GET', '/textes').then(setL).catch(() => setL([]));
   useEffect(() => { charger(); }, []);
-  if (!l) return <p className="text-slate-500">Chargement…</p>;
+  if (!l) return <ChargementLucie />;
   return (
     <div className="space-y-4">
       <p className="m-0 text-slate-600">Les règles du jeu : circulaires, règlements, procédures. Ceux qui ne sont pas encore confirmés vous attendent.</p>
@@ -213,7 +217,7 @@ function OuvrirDocument({ d, onFermer }) {
         {etat.accuse_le ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Réception accusée le {court(etat.accuse_le)}</span>
           : <button type="button" className="bouton bouton-fort controle" onClick={accuser}>J’accuse réception de cette pièce</button>}</>}>
       {erreur && <Encadre etat="corriger" className="mb-3">{erreur}</Encadre>}
-      {!url ? !erreur && <p className="text-slate-500">Chargement…</p> : (
+      {!url ? !erreur && <ChargementLucie /> : (
         <iframe title={d.nom_fichier} src={url} className="w-full border border-slate-200 rounded-champ" style={{ height: '62vh' }} />)}
     </Volet>);
 }
@@ -222,7 +226,7 @@ function MesDocuments() {
   const [ouvert, setOuvert] = useState(null);
   const charger = () => appel('GET', '/documents').then(setL).catch(() => setL([]));
   useEffect(() => { charger(); }, []);
-  if (!l) return <p className="text-slate-500">Chargement…</p>;
+  if (!l) return <ChargementLucie />;
   return (
     <div className="space-y-4">
       <p className="m-0 text-slate-600">Les pièces que l’école vous a envoyées par Lucie — votre contrat, votre fiche d’attributions… —, telles qu’elles sont parties.</p>
@@ -248,7 +252,7 @@ function FicheEtudiant({ id, onFermer }) {
   return (
     <Volet titre={f ? `${String(f.nom || '').toUpperCase()} ${f.prenom || ''}` : 'Fiche'} sous={f ? [f.section, f.matricule, f.email].filter(Boolean).join(' · ') : ''} onFermer={onFermer}>
       {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
-      {!f ? !erreur && <p className="text-slate-500">Chargement…</p> : (
+      {!f ? !erreur && <ChargementLucie /> : (
         <div className="space-y-5 text-sm">
           {f.amenagements.length > 0 && (
             <Encadre etat="disponible" titre="Aménagements raisonnables accordés">
@@ -309,7 +313,7 @@ function MesUE() {
   const [liste, setListe] = useState(null);
   const [ecrire, setEcrire] = useState(false);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
-  if (!t) return <p className="text-slate-500">Chargement…</p>;
+  if (!t) return <ChargementLucie />;
   if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
   return (
     <div className="space-y-5">
@@ -411,11 +415,12 @@ function MonCompte({ moi, onToken }) {
    Par cours : ses étudiants en lignes, ses séances depuis la rentrée en colonnes. Un clic sur une case ouvre le choix (P, P*, A,
    J + motif, effacer) ; la case part par la porte de la séance, Lucie la juge au relevé (quelques secondes) et un refus se dit.
    Export Excel : la grille telle qu'elle est à l'écran. */
-function SuivreLiens({ allerA }) {
+function SuivreLiens({ allerA, retour = null }) {
   const loc = useLocation();
   useEffect(() => {
     const p = loc.pathname;
-    if (p === '/' || p === '/accueil') return;
+    if (retour && (p === '/' || p === '/accueil')) { retour(); return; }
+    if (p === '/' || p === '/accueil' || p === '/professeurs') return;
     if (p.startsWith('/documentation')) allerA('ecole');
     else if (p.startsWith('/mes-cours')) allerA('notes');
     else if (p.startsWith('/agenda') || p.startsWith('/horaire')) allerA('agenda');
@@ -429,7 +434,7 @@ function TableauDeBord({ allerA, apresEntete = null }) {
       <MemoryRouter initialEntries={['/accueil']}>
         <SuivreLiens allerA={allerA} />
         <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
-          <Suspense fallback={<p className="text-slate-500 p-4">Chargement…</p>}><AccueilLucie apresEntete={apresEntete} /></Suspense>
+          <Suspense fallback={<ChargementLucie />}><AccueilLucie apresEntete={apresEntete} /></Suspense>
         </FournisseurRail>
       </MemoryRouter>
     </div>);
@@ -441,7 +446,7 @@ function MesCoursEspace({ vue, tic, allerA, demande }) {
     // Pas de rail de Lucie ici : sa gouttière tombe à zéro (`--rail`), la navigation de l'espace en tient lieu.
     <div style={{ '--rail': '0px' }} className="-mx-4 md:-mx-6">
       <FournisseurRail valeur={() => {}} panneau={null} echanges={() => {}}>
-        <Suspense fallback={<p className="text-slate-500 px-4">Chargement…</p>}><MesCoursLucie espace={{ vue, tic, retour: true, allerA, demande }} /></Suspense>
+        <Suspense fallback={<ChargementLucie />}><MesCoursLucie espace={{ vue, tic, retour: true, allerA, demande }} /></Suspense>
       </FournisseurRail>
     </div>);
 }
@@ -462,7 +467,7 @@ function MesDates({ moi }) {
     fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
       .then(setD).catch(() => setD({ items: [] }));
   }, [annee]);
-  if (!d) return <p className="text-slate-500">Chargement…</p>;
+  if (!d) return <ChargementLucie />;
   const auj = moi.aujourdhui;
   const l = (d.items || []).filter(x => (passees || (x.au || x.date) >= auj))
     .filter(x => filtre === 'tout' || (filtre === 'miennes' ? ['examen', 'deliberation'].includes(x.type) : !['examen', 'deliberation'].includes(x.type)));
@@ -515,7 +520,7 @@ function TimelineEcole({ moi, annee }) {
     fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
       .then(setD).catch(() => setD({ items: [] }));
   }, [annee]);
-  if (!d) return <p className="text-slate-500">Chargement…</p>;
+  if (!d) return <ChargementLucie />;
   const a0 = Number(String(d.annee || annee || moi.aujourdhui).slice(0, 4));
   const debut = new Date(Date.UTC(a0, 7, 15)), fin = new Date(Date.UTC(a0 + 1, 7, 15));
   const jours = (fin - debut) / 864e5;
@@ -591,6 +596,7 @@ function MonAgenda({ moi, onPresences }) {
         <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Évaluations et délibérations'], ['annee', 'L’année de l’école']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
         <span className="flex-1" />
+        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('absence')}><IconUserOff size={16} /> Signaler une absence</button>
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('visites')}><IconCar size={16} /> Mes visites de stage</button>
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('agenda')}><IconCalendarShare size={16} /> Dans l’agenda de mon téléphone</button>
       </div>
@@ -599,11 +605,12 @@ function MonAgenda({ moi, onPresences }) {
         // semaine de Lucie, avec l'agenda de l'école au-dessus de chaque jour ; une séance ouvre ses présences.
         // LES DÉLIBÉRATIONS DE MES UNITÉS (3.5.160, Charles : « ceci doit aller dans agenda ») : le tableau quitte Mes unités.
         : vue === 'deliberations' ? <EvaluationsDeliberations annee={annee || undefined} />
-        : vue === 'semaine' ? <Suspense fallback={<p className="text-slate-500">Chargement…</p>}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
+        : vue === 'semaine' ? <Suspense fallback={<ChargementLucie />}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
         // L'ANNÉE DE L'ÉCOLE, UNE FOIS (3.5.202) : la frise ; la vue semaine par semaine faisait doublon.
         : <TimelineEcole moi={moi} annee={annee} />}
       <Suspense fallback={null}>
         {ouvert === 'visites' && <VisitesStageLucie onFermer={() => setOuvert(null)} />}
+        {ouvert === 'absence' && <SignalerAbsenceLucie onFermer={() => setOuvert(null)} />}
         {ouvert === 'agenda' && <AgendaAbonnementLucie onFermer={() => setOuvert(null)} />}
       </Suspense>
     </div>);
@@ -720,9 +727,11 @@ const FACES = [
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'tfe', l: 'Mes TFE', I: IconSchool },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
 ];
 const FACES_BAS = [
+  { k: 'fiche', l: 'Ma fiche', I: IconId },
   { k: 'aide', l: 'Aide', I: IconHelpCircle },
   { k: 'ecole', l: 'L’école', I: IconBuilding },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
@@ -774,7 +783,7 @@ export default function EspaceEnseignant() {
         </div>
       </div>);
   }
-  if (!moi) return <p className="p-6 text-slate-500">{erreur || 'Chargement…'}</p>;
+  if (!moi) return erreur ? <p className="p-6 text-slate-500">{erreur}</p> : <ChargementLucie pleine texte="Ouverture de votre espace…" />;
   const quitter = () => { poser(null); setToken(null); setMoi(null); };
   const aller = k => { setFace(k); setSeance(null); setTic(x => x + 1); };
   // Étroit hors d'Aujourd'hui, sauf si on l'a déplié (ou replié) soi-même ; changer d'entrée rend la règle.
@@ -813,7 +822,7 @@ export default function EspaceEnseignant() {
           <div hidden={!VUES_LUCIE.has(face)}>
             <MesCoursEspace vue={face} tic={tic} allerA={k => setFace(k)} demande={demande} />
           </div>)}
-        {!lucie && (VUES_LUCIE.has(face) || face === 'aujourdhui') && <p className="text-slate-500">Ouverture…</p>}
+        {!lucie && (VUES_LUCIE.has(face) || face === 'aujourdhui' || face === 'fiche') && <ChargementLucie texte="Ouverture de votre espace…" />}
         {/* AUJOURD'HUI = LE TABLEAU DE BORD DE LUCIE, ET LA FRISE DE LA JOURNÉE SOUS LE « BONJOUR » (3.5.144, Charles : « tableau de bord
             doit être fusionné avec aujourd'hui »). */}
         {lucie && face === 'aujourdhui' && <TableauDeBord allerA={k => aller(k)}
@@ -821,7 +830,13 @@ export default function EspaceEnseignant() {
         {!seance && (face === 'etudiants' ? <MesUE />
           : face === 'agenda' ? <MonAgenda moi={moi} onPresences={s => ouvrirSeance('presences', s)} />
           // L'AIDE INTERACTIVE (3.5.161) : le mode d'emploi illustré de Lucie, celui des enseignants (le serveur filtre par rôle).
-          : face === 'aide' ? (lucie ? <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8"><Suspense fallback={<p className="text-slate-500">Chargement…</p>}><AideLucie rechercheInitiale={questionAide} /></Suspense></div> : <p className="text-slate-500">Ouverture…</p>)
+          : face === 'aide' ? (lucie ? <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8"><Suspense fallback={<ChargementLucie />}><AideLucie rechercheInitiale={questionAide} /></Suspense></div> : <ChargementLucie />)
+          // MA FICHE (3.5.208, Charles : « la fiche prof avec des données, comme dans Lucie ») : la fiche du personnel de Lucie, par
+          // le relais — ses données, ses attributions ; « Modifier » envoie une demande que la direction valide. Fermer ramène ici.
+          : face === 'fiche' ? (lucie ? <MemoryRouter initialEntries={['/professeurs']}><SuivreLiens allerA={k => aller(k)} retour={() => aller('aujourdhui')} />
+              <Suspense fallback={<ChargementLucie />}><MaFicheLucie /></Suspense></MemoryRouter> : <ChargementLucie />)
+          // MES TFE (3.5.210) : ses TFE, leur suivi, les fiches de son rôle — l'écran de Lucie, par le relais.
+          : face === 'tfe' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesTfeLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}

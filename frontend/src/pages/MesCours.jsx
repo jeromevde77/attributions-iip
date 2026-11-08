@@ -1,7 +1,7 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { IconChalkboard } from '@tabler/icons-react';
+import { IconChalkboard, IconSchool, IconUserOff } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useRef, useState } from 'react';
 import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight, IconChevronDown, IconListDetails, IconX } from '@tabler/icons-react';
@@ -18,7 +18,10 @@ import MessagesEtudiants from '../components/MessagesEtudiants.jsx';
 import MonHoraireSemaine from '../components/MonHoraireSemaine.jsx';
 import VisitesStage from '../components/VisitesStage.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
-import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
+import { OuvrirEditions, RailLateral, Encadre, Fenetre } from '../components/ui.jsx';
+import MesTfe from '../components/MesTfe.jsx';
+import SupportsCours from '../components/SupportsCours.jsx';
+import { SignalerAbsence } from '../components/AbsencesEnseignants.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 import AtelierUE from './AtelierUE.jsx';
@@ -88,6 +91,8 @@ export default function MesCours({ espace = null }) {
   const [messages, setMessages] = useState(false);   // écrire à mes étudiants (3.1.516)
   const [semaine, setSemaine] = useState(false);     // mon horaire de la semaine (3.1.464)
   const [visites, setVisites] = useState(false);     // mes visites de stage (3.5.058)
+  const [tfe, setTfe] = useState(false);             // mes TFE (3.5.210)
+  const [absence, setAbsence] = useState(false);     // signaler une absence (3.5.210)
   const [face, setFace] = useState('notes');          // fiche | notes | carnet | presences | indicateurs
   /* LA SÉANCE CHOISIE DANS « MA JOURNÉE » (28 octobre 2026) : un clic y ouvre le
      cours sur la bonne face. Si elle est d'une autre année que celle affichée,
@@ -408,7 +413,7 @@ export default function MesCours({ espace = null }) {
                 attestations du congé-éducation payé. */}
             <div className={`${vueEspace === 'presences' ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200`}>
               {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
-              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
+              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['supports', 'Supports'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
                 .filter(([k]) => !espace || (vueEspace === 'presences' ? k === 'presences' : k !== 'presences')).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
@@ -487,6 +492,7 @@ export default function MesCours({ espace = null }) {
             )}
             {/* LA FICHE DU COURS (3.5.129) : son UE, ses périodes, l'autonomie, l'évaluation, ses acquis et son programme. */}
             {face === 'fiche' && <FicheCours key={ouvert} coursCode={ouvert} annee={annee} sansEntete={!!espace} />}
+            {face === 'supports' && <SupportsCours key={ouvert} coursCode={ouvert} annee={annee} />}
             {face === 'presences' && <PresencesCours key={`${ouvert}|${seanceChoisie || ''}`} coursCode={ouvert} annee={annee} seanceInitiale={seanceChoisie} />}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
                 (le groupe choisi), notes tapées comprises. */}
@@ -795,6 +801,8 @@ export default function MesCours({ espace = null }) {
     {messages && <MessagesEtudiants titre="Écrire à mes étudiants" onFermer={() => setMessages(false)} />}
     {semaine && <MonHoraireSemaine onFermer={() => setSemaine(false)} />}
     {visites && <VisitesStage onFermer={() => setVisites(false)} />}
+    {absence && <SignalerAbsence onFermer={() => setAbsence(false)} />}
+    {tfe && <Fenetre titre="Mes TFE" icone={IconSchool} large="grande" onFermer={() => setTfe(false)}><MesTfe /></Fenetre>}
     {!espace && <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
         { key: 'liste', label: 'Mes cours de l’année', icon: IconBook2, actif: !ouvert && !vueDue,
@@ -807,6 +815,9 @@ export default function MesCours({ espace = null }) {
         { key: 'agenda', label: 'Mon horaire dans mon agenda', icon: IconCalendarShare, onClick: () => setAgenda(true) },
         // LES VISITES DE STAGE (3.5.058) : dans l'agenda, avec le lieu de l'étudiant ; et la fiche de transport.
         { key: 'visites', label: 'Mes visites de stage', icon: IconCar, onClick: () => setVisites(true) },
+        // MES TFE (3.5.210) : ses TFE et les fiches de son rôle (même écran que l'espace enseignant).
+        { key: 'tfe', label: 'Mes TFE', icon: IconSchool, onClick: () => setTfe(true) },
+        { key: 'absence', label: 'Signaler une absence', icon: IconUserOff, onClick: () => setAbsence(true) },
         // LES MESSAGES AUX ÉTUDIANTS (3.1.516) : les inscrits de ses UE ; leurs réponses reviennent ici.
         { key: 'messages', label: 'Écrire à mes étudiants', icon: IconMessages, onClick: () => setMessages(true) },
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,

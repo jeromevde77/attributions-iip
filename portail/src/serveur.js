@@ -103,6 +103,9 @@ db.exec(`
   -- LA DUE (validée) ET LE DOSSIER PÉDAGOGIQUE DE CHAQUE UNITÉ (3.5.194) : un dépôt commun, pas un par étudiant.
   CREATE TABLE IF NOT EXISTS ue_doc (annee TEXT NOT NULL, ue_num INTEGER NOT NULL, quoi TEXT NOT NULL, empreinte TEXT, html TEXT,
     maj_le TEXT, PRIMARY KEY (annee, ue_num, quoi));
+  -- LES SUPPORTS DE COURS (3.5.211) : déposés par Lucie, un par fichier ; lus par les inscrits de l'unité (Mon parcours).
+  CREATE TABLE IF NOT EXISTS support (id INTEGER PRIMARY KEY, annee TEXT, ue_num INTEGER, cours_code TEXT, cours_nom TEXT, titre TEXT,
+    nom TEXT, mime TEXT, taille INTEGER, empreinte TEXT, depose_le TEXT, auteur TEXT, contenu BLOB);
   -- L'APERÇU DE LA DIRECTION (3.1.518) : un jeton à usage unique, fabriqué à la demande de Lucie (port interne), qui ouvre
   -- l'espace d'un étudiant EN LECTURE SEULE. Rien de ce qu'on y regarde ne compte comme vu par l'étudiant.
   CREATE TABLE IF NOT EXISTS apercu_jeton (jeton_hash TEXT PRIMARY KEY, etudiant_id INTEGER NOT NULL, par TEXT,
@@ -409,7 +412,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports'];
 const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
 const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
@@ -689,6 +692,26 @@ pub.get('/api/portail/ue/:ue/:quoi', connecte, exige('parcours'), (req, res) => 
   const d = db.prepare('SELECT html FROM ue_doc WHERE annee = ? AND ue_num = ? AND quoi = ?').get(String(p.annee || ''), ue, quoi);
   if (!d?.html) return res.status(404).json({ error: quoi === 'due' ? 'La DUE de cette unité n’est pas encore publiée.' : 'Le dossier pédagogique n’est pas encore disponible.' });
   res.json({ html: d.html });
+});
+// LES SUPPORTS DE COURS (3.5.211) : ceux des unités de son programme de l'année (ou acquises cette année), sous chaque cours.
+const unitesOuvertes = id => {
+  const l = lotEspace(id);
+  const p = l ? JSON.parse(l.parcours || 'null') : null;
+  return { annee: String(p?.annee || ''), ues: new Set((p?.unites || []).filter(u => ['programme', 'acquise', 'attente'].includes(u.etat)).map(u => Number(u.ue_num))) };
+};
+pub.get('/api/portail/supports', connecte, exige('supports'), (req, res) => {
+  const { annee, ues } = unitesOuvertes(req.etudiant.id);
+  const l = db.prepare('SELECT id, ue_num, cours_code, cours_nom, titre, nom, mime, taille, depose_le, auteur FROM support WHERE annee = ? ORDER BY depose_le DESC, id DESC').all(annee)
+    .filter(s => ues.has(Number(s.ue_num)));
+  res.json({ supports: l });
+});
+pub.get('/api/portail/supports/:id', connecte, exige('supports'), (req, res) => {
+  const s = db.prepare('SELECT * FROM support WHERE id = ?').get(Number(req.params.id));
+  const { annee, ues } = unitesOuvertes(req.etudiant.id);
+  if (!s || s.annee !== annee || !ues.has(Number(s.ue_num))) return res.status(404).json({ error: 'Support introuvable.' });
+  res.setHeader('Content-Type', s.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${String(s.nom || 'support').replace(/[^A-Za-z0-9_.-]/g, '_')}"`);
+  res.send(s.contenu);
 });
 pub.get('/api/portail/frais', connecte, exige('frais'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
@@ -1000,6 +1023,29 @@ int.post('/interne/apercu', (req, res) => {
   res.json({ url: `${URL_PUBLIQUE}/?apercu=${jeton}` });
 });
 
+int.get('/interne/supports/empreintes', (req, res) => {
+  res.json({ empreintes: Object.fromEntries(db.prepare('SELECT id, empreinte FROM support').all().map(x => [x.id, x.empreinte || ''])) });
+});
+int.post('/interne/supports', (req, res) => {
+  const b = req.body || {};
+  const buf = Buffer.from(String(b.contenu || ''), 'base64');
+  if (!Number(b.id) || !buf.length) return res.status(400).json({ error: 'support incomplet' });
+  db.prepare(`INSERT INTO support (id, annee, ue_num, cours_code, cours_nom, titre, nom, mime, taille, empreinte, depose_le, auteur, contenu)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET annee = excluded.annee, ue_num = excluded.ue_num, cours_code = excluded.cours_code,
+      cours_nom = excluded.cours_nom, titre = excluded.titre, nom = excluded.nom, mime = excluded.mime, taille = excluded.taille,
+      empreinte = excluded.empreinte, depose_le = excluded.depose_le, auteur = excluded.auteur, contenu = excluded.contenu`)
+    .run(Number(b.id), String(b.annee || ''), Number(b.ue_num) || null, String(b.cours_code || ''), b.cours_nom ? String(b.cours_nom) : null,
+      String(b.titre || ''), String(b.nom || ''), String(b.mime || 'application/octet-stream'), buf.length, String(b.empreinte || ''),
+      String(b.depose_le || ''), b.auteur ? String(b.auteur) : null, buf);
+  res.json({ ok: true });
+});
+int.post('/interne/supports/actifs', (req, res) => {
+  const ids = new Set((Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number));
+  const del = db.prepare('DELETE FROM support WHERE id = ?');
+  let n = 0;
+  db.transaction(() => { for (const x of db.prepare('SELECT id FROM support').all()) if (!ids.has(x.id)) n += del.run(x.id).changes; })();
+  res.json({ ok: true, retires: n });
+});
 int.get('/interne/ue-docs/empreintes', (req, res) => {
   const l = db.prepare('SELECT ue_num, quoi, empreinte FROM ue_doc WHERE annee = ?').all(String(req.query.annee || ''));
   res.json({ empreintes: Object.fromEntries(l.map(x => [`${x.ue_num}|${x.quoi}`, x.empreinte || ''])) });

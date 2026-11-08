@@ -1,0 +1,10 @@
+# /etc/systemd/system/lucie-systeme.timer — chaque matin, après les mises à jour de la nuit
+[Unit]
+Description=Lucie : contrôle quotidien du système
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
