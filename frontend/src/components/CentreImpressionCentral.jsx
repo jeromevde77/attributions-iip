@@ -20,6 +20,7 @@ import FenetreAnnexe from './FenetreAnnexe.jsx';
 /* La séance de valorisation est chargée à la demande : Éditions s'ouvre
    souvent pour un rapport, et cet écran porte le rendu du procès-verbal. */
 const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
+const SeancesValorisationLot = lazy(() => import('./SeancesValorisationLot.jsx'));
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
@@ -198,6 +199,8 @@ function OngletValorisation({ initial = null }) {
   // unité ; les pièces d'un étudiant — sa notification, ses attestations — se
   // tirent pour lui, toutes ou certaines.
   const [vue, setVue] = useState('unite');
+  const [lot, setLot] = useState(false);
+  const [rechargement, setRechargement] = useState(0);
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -224,7 +227,7 @@ function OngletValorisation({ initial = null }) {
       .then(r => (r.ok ? r.json() : []))
       .then(l => setDossiers(Array.isArray(l) ? l : []))
       .catch(() => setDossiers([]));
-  }, [annee]);
+  }, [annee, rechargement]);
 
   const nomUE = useMemo(() => {
     const m = new Map();
@@ -273,6 +276,9 @@ function OngletValorisation({ initial = null }) {
         <span className="text-second text-slate-500">
           {vue === 'unite' ? `${unites.length} unité(s) portant des demandes` : ''}
         </span>
+        {unites.some(u => u.ue_num > 0) && (
+          <button type="button" className="bouton ml-auto" onClick={() => setLot(true)}
+            title="Date de séance, communication et présidence, pour plusieurs unités d'un coup">Poser les séances en lot</button>)}
       </div>
       {vue === 'etudiant' && (
         <ValorisationParEtudiant annee={annee} dossiers={(dossiers || []).filter(d => {
@@ -328,6 +334,12 @@ function OngletValorisation({ initial = null }) {
         </Tableau>
       )}
 
+      {lot && (
+        <Suspense fallback={null}>
+          <SeancesValorisationLot annee={annee} ues={unites.filter(u => u.ue_num > 0).map(u => u.ue_num)}
+            onClose={() => setLot(false)} onFait={() => setRechargement(n => n + 1)} />
+        </Suspense>
+      )}
       {ouverte && (
         <Suspense fallback={null}>
           <SeanceValorisation ueNum={ouverte.ue_num} ueNom={ouverte.ue_nom}
