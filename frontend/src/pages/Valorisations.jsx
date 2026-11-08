@@ -9,6 +9,7 @@ import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison, EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat, Encadre, BadgePrimo } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import SeancesValorisationLot from '../components/SeancesValorisationLot.jsx';
+import SyntheseVA from '../components/SyntheseVA.jsx';
 import NotificationVA from '../components/NotificationVA.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
 import { demander, saisir } from '../lib/dialogue.jsx';
@@ -68,6 +69,7 @@ export default function Valorisations() {
   const [annee, setAnnee] = useState(getAnnee());
   const [lignes, setLignes] = useState(null);
   const [seancesLot, setSeancesLot] = useState(false);
+  const [synthese, setSynthese] = useState(false);
   const [deplie, setDeplie] = useState(() => new Set());
   const [ajout, setAjout] = useState(false);
   const [serie, setSerie] = useState(false);
@@ -263,6 +265,8 @@ export default function Valorisations() {
             className="controle text-sm">
             {anneesProches().map(a => <option key={a} value={a}>{a}</option>)}
           </select>
+          {/* 3.5.222 : tous les champs du circuit alignés, corrigés sur place ou en masse. */}
+          {peutInstruireVA && <button type="button" className="bouton" onClick={() => setSynthese(true)}>Tableau de synthèse</button>}
           <span className="ml-auto text-second text-slate-500">
             {(lignes || []).length} valorisation(s) · {annee}
           </span>
@@ -287,6 +291,7 @@ export default function Valorisations() {
         </div>}
 
         {erreur && <div className="text-second text-rose-700">{erreur}</div>}
+        {synthese && <SyntheseVA annee={annee} onClose={() => setSynthese(false)} onFait={charger} />}
         {seancesLot && (
           <SeancesValorisationLot annee={annee}
             ues={[...new Set((lignes || []).filter(l => l.ue_num > 0 && l.decision_le).map(l => Number(l.ue_num)))].sort((a, b) => a - b)}
