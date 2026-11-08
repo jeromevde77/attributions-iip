@@ -11,7 +11,7 @@ import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
 import { IconId, IconTrash, IconFileText, IconChevronRight, IconChevronLeft, IconEye, IconCheck, IconPlus, IconAlertTriangle, IconLoader2 } from '@tabler/icons-react';
-import { informer, demander } from '../lib/dialogue.jsx';
+import { informer, demander, saisir } from '../lib/dialogue.jsx';
 
 const _tok = () => localStorage.getItem('token');
 const _fetch = (url, opts = {}) =>
@@ -99,6 +99,35 @@ function OuiNon({ label, value, onChange }) {
   );
 }
 
+/* LA PROPOSITION DE L'ENSEIGNANT (3.5.224) : depuis son espace, il propose son agenda d'un quadrimestre ; rien n'est écrit tant
+   qu'on ne l'applique pas ici. Appliquer remplace l'agenda de ce quadrimestre ; refuser demande un mot, qu'il reçoit. */
+function PropositionsDispo({ profId, onAppliquee }) {
+  const [liste, setListe] = useState([]);
+  const charger = () => fetch(`/api/mes-disponibilites/propositions?prof_id=${profId}`, { headers: authHeaders() })
+    .then(r => (r.ok ? r.json() : [])).then(j => setListe(Array.isArray(j) ? j : [])).catch(() => setListe([]));
+  useEffect(() => { if (profId) charger(); }, [profId]);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (!liste.length) return null;
+  const trancher = async (p, appliquer) => {
+    let motif = null;
+    if (!appliquer) { motif = await saisir({ titre: 'Ne pas retenir la proposition', message: 'L’enseignant reçoit ce mot.', confirmer: 'Envoyer', obligatoire: true }); if (motif == null) return; }
+    else if (!(await demander({ titre: `Appliquer la proposition (${p.quadrimestre})`, message: 'L’agenda de ce quadrimestre est remplacé par celui que l’enseignant propose.', confirmer: 'Appliquer' }))) return;
+    const r = await fetch(`/api/mes-disponibilites/propositions/${p.id}/${appliquer ? 'appliquer' : 'refuser'}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ motif }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return informer(j.error || 'Refusé.');
+    if (appliquer) onAppliquee?.(p.quadrimestre, p.cases);
+    charger();
+  };
+  return (
+    <div className="space-y-2">{liste.map(p => (
+      <Encadre key={p.id} etat="disponible" titre={`L’enseignant propose son agenda du ${p.quadrimestre} (le ${String(p.propose_le || '').slice(0, 10).split('-').reverse().join('/')})`}>
+        <p className="m-0">{p.cases.filter(c => c.valeur === 0).length} case(s) rouge(s), {p.cases.filter(c => c.valeur === 2).length} orange(s).{p.remarque ? ` « ${p.remarque} »` : ''}</p>
+        <div className="flex gap-2 mt-2">
+          <button type="button" className="bouton bouton-fort !h-8" onClick={() => trancher(p, true)}>Appliquer</button>
+          <button type="button" className="bouton !h-8" onClick={() => trancher(p, false)}>Ne pas retenir</button>
+        </div>
+      </Encadre>))}</div>);
+}
+
 // ─── Grille de disponibilités ─────────────────────────────────────────────────
 // Le samedi aussi : des sections y donnent cours (Charles, 10 octobre 2026).
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -143,6 +172,10 @@ function DispoGrid({ base, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
         <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort !h-8">
           {saving ? 'Sauvegarde…' : saved ? <><IconCheck size={14} /> Enregistré</> : `Enregistrer ${quadrimestre}`}</button>
       </div>
+      <PropositionsDispo profId={profId} onAppliquee={(q, cases) => {
+        const carte = Object.fromEntries((cases || []).map(c => [`${c.jour}|${c.debut}`, Number(c.valeur) || 0]));
+        if (q === 'Q1') setDispoQ1(carte); else setDispoQ2(carte);
+      }} />
       <p className="text-second text-slate-500">Un clic fait tourner la case : vert disponible, orange éventuellement, rouge pas disponible. Cet agenda, posé sur les blocs de l’école, vaut pour toutes les sections où il enseigne.</p>
       <AgendaSemaine base={base} jours={[...new Set(base.map(c => c.jour))].sort()} valeur={(j, c) => dispo[`${j}|${c.debut}`] ?? 1} onCase={changer} />
     </div>

@@ -50,6 +50,27 @@ export const ajouts = {
   ],
   organisation: [
     {
+      titre: "Les voyages d'études",
+      pour: 'ens sec coo dir',
+      ou: "Organisation → Les étudiants → Voyages d'études ; dans l'espace enseignant : L'école → Voyages d'études.",
+      texte: "[[Nouveau voyage|IconPlus|fort]] ouvre la demande, dont vous êtes le référent. Le projet (section, cursus, dates, destination, groupe cible, nombre d'étudiants et d'accompagnateurs, programme), le devis en deux parties — étudiants, accompagnateurs — par lignes (transport, logement, activités, frais de bouche ; dates, tarif × nombre), le financement (participation des étudiants, Conseil social, haute école) : les totaux se calculent. [[Soumettre à la direction|fort]] fige la demande ; la direction la valide, la renvoie avec un mot, ou l'annule, et le référent en est prévenu. Les participants s'ajoutent depuis les étudiants de la section (un par un ou tous), plus les accompagnateurs ; la liste se complète même après la validation. L'imprimante du bandeau sort la demande entière, liste comprise.",
+      savoir: ["Une demande incomplète (dates, destination, section, nombre d'étudiants, devis) ne se soumet pas : Lucie dit ce qui manque.", "La coordination lit les demandes de ses sections ; le secrétariat, toutes."],
+    },
+    {
+      titre: "Examens : préparer et imprimer",
+      pour: 'sec coo dir',
+      ou: "Organisation → L'année → Examens : préparer et imprimer.",
+      texte: "Les épreuves datées dans « Sessions : épreuves et délibérations », une ligne chacune : date, horaire (début → fin), local, épreuve, professeurs, nombre d'étudiants et d'aménagements. On complète ce que le calendrier ne porte pas — les surveillants (liste du personnel), écrit ou oral, la durée (2 h par défaut, comme le veut la procédure 2026-2027) et le matériel autorisé —, on coche les épreuves (aucune coche = toutes) et on sort les pièces. [[L’enveloppe complète|IconMail|fort]] compose, épreuve par épreuve et dans l'ordre de l'enveloppe : la fiche de l'épreuve (à coller sur l'enveloppe, avec le nombre de questionnaires — étudiants plus trois de réserve —, son contenu et les rappels de la procédure), la liste des aménagements raisonnables s'il y en a, le registre de présences et de dépôt (A / P, heure de remise, signature, totaux, signatures du professeur et du surveillant), le plan d'installation et un PV d'incident prérempli. Chaque pièce sort aussi seule ; s'y ajoutent la feuille d'archivage avec deux étiquettes d'archive, les pages de garde nominatives (une par étudiant, avec les acquis du cours) et le calendrier récapitulatif.",
+      savoir: [
+        "En 2e session, les étudiants sont les ajournés qui représentent CE cours, comme sur la liste des ajournés.",
+        "La liste des aménagements ne porte que les mesures accordées, jamais la situation de l'étudiant (secret professionnel).",
+        "Une épreuve sans surveillant ou sans local sort avec une ligne à compléter à la main : l'écran le compte avant l'impression.",
+        "La coordination prépare et imprime pour ses sections.",
+        "La colonne « Questionnaire » se coche quand le secrétariat le reçoit. Tant qu'elle ne l'est pas, Lucie le rappelle au professeur une semaine avant le délai (un mois avant l'épreuve ; janvier : 1er décembre ; mai à septembre : 15 avril) et le jour même, puis prévient la coordination le lendemain.",
+        "Lucie rappelle aussi la visite des copies la veille, la remise des copies à l'archivage le lendemain, et signale au secrétariat et à la coordination une 2e session datée moins de 10 jours après la délibération. Ces rappels s'allument dans Configuration → Courriels → Rappels.",
+      ],
+    },
+    {
       titre: "Absences des enseignants",
       pour: 'sec coo dir',
       ou: "Organisation → Qui enseigne et quand → Absences des enseignants.",
@@ -201,6 +222,13 @@ export const ajouts = {
     },
   ],
   personnel: [
+    {
+      titre: "Les candidatures des enseignants",
+      pour: 'ens sec coo dir',
+      ou: "Espace enseignant → Ma candidature. Côté école : Personnel → Candidatures → Candidatures des enseignants.",
+      texte: "Les formulaires de candidature à titre temporaire et à titre définitif, en ligne. La direction fixe la campagne : l'année visée, du … au …. Pendant la campagne, l'enseignant retrouve sa situation de l'année en cours, coche ce qu'il demande — le maintien de ses attributions, une augmentation de charge (en périodes au total), la renonciation à toute sa charge, un engagement temporaire dans des cours, un engagement à titre définitif dans des unités —, choisit les cours, confirme les conditions légales et [[Déposer ma candidature|fort]] : le dépôt vaut accusé de réception, daté. Il la remplace ou la retire tant qu'elle n'est pas analysée. Côté école, une ligne par candidature : la coordination l'analyse (ses sections), la direction la transmet au CA et la dit retenue ou non retenue (avec un mot). La pièce imprimable reprend le formulaire, coché.",
+      savoir: ["Rien ne s'écrit dans les attributions : la proposition d'attributions suit son propre chemin."],
+    },
     {
       titre: "Voir l'espace d'un professeur ou d'un étudiant, comme lui",
       pour: 'dir',
@@ -367,12 +395,41 @@ export const ajouts = {
       titre: "L'espace enseignant : où trouver quoi",
       pour: 'ens coo dir', enTete: true,
       ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur ; installable sur l'écran d'accueil.",
-      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie ; tout ce que faisait Mes cours y est. À gauche (en haut sur téléphone) : Aujourd'hui — votre tableau de bord et la frise de la journée (présences, QR, ticket de sortie) ; Mes notes — vos cours, et pour chacun Le cours, Notes, Carnet, Supports, Indicateurs ; Mes présences — la grille de chaque cours ; Mes étudiants — vos unités, leurs étudiants et leur fiche, « Écrire à mes étudiants » ; Mes unités — dossier pédagogique, croisement, pondération, DUE ; À rendre — les avis de valorisation et d'aménagement ; Mes TFE — vos jurys et vos fiches ; Mon agenda — Mes dates (examens, délibérations), Ma semaine, l'année de l'école, Signaler une absence, Mes visites de stage, l'agenda du téléphone. En bas : Ma fiche, Aide, L'école (textes à lire, documents reçus), Mon compte. La première fois : « Première visite », votre adresse de l'institut, un lien arrive, vous choisissez un mot de passe pour cet espace ; sur un nouvel appareil, un code à six chiffres en plus.",
+      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie ; tout ce que faisait Mes cours y est. À gauche (en haut sur téléphone) : Aujourd'hui — votre tableau de bord et la frise de la journée (présences, QR, ticket de sortie) ; Mes notes — vos cours, et pour chacun Le cours, Notes, Carnet, Supports, Indicateurs ; Mes présences — la grille de chaque cours ; Mes étudiants — vos unités, leurs étudiants et leur fiche, « Écrire à mes étudiants » ; Mes unités — dossier pédagogique, croisement, pondération, DUE ; À rendre — les avis de valorisation et d'aménagement ; Aménagements — vos étudiants qui ont un aménagement raisonnable, cours par cours ; Mes TFE — vos jurys et vos fiches ; Mes stages ; Mon agenda — Mes dates (examens, délibérations), Ma semaine, l'année de l'école, Mes disponibilités, Signaler une absence, Mes visites de stage, l'agenda du téléphone. En bas : Ma fiche, Aide, L'école (textes à lire, documents reçus, Mes réunions), Mon compte. En haut, à côté de la loupe : l'ampoule (proposer une amélioration) et la flèche qui revient en arrière (annuler mes derniers gestes). La première fois : « Première visite », votre adresse de l'institut, un lien arrive, vous choisissez un mot de passe pour cet espace ; sur un nouvel appareil, un code à six chiffres en plus.",
       savoir: [
         "Ce que vous enregistrez part dans Lucie en quelques secondes, à votre nom ; si Lucie refuse (une séance close, par exemple), l'écran le dit.",
         "Il ne s'ouvre que depuis la Belgique, comme l'espace des étudiants.",
         "Le bouton Contacter, en haut, montre qui est à l'école aujourd'hui et comment le joindre.",
         "À partir de la date fixée par la direction, un compte « professeur » n'entre plus dans Lucie : la connexion renvoie vers l'espace. La coordination et la direction qui enseignent gardent les deux.",
+      ],
+    },
+    {
+      titre: "Mes disponibilités : les voir, proposer un changement",
+      pour: 'ens coo sec dir',
+      ou: "Espace enseignant → Mon agenda → Mes disponibilités. Côté école : Personnel → fiche de l'enseignant → onglet des disponibilités.",
+      texte: "L'agenda de vos disponibilités sert à composer l'horaire, pour toutes les sections où vous enseignez ; le secrétariat le tient. Vous le voyez par quadrimestre, sur les blocs de cours de l'école. Touchez une case pour la faire tourner — vert disponible, orange si nécessaire, rouge pas disponible —, ajoutez au besoin un mot, puis [[Proposer ce changement|fort]]. Rien ne change tant que le secrétariat ne l'a pas appliqué : il voit votre proposition dans votre fiche et l'applique ou ne la retient pas, avec un mot ; vous en êtes prévenu·e au tableau de bord.",
+      savoir: [
+        "Une seule proposition attend par quadrimestre : une nouvelle remplace la précédente. Tant qu'elle attend, « retirer » l'annule.",
+        "Appliquer remplace tout l'agenda de ce quadrimestre par celui que l'enseignant propose.",
+      ],
+    },
+    {
+      titre: "Mes réunions",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → L'école → Mes réunions.",
+      texte: "Les réunions où vous êtes convoqué·e (ou que vous organisez) : la date, l'heure et le lieu, l'ordre du jour avant la séance ; ce qui s'est dit, les points traités, qui était là et les tâches décidées, après. Les réunions passées s'affichent en cochant la case au-dessus de la liste.",
+      savoir: [
+        "On ne fait que lire : la réunion se prépare et se tient dans Lucie (Suivi d'équipe).",
+        "Un enseignant ne voit que ses convocations, jamais les réunions de coordination de sa section.",
+      ],
+    },
+    {
+      titre: "Proposer une amélioration, annuler ses gestes : aussi dans l'espace",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → en haut, à côté de la loupe : l'ampoule et la flèche de retour.",
+      texte: "L'ampoule ouvre le même registre des idées que dans Lucie : vous écrivez ce qui vous gêne ou ce qui manque, la direction répond, et vous suivez le fil. La flèche de retour montre vos dix derniers gestes et vous laisse revenir en arrière, du plus récent jusqu'à celui choisi.",
+      savoir: [
+        "Lucie refuse d'annuler ce que quelqu'un a modifié depuis, et les actes officiels — présences, séance close, envois : ils se reprennent par leur procédure.",
       ],
     },
     {

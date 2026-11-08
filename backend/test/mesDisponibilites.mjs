@@ -1,0 +1,80 @@
+/* Banc des disponibilités proposées par l'enseignant et de la lecture des réunions (3.5.224). node test/mesDisponibilites.mjs */
+import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lucie-dispo-'));
+process.env.DB_PATH = path.join(dir, 'test.db');
+process.env.PERMISSIONS_MODE = 'strict';
+const db = (await import('../src/db/index.js')).default;
+for (const s of ['CREATE TABLE IF NOT EXISTS professeur (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT)',
+  'CREATE TABLE IF NOT EXISTS utilisateur (id INTEGER PRIMARY KEY, email TEXT, nom_complet TEXT, role TEXT, professeur_id INTEGER, actif INTEGER DEFAULT 1)',
+  'CREATE TABLE IF NOT EXISTS lucie_notification (id INTEGER PRIMARY KEY, type TEXT, titre TEXT, corps TEXT, lien TEXT, cible_role TEXT, cible_user_id INTEGER, cree_par TEXT, section TEXT)']) { try { db.exec(s); } catch { /* */ } }
+const { default: express } = await import('express');
+const { signToken } = await import('../src/middleware/auth.js');
+const sim = await import('../src/lib/simulationHoraire.js');
+const route = (await import('../src/routes/mesDisponibilites.js')).default;
+db.prepare("INSERT INTO professeur VALUES (1,'Dupont','Anne')").run();
+db.prepare("INSERT INTO utilisateur (id,email,role,professeur_id) VALUES (10,'anne@x','professeur',1),(20,'sec@x','editeur',NULL),(30,'sans@x','professeur',NULL)").run();
+sim.migrerPlages(db); sim.migrerPlanning(db);
+if (!sim.baseEcole().length) db.prepare("INSERT INTO planning_base (jour, debut, fin) VALUES (2, '18:00', '21:00')").run();
+const base = sim.baseEcole();
+const app = express(); app.use(express.json()); app.use('/api/mes-disponibilites', route);
+const srv = app.listen(0); const port = srv.address().port;
+const tok = id => signToken(db.prepare('SELECT * FROM utilisateur WHERE id = ?').get(id));
+const appel = async (id, m, u, b) => { const r = await fetch(`http://127.0.0.1:${port}/api/mes-disponibilites${u}`, { method: m, headers: { Authorization: `Bearer ${tok(id)}`, 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }); return { s: r.status, j: await r.json().catch(() => null) }; };
+let ok = 0, ko = 0;
+const t = (nom, c, d = '') => { if (c) { ok++; console.log('  ok   ' + nom); } else { ko++; console.log('  FAUX ' + nom + (d ? '  → ' + JSON.stringify(d) : '')); } };
+const c0 = base[0];
+t('la base de l’école existe', base.length > 0, base.length);
+let r = await appel(10, 'GET', '/');
+t('le professeur lit son agenda', r.s === 200 && r.j.relie && r.j.cases.length === 0, r);
+t('compte non relié : dit', (await appel(30, 'GET', '/')).j.relie === false);
+t('compte non relié : ne propose pas', (await appel(30, 'POST', '/', { quadrimestre: 'Q1', cases: [] })).s === 409);
+r = await appel(10, 'POST', '/', { quadrimestre: 'Q1', cases: [{ jour: c0.jour, debut: c0.debut, valeur: 0 }, { jour: 9, debut: '07:00', valeur: 0 }], remarque: 'mardi pris' });
+t('proposition déposée', r.s === 200 && r.j.id, r);
+t('rien n’est écrit avant application', sim.toutesContraintes().filter(c => c.type === 'prof').length === 0);
+t('une case hors base est écartée', JSON.parse(db.prepare('SELECT cases FROM dispo_proposition WHERE id = ?').get(r.j.id).cases).length === 1);
+t('le secrétariat est prévenu', db.prepare("SELECT COUNT(*) n FROM lucie_notification WHERE type='disponibilites' AND cible_role='secretariat'").get().n === 1);
+const r2 = await appel(10, 'POST', '/', { quadrimestre: 'Q1', cases: [{ jour: c0.jour, debut: c0.debut, valeur: 2 }] });
+t('une nouvelle remplace la précédente', db.prepare("SELECT statut FROM dispo_proposition WHERE id = ?").get(r.j.id).statut === 'retiree');
+t('le professeur ne voit pas la liste de l’école', (await appel(10, 'GET', '/propositions')).s === 403);
+const l = await appel(20, 'GET', '/propositions?prof_id=1');
+t('le secrétariat voit la proposition en attente', l.s === 200 && l.j.length === 1 && l.j[0].id === r2.j.id, l);
+t('refuser sans mot : refusé', (await appel(20, 'POST', `/propositions/${r2.j.id}/refuser`, {})).s === 400);
+t('appliquer', (await appel(20, 'POST', `/propositions/${r2.j.id}/appliquer`, {})).s === 200);
+const cs = sim.toutesContraintes().filter(c => c.type === 'prof' && c.cible === '1');
+t('l’agenda est écrit (orange)', cs.length === 1 && Number(cs[0].valeur) === 2 && cs[0].quadrimestre === 'Q1', cs);
+t('l’enseignant est prévenu', db.prepare("SELECT COUNT(*) n FROM lucie_notification WHERE type='disponibilites' AND cible_user_id=10").get().n === 1);
+t('déjà traitée : 409', (await appel(20, 'POST', `/propositions/${r2.j.id}/appliquer`, {})).s === 409);
+const r3 = await appel(10, 'POST', '/', { quadrimestre: 'Q2', cases: [] });
+t('retirer la sienne', (await appel(10, 'DELETE', `/${r3.j.id}`)).s === 200 && (await appel(10, 'DELETE', `/${r3.j.id}`)).s === 404);
+// ── Les réunions : un professeur ne lit que celles où il est convoqué ──
+const { migrerReunions } = await import('../src/db/migrations_reunions.js');
+try { db.exec('ALTER TABLE utilisateur ADD COLUMN perimetre_toutes INTEGER'); } catch { /* */ }
+db.exec('CREATE TABLE IF NOT EXISTS utilisateur_section (utilisateur_id INTEGER, section_code TEXT)');
+migrerReunions(db);
+(await import('../src/middleware/permissions.js')).migrerPlafonds(db);
+db.exec(`CREATE TABLE IF NOT EXISTS echeance_type (id INTEGER PRIMARY KEY, libelle TEXT, base_legale TEXT);
+  CREATE TABLE IF NOT EXISTS echeance (id INTEGER PRIMARY KEY, type_id INTEGER, libelle_override TEXT, date_due TEXT)`);
+for (const c of ['section TEXT', 'organisateur_user_id INTEGER', 'organisateur_professeur_id INTEGER', 'notes_confidentielles TEXT']) { try { db.exec(`ALTER TABLE reunion ADD COLUMN ${c}`); } catch { /* */ } }
+db.prepare("INSERT INTO utilisateur_section VALUES (10,'TIM')").run();
+const ins = db.prepare("INSERT INTO reunion (annee_scolaire, titre, date_seance, section, organisateur_user_id, notes_confidentielles) VALUES ('2026-2027', ?, '2026-12-01', 'TIM', 20, ?)");
+const rc = Number(ins.run('Conseil de coordination TIM', 'secret').lastInsertRowid);
+const rp = Number(ins.run('Réunion des professeurs', 'huis clos').lastInsertRowid);
+db.prepare("INSERT INTO reunion_participant (reunion_id, professeur_id, nom) VALUES (?, 1, 'DUPONT Anne')").run(rp);
+const { default: reunions } = await import('../src/routes/reunions.js');
+const { garderModule } = await import('../src/middleware/garde.js');
+const app2 = express(); app2.use(express.json()); app2.use((req, _r, n) => { req.headers['x-annee'] = '2026-2027'; n(); });
+app2.use('/api/reunions', garderModule('reunions'), reunions);
+const s2 = app2.listen(0); const p2 = s2.address().port;
+const lireR = async (id, u) => { const r = await fetch(`http://127.0.0.1:${p2}/api/reunions${u}`, { headers: { Authorization: `Bearer ${tok(id)}` } }); return { s: r.status, j: await r.json().catch(() => null) }; };
+const liste = await lireR(10, '/?annee=2026-2027');
+t('le professeur lit la liste', liste.s === 200 && Array.isArray(liste.j), liste);
+t('… seulement sa convocation, pas la réunion de section', liste.j?.length === 1 && liste.j[0].id === rp, liste.j?.map(x => x.titre));
+const une = await lireR(10, `/${rp}`);
+t('il ouvre sa réunion, et le confidentiel des convoqués', une.s === 200 && une.j.notes_confidentielles === 'huis clos', une);
+t('la réunion de section : 404', (await lireR(10, `/${rc}`)).s === 404);
+const w = await fetch(`http://127.0.0.1:${p2}/api/reunions/${rp}`, { method: 'PUT', headers: { Authorization: `Bearer ${tok(10)}`, 'Content-Type': 'application/json' }, body: '{"titre":"x"}' });
+t('écrire reste refusé', w.status === 403, w.status);
+s2.close();
+srv.close();
+console.log(`\n${ok} ok, ${ko} faux`);
+process.exit(ko ? 1 : 0);

@@ -14,7 +14,8 @@ import { Fenetre } from './ui.jsx';
  */
 const heure = s => { const d = new Date(String(s || '').replace(' ', 'T') + 'Z'); return isNaN(d) ? s : d.toLocaleString('fr-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
 
-export default function AnnulerGestes() {
+// `classeBouton`, `taille` : l'espace enseignant pose le bouton dans sa propre barre (3.5.224).
+export default function AnnulerGestes({ classeBouton = 'objet-barre objet-barre-icone', taille = 16, style } = {}) {
   const [ouvert, setOuvert] = useState(false);
   const [d, setD] = useState(null);
   const [equipe, setEquipe] = useState(false);
@@ -54,7 +55,7 @@ export default function AnnulerGestes() {
 
   return (<>
     <button onClick={ouvrir} aria-label="Annuler mes derniers gestes" title="Annuler — revenir sur mes 10 derniers gestes"
-      className="objet-barre objet-barre-icone"><IconArrowBackUp size={16} /></button>
+      className={classeBouton} style={style}><IconArrowBackUp size={taille} /></button>
     {ouvert && (
       <Fenetre titre="Annuler mes derniers gestes" sous="Un geste = un enregistrement, un clic. Les 10 derniers de chacun se gardent." large="grande" onFermer={() => setOuvert(false)}
         pied={<><span className="text-second text-slate-500 min-w-0 flex-1">Lucie refuse d’annuler ce que quelqu’un a modifié depuis, et les actes officiels (séance close, décision validée, présences, envois) : ils se reprennent par leur procédure.</span>

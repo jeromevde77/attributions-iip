@@ -172,8 +172,10 @@ export function Absences({ profId, peutEcrire }) {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify(form),
     });
-    if (!rep.ok) { informer((await rep.json()).error || 'échec'); return; }
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { informer(j.error || 'échec'); return; }
     setForm(null); await charger();
+    if (j.avertissement) informer(`⚠ ${j.avertissement}`);
   }
 
   async function supprimer(id) {

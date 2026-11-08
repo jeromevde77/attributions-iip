@@ -24,6 +24,7 @@ import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
 const Besoins = lazy(() => import('./Besoins.jsx'));
 const Classement = lazy(() => import('./Classement.jsx'));
 const TempsTravail = lazy(() => import('./TempsTravail.jsx'));
+const CandidaturesMDP = lazy(() => import('../components/CandidaturesMDP.jsx'));
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 
 /**
@@ -2305,6 +2306,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                donc il ne perd pas la navigation en s'ouvrant. */
             { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
+          // LES CANDIDATURES DES ENSEIGNANTS (3.5.229) : direction, secrétariat, coordination (ses sections).
+          ...((estDirection(getUser()) || ['coordination', 'secretariat', 'editeur'].includes(getUser()?.role)) ? [{ label: 'Candidatures', items: [
+            { key: 'nav-candidatures', label: 'Candidatures des enseignants', icon: IconFileDescription, actif: vue === 'candidatures', onClick: () => setVue('candidatures') },
+          ]}] : []),
           // LE TEMPS DE TRAVAIL (3.5.039) : la direction, et les personnes qu'elle a désignées (le secrétariat).
           ...(ttMoi?.gere || ttMoi?.designe ? [{ label: 'Temps de travail', items: [
             { key: 'nav-temps', label: 'Temps de travail', icon: IconClockHour4, actif: vue === 'temps', onClick: () => setVue('temps') },
@@ -2325,6 +2330,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           {vue === 'besoins' && <Besoins />}
           {vue === 'classement' && <Classement />}
           {vue === 'temps' && <TempsTravail />}
+          {vue === 'candidatures' && <CandidaturesMDP />}
         </Suspense>
       ) : (<>
       {/* UN SEUL FORMAT DE TITRE, celui de PageHeader : icône turquoise,

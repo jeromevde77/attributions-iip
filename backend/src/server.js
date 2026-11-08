@@ -769,12 +769,13 @@ try {
   // Seed calendrier 2026-2027 si absent
   const _cal2627 = db.prepare("SELECT COUNT(*) AS n FROM annee_calendrier WHERE annee_scolaire = '2026-2027'").get();
   if (_cal2627.n === 0) {
+    // Les congés 2026-2027 de la circulaire 9760 (II.3.2.2) : automne du 19/10 au 30/10, hiver du 21/12 au 01/01, détente du 22/02
+    // au 05/03, printemps du 26/04 au 07/05 (3.5.225 ; l'ancienne graine suivait le calendrier d'avant la réforme).
     const VACANCES_2627 = [
-      ['2026-11-02', 1, 'vacances', 'Congé automne'],
-      ['2026-12-21', 2, 'vacances', 'Vacances Noël'],
-      ['2027-02-15', 1, 'vacances', 'Congé carnaval'],
-      ['2027-03-29', 2, 'vacances', 'Vacances Pâques'],
-      ['2027-05-17', 1, 'vacances', 'Congé Pentecôte'],
+      ['2026-10-19', 2, 'vacances', 'Congé d’automne'],
+      ['2026-12-21', 2, 'vacances', 'Vacances d’hiver'],
+      ['2027-02-22', 2, 'vacances', 'Congé de détente'],
+      ['2027-04-26', 2, 'vacances', 'Vacances de printemps'],
     ];
     const EV_2627 = [
       ['2027-01-04', 3, 'ev1', 'Évaluations 1re session'],
@@ -2947,10 +2948,18 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
   setInterval(tourPersonnel, 60 * 60 * 1000).unref?.();
   // LES ÉCHÉANCES QUE LUCIE VOIT FAITES (3.5.066) : au démarrage, puis toutes les heures.
   const tourConstats = async () => { try { const { constaterEcheances } = await import('./lib/echeancesConstatees.js'); const r = constaterEcheances(anneeActiveRappels(db)); if (Object.keys(r).length) console.log('[échéances constatées]', r); } catch (e) { console.error('[échéances constatées]', e.message); } };
+  // LA FIN DE FONCTION DES TEMPORAIRES (3.5.231) : le C4 et l'attestation de services rendus, à la fin de leur dernière unité.
+  const tourFins = async () => { try { const { poserFinsDeFonction } = await import('./services/echeancier.js'); const n = poserFinsDeFonction(db, anneeActiveRappels(db)); if (n) console.log('[fins de fonction]', n); } catch (e) { console.error('[fins de fonction]', e.message); } };
+  setTimeout(tourFins, 25 * 1000).unref?.();
+  setInterval(tourFins, 6 * 60 * 60 * 1000).unref?.();
   setTimeout(tourConstats, 20 * 1000).unref?.();
   setInterval(tourConstats, 60 * 60 * 1000).unref?.();
   setTimeout(tourDelib, 45_000).unref?.();
   setInterval(tourDelib, 60 * 60 * 1000).unref?.();
+  // LES RAPPELS DES EXAMENS (3.5.227) : toutes les heures, la file seulement ; l'envoi suit les interrupteurs de Configuration.
+  const tourExamens = async () => { try { const { genererRappelsExamens } = await import('./lib/rappelsExamens.js'); const r = genererRappelsExamens(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels examens]', r); } catch (e) { console.error('[rappels examens]', e.message); } };
+  setTimeout(tourExamens, 55_000).unref?.();
+  setInterval(tourExamens, 60 * 60 * 1000).unref?.();
   // LES RAPPELS AUX ÉTUDIANTS (3.1.525) : la file partout (si le portail existe), l'avis du jour en production.
   const tourEtudiants = () => { try { const r = genererRappelsEtudiants(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels étudiants]', r); } catch (e) { console.error('[rappels étudiants]', e.message); } };
   setTimeout(tourEtudiants, 105_000).unref?.();
@@ -3305,6 +3314,14 @@ app.use('/api/recrutement',     garderModule('recrutement'), recrutementRoutes);
 app.use('/api/aa',              garderModule('aa'), aaRoutes);
 app.use('/api/config',          garderModule('config'), (await import('./routes/config.js')).default);
 app.use('/api/annulation', (await import('./routes/annulation.js')).default);
+// MES DISPONIBILITÉS (3.5.224) : le professeur lit son agenda et propose ; la fiche de l'enseignant applique. Les routes posent leurs rôles.
+app.use('/api/mes-disponibilites', (await import('./routes/mesDisponibilites.js')).default);
+// EXAMENS : PRÉPARER ET IMPRIMER (3.5.226) — les routes posent leurs rôles et le périmètre.
+app.use('/api/examens', (await import('./routes/examens.js')).default);
+// LES CANDIDATURES DES ENSEIGNANTS (3.5.229) — les routes posent leurs rôles.
+app.use('/api/candidatures', (await import('./routes/candidatures.js')).default);
+// LES VOYAGES D'ÉTUDES (3.5.230) — les routes posent leurs rôles.
+app.use('/api/voyages', (await import('./routes/voyages.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
 app.use('/api/mes-frais', (await import('./routes/mesFrais.js')).default);   // confidentiel, à son titulaire (3.5.197)
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);

@@ -23,6 +23,7 @@ const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
 const SeancesValorisationLot = lazy(() => import('./SeancesValorisationLot.jsx'));
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
+import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, GroupeFenetre, PieceFenetre, Chevron, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
@@ -1407,6 +1408,22 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
       ouvrir(id);
     } catch (e) { setErreur(e.message); }
   };
+  const rechargerEa12 = () => fetch(`/api/ea12?professeur_id=${choisi.id}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+    .then(r => (r.ok ? r.json() : [])).then(l => setEa12(Array.isArray(l) ? l : [])).catch(() => {});
+  const noterTransmis = async e => {
+    const d = await saisir({ titre: `Doc12 n° ${e.num_doc} transmis à GEDI`, message: 'Date de la transmission (aaaa-mm-jj). Le document se verrouille : une correction se fera par rectificatif.', valeur: new Date().toLocaleDateString('sv-SE'), confirmer: 'Noter' });
+    if (d == null) return;
+    const r = await fetch(`/api/ea12/${e.id}/transmis`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ date: d }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); setErreur(j.error || 'Refusé.'); return; }
+    rechargerEa12();
+  };
+  const rectifier = async e => {
+    if (!(await demander({ titre: 'Créer un rectificatif', message: `Le Doc12 n° ${e.num_doc} est transmis : le rectificatif en reprend les données, au numéro suivant, et porte la date du précédent.`, confirmer: 'Créer' }))) return;
+    const r = await fetch(`/api/ea12/${e.id}/rectificatif`, { method: 'POST', headers: authHeaders() });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+    ouvrir(j.id);
+  };
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] items-start">
       <div className="space-y-2">
@@ -1443,7 +1460,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
         {coches.size >= 2 ? (
           <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} outilsMembre={outilsMembre} />
         ) : !choisi ? (
-          <p className="text-sm text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
+          <ControleEa12 annee={annee} onChoisir={id => { const m = (profs || []).find(x => x.id === id); if (m) setChoisi(m); }} />
         ) : (
           <div className="space-y-3">
             {/* SUR LA LIGNE DES FAMILLES (Charles, 27 septembre 2026) : le nom
@@ -1502,8 +1519,15 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                       : !ea12.length ? <p className="text-second text-slate-400">Aucun EA12 pour {annee}.</p>
                       : ea12.map(e => (
                         <div key={e.id} className="flex items-center justify-between gap-3 pl-3 text-second text-slate-600">
-                          <span>Document n° {e.num_doc ?? '—'} · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}{e.statut_doc === 'genere' ? ' · déjà produit' : ''}</span>
-                          <Avion titre="Ouvrir, compléter et produire cet EA12" onClick={() => ouvrir(e.id)} />
+                          <span>Document n° {e.num_doc ?? '—'}{e.remplace_id ? ' (rectificatif)' : ''} · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}{e.statut_doc === 'genere' ? ' · déjà produit' : ''}
+                            {e.transmis_le ? <b> · transmis à GEDI le {String(e.transmis_le).split('-').reverse().join('/')}</b> : null}</span>
+                          <span className="flex items-center gap-1.5 flex-none">
+                            {/* TRANSMIS = VERROUILLÉ (3.5.228) : une correction se fait par rectificatif, au numéro suivant. */}
+                            {!e.transmis_le
+                              ? <button type="button" className="bouton bouton-compact" onClick={() => noterTransmis(e)}>Transmis à GEDI</button>
+                              : <button type="button" className="bouton bouton-compact" onClick={() => rectifier(e)}>Rectificatif</button>}
+                            <Avion titre="Ouvrir, compléter et produire cet EA12" onClick={() => ouvrir(e.id)} />
+                          </span>
                         </div>
                       ))}
                   </li>
@@ -2881,3 +2905,28 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
     </PlaceOutils.Provider>
   );
 }
+
+/* LE CONTRÔLE DE RENTRÉE DES EA12 (3.5.228, circ. 9760 V.1.2) : un Doc12 par membre et par rentrée, même sans changement. Qui
+   porte des périodes de chargé de cours sans aucun EA12 cette année, et qui en a sans transmission notée. Un nom ouvre ses pièces. */
+function ControleEa12({ annee, onChoisir }) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    fetch(`/api/ea12/controle?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD(null));
+  }, [annee]);
+  if (!d) return <p className="text-sm text-slate-400 italic py-6">Choisissez un membre du personnel.</p>;
+  const bloc = (titre, l, etat, sous) => (
+    <div data-etat={l.length ? etat : 'reussi'} className="bloc-etat px-3 py-2.5 space-y-1.5">
+      <div className="text-sm font-semibold">{titre} — {l.length}</div>
+      {!l.length ? <p className="m-0 text-second text-slate-500">Personne.</p>
+        : <div className="flex flex-wrap gap-1.5">{l.map(x => (
+            <button key={x.id} type="button" className="bouton bouton-compact" onClick={() => onChoisir(x.id)} title={sous(x)}>{x.nom}</button>))}</div>}
+    </div>);
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-slate-500 m-0">Choisissez un membre du personnel, ou partez du contrôle de rentrée {annee} : chaque membre qui porte des périodes de chargé de cours doit avoir son Doc12 (EA12) de rentrée, même sans changement.</p>
+      {bloc('Sans aucun EA12', d.sans_ea12, 'surveiller', x => `${x.periodes} périodes`)}
+      {bloc('EA12 non notés transmis à GEDI', d.non_transmis, 'neutre', x => `${x.docs} document(s)`)}
+    </div>);
+}
+

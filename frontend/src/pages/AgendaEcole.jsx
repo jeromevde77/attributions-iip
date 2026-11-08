@@ -4,9 +4,9 @@
  * et le congé-éducation lisent ses cours et ses jours fermés. */
 import { useState } from 'react';
 import { IconCalendarMonth, IconX } from '@tabler/icons-react';
-import { EnteteCarte, PastilleEtat } from '../components/ui.jsx';
+import { EnteteCarte, PastilleEtat, Fenetre } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
-import { demander, informer } from '../lib/dialogue.jsx';
+import { informer } from '../lib/dialogue.jsx';
 import AgendaLigne, { useAgenda } from '../components/AgendaLigne.jsx';
 import AgendaMois from '../components/AgendaMois.jsx';
 import AgendaDates from '../components/AgendaDates.jsx';
@@ -22,13 +22,13 @@ export default function AgendaEcole({ annee, simple = false }) {
   const k = ag?.semaines?.indexOf(sel) ?? -1;
   /* LA FERMETURE FAIT FOI (3.5.148) : les semaines où le calendrier des cours contredit la fermeture se nomment, et s'alignent d'un
      geste — la liste d'abord, puis la confirmation. */
-  async function aligner() {
-    const l = ag?.desaccords || [];
-    if (!(await demander({ titre: 'Aligner les cours sur la fermeture', message: `${l.length} semaine(s) changent dans le calendrier des cours :\n\n${l.map(x => `· semaine du ${fmt(x.lundi)} : ${x.raison} → ${x.apres === 'vacances' ? 'vacances' : 'cours'}`).join('\n')}`, confirmer: 'Aligner' }))) return;
-    const r = await fetch(`/api/agenda-ecole/aligner?annee=${encodeURIComponent(annee)}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ecrire: true }) });
+  const [alignement, setAlignement] = useState(null);   // Set des semaines cochées
+  function aligner() { setAlignement(new Set((ag?.desaccords || []).map(x => x.id))); }
+  async function confirmerAlignement() {
+    const r = await fetch(`/api/agenda-ecole/aligner?annee=${encodeURIComponent(annee)}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ecrire: true, ids: [...alignement] }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { informer(j.error || 'Alignement refusé.'); return; }
-    informer(`✓ ${j.changements.length} semaine(s) alignée(s).`); recharger();
+    setAlignement(null); informer(`✓ ${j.changements.length} semaine(s) alignée(s).`); recharger();
   }
   return (
     <div className="space-y-4">
@@ -41,6 +41,19 @@ export default function AgendaEcole({ annee, simple = false }) {
           <span className="min-w-0 flex-1"><b>{ag.desaccords.length} semaine(s)</b> où le calendrier des cours contredit la fermeture de l’école : {ag.desaccords.slice(0, 3).map(x => `${fmt(x.lundi)} (${x.raison})`).join(' ; ')}{ag.desaccords.length > 3 ? '…' : ''}</span>
           {ag.peut?.etablissement && <button type="button" className="bouton" onClick={aligner}>Aligner sur la fermeture</button>}
         </div>)}
+      {/* LES SEMAINES À ALIGNER, UNE PAR UNE (3.5.225) : un congé où l'école reste en partie ouverte (carnaval, printemps) est proposé
+          sans être imposé — on décoche si les cours continuent. */}
+      {alignement && (
+        <Fenetre titre="Aligner le calendrier des cours sur la fermeture" sous={`${annee} · ${alignement.size} semaine(s) cochée(s)`} onFermer={() => setAlignement(null)}
+          pied={<><span className="text-second text-slate-500 min-w-0 flex-1">Le calendrier des cours sert à l’horaire, à l’échéancier et au congé-éducation.</span>
+            <button type="button" className="bouton" onClick={() => setAlignement(null)}>Annuler</button>
+            <button type="button" className="bouton bouton-fort" disabled={!alignement.size} onClick={confirmerAlignement}>Aligner</button></>}>
+          <div className="space-y-1.5 text-sm">{(ag?.desaccords || []).map(x => (
+            <label key={x.id} className="flex items-start gap-2">
+              <input type="checkbox" className="mt-1" checked={alignement.has(x.id)} onChange={() => setAlignement(a => { const n = new Set(a); n.has(x.id) ? n.delete(x.id) : n.add(x.id); return n; })} />
+              <span>Semaine du <b>{fmt(x.lundi)}</b> : {x.raison} → <b>{x.apres === 'vacances' ? `vacances${x.label ? ` (${x.label})` : ''}` : 'cours'}</b>{x.partielle ? <span className="text-slate-500"> — à décocher si les cours continuent</span> : null}</span>
+            </label>))}</div>
+        </Fenetre>)}
       {semaineDates && ag && <AgendaDates annee={annee} lundi={semaineDates} ag={ag} onFermer={() => setSemaineDates(null)} onFait={recharger} />}
       <div className="carte overflow-hidden">
         <EnteteCarte icone={IconCalendarMonth} titre="L’année de l’école" sous={simple ? 'Les grands moments, les cours, les congés et les fermetures de l’école.' : 'Glissez sur des semaines (ou des jours, vue Mois) et choisissez quoi y mettre ; « Saisir » ouvre le mini calendrier.'}>
