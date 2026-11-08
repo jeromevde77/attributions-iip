@@ -63,7 +63,7 @@ maj() { # $1 = nom du tour, $2 = images « backend:tag frontend:tag », puis les
   [ "$avant" = "$apres" ] && return
 
   echo "$(horo) $nom : nouvelle image, mise à jour"
-  if [ "$nom" = prod ] && ! ./backup.sh; then
+  if [ "$nom" = prod ] && ! ./backup.sh avant-maj; then
     echo "$(horo) prod : SAUVEGARDE EN ÉCHEC, mise à jour annulée"
     alerter "sauvegarde" "prod : la sauvegarde a échoué, la nouvelle version n'est PAS installée. Voir /opt/lucie/mise-a-jour.log"
     return

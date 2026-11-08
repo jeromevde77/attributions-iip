@@ -64,6 +64,10 @@ sauvegarder() {
   [ -s "$f" ] || refus "sauvegarde introuvable ou vide : $f"
   echo "✓ Sauvegarde : $f ($(du -h "$f" | cut -f1))"
   journal "sauvegarde=$f"
+  # LES 5 DERNIÈRES SEULEMENT (8 novembre 2026) : rien ne les retirait, 35 copies
+  # de 245 Mo (7,6 Go) s'étaient accumulées en quelques jours. La sauvegarde de
+  # la nuit (backup.sh), elle, part sur le Synology.
+  ls -1t "$LUCIE"/prod/backups/avant_*.db 2>/dev/null | tail -n +6 | xargs -r rm -f
 }
 
 version() {
