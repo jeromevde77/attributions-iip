@@ -24,9 +24,13 @@ const MaFicheLucie = lazy(() => import('../pages/Professeurs.jsx'));
 const MesTfeLucie = lazy(() => import('../components/MesTfe.jsx'));
 const MesStagesLucie = lazy(() => import('../components/MesStages.jsx'));
 const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignants.jsx').then(m => ({ default: m.SignalerAbsence })));
+const MesDisponibilitesLucie = lazy(() => import('../components/MesDisponibilites.jsx'));
+const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
+const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'));
+import AnnulerGestes from '../components/AnnulerGestes.jsx';
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
+import { IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -594,7 +598,7 @@ function MonAgenda({ moi, onPresences }) {
     <div className="space-y-4">
       <h1 className="titre-ecran">Mon agenda</h1>
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Évaluations et délibérations'], ['annee', 'L’année de l’école']].map(([k, l]) => (
+        <div className="segments">{[['dates', 'Mes dates'], ['semaine', 'Ma semaine'], ['deliberations', 'Évaluations et délibérations'], ['annee', 'L’année de l’école'], ['dispos', 'Mes disponibilités']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setVue(k)} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}</div>
         <span className="flex-1" />
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOuvert('absence')}><IconUserOff size={16} /> Signaler une absence</button>
@@ -606,6 +610,8 @@ function MonAgenda({ moi, onPresences }) {
         // semaine de Lucie, avec l'agenda de l'école au-dessus de chaque jour ; une séance ouvre ses présences.
         // LES DÉLIBÉRATIONS DE MES UNITÉS (3.5.160, Charles : « ceci doit aller dans agenda ») : le tableau quitte Mes unités.
         : vue === 'deliberations' ? <EvaluationsDeliberations annee={annee || undefined} />
+        // MES DISPONIBILITÉS (3.5.224) : l'agenda que le secrétariat tient pour moi ; je propose, il applique.
+        : vue === 'dispos' ? <Suspense fallback={<ChargementLucie />}><MesDisponibilitesLucie /></Suspense>
         : vue === 'semaine' ? <Suspense fallback={<ChargementLucie />}><SemaineLucie enLigne avecAgenda onSeance={onPresences} /></Suspense>
         // L'ANNÉE DE L'ÉCOLE, UNE FOIS (3.5.202) : la frise ; la vue semaine par semaine faisait doublon.
         : <TimelineEcole moi={moi} annee={annee} />}
@@ -618,16 +624,17 @@ function MonAgenda({ moi, onPresences }) {
 }
 
 /* L'ÉCOLE : ce qu'elle envoie (textes à lire, documents), écrire aux étudiants, l'aide. Une face soulignée à la fois. */
-function LEcole() {
-  const [f, setF] = useState('textes');
+function LEcole({ initiale = 'textes' }) {
+  const [f, setF] = useState(initiale);
   return (
     <div className="space-y-4">
       <h1 className="titre-ecran">L’école</h1>
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200">
-        {[['textes', 'Textes à lire'], ['documents', 'Mes documents']].map(([k, l]) => (
+        {[['textes', 'Textes à lire'], ['documents', 'Mes documents'], ['reunions', 'Mes réunions']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setF(k)} className={`onglet-page ${f === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
       </div>
-      {f === 'documents' ? <MesDocuments /> : <TextesEcole />}
+      {/* MES RÉUNIONS (3.5.224) : celles où je suis convoqué·e, en lecture — ordre du jour, ce qui a été dit et décidé. */}
+      {f === 'documents' ? <MesDocuments /> : f === 'reunions' ? <Suspense fallback={<ChargementLucie />}><MesReunionsLucie /></Suspense> : <TextesEcole />}
     </div>);
 }
 
@@ -649,6 +656,19 @@ class Garde extends Component {
 }
 
 /* LE BOUTON DU RAIL : commun aux deux espaces (3.5.184), dans components/RailEspace.jsx. */
+
+/* PROPOSER UNE AMÉLIORATION ET ANNULER MES GESTES (3.5.224, Charles : ce qui manquait à l'espace) : les deux outils de la barre
+   du haut de Lucie, au même endroit que la loupe. Les écrans de Lucie, par le relais : même registre des idées, mêmes gestes. */
+const CLASSE_OUTIL = 'w-9 h-9 grid place-items-center rounded-carte border border-slate-200 bg-white hover:shadow-pose';
+function OutilsEspace({ ecran }) {
+  const [idees, setIdees] = useState(false);
+  return (<>
+    <button type="button" onClick={() => setIdees(true)} aria-label="Proposer une amélioration" title="Proposer une amélioration"
+      className={CLASSE_OUTIL} style={{ color: 'var(--menu-icone)' }}><IconBulb size={17} stroke={1.8} /></button>
+    <AnnulerGestes classeBouton={CLASSE_OUTIL} taille={17} style={{ color: 'var(--menu-icone)' }} />
+    {idees && <Suspense fallback={null}><AmeliorationsLucie ecran={`Espace enseignant — ${ecran}`} onClose={() => setIdees(false)} /></Suspense>}
+  </>);
+}
 
 /* LA LOUPE (3.5.161, Charles : « il n'y a pas la petite loupe, ni l'aide ») : « Où aller ? » de l'espace — les entrées, mes unités
    et mes cours (un cours ouvre ses notes), mes étudiants (leur fiche), et la question posée au mode d'emploi. ⌘K / Ctrl+K partout. */
@@ -842,10 +862,11 @@ export default function EspaceEnseignant() {
   const chercher = <RechercheEspace faces={[...FACES, ...FACES_BAS]} onFace={aller}
     onCours={code => { setDemande({ action: 'notes', s: { cours_code: code }, n: Date.now() }); setFace('notes'); }}
     onAide={q => { setQuestionAide(q); aller('aide'); }} />;
+  const outils = <OutilsEspace ecran={[...FACES, ...FACES_BAS].find(f => f.k === face)?.l || face} />;
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
-      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto flex items-center gap-2"><BoutonContact />{chercher}</span></div>
+      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto flex items-center gap-2"><BoutonContact />{chercher}{outils}</span></div>
       {/* UN RAIL ÉTROIT QUAND ON TRAVAILLE (3.5.166, Charles : « gagnons de la place ; réduis le menu à un rail étroit une fois
           qu'on a choisi notes, ou autre ») : sur Aujourd'hui, le menu entier ; ailleurs, les icônes seules (le nom au survol),
           et le chevron le déplie. Sur téléphone, la bande d'onglets ne change pas. */}
@@ -854,7 +875,7 @@ export default function EspaceEnseignant() {
           {etroit ? <LogoLucie hauteur={26} sansTexte className="" /> : <div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div>}
         </div>
         {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
-        <div className={`hidden md:flex items-center gap-2 pb-3 ${etroit ? 'flex-col' : 'px-2'}`}><BoutonContact compact={etroit} />{chercher}</div>
+        <div className={`hidden md:flex items-center gap-2 pb-3 ${etroit ? 'flex-col' : 'px-2'}`}><BoutonContact compact={etroit} />{chercher}{outils}</div>
         {FACES.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}
         <div className="hidden md:block flex-1" />
         {FACES_BAS.map(f => <BoutonFace key={f.k} f={f} etroit={etroit} actif={face === f.k && !seance} onClick={() => aller(f.k)} />)}

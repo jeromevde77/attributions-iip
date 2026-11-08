@@ -108,6 +108,11 @@ function gesteSurSaTache(req, user) {
     // et « confie » ne rendent que ce qui concerne la personne (routes/reunions.js).
     if (req.method === 'GET' && chemin === '/api/reunions/taches'
         && ['mien', 'informe', 'confie'].some(k => req.query?.[k] === '1')) return true;
+    // LIRE LES RÉUNIONS OÙ L'ON EST CONVOQUÉ (3.5.224, Charles : « Mes réunions » dans l'espace enseignant). La liste, le prochain
+    // rendez-vous et une séance : les routes ne rendent que ce que `clauseReunion` / `reunionVisible` laissent voir (organisateur,
+    // convoqué, section), et le confidentiel reste masqué (`peutConfidentiel`). Rien ne s'écrit par cette porte.
+    if (req.method === 'GET' && (chemin === '/api/reunions' || chemin === '/api/reunions/' || chemin === '/api/reunions/prochaine'
+        || /^\/api\/reunions\/\d+$/.test(chemin))) return true;
     const m = /^\/api\/reunions\/taches\/(\d+)$/.exec(chemin);
     if (req.method !== 'PUT' || !m) return false;
     const cles = Object.keys(req.body || {});

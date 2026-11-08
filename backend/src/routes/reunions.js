@@ -328,7 +328,9 @@ function clauseReunion(user, alias = 'r') {
   let sql = `(${alias}.organisateur_user_id = ?
     OR EXISTS (SELECT 1 FROM reunion_participant rp WHERE rp.reunion_id = ${alias}.id
       AND (rp.user_id = ? OR (rp.professeur_id IS NOT NULL AND rp.professeur_id = (SELECT professeur_id FROM utilisateur WHERE id = ?))))`;
-  if (Array.isArray(secs) && secs.length) { sql += ` OR ${alias}.section IN (${secs.map(() => '?').join(',')})`; p.push(...secs); }
+  // UN PROFESSEUR NE LIT QUE LES RÉUNIONS OÙ IL EST CONVOQUÉ (3.5.224) : la section de sa fiche ne lui ouvre pas les réunions de
+  // coordination de sa section.
+  if (user.role !== 'professeur' && Array.isArray(secs) && secs.length) { sql +=` OR ${alias}.section IN (${secs.map(() => '?').join(',')})`; p.push(...secs); }
   return { sql: sql + ')', p };
 }
 function clauseTache(user, req) {

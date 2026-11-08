@@ -367,12 +367,41 @@ export const ajouts = {
       titre: "L'espace enseignant : où trouver quoi",
       pour: 'ens coo dir', enTete: true,
       ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur ; installable sur l'écran d'accueil.",
-      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie ; tout ce que faisait Mes cours y est. À gauche (en haut sur téléphone) : Aujourd'hui — votre tableau de bord et la frise de la journée (présences, QR, ticket de sortie) ; Mes notes — vos cours, et pour chacun Le cours, Notes, Carnet, Supports, Indicateurs ; Mes présences — la grille de chaque cours ; Mes étudiants — vos unités, leurs étudiants et leur fiche, « Écrire à mes étudiants » ; Mes unités — dossier pédagogique, croisement, pondération, DUE ; À rendre — les avis de valorisation et d'aménagement ; Mes TFE — vos jurys et vos fiches ; Mon agenda — Mes dates (examens, délibérations), Ma semaine, l'année de l'école, Signaler une absence, Mes visites de stage, l'agenda du téléphone. En bas : Ma fiche, Aide, L'école (textes à lire, documents reçus), Mon compte. La première fois : « Première visite », votre adresse de l'institut, un lien arrive, vous choisissez un mot de passe pour cet espace ; sur un nouvel appareil, un code à six chiffres en plus.",
+      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie ; tout ce que faisait Mes cours y est. À gauche (en haut sur téléphone) : Aujourd'hui — votre tableau de bord et la frise de la journée (présences, QR, ticket de sortie) ; Mes notes — vos cours, et pour chacun Le cours, Notes, Carnet, Supports, Indicateurs ; Mes présences — la grille de chaque cours ; Mes étudiants — vos unités, leurs étudiants et leur fiche, « Écrire à mes étudiants » ; Mes unités — dossier pédagogique, croisement, pondération, DUE ; À rendre — les avis de valorisation et d'aménagement ; Aménagements — vos étudiants qui ont un aménagement raisonnable, cours par cours ; Mes TFE — vos jurys et vos fiches ; Mes stages ; Mon agenda — Mes dates (examens, délibérations), Ma semaine, l'année de l'école, Mes disponibilités, Signaler une absence, Mes visites de stage, l'agenda du téléphone. En bas : Ma fiche, Aide, L'école (textes à lire, documents reçus, Mes réunions), Mon compte. En haut, à côté de la loupe : l'ampoule (proposer une amélioration) et la flèche qui revient en arrière (annuler mes derniers gestes). La première fois : « Première visite », votre adresse de l'institut, un lien arrive, vous choisissez un mot de passe pour cet espace ; sur un nouvel appareil, un code à six chiffres en plus.",
       savoir: [
         "Ce que vous enregistrez part dans Lucie en quelques secondes, à votre nom ; si Lucie refuse (une séance close, par exemple), l'écran le dit.",
         "Il ne s'ouvre que depuis la Belgique, comme l'espace des étudiants.",
         "Le bouton Contacter, en haut, montre qui est à l'école aujourd'hui et comment le joindre.",
         "À partir de la date fixée par la direction, un compte « professeur » n'entre plus dans Lucie : la connexion renvoie vers l'espace. La coordination et la direction qui enseignent gardent les deux.",
+      ],
+    },
+    {
+      titre: "Mes disponibilités : les voir, proposer un changement",
+      pour: 'ens coo sec dir',
+      ou: "Espace enseignant → Mon agenda → Mes disponibilités. Côté école : Personnel → fiche de l'enseignant → onglet des disponibilités.",
+      texte: "L'agenda de vos disponibilités sert à composer l'horaire, pour toutes les sections où vous enseignez ; le secrétariat le tient. Vous le voyez par quadrimestre, sur les blocs de cours de l'école. Touchez une case pour la faire tourner — vert disponible, orange si nécessaire, rouge pas disponible —, ajoutez au besoin un mot, puis [[Proposer ce changement|fort]]. Rien ne change tant que le secrétariat ne l'a pas appliqué : il voit votre proposition dans votre fiche et l'applique ou ne la retient pas, avec un mot ; vous en êtes prévenu·e au tableau de bord.",
+      savoir: [
+        "Une seule proposition attend par quadrimestre : une nouvelle remplace la précédente. Tant qu'elle attend, « retirer » l'annule.",
+        "Appliquer remplace tout l'agenda de ce quadrimestre par celui que l'enseignant propose.",
+      ],
+    },
+    {
+      titre: "Mes réunions",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → L'école → Mes réunions.",
+      texte: "Les réunions où vous êtes convoqué·e (ou que vous organisez) : la date, l'heure et le lieu, l'ordre du jour avant la séance ; ce qui s'est dit, les points traités, qui était là et les tâches décidées, après. Les réunions passées s'affichent en cochant la case au-dessus de la liste.",
+      savoir: [
+        "On ne fait que lire : la réunion se prépare et se tient dans Lucie (Suivi d'équipe).",
+        "Un enseignant ne voit que ses convocations, jamais les réunions de coordination de sa section.",
+      ],
+    },
+    {
+      titre: "Proposer une amélioration, annuler ses gestes : aussi dans l'espace",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → en haut, à côté de la loupe : l'ampoule et la flèche de retour.",
+      texte: "L'ampoule ouvre le même registre des idées que dans Lucie : vous écrivez ce qui vous gêne ou ce qui manque, la direction répond, et vous suivez le fil. La flèche de retour montre vos dix derniers gestes et vous laisse revenir en arrière, du plus récent jusqu'à celui choisi.",
+      savoir: [
+        "Lucie refuse d'annuler ce que quelqu'un a modifié depuis, et les actes officiels — présences, séance close, envois : ils se reprennent par leur procédure.",
       ],
     },
     {

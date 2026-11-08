@@ -3305,6 +3305,8 @@ app.use('/api/recrutement',     garderModule('recrutement'), recrutementRoutes);
 app.use('/api/aa',              garderModule('aa'), aaRoutes);
 app.use('/api/config',          garderModule('config'), (await import('./routes/config.js')).default);
 app.use('/api/annulation', (await import('./routes/annulation.js')).default);
+// MES DISPONIBILITÉS (3.5.224) : le professeur lit son agenda et propose ; la fiche de l'enseignant applique. Les routes posent leurs rôles.
+app.use('/api/mes-disponibilites', (await import('./routes/mesDisponibilites.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
 app.use('/api/mes-frais', (await import('./routes/mesFrais.js')).default);   // confidentiel, à son titulaire (3.5.197)
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);
