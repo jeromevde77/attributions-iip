@@ -28,11 +28,12 @@ const MesDisponibilitesLucie = lazy(() => import('../components/MesDisponibilite
 const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
 const MaCandidatureLucie = lazy(() => import('../components/MaCandidature.jsx'));
 const VoyagesLucie = lazy(() => import('../components/VoyagesEtudes.jsx'));
+const MesExamensLucie = lazy(() => import('../components/MesExamens.jsx'));
 const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'));
 import AnnulerGestes from '../components/AnnulerGestes.jsx';
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
+import { IconClipboardText, IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -797,6 +798,7 @@ const FACES = [
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'À rendre', I: IconChecklist },
+  { k: 'examens', l: 'Mes examens', I: IconClipboardText },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool },
   { k: 'stages', l: 'Mes stages', I: IconBriefcase },
@@ -845,6 +847,8 @@ export default function EspaceEnseignant() {
     appel('GET', '/moi').then(setMoi).catch(e => { if (e.session) setToken(null); else setErreur(e.message); });
   }, [token, definir]);
   useEffect(() => { if (moi) preparerLucie().finally(() => setLucie(true)); }, [moi]);
+  // Le trousseau du navigateur ne reste pas accroché au champ d'identifiant de l'entrée (3.5.235).
+  useEffect(() => { if (moi && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!moi]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!token) return <>{erreur && <div className="bloc-etat px-3 py-2 text-sm m-4" data-etat="corriger">{erreur}</div>}<Entree onEntre={entrer} /></>;
   if (definir) {
     return (
@@ -873,7 +877,7 @@ export default function EspaceEnseignant() {
       {/* UN RAIL ÉTROIT QUAND ON TRAVAILLE (3.5.166, Charles : « gagnons de la place ; réduis le menu à un rail étroit une fois
           qu'on a choisi notes, ou autre ») : sur Aujourd'hui, le menu entier ; ailleurs, les icônes seules (le nom au survol),
           et le chevron le déplie. Sur téléphone, la bande d'onglets ne change pas. */}
-      <nav aria-label="Espace enseignant" className={`${etroit ? 'md:w-14' : 'md:w-60'} md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 ${etroit ? 'md:px-1.5 md:py-4' : 'md:p-4'} flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen transition-[width] duration-200`}>
+      <nav aria-label="Espace enseignant" className={`md:z-30 ${etroit ? 'md:w-14' : 'md:w-60'} md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 ${etroit ? 'md:px-1.5 md:py-4' : 'md:p-4'} flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen transition-[width] duration-200`}>
         <div className={`hidden md:flex items-center gap-2.5 pb-4 ${etroit ? 'justify-center' : 'px-2'}`}>
           {etroit ? <LogoLucie hauteur={26} sansTexte className="" /> : <div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div>}
         </div>
@@ -915,6 +919,8 @@ export default function EspaceEnseignant() {
           // MES STAGES (3.5.213) : superviseur — ses stages, ses fiches, le lien du maître de stage.
           : face === 'stages' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesStagesLucie /></Suspense> : <ChargementLucie />)
           // MA CANDIDATURE (3.5.229) : les formulaires 013 et 014, dans la campagne ouverte par la direction.
+          // MES EXAMENS (3.5.234) : la page de garde de chaque épreuve, préremplie par Lucie.
+          : face === 'examens' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesExamensLucie /></Suspense> : <ChargementLucie />)
           : face === 'candidature' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MaCandidatureLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />

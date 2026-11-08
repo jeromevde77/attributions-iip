@@ -433,6 +433,35 @@ r.get('/adresses', authRequired, actifRequis, (req, res) => {
  * Réponse : un résultat par pièce, jamais un échec global — dix envois dont
  * un rate doivent rendre neuf « envoyé » et un « échec » nommé.
  */
+/* DÉPOSER DANS L'ESPACE DE L'ÉTUDIANT (3.5.236, Charles, 8 novembre 2026 : « c'est un geste du secrétariat : en plus d'envoyer par
+   mail, imprimer… rendre disponible en ligne »). Le quatrième outil de l'aperçu, pour toute pièce adressée à UN étudiant : elle
+   entre au registre des envois (statut « déposé », mode « espace », copie et référence), puis part à son espace avec les autres
+   pièces, signée comme elles. L'annexe 2 (Office des étrangers) ne part que si le motif ET l'avis de l'école sont enregistrés dans
+   l'onglet SLE de la fiche : une proposition de Lucie non relue ne part pas. */
+r.post('/espace', authRequired, gesteRequis('envois.envoyer'), async (req, res) => {
+  const b = req.body || {};
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(b.etudiant_id));
+  if (!e) return res.status(404).json({ error: 'Étudiant introuvable.' });
+  const html = String(b.html || '');
+  if (html.length < 50) return res.status(400).json({ error: 'Pièce vide.' });
+  if (b.type_doc === 'annexe2') {
+    const { sleEnregistre } = await import('./sle.js');
+    const sle = b.annee ? sleEnregistre(e.id, b.annee) : db.prepare('SELECT * FROM etudiant_sle WHERE etudiant_id = ? ORDER BY annee_scolaire DESC LIMIT 1').get(e.id);
+    if (!String(sle?.motif_a2 || '').trim() || !String(sle?.avis_a2 || '').trim()) {
+      return res.status(409).json({ error: 'L’annexe 2 ne se dépose qu’une fois le motif et l’avis de l’école enregistrés dans la fiche (onglet SLE).' });
+    }
+  }
+  const par = req.user?.nom || req.user?.email || 'secrétariat';
+  const x = deposerDansLEspace({ etudiant: e, sujet: String(b.sujet || b.nom_fichier || 'Document').slice(0, 200),
+    nom_fichier: String(b.nom_fichier || 'document.html').slice(0, 150), html, type_doc: String(b.type_doc || 'piece').slice(0, 60), par });
+  try { const { deposerBientot } = await import('../lib/portailSync.js'); deposerBientot(); } catch { /* le passage suivant la portera */ }
+  let visible = true;
+  try { const { fonctionPour } = await import('../lib/fonctions.js'); visible = fonctionPour('espace.documents', { etudiantId: e.id }); } catch { /* */ }
+  res.json({ ok: true, reference: x.reference, visible,
+    message: visible ? `Déposé dans l’espace de ${e.prenom || ''} ${String(e.nom || '').toUpperCase()} (réf. ${x.reference}).`
+      : `Déposé (réf. ${x.reference}). L’étudiant le verra quand « Mes documents » sera ouvert pour lui (Configuration → Accès → Mise en service).` });
+});
+
 r.post('/', authRequired, gesteRequis('envois.envoyer'), actifRequis, async (req, res) => {
   const { sujet, message, type_doc, pieces, mode, contenu } = req.body || {};
   if (!sujet?.trim()) return res.status(400).json({ error: 'sujet requis' });

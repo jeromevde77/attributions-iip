@@ -13,6 +13,17 @@ export const ajouts = {
         "Les visites de stage ne sont plus dans ce rail : Organisation → Stages → Visites et trajets.",
       ],
     },
+    {
+      titre: "Le registre matricule, l'exemption par année et la fiche d'inscription complète",
+      pour: 'sec dir',
+      ou: "Éditions → Étudiants → Listes et rapports → Registre matricule des apprenants et DI ; fiche → Finances → Droit d'inscription ; fiche → Imprimer → Fiche d'inscription.",
+      texte: "Le registre matricule (circulaire 9764) reprend, par ordre alphabétique, tous les apprenants inscrits dans une UE dont le premier dixième tombe dans l'année académique : nom, prénom, date de naissance, matricule, codes des UE, montant du droit d'inscription ou motif d'exemption. L'exemption s'encode désormais pour l'année, avec la date de la pièce et l'organisme qui l'a délivrée ; la liste des motifs reprend tous les cas de la circulaire (FEDASIL, mutuelle, allocation d'études AeSI, codiplômation, personnes incarcérées, alternatives 7e…). La fiche d'inscription porte le lieu de naissance, le genre, la nationalité, le code administratif de chaque UE, sa date du 1/10, le « H » d'une UE hybride, le DI par UE avec son niveau ou le motif d'exemption en clair, la signature du chef d'établissement, le paraphe du vérificateur et sa date d'impression.",
+      savoir: [
+        "Une pièce d'exemption datée après le 1/10 d'une UE ne la couvre pas : la fiche le dit en rouge.",
+        "Retirer une UE dont le premier dixième est passé demande confirmation : un étudiant qui part se déclare en abandon (Suivi des présences → Par UE), il ne s'efface pas.",
+        "Le registre s'édite en fin d'année et se conserve trente ans.",
+      ],
+    },
   ],
   espace: [
     {
@@ -338,6 +349,13 @@ export const ajouts = {
     },
   ],
   mescours: [
+    {
+      titre: "Mes examens : la page de garde",
+      pour: 'ens coo dir',
+      ou: "Espace enseignant → Mes examens.",
+      texte: "Vos cours de l'année, avec la date de leurs épreuves de 1re et de 2e session quand elles sont posées au calendrier des sessions. Touchez un cours : la page de garde réglementaire s'ouvre, déjà remplie — établissement, année, session, section et bloc, unité, cours, votre nom, date et horaire (2 h pour tous). Cochez les acquis que l'examen évalue, indiquez pour chacun vos questions (« Q1, Q3 ») et ses points ; le total se calcule et se ramène sur 20 pour l'étudiant. Indiquez le nombre de pages et le matériel autorisé, puis [[Produire la page de garde|fort]] : une page vierge, ou une page par étudiant (nom et matricule déjà écrits).",
+      savoir: ["Le questionnaire, avec sa page de garde, part au secrétariat (examens@institut-prigogine.be) un mois avant l'épreuve ; celui de la 2e session en même temps.", "Les acquis proposés sont ceux pondérés pour votre cours cette année (Mes unités → Pondérer)."],
+    },
     {
       titre: "Mes stages : superviser et faire évaluer par le maître de stage",
       pour: 'ens coo dir',

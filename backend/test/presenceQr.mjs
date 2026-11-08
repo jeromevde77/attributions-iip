@@ -246,7 +246,8 @@ console.log('\nLe premier dixième de l’UE (une règle pour tout Lucie)');
     annee_scolaire TEXT, num_organisation INTEGER DEFAULT 1, date_debut TEXT, date_fin TEXT)`);
   db.prepare("INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation, date_debut, date_fin) VALUES (333, 'AESI', ?, 1, '2026-09-01', '2026-12-31')").run(A);
   const x = R.premierDixiemeUE(333, A);
-  t('avec séances : l’horaire réel', x?.source === 'horaire' && x.date === '2026-10-28', x);
+  // Circulaire 9764 (3.5.237) : les dates de l'UE font foi (théorique 13/09) ; la séance la plus proche dans les dates, ici le 28/10.
+  t('avec dates et séances : les dates de l’UE, puis la séance la plus proche', x?.source === 'dates' && x.theorique === '2026-09-13' && x.date === '2026-10-28', x);
   db.prepare("INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation, date_debut, date_fin) VALUES (333, 'AESI', ?, 2, '2027-02-01', '2027-05-01')").run(A);
   const y = R.premierDixiemeUE(333, A, { numOrganisation: 2 });
   t('deux organisations : les dates de la sienne', y?.source === 'dates' && y.date === '2027-02-10', y);

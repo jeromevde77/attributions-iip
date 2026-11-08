@@ -364,20 +364,21 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                       </td>
                     </tr>)}
                 </tbody>
-                <tfoot className="text-slate-600">
-                  <TrTotal>
-                    <td colSpan={2} className="cellule px-3 text-right font-normal">Croix</td>
-                    {acquis.map(a => <td key={a.aa_code} className="cellule text-center">{n[a.aa_code] || ''}</td>)}
-                  </TrTotal>
-                  <TrTotal>
-                    <td colSpan={2} className="cellule px-3 text-right font-normal">Pondération qui en découle (sur 10)</td>
-                    {acquis.map(a => <td key={a.aa_code} className="cellule text-center text-iip-blue">{prop[a.aa_code] ? fr(prop[a.aa_code]) : ''}</td>)}
-                  </TrTotal>
-                  {aActuel && (
-                    <TrTotal>
-                      <td colSpan={2} className="cellule px-3 text-right font-normal">Pondération enregistrée ({annee})</td>
-                      {acquis.map(a => <td key={a.aa_code} className="cellule text-center text-slate-500 font-normal">{actuel[co]?.[a.aa_code] ? fr(actuel[co][a.aa_code]) : ''}</td>)}
-                    </TrTotal>)}
+                {/* LE PIED EN UNE LIGNE (3.5.235, Charles : « moche ») : trois bandes pleines, dont deux souvent vides, devenaient
+                    une seule ligne blanche ; chaque acquis porte ses trois valeurs empilées — les croix, la pondération qui en
+                    découle (sur 10), celle enregistrée pour l'année. */}
+                <tfoot>
+                  <tr style={{ borderTop: '1px solid var(--c-filet, rgb(var(--gris-200)))' }}>
+                    <td colSpan={2} className="px-3 py-2 text-right align-top">
+                      <div className="text-mention text-slate-500 leading-5">Croix<br />Pondération qui en découle (sur 10){aActuel ? <><br />Enregistrée en {annee}</> : null}</div>
+                    </td>
+                    {acquis.map(a => (
+                      <td key={a.aa_code} className="px-1 py-2 text-center align-top tabular-nums">
+                        <div className="text-mention leading-5 text-slate-500">{n[a.aa_code] || '–'}</div>
+                        <div className="text-second leading-5 font-semibold text-iip-blue">{prop[a.aa_code] ? fr(prop[a.aa_code]) : '–'}</div>
+                        {aActuel && <div className="text-mention leading-5 text-slate-400">{actuel[co]?.[a.aa_code] ? fr(actuel[co][a.aa_code]) : '–'}</div>}
+                      </td>))}
+                  </tr>
                 </tfoot>
             </Tableau>
             {orph.length > 0 && (

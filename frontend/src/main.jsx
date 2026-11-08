@@ -7,6 +7,9 @@ import { Dialogues } from './lib/dialogue.jsx';
 import './index.css';
 import { installerNumeros } from './lib/numeros.js';
 installerNumeros();
+// UN PAE VALIDÉ NE SE MODIFIE PAS SANS LE DIRE (3.5.233) : la fenêtre commune qui demande avant de forcer.
+import { installerGardePAE } from './lib/paeValide.js';
+installerGardePAE();
 // LES COULEURS DE SIGNIFICATION SE POSENT AVANT LE PREMIER RENDU : un badge
 // HELB qui change de couleur une seconde après l'affichage se remarque plus
 // qu'une couleur fausse.

@@ -267,14 +267,15 @@ function archivage(e) {
     <div class="etiquettes">${etiquette}${etiquette}</div>`;
 }
 
-function acquisDe(e) {
+export function acquisDe(e) {
   return essai(() => db.prepare(`SELECT p.aa_code, MAX(p.poids) AS poids, (SELECT a.description FROM aa a WHERE a.aa_code = p.aa_code) AS description
     FROM aa_ponderation p WHERE p.annee_scolaire = ? AND p.ue_num = ? AND (? = '' OR p.cours_code = ?)
     GROUP BY p.aa_code ORDER BY p.aa_code`).all(e.annee, e.ue_num, e.cours_code, e.cours_code), [])
     .filter((x, i, t) => t.findIndex(y => y.aa_code === x.aa_code) === i);
 }
-function garde(e) {
-  const aa = acquisDe(e);
+export function garde(e) {
+  // Les acquis choisis par l'enseignant (avec ses questions et ses points), sinon tous ceux du cours (3.5.234).
+  const aa = Array.isArray(e.aa_choisis) ? e.aa_choisis : acquisDe(e);
   // L'ÉTABLISSEMENT DE LA SECTION en tête de la page que reçoit l'étudiant (l'en-tête du document ne paraît qu'en première page).
   const etab = essai(() => db.prepare(`SELECT etab_nom FROM etablissement WHERE id = COALESCE((SELECT etablissement_id FROM section WHERE code = ?), 1)`).get(e.section)?.etab_nom, null)
     || essai(() => db.prepare('SELECT etab_nom FROM etablissement WHERE id = 1').get()?.etab_nom, null) || 'Institut Ilya Prigogine';
@@ -286,13 +287,15 @@ function garde(e) {
       <tr><th>Professeur(s)</th><td>${esc(e.professeurs || '')}</td></tr>
       <tr><th>Date et horaire</th><td>${esc(court(e.date))} · ${esc(horaire(e))}</td></tr>
     </table>
+    ${e.pages ? `<p class="mention">Cet examen compte <b>${esc(e.pages)}</b> page(s), cette page comprise.</p>` : ''}
     <table class="identite"><tr><th>Nom et prénom</th><td><b>${esc(x ? x.nom : '')}</b></td><th>Matricule</th><td><b>${esc(x ? x.matricule : '')}</b></td></tr></table>
     <p class="mention">Indiquez votre nom, votre prénom et votre matricule en haut à droite de chaque page. Impression recto : le verso sert de brouillon. Durée : 2 heures pour tous (l’épreuve est conçue pour 1 h 30).</p>
     <h3>Matériel autorisé et consignes</h3>
     <div class="cadre">${esc(e.materiel || '')}${e.consignes ? `<br>${esc(e.consignes)}` : ''}</div>
     <h3>Résultat par acquis d’apprentissage</h3>
     ${aa.length ? `<table class="grille"><thead><tr><th style="width:24mm">Acquis</th><th>Énoncé</th><th style="width:22mm">Questions</th><th style="width:22mm">Points</th><th style="width:18mm">/ 20</th></tr></thead>
-      <tbody>${aa.map(a => `<tr><td>${esc(a.aa_code)}</td><td class="petit">${esc(String(a.description || '').slice(0, 220))}</td><td></td><td>…… / ……</td><td></td></tr>`).join('')}</tbody></table>`
+      <tbody>${aa.map(a => `<tr><td>${esc(a.aa_code)}</td><td class="petit">${esc(String(a.description || '').slice(0, 220))}</td><td>${esc(a.questions || '')}</td><td>…… / ${esc(a.points || '……')}</td><td></td></tr>`).join('')}
+      ${aa.some(a => a.points) ? `<tr><td colspan="3"><b>Total</b></td><td><b>…… / ${aa.reduce((t, a) => t + (Number(a.points) || 0), 0)}</b></td><td><b>…… / 20</b></td></tr>` : ''}</tbody></table>`
       : '<p class="vide">Aucun acquis pondéré pour ce cours cette année (Organisation → l’unité → Pondérer).</p>'}`;
   const liste = e.etudiants.length ? e.etudiants : [null];
   return liste.map((x, k) => `<section class="piece"${saut(k)}>${tete(x)}</section>`).join('');
