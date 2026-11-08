@@ -49,11 +49,12 @@ function attributions(profId, annee, { expert = null } = {}) {
   try {
     l = db.prepare(`
       SELECT codification_unite, ue_num, MIN(ue_nom) AS ue_nom, nom_cours, type_cours, MIN(section) AS section, MIN(code_cours) AS code_cours,
+             CASE WHEN UPPER(COALESCE(cours_ept_ad, '')) = 'EPT' THEN 1 ELSE 0 END AS ept,
              SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) AS periodes
       FROM v_attribution_complete v
       WHERE professeur_id = ? AND annee_scolaire = ? ${filtre}
-      GROUP BY codification_unite, nom_cours, type_cours
-      ORDER BY codification_unite, nom_cours`).all(profId, annee);
+      GROUP BY codification_unite, nom_cours, type_cours, ept
+      ORDER BY codification_unite, nom_cours, ept`).all(profId, annee);
   } catch { l = []; }
   return l.filter(x => Number(x.periodes) > 0);
 }
@@ -89,7 +90,8 @@ function donnees(cle, profId, annee, mois) {
   const F = a => (a.section === 'AeSI' ? 'BAESI' : 'D');
   if (cle === 'A4') d.date_entree = m.date_engagement;
   if (cle === 'A1ter') {
-    d.attributions = attrs.map(a => ({ ue: a.codification_unite || '', f: F(a), denomination: a.nom_cours || '',
+    // Les périodes d'EPT sur leur propre ligne, précédées de « EPT » (circ. 9760 V.1.3.9.1 ; 3.5.232).
+    d.attributions = attrs.map(a => ({ ue: a.codification_unite || '', f: F(a), denomination: a.ept ? `EPT ${a.nom_cours || ''}`.trim() : (a.nom_cours || ''),
       cla: a.type_cours || '', sous_niveau: 'SU', periode_occ: '', nb_periodes: String(Math.round(a.periodes)), di: '' }));
   }
   if (cle === 'A6') {

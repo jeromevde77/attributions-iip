@@ -465,3 +465,37 @@ export function poserFinsDeFonction(db, anneeScolaire) {
   }
   return n;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L'A18 SE RENOUVELLE CHAQUE ANNÉE (3.5.232, circ. 9760 V.18 : l'autorisation de cumul vaut pour l'année en cours, renouvelable ; la
+// demande part dans les 30 jours de l'entrée OU DE LA RENTRÉE en fonction). Lucie ne la rappelait qu'à l'engagement. Un membre dont
+// l'A18 a été reçue ou transmise une année précédente, et qui a des attributions cette année, voit la pièce repasser « à demander »
+// (avec la date d'expiration et la raison en note) et l'échéance « A18 » naître 30 jours après sa rentrée en fonction — le début de
+// sa première unité de l'année, à défaut le 1er septembre.
+// ─────────────────────────────────────────────────────────────────────────────
+export function renouvelerA18(db, anneeScolaire) {
+  const a0 = Number(String(anneeScolaire).slice(0, 4));
+  if (!a0) return 0;
+  const debutAnnee = `${a0}-08-15`;
+  let l = [];
+  try {
+    l = db.prepare(`SELECT pd.id, pd.professeur_id, pd.statut, COALESCE(pd.date_transmission, pd.date_reception) AS le, p.nom, p.prenom
+      FROM piece_dossier pd JOIN professeur p ON p.id = pd.professeur_id
+      WHERE pd.code_piece = 'A18' AND pd.statut IN ('recue', 'transmise') AND COALESCE(pd.date_transmission, pd.date_reception) < ?`).all(debutAnnee);
+  } catch { return 0; }
+  let n = 0;
+  for (const x of l) {
+    const rentree = (() => { try {
+      return db.prepare(`SELECT MIN(o.date_debut) d FROM v_attribution_complete v JOIN organisation_ue o ON o.ue_num = v.ue_num AND o.annee_scolaire = v.annee_scolaire
+        WHERE v.professeur_id = ? AND v.annee_scolaire = ? AND COALESCE(v.total_attribue_professeur, v.periodes_attribuees, 0) > 0`).get(x.professeur_id, anneeScolaire)?.d;
+    } catch { return null; } })();
+    const actif = (() => { try { return !!db.prepare(`SELECT 1 FROM v_attribution_complete WHERE professeur_id = ? AND annee_scolaire = ? LIMIT 1`).get(x.professeur_id, anneeScolaire); } catch { return false; } })();
+    if (!actif) continue;
+    db.prepare(`UPDATE piece_dossier SET statut = 'a_demander', date_expiration = ?, modifie_le = datetime('now'),
+        notes = TRIM(COALESCE(notes, '') || ' ' || ?) WHERE id = ?`)
+      .run(`${a0}-08-31`, `[${anneeScolaire}] Autorisation de cumul à renouveler : elle ne valait que pour l'année précédente (circ. 9760 V.18).`, x.id);
+    n += declencher(db, { ancre: 'engagement', dateRef: /^\d{4}-\d{2}-\d{2}/.test(String(rentree || '')) ? String(rentree).slice(0, 10) : `${a0}-09-01`,
+      anneeScolaire, sourceType: 'professeur', sourceId: x.professeur_id, libelle: [x.nom, x.prenom].filter(Boolean).join(' '), codes: ['cumul_a18'] });
+  }
+  return n;
+}
