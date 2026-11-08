@@ -3308,6 +3308,8 @@ app.use('/api/config',          garderModule('config'), (await import('./routes/
 app.use('/api/annulation', (await import('./routes/annulation.js')).default);
 // MES DISPONIBILITÉS (3.5.224) : le professeur lit son agenda et propose ; la fiche de l'enseignant applique. Les routes posent leurs rôles.
 app.use('/api/mes-disponibilites', (await import('./routes/mesDisponibilites.js')).default);
+// EXAMENS : PRÉPARER ET IMPRIMER (3.5.226) — les routes posent leurs rôles et le périmètre.
+app.use('/api/examens', (await import('./routes/examens.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
 app.use('/api/mes-frais', (await import('./routes/mesFrais.js')).default);   // confidentiel, à son titulaire (3.5.197)
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);

@@ -50,6 +50,18 @@ export const ajouts = {
   ],
   organisation: [
     {
+      titre: "Examens : préparer et imprimer",
+      pour: 'sec coo dir',
+      ou: "Organisation → L'année → Examens : préparer et imprimer.",
+      texte: "Les épreuves datées dans « Sessions : épreuves et délibérations », une ligne chacune : date, horaire (début → fin), local, épreuve, professeurs, nombre d'étudiants et d'aménagements. On complète ce que le calendrier ne porte pas — les surveillants (liste du personnel), écrit ou oral, la durée (2 h par défaut, comme le veut la procédure 2026-2027) et le matériel autorisé —, on coche les épreuves (aucune coche = toutes) et on sort les pièces. [[L’enveloppe complète|IconMail|fort]] compose, épreuve par épreuve et dans l'ordre de l'enveloppe : la fiche de l'épreuve (à coller sur l'enveloppe, avec le nombre de questionnaires — étudiants plus trois de réserve —, son contenu et les rappels de la procédure), la liste des aménagements raisonnables s'il y en a, le registre de présences et de dépôt (A / P, heure de remise, signature, totaux, signatures du professeur et du surveillant), le plan d'installation et un PV d'incident prérempli. Chaque pièce sort aussi seule ; s'y ajoutent la feuille d'archivage avec deux étiquettes d'archive, les pages de garde nominatives (une par étudiant, avec les acquis du cours) et le calendrier récapitulatif.",
+      savoir: [
+        "En 2e session, les étudiants sont les ajournés qui représentent CE cours, comme sur la liste des ajournés.",
+        "La liste des aménagements ne porte que les mesures accordées, jamais la situation de l'étudiant (secret professionnel).",
+        "Une épreuve sans surveillant ou sans local sort avec une ligne à compléter à la main : l'écran le compte avant l'impression.",
+        "La coordination prépare et imprime pour ses sections.",
+      ],
+    },
+    {
       titre: "Absences des enseignants",
       pour: 'sec coo dir',
       ou: "Organisation → Qui enseigne et quand → Absences des enseignants.",

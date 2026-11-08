@@ -1,0 +1,54 @@
+/* Banc des pièces d'examen (3.5.226). node test/examens.mjs */
+import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lucie-exam-'));
+process.env.DB_PATH = path.join(dir, 'test.db');
+const db = (await import('../src/db/index.js')).default;
+for (const s of [
+  `CREATE TABLE IF NOT EXISTS epreuve_session1 (ue_num INTEGER, annee_scolaire TEXT, cours_code TEXT, s1_date TEXT, s1_heure TEXT, s1_local TEXT, s1_adresse TEXT, PRIMARY KEY (ue_num, annee_scolaire, cours_code))`,
+  `CREATE TABLE IF NOT EXISTS ue (ue_num INTEGER, annee_scolaire TEXT, ue_nom TEXT, section TEXT, ue_niv TEXT)`,
+  `CREATE TABLE IF NOT EXISTS cours (cours_code TEXT, annee_scolaire TEXT, cours_nom TEXT, ue_num INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS professeur (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT)`,
+  `CREATE TABLE IF NOT EXISTS attribution (id INTEGER PRIMARY KEY, annee_scolaire TEXT, ue_num INTEGER, code_cours TEXT, professeur_id INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, id_ecampus TEXT)`,
+  `CREATE TABLE IF NOT EXISTS etudiant_inscription (etudiant_id INTEGER, annee_scolaire TEXT, ue_num INTEGER, statut TEXT)`,
+  `CREATE TABLE IF NOT EXISTS amenagement_dossier (id INTEGER PRIMARY KEY, etudiant_id INTEGER, annee_scolaire TEXT, statut TEXT)`,
+  `CREATE TABLE IF NOT EXISTS amenagement_mesure (id INTEGER PRIMARY KEY, dossier_id INTEGER, libelle TEXT, precisions TEXT, ue_num INTEGER, accorde INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS aa (aa_code TEXT PRIMARY KEY, description TEXT)`,
+  `CREATE TABLE IF NOT EXISTS aa_ponderation (id INTEGER PRIMARY KEY, annee_scolaire TEXT, ue_num INTEGER, cours_code TEXT, aa_code TEXT, poids REAL)`,
+]) db.exec(s);
+const A = '2026-2027';
+db.prepare("INSERT INTO epreuve_session1 VALUES (256, ?, '256.2', '2026-10-23', '17:45', 'P.2.04', NULL)").run(A);
+db.prepare("INSERT INTO ue VALUES (256, ?, 'Imagerie avancée', 'TIM', 'BA3')").run(A);
+db.prepare("INSERT INTO cours VALUES ('256.2', ?, 'Scanner', 256)").run(A);
+db.prepare("INSERT INTO professeur VALUES (1, 'Martin', 'Paul')").run();
+db.prepare("INSERT INTO attribution VALUES (1, ?, 256, '256.2', 1)").run(A);
+db.prepare("INSERT INTO etudiant VALUES (1,'Dupont','Anne','M001'),(2,'Bernard','Léa','M002')").run();
+db.prepare("INSERT INTO etudiant_inscription VALUES (1,?,256,NULL),(2,?,256,NULL)").run(A, A);
+db.prepare("INSERT INTO amenagement_dossier VALUES (7, 1, ?, 'accepte')").run(A);
+db.prepare("INSERT INTO amenagement_mesure VALUES (1, 7, 'Tiers-temps', 'local à part', NULL, 1),(2, 7, 'Refusée', NULL, NULL, 0)").run();
+db.prepare("INSERT INTO aa VALUES ('AA256.1','Réaliser un examen scanner')").run();
+db.prepare("INSERT INTO aa_ponderation VALUES (1, ?, 256, '256.2', 'AA256.1', 5)").run(A);
+const X = await import('../src/lib/examens.js');
+let ok = 0, ko = 0;
+const t = (nom, c, d = '') => { if (c) { ok++; console.log('  ok   ' + nom); } else { ko++; console.log('  FAUX ' + nom + (d ? '  → ' + JSON.stringify(d).slice(0, 300) : '')); } };
+let l = X.epreuves({ annee: A, session: 1 });
+t('une épreuve, deux étudiants, triés', l.length === 1 && l[0].etudiants.map(x => x.nom).join() === 'BERNARD Léa,DUPONT Anne', l[0]?.etudiants);
+t('durée de 2 h par défaut, fin calculée', l[0].duree_min === 120 && l[0].heure_fin === '19:45', l[0]);
+t('aménagement : la seule mesure accordée', l[0].ar.length === 1 && l[0].ar[0].ar.length === 1 && l[0].ar[0].ar[0].libelle === 'Tiers-temps');
+X.ecrireDetail({ annee: A, session: 1, ue_num: 256, cours_code: '256.2', surveillants: 'DURAND Jean', duree_min: 90, type: 'oral' }, 'Sec');
+l = X.epreuves({ annee: A, session: 1 });
+t('le détail se garde', l[0].surveillants === 'DURAND Jean' && l[0].duree_min === 90 && l[0].type === 'oral' && l[0].heure_fin === '19:15');
+X.ecrireDetail({ annee: A, session: 1, ue_num: 256, cours_code: '256.2', materiel: 'Calculatrice' }, 'Sec');
+t('écrire un champ ne vide pas les autres', X.epreuves({ annee: A, session: 1 })[0].surveillants === 'DURAND Jean');
+const h = X.composer(l, ['enveloppe']);
+t('enveloppe : fiche, AR, registre, plan, incident', ['Fiche de l’épreuve', 'Aménagements raisonnables', 'Registre de présences', 'Plan d’installation', 'Procès-verbal d’incident'].every(x => h.includes(x)));
+t('la fiche compte les questionnaires (2 + 3)', h.includes('<b>5</b> exemplaires'));
+t('le registre nomme le surveillant', h.includes('DURAND Jean'));
+t('la mesure refusée ne sort pas', !h.includes('Refusée'));
+const g = X.composer(l, ['garde']);
+t('pages de garde nominatives, avec les acquis', (g.match(/Examen — 1re session/g) || []).length === 2 && g.includes('AA256.1') && g.includes('M002'));
+t('archivage : deux étiquettes', (X.composer(l, ['archivage']).match(/class="etiquette"/g) || []).length === 2);
+t('sélection par clé', X.epreuves({ annee: A, session: 1, cles: ['1|999|x'] }).length === 0 && X.epreuves({ annee: A, session: 1, cles: ['1|256|256.2'] }).length === 1);
+t('périmètre : section hors champ', X.epreuves({ annee: A, session: 1, sections: ['OPTO'] }).length === 0);
+console.log(`\n${ok} ok, ${ko} faux`);
+process.exit(ko ? 1 : 0);

@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconBook2, IconCalendar, IconChalkboard, IconUsers, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconMailbox, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -17,6 +17,7 @@ import Rentree from './Rentree.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
+const ExamensPreparer = lazy(() => import('../components/ExamensPreparer.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
@@ -89,7 +90,7 @@ export default function Organisation({ ongletInitial }) {
             { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription, seulementPresent: true },
           ] },
         { key: 'g-annee', label: 'L’année', icone: IconCalendar,
-          enfants: [{ key: 'agenda' }, { key: 'planif-ue' }, { key: 'planif-dates' }, { key: 'planif-sessions' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
+          enfants: [{ key: 'agenda' }, { key: 'planif-ue' }, { key: 'planif-dates' }, { key: 'planif-sessions' }, { key: 'examens' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
         { key: 'g-enseigne', label: 'Qui enseigne et quand', icone: IconChalkboard,
           enfants: [
             { key: 'attributions' }, { key: 'laboratoire' },
@@ -137,6 +138,9 @@ export default function Organisation({ ongletInitial }) {
           key, module: 'planification', label, icone, sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <CentrePlanification annee={annee} face={face} /></Suspense> })),
+        /* EXAMENS : PRÉPARER ET IMPRIMER (3.5.226) — les pièces de l'enveloppe d'examen, après les sessions qui datent les épreuves. */
+        { key: 'examens', module: 'planification', label: 'Examens : préparer et imprimer', icone: IconMailbox,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><ExamensPreparer annee={annee} /></Suspense> },
         /* LE LABORATOIRE TEMPOREL DE LUCIE (10 octobre 2026) : les UE posées sur
            l'année en tuiles, leurs couches, et le verre de chacune — sur la
            grille d'organisation et les dates des UE, sans rien doubler. */
