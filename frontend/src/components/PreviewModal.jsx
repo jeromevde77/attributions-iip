@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { informer } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
-import { IconSend, IconX, IconDownload, IconMail, IconPrinter, IconFileTypePdf } from '@tabler/icons-react';
+import { IconSend, IconX, IconDownload, IconMail, IconPrinter, IconFileTypePdf, IconCloudUpload } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { Fenetre } from './ui.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
@@ -123,6 +123,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html]);
   const [envoi, setEnvoi] = useState(false);
+  const [depot, setDepot] = useState(false);
   const [pdfEnCours, setPdfEnCours] = useState(false);
   async function telechargerPdf() {
     setPdfEnCours(true);
@@ -280,6 +281,20 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
             {envoiPossible && envoiMail?.actif && peutGeste('envois.envoyer') && (
               <IconeApercu Icone={IconSend} onClick={() => setEnvoi(true)} disabled={!pret}
                 titre="Envoyer ce document par courriel — PDF joint ou dans le corps du message" />
+            )}
+            {/* DÉPOSER DANS SON ESPACE (3.5.236) : la pièce d'UN étudiant, rendue disponible en ligne dans « Mes documents ». */}
+            {envoiPossible && destinataire?.type === 'etudiant' && destinataire?.id && peutGeste('envois.envoyer') && (
+              <IconeApercu Icone={IconCloudUpload} disabled={!pret || depot}
+                titre="Déposer dans son espace — l’étudiant la retrouve en ligne, dans Mes documents"
+                onClick={async () => {
+                  setDepot(true);
+                  try {
+                    const r = await fetch('/api/envois/espace', { method: 'POST', headers: authHeaders(),
+                      body: JSON.stringify({ etudiant_id: destinataire.id, html, sujet: sujetMail || titre, nom_fichier: nomFichier, type_doc: typeDoc }) });
+                    const j = await r.json().catch(() => ({}));
+                    informer(r.ok ? `✓ ${j.message}` : `❌ ${j.error || 'Dépôt refusé.'}`);
+                  } finally { setDepot(false); }
+                }} />
             )}
       </div>}>
         {/* ── iframe ── */}
