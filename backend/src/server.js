@@ -80,7 +80,7 @@ import importSurMesureRoutes from './routes/importSurMesure.js';
 import importPersonnelRoutes from './routes/importPersonnel.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
-import refRoutes  from './routes/referentiels.js';
+import refRoutes, { reparerNomsAbimes } from './routes/referentiels.js';
 import pilotRoutes from './routes/pilotage.js';
 import exportRoutes from './routes/exports.js';
 import planningRoutes from './routes/planning.js';
@@ -3380,6 +3380,8 @@ try { migrerJournalModifications(db); } catch (e) { console.error('[migration] j
 try { (await import('./lib/gardeNotes.js')).poserGardeNotes(db); } catch (e) { console.error('[migration] garde des notes closes :', e.message); }
 // rn_norm se calcule à chaque écriture du numéro national, par toutes les portes (3.1.435).
 try { (await import('./lib/etudiantUnique.js')).poserNormalisationRN(db); } catch (e) { console.error('[migration] rn_norm :', e.message); }
+// Les intitulés d'UE abîmés par l'import du dossier pédagogique, rétablis une fois (3.5.261).
+try { reparerNomsAbimes(); } catch (e) { console.error('[ue] intitulés :', e.message); }
 // Les images de l'établissement (logo, logo blanc, signature, cachet) remplacent les fichiers d'origine (3.1.253).
 import('./routes/etablissement.js').then(m => m.migrerEtablissements())   // une base neuve crée la table après l'import des routes
   .then(() => import('./lib/identite.js')).then(m => m.appliquerIdentite()).catch(e => console.error('[identité]', e.message))

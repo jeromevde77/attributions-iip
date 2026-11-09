@@ -1337,8 +1337,8 @@ r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) 
 
 /* LES INTITULÉS ABÎMÉS PAR L'IMPORT (3.5.260) : les UE de l'année dont le nom est un intertitre du dossier, avec ce que Lucie propose
    — le nom de la même UE l'année d'avant. La direction relit, corrige, rétablit (une écriture par UE, journalisée par l'Annuler). */
-r.get('/ue-noms-abimes', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const annee = req.query.annee || anneeDeTravail(req);
+/* LES INTITULÉS ABÎMÉS (3.5.260) : un intertitre du dossier pris pour nom, ou le nom de l'an dernier sans ses accents. */
+export function nomsAbimes(annee) {
   const prec = db.prepare(`SELECT ue_nom, annee_scolaire FROM ue WHERE ue_num = ? AND annee_scolaire < ? AND COALESCE(ue_nom, '') <> '' ORDER BY annee_scolaire DESC LIMIT 5`);
   const nu = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const ues = [];
@@ -1348,8 +1348,30 @@ r.get('/ue-noms-abimes', authRequired, roleRequired('admin', 'editeur'), (req, r
     // Même nom, mais en « Title Case » sans accents (l'import du Word) : on propose la graphie de l'année d'avant.
     else if (p && p.ue_nom !== u.ue_nom && nu(p.ue_nom) === nu(u.ue_nom) && !/[àâçéèêëîïôûù]/i.test(u.ue_nom) && /[àâçéèêëîïôûù]/i.test(p.ue_nom))
       ues.push({ ...u, motif: 'graphie', propose: p.ue_nom, source: `graphie de ${p.annee_scolaire}` });
+    // Coupé au deux-points (« Epreuve Integree de la Section : ») : le nom d'avant le complète.
+    else if (p && /:\s*$/.test(u.ue_nom || '') && nu(p.ue_nom).startsWith(nu(u.ue_nom)) && nu(p.ue_nom) !== nu(u.ue_nom))
+      ues.push({ ...u, motif: 'graphie', propose: p.ue_nom, source: `nom complet de ${p.annee_scolaire}` });
   }
-  res.json({ annee, ues });
+  return ues;
+}
+/* LA RÉPARATION D'OFFICE (3.5.261, Charles : « peux-tu corriger ») : une fois, au démarrage, toute année confondue, chaque
+   intitulé abîmé qui a un nom d'avant le reprend. Ce qui n'en a pas (une UE nouvelle) reste à l'écran, à compléter. */
+export function reparerNomsAbimes() {
+  db.exec("CREATE TABLE IF NOT EXISTS lucie_config (cle TEXT PRIMARY KEY, valeur TEXT)");
+  if (db.prepare("SELECT 1 FROM lucie_config WHERE cle = 'noms_ue_repares'").get()) return 0;
+  const maj = db.prepare('UPDATE ue SET ue_nom = ? WHERE ue_num = ? AND annee_scolaire = ? AND ue_nom = ?');
+  let n = 0;
+  db.transaction(() => {
+    const annees = db.prepare('SELECT DISTINCT annee_scolaire FROM ue WHERE annee_scolaire IS NOT NULL ORDER BY annee_scolaire').all().map(x => x.annee_scolaire);
+    for (const a of annees) for (const u of nomsAbimes(a)) if (u.propose) n += maj.run(u.propose, u.ue_num, a, u.ue_nom).changes;
+    db.prepare("INSERT INTO lucie_config (cle, valeur) VALUES ('noms_ue_repares', ?)").run(JSON.stringify({ le: new Date().toISOString(), lignes: n }));
+  })();
+  if (n) console.log(`[ue] ${n} intitulé(s) abîmé(s) rétabli(s)`);
+  return n;
+}
+r.get('/ue-noms-abimes', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  res.json({ annee, ues: nomsAbimes(annee) });
 });
 r.post('/ue-noms-abimes', authRequired, roleRequired('admin'), (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
