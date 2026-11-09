@@ -517,7 +517,7 @@ function TutorielCriteres() {
             devient une ligne. Il vous reste à le dire en action, puis à écrire l’indicateur.</p>
           <ol className="m-0 pl-5 space-y-1">
             <li><b>Critère</b> = l’acquis contextualisé par le point du programme : « l’étudiant est capable concrètement de… ». Commencez par
-              un verbe d’action en gras (**Localiser**, **Nommer**, **Expliquer**). Le texte du point est proposé ; reformulez-le librement.</li>
+              un verbe d’action en gras (<b>Localiser</b>, <b>Nommer</b>, <b>Expliquer</b>). Le texte du point est proposé ; reformulez-le librement.</li>
             <li><b>Indicateur</b> = l’échelle : à quoi je vois que c’est réussi, au <b>seuil de 50 %</b>. Il reprend les <b>degrés de
               maîtrise</b> du dossier pédagogique (précision, cohérence, rigueur de la terminologie…) et dit sur quoi on observe
               (un schéma par système, un organe par système…).</li>
