@@ -199,7 +199,12 @@ export function decouperProgramme(texte, intitulesCours = []) {
   if (vrais.length === 1 && cours.length === 1 && !cours[0].texte && pre.join('').trim()) {
     return { preambule: '', cours: [{ nom: cours[0].nom, texte: pre.join('\n').trim() }] };
   }
-  return { preambule: pre.join('\n').trim(), cours };
+  /* L'ORDRE DES COURS DE L'UNITÉ (3.5.258, Charles : « l'ordre dans le dossier pédagogique n'est pas le même que dans
+     Pondération AA ; Pondération est correct ») : les blocs suivent les cours de l'unité (leur numéro), non l'ordre des intitulés
+     du Word ; un intertitre qui ne nomme aucun cours garde sa place après eux. */
+  const rang = c => { const i = intitulesCours.findIndex(n => n && proche(c.nom, n)); return i < 0 ? intitulesCours.length : i; };
+  const ranges = cours.map((c, i) => ({ c, i })).sort((a, b) => rang(a.c) - rang(b.c) || a.i - b.i).map(x => x.c);
+  return { preambule: pre.join('\n').trim(), cours: ranges };
 }
 export function recomposerProgramme(preambule, cours) {
   const parts = [];

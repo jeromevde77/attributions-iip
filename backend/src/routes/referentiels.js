@@ -138,7 +138,9 @@ r.get('/ue/:num', authRequired, (req, res) => {
   const anneeVal = req.query.annee || '2025-2026';
   const ue = db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(req.params.num, anneeVal);
   if (!ue) return res.status(404).json({ error: 'UE introuvable' });
-  const cours = db.prepare('SELECT * FROM cours WHERE ue_num = ? AND annee_scolaire = ?').all(req.params.num, anneeVal);
+  // Dans l'ordre de leur numéro (67.1, 67.2 … 67.10), comme Pondération : le dossier pédagogique s'y range (3.5.258).
+  const cours = db.prepare(`SELECT * FROM cours WHERE ue_num = ? AND annee_scolaire = ?
+    ORDER BY CAST(substr(cours_code, instr(cours_code, '.') + 1) AS INTEGER), cours_code`).all(req.params.num, anneeVal);
   res.json({ ...ue, cours });
 });
 

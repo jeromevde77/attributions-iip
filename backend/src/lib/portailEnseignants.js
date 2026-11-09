@@ -120,7 +120,7 @@ export function dossierPedagogiqueHtml(ueNum, annee, sectionAttr = null) {
   if (!ue?.ue_dp || !String(ue.ue_dp).trim()) return null;
   let cours = [];
   try { cours = db.prepare(`SELECT cours_code, cours_nom, cours_per FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND UPPER(COALESCE(ct_pp, '')) <> 'Z'
-    ORDER BY cours_code`).all(ueNum, annee).filter(c => c.cours_nom); } catch { /* */ }
+    ORDER BY CAST(substr(cours_code, instr(cours_code, '.') + 1) AS INTEGER), cours_code`).all(ueNum, annee).filter(c => c.cours_nom); } catch { /* */ }
   const noms = cours.map(c => c.cours_nom);
   const periodes = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
   const bloc = (/^\s*B[AE]\s*(\d)/i.exec(ue.ue_niv || '') || [])[1];
