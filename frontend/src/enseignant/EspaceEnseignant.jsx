@@ -34,7 +34,7 @@ const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'))
 import AnnulerGestes from '../components/AnnulerGestes.jsx';
 const ListeSurMesureLucie = lazy(() => import('../components/MaListe.jsx').then(m => ({ default: m.ListeSurMesure })));
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
-import { IconClipboardText, IconClockHour4, IconWriting, IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter } from '@tabler/icons-react';
+import { IconClipboardText, IconClockHour4, IconWriting, IconFileCheck, IconBulb, IconSchool, IconBriefcase, IconUserOff, IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone, IconTable, IconDownload, IconQrcode, IconPencil, IconChecklist, IconCalendar, IconBuilding, IconCar, IconCalendarShare, IconMessages, IconLayoutDashboard, IconSend, IconSearch, IconId, IconAccessible, IconPrinter, IconChalkboard, IconInbox, IconRoute } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -819,7 +819,7 @@ const FACES_BAS = [
   { k: 'candidature', l: 'Ma candidature', I: IconFileCheck },
   { k: 'aide', l: 'Aide', I: IconHelpCircle },
   { k: 'ecole', l: 'L’école', I: IconBuilding },
-  { k: 'compte', l: 'Mon compte', I: IconUserCircle },
+  { k: 'compte', l: 'Mon compte', I: IconLock },
 ];
 const VUES_LUCIE = new Set(['notes', 'presences', 'ue', 'rendre']);
 /* SIX ENTRÉES, CHACUNE SON TIROIR (3.5.245, Charles : « le menu devient bien trop long et peu clair » ; tranché : six entrées et des
@@ -827,9 +827,10 @@ const VUES_LUCIE = new Set(['notes', 'presences', 'ue', 'rendre']);
    faces sous elle ; un second clic sur l'entrée ouverte la replie. */
 const GROUPES = [
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
-  { k: 'g-cours', l: 'Mes cours', I: IconPencil, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens'] },
-  { k: 'g-rendre', l: 'À rendre', I: IconChecklist, enfants: ['rendre', 'amenagements', 'prestations'] },
-  { k: 'g-suivis', l: 'Mes suivis', I: IconSchool, enfants: ['tfe', 'stages'] },
+  // UNE ICÔNE N'APPARTIENT QU'À UNE ENTRÉE (3.5.267, Charles : « deux fois le crayon pour Mes notes ») : le groupe a la sienne.
+  { k: 'g-cours', l: 'Mes cours', I: IconChalkboard, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens'] },
+  { k: 'g-rendre', l: 'À rendre', I: IconInbox, enfants: ['rendre', 'amenagements', 'prestations'] },
+  { k: 'g-suivis', l: 'Mes suivis', I: IconRoute, enfants: ['tfe', 'stages'] },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
   { k: 'g-moi', l: 'Moi et l’école', I: IconUserCircle, enfants: ['fiche', 'candidature', 'ecole', 'compte', 'aide'] },
 ];

@@ -205,6 +205,11 @@ const AFFINEMENTS = [
   // saisie d'adresse les propose, y compris « Ma fiche » d'un professeur,
   // qui n'a pas le module Organisation. Aucune porte de module.
   { motif: /^\/api\/ref\/rues(\/|\?|$)/, module: null },
+  /* L'ATELIER DE L'UNITÉ (3.5.267, Charles : « qu'Amélie et les coordinations puissent aussi modifier croiser, pondérer, DUE ») :
+     les pondérations vivent sous /api/acquis, gardé par le module Étudiants, que la conseillère qualité n'a pas. Ces routes jugent
+     elles-mêmes (fixerPonderation → droitsSurLUE : enseignants de l'unité, coordination de la section, fonctions de coordination ;
+     la direction seule fixe). */
+  { motif: /^\/api\/acquis\/(ponderations(\/repartir)?|ue\/\d+\/(poids-cours|reprendre)|sections\/[^/]+\/ues)\/?$/, module: null },
 ];
 
 /**

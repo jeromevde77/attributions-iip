@@ -37,6 +37,7 @@ import { assainir } from '../lib/texteCorpus.js';
 import { gesteAutorise } from '../lib/gestes.js';
 import { texteVersHtml, rubriquesDuDossier, texteDesRubriques, rubriquesDuTexte } from '../lib/texteDossier.js';
 import { deposerDemande } from './demandes.js';
+import { synchroniserGrille, bilanGrille } from '../lib/grilleDuCroisement.js';
 
 const r = Router();
 
@@ -588,6 +589,17 @@ r.get('/:ueNum', authRequired, (req, res) => {
   if (!auto) return res.status(404).json({ error: `L'unité ${ueNum} n'existe pas en ${annee}` });
 
   const d = lireDUE(ueNum, annee);
+  /* LE CROISEMENT REMPLIT LES CRITÈRES (3.5.265) : toujours à jour — à la lecture aussi, pour les croix posées avant et après un
+     changement de mode d'évaluation. Une DUE validée ne bouge plus. */
+  if (d.statut !== 'validee' && d.contenu?.croisement) {
+    const s = synchroniserGrille(d.contenu, { cours: (auto.cours || []).map(x => x.cours_code), unique: evaluationUnique(ueNum, annee),
+      ordreAcquis: (auto.acquis || []).map(a => a.aa_code) });
+    if (s.change) {
+      d.contenu = { ...d.contenu, grille_criteres: s.grille };
+      try { db.prepare('UPDATE due SET contenu = ? WHERE ue_num = ? AND annee_scolaire = ?').run(JSON.stringify(d.contenu), ueNum, annee); }
+      catch (e) { console.error('[due] critères du croisement', e.message); }
+    }
+  }
   // Le tableau de l'an dernier, proposé tant que celui de l'année est vide.
   let grille_precedente = null;
   if (!d.contenu?.grille_criteres) {
@@ -608,6 +620,7 @@ r.get('/:ueNum', authRequired, (req, res) => {
       ? d.contenu.points.filter(p => (p.type || 'point') === 'point').map(p => p.texte).filter(Boolean)
       : pointsDuProgramme(String(d.contenu?.programme || auto.dp?.programme || '').replace(/<[^>]+>/g, '\n')),
     grille_precedente,
+    bilan_criteres: bilanGrille(d.contenu?.grille_criteres),
     etapes: etapesDUE(d),
     droits: { ...droits, soumettre: droits.ecrire && d.statut !== 'validee',
       fixer_ponderations: NIVEAU_DIRECTION.includes(req.user?.role) && d.statut !== 'validee',
@@ -659,6 +672,13 @@ r.put('/:ueNum', authRequired, (req, res) => {
         texte: String(p.texte || '').slice(0, 2000), cours: (Array.isArray(p.cours) ? p.cours : []).map(String).slice(0, 20) }));
   }
 
+  // Les critères suivent le croisement, quelle que soit l'étape qui enregistre (3.5.265).
+  if (contenu.croisement) {
+    const auto = partieAutomatique(ueNum, annee);
+    const s = synchroniserGrille(contenu, { cours: (auto?.cours || []).map(x => x.cours_code), unique: evaluationUnique(ueNum, annee),
+      ordreAcquis: (auto?.acquis || []).map(a => a.aa_code) });
+    if (s.change) contenu.grille_criteres = s.grille;
+  }
   db.prepare(`
     INSERT INTO due (ue_num, annee_scolaire, contenu, statut, maj_le, maj_par)
     VALUES (?,?,?,?,datetime('now'),?)

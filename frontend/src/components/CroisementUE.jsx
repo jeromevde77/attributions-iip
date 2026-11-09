@@ -206,41 +206,13 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         }
       }
 
-      // 3. Le tableau des critères suit les croix.
-      const unique = !!d.evaluation_unique;
-      const grille = JSON.parse(JSON.stringify(c.grille_criteres || {}));
-      const voulu = {};                                  // cle → Set("aa|point")
-      for (const x of cours) {
-        const cle = unique ? '__ue__' : x.cours_code;
-        voulu[cle] ||= new Set();
-        for (const pt of points(x.cours_code)) for (const aa of croix[x.cours_code]?.[pt] || []) voulu[cle].add(`${aa}|${pt}`);
-      }
-      // Les croix déjà enregistrées : seule une croix RETIRÉE retire sa ligne.
-      const avantCroix = new Set();
-      for (const x of cours) for (const [pt, l] of Object.entries(c.croisement?.[x.cours_code] || {}))
-        for (const aa of l || []) avantCroix.add(`${unique ? '__ue__' : x.cours_code}|${aa}|${pt}`);
-      let ajoutees = 0; let retirees = 0;
-      for (const [cle, set] of Object.entries(voulu)) {
-        let lignes = grille[cle] || [];
-        // Retirer : la ligne d'une croix qu'on vient d'ôter — et seulement tant
-        // qu'aucun indicateur n'y est écrit. Les lignes posées à la main restent.
-        const avant = lignes.length;
-        lignes = lignes.filter(l => !(avantCroix.has(`${cle}|${l.aa_code}|${norm(l.point)}`)
-          && !set.has(`${l.aa_code}|${norm(l.point)}`) && !String(l.indicateur || '').trim()));
-        retirees += avant - lignes.length;
-        for (const k of set) {
-          const [aa, ...r] = k.split('|'); const pt = r.join('|');
-          if (lignes.some(l => l.aa_code === aa && norm(l.point) === pt)) continue;
-          const dernier = lignes.map(l => l.aa_code).lastIndexOf(aa);
-          lignes.splice(dernier >= 0 ? dernier + 1 : lignes.length, 0, { aa_code: aa, point: pt });
-          ajoutees += 1;
-        }
-        // Les lignes rangées dans l'ordre des acquis de l'unité.
-        const rang = Object.fromEntries(acquis.map((a, i) => [a.aa_code, i]));
-        grille[cle] = lignes.map((l, i) => ({ l, i })).sort((a, b) => (rang[a.l.aa_code] ?? 99) - (rang[b.l.aa_code] ?? 99) || a.i - b.i).map(x => x.l);
-      }
-
-      await api.dueEnregistrer(ueNum, { ...c, croisement, grille_criteres: grille, ...(programme_blocs ? { programme_blocs } : {}) });
+      /* 3. LE TABLEAU DES CRITÈRES SUIT LES CROIX — LE SERVEUR S'EN CHARGE (3.5.265, lib/grilleDuCroisement.js) : une ligne par
+         acquis et par point croisé, le critère reformulé gardé, une croix retirée qui part si rien n'y est écrit. */
+      const reprises = g => Object.values(g || {}).flat().filter(l => l?.src_point && !l.plus_croisee).length;
+      const avantN = reprises(c.grille_criteres);
+      const rep = await api.dueEnregistrer(ueNum, { ...c, croisement, ...(programme_blocs ? { programme_blocs } : {}) });
+      const apresN = reprises(rep?.contenu?.grille_criteres);
+      const ajoutees = Math.max(0, apresN - avantN); const retirees = Math.max(0, avantN - apresN);
 
       /* 4. LA PONDÉRATION N'EST PLUS ÉCRITE ICI (3.5.254) : elle est PROPOSÉE à l'étape 2, en gris, d'après ces croix ; le référent,
          la coordination ou la direction la valide ou la change. */

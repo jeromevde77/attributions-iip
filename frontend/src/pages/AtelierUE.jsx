@@ -101,6 +101,9 @@ export function verrouDe(k, et) {
    sans pour autant les valider — sinon je ne sais pas voir ce qu'il y a partout »). Le cadenas reste
    affiché, l'étape s'ouvre quand même ; rien n'est coché pour autant. */
 const passeLesVerrous = () => ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
+/* LE FILET ENTRE LES ÉTAPES RESTE VISIBLE (3.5.267, Charles : « il disparaît si on clique sur le nombre ») : le bouton d'une étape
+   couvrait toute la largeur et prenait un fond au survol et au clic, qui cachait le filet posé dessous. Plus de fond : le survol
+   colore le libellé. */
 function Frise({ faces, ouvertes, face, onFace, et, passe = false }) {
   return (
     <ol className="m-0 p-0 list-none flex items-start w-full max-w-4xl" aria-label="Étapes">
@@ -114,7 +117,7 @@ function Frise({ faces, ouvertes, face, onFace, et, passe = false }) {
             {i > 0 && <LienEtape fait={etapeFaite(et[faces[i - 1][0]]?.etat)} className="absolute top-[13px] right-1/2 w-full" />}
             <button type="button" onClick={() => libre && onFace(k)} aria-current={actif ? 'step' : undefined} disabled={!libre}
               title={!ouverte ? 'Réglée par la direction' : verrou || undefined}
-              className={`relative z-10 w-full flex flex-col items-center text-center px-2 rounded-carte py-1 ${libre ? 'cursor-pointer hover:bg-slate-50' : 'cursor-not-allowed opacity-60'}`}>
+              className={`relative z-10 w-full flex flex-col items-center text-center px-2 py-1 bg-transparent focus:outline-none focus-visible:[&>span:first-child]:ring-2 ${libre ? 'cursor-pointer hover:[&>span]:text-iip-blue' : 'cursor-not-allowed opacity-60'}`}>
               <PastilleEtape n={n} etat={fait ? 'fait' : actif ? 'courant' : 'avenir'} choisie={actif} />
               <span className={`mt-1 text-second ${actif ? 'font-semibold text-iip-blue' : 'text-slate-700'}`}>{l}</span>
               <span className="text-mention text-slate-500 leading-tight">
