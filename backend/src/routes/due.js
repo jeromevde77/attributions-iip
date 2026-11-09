@@ -666,6 +666,12 @@ r.put('/:ueNum', authRequired, (req, res) => {
         .filter(([, aa]) => aa.length)),
     ]));
   } else delete contenu.croisement;
+  // Les points de l'étape 1 retouchés (modifiés, supprimés, ajoutés) : une liste par cours, dans l'ordre (3.5.269).
+  if (contenu.points_croisement && typeof contenu.points_croisement === 'object') {
+    contenu.points_croisement = Object.fromEntries(Object.entries(contenu.points_croisement).slice(0, 60)
+      .filter(([, l]) => Array.isArray(l))
+      .map(([co, l]) => [String(co).slice(0, 30), l.map(t => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 2000)).filter(Boolean).slice(0, 300)]));
+  } else delete contenu.points_croisement;
   if (Array.isArray(contenu.points)) {
     contenu.points = contenu.points.filter(p => p && typeof p === 'object').slice(0, 300)
       .map(p => ({ type: ['intro', 'chapeau', 'point'].includes(p.type) ? p.type : 'point',
