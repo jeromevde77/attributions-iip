@@ -572,16 +572,20 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                         </td>
                       </tr>),
                     <Tr key={i} className="align-top">
-                      {COLONNES_CRIT.map(([k]) => (
-                        <td key={k} className="px-1 py-1">
+                      {COLONNES_CRIT.map(([k], ci) => (
+                        <td key={k} className={`px-2 py-1.5 align-top ${ci < COLONNES_CRIT.length - 1 ? 'border-r border-slate-200' : ''}`}>
                           {k === 'point' && l.plus_croisee && (
                             <span className="block text-mention mb-0.5" style={{ color: 'var(--c-attente)' }}
                               title="Ce point n'est plus croisé avec cet acquis à l'étape 1. Retirez la ligne si elle n'a plus lieu d'être.">plus croisé à l’étape 1</span>)}
                           {lecture ? <span className="whitespace-pre-line">{avecGras(l[k])}</span>
                             : <>
-                              <textarea rows={2} className="controle w-full h-auto py-1 text-second" value={l[k] || ''} data-reponses="non"
+                              {/* UN TABLEAU, PAS DES CASES DANS DES CASES (3.5.266, Charles) : on écrit dans la cellule elle-même, sans
+                                  cadre ; la hauteur suit le texte. Le menu des points ne paraît que sur une ligne encore vide. */}
+                              <textarea rows={Math.max(1, Math.ceil(String(l[k] || '').length / 70), String(l[k] || '').split('\n').length)}
+                                className="block w-full p-0 text-sm leading-snug bg-transparent border-0 resize-none focus:outline-none focus:ring-0 placeholder:text-slate-300"
+                                placeholder={k === 'point' ? 'Le critère…' : 'L’indicateur…'} value={l[k] || ''} data-reponses="non"
                                 onChange={e => maj(i, k, e.target.value)} />
-                              {k === 'point' && (d.points_programme || []).length > 0 && (
+                              {k === 'point' && !String(l[k] || '').trim() && (d.points_programme || []).length > 0 && (
                                 <select className="w-full text-xs text-slate-500 border-0 bg-transparent" value=""
                                   onChange={e => e.target.value && maj(i, k, l[k] ? `${l[k]} ${e.target.value}` : e.target.value)}>
                                   <option value="">+ un point du programme…</option>
