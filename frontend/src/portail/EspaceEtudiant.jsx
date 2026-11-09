@@ -1063,11 +1063,15 @@ function Espace() {
      on retire le focus. */
   useEffect(() => { if (d && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!d]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [face, setFace] = useState('aujourdhui');
-  // LA VISITE GUIDÉE (3.5.276) : à la première entrée, une fois le PAE confirmé (ou remis à plus tard) ; relancée depuis Aide.
+  /* LA VISITE GUIDÉE (3.5.276-277) : à la première entrée, AVANT tout — et son premier acte est le PAE (Charles : « ça doit être le
+     premier acte de chacun ») : l'étape du PAE ouvre la confirmation, puis la visite reprend à l'étape suivante. Relancée depuis Aide.
+     Visite fermée sans confirmer : la fenêtre du PAE s'ouvre comme avant. */
   const [visite, setVisite] = useState(false);
+  const [visiteDepart, setVisiteDepart] = useState(0);
+  const [paeDansVisite, setPaeDansVisite] = useState(false);
   const paeEnAttente = !!(d?.pae_a_valider && !d.apercu && !paeRemis);
   const idEtud = d?.etudiant?.matricule || d?.etudiant?.email;   // /moi ne rend pas l’identifiant interne
-  useEffect(() => { if (idEtud && !paeEnAttente && !visiteVue(idEtud)) { const t = setTimeout(() => setVisite(true), 400); return () => clearTimeout(t); } return undefined; }, [idEtud, paeEnAttente]);
+  useEffect(() => { if (idEtud && !visiteVue(idEtud)) { const t = setTimeout(() => { setVisiteDepart(0); setVisite(true); }, 400); return () => clearTimeout(t); } return undefined; }, [idEtud]);
   const [sous, setSous] = useState({});
   const [texte, setTexte] = useState(null);   // règlement ouvert
   const [nonLus, setNonLus] = useState(0);
@@ -1308,9 +1312,12 @@ function Espace() {
         </div>
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">
-      {d?.pae_a_valider && !d.apercu && !paeRemis && (
-        <ValiderPAE annee={d.pae_a_valider.annee} onFait={quoi => { setPaeRemis(true); if (quoi === 'valide') setD(x => ({ ...x, pae_a_valider: null })); }} />)}
-      <div className="space-y-4">
+      {paeEnAttente && !visite && (
+        <ValiderPAE annee={d.pae_a_valider.annee} onFait={quoi => {
+          setPaeRemis(true); if (quoi === 'valide') setD(x => ({ ...x, pae_a_valider: null }));
+          if (paeDansVisite) { setPaeDansVisite(false); setVisite(true); }
+        }} />)}
+      <div className="space-y-4" data-visite="contenu">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {d?.apercu && <Encadre etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</Encadre>}
@@ -1389,7 +1396,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
-        {d && face === 'aide' && <AideRegles onRevoir={() => { setFace('aujourdhui'); setTimeout(() => setVisite(true), 150); }} />}
+        {d && face === 'aide' && <AideRegles onRevoir={() => { setVisiteDepart(0); setVisite(true); }} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>
@@ -1405,7 +1412,10 @@ function Espace() {
           </FenetreEspace>)}
       </div>
       </main>
-      {visite && idEtud && <VisiteGuidee etudiantId={idEtud} onFin={() => { setVisite(false); setFace('aujourdhui'); }} />}
+      {visite && idEtud && <VisiteGuidee etudiantId={idEtud} depart={visiteDepart} paeAValider={paeEnAttente} aller={aller}
+        dispo={et => FACES.some(([k]) => k === et.face) && (!et.sous || (SOUS[et.face] || []).some(([k]) => k === et.sous))}
+        onPAE={suite => { setVisiteDepart(suite); setPaeDansVisite(true); setVisite(false); }}
+        onFin={() => { setVisite(false); setPaeDansVisite(false); setFace('aujourdhui'); }} />}
     </div>
   );
 }

@@ -3119,8 +3119,11 @@ fenêtre sans croix. Frais : `offrePAE` ne dépose le `tarif` que si `espace.fra
 
 **LA VISITE GUIDÉE DE L'ESPACE ÉTUDIANT** (3.5.276, Charles, 9 novembre 2026 : « un pop up d'entrée avec un vrai tuto » ;
 tranché : visite guidée qui pointe l'écran, à la première entrée après la confirmation du PAE, relançable depuis Aide ; les parties
-et les gestes clés ; texte proposé, relu par Charles). `frontend/src/portail/VisiteGuidee.jsx` (`ETAPES_VISITE`) : chaque étape vise
-une entrée du rail par `data-visite` (posé par `BoutonRail` = `f.k`) ; une étape dont l'entrée n'existe pas est sautée ; vue gardée en
+et les gestes clés ; texte proposé, relu par Charles). 3.5.277 (« tu ne détailles pas les fenêtres et tu ne vas pas vers le PAE ! ça
+doit être le premier acte de chacun ») : la visite s'ouvre AVANT la confirmation du PAE ; chaque étape ouvre son écran (`face`, `sous`
+→ `aller`) et le pointe (`data-visite="contenu"`, l'entrée du rail cerclée) ; l'étape du PAE ouvre `ValiderPAE` (`onPAE`) puis la visite
+reprend à l'étape suivante (`depart`). `frontend/src/portail/VisiteGuidee.jsx` (`ETAPES_VISITE`) ; une étape dont l'écran n'est pas
+ouvert pour l'étudiant (`dispo`) est sautée ; vue gardée en
 `localStorage` par matricule (par appareil). **Une face nouvelle de l'espace étudiant ajoute son étape à `ETAPES_VISITE`.**
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
