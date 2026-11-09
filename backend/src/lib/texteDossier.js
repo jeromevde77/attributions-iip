@@ -24,6 +24,10 @@ export const memeCours = (a, b) => {
   // L'un contient l'autre, à longueur voisine : « Pratique des écrits » pour « Pratique des écrits - Psychomotricité », jamais une
   // phrase du programme qui cite « médecine nucléaire » en passant.
   if ((x.includes(y) || y.includes(x)) && Math.min(x.length, y.length) / Math.max(x.length, y.length) >= 0.55) return true;
+  /* L'INTITULÉ QUI PRÉCISE LE COURS (3.5.257, UE 67 : « Anatomie et physiologie dans une perspective systémique, » pour le cours
+     « Anatomie et physiologie ») : une ligne courte qui COMMENCE par l'intitulé entier du cours (deux mots au moins) le nomme. */
+  const court = x.length <= y.length ? x : y, long = x.length <= y.length ? y : x;
+  if (court.split(' ').length >= 2 && long.startsWith(`${court} `) && long.length <= 90) return true;
   // Les mêmes mots, à une variante près (« Anatomie humaine, physiologie… » pour « Anatomie, physiologie… » ; « résonnance » pour
   // « résonance » ; « soins de base » pour « soins de ») : au moins 70 % de mots communs.
   const mots = z => new Set(z.split(' ').filter(w => w.length > 2 && !VIDES.has(w)).map(w => w.replace(/nn/g, 'n')));
@@ -36,7 +40,7 @@ const VIDES = new Set(['des', 'les', 'aux', 'une', 'par', 'pour', 'dans', 'sur',
 /* Un intertitre numéroté (« 4.1.Techniques… », « 1.2. Finalités particulières ») : un numéro à deux niveaux au moins, puis un
    intitulé court qui ne ferme pas une phrase. */
 const estNumerote = l => NUMERO_TETE.test(l) && /^\s*\d+(\.\d+)+\.?\s*\p{Lu}/u.test(l) && l.length < 160 && !/[;:]$/.test(l.trim());
-const intertitreNumerote = l => l.trim().replace(/^(\d+(?:\.\d+)+\.?)\s*/, '$1 ').replace(/\s*:$/, '');
+const intertitreNumerote = l => l.trim().replace(/^(\d+(?:\.\d+)+\.?)\s*/, '$1 ').replace(/\s*[:,]$/, '');
 
 export const RUBRIQUES_DP = ['Finalités', 'Capacités préalables', "Acquis d'apprentissage", 'Degré de maîtrise',
   'Programme', 'Constitution des groupes', 'Chargés de cours'];
@@ -95,7 +99,11 @@ const SOUS_TITRES = /^(finalit[ée]s g[ée]n[ée]rales|finalit[ée]s particuli[�
 export function structurerAPlat(texte, intitulesCours = []) {
   let t = String(texte || '');
   if (!t.trim() || /^###\s/m.test(t)) return t;
-  const estCours = l => !/[;,]$/.test(l.trim()) && intitulesCours.some(n => memeCours(l, n));
+  // Un intitulé qui se termine par une virgule (« …dans une perspective systémique, ») reste un intitulé quand il COMMENCE par le
+  // nom entier d'un cours (3.5.257) ; une simple ligne d'énumération en « , » n'en est pas un.
+  const estCours = l => { const t = l.trim();
+    if (!/[;,]$/.test(t)) return intitulesCours.some(n => memeCours(t, n));
+    return /,$/.test(t) && intitulesCours.some(n => { const a = cleCours(t), b = cleCours(n); return b.split(' ').length >= 2 && (a === b || a.startsWith(`${b} `)) && a.length <= 90; }); };
   /* LES INTITULÉS COLLÉS (3.5.159, UE 70 : « L’étudiant sera capable : Théorie et concepts de l’éducation… », « …procédés de
      l’intervention psychomotrice ; Méthodologie de l’observation… ») : l'import a mis l'intitulé d'un cours au bout d'une ligne.
      On le remet sur sa propre ligne. Et le tiret long d'une énumération (« – ») vaut une puce. */

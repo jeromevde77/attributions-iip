@@ -73,6 +73,13 @@ export function migrerDUE(dbx) {
 
 // Un professeur accède à la DUE des unités où il a une attribution. La
 // coordination et le secrétariat lisent tout ; seule la direction valide.
+/* POURQUOI EN LECTURE SEULE (3.5.256, Charles : « pourquoi coordination et coordination qualité ne savent pas pondérer ??? ») :
+   l'écran le dit, au lieu d'une case grise muette. */
+function pourquoiLecture({ peutRediger, titulaire, coordination, section }) {
+  if (!peutRediger) return 'Votre rôle n’a pas le geste « Rédiger et mettre en page la DUE » (Configuration → Accès → Les gestes).';
+  if (!titulaire && !coordination) return `Vous ne donnez pas cours dans cette unité et vous n’en êtes pas la coordination${section ? ` (section ${section} : vérifiez les sections de votre compte)` : ''}.`;
+  return null;
+}
 export function droitsSurLUE(user, ueNum, annee) {
   const direction = NIVEAU_DIRECTION.includes(user?.role);
   // LES GESTES DE LA DUE se règlent dans Configuration → Accès (lib/gestes.js).
@@ -98,7 +105,9 @@ export function droitsSurLUE(user, ueNum, annee) {
     /* TOUS LES TITULAIRES DE L'UNITÉ ÉCRIVENT (3.5.255, Charles : « tous les professeurs qui donnent cours dans l'UE dont on gère
        les croisements doivent pouvoir modifier les pondérations, etc., dans unité, croiser, DUE ») : la règle de 3.5.144 (le
        référent seul) est levée. Le référent reste celui qui signe la DUE ; la direction valide et fixe. */
-    return { lire: titulaire || coord, ecrire: peutRediger && (titulaire || coord), valider: peutValider, titulaire, coordination: coord, referent: !!referent };
+    const ecrireP = peutRediger && (titulaire || coord);
+    return { lire: titulaire || coord, ecrire: ecrireP, valider: peutValider, titulaire, coordination: coord, referent: !!referent,
+      pourquoi: ecrireP ? null : pourquoiLecture({ peutRediger, titulaire, coordination: coord }) };
   }
 
   /* Les autres lisent selon leur périmètre : la gestion de la section OU une
@@ -115,7 +124,9 @@ export function droitsSurLUE(user, ueNum, annee) {
    * du personnel (cursus pour sa section, pédagogique et qualité partout) :
    * la même règle que le mode d'évaluation. */
   const coordination = estCoordinationDe(user, ueNum, annee);
-  return { lire: lire || coordination, ecrire: peutRediger && (titulaire || coordination), valider: peutValider, titulaire, coordination };
+  const ecrire = peutRediger && (titulaire || coordination);
+  return { lire: lire || coordination, ecrire, valider: peutValider, titulaire, coordination,
+    pourquoi: ecrire ? null : pourquoiLecture({ peutRediger, titulaire, coordination, section: ueRow?.section }) };
 }
 
 // ── L'évaluation de l'unité : globale ou par activité ────────────────────────
@@ -149,6 +160,12 @@ function estCoordinationDe(user, ueNum, annee) {
   if (user?.role === 'coordination') {
     const perim = getUserSections(user);
     if (perim === null || (section && perim.includes(section))) return true;
+    /* LE TRONC COMMUN (3.5.256) : une UE vit dans sa section et se rattache aux autres par ue_section ; la coordination d'une
+       section rattachée (Orthoptie pour le tronc commun d'Optométrie) en est aussi la coordination. */
+    try {
+      const rattachees = db.prepare('SELECT section_code FROM ue_section WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee).map(x => x.section_code);
+      if (rattachees.some(x => perim.includes(x))) return true;
+    } catch { /* table absente */ }
   }
   const profId = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user?.id)?.professeur_id;
   if (!profId) return false;
@@ -594,6 +611,7 @@ r.get('/:ueNum', authRequired, (req, res) => {
     droits: { ...droits, soumettre: droits.ecrire && d.statut !== 'validee',
       fixer_ponderations: NIVEAU_DIRECTION.includes(req.user?.role) && d.statut !== 'validee',
       ecrire: droits.ecrire && d.statut !== 'validee',
+      pourquoi: droits.ecrire && d.statut === 'validee' ? 'La DUE est validée : elle est gelée (la direction peut la rouvrir).' : droits.pourquoi || null,
       regler_mode: peutReglerMode(req.user, ueNum, annee) && (d.statut !== 'validee' || droits.valider) },
   });
 });
