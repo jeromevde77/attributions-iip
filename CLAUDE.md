@@ -3082,6 +3082,16 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
+**LE DOSSIER PÉDAGOGIQUE SE CORRIGE DEPUIS L'UNITÉ, LA DIRECTION ACCEPTE** (3.5.262, Charles, 9 novembre 2026 : « parfois il est
+mal importé ; depuis Programme → Unité on peut modifier ; cela n'ira PAS dans le référentiel SAUF si la direction accepte » ; tranché :
+la coordination de la section, le texte des rubriques, le registre des demandes). Organisation → Unité → étape 0
+(`components/ApercuDossier.jsx`) : « Proposer une correction » (coordination : `estCoordinationDe`) ou « Corriger le dossier »
+(direction : `PUT /api/ref/ue/:num/dossier`). `POST /api/due/:ue/dossier/proposer` dépose une demande `dossier_pedagogique`
+(avant/après par rubrique + « Motif de la correction » obligatoire ; une nouvelle proposition du même auteur remplace la précédente) ;
+l'applicateur de `routes/demandes.js` écrit `ue_dp` à la validation (`ue_dp_origine` gardée). Demandes de modification montre un texte
+long ligne à ligne (`TexteCompare`). **Les intitulés abîmés** (3.5.260-261) se rétablissent d'office une fois au démarrage
+(`reparerNomsAbimes`, `lucie_config` « noms_ue_repares »).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
