@@ -29,6 +29,7 @@ import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { EnteteCarte, Tableau, Th, Tr, TrTotal, TableauVide } from './ui.jsx';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
+import { decouperProgramme, memeCours, texteVersHtml } from '../lib/texteDossier.js';
 const majuscule = t => String(t ?? '').replace(/^([«"“(\s]*)(\p{Ll})/u, (m, a, b) => a + b.toUpperCase());
 
 const ANNEE_POINTS = '2026-2027';
@@ -117,8 +118,21 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   // TOUS LES POINTS, D'OFFICE. Le descriptif d'abord ; un cours qu'il laisse vide
   // reprend ceux du dossier pédagogique ; une unité d'un seul cours prend tout le
   // programme, faute d'intitulé de cours pour le découper.
-  const blocsDP = useMemo(() => (d ? blocsDepuisPoints(
-    lireProgramme(d.dp?.programme || (d.points_programme || []).join('\n'), cours), cours) : {}),
+  /* LE MÊME DÉCOUPAGE QUE LE DOSSIER PÉDAGOGIQUE (3.5.259, Charles : « compare le dossier pédagogique et l'étape 1 ») : l'étape 1
+     lisait le programme avec son propre lecteur (lireProgramme), qui ne rangeait pas toujours les points sous le même cours que
+     l'étape 0 — 15 unités sur 38 différaient. Elle lit désormais le programme du dossier comme l'étape 0 : decouperProgramme,
+     cours par cours (memeCours), mis en page par texteVersHtml. L'ancien lecteur ne sert plus qu'à défaut de dossier. */
+  const blocsDP = useMemo(() => {
+    if (!d) return {};
+    const prog = d.dp?.programme;
+    if (prog && (/^###\s/m.test(prog) || cours.length === 1)) {
+      const P = decouperProgramme(prog, cours.map(x => x.cours_nom).filter(Boolean));
+      const m = { _intro: P.preambule ? texteVersHtml(P.preambule) : '' };
+      for (const x of cours) { const b = P.cours.find(k => memeCours(k.nom, x.cours_nom)); m[x.cours_code] = b?.texte ? texteVersHtml(b.texte) : ''; }
+      return m;
+    }
+    return blocsDepuisPoints(lireProgramme(prog || (d.points_programme || []).join('\n'), cours), cours);
+  },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [d]);
   const blocsDUE = useMemo(() => (d ? (c.programme_blocs ?? blocsDepuisPoints(
