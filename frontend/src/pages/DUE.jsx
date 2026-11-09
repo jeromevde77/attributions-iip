@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { OuvrirEditions, Tableau, TableauEntete, Th, Td, Tr, TableauVide, PastilleEtat, ListeEtats, LigneEtat } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
-  IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
+  IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText, IconBulb,
 } from '@tabler/icons-react';
 import { api, authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -486,6 +486,65 @@ const COLONNES_CRIT = [
 ];
 // **gras** dans une case, comme sur le modèle.
 const avecGras = t => String(t || '').split(/(\*\*.+?\*\*)/g).map((m, i) => (/^\*\*.+\*\*$/.test(m) ? <b key={i}>{m.slice(2, -2)}</b> : m));
+/* LE TUTORIEL DES CRITÈRES (3.5.267, Charles : « une info tutoriel à cet endroit car c'est complexe » ; l'exemple : UE 333,
+   « 4.1 Introduction à l'anatomie », AA8). Replié par défaut, ouvert la première fois ; il dit la chaîne du Guide pour
+   l'évaluation par acquis d'apprentissage et la montre sur un vrai cas. */
+const EXEMPLE_CRITERES = [
+  { critere: '**Localiser** sur un schéma corporel les différentes structures anatomiques',
+    indicateur: '**Localiser** au moins la moitié du schéma **avec précision et cohérence** — 1 schéma par système',
+    signe: 'N’est pas capable de localiser 50 % des structures anatomiques', question: 'Localisez les bonnes structures sur les schémas.' },
+  { critere: '**Nommer** (les grandes structures de base des 8 systèmes) sur un schéma corporel les différentes structures anatomiques',
+    indicateur: '**Nommer** au moins la moitié du schéma **avec le niveau de rigueur** de la terminologie — 1 schéma par système',
+    signe: 'N’est pas capable de remplir 50 % du schéma', question: 'Nommez les structures anatomiques avec le vocabulaire adéquat.' },
+  { critere: '**Identifier** les principales fonctions de chaque structure',
+    indicateur: '**Citer** la fonction d’un organe et l’**expliquer** brièvement — un organe par système',
+    signe: 'N’est pas capable de donner 2/3 des éléments de réponse avec la terminologie adéquate', question: 'Citez les fonctions du rein.' },
+];
+function TutorielCriteres() {
+  const CLE = 'lucie.tutoCriteres';
+  const [ouvert, setOuvert] = useState(() => { try { return !localStorage.getItem(CLE); } catch { return true; } });
+  const basculer = () => { setOuvert(o => !o); try { localStorage.setItem(CLE, '1'); } catch { /* */ } };
+  return (
+    <div className="bloc-etat px-3 py-2" data-etat="disponible">
+      <button type="button" className="w-full flex items-center gap-2 text-left text-sm font-semibold text-iip-texte" onClick={basculer} aria-expanded={ouvert}>
+        <IconBulb size={16} className="flex-none" /> Comment remplir le tableau des critères ?
+        <span className="ml-auto text-second font-normal text-slate-500">{ouvert ? 'Replier' : 'Ouvrir'}</span>
+      </button>
+      {ouvert && (
+        <div className="mt-2 space-y-2 text-sm text-slate-700">
+          <p className="m-0">Le tableau suit une chaîne, de gauche à droite : <b>le contexte</b> (le chapeau des acquis) → <b>l’acquis</b> →
+            <b> le critère</b> → <b>l’indicateur</b>. Le critère vient de l’étape 1 : chaque point du programme croisé avec un acquis
+            devient une ligne. Il vous reste à le dire en action, puis à écrire l’indicateur.</p>
+          <ol className="m-0 pl-5 space-y-1">
+            <li><b>Critère</b> = l’acquis contextualisé par le point du programme : « l’étudiant est capable concrètement de… ». Commencez par
+              un verbe d’action en gras (**Localiser**, **Nommer**, **Expliquer**). Le texte du point est proposé ; reformulez-le librement.</li>
+            <li><b>Indicateur</b> = l’échelle : à quoi je vois que c’est réussi, au <b>seuil de 50 %</b>. Il reprend les <b>degrés de
+              maîtrise</b> du dossier pédagogique (précision, cohérence, rigueur de la terminologie…) et dit sur quoi on observe
+              (un schéma par système, un organe par système…).</li>
+            <li><b>Signe de non-réussite</b> et <b>exemple de question</b> : ils se donnent en classe et ne figurent pas dans la DUE —
+              mais les écrire pour soi aide à fixer l’indicateur.</li>
+          </ol>
+          <div className="text-second text-slate-500">Exemple — UE 333, 4.1 Introduction à l’anatomie · AA8 : localiser différentes structures
+            anatomiques sur un schéma en associant chaque structure à ses principales fonctions. Contexte : pour les systèmes musculosquelettique,
+            tégumentaire, cardiovasculaire, respiratoire, digestif et urinaire.</div>
+          <div className="overflow-x-auto">
+            <Tableau dense>
+              <TableauEntete><Th>Critère</Th><Th>Indicateur</Th><Th>Signe de non-réussite <span className="font-normal normal-case">(en classe)</span></Th><Th>Exemple de question <span className="font-normal normal-case">(en classe)</span></Th></TableauEntete>
+              <tbody>
+                {EXEMPLE_CRITERES.map((e, i) => (
+                  <Tr key={i} className="align-top">
+                    <Td className="border-r border-slate-200">{avecGras(e.critere)}</Td>
+                    <Td className="border-r border-slate-200">{avecGras(e.indicateur)}</Td>
+                    <Td className="border-r border-slate-200 text-slate-500">{e.signe}</Td>
+                    <Td className="text-slate-500">{e.question}</Td>
+                  </Tr>))}
+              </tbody>
+            </Tableau>
+          </div>
+        </div>)}
+    </div>);
+}
+
 function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -518,6 +577,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
         {!d.droits?.regler_mode && <span className="text-slate-400">— réglé par la coordination ou la direction</span>}
       </div>
       {erreur && <p className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
+      {!lecture && <TutorielCriteres />}
       {/* LE CROISEMENT REMPLIT LES CRITÈRES (3.5.265) : chaque croix de l'étape 1 est une ligne ici, le point du programme pour
           critère, modifiable ; ce qui reste à faire, c'est l'indicateur. */}
       {d.bilan_criteres?.reprises > 0 && (
