@@ -228,9 +228,10 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
 
       await api.dueEnregistrer(ueNum, { ...c, croisement, grille_criteres: grille, ...(programme_blocs ? { programme_blocs } : {}) });
 
-      // 4. La pondération en découle — pour qui a le droit de l'écrire.
+      /* 4. LA PONDÉRATION N'EST PLUS ÉCRITE ICI (3.5.254) : elle est PROPOSÉE à l'étape 2, en gris, d'après ces croix ; le référent,
+         la coordination ou la direction la valide ou la change. */
       let ponderes = 0;
-      if (peutPonderer) {
+      if (false) {
         for (const x of cours) {
           const n = {};
           for (const a of acquis) n[a.aa_code] = 0;
@@ -247,13 +248,11 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         }
       }
       // La direction a fixé (ou confirmé) les pondérations : l'étape de la DUE est franchie.
-      if (peutPonderer) await fetch(`/api/due/${ueNum}/ponderations-fixees`, { method: 'POST', headers: authHeaders() }).catch(() => {});
       await charger();
       onEnregistre?.();
       setMessage(['Croisement enregistré',
         ajoutees || retirees ? `tableau des critères : ${ajoutees} ligne(s) ajoutée(s)${retirees ? `, ${retirees} retirée(s)` : ''}` : null,
-        peutPonderer ? (ponderes ? `pondération ${annee} mise à jour pour ${ponderes} cours` : 'pondération déjà conforme')
-          : 'la pondération proposée sera fixée par la direction'].filter(Boolean).join(' — ') + '.');
+        'la pondération qu’il propose vous attend à l’étape 2, à valider ou à changer'].filter(Boolean).join(' — ') + '.');
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }

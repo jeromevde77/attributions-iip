@@ -73,7 +73,7 @@ export function migrerDUE(dbx) {
 
 // Un professeur accède à la DUE des unités où il a une attribution. La
 // coordination et le secrétariat lisent tout ; seule la direction valide.
-function droitsSurLUE(user, ueNum, annee) {
+export function droitsSurLUE(user, ueNum, annee) {
   const direction = NIVEAU_DIRECTION.includes(user?.role);
   // LES GESTES DE LA DUE se règlent dans Configuration → Accès (lib/gestes.js).
   const peutRediger = gesteAutorise(user, 'due.rediger') === 'oui';

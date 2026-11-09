@@ -848,7 +848,7 @@ export default function MesCours({ espace = null }) {
         <h1 className="titre-ecran !mb-0 mr-2">Mes unités</h1>
         {/* Les étapes se choisissent sur la ligne de progression de l'unité, dessous (3.5.172, Charles : « double emploi »). */}
       </div>)}
-    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={espace ? ['dossier', 'croisement', 'ponderation', 'descriptif'] : ['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
+    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['dossier', 'croisement', 'ponderation', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className={`${vueEspace === 'aujourdhui' ? 'hidden' : 'flex'} items-center gap-2`}>
         {!espace && <IconBooks size={20} className="text-iip-turquoise" />}
