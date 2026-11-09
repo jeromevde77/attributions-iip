@@ -35,7 +35,8 @@ import { teintesSchema } from '../lib/schemaSvg.js';
 import sanitizeHtml from 'sanitize-html';
 import { assainir } from '../lib/texteCorpus.js';
 import { gesteAutorise } from '../lib/gestes.js';
-import { texteVersHtml, rubriquesDuDossier, texteDesRubriques } from '../lib/texteDossier.js';
+import { texteVersHtml, rubriquesDuDossier, texteDesRubriques, rubriquesDuTexte } from '../lib/texteDossier.js';
+import { deposerDemande } from './demandes.js';
 
 const r = Router();
 
@@ -688,6 +689,55 @@ r.put('/:ueNum/mode-evaluation', authRequired, (req, res) => {
     .run(ueNum, annee, unique ? 1 : 0, req.user?.email || req.user?.nom || null);
   console.log(`[due] UE ${ueNum} ${annee} : évaluation ${unique ? 'globale' : 'par activité'} (${req.user?.email || '?'})`);
   res.json({ ok: true, evaluation_unique: unique });
+});
+
+/* LE DOSSIER PÉDAGOGIQUE SE CORRIGE DEPUIS L'UNITÉ, LA DIRECTION ACCEPTE (3.5.262, Charles, 9 novembre 2026 : « parfois il est mal
+   importé ; depuis Programme → Unité on peut modifier ; cela n'ira PAS dans le référentiel SAUF si la direction accepte » ; tranché :
+   la coordination de la section propose, le texte des rubriques, par le registre des demandes). La proposition est une demande
+   `dossier_pedagogique` (routes/demandes.js) : avant et après, rubrique par rubrique ; la direction la valide (le texte entre au
+   référentiel, ue_dp) ou la refuse avec un motif. La direction, elle, corrige directement (PUT /api/ref/ue/:num/dossier). */
+const ACTEURS_DP = ['admin', 'directeur', 'directeur_adjoint'];
+r.get('/:ueNum/dossier/proposition', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  const direction = ACTEURS_DP.includes(req.user?.role);
+  const peut = direction ? 'direct' : (estCoordinationDe(req.user, ueNum, annee) ? 'proposer' : null);
+  let en_attente = [];
+  try {
+    en_attente = db.prepare(`SELECT id, auteur_id, auteur_nom, cree_le, apres FROM demande_modification
+      WHERE type = 'dossier_pedagogique' AND statut = 'en_attente' AND cible_id = ? ORDER BY cree_le DESC`).all(`${ueNum}|${annee}`)
+      .map(d => { const a = JSON.parse(d.apres || '{}'); return { id: d.id, auteur_nom: d.auteur_nom, cree_le: d.cree_le, a_moi: d.auteur_id === req.user?.id,
+        rubriques: Object.keys(a).filter(k => k !== 'Motif de la correction'), motif: a['Motif de la correction'] || '' }; });
+  } catch { /* table absente */ }
+  res.json({ peut, en_attente });
+});
+r.post('/:ueNum/dossier/proposer', authRequired, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  if (ACTEURS_DP.includes(req.user?.role)) return res.status(400).json({ error: 'La direction corrige directement le dossier (fiche de l’UE).' });
+  if (!estCoordinationDe(req.user, ueNum, annee)) return res.status(403).json({ error: 'La correction du dossier pédagogique se propose par la coordination de la section.' });
+  const ue = db.prepare('SELECT ue_dp, section, ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee);
+  if (!ue) return res.status(404).json({ error: 'UE introuvable pour cette année.' });
+  const recues = req.body?.rubriques;
+  if (!recues || typeof recues !== 'object') return res.status(400).json({ error: 'Rubriques attendues.' });
+  const motif = String(req.body?.motif || '').trim();
+  if (!motif) return res.status(400).json({ error: 'Dites en une phrase ce que corrige la proposition.' });
+  const actuelles = rubriquesDuTexte(ue.ue_dp || '');
+  const avant = {}, apres = {};
+  for (const [k, v] of Object.entries(recues)) {
+    if (!/^[\p{L}' ’-]{3,60}$/u.test(k)) continue;
+    const t = String(v ?? '').slice(0, 60000).trim();
+    if (t !== String(actuelles[k] || '').trim()) { avant[k] = actuelles[k] || ''; apres[k] = t; }
+  }
+  if (!Object.keys(apres).length) return res.status(400).json({ error: 'Rien n’a changé par rapport au dossier en place.' });
+  // Une nouvelle proposition du même auteur remplace la précédente, tant qu'elle n'est pas tranchée.
+  db.prepare(`DELETE FROM demande_modification WHERE type = 'dossier_pedagogique' AND statut = 'en_attente' AND cible_id = ? AND auteur_id = ?`)
+    .run(`${ueNum}|${annee}`, req.user.id);
+  apres['Motif de la correction'] = motif.slice(0, 2000);
+  const rep = deposerDemande({ type: 'dossier_pedagogique', operation: 'modifier', cible_id: `${ueNum}|${annee}`, section: ue.section,
+    annee_scolaire: annee, libelle: `Dossier pédagogique de l’UE ${ueNum} — ${ue.ue_nom || ''} : ${Object.keys(avant).join(', ')}`,
+    avant, apres, user: req.user });
+  res.json(rep);
 });
 
 // SOUMETTRE À LA DIRECTION (14 octobre 2026) : le rédacteur — titulaire ou coordination — dit que

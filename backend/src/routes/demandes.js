@@ -16,6 +16,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { ecrireTitres } from '../lib/titresCapacite.js';
+import { rubriquesDuTexte, texteDesRubriques } from '../lib/texteDossier.js';
 
 const r = Router();
 
@@ -96,6 +97,19 @@ const APPLICATEURS = {
     // Les titres de capacité proposés remplacent la liste en place.
     if (Array.isArray(a.titres)) ecrireTitres(Number(d.cible_id), a.titres);
     return 'Fiche mise à jour.';
+  },
+  /* Le dossier pédagogique proposé par la coordination (routes/due.js, 3.5.262) : les rubriques acceptées entrent au référentiel,
+     la version lue à l'import reste dans ue_dp_origine. Le motif n'est pas une rubrique. */
+  dossier_pedagogique: (d) => {
+    const [num, annee] = String(d.cible_id || '').split('|');
+    const ue = db.prepare('SELECT ue_dp FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(Number(num), annee);
+    if (!ue) throw new Error('UE introuvable pour cette année');
+    const a = JSON.parse(d.apres);
+    const actuelles = rubriquesDuTexte(ue.ue_dp || '');
+    for (const [k, v] of Object.entries(a)) if (k !== 'Motif de la correction') actuelles[k] = String(v ?? '');
+    db.prepare(`UPDATE ue SET ue_dp = ?, ue_dp_origine = COALESCE(ue_dp_origine, ?), ue_dp_maj_par = ?, ue_dp_maj_le = datetime('now')
+      WHERE ue_num = ? AND annee_scolaire = ?`).run(texteDesRubriques(actuelles), ue.ue_dp || null, `${d.auteur_nom || '?'} (proposé, accepté)`, Number(num), annee);
+    return 'Dossier pédagogique mis à jour.';
   },
   date_ue: (d) => {
     const a = JSON.parse(d.apres);

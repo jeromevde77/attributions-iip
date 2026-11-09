@@ -13,7 +13,7 @@ import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections, soiSeul, SOI_SEUL, professeurDe } from '../middleware/auth.js';
 import { deposerDemande } from './demandes.js';
 import { normaliserTitres, ecrireTitres } from '../lib/titresCapacite.js';
-import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
+import { parseDossierPedagogique, estIntertitreDP } from '../parseDossierPedagogique.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 import { composerFicheAttributions } from '../lib/pieceFicheAttributions.js';
@@ -1335,6 +1335,55 @@ r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) 
   }
 });
 
+/* LES INTITULÉS ABÎMÉS PAR L'IMPORT (3.5.260) : les UE de l'année dont le nom est un intertitre du dossier, avec ce que Lucie propose
+   — le nom de la même UE l'année d'avant. La direction relit, corrige, rétablit (une écriture par UE, journalisée par l'Annuler). */
+/* LES INTITULÉS ABÎMÉS (3.5.260) : un intertitre du dossier pris pour nom, ou le nom de l'an dernier sans ses accents. */
+export function nomsAbimes(annee) {
+  const prec = db.prepare(`SELECT ue_nom, annee_scolaire FROM ue WHERE ue_num = ? AND annee_scolaire < ? AND COALESCE(ue_nom, '') <> '' ORDER BY annee_scolaire DESC LIMIT 5`);
+  const nu = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ues = [];
+  for (const u of db.prepare('SELECT DISTINCT ue_num, section, ue_nom FROM ue WHERE annee_scolaire = ? ORDER BY section, ue_num').all(annee)) {
+    const p = prec.all(u.ue_num, annee).find(x => !estIntertitreDP(x.ue_nom));
+    if (estIntertitreDP(u.ue_nom)) ues.push({ ...u, motif: 'intertitre', propose: p?.ue_nom || '', source: p ? `nom de ${p.annee_scolaire}` : 'à compléter' });
+    // Même nom, mais en « Title Case » sans accents (l'import du Word) : on propose la graphie de l'année d'avant.
+    else if (p && p.ue_nom !== u.ue_nom && nu(p.ue_nom) === nu(u.ue_nom) && !/[àâçéèêëîïôûù]/i.test(u.ue_nom) && /[àâçéèêëîïôûù]/i.test(p.ue_nom))
+      ues.push({ ...u, motif: 'graphie', propose: p.ue_nom, source: `graphie de ${p.annee_scolaire}` });
+    // Coupé au deux-points (« Epreuve Integree de la Section : ») : le nom d'avant le complète.
+    else if (p && /:\s*$/.test(u.ue_nom || '') && nu(p.ue_nom).startsWith(nu(u.ue_nom)) && nu(p.ue_nom) !== nu(u.ue_nom))
+      ues.push({ ...u, motif: 'graphie', propose: p.ue_nom, source: `nom complet de ${p.annee_scolaire}` });
+  }
+  return ues;
+}
+/* LA RÉPARATION D'OFFICE (3.5.261, Charles : « peux-tu corriger ») : une fois, au démarrage, toute année confondue, chaque
+   intitulé abîmé qui a un nom d'avant le reprend. Ce qui n'en a pas (une UE nouvelle) reste à l'écran, à compléter. */
+export function reparerNomsAbimes() {
+  db.exec("CREATE TABLE IF NOT EXISTS lucie_config (cle TEXT PRIMARY KEY, valeur TEXT)");
+  if (db.prepare("SELECT 1 FROM lucie_config WHERE cle = 'noms_ue_repares'").get()) return 0;
+  const maj = db.prepare('UPDATE ue SET ue_nom = ? WHERE ue_num = ? AND annee_scolaire = ? AND ue_nom = ?');
+  let n = 0;
+  db.transaction(() => {
+    const annees = db.prepare('SELECT DISTINCT annee_scolaire FROM ue WHERE annee_scolaire IS NOT NULL ORDER BY annee_scolaire').all().map(x => x.annee_scolaire);
+    for (const a of annees) for (const u of nomsAbimes(a)) if (u.propose) n += maj.run(u.propose, u.ue_num, a, u.ue_nom).changes;
+    db.prepare("INSERT INTO lucie_config (cle, valeur) VALUES ('noms_ue_repares', ?)").run(JSON.stringify({ le: new Date().toISOString(), lignes: n }));
+  })();
+  if (n) console.log(`[ue] ${n} intitulé(s) abîmé(s) rétabli(s)`);
+  return n;
+}
+r.get('/ue-noms-abimes', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  res.json({ annee, ues: nomsAbimes(annee) });
+});
+r.post('/ue-noms-abimes', authRequired, roleRequired('admin'), (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const noms = (Array.isArray(req.body?.noms) ? req.body.noms : []).map(x => ({ ue_num: Number(x.ue_num), ue_nom: String(x.ue_nom || '').trim() }))
+    .filter(x => x.ue_num && x.ue_nom && !estIntertitreDP(x.ue_nom));
+  if (!noms.length) return res.status(400).json({ error: 'Aucun intitulé valable à rétablir.' });
+  const maj = db.prepare('UPDATE ue SET ue_nom = ? WHERE ue_num = ? AND annee_scolaire = ?');
+  let n = 0;
+  db.transaction(() => { for (const x of noms) n += maj.run(x.ue_nom, x.ue_num, annee).changes; })();
+  res.json({ ok: true, ues: noms.length, lignes: n });
+});
+
 // Modifier un professeur
 /* UN PROFESSEUR PROPOSE, LA DIRECTION VALIDE (Charles, 3 octobre 2026 : « elle
    doit pouvoir envoyer une modif… avec validation »). Sur SA fiche seulement,
@@ -2461,7 +2510,8 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     }
 
     const fieldsToUpdate = {
-      ue_nom:           ueData.ue_nom        || undefined,
+      // Un intitulé qui est un intertitre du dossier (« 2. Capacités préalables requises ») n'écrase jamais l'intitulé en place (3.5.260).
+      ue_nom:           (ueData.ue_nom && !estIntertitreDP(ueData.ue_nom)) ? ueData.ue_nom : undefined,
       ue_niveau:        ueData.ue_niveau      || undefined,
       ects:             ueData.ects           ?? undefined,
       ue_aut:           ueData.ue_aut         ?? undefined,
@@ -2507,7 +2557,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
         VALUES (@ue_num, @annee, @ue_nom, @section, @ue_niveau, @ects, @ue_aut, @ue_per_etudiants, @ue_code_fwb, @ue_dp, @ue_dp)`)
         .run({
           ue_num: ueNum, annee, section,
-          ue_nom: ueData.ue_nom || '', ue_niveau: ueData.ue_niveau || null,
+          ue_nom: (ueData.ue_nom && !estIntertitreDP(ueData.ue_nom)) ? ueData.ue_nom : `UE ${ueNum} (intitulé à compléter)`, ue_niveau: ueData.ue_niveau || null,
           ects: ueData.ects || null, ue_aut: ueData.ue_aut || null,
           ue_per_etudiants: ueData.ue_per_etudiants || null,
           ue_code_fwb: ueData.ue_code_fwb, ue_dp: ueData.ue_det || null,

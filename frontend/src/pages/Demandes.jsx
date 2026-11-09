@@ -14,7 +14,34 @@ import { EnteteCarte } from '../components/ui.jsx';
 const LIBELLE_TYPE = {
   date_ue: "Dates d'unité d'enseignement",
   attribution: 'Attribution',
+  dossier_pedagogique: 'Dossier pédagogique',
 };
+
+/* UN TEXTE LONG SE LIT LIGNE À LIGNE (3.5.262, le dossier pédagogique proposé par la coordination) : les lignes retirées barrées,
+   les lignes ajoutées en relief, le reste en gris — la direction voit ce qui change, pas deux pavés à comparer. */
+function diffLignes(a, b) {
+  const A = String(a || '').split('\n'), B = String(b || '').split('\n');
+  const n = A.length, m = B.length;
+  if (n * m > 4_000_000) return [...A.map(t => ['-', t]), ...B.map(t => ['+', t])];
+  const L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { out.push(['=', A[i]]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) out.push(['-', A[i++]]); else out.push(['+', B[j++]]);
+  }
+  while (i < n) out.push(['-', A[i++]]);
+  while (j < m) out.push(['+', B[j++]]);
+  return out;
+}
+function TexteCompare({ avant, apres }) {
+  const lignes = diffLignes(avant, apres).filter(([, t]) => t.trim());
+  return (
+    <div className="max-h-96 overflow-auto border border-slate-200 rounded-champ px-3 py-2 text-second leading-relaxed">
+      {lignes.map(([k, t], i) => (
+        <div key={i} className={k === '-' ? 'text-slate-500 line-through' : k === '+' ? 'font-semibold text-iip-blue' : 'text-slate-400'}>
+          <span className="inline-block w-4 select-none">{k === '=' ? '' : k}</span>{t.replace(/^#+\s*/, '')}</div>))}
+    </div>);
+}
 
 export default function Demandes() {
   const [statut, setStatut] = useState('en_attente');
@@ -133,7 +160,7 @@ export default function Demandes() {
                   {!diff.length ? (
                     <div className="text-second text-slate-400">Aucun écart détecté.</div>
                   ) : (
-                    <table className="text-second">
+                    <table className="text-second w-full">
                       <thead>
                         <tr className="intertitre">
                           <th className="text-left pr-6 pb-1">Champ</th>
@@ -142,7 +169,11 @@ export default function Demandes() {
                         </tr>
                       </thead>
                       <tbody>
-                        {diff.map(e => (
+                        {diff.map(e => (typeof e.apres === 'string' && (e.apres.length > 200 || String(e.avant || '').length > 200 || e.apres.includes('\n'))) ? (
+                          <tr key={e.champ}>
+                            <td className="pr-6 py-1 text-slate-500 align-top">{e.champ.replace(/_/g, ' ')}</td>
+                            <td colSpan={2} className="py-1"><TexteCompare avant={e.avant} apres={e.apres} /></td>
+                          </tr>) : (
                           <tr key={e.champ}>
                             <td className="pr-6 py-0.5 text-slate-500">{e.champ.replace(/_/g, ' ')}</td>
                             <td className="pr-6 py-0.5 text-slate-500 line-through">{fr(e.avant)}</td>

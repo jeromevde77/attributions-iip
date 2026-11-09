@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconReceipt, IconCreditCard, IconCar, IconDeviceMobile, IconFileTypePdf, IconTrash, IconPaperclip, IconPlus, IconUser, IconLock, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconReceipt, IconCreditCard, IconCar, IconDeviceMobile, IconFileTypePdf, IconTrash, IconPaperclip, IconPlus, IconUser, IconLock, IconDeviceFloppy, IconPencil, IconCheck, IconX } from '@tabler/icons-react';
 import { EnteteCarte, Encadre, Fenetre, OutilFenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { demander } from '../lib/dialogue.jsx';
@@ -186,6 +186,15 @@ function FenetrePiece({ p, profil, lieux, onFermer, recharger }) {
     }
     catch (e) { setErr(e.message); }
   };
+  /* CORRIGER UN TRAJET DÉJÀ AJOUTÉ (3.5.263) : le crayon rend la ligne modifiable ; une adresse changée fait recalculer la carte. */
+  const [edite, setEdite] = useState(null);
+  const corrigerTrajet = async () => {
+    const x = p.trajets.find(y => y.id === edite.id); if (!x) return;
+    const patch = Object.fromEntries(['date', 'depart', 'arrivee', 'entreprise', 'raison', 'a_charge', 'km']
+      .filter(k => String(edite[k] ?? '') !== String((k === 'date' ? String(x.date || '').slice(0, 10) : x[k]) ?? '')).map(k => [k, edite[k]]));
+    if ((('depart' in patch) || ('arrivee' in patch)) && !('km' in patch)) patch.km = '';
+    try { if (Object.keys(patch).length) await appel('PUT', `/trajet/${x.id}`, patch); setEdite(null); recharger(); } catch (e) { setErr(e.message); }
+  };
   const totalKm = p.trajets.reduce((s, x) => s + (Number(x.km) || 0), 0);
   return (
     <Fenetre icone={N.I} large="grande" titre={N.l} sous={`${profil.prenom || ''} ${profil.nom || ''}`.trim() || 'Complétez « Mes coordonnées »'} onFermer={onFermer}
@@ -211,12 +220,26 @@ function FenetrePiece({ p, profil, lieux, onFermer, recharger }) {
             <Tableau dense className="!border-0 !rounded-none">
               <TableauEntete><Th>Date</Th><Th>Départ</Th><Th>Arrivée</Th><Th>Entreprise</Th><Th>Raison</Th><Th>À charge</Th><Th align="droite">KM</Th><Th /></TableauEntete>
               <tbody>
-                {p.trajets.map(x => (
+                {p.trajets.map(x => (edite?.id === x.id ? (
+                  <Tr key={x.id}>
+                    {['date', 'depart', 'arrivee', 'entreprise', 'raison', 'a_charge'].map(k => (
+                      <Td key={k}><input type={k === 'date' ? 'date' : 'text'} className="controle !h-8 w-full min-w-[6rem]" value={edite[k] ?? ''}
+                        onChange={e => setEdite({ ...edite, [k]: e.target.value })} /></Td>))}
+                    <Td align="droite"><input type="number" step="0.1" className="controle !h-8 w-20 text-right" value={edite.km ?? ''}
+                      onChange={e => setEdite({ ...edite, km: e.target.value })} /></Td>
+                    <Td align="droite" className="whitespace-nowrap">
+                      <button type="button" className="text-slate-500 hover:text-iip-blue mr-2" title="Enregistrer le trajet" onClick={corrigerTrajet}><IconCheck size={15} /></button>
+                      <button type="button" className="text-slate-400 hover:text-slate-700" title="Annuler" onClick={() => setEdite(null)}><IconX size={15} /></button>
+                    </Td>
+                  </Tr>) : (
                   <Tr key={x.id}>
                     <Td>{jj(x.date)}</Td><Td>{x.depart}</Td><Td>{x.arrivee}</Td><Td>{x.entreprise}</Td><Td>{x.raison}</Td><Td>{x.a_charge}</Td>
                     <Td align="droite">{x.km ?? '—'}{x.km_calcule != null && Number(x.km_calcule) !== Number(x.km) ? <span className="text-slate-400"> (carte : {x.km_calcule})</span> : ''}</Td>
-                    <Td align="droite"><button type="button" className="text-slate-400 hover:text-red-700" title="Retirer" onClick={async () => { await appel('DELETE', `/trajet/${x.id}`); recharger(); }}><IconTrash size={14} /></button></Td>
-                  </Tr>))}
+                    <Td align="droite" className="whitespace-nowrap">
+                      <button type="button" className="text-slate-400 hover:text-iip-blue mr-2" title="Corriger ce trajet" onClick={() => setEdite({ ...x, date: String(x.date || '').slice(0, 10) })}><IconPencil size={14} /></button>
+                      <button type="button" className="text-slate-400 hover:text-red-700" title="Retirer" onClick={async () => { await appel('DELETE', `/trajet/${x.id}`); recharger(); }}><IconTrash size={14} /></button>
+                    </Td>
+                  </Tr>)))}
               </tbody>
             </Tableau>
             <div className="p-3 space-y-3">

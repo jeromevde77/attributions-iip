@@ -1238,6 +1238,8 @@ export default function Referentiels({ embedded = false }) {
         </button>
       </div>
 
+      {isAdmin && <NomsAbimes onFait={() => load()} />}
+
       {/* ── Vue Sections : tableau de gestion des sections ── */}
       {viewMode === 'sections' && (
         <Tableau>
@@ -1849,3 +1851,51 @@ function GestionActivites({ sections = [] }) {
 }
 
 // build final 2.23.0 frontend 1781716177
+
+/* LES INTITULÉS ABÎMÉS PAR L'IMPORT (3.5.260, Charles : « gros souci ! nom des UE ») : un bandeau quand des UE de l'année portent un
+   intertitre du dossier pour nom (« 2. Capacités préalables requises ») ou leur nom sans accents, et une fenêtre qui propose le nom
+   de l'année d'avant — modifiable — puis rétablit le tout. */
+function NomsAbimes({ onFait }) {
+  const [d, setD] = useState(null);
+  const [ouvert, setOuvert] = useState(false);
+  const [noms, setNoms] = useState({});
+  const [msg, setMsg] = useState(null);
+  const charger = () => fetch(`/api/ref/ue-noms-abimes?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
+    .then(r => (r.ok ? r.json() : null)).then(j => { setD(j); setNoms(Object.fromEntries((j?.ues || []).map(u => [u.ue_num, u.propose]))); }).catch(() => setD(null));
+  useEffect(() => { charger(); }, []);
+  if (!d?.ues?.length) return null;
+  const nbIntertitres = d.ues.filter(u => u.motif === 'intertitre').length, nbGraphie = d.ues.length - nbIntertitres;
+  const retablir = async () => {
+    setMsg(null);
+    const r = await fetch('/api/ref/ue-noms-abimes', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ annee: d.annee, noms: d.ues.map(u => ({ ue_num: u.ue_num, ue_nom: noms[u.ue_num] || '' })).filter(x => x.ue_nom.trim()) }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setMsg(j.error || 'Refusé.'); return; }
+    setOuvert(false); await charger(); onFait?.();
+  };
+  return (
+    <>
+      <div className="bloc-etat px-3 py-2 mb-3 flex items-center gap-3 flex-wrap" data-etat="corriger">
+        <IconAlertTriangle size={16} />
+        <span className="text-sm flex-1 min-w-0"><b>{d.ues.length} unité(s) de {d.annee} ont un intitulé abîmé par l’import du dossier pédagogique</b>
+          {nbIntertitres ? ` — ${nbIntertitres} portent un intertitre (« 2. Capacités préalables requises »)` : ''}{nbGraphie ? ` — ${nbGraphie} ont perdu leurs accents` : ''}.</span>
+        <button type="button" className="bouton bouton-fort" onClick={() => setOuvert(true)}>Rétablir les intitulés</button>
+      </div>
+      {ouvert && (
+        <Fenetre titre="Rétablir les intitulés des unités" sous={`${d.annee} · le nom proposé est celui de l’année d’avant, modifiable`} large="grande" onFermer={() => setOuvert(false)}
+          pied={<><span className="text-second min-w-0 flex-1" style={{ color: msg ? 'var(--c-refuse)' : undefined }}>{msg || 'Une case vide n’est pas touchée.'}</span>
+            <button type="button" className="bouton" onClick={() => setOuvert(false)}>Annuler</button>
+            <button type="button" className="bouton bouton-fort" onClick={retablir}>Rétablir {Object.values(noms).filter(x => String(x || '').trim()).length} intitulé(s)</button></>}>
+          <Tableau>
+            <thead><tr className="tab-entete"><th className="text-left px-3 py-2">UE</th><th className="text-left px-3 py-2">Intitulé actuel</th><th className="text-left px-3 py-2">Intitulé à rétablir</th><th className="text-left px-3 py-2">D’où</th></tr></thead>
+            <tbody>{d.ues.map(u => (
+              <tr key={u.ue_num} className="border-t border-slate-100">
+                <td className="px-3 py-1.5 whitespace-nowrap"><b>{u.ue_num}</b> <span className="text-second text-slate-500">{u.section}</span></td>
+                <td className="px-3 py-1.5 text-slate-500">{u.ue_nom}</td>
+                <td className="px-3 py-1.5"><input className="controle w-full" value={noms[u.ue_num] || ''} placeholder="à compléter" onChange={e => setNoms(n => ({ ...n, [u.ue_num]: e.target.value }))} /></td>
+                <td className="px-3 py-1.5 text-second text-slate-500 whitespace-nowrap">{u.source}</td>
+              </tr>))}</tbody>
+          </Tableau>
+        </Fenetre>)}
+    </>);
+}
