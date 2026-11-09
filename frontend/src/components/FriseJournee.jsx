@@ -101,9 +101,18 @@ export function FriseJournee({ journee, permanences = [], heure, modifier = null
                 : [[h.debut, h.fin, `${h.debut}–${h.fin}`]]).map(([a, b, t], j) => (
                   <span key={`${k}-${j}`} className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(enMin(a)), width: larg(enMin(a), enMin(b)), background: VERT }}
                     title={`${t}${h.lieu ? ` · ${h.lieu}` : ''}`} />)))}
-              {horsHoraire && (
-                <span className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(enMin(arrivee.heure)), width: larg(enMin(arrivee.heure), parti ?? maintenant), background: VERT, opacity: 0.6 }}
-                  title={`Arrivé à ${arrivee.heure}, hors horaire`} />)}
+              {/* LE VERT PÂLE NE DIT QUE LE HORS-HORAIRE (3.5.273, Charles : « pourquoi vert clair ? ») : la présence pointée,
+                  moins les plages de l'horaire et leurs pauses — il couvrait toute la journée, pause comprise. */}
+              {horsHoraire && (() => {
+                const plein = p.plages.flatMap(h => (h.pause_debut && h.pause_fin
+                  ? [[enMin(h.debut), enMin(h.pause_debut)], [enMin(h.pause_fin), enMin(h.fin)]] : [[enMin(h.debut), enMin(h.fin)]]))
+                  .sort((x, y) => x[0] - y[0]);
+                let segs = [[enMin(arrivee.heure), parti ?? maintenant]];
+                for (const [a0, b0] of plein) segs = segs.flatMap(([x, y]) => (b0 <= x || a0 >= y ? [[x, y]] : [[x, Math.min(y, a0)], [Math.max(x, b0), y]].filter(([u, v]) => v > u)));
+                return segs.map(([x, y], j) => (
+                  <span key={`hh${j}`} className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(x), width: larg(x, y), background: VERT, opacity: 0.45 }}
+                    title={`Présent hors de son horaire (arrivé à ${arrivee.heure})`} />));
+              })()}
               {parti != null && (
                 <span className="absolute top-0 bottom-0 bg-slate-200/90" style={{ left: pct(parti), right: 0 }} title={`Parti à ${p.pointages[p.pointages.length - 1].heure}`} />)}
               {!autreJour && <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />}

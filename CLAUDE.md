@@ -3107,6 +3107,16 @@ sous chaque acquis, le point tel quel mais modifiable, l'existant gardé). `lib/
 (acquis, point croisé) avec son origine (`src_point`, `src_cours`), reconnue même reformulée ; croix retirée → ligne retirée si
 vide, sinon `plus_croisee` ; évaluation globale → `__ue__`. L'étape 1 (`CroisementUE.jsx`) ne calcule plus la grille elle-même.
 
+**LE PAE SE VALIDE À LA PREMIÈRE CONNEXION À L'ESPACE** (3.5.275, Charles, 9 novembre 2026 : « pour lancer l'espace étudiant, ils
+vont devoir valider le PAE » ; tranché : bouton « Je confirme » sans code ; le programme de l'année tel qu'il est dans Lucie, confirmé
+ou non par l'école ; désaccord = un message à la coordination et au secrétariat, l'étudiant entre quand même et la validation est
+redemandée à chaque connexion ; « tout ce qui parle d'argent » caché cette année). Portail : `/moi` rend `pae_a_valider` (fonction
+`pae` ouverte, programme non vide, signature absente ou plus à jour) ; `POST /api/portail/pae/valider` (le programme lu part avec,
+geste `signer`) et `/pae/signaler` (table `pae_avis`, relevée → `lucie_notification` type `pae_desaccord`, coordination + secrétariat
+de la section). Lucie : `recevoirSignature` n'exige plus la confirmation de l'école. Écran `ValiderPAE` (`EspaceEtudiant.jsx`),
+fenêtre sans croix. Frais : `offrePAE` ne dépose le `tarif` que si `espace.frais` est ouvert pour l'étudiant. Une `Fenetre` sans
+`onFermer` n'a plus de croix.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

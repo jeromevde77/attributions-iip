@@ -1262,11 +1262,12 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
             </Suspense>, document.body)}
           {/* Les outils de la fenêtre, à côté de la croix. */}
           {outils}
-          <button onClick={onFermer} aria-label="Fermer"
+          {/* Une fenêtre qui ne se ferme pas (un choix à faire d'abord) n'a pas de croix. */}
+          {onFermer && <button onClick={onFermer} aria-label="Fermer"
             className="flex-none w-8 h-8 grid place-items-center rounded-champ
                        hover:bg-white/15 transition-colors duration-150 ease-ios">
             <IconX size={16} />
-          </button>
+          </button>}
         </div>
 
         {/* LE CORPS PLEIN (3.1.255) : un document (aperçu de pièce) occupe toute la fenêtre, sans marge. */}

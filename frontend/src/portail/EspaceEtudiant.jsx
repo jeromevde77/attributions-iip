@@ -166,6 +166,60 @@ function Verification({ reference }) {
   );
 }
 
+/* VALIDER SON PAE À LA PREMIÈRE CONNEXION (3.5.275, Charles : « à la première connexion, ils doivent valider leur PAE » ;
+   tranché : un bouton « Je confirme » ; s'il n'est pas d'accord, il le signale par un message et entre quand même — la validation
+   lui est redemandée à chaque connexion tant qu'elle n'est pas faite). Le programme de l'année tel qu'il est dans Lucie. */
+const PAE_REMIS = 'lucie.paeRemis';
+function ValiderPAE({ annee, onFait }) {
+  const [o, setO] = useState(null);
+  const [lu, setLu] = useState(false);
+  const [desaccord, setDesaccord] = useState(false);
+  const [mot, setMot] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  useEffect(() => { appel('GET', '/pae').then(j => setO(j.offre)).catch(e => setErreur(e.message)); }, []);
+  const ues = (o?.unites || []).filter(u => u.inscrite);
+  const valider = async () => {
+    setEnvoi(true); setErreur(null);
+    try { await appel('POST', '/pae/valider', { accepte: true, programme: o.programme }); onFait('valide'); }
+    catch (e) { setErreur(e.message); } finally { setEnvoi(false); }
+  };
+  const signaler = async () => {
+    setEnvoi(true); setErreur(null);
+    try { await appel('POST', '/pae/signaler', { message: mot }); try { sessionStorage.setItem(PAE_REMIS, '1'); } catch { /* */ } onFait('signale'); }
+    catch (e) { setErreur(e.message); } finally { setEnvoi(false); }
+  };
+  return (
+    <FenetreEspace titre={`Votre programme ${annee || ''}`} sous="À valider avant d’entrer dans votre espace" large
+      pied={desaccord
+        ? <><button type="button" className="bouton" onClick={() => setDesaccord(false)}>Retour</button>
+            <button type="button" className="bouton bouton-fort" disabled={envoi || mot.trim().length < 5} onClick={signaler}>Envoyer à ma coordination</button></>
+        : <><button type="button" className="bouton" onClick={() => setDesaccord(true)}>Mon programme n’est pas juste</button>
+            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={envoi || !lu || !o} onClick={valider}><IconCheck size={15} /> Je confirme mon programme</button></>}>
+      <div className="space-y-3 text-sm">
+        {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
+        {!o ? <p className="text-slate-500">Chargement de votre programme…</p> : desaccord ? (<>
+          <p className="m-0">Dites ce qui ne va pas : une unité qui manque, une unité en trop… Votre coordination et le secrétariat
+            recevront votre message et vous répondront. Vous pourrez entrer dans votre espace ; la validation vous sera redemandée.</p>
+          <textarea className="controle w-full !h-auto py-2" rows={4} value={mot} onChange={e => setMot(e.target.value)} placeholder="Par exemple : l’UE 250 manque à mon programme." />
+        </>) : (<>
+          <p className="m-0">Voici les unités auxquelles vous êtes inscrit·e cette année. Relisez-les, puis confirmez.</p>
+          <div className="carte overflow-hidden">
+            <Tableau dense className="!border-0 !rounded-none">
+              <TableauEntete><Th>Unité</Th><Th align="droite">ECTS</Th></TableauEntete>
+              <tbody>
+                {ues.length ? ues.map(u => <Tr key={u.ue_num}><Td>UE {u.ue_num} — {u.ue_nom}</Td><Td align="droite">{u.ects ?? ''}</Td></Tr>)
+                  : (o.programme || []).map(n => <Tr key={n}><Td>UE {n}</Td><Td /></Tr>)}
+              </tbody>
+            </Tableau>
+          </div>
+          <label className="flex items-start gap-2 cursor-pointer"><input type="checkbox" className="mt-0.5" checked={lu} onChange={e => setLu(e.target.checked)} />
+            <span>J’ai lu mon programme de {annee} et je le confirme.</span></label>
+        </>)}
+      </div>
+    </FenetreEspace>);
+}
+
 export default function EspaceEtudiant() {
   const aVerifier = new URLSearchParams(window.location.search).get('v');
   if (aVerifier) return <Verification reference={aVerifier} />;
@@ -1000,6 +1054,7 @@ function Espace() {
   const [erreur, setErreur] = useState(null);
   const [horsBe, setHorsBe] = useState(null);
   const [d, setD] = useState(null);
+  const [paeRemis, setPaeRemis] = useState(() => { try { return !!sessionStorage.getItem(PAE_REMIS); } catch { return false; } });
   /* LA FENÊTRE DES MOTS DE PASSE NE RESTE PAS SUR UN CHAMP DISPARU (3.5.235, capture de Charles : le trousseau de Safari restait
      ouvert par-dessus l'espace, accroché au champ d'identifiant de la page d'entrée, que l'aperçu affiche un instant). L'espace ouvert,
      on retire le focus. */
@@ -1245,6 +1300,8 @@ function Espace() {
         </div>
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">
+      {d?.pae_a_valider && !d.apercu && !paeRemis && (
+        <ValiderPAE annee={d.pae_a_valider.annee} onFait={quoi => { setPaeRemis(true); if (quoi === 'valide') setD(x => ({ ...x, pae_a_valider: null })); }} />)}
       <div className="space-y-4">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {d?.apercu && <Encadre etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.

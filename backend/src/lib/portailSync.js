@@ -195,7 +195,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], ts: [], cm: [], ar: [], messages_lus: [], messages_reponses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ar: [], messages_lus: [], messages_reponses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -345,7 +345,22 @@ async function relever() {
     for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || [])]) touches.add(Number(x.etudiant_id));
     tours = 0;
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.ts.length || ok.cm.length || ok.ar.length
+  /* « MON PROGRAMME N'EST PAS JUSTE » (3.5.275) : l'étudiant le signale depuis la validation de son PAE ; la coordination de sa
+     section et le secrétariat sont prévenus au tableau de bord, le message en clair. */
+  for (const a of r.pae_avis || []) {
+    try {
+      const e = etudiantDuPortail(a.etudiant_id);
+      if (e) {
+        let section = null; try { section = (await import('../routes/etudiants.js')).sectionPropre(e.id); } catch { /* */ }
+        const titre = `PAE ${a.annee || ''} contesté par ${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.replace(/\s+/g, ' ').trim();
+        const corps = `« ${String(a.message || '').slice(0, 1500)} » — depuis son espace, à la validation de son programme.`;
+        const n = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par, section) VALUES ('pae_desaccord',?,?,?,?,?,?)`);
+        for (const role of ['coordination', 'secretariat']) n.run(titre, corps, `/etudiants?id=${e.id}`, role, 'Espace de l’étudiant', section);
+      }
+    } catch (x) { console.error('[portail] désaccord PAE :', x.message); }
+    ok.pae_avis.push(Number(a.id));
+  }
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ar.length
     || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);

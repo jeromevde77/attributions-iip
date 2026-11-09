@@ -7252,9 +7252,19 @@ function programmeDesArchives(ids, annee, req, simulation = true) {
     for (const a of annees) {
       const sans = db.prepare(`SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?
         AND resultat IS NULL`).all(id, a).map(x => x.ue_num);
-      const b = ecrireProgramme({ etudId: id, annee: a, retirer: sans, origine: 'archivage', par, simulation });
-      if (b.retirees.length) { ues += b.retirees.length; etudiants.add(id); }
-      for (const c of b.conservees) conservees.push({ etudiant_id: id, annee: a, ue_num: c.ue_num, pourquoi: c.pourquoi });
+      /* UN REPORT D'OFFICE N'EST PAS UNE TRACE DE L'ANNÉE (3.5.274, Charles : « ça n'a pas changé » — 21 unités restaient) :
+         Lucie pose les reports à la création de l'année et y RECOPIE les notes d'avant (origine « report:… »). Une unité qui
+         n'a que cela — aucune note encodée cette année — part avec son report ; une note encodée cette année la garde. */
+      const saisie = db.prepare(`SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+        AND COALESCE(origine, '') NOT LIKE 'report:%' LIMIT 1`);
+      const reportsSeuls = sans.filter(u => !saisie.get(id, a, u));
+      const autres = sans.filter(u => !reportsSeuls.includes(u));
+      for (const [liste, forcer] of [[reportsSeuls, true], [autres, false]]) {
+        if (!liste.length) continue;
+        const b = ecrireProgramme({ etudId: id, annee: a, retirer: liste, origine: 'archivage', par, simulation, forcerRetrait: forcer });
+        if (b.retirees.length) { ues += b.retirees.length; etudiants.add(id); }
+        for (const c of b.conservees) conservees.push({ etudiant_id: id, annee: a, ue_num: c.ue_num, pourquoi: c.pourquoi });
+      }
     }
   }
   return { ues, etudiants: etudiants.size, conservees };

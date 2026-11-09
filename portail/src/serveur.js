@@ -122,6 +122,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS pae_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('proposer','signer')), annee TEXT, ues TEXT, programme TEXT, ip TEXT, signe_le TEXT,
     cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT);
+  CREATE TABLE IF NOT EXISTS pae_avis (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, annee TEXT,
+    message TEXT NOT NULL, cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT);
   CREATE TABLE IF NOT EXISTS va_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('ouvrir','piece','retirer','retirer_piece','terminer','motiver')), ue_num INTEGER, porte TEXT,
     fichier_id INTEGER, nature TEXT, nom TEXT, taille INTEGER, contenu BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')),
@@ -503,7 +505,12 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
   });
   const cand = req.candidat ? db.prepare('SELECT jusqu_au FROM candidat WHERE etudiant_id = ?').get(e.id) : null;
   const f = new Set(fonctionsVues(req));
-  res.json({ fonctions: [...f], apercu: req.apercu || null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
+  /* VALIDER SON PAE À LA PREMIÈRE CONNEXION (3.5.275, Charles : « à la première connexion, ils doivent valider leur PAE ») :
+     tant que le programme de l'année n'est pas confirmé par l'étudiant — ou qu'il a changé depuis —, l'espace le lui demande. */
+  const o = f.has('pae') ? offrePAEde(e.id) : null;
+  const signeEnCours = !!db.prepare("SELECT 1 FROM pae_geste WHERE etudiant_id = ? AND type = 'signer' AND releve_le IS NULL").get(e.id);
+  const paeAValider = !req.candidat && !!(o?.programme?.length) && !(o.signature?.a_jour) && !signeEnCours;
+  res.json({ fonctions: [...f], apercu: req.apercu || null, pae_a_valider: paeAValider ? { annee: o.annee } : null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
     resultats: !f.has('resultats') ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })),
     documents: f.has('documents') ? documents : [], reglements: !f.has('reglements') ? [] : reglements });
@@ -892,6 +899,35 @@ pub.post('/api/portail/pae/proposer', connecte, exige('pae'), (req, res) => {
   db.prepare("INSERT INTO pae_geste (etudiant_id, type, annee, ues) VALUES (?, 'proposer', ?, ?)").run(req.etudiant.id, o.annee, JSON.stringify(ues));
   res.json({ ok: true });
 });
+/** VALIDER SON PROGRAMME D'UN BOUTON (3.5.275, tranché : « Je confirme », sans code ; le programme tel qu'il est dans Lucie,
+    confirmé ou non par l'école). Le programme lu à l'écran part avec la signature : Lucie la refuse s'il a changé entre-temps. */
+pub.post('/api/portail/pae/valider', connecte, exige('pae'), (req, res) => {
+  if (req.apercu) return res.status(403).json({ error: 'Aperçu : rien ne s’enregistre.' });
+  const e = req.etudiant, o = offrePAEde(e.id);
+  if (!o?.programme?.length) return res.status(409).json({ error: 'Aucun programme à valider pour l’instant.' });
+  if (req.body?.accepte !== true) return res.status(400).json({ error: 'Cochez « J’ai lu mon programme et je le confirme ».' });
+  const lu = JSON.stringify((Array.isArray(req.body?.programme) ? req.body.programme : []).map(Number).sort((a, b) => a - b));
+  const actuel = JSON.stringify([...o.programme].map(Number).sort((a, b) => a - b));
+  if (lu !== actuel) return res.status(409).json({ error: 'Votre programme a changé entre-temps : relisez-le, puis confirmez.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM pae_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(e.id).n >= 20) {
+    return res.status(429).json({ error: 'Trop d’envois en une heure. Réessayez plus tard.' });
+  }
+  db.prepare("INSERT INTO pae_geste (etudiant_id, type, annee, programme, ip, signe_le) VALUES (?, 'signer', ?, ?, ?, datetime('now'))")
+    .run(e.id, o.annee, JSON.stringify(o.programme), ipDe(req));
+  res.json({ ok: true });
+});
+/** « Mon programme n'est pas juste » : un mot à sa coordination (et au secrétariat), relevé par Lucie. */
+pub.post('/api/portail/pae/signaler', connecte, exige('pae'), (req, res) => {
+  if (req.apercu) return res.status(403).json({ error: 'Aperçu : rien ne s’enregistre.' });
+  const message = String(req.body?.message || '').trim().slice(0, 2000);
+  if (message.length < 5) return res.status(400).json({ error: 'Dites en une phrase ce qui ne va pas.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM pae_avis WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 day')`).get(req.etudiant.id).n >= 5) {
+    return res.status(429).json({ error: 'Vous avez déjà signalé plusieurs fois aujourd’hui : votre coordination vous répondra.' });
+  }
+  const o = offrePAEde(req.etudiant.id);
+  db.prepare('INSERT INTO pae_avis (etudiant_id, annee, message) VALUES (?,?,?)').run(req.etudiant.id, o?.annee || null, message);
+  res.json({ ok: true });
+});
 /** Confirmer son PAE (celui que l'école a confirmé) : par le code reçu à l'adresse d'école (POST /code, objet « pae »). */
 pub.post('/api/portail/pae/confirmer', connecte, exige('pae'), (req, res) => {
   const e = req.etudiant, o = offrePAEde(e.id);
@@ -1135,6 +1171,7 @@ int.get('/interne/releve', (req, res) => {
     // Les gestes de valorisation, dans l'ordre (la pièce se lit à part, /interne/va/piece/:id).
     va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, texte FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
     pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
+    pae_avis: db.prepare('SELECT id, etudiant_id, annee, message, cree_le FROM pae_avis WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     ts: db.prepare('SELECT id, etudiant_id, type, tfe_id, jalon_id, nom, taille, texte FROM ts_geste WHERE releve_le IS NULL ORDER BY id LIMIT 30').all(),
     cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
@@ -1170,6 +1207,7 @@ int.post('/interne/acquitter', (req, res) => {
         .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM ar_geste WHERE releve_le < datetime('now', '-365 days')").run();
+    for (const id of ids('pae_avis')) db.prepare("UPDATE pae_avis SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {
       db.prepare("UPDATE pae_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }
