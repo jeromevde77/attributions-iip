@@ -1,3 +1,4 @@
+import { dispensesDeLUE } from '../lib/dispenses.js';
 /**
  * LES RAPPORTS — ce que Lucie sait dire d'elle-même, en tableur.
  *
@@ -1182,6 +1183,7 @@ export function donneesListesUE(annee, section) {
     const vaPar = new Map(); for (const v of vas.all(u.ue_num)) (vaPar.get(v.etudiant_id) || vaPar.set(v.etudiant_id, []).get(v.etudiant_id)).push(v);
     const repPar = new Map(); for (const x of reports.all(annee, u.ue_num)) (repPar.get(x.etudiant_id) || repPar.set(x.etudiant_id, []).get(x.etudiant_id)).push(x);
     const reussPar = new Map(reussies.all(u.ue_num, annee).map(x => [x.etudiant_id, x.annee]));
+    const dispUE = dispensesDeLUE(u.ue_num, annee);
     const avant = new Set(anterieures.all(u.ue_num, annee).map(x => x.etudiant_id));
     const A = [], B = [], C = [];
     for (const e of l) {
@@ -1194,24 +1196,20 @@ export function donneesListesUE(annee, section) {
         C.push({ ...ligne, detail: reussPar.has(e.id) ? `réussie en ${reussPar.get(e.id)}` : `${(totaleAvant.porte || 'va').toUpperCase()} totale en ${totaleAvant.annee_scolaire}` });
         continue;
       }
-      // B. Ce qui est dispensé cette année, dit cours par cours.
+      /* B. Ce qui est dispensé cette année, dit cours par cours — LA règle de lib/dispenses.js (3.5.271) : une VA totale
+         dispense de l'unité, une VAP par cours et un report de note dispensent d'un cours ; une VA partielle par ACQUIS ne
+         dispense d'aucun cours (l'étudiant suit l'unité, la mention le dit). */
+      const d = dispUE.get(e.id);
       const quoi = [];
       if (e.dispense_complete) quoi.push('dispense complète');
-      for (const v of decidees.filter(v => v.annee_scolaire === annee)) {
-        const porte = (v.porte || 'va').toUpperCase();
-        if (v.type === 'complete') quoi.push(`${porte} totale`);
-        else if (v.type === 'partielle') {
-          const cibles = String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean);
-          quoi.push(`${porte} partielle — ${v.cible === 'aa' ? 'acquis' : 'cours'} ${cibles.map(c => v.cible === 'cours' && nomsCours[c] ? `${c} ${nomsCours[c]}` : c).join(', ') || '(à préciser)'}`);
-        }
-      }
-      for (const x of repPar.get(e.id) || []) {
-        quoi.push(`report de note — ${x.cours_code}${nomsCours[x.cours_code] ? ` ${nomsCours[x.cours_code]}` : ''}${x.annee_origine ? ` (${x.annee_origine})` : ''}`);
-      }
+      if (d?.ue) quoi.push(`${d.ue} totale`);
+      for (const [c, lib] of d?.cours || []) quoi.push(`${lib} — ${c}${nomsCours[c] ? ` ${nomsCours[c]}` : ''}`);
       if (quoi.length) { B.push({ ...ligne, detail: quoi.join(' · ') }); continue; }
       // A. À suivre en entier.
       const enCours = lesVa.some(v => !v.decision_le && v.annee_scolaire === annee);
-      A.push({ ...ligne, detail: [avant.has(e.id) ? 'reprise' : '', enCours ? 'demande de VA en cours' : ''].filter(Boolean).join(' · ') });
+      const parAcquis = decidees.filter(v => v.annee_scolaire === annee && v.type === 'partielle' && v.cible === 'aa')
+        .map(v => `${(v.porte || 'va').toUpperCase()} partielle — acquis ${String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean).join(', ')}`);
+      A.push({ ...ligne, detail: [avant.has(e.id) ? 'reprise' : '', enCours ? 'demande de VA en cours' : '', ...parAcquis].filter(Boolean).join(' · ') });
     }
     out.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, inscrits: l.length, A, B, C });
   }
