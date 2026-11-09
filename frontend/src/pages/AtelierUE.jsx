@@ -164,6 +164,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
   /* QUI NE PEUT PAS ÉCRIRE LIT TOUTES LES ÉTAPES (3.5.144, Charles : « si pas référent ou coordination, elle doit voir toutes les
      étapes en lecture pour avoir l'info ») : les verrous de l'ordre du travail ne gardent que ceux qui rédigent. */
   const [lecture, setLecture] = useState(false);
+  const [pourquoi, setPourquoi] = useState(null);
   const passe = lecture || passeLesVerrous();
   const lireSuivi = useCallback(async n => {
     if (!n) return;
@@ -174,6 +175,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
     ]);
     setSuivi(etats(due, liens));
     setLecture(!!due && !due?.droits?.ecrire);
+    setPourquoi(due?.droits?.pourquoi || null);
   }, []);
   // Relu à chaque changement d'unité ou d'étape : ce qu'on vient d'enregistrer se voit.
   useEffect(() => { lireSuivi(ue); }, [ue, face, lireSuivi]);
@@ -236,7 +238,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
       {dp && <UEModal ue={dp.ue} sections={dp.sections} ongletInitial="contenu" lecture onClose={() => setDp(null)} onSaved={() => setDp(null)} />}
 
       <Frise faces={FACES} ouvertes={ouvertes.map(f => f[0])} face={face} onFace={setFace} et={suivi} passe={lecture} />
-      {ue && lecture && <Encadre etat="neutre">Lecture seule : les enseignants qui donnent cours dans l’unité et la coordination rédigent ; vous voyez chaque étape.</Encadre>}
+      {ue && lecture && <Encadre etat="neutre">Lecture seule{pourquoi ? ` — ${pourquoi}` : ''} Les enseignants qui donnent cours dans l’unité et la coordination rédigent ; vous voyez chaque étape.</Encadre>}
 
       {railPropre && (
         <RailLateral titre="Unité" sections={[{ items: ouvertes.map(([k, l, I, n]) => (
