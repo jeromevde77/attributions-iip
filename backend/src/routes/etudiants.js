@@ -51,6 +51,12 @@ import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
 import { trouverOuCreerEtudiant } from '../lib/etudiantUnique.js';
 import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 const r = Router();
+/* UN ARCHIVÉ OU UN SORTI N'EST PAS DANS LES LISTES DE L'ANNÉE (3.5.270, Charles : « dans l'outil de groupes, il me met des
+   étudiants dont l'UE n'est PAS au PAE — cet étudiant est archivé ») : pour l'année de travail et les suivantes, les écrans qui
+   rangent les inscrits (groupes, organisations, inscrits par UE) les écartent ; les années passées restent telles quelles. */
+function sansSortis(req, annee) {
+  return String(annee || '') >= String(anneeDeTravail(req) || '') ? "AND COALESCE(e.sortie_statut, '') NOT IN ('archive', 'sorti')" : '';
+}
 
 // LES EFFECTIFS DE L'ANNÉE (3.5.196) : la même source que Gestion (lib/effectifs.js), pour l'en-tête de la liste.
 r.get('/effectifs', authRequired, async (req, res) => {
@@ -1495,7 +1501,7 @@ r.get('/repartition', authRequired, (req, res) => {
   const etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.num_organisation, i.groupe
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.ue_num = ? AND i.annee_scolaire = ?
+    WHERE i.ue_num = ? AND i.annee_scolaire = ? ${sansSortis(req, annee)}
     ORDER BY e.nom, e.prenom
   `).all(ueNum, annee);
 
@@ -1541,8 +1547,8 @@ r.get('/repartition-cours', authRequired, (req, res) => {
   }
   const ues = db.prepare(`
     SELECT u.ue_num, MAX(u.ue_nom) AS ue_nom,
-           (SELECT COUNT(*) FROM etudiant_inscription i
-             WHERE i.ue_num = u.ue_num AND i.annee_scolaire = ?) AS inscrits
+           (SELECT COUNT(*) FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+             WHERE i.ue_num = u.ue_num AND i.annee_scolaire = ? ${sansSortis(req, annee)}) AS inscrits
     FROM ue u
     WHERE u.annee_scolaire = ? AND (u.section = ? OR u.ue_num IN
       (SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code = ?))
@@ -1845,7 +1851,7 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
   const etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.email_ecole, e.email_perso, i.num_organisation
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.ue_num = ? AND i.annee_scolaire = ? ORDER BY e.nom, e.prenom
+    WHERE i.ue_num = ? AND i.annee_scolaire = ? ${sansSortis(req, annee)} ORDER BY e.nom, e.prenom
   `).all(ueNum, annee);
   const affectations = coursRows.length ? db.prepare(`
     SELECT etudiant_id, cours_code, activite_id, num_organisation, groupe_code
@@ -2605,7 +2611,7 @@ export function donneesInscritsUnites(annee, section) {
       GROUP BY cours_code ORDER BY cours_num, cours_code`);
   const inscrits = db.prepare(`SELECT e.id, MAX(COALESCE(i.dispense_complete, 0)) AS dispense_complete
       FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-     WHERE i.annee_scolaire = ? AND i.ue_num = ? GROUP BY e.id`);
+     WHERE i.annee_scolaire = ? AND i.ue_num = ? ${sansSortis(null, annee)} GROUP BY e.id`);
   // UNE VA ACCORDÉE N'A PAS TOUJOURS D'INSCRIPTION (69 en 2026-2027) : elle
   // entre dans la grille, marquée « sans inscription ».
   const vaSeules = db.prepare(`SELECT DISTINCT v.etudiant_id AS id FROM etudiant_valorisation v
@@ -7221,8 +7227,13 @@ r.post('/statut', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
       faits++;
     }
   })();
-  // Un archivé ne garde pas de programme à venir : l'écran propose ensuite de le retirer (3.1.469).
-  const aRetirer = statut === 'archive' ? programmeDesArchives(ids.filter(id => !refuses.includes(id)), anneeDeTravail(req), req) : null;
+  /* ARCHIVÉ OU SORTI, IL EST PARTI (3.5.270, Charles : « s'ils n'ont pas de PAE, ils n'ont pas été là ; ce n'est pas les
+     cacher ; ils sont partis s'ils sont archivés ») : ses unités SANS résultat de l'année de travail et des suivantes se retirent
+     dans le même geste (porte du PAE, origine « archivage ») ; ce qui porte une note ou un report reste et se nomme. */
+  let aRetirer = null;
+  if (statut === 'archive' || statut === 'sorti') {
+    db.transaction(() => { aRetirer = programmeDesArchives(ids.filter(id => !refuses.includes(id)), anneeDeTravail(req), req, false); })();
+  }
   res.json({ ok: true, faits, refuses, programme: aRetirer && { ues: aRetirer.ues, etudiants: aRetirer.etudiants, conservees: aRetirer.conservees } });
 });
 
@@ -7232,7 +7243,7 @@ r.post('/statut', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
  * inscriptions SANS résultat, note ni report se retirent par la porte unique ; ce qui porte une trace
  * reste, et se nomme. Simulation d'abord. */
 function programmeDesArchives(ids, annee, req, simulation = true) {
-  const archives = ids.filter(id => db.prepare(`SELECT 1 FROM etudiant WHERE id = ? AND sortie_statut = 'archive'`).get(id));
+  const archives = ids.filter(id => db.prepare(`SELECT 1 FROM etudiant WHERE id = ? AND sortie_statut IN ('archive', 'sorti')`).get(id));
   let ues = 0; const etudiants = new Set(); const conservees = [];
   const par = req.user?.email || req.user?.nom || null;
   for (const id of archives) {
@@ -7248,6 +7259,30 @@ function programmeDesArchives(ids, annee, req, simulation = true) {
   }
   return { ues, etudiants: etudiants.size, conservees };
 }
+
+/* LE NETTOYAGE DE L'ANNÉE (3.5.270, Charles : « les deux » — cacher, et retirer) : tous les archivés et sortis qui gardent des
+   unités SANS résultat dans l'année de travail ou les suivantes. La direction ; simulation d'abord ; la porte du PAE
+   (ecrireProgramme, origine « archivage ») garde ce qui porte une note ou un report et le nomme. */
+const ARCHIVES_INSCRITS = `SELECT DISTINCT e.id FROM etudiant e JOIN etudiant_inscription i ON i.etudiant_id = e.id
+  WHERE e.sortie_statut IN ('archive', 'sorti') AND i.annee_scolaire >= ? AND i.resultat IS NULL`;
+r.get('/statut/archives-inscrits', authRequired, (req, res) => {
+  if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.json({ etudiants: 0 });
+  const annee = anneeDeTravail(req);
+  const ids = db.prepare(ARCHIVES_INSCRITS).all(annee).map(x => x.id);
+  const n = ids.length ? db.prepare(`SELECT COUNT(*) n FROM etudiant_inscription WHERE annee_scolaire >= ? AND resultat IS NULL
+    AND etudiant_id IN (${ids.map(() => '?').join(',')})`).get(annee, ...ids).n : 0;
+  res.json({ annee, etudiants: ids.length, inscriptions: n });
+});
+r.post('/statut/nettoyer-archives', authRequired, (req, res) => {
+  if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const annee = anneeDeTravail(req);
+  const ids = db.prepare(ARCHIVES_INSCRITS).all(annee).map(x => x.id);
+  const simulation = req.body?.simulation !== false;
+  let b;
+  db.transaction(() => { b = programmeDesArchives(ids, annee, req, simulation); })();
+  const nom = db.prepare("SELECT UPPER(nom) || ' ' || COALESCE(prenom, '') AS n FROM etudiant WHERE id = ?");
+  res.json({ ok: true, simulation, annee, ...b, conservees: b.conservees.slice(0, 200).map(c => ({ ...c, nom: nom.get(c.etudiant_id)?.n || '' })) });
+});
 
 r.post('/statut/retirer-programme', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean);

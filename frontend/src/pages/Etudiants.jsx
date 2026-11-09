@@ -1,3 +1,4 @@
+import NettoyerArchives from '../components/NettoyerArchives.jsx';
 import SuiviEspace from '../components/SuiviEspace.jsx';
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import ImportTfe from '../components/ImportTfe.jsx';
@@ -3522,7 +3523,9 @@ export default function Etudiants() {
     if (statutCible === 'sorti') {
       motif = await saisir(`Sortir ${ids.length} étudiant(s) du cursus.\n\nMotif (facultatif) : abandon, réorientation…`);
       if (motif === null) return;
-    } else if (!(await demander(`${ids.length} étudiant(s) : ${LIB[statutCible]} ?\n\nRien n'est effacé — le geste est réversible.`))) return;
+    } else if (!(await demander(`${ids.length} étudiant(s) : ${LIB[statutCible]} ?\n\n${statutCible === 'archive'
+      ? 'Un archivé est parti : ses unités sans résultat de cette année et des suivantes sont retirées de son programme. Ses résultats et son parcours restent.'
+      : 'Rien n’est effacé — le geste est réversible.'}`))) return;
     const rep = await fetch('/api/etudiants/statut', {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ ids, statut: statutCible, motif }),
@@ -3530,19 +3533,10 @@ export default function Etudiants() {
     const j = await rep.json().catch(() => ({}));
     if (!rep.ok) { informer(j.error || `Refusé (${rep.status})`); return; }
     if (j.refuses?.length) informer(`${j.faits} traité(s). ${j.refuses.length} hors de votre périmètre, laissé(s) tels quels.`);
-    /* UN ARCHIVÉ N'A PAS DE PROGRAMME BLEU (3.1.469) : ses unités de l'année de travail et des suivantes
-       sans résultat, note ni report se retirent — sur demande, après avoir vu combien. */
-    if (statutCible === 'archive' && j.programme?.ues > 0) {
+    // Archivé ou sorti : ses unités sans résultat de l'année sont retirées dans le même geste (3.5.270).
+    if ((statutCible === 'archive' || statutCible === 'sorti') && j.programme) {
       const p = j.programme;
-      const garde = p.conservees?.length ? `\n\n${p.conservees.length} unité(s) portant une note ou un report restent.` : '';
-      if (await demander(`${p.etudiants} étudiant(s) archivé(s) ont encore un programme : ${p.ues} unité(s) sans résultat, cette année ou après.\n\nLes retirer ?${garde}`)) {
-        const r2 = await fetch('/api/etudiants/statut/retirer-programme', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ ids, simulation: false }),
-        });
-        const j2 = await r2.json().catch(() => ({}));
-        informer(r2.ok ? `✓ ${j2.ues} unité(s) retirée(s) du programme de ${j2.etudiants} étudiant(s).` : (j2.error || `Refusé (${r2.status})`));
-      }
+      if (p.ues || p.conservees?.length) informer(`${p.ues} unité(s) retirée(s) du programme de ${p.etudiants} étudiant(s).${p.conservees?.length ? ` ${p.conservees.length} unité(s) portant une note ou un report restent.` : ''}`);
     }
     setSelEtudiants(new Set());
     await charger();
@@ -3753,6 +3747,7 @@ export default function Etudiants() {
         Étudiants <span className="compte">· {filtres.length}</span>
         <EffectifsCourts />
       </h1>
+      <NettoyerArchives onFait={() => charger()} />
 
       {/* UNE LIGNE, L'ESSENTIEL VISIBLE (3.1.456, maquette validée par Charles le 29 octobre 2026 :
           « trop de boutons, cet écran est ancien »). Recherche, section, niveau et statut restent
