@@ -94,5 +94,20 @@ X.ecrireGrille(l[0], gr.filter(q => q.aa_code), 'test');
 t('la grille se garde et se relit', X.lireGrille(l[0]).length === 2);
 const pg2 = X.garde({ ...l[0], etudiants: [] });
 t('la page de garde lit la grille : questions, sommes par acquis, total', pg2.includes('Grille de correction') && pg2.includes('Décrire') && pg2.includes('Q1, Q3') && pg2.includes('…… / 14') && pg2.includes('× 1,429'), pg2.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 900));
+// ── Le canevas horaire des examens (3.5.252) ──
+db.exec("CREATE TABLE IF NOT EXISTS horaire_seance (id INTEGER PRIMARY KEY, annee_scolaire TEXT, classe TEXT, section TEXT, date TEXT, heure_debut TEXT, heure_fin TEXT, minutes INTEGER, cours_code TEXT, ue_num INTEGER, matiere TEXT, professeur_texte TEXT, professeur_id INTEGER, local_texte TEXT, annule INTEGER DEFAULT 0, bloc TEXT, sous_groupe TEXT)");
+db.exec("CREATE TABLE IF NOT EXISTS ue_section (ue_num INTEGER, section_code TEXT, annee_scolaire TEXT)");
+try { db.exec("ALTER TABLE ue ADD COLUMN ue_tc TEXT"); } catch {}
+db.exec("CREATE TABLE IF NOT EXISTS amenagement_ue (dossier_id INTEGER, ue_num INTEGER)");
+db.prepare("INSERT INTO amenagement_mesure VALUES (3, 7, 'Temps supplémentaire lors des évaluations', NULL, NULL, 1)").run();
+db.prepare("INSERT INTO horaire_seance (annee_scolaire, section, date, heure_debut, heure_fin, cours_code, ue_num, professeur_id, local_texte, sous_groupe) VALUES (?, 'TIM', '2026-10-23', '13:15', '15:15', '256.2', 256, 1, 'LABO A', '2')").run(A);
+const RP = await import('../src/routes/rapports.js');
+const cv = RP.canevasExamens({ annee: A, du: '2026-10-01', au: '2026-10-31' });
+const ep = cv.find(x => x.epreuve), co = cv.find(x => !x.epreuve);
+t('canevas : le cours puis l’épreuve, par heure', cv.length === 2 && cv[0].type === 'COURS' && cv[1].epreuve, cv.map(x => x.type));
+t('canevas : fin avec 1/3 de temps pour l’aménagement', ep.fin === '19h15' && ep.fin_tiers === '19h45' && ep.nb === 2, ep);
+t('canevas : le cours de l’horaire, son groupe et son local', co.titulaires === 'MARTIN' && co.gr === '2' && co.local1 === 'LABO A' && co.annee === 'B3', co);
+const xl = await RP.excelCanevas({ annee: A, du: '2026-10-01', au: '2026-10-31' });
+t('canevas : le tableur', xl.buffer.byteLength > 3000);
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);
