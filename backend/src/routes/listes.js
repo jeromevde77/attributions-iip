@@ -217,13 +217,17 @@ r.get('/etudiants', authRequired, (req, res) => {
     const vas = new Set([...disp].filter(([, d]) => d.ue).map(([id]) => id));
     const dispCours = new Map();
     if (cours_code) for (const [id, d] of disp) if (!d.ue && d.cours.has(cours_code)) dispCours.set(id, d.cours.get(cours_code));
-    // Report : la réussite d'une année ANTÉRIEURE, avec sa note et son année.
-    const reports = new Map();
+    /* DÉJÀ RÉUSSIE N'EST PAS UN REPORT (3.5.271, Charles : « la liste qui sort me semble étrange »). La réussite de l'unité une
+       année antérieure se lisait « Dispensé — report », et TOUT étudiant de l'année qui l'avait réussie un jour s'ajoutait en
+       bas de la liste, inscrit ou non à l'unité. Désormais : un inscrit qui l'a déjà réussie est signalé « déjà réussie » (son
+       inscription est à revoir) ; un non-inscrit n'entre dans la liste que par une VA de l'unité retenue cette année. Le report
+       de NOTE (un cours réussi, `etudiant_report_note`) vient de lib/dispenses.js : « dispensé du cours — report 2025-2026 ». */
+    const reussies = new Map();
     for (const x of db.prepare(`
       SELECT etudiant_id, annee_scolaire, points FROM etudiant_inscription
       WHERE ue_num = ? AND annee_scolaire < ? AND resultat = 'reussi'
       ORDER BY annee_scolaire DESC`).all(ueNum, annee)) {
-      if (!reports.has(x.etudiant_id)) reports.set(x.etudiant_id, x);
+      if (!reussies.has(x.etudiant_id)) reussies.set(x.etudiant_id, x);
     }
     for (const x of lignes) {
       const d = disp.get(x.id);
@@ -231,36 +235,28 @@ r.get('/etudiants', authRequired, (req, res) => {
         dispenses.push({ ...x, statut: `Dispensé — ${d.ue} (${noteVA})`, resultat: '', points: null });
       } else if (dispCours.has(x.id)) {
         dispenses.push({ ...x, statut: `Dispensé du cours — ${dispCours.get(x.id)}`, resultat: '', points: null });
-      } else if (reports.has(x.id)) {
-        const r0 = reports.get(x.id);
+      } else if (reussies.has(x.id)) {
+        const r0 = reussies.get(x.id);
         dispenses.push({ ...x,
-          statut: `Dispensé — report ${r0.annee_scolaire}${r0.points != null ? ` (${r0.points}/20)` : ''}`,
+          statut: `Déjà réussie en ${r0.annee_scolaire}${r0.points != null ? ` (${r0.points}/20)` : ''} — inscription à revoir`,
           resultat: '', points: null });
       } else {
-        // Une dispense partielle d'autres cours se dit, sans retirer l'étudiant.
+        // Une dispense partielle d'autres cours (VAP, report de note) se dit, sans retirer l'étudiant.
         const autres = d && !d.ue ? [...d.cours].filter(([c]) => c !== cours_code) : [];
         nonDisp.push(autres.length ? { ...x, statut: `Inscrit — dispensé de ${autres.map(([c, l]) => `${c} (${l})`).join(', ')}` } : x);
       }
     }
-    // Ceux qui ont l'unité par VA ou report SANS y être inscrits cette année :
-    // ils appartiennent aussi à la liste des dispensés, s'ils sont de l'année.
-    const presents = new Set(db.prepare(
-      'SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire = ?')
-      .all(annee).map(x => x.etudiant_id));
+    // Ceux qui ont l'unité par une VA retenue cette année SANS y être inscrits : dans la liste des dispensés.
     const dejaListes = new Set([...nonDisp, ...dispenses].map(x => x.id));
-    for (const [eid, quoi] of [...vas].map(v => [v, 'va'])
-      .concat([...reports.keys()].map(k => [k, 'report']))) {
-      if (dejaListes.has(eid) || !presents.has(eid)) continue;
+    for (const eid of vas) {
+      if (dejaListes.has(eid)) continue;
       const e = db.prepare(
-        'SELECT id, nom, prenom, id_ecampus, email_ecole FROM etudiant WHERE id = ? AND actif = 1').get(eid);
+        "SELECT id, nom, prenom, id_ecampus, email_ecole FROM etudiant WHERE id = ? AND actif = 1 AND COALESCE(sortie_statut, '') NOT IN ('archive', 'sorti')").get(eid);
       if (!e) continue;
       const x = enrichir({ ...e, resultat: null, points: null });
       if (!garder(x)) continue;
       dejaListes.add(eid);
-      const r0 = reports.get(eid);
-      dispenses.push({ ...x,
-        statut: quoi === 'va' ? `Dispensé — VA (${noteVA})`
-          : `Dispensé — report ${r0.annee_scolaire}${r0.points != null ? ` (${r0.points}/20)` : ''}` });
+      dispenses.push({ ...x, statut: `Dispensé — ${disp.get(eid)?.ue || 'VA'} (${noteVA}) — sans inscription` });
     }
     dispenses.sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
     lignes = [...nonDisp, ...dispenses];
