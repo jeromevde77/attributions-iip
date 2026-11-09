@@ -936,6 +936,7 @@ function MonPAE({ onErreur, email }) {
           <button type="button" className="bouton bouton-fort w-full" disabled={enCours}
             onClick={() => geste('/code', { objet_type: 'pae', objet_id: Number(String(o.annee).slice(0, 4)) }, () => setCodeEnvoye(true))}>
             <IconSignature size={15} /> Confirmer mon PAE</button>))}
+        {!signe && !attend && <SignalerPAE onErreur={onErreur} />}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
       </div>);
   }
@@ -955,6 +956,7 @@ function MonPAE({ onErreur, email }) {
           {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
+        {prog.length > 0 && <SignalerPAE onErreur={onErreur} />}
       </div>);
   }
 
@@ -989,6 +991,31 @@ function MonPAE({ onErreur, email }) {
         onClick={() => geste('/pae/proposer', { ues: [...choix] })}>Envoyer ma proposition — {n + verrouillees} unité{n + verrouillees > 1 ? 's' : ''}</button>}
     </div>
   );
+}
+
+/** MON PROGRAMME N'EST PAS JUSTE (3.5.278, Charles : « tu ne permets pas de refuser le PAE ! ») : sur l'écran du PAE, à côté de
+ *  « Confirmer » ; le message part à la coordination de la section et au secrétariat (/pae/signaler, comme la fenêtre d'entrée). */
+function SignalerPAE({ onErreur }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [mot, setMot] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+  const [parti, setParti] = useState(false);
+  if (parti) return <Encadre etat="reussi">Votre message est parti à votre coordination et au secrétariat : ils vous répondront dans « Messages ».</Encadre>;
+  if (!ouvert) return <button type="button" className="bouton w-full" onClick={() => setOuvert(true)}>Mon programme n’est pas juste</button>;
+  const envoyer = async () => {
+    setEnvoi(true);
+    try { await appel('POST', '/pae/signaler', { message: mot }); setParti(true); try { sessionStorage.setItem(PAE_REMIS, '1'); } catch { /* */ } }
+    catch (e) { onErreur(e); } finally { setEnvoi(false); }
+  };
+  return (
+    <div className="carte p-4 space-y-2 text-sm">
+      <p className="m-0">Dites ce qui ne va pas : une unité qui manque, une unité en trop… Votre coordination et le secrétariat reçoivent votre message et vous répondent.</p>
+      <textarea className="controle w-full !h-auto py-2" rows={3} value={mot} onChange={e => setMot(e.target.value)} placeholder="Par exemple : l’UE 250 manque à mon programme." />
+      <div className="flex justify-end gap-2">
+        <button type="button" className="bouton" onClick={() => setOuvert(false)}>Annuler</button>
+        <button type="button" className="bouton bouton-fort" disabled={envoi || mot.trim().length < 5} onClick={envoyer}>Envoyer à ma coordination</button>
+      </div>
+    </div>);
 }
 
 /** Choisir son mot de passe : après le lien (première visite, oubli), ou depuis « Mon compte » avec l'actuel. */
@@ -1063,12 +1090,11 @@ function Espace() {
      on retire le focus. */
   useEffect(() => { if (d && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!d]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [face, setFace] = useState('aujourdhui');
-  /* LA VISITE GUIDÉE (3.5.276-277) : à la première entrée, AVANT tout — et son premier acte est le PAE (Charles : « ça doit être le
-     premier acte de chacun ») : l'étape du PAE ouvre la confirmation, puis la visite reprend à l'étape suivante. Relancée depuis Aide.
-     Visite fermée sans confirmer : la fenêtre du PAE s'ouvre comme avant. */
+  /* LA VISITE GUIDÉE (3.5.276-278) : à la première entrée, AVANT tout ; elle finit sur « Mon PAE » (Charles : « après le tour, tu vas
+     à cette fenêtre » — confirmer, ou dire que le programme n'est pas juste). La fenêtre de confirmation ne la recouvre pas dans la
+     même visite ; aux connexions suivantes, tant que rien n'est fait, elle revient. Relancée depuis Aide. */
   const [visite, setVisite] = useState(false);
   const [visiteDepart, setVisiteDepart] = useState(0);
-  const [paeDansVisite, setPaeDansVisite] = useState(false);
   const paeEnAttente = !!(d?.pae_a_valider && !d.apercu && !paeRemis);
   const idEtud = d?.etudiant?.matricule || d?.etudiant?.email;   // /moi ne rend pas l’identifiant interne
   useEffect(() => { if (idEtud && !visiteVue(idEtud)) { const t = setTimeout(() => { setVisiteDepart(0); setVisite(true); }, 400); return () => clearTimeout(t); } return undefined; }, [idEtud]);
@@ -1315,7 +1341,6 @@ function Espace() {
       {paeEnAttente && !visite && (
         <ValiderPAE annee={d.pae_a_valider.annee} onFait={quoi => {
           setPaeRemis(true); if (quoi === 'valide') setD(x => ({ ...x, pae_a_valider: null }));
-          if (paeDansVisite) { setPaeDansVisite(false); setVisite(true); }
         }} />)}
       <div className="space-y-4" data-visite="contenu">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
@@ -1412,10 +1437,9 @@ function Espace() {
           </FenetreEspace>)}
       </div>
       </main>
-      {visite && idEtud && <VisiteGuidee etudiantId={idEtud} depart={visiteDepart} paeAValider={paeEnAttente} aller={aller}
+      {visite && idEtud && <VisiteGuidee etudiantId={idEtud} depart={visiteDepart} aller={aller}
         dispo={et => FACES.some(([k]) => k === et.face) && (!et.sous || (SOUS[et.face] || []).some(([k]) => k === et.sous))}
-        onPAE={suite => { setVisiteDepart(suite); setPaeDansVisite(true); setVisite(false); }}
-        onFin={() => { setVisite(false); setPaeDansVisite(false); setFace('aujourdhui'); }} />}
+        onFin={dest => { setVisite(false); if (dest === 'pae') { setPaeRemis(true); aller('parcours', 'pae'); window.scrollTo({ top: 0 }); } else setFace('aujourdhui'); }} />}
     </div>
   );
 }

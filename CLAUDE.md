@@ -3123,7 +3123,9 @@ et les gestes clés ; texte proposé, relu par Charles). 3.5.277 (« tu ne déta
 doit être le premier acte de chacun ») : la visite s'ouvre AVANT la confirmation du PAE ; chaque étape ouvre son écran (`face`, `sous`
 → `aller`) et le pointe (`data-visite="contenu"`, l'entrée du rail cerclée) ; l'étape du PAE ouvre `ValiderPAE` (`onPAE`) puis la visite
 reprend à l'étape suivante (`depart`). `frontend/src/portail/VisiteGuidee.jsx` (`ETAPES_VISITE`) ; une étape dont l'écran n'est pas
-ouvert pour l'étudiant (`dispo`) est sautée ; vue gardée en
+ouvert pour l'étudiant (`dispo`) est sautée ; 3.5.278 (« après le tour, tu vas à cette fenêtre ; tu ne permets pas de refuser le PAE ! ») :
+plus de confirmation au milieu de la visite — elle FINIT sur « Mon PAE » (`onFin('pae')`, même fermée), et l'écran Mon PAE porte
+« Mon programme n'est pas juste » (`SignalerPAE`, /pae/signaler) à côté de « Confirmer » ; vue gardée en
 `localStorage` par matricule (par appareil). **Une face nouvelle de l'espace étudiant ajoute son étape à `ETAPES_VISITE`.**
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`

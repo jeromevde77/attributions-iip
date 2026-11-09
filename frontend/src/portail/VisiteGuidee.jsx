@@ -16,13 +16,7 @@ import { IconArrowLeft, IconArrowRight, IconX } from '@tabler/icons-react';
 export const ETAPES_VISITE = [
   { cible: null, titre: 'Bienvenue dans votre espace',
     texte: 'Votre espace réunit ce que l’Institut vous adresse : votre programme, vos documents, vos résultats, vos messages et vos démarches. La visite ouvre chaque écran et vous montre ce qu’il contient.',
-    gestes: ['Premier geste : vérifier et confirmer votre programme de l’année (votre PAE).', '« Suivant » pour avancer, « Passer » pour fermer.', 'Vous pourrez relancer la visite à tout moment depuis « Aide ».'] },
-  { face: 'parcours', sous: 'pae', cible: 'contenu', pae: true, titre: 'Votre premier geste : votre PAE',
-    texte: 'Votre PAE (programme annuel de l’étudiant) est la liste des unités que vous suivez cette année. Tout le reste en dépend : vos cours, vos examens, vos frais.',
-    gestes: ['Relisez vos unités : numéro, intitulé, crédits ECTS.',
-      'S’il est juste, confirmez-le : votre confirmation est enregistrée à votre nom.',
-      'S’il ne l’est pas (une unité manque, une est en trop), dites-le : votre coordination et le secrétariat reçoivent votre message et vous répondent.',
-      'Quand la période est annoncée, c’est ici aussi que vous proposez les unités de l’année suivante.'] },
+    gestes: ['« Suivant » pour avancer, « Passer » pour fermer.', 'À la fin, la visite vous mène à votre premier geste : vérifier votre programme de l’année (votre PAE), puis le confirmer ou dire ce qui ne va pas.', 'Vous pourrez relancer la visite à tout moment depuis « Aide ».'] },
   { face: 'aujourdhui', cible: 'contenu', titre: 'Aujourd’hui',
     texte: 'Votre point de départ, à chaque visite : ce qui vous attend, une ligne par chose.',
     gestes: ['Documents et règlements à signer, messages non lus : ils apparaissent ici en premier.', 'Touchez une ligne : elle vous mène là où la faire.'] },
@@ -68,8 +62,14 @@ export const ETAPES_VISITE = [
     texte: 'Votre mot de passe et vos appareils reconnus.',
     gestes: ['Trois appareils au plus sont reconnus ; sur un autre, un code vous est demandé en plus du mot de passe.',
       'Un appareil perdu ou un ordinateur partagé ? Retirez-le ici.'] },
-  { cible: null, titre: 'C’est parti',
-    texte: 'À chaque visite, commencez par « Aujourd’hui » : tout ce qui vous attend y est. Bonne année à l’Institut !' },
+  { cible: null, fin: 'pae', titre: 'À vous : votre PAE',
+    texte: 'Votre premier geste : vérifier votre programme de l’année (votre PAE). Tout le reste en dépend : vos cours, vos examens, vos frais.',
+    gestes: ['Relisez vos unités : numéro et intitulé.',
+      'S’il est juste : « Confirmer mon PAE ». Un code à six chiffres part à votre adresse de l’institut ; tapez-le pour confirmer.',
+      'S’il ne l’est pas (une unité manque, une est en trop) : « Mon programme n’est pas juste ». Votre coordination et le secrétariat reçoivent votre message et vous répondent.'],
+    bouton: 'Aller à mon PAE' },
+  { cible: null, fin: 'aujourdhui', titre: 'C’est parti',
+    texte: 'À chaque visite, commencez par « Aujourd’hui » : tout ce qui vous attend y est. Bonne année à l’Institut !', bouton: 'Commencer' },
 ];
 
 const cleVue = id => `lucie.visite.${id}`;
@@ -81,12 +81,16 @@ const LARGEUR = 380;
 const rectDe = sel => { const el = sel && document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; };
 
 /**
- * `dispo(etape)` dit si l'écran de l'étape existe pour cet étudiant ; `aller(face, sous)` l'ouvre ; `paeAValider` : la confirmation
- * du PAE est attendue — l'étape du PAE la propose (`onPAE(rang)` : le parent ferme la visite, ouvre la confirmation, puis rouvre la
- * visite à l'étape suivante par `depart`).
+ * `dispo(etape)` dit si l'écran de l'étape existe pour cet étudiant ; `aller(face, sous)` l'ouvre. La visite finit TOUJOURS sur le
+ * PAE quand il est ouvert (3.5.278, Charles : « après le tour, tu vas à cette fenêtre ») : `onFin('pae')`, que la visite soit
+ * suivie jusqu'au bout ou fermée.
  */
-export default function VisiteGuidee({ etudiantId, dispo = () => true, aller, paeAValider = false, onPAE, depart = 0, onFin }) {
-  const [etapes] = useState(() => ETAPES_VISITE.filter(e => (!e.face || dispo(e)) && (!e.cible || e.cible === 'contenu' || document.querySelector(`[data-visite="${e.cible}"]`))));
+export default function VisiteGuidee({ etudiantId, dispo = () => true, aller, depart = 0, onFin }) {
+  const [etapes] = useState(() => {
+    const paeOuvert = dispo({ face: 'parcours', sous: 'pae' });
+    return ETAPES_VISITE.filter(e => (!e.face || dispo(e)) && (!e.cible || e.cible === 'contenu' || document.querySelector(`[data-visite="${e.cible}"]`))
+      && (!e.fin || (e.fin === 'pae') === paeOuvert));
+  });
   const [i, setI] = useState(() => Math.min(depart, etapes.length - 1));
   const [rect, setRect] = useState(null);
   const [rail, setRail] = useState(null);
@@ -115,7 +119,7 @@ export default function VisiteGuidee({ etudiantId, dispo = () => true, aller, pa
     return () => { clearInterval(t); clearTimeout(arret); window.removeEventListener('resize', mesurer); window.removeEventListener('scroll', mesurer, true); };
   }, [mesurer]);
 
-  const finir = useCallback(() => { marquerVue(etudiantId); onFin?.(); }, [etudiantId, onFin]);
+  const finir = useCallback(() => { marquerVue(etudiantId); onFin?.(etapes[etapes.length - 1]?.fin || 'aujourdhui'); }, [etudiantId, onFin, etapes]);
   useEffect(() => {
     const k = ev => {
       if (ev.key === 'Escape') finir();
@@ -131,7 +135,6 @@ export default function VisiteGuidee({ etudiantId, dispo = () => true, aller, pa
   const telephone = vue.w < 768;
   const larg = Math.min(LARGEUR, vue.w - 32);
   const contenu = e.cible === 'contenu';
-  const actionPAE = e.pae && paeAValider && onPAE;
 
   // Le trou du voile : l'écran ouvert (borné à la fenêtre), ou l'entrée visée.
   const trou = rect && (contenu
@@ -178,12 +181,10 @@ export default function VisiteGuidee({ etudiantId, dispo = () => true, aller, pa
           <div className="flex gap-1 mr-auto" aria-hidden="true">
             {etapes.map((_, n) => <span key={n} className="w-1.5 h-1.5 rounded-full" style={{ background: n === i ? 'var(--c-principal, #16406A)' : 'rgb(var(--gris-300, 203 213 225))' }} />)}
           </div>
-          {!dernier && !actionPAE && <button type="button" className="text-second text-slate-500 underline px-1" onClick={finir}>Passer</button>}
+          {!dernier && <button type="button" className="text-second text-slate-500 underline px-1" onClick={finir}>Passer</button>}
           {i > 0 && <button type="button" className="bouton" onClick={() => setI(i - 1)} aria-label="Étape précédente"><IconArrowLeft size={15} /></button>}
-          {actionPAE
-            ? <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => onPAE(i + 1)}>Vérifier et confirmer mon PAE <IconArrowRight size={15} /></button>
-            : <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => (dernier ? finir() : setI(i + 1))}>
-                {dernier ? 'Commencer' : <>Suivant <IconArrowRight size={15} /></>}</button>}
+          <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => (dernier ? finir() : setI(i + 1))}>
+            {dernier ? <>{e.bouton || 'Commencer'} <IconArrowRight size={15} /></> : <>Suivant <IconArrowRight size={15} /></>}</button>
         </div>
       </div>
     </div>);
