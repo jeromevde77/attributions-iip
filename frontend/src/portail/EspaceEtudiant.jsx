@@ -3,6 +3,7 @@ import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
 import MonAmenagement from './MonAmenagement.jsx';
+import VisiteGuidee, { visiteVue } from './VisiteGuidee.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
@@ -753,9 +754,11 @@ const GRILLE = [
   ['10 (faveur)', "Le Conseil des études a accordé l'unité : elle vaut 10 partout, chaque acquis compris."],
   ['VA', 'Unité valorisée : vous en êtes dispensé, sur la base de vos études ou de votre expérience.'],
 ];
-function AideRegles() {
+function AideRegles({ onRevoir }) {
   return (
     <div className="space-y-5">
+      {onRevoir && <div><button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={onRevoir}>
+        <IconRoute size={15} /> Revoir la visite guidée</button></div>}
       <section className="space-y-2">
         <h2 className="intertitre flex items-center gap-2">Votre espace, en bref</h2>
         <ListeEtats>{GUIDE.map(([t, x]) => <LigneEtat key={t} titre={t} sous={null}><div className="text-sm text-slate-600 -mt-1">{x}</div></LigneEtat>)}</ListeEtats>
@@ -1060,6 +1063,11 @@ function Espace() {
      on retire le focus. */
   useEffect(() => { if (d && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!d]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [face, setFace] = useState('aujourdhui');
+  // LA VISITE GUIDÉE (3.5.276) : à la première entrée, une fois le PAE confirmé (ou remis à plus tard) ; relancée depuis Aide.
+  const [visite, setVisite] = useState(false);
+  const paeEnAttente = !!(d?.pae_a_valider && !d.apercu && !paeRemis);
+  const idEtud = d?.etudiant?.matricule || d?.etudiant?.email;   // /moi ne rend pas l’identifiant interne
+  useEffect(() => { if (idEtud && !paeEnAttente && !visiteVue(idEtud)) { const t = setTimeout(() => setVisite(true), 400); return () => clearTimeout(t); } return undefined; }, [idEtud, paeEnAttente]);
   const [sous, setSous] = useState({});
   const [texte, setTexte] = useState(null);   // règlement ouvert
   const [nonLus, setNonLus] = useState(0);
@@ -1381,7 +1389,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
-        {d && face === 'aide' && <AideRegles />}
+        {d && face === 'aide' && <AideRegles onRevoir={() => { setFace('aujourdhui'); setTimeout(() => setVisite(true), 150); }} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>
@@ -1397,6 +1405,7 @@ function Espace() {
           </FenetreEspace>)}
       </div>
       </main>
+      {visite && idEtud && <VisiteGuidee etudiantId={idEtud} onFin={() => { setVisite(false); setFace('aujourdhui'); }} />}
     </div>
   );
 }
