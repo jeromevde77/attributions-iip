@@ -95,7 +95,10 @@ export function droitsSurLUE(user, ueNum, annee) {
        référent est le « responsable de l'unité » choisi dans la DUE ; tant qu'il n'est pas choisi, celui que Lucie propose
        (l'enseignant qui porte le plus de périodes). Un titulaire qui n'est ni l'un ni l'autre lit. */
     const referent = titulaire && u?.professeur_id && referentDe(ueNum, annee) === Number(u.professeur_id);
-    return { lire: titulaire || coord, ecrire: peutRediger && (referent || coord), valider: peutValider, titulaire, coordination: coord, referent: !!referent };
+    /* TOUS LES TITULAIRES DE L'UNITÉ ÉCRIVENT (3.5.255, Charles : « tous les professeurs qui donnent cours dans l'UE dont on gère
+       les croisements doivent pouvoir modifier les pondérations, etc., dans unité, croiser, DUE ») : la règle de 3.5.144 (le
+       référent seul) est levée. Le référent reste celui qui signe la DUE ; la direction valide et fixe. */
+    return { lire: titulaire || coord, ecrire: peutRediger && (titulaire || coord), valider: peutValider, titulaire, coordination: coord, referent: !!referent };
   }
 
   /* Les autres lisent selon leur périmètre : la gestion de la section OU une

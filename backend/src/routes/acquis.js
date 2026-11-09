@@ -2677,14 +2677,14 @@ function fixerPonderation(ueDe) {
   return (req, res, next) => {
     /* LE RÉFÉRENT ET LA COORDINATION VALIDENT OU CHANGENT LA PROPOSITION (3.5.254, Charles : « les pondérations proposées à
        l'étape 1 par acquis dans le cours, proposées en gris et à valider ou changer par le prof ») : qui rédige la DUE de l'unité
-       (droitsSurLUE : référent, coordination) enregistre les points ; seule la direction les FIXE (marquerPonderationFixee), et
+       (droitsSurLUE : enseignants de l'unité, coordination — 3.5.255) enregistre les points ; seule la direction les FIXE (marquerPonderationFixee), et
        la validation de la DUE les gèle. */
     const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role);
     const ue = Number(ueDe(req)), annee = req.body?.annee || anneeDeTravail(req);
     let redige = false;
     if (!direction && ue) { try { redige = !!droitsSurLUE(req.user, ue, annee)?.ecrire; } catch { redige = false; } }
     if (!direction && !redige) {
-      return res.status(403).json({ error: 'Les pondérations se règlent par le référent de l’unité, la coordination ou la direction.' });
+      return res.status(403).json({ error: 'Les pondérations se règlent par les enseignants de l’unité, la coordination ou la direction.' });
     }
     if (ue && dueValidee(ue, annee)) {
       return res.status(409).json({ error: `La DUE de l'UE ${ue} est validée : ses pondérations sont gelées. Rouvrez-la d'abord.` });

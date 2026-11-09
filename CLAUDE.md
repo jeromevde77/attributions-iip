@@ -3743,7 +3743,7 @@ bord fusionné avec aujourd'hui » ; « les présences se font à plusieurs endr
 permet : toutes les étapes ; sinon toutes les étapes en lecture »). (1) Espace : Aujourd'hui = `Accueil` de Lucie avec `apresEntete`
 = la frise (`MaJournee`) ; la frise et la semaine envoient une `demande` { action, s, n } à l'unique `MesCours` de l'espace (prop
 `espace.demande`), qui ouvre les présences ou les notes du cours — l'écran de présences de l'espace n'est plus appelé. (2) DUE :
-`droitsSurLUE` — un professeur écrit s'il est COORDINATION ou RÉFÉRENT (`referentDe` : le responsable choisi dans la DUE, à défaut
+`droitsSurLUE` — un professeur écrit s'il est COORDINATION ou RÉFÉRENT (**levé en 3.5.255 : tout titulaire d'un cours de l'UE écrit — croiser, pondérer, DUE ; la direction valide et fixe**) (`referentDe` : le responsable choisi dans la DUE, à défaut
 celui qui porte le plus de périodes) ; un titulaire lit. `AtelierUE` : qui ne peut écrire passe les verrous de l'ordre du travail
 et lit chaque étape (bandeau « Lecture seule »). (3) `GET /api/acquis/ue/:n/(structure|liens)` se lit par tout compte (l'étape
 « Pondérer » en lecture) ; écrire reste gardé par le module.
