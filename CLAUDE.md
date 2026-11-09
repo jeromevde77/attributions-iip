@@ -3100,6 +3100,13 @@ pièce du catalogue non rangée tombe dans « Autres pièces ») · 2 Pour quoi 
 sous-onglets « Pièces par membre / Listes et rapports / Schémas ». **Un rapport nouveau d'un de ces domaines se range dans
 `FAMILLES_RAPPORTS`.**
 
+**LE CROISEMENT REMPLIT LES CRITÈRES DE LA DUE** (3.5.265, Charles : « ce qui est décidé à l'étape d'avant doit être appliqué
+après ; le critère devient le point de programme ; chaque point de programme est une ligne » ; tranché : toujours à jour, une ligne
+sous chaque acquis, le point tel quel mais modifiable, l'existant gardé). `lib/grilleDuCroisement.js` (`synchroniserGrille`,
+`bilanGrille`), appliquée par `routes/due.js` à la LECTURE (persistée, sauf DUE validée) et à l'ENREGISTREMENT : une ligne par
+(acquis, point croisé) avec son origine (`src_point`, `src_cours`), reconnue même reformulée ; croix retirée → ligne retirée si
+vide, sinon `plus_croisee` ; évaluation globale → `__ue__`. L'étape 1 (`CroisementUE.jsx`) ne calcule plus la grille elle-même.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

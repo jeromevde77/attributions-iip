@@ -518,6 +518,15 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
         {!d.droits?.regler_mode && <span className="text-slate-400">— réglé par la coordination ou la direction</span>}
       </div>
       {erreur && <p className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
+      {/* LE CROISEMENT REMPLIT LES CRITÈRES (3.5.265) : chaque croix de l'étape 1 est une ligne ici, le point du programme pour
+          critère, modifiable ; ce qui reste à faire, c'est l'indicateur. */}
+      {d.bilan_criteres?.reprises > 0 && (
+        <p className="text-second text-slate-600 m-0">
+          <b>{d.bilan_criteres.reprises}</b> critère{d.bilan_criteres.reprises > 1 ? 's' : ''} repris du croisement (étape 1)
+          {d.bilan_criteres.a_rediger ? <> · <b>{d.bilan_criteres.a_rediger}</b> indicateur{d.bilan_criteres.a_rediger > 1 ? 's' : ''} à rédiger</> : ' · tous ont leur indicateur'}
+          {d.bilan_criteres.plus_croisees ? <> · <span style={{ color: 'var(--c-attente)' }}>{d.bilan_criteres.plus_croisees} ligne{d.bilan_criteres.plus_croisees > 1 ? 's' : ''} dont la croix a été retirée</span></> : ''}.
+          {' '}Un croisement changé à l’étape 1 se reporte ici ; le critère se reformule librement.
+        </p>)}
       {!lecture && !c.grille_criteres && d.grille_precedente && (
         <p className="text-second text-slate-600">Le tableau de {d.grille_precedente.annee} existe.{' '}
           <button type="button" className="underline" onClick={() => onGrille(d.grille_precedente.grille)}>Le reprendre</button>, puis l'adapter.</p>
@@ -565,6 +574,9 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                     <Tr key={i} className="align-top">
                       {COLONNES_CRIT.map(([k]) => (
                         <td key={k} className="px-1 py-1">
+                          {k === 'point' && l.plus_croisee && (
+                            <span className="block text-mention mb-0.5" style={{ color: 'var(--c-attente)' }}
+                              title="Ce point n'est plus croisé avec cet acquis à l'étape 1. Retirez la ligne si elle n'a plus lieu d'être.">plus croisé à l’étape 1</span>)}
                           {lecture ? <span className="whitespace-pre-line">{avecGras(l[k])}</span>
                             : <>
                               <textarea rows={2} className="controle w-full h-auto py-1 text-second" value={l[k] || ''} data-reponses="non"
