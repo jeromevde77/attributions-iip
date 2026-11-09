@@ -3092,6 +3092,14 @@ l'applicateur de `routes/demandes.js` écrit `ue_dp` à la validation (`ue_dp_or
 long ligne à ligne (`TexteCompare`). **Les intitulés abîmés** (3.5.260-261) se rétablissent d'office une fois au démarrage
 (`reparerNomsAbimes`, `lucie_config` « noms_ue_repares »).
 
+**ÉDITIONS : PERSONNEL, ORGANISATION ET GESTION EN TROIS ZONES** (3.5.264, maquette A validée par Charles). `OngletPersonnel`
+(`CentreImpressionCentral.jsx`) : 1 Pour qui ? (un membre · des membres · tout le personnel) · 2 lequel/lesquels (recherche, statut) ·
+3 les pièces (celles du membre, `SeriePersonnel`, ou `ControleEa12` quand personne n'est choisi). « Tout le personnel » et les
+domaines Organisation et Gestion passent par `RapportsEnZones` : 1 Quelle pièce ? rangée par famille (`FAMILLES_RAPPORTS`, une
+pièce du catalogue non rangée tombe dans « Autres pièces ») · 2 Pour quoi ? · 3 Aperçu — `OngletRapports` prop `zones`. Plus de
+sous-onglets « Pièces par membre / Listes et rapports / Schémas ». **Un rapport nouveau d'un de ces domaines se range dans
+`FAMILLES_RAPPORTS`.**
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

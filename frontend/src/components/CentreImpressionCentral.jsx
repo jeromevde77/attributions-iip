@@ -710,7 +710,79 @@ function ListesEtRapports({ domaine }) {
   );
 }
 
-function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
+/* ÉDITIONS EN TROIS ZONES POUR PERSONNEL, ORGANISATION ET GESTION (3.5.264, Charles, maquette A validée : « pour qui · lesquels ·
+   quoi », comme Étudiants). Pour les pièces qui portent sur l'école, une section ou une unité : 1 « Quelle pièce ? », rangée par
+   famille, chaque pièce une seule fois ; 2 « Pour quoi ? », l'année, la section, la portée ou la période qu'elle demande ;
+   3 l'aperçu, et les sorties dans la barre bleue. « Composer une liste… » ouvre le générateur (colonnes au choix). */
+const FAMILLES_RAPPORTS = {
+  personnel: [
+    ['Le personnel', ['personnel-liste', 'personnel-par-section', 'personnel-temporaires', 'statistiques-personnel']],
+    ['La charge', ['personnel-attributions', 'personnel-charge', 'personnel-encadrement']],
+    ['Les absences', ['registre-absences']],
+  ],
+  organisation: [
+    ['Le programme', ['referentiel-ue', 'referentiel-cours', 'referentiel-poids-ue', 'grille-section', 'referentiel-acquis', 'repartition-acquis']],
+    ['Qui enseigne', ['referentiel-profs-ue', 'referentiel-ue-sans-attribution']],
+    ['L’année : examens et délibérations', ['canevas-examens', 'evaluations-manquantes', 'organisation-seances']],
+    ['Les lieux', ['organisation-locaux']],
+  ],
+  gestion: [
+    ['La charge et la dotation', ['etp']],
+    ['Les chiffres', ['chiffres-cles', 'cout-formations']],
+  ],
+};
+function RapportsEnZones({ domaine, debut = 0 }) {
+  const [catalogue, setCatalogue] = useState(null);
+  const [choisi, setChoisi] = useState(null);      // id d'un rapport, 'schemas' ou 'composer'
+  useEffect(() => {
+    fetch('/api/rapports/catalogue', { headers: authHeaders() })
+      .then(r => r.json()).then(j => setCatalogue((j.rapports || []).filter(r => r.domaine === domaine)))
+      .catch(() => setCatalogue([]));
+  }, [domaine]);
+  const familles = useMemo(() => {
+    const l = catalogue || [];
+    const rangees = (FAMILLES_RAPPORTS[domaine] || []).map(([t, ids]) => [t, ids.map(id => l.find(r => r.id === id)).filter(Boolean)]);
+    const vus = new Set(rangees.flatMap(([, rs]) => rs.map(r => r.id)));
+    const autres = l.filter(r => !vus.has(r.id));
+    return [...rangees, ...(autres.length ? [['Autres pièces', autres]] : [])].filter(([, rs]) => rs.length);
+  }, [catalogue, domaine]);
+  const ligne = (cle, libelle, sous = null) => (
+    <label key={cle} className="flex items-start gap-2 py-1 text-sm cursor-pointer">
+      <input type="radio" name={`piece-${domaine}`} className="mt-0.5 flex-none" checked={choisi === cle} onChange={() => setChoisi(cle)} />
+      <span className="min-w-0">{libelle}{sous && <span className="block text-mention text-slate-400">{sous}</span>}</span>
+    </label>);
+  return (
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] items-start">
+      <div className="rounded-carte p-3 space-y-2" style={ZONE}>
+        <Etape n={debut + 1} titre="Quelle pièce ?" fait={!!choisi} />
+        {!catalogue ? <p className="text-second text-slate-400">Chargement…</p> : (
+          <div className="space-y-2">
+            {familles.map(([t, rs]) => (
+              <div key={t}>
+                <div className="intertitre mt-1">{t}</div>
+                {rs.map(r => ligne(r.id, r.libelle, r.piece ? null : 'tableau'))}
+              </div>))}
+            {domaine === 'organisation' && (
+              <div><div className="intertitre mt-1">Les schémas</div>{ligne('schemas', 'Schéma de capitalisation d’une section')}</div>)}
+            <div className="pt-2 border-t border-slate-200">
+              {ligne('composer', 'Composer une liste…', 'les colonnes au choix')}
+            </div>
+          </div>)}
+      </div>
+      <div className="min-w-0">
+        {!choisi ? (
+          <div className="rounded-carte p-3 space-y-2" style={ZONE}>
+            <Etape n={debut + 2} titre="Pour quoi ?" attend />
+            <p className="text-second text-slate-500 m-0">Choisissez d’abord une pièce : ses réglages (année, section, unité, période) viennent ici, puis l’aperçu.</p>
+          </div>
+        ) : choisi === 'schemas' ? <OngletSchemas />
+          : choisi === 'composer' ? <div className="flex min-h-[32rem]"><CadreListes domaine={domaine} /></div>
+          : <OngletRapports key={choisi} domaine={domaine} sansListe rapportId={choisi} zones={{ debut }} />}
+      </div>
+    </div>);
+}
+
+function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = null }) {
   const { place: placeOutils } = useContext(PlaceOutils) || {};
   /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
      jamais la montrer : pour sortir la charge de l'an dernier — ce que
@@ -976,7 +1048,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className={zones ? 'min-w-0' : 'flex min-h-0 flex-1'}>
       <div className={`w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1 ${sansListe ? 'hidden' : ''}`}>
         {/* UNE LISTE SE PARCOURT, UNE FICHE SE LIT.
             Chaque entrée portait son libellé ET une phrase entière d'aide, en
@@ -1021,8 +1093,10 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
         {!catalogue && <p className="p-4 text-second text-slate-400">Chargement…</p>}
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
+      <div className={zones ? 'space-y-3 min-w-0' : 'flex-1 flex flex-col min-h-0'}>
+        <div className={zones ? 'rounded-carte p-3 space-y-2' : 'px-3 py-2 border-b border-slate-200'} style={zones ? ZONE : undefined}>
+        {zones && <Etape n={zones.debut + 1} titre="Pour quoi ?" fait={!!apercu} attend={!choisi} />}
+        <div className="flex flex-wrap items-center gap-2">
           <select value={annee} onChange={e => setAnnee(e.target.value)}
             className="px-2 py-1 text-second border border-slate-300 rounded"
             title="Année sur laquelle porte la pièce">
@@ -1200,6 +1274,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
             </button>
           )}
         </div>
+        </div>
 
         {erreur && (
           <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-sm
@@ -1220,7 +1295,8 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
         {choisi?.id === 'cout-formations' && (
           <InscritsPrevus replie annee={annee} onEnregistre={() => voir(choisi)} />)}
 
-        <div className="flex-1 overflow-auto min-h-0 bg-slate-100 p-3">
+        <div className={zones ? 'rounded-carte p-3 space-y-2' : 'flex-1 overflow-auto min-h-0 bg-slate-100 p-3'} style={zones ? ZONE : undefined}>
+          {zones && <Etape n={zones.debut + 2} titre="Aperçu" fait={!!apercu?.html} attend={!apercu} />}
           {!choisi && (
             <p className="p-6 text-sm text-slate-400">
               Choisissez une pièce à gauche.
@@ -1296,6 +1372,10 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
      devient celui de la série. */
   const [coches, setCoches] = useState(() => new Set());
   const basculer = id => setCoches(c => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  /* POUR QUI ? (3.5.264, maquette A) : un membre (ses pièces), des membres (les mêmes pièces en série), tout le personnel (les
+     listes et rapports de l'école). */
+  const [pourQui, setPourQui] = useState('un');
+  const [filtreStatut, setFiltreStatut] = useState('');
   useEffect(() => {
     api.professeurs(false, annee).then(l => {
       const liste = Array.isArray(l) ? l : [];
@@ -1400,7 +1480,8 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
   };
   const nom = p => nomPropre(p.nom_prenom || `${p.nom || ''} ${p.prenom || ''}`);
   const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const liste = (profs || []).filter(p => !q || norm(nom(p)).includes(norm(q))).slice(0, 60);
+  const statuts = [...new Set((profs || []).map(p => p.statut).filter(Boolean))].sort();
+  const liste = (profs || []).filter(p => (!q || norm(nom(p)).includes(norm(q))) && (!filtreStatut || p.statut === filtreStatut)).slice(0, 200);
   const ouvrir = id => { onClose?.(); navigate(`/ea12/${id}`); };
   const creer = async () => {
     try {
@@ -1424,41 +1505,72 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
     if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
     ouvrir(j.id);
   };
+  const POUR_QUI = [['un', 'Un membre'], ['des', 'Des membres'], ['tous', 'Tout le personnel']];
+  const zoneUn = (
+    <div className="rounded-carte p-3 space-y-2" style={ZONE}>
+      <Etape n={1} titre="Pour qui ?" fait />
+      <div className="space-y-1.5 text-sm">
+        {POUR_QUI.map(([k, l]) => (
+          <label key={k} className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="pour-qui-personnel" checked={pourQui === k} onChange={() => setPourQui(k)} />{l}
+          </label>))}
+      </div>
+      <div className="text-second text-slate-500 pt-1">Année {annee}</div>
+    </div>);
+  if (pourQui === 'tous') {
+    return (
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,200px)_minmax(0,1fr)] items-start">
+        {zoneUn}
+        <RapportsEnZones domaine="personnel" debut={1} />
+      </div>);
+  }
+  const serie = pourQui === 'des';
   return (
-    <div className="grid gap-4 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] items-start">
-      <div className="space-y-2">
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,200px)_minmax(0,280px)_minmax(0,1fr)] items-start">
+      {zoneUn}
+      <div className="rounded-carte p-3 space-y-2 min-w-0" style={ZONE}>
+        <Etape n={2} titre={serie ? 'Lesquels ?' : 'Lequel ?'} fait={serie ? coches.size > 0 : !!choisi} />
         <div className="relative">
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Nom du membre"
             className="controle controle-icone w-full border border-slate-300 rounded-champ bg-white text-sm" />
         </div>
-        <div className="border border-slate-200 rounded-carte max-h-[50vh] overflow-y-auto">
+        {statuts.length > 1 && (
+          <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)} className="controle w-full" aria-label="Statut">
+            <option value="">Tous les statuts</option>
+            {statuts.map(x => <option key={x} value={x}>{x}</option>)}
+          </select>)}
+        <div className="border border-slate-200 rounded-carte max-h-[55vh] overflow-y-auto bg-white">
           {profs === null ? <p className="p-3 text-second text-slate-400">Chargement…</p>
             : !liste.length ? <p className="p-3 text-second text-slate-400">Personne ne correspond.</p>
             : liste.map(p => {
-              const actif = coches.size < 2 && choisi?.id === p.id;
+              const actif = !serie && choisi?.id === p.id;
               return (
               <div key={p.id} className={`flex items-center border-b border-slate-100 last:border-0 ${actif ? 'bg-iip-blue text-white' : 'hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={coches.has(p.id)} onChange={() => basculer(p.id)}
-                  aria-label={`Cocher ${nom(p)}`} className="ml-2.5 flex-none" />
-                <button type="button" onClick={() => setChoisi(p)} className="flex-1 min-w-0 text-left px-2 py-1.5 text-sm">
+                {serie && <input type="checkbox" checked={coches.has(p.id)} onChange={() => basculer(p.id)}
+                  aria-label={`Cocher ${nom(p)}`} className="ml-2.5 flex-none" />}
+                <button type="button" onClick={() => (serie ? basculer(p.id) : setChoisi(p))} className="flex-1 min-w-0 text-left px-2 py-1.5 text-sm">
                   {nom(p)}{p.statut ? <span className={`ml-1.5 text-xs ${actif ? 'text-white/70' : 'text-slate-400'}`}>{p.statut}</span> : null}
                 </button>
               </div>
             ); })}
         </div>
-        <div className="flex items-center justify-between text-second text-slate-500">
-          <span>{coches.size ? `${coches.size} coché${coches.size > 1 ? 's' : ''}` : 'Cochez pour produire en série'}</span>
-          <span className="flex gap-3">
-            {!!liste.length && <button type="button" className="underline hover:text-iip-blue"
-              onClick={() => setCoches(c => new Set([...c, ...liste.map(p => p.id)]))}>Cocher la liste</button>}
-            {!!coches.size && <button type="button" className="underline hover:text-iip-blue" onClick={() => setCoches(new Set())}>Décocher</button>}
-          </span>
-        </div>
+        {serie && (
+          <div className="flex items-center justify-between text-second text-slate-500">
+            <span>{coches.size ? `${coches.size} coché${coches.size > 1 ? 's' : ''} sur ${(profs || []).length}` : 'Cochez les membres'}</span>
+            <span className="flex gap-3">
+              {!!liste.length && <button type="button" className="underline hover:text-iip-blue"
+                onClick={() => setCoches(c => new Set([...c, ...liste.map(p => p.id)]))}>Cocher la liste</button>}
+              {!!coches.size && <button type="button" className="underline hover:text-iip-blue" onClick={() => setCoches(new Set())}>Décocher</button>}
+            </span>
+          </div>)}
       </div>
-      <div>
-        {coches.size >= 2 ? (
+      <div className="rounded-carte p-3 space-y-3 min-w-0" style={ZONE}>
+        <Etape n={3} titre={serie ? (coches.size ? `Quoi ? — ${coches.size} membre${coches.size > 1 ? 's' : ''}` : 'Quoi ?') : choisi ? `Quoi ? — ${nom(choisi)}` : 'Quoi ?'}
+          attend={serie ? !coches.size : !choisi} />
+        {serie ? (coches.size ? (
           <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} outilsMembre={outilsMembre} />
+        ) : <p className="text-second text-slate-500 m-0">Cochez au moins un membre : ses contrats, fiches et annexes sortent ici, chacune remplie de ses données.</p>
         ) : !choisi ? (
           <ControleEa12 annee={annee} onChoisir={id => { const m = (profs || []).find(x => x.id === id); if (m) setChoisi(m); }} />
         ) : (
@@ -1466,7 +1578,6 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
             {/* SUR LA LIGNE DES FAMILLES (Charles, 27 septembre 2026) : le nom
                 remonte à hauteur de « Pièces par membre · Rapports · Listes » ;
                 il y avait là une bande vide, et le nom descendait d'autant. */}
-            <div className="text-base font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">{nom(choisi)}</div>
             {/* LE STATUT D'ABORD (Charles, 27 septembre 2026) : il dit quelles pièces
                 reviennent à ce membre. Les périodes d'expert ne vont que sur l'EA12
                 et le contrat d'expert ; le reste, sur le contrat et l'EA12 classiques. */}
@@ -1653,7 +1764,6 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
   };
   return (
     <div className="space-y-3">
-      <div className="text-base font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">En série — {ids.length} membres</div>
       <div data-etat="fort" className="bloc-etat px-3 py-2 text-sm" style={{ background: 'var(--blanc)' }}>
         <b>Chaque pièce est remplie des données de chaque membre.</b>{' '}
         <span className="text-slate-500">{noms.slice(0, 6).join(', ')}{noms.length > 6 ? ` et ${noms.length - 6} autres` : ''}.</span>
@@ -2876,29 +2986,8 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
            disait la proposition validée — et l'onglet en tête redevient ce
            qu'il est, l'OUTIL où l'on choisit ses colonnes. */
         <>
-          <div className="mb-3 border-b border-slate-200">
-            <span className="inline-flex flex-wrap">
-              {onglet === 'personnel' && (
-                <button onClick={() => setFamille('pieces')}
-                  className={`onglet-page ${famille === 'pieces' ? 'onglet-page-actif' : ''}`}>
-                  Pièces par membre
-                </button>
-              )}
-              {onglet === 'organisation' && (
-                <button onClick={() => setFamille('schemas')}
-                  className={`onglet-page ${famille === 'schemas' ? 'onglet-page-actif' : ''}`}>
-                  Schémas de capitalisation
-                </button>
-              )}
-              <button onClick={() => setFamille('listes')}
-                className={`onglet-page ${(onglet === 'personnel' && famille === 'pieces') || (onglet === 'organisation' && famille === 'schemas') ? '' : 'onglet-page-actif'}`}>
-                Listes et rapports
-              </button>
-            </span>
-          </div>
-          {onglet === 'personnel' && famille === 'pieces' ? <OngletPersonnel onClose={onClose} membreInitial={membreInitial} outilsMembre={outilsMembre} />
-            : onglet === 'organisation' && famille === 'schemas' ? <OngletSchemas />
-            : <ListesEtRapports key={onglet} domaine={onglet} />}
+          {onglet === 'personnel' ? <OngletPersonnel onClose={onClose} membreInitial={membreInitial} outilsMembre={outilsMembre} />
+            : <RapportsEnZones key={onglet} domaine={onglet} />}
         </>
       )}
     </Fenetre>
