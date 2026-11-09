@@ -24,7 +24,8 @@
  * ajouté ici s'ajoute au programme du descriptif : une seule liste de points.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus } from '@tabler/icons-react';
+import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
+import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { EnteteCarte, Tableau, Th, Tr, TrTotal, TableauVide } from './ui.jsx';
@@ -95,11 +96,18 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   const [erreur, setErreur] = useState(null);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  /* MODIFIER ET SUPPRIMER UN POINT, PAS SEULEMENT EN AJOUTER (3.5.269, Charles : « on ne sait pas changer, on peut juste ajouter ;
+     on doit pouvoir supprimer, modifier ou ajouter »). Dès qu'on touche aux points d'un cours, sa liste devient la nôtre
+     (`contenu.points_croisement[cours]`, dans l'ordre) : le dossier pédagogique n'est pas modifié. Une croix suit son point
+     renommé, et la ligne de critère qui en vient aussi (`renommes`). */
+  const [liste, setListe] = useState({});
+  const [renommes, setRenommes] = useState({});
 
   async function charger() {
     try {
       const j = await api.dueLire(ueNum);
       setD(j); setCroix(j.contenu?.croisement || {}); setAjouts({}); setSale(false);
+      setListe(j.contenu?.points_croisement || {}); setRenommes({});
     } catch (e) { setErreur(e.message); }
     // La pondération actuelle : lue si l'on y a accès, sinon simplement tue.
     fetch(`/api/acquis/ue/${ueNum}/liens?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -156,7 +164,24 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
     for (const x of cours) m[x.cours_code] = { ...structureDuBloc(blocsDUE[x.cours_code]), ...structureDuBloc(blocsDP[x.cours_code]) };
     return m;
   }, [cours, blocsDUE, blocsDP]);
-  const points = co => [...(pointsDe[co] || []), ...(ajouts[co] || []).filter(t => !(pointsDe[co] || []).includes(t))];
+  const pointsDOrigine = co => [...(pointsDe[co] || []), ...(ajouts[co] || []).filter(t => !(pointsDe[co] || []).includes(t))];
+  const points = co => (Array.isArray(liste[co]) ? liste[co] : pointsDOrigine(co));
+  const modifierPoint = async (co, pt) => {
+    const t = norm(await saisir({ titre: 'Modifier le point du programme', message: 'Le texte du point (les croix posées le suivent) :', valeur: pt, confirmer: 'Modifier' }) || '');
+    if (!t || t === pt) return;
+    if (points(co).includes(t)) { setErreur('Ce point existe déjà dans ce cours.'); return; }
+    setListe(l => ({ ...l, [co]: points(co).map(x => (x === pt ? t : x)) }));
+    setCroix(x => { const m = { ...(x[co] || {}) }; if (m[pt]) { m[t] = m[pt]; delete m[pt]; } return { ...x, [co]: m }; });
+    setRenommes(r => { const m = { ...(r[co] || {}) }; const origine = Object.keys(m).find(k => m[k] === pt) || pt; m[origine] = t; return { ...r, [co]: m }; });
+    setSale(true); setMessage(null);
+  };
+  const supprimerPoint = async (co, pt) => {
+    const n = (croix[co]?.[pt] || []).length;
+    if (!(await demander({ titre: 'Supprimer ce point ?', message: `« ${pt.slice(0, 120)} »${n ? ` porte ${n} croix : elles partent avec lui.` : ''} Le dossier pédagogique n'est pas modifié.`, confirmer: 'Supprimer' }))) return;
+    setListe(l => ({ ...l, [co]: points(co).filter(x => x !== pt) }));
+    setCroix(x => { const m = { ...(x[co] || {}) }; delete m[pt]; return { ...x, [co]: m }; });
+    setSale(true); setMessage(null);
+  };
 
   const actuel = useMemo(() => {
     const m = {};
@@ -177,6 +202,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   const ajouterPoint = co => {
     const t = norm(saisie[co]);
     if (t.length < 4 || points(co).includes(t)) return;
+    if (Array.isArray(liste[co])) setListe(l => ({ ...l, [co]: [...l[co], t] }));
     setAjouts(a => ({ ...a, [co]: [...(a[co] || []), t] }));
     setSaisie(s => ({ ...s, [co]: '' })); setSale(true); setMessage(null);
   };
@@ -210,7 +236,13 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
          acquis et par point croisé, le critère reformulé gardé, une croix retirée qui part si rien n'y est écrit. */
       const reprises = g => Object.values(g || {}).flat().filter(l => l?.src_point && !l.plus_croisee).length;
       const avantN = reprises(c.grille_criteres);
-      const rep = await api.dueEnregistrer(ueNum, { ...c, croisement, ...(programme_blocs ? { programme_blocs } : {}) });
+      // Un point renommé emmène sa ligne de critère (son origine, et son texte s'il n'avait pas été reformulé).
+      const grille = JSON.parse(JSON.stringify(c.grille_criteres || {}));
+      for (const [co, m] of Object.entries(renommes)) for (const [ancien, neuf] of Object.entries(m)) for (const lignes of Object.values(grille))
+        for (const l of lignes || []) if (l && l.src_point === ancien && (!l.src_cours || l.src_cours === co)) { if (norm(l.point) === ancien) l.point = neuf; l.src_point = neuf; }
+      const points_croisement = Object.fromEntries(Object.entries(liste).filter(([, v]) => Array.isArray(v)));
+      const rep = await api.dueEnregistrer(ueNum, { ...c, croisement, grille_criteres: grille, points_croisement,
+        ...(programme_blocs ? { programme_blocs } : {}) });
       const apresN = reprises(rep?.contenu?.grille_criteres);
       const ajoutees = Math.max(0, apresN - avantN); const retirees = Math.max(0, avantN - apresN);
 
@@ -310,7 +342,12 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                   {pts.map((pt, ip) => (
                     <Tr key={pt} className="align-top">
                       <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">{ip + 1}</td>
-                      <td className="px-3 py-1.5 text-slate-800">
+                      <td className="px-3 py-1.5 text-slate-800 group/pt">
+                        {!lecture && (
+                          <span className="float-right ml-2 inline-flex gap-1.5 opacity-40 group-hover/pt:opacity-100 focus-within:opacity-100">
+                            <button type="button" className="text-slate-500 hover:text-iip-blue" title="Modifier ce point" aria-label="Modifier ce point" onClick={() => modifierPoint(co, pt)}><IconPencil size={14} /></button>
+                            <button type="button" className="text-slate-500 hover:text-red-700" title="Supprimer ce point" aria-label="Supprimer ce point" onClick={() => supprimerPoint(co, pt)}><IconTrash size={14} /></button>
+                          </span>)}
                         {(() => {
                           const st = structure[co]?.[pt];
                           if (!st || !st.sous.length) return majuscule(pt);
