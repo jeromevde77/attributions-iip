@@ -90,7 +90,7 @@ function parseDP(xmlStr, numXml = null) {
     if (/DOSSIER PEDAGOGIQUE|UNITE D.ENSEIGNEMENT/i.test(sansAccent(blocks[i].text))) {
       for (let j = i + 1; j < Math.min(i + 10, blocks.length); j++) {
         const c = (blocks[j].text || '').trim();
-        if (c.length > 5 && c === c.toUpperCase()
+        if (c.length > 5 && c === c.toUpperCase() && !estIntertitreDP(c)
           && !/ENSEIGNEMENT|MINISTERE|ADMINISTRATION|COMMUNAUTE|DOMAINE|CODE|DOCUMENT|SUPERIEUR|PROMOTION|DOSSIER/i.test(sansAccent(c))) {
           ueNom = c.split(' ').map(w =>
             w.length > 2 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()
@@ -748,6 +748,14 @@ function paragraphes8bis(bloc) {
   return out.map(l => l.replace(/\s+/g, ' ').trim()).join('\n');
 }
 
+/* UN INTERTITRE DU DOSSIER N'EST PAS UN INTITULÉ D'UNITÉ (3.5.260, Charles : « gros souci ! nom des UE » — vingt UE de 2026-2027
+   s'appelaient « 2. Capacités préalables requises ») : l'intitulé est la première ligne en capitales sous « DOSSIER PÉDAGOGIQUE » ;
+   quand le vrai titre n'y est pas en capitales, l'import prenait l'intertitre numéroté suivant. Il est refusé, comme toute rubrique. */
+export function estIntertitreDP(t) {
+  const x = String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return /^\d+(\s*[.)]|\.\d)/.test(x)
+    || /^(\d+\s*[.)]?\s*)?(capacites?\s+prealables?|finalites?|acquis\s+d.apprentissage|programme|horaire|constitution\s+des\s+groupes|charges?\s+de\s+cours|degre\s+de\s+maitrise|titres?\s+(pouvant|requis)|chargee?s?\s+de\s+cours)/i.test(x);
+}
 export async function parseDossierPedagogique(buffer) {
   // %PDF en tête : dossier publié par la Fédération. PK : un .docx.
   // Un PDF sans texte (un scan) passe par la lecture optique ; la réponse le dit.
