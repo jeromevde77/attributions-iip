@@ -1,3 +1,4 @@
+import { memeCours } from '../lib/texteDossier.js';
 import { FriseEtapes } from '../components/graphiques.jsx';
 import { demander } from '../lib/dialogue.jsx';
 import { useEffect, useMemo, useState } from 'react';
@@ -271,7 +272,11 @@ export function lireProgramme(texte, cours) {
     return (inter / a.length >= 0.8 && inter / b.size >= 0.5)
       || (b.size >= 2 && inter >= b.size && a.length <= b.size * 2);
   };
+  /* LA MÊME RECONNAISSANCE QUE LE DOSSIER (3.5.259, Charles : « compare le dossier pédagogique et l'étape 1 ») : un intitulé
+     que le dossier rattache à un cours (memeCours de lib/texteDossier.js — « Anatomie et physiologie dans une perspective
+     systémique » pour « Anatomie et physiologie ») ouvre ici le même cours ; sans quoi l'étape 1 rangeait ses points ailleurs. */
   const coursDe = t => cours.find(x => norm(x.cours_nom) && norm(t) === norm(x.cours_nom))
+    || cours.find(x => memeCours(t, x.cours_nom))
     || cours.find(x => ressemble(t, x));
   /* UNE LIGNE QUI PORTE TOUT LE PROGRAMME (l'UE 76 : les puces du PDF perdues, les
      points séparés par « ; ») se coupe à chaque point-virgule. */
