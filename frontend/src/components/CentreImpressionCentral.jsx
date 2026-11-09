@@ -715,6 +715,11 @@ function ListesEtRapports({ domaine }) {
    famille, chaque pièce une seule fois ; 2 « Pour quoi ? », l'année, la section, la portée ou la période qu'elle demande ;
    3 l'aperçu, et les sorties dans la barre bleue. « Composer une liste… » ouvre le générateur (colonnes au choix). */
 const FAMILLES_RAPPORTS = {
+  etudiants: [
+    ['Les inscriptions', ['inscrits-par-ue', 'listes-par-ue', 'organisation-effectifs', 'pae-hors-regle', 'registre-matricule']],
+    ['Les examens et les présences', ['listes-examens', 'grille-presences']],
+    ['Les résultats', ['resultats-section']],
+  ],
   personnel: [
     ['Le personnel', ['personnel-liste', 'personnel-par-section', 'personnel-temporaires', 'statistiques-personnel']],
     ['La charge', ['personnel-attributions', 'personnel-charge', 'personnel-encadrement']],
@@ -2975,7 +2980,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             : famille === 'valorisation' ? <OngletValorisation initial={perimetre?.valorisation || null} />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
             : famille === 'lettres' ? <LettresModele annee={getAnnee()} />
-            : <ListesEtRapports domaine="etudiants" />}
+            : <RapportsEnZones domaine="etudiants" />}
         </>
       ) : (
         /* CHAQUE AXE PORTE SES DEUX FAMILLES, ET LE GÉNÉRATEUR N'EST PLUS UN
