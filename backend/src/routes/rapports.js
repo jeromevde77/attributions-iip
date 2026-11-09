@@ -25,6 +25,7 @@ import { decisionDeSession, structureUE, aRepresenterParCours } from './acquis.j
 import { calculerEtp } from './pilotage.js';
 import { MOTIFS_DI, calculerDI, libelleMotifDI, exemptionDI } from './droitInscription.js';
 import { dixiemeUE } from '../lib/datesReelles.js';
+import { epreuves as epreuvesDeLAnnee } from '../lib/examens.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
 import { financesFormations, donneesCout, syntheseCout } from '../lib/coutFormation.js';
 import { getParamNum } from './parametres.js';
@@ -1400,6 +1401,113 @@ function documentRegistreMatricule(p) {
   };
 }
 
+/* LE CANEVAS HORAIRE DES EXAMENS (3.5.252, Charles, 9 novembre 2026 : « nous devons sortir ce document, dans cette mise en page ;
+   mon secrétariat encode à la main » — le classeur « CANEVAS HORAIRE EXAMENS JANVIER 2027 OPTO ORTHO »). Une ligne par épreuve
+   (calendrier des sessions + détail d'Examens : préparer) ET par séance de cours de l'horaire sur la période, rangées par date et
+   heure, dans les colonnes du classeur : section, année, date, début, fin, fin avec 1/3 de temps (si un étudiant de l'unité a
+   l'aménagement « temps supplémentaire »), examen/cours/formation, titulaire(s), surveillances 1 à 6, type (COURS, EXAMEN ÉCRIT,
+   EXAMEN ORAL), durée, groupe, oraux, ordre de passage, nombre d'étudiants, locaux 1 à 4 et leurs effectifs, local inclusif
+   (« local isolé ») et doublon. Ce que Lucie ne connaît pas (ordre de passage, temps moyen d'un oral, locaux 2 à 4, doublon) reste
+   à compléter dans le classeur. Une UE du tronc commun s'écrit « TC » de ses sections. */
+const hh = h => (h ? String(h).slice(0, 5).replace(':', 'h') : '');
+const plusMin = (h, m) => { const [a, b] = String(h || '').slice(0, 5).split(':').map(Number); if (!Number.isFinite(a)) return ''; const t = a * 60 + (b || 0) + Math.round(m); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
+const blocCourt = n => (/^BA?(\d)/i.exec(String(n || ''))?.[1] ? `B${/^BA?(\d)/i.exec(String(n))[1]}` : String(n || ''));
+export function canevasExamens(p) {
+  const A = p.annee;
+  const [a0] = String(A || '').split('-').map(Number);
+  const du = p.du || `${a0}-09-01`, au = p.au || `${a0 + 1}-08-31`;
+  const q = (sql, ...x) => { try { return db.prepare(sql).all(...x); } catch { return []; } };
+  // Le tronc commun : l'UE vit dans sa section et se rattache aux autres par ue_section (jamais dupliquée).
+  const tc = new Map(q(`SELECT u.ue_num, MAX(COALESCE(u.ue_tc, '')) tc, MIN(u.section) || COALESCE(',' || (SELECT GROUP_CONCAT(DISTINCT s.section_code) FROM ue_section s
+      WHERE s.ue_num = u.ue_num AND s.annee_scolaire = u.annee_scolaire AND s.section_code <> MIN(u.section)), '') secs
+    FROM ue u WHERE u.annee_scolaire = ? GROUP BY u.ue_num`, A).map(u => [u.ue_num, u]));
+  const etiquette = (ueNum, section) => { const u = tc.get(Number(ueNum)); if (u && String(u.tc || '').trim() && String(u.secs || '').includes(',')) return `TC ${u.secs.split(',').join('/')}`; return section || ''; };
+  const garde = (ueNum, section) => !p.section || section === p.section || String(tc.get(Number(ueNum))?.secs || '').split(',').includes(p.section);
+  // Les aménagements : temps supplémentaire, local isolé — par étudiant, valables pour toutes ses UE ou les cochées.
+  const ar = new Map();
+  for (const x of q(`SELECT d.id, d.etudiant_id, m.libelle FROM amenagement_dossier d JOIN amenagement_mesure m ON m.dossier_id = d.id
+      WHERE d.annee_scolaire = ? AND d.statut IN ('accepte','partiel','recours') AND m.accorde = 1`, A)) {
+    const ues = q('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ?', x.id).map(u => Number(u.ue_num));
+    const e = ar.get(x.etudiant_id) || ar.set(x.etudiant_id, { temps: null, isole: null }).get(x.etudiant_id);
+    if (/temps suppl/i.test(x.libelle)) e.temps = ues.length ? ues : 'toutes';
+    if (/local isol|effectif r/i.test(x.libelle)) e.isole = ues.length ? ues : 'toutes';
+  }
+  const vaut = (v, ue) => v === 'toutes' || (Array.isArray(v) && v.includes(Number(ue)));
+  const lignes = [];
+  for (const session of [1, 2]) {
+    let l = []; try { l = epreuvesDeLAnnee({ annee: A, session, du, au }); } catch { l = []; }
+    for (const e of l) {
+      if (!garde(e.ue_num, e.section)) continue;
+      const temps = e.etudiants.filter(x => vaut(ar.get(x.id)?.temps, e.ue_num)).length;
+      const isoles = e.etudiants.filter(x => vaut(ar.get(x.id)?.isole, e.ue_num)).length;
+      const surv = String(e.surveillants || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean);
+      lignes.push({ tri: `${String(e.date).slice(0, 10)}|${String(e.heure || '').slice(0, 5)}`, section: etiquette(e.ue_num, e.section), annee: blocCourt(e.niveau),
+        date: String(e.date).slice(0, 10), debut: hh(e.heure), fin: hh(e.heure_fin), fin_tiers: temps ? hh(plusMin(e.heure, (e.duree_min || 120) * 4 / 3)) : '',
+        intitule: e.cours_code ? `${e.cours_code} ${e.cours_nom || ''}`.trim() : `UE ${e.ue_num} ${e.ue_nom || ''}`.trim(), titulaires: e.professeurs || '',
+        surv, type: e.type === 'oral' ? 'EXAMEN ORAL' : 'EXAMEN ECRIT', duree: e.duree_min ? `${Math.floor(e.duree_min / 60)}h${String(e.duree_min % 60).padStart(2, '0')}` : '',
+        gr: '', oraux: '', ordre: '', nb: e.etudiants.length, local1: e.local || '', nb1: e.local ? e.etudiants.length - isoles : '',
+        local_inclusif: isoles ? 'à prévoir' : '', nb_inclusif: isoles || '', session, epreuve: true });
+    }
+  }
+  const prof = new Map(q('SELECT id, nom FROM professeur').map(x => [x.id, String(x.nom || '').toUpperCase()]));
+  const coursNom = new Map(q('SELECT cours_code, cours_nom, ue_num FROM cours WHERE annee_scolaire = ?', A).map(c => [c.cours_code, c]));
+  const niv = new Map(q('SELECT ue_num, MAX(ue_niv) n FROM ue WHERE annee_scolaire = ? GROUP BY ue_num', A).map(u => [u.ue_num, u.n]));
+  for (const s of q(`SELECT * FROM horaire_seance WHERE annee_scolaire = ? AND date BETWEEN ? AND ? AND COALESCE(annule, 0) = 0`, A, du, au)) {
+    const ue = s.ue_num || coursNom.get(s.cours_code)?.ue_num;
+    if (!garde(ue, s.section)) continue;
+    lignes.push({ tri: `${String(s.date).slice(0, 10)}|${String(s.heure_debut || '').slice(0, 5)}`, section: etiquette(ue, s.section), annee: s.bloc || blocCourt(niv.get(ue)),
+      date: String(s.date).slice(0, 10), debut: hh(s.heure_debut), fin: hh(s.heure_fin), fin_tiers: '',
+      intitule: s.cours_code ? `${s.cours_code} ${coursNom.get(s.cours_code)?.cours_nom || s.matiere || ''}`.trim() : (s.matiere || ''),
+      titulaires: prof.get(s.professeur_id) || s.professeur_texte || '', surv: [], type: 'COURS', duree: '', gr: s.sous_groupe || '', oraux: '', ordre: '',
+      nb: '', local1: s.local_texte || '', nb1: '', local_inclusif: '', nb_inclusif: '', epreuve: false });
+  }
+  return lignes.sort((a, b) => a.tri.localeCompare(b.tri) || a.section.localeCompare(b.section));
+}
+const COLONNES_CANEVAS = [['section', 'SECTION', 14], ['annee', 'ANNEE', 7], ['date', 'DATE', 11], ['debut', 'DEBUT EXAMEN', 9], ['fin', 'FIN EXAMEN', 9],
+  ['fin_tiers', '1/3 TEMPS SUPPL INCLUSIF FIN EXAMEN', 12], ['intitule', 'EXAMEN / COURS / FORMATION', 38], ['titulaires', 'TITULAIRE(S)', 22],
+  ['s1', 'Surveillance 1', 14], ['s2', 'Surveillance 2', 14], ['s3', 'Surveillance 3', 14], ['s4', 'Surveillance 4', 14], ['s5', 'Surveillance 5', 14], ['s6', 'Surveillance 6', 14],
+  ['type', 'TYPE: E, O, OP', 14], ['duree', 'E DUREE EXAMEN', 9], ['gr', 'GR', 6], ['oraux', 'ORAUX TEMPS MOYEN', 9], ['ordre', 'ORDRE DE PASSAGE', 9],
+  ['nb', 'NOMBRE ETUDIANTS TOTAL', 9], ['local1', 'LOCAL 1', 11], ['nb1', 'NOMBRE ETUDIANTS', 8], ['local2', 'LOCAL 2', 11], ['nb2', 'NOMBRE ETUDIANTS', 8],
+  ['local3', 'LOCAL 3', 11], ['nb3', 'NOMBRE ETUDIANTS', 8], ['local4', 'LOCAL 4', 11], ['nb4', 'NOMBRE ETUDIANTS', 8], ['local_inclusif', 'LOCAL INCLUSIF', 11],
+  ['nb_inclusif', 'NOMBRE ETUDIANTS', 8], ['local_doublon', 'LOCAL DOUBLON', 11], ['nb_doublon', 'NOMBRE ETUDIANTS', 8]];
+const ligneCanevas = x => ({ ...x, ...Object.fromEntries([0, 1, 2, 3, 4, 5].map(i => [`s${i + 1}`, x.surv[i] || ''])) });
+export async function excelCanevas(p) {
+  const l = canevasExamens(p).map(ligneCanevas);
+  const wb = new ExcelJS.Workbook(); wb.creator = 'Lucie — Institut Ilya Prigogine'; wb.created = new Date();
+  const titre = `CANEVAS DU ${String(p.du || '').split('-').reverse().slice(0, 2).join('-')} AU ${String(p.au || '').split('-').reverse().slice(0, 2).join('-')}`;
+  const ws = wb.addWorksheet(titre.slice(0, 31), { pageSetup: { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+  ws.columns = COLONNES_CANEVAS.map(([key, header, width]) => ({ header, key, width }));
+  const t = ws.getRow(1); t.font = { bold: true, size: 9 }; t.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' }; t.height = 42;
+  t.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E2F3' } }; c.border = { bottom: { style: 'thin' } }; });
+  for (const x of l) {
+    const r = ws.addRow({ ...x, date: x.date ? new Date(`${x.date}T12:00:00Z`) : '' });
+    r.getCell('date').numFmt = 'dd/mm/yyyy';
+    r.font = { size: 9, bold: x.epreuve };
+    if (x.epreuve) r.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: x.type === 'EXAMEN ORAL' ? 'FFFCE9D9' : 'FFE2EFDA' } }; });
+  }
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: COLONNES_CANEVAS.length } };
+  return { nom: `Canevas-horaire-examens-${p.du || p.annee}${p.section ? `-${p.section}` : ''}`, buffer: await wb.xlsx.writeBuffer() };
+}
+export function documentCanevas(p) {
+  const l = canevasExamens(p).map(ligneCanevas);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  const cols = [['section', 'Section'], ['annee', 'An.'], ['debut', 'Début'], ['fin', 'Fin'], ['fin_tiers', 'Fin 1/3'], ['intitule', 'Examen / cours'], ['titulaires', 'Titulaire(s)'],
+    ['surveillance', 'Surveillance'], ['type', 'Type'], ['gr', 'Gr.'], ['nb', 'Étud.'], ['local1', 'Local'], ['nb_inclusif', 'Incl.']];
+  const parJour = new Map(); for (const x of l) (parJour.get(x.date) || parJour.set(x.date, []).get(x.date)).push(x);
+  const corps = !l.length ? '<p class="fin">Rien de daté sur cette période.</p>' : [...parJour].map(([d, xs]) => `
+    <h3 class="partie">${esc(new Date(`${d}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }))}</h3>
+    <table class="serre"><thead><tr>${cols.map(([, h]) => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${xs.map(x => `<tr${x.epreuve ? ' style="font-weight:600;background:#EEF5EA"' : ''}>${cols.map(([k]) => `<td>${esc(k === 'surveillance' ? x.surv.join(', ') : x[k])}</td>`).join('')}</tr>`).join('')}</tbody></table>`).join('');
+  return {
+    corps: corps + '<p class="fin">En gras : les épreuves (calendrier des sessions et Examens : préparer). Les autres lignes sont les cours de l’horaire sur la période. « Fin 1/3 » : fin avec un tiers de temps en plus, quand un étudiant de l’unité a l’aménagement « temps supplémentaire » ; « Incl. » : étudiants à placer en local isolé. Ordre de passage, temps moyen des oraux, locaux 2 à 4 et doublons se complètent dans le tableur.</p>',
+    titre: 'Canevas horaire des examens',
+    entete: { titre: 'Canevas horaire des examens', sous: `Du ${fr(p.du) || '…'} au ${fr(p.au) || '…'}${p.section ? ` · ${p.section}` : ''} · ${p.annee}` },
+    orientation: 'paysage', nom: `Canevas-horaire-examens-${p.du || p.annee}.html`, styles: STYLE_RAPPORT + STYLE_REPORTING,
+  };
+}
+
 /* CE QUI MANQUE AUX ÉVALUATIONS ET AUX DATES DES UE (3.5.239, Charles, 8 novembre 2026 : « peut-on sortir la liste des
    évaluations pour voir ce qui manque ? et les dates UE ? » ; « fais-en un rapport dans Éditions »). Pour chaque UE qui a des
    inscrits : chaque cours et son épreuve de 1re session (calendrier des sessions, `epreuve_session1` ; une épreuve d'unité
@@ -2704,6 +2812,17 @@ export const RAPPORTS = [
   },
 
   // ── ORGANISATION ────────────────────────────────────────────────────────
+  {
+    id: 'canevas-examens', domaine: 'organisation', params: ['annee', 'section', 'periode'],
+    libelle: 'Canevas horaire des examens',
+    aide: "Le canevas du secrétariat, fait par Lucie : sur la période choisie, chaque épreuve (calendrier des sessions, détail d'Examens : préparer) et chaque cours de l'horaire, par date et heure — section (TC pour le tronc commun), année, début, fin, fin avec 1/3 de temps quand un étudiant a l'aménagement, titulaires, surveillances, type, durée, groupe, nombre d'étudiants, local, local inclusif. Le tableur reprend les colonnes du classeur ; ordre de passage, oraux, locaux 2 à 4 et doublons s'y complètent.",
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur'],
+    tableur: true,
+    colonnes: COLS(COLONNES_CANEVAS.map(([k, h, w]) => [k, h, w])),
+    lignes: (p) => canevasExamens(p).map(ligneCanevas),
+    document: (p) => documentCanevas(p),
+    xlsx: (p) => excelCanevas(p),
+  },
   {
     id: 'evaluations-manquantes', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Évaluations et dates des UE : ce qui manque',

@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PastilleEtape, LienEtape } from '../components/graphiques.jsx';
-import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight, IconLock, IconBook } from '@tabler/icons-react';
+import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight, IconArrowLeft, IconLock, IconBook } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fiche } from './DUE.jsx';
 import { UEModal } from './Referentiels.jsx';
@@ -114,7 +114,7 @@ function Frise({ faces, ouvertes, face, onFace, et, passe = false }) {
             {i > 0 && <LienEtape fait={etapeFaite(et[faces[i - 1][0]]?.etat)} className="absolute top-[13px] right-1/2 w-full" />}
             <button type="button" onClick={() => libre && onFace(k)} aria-current={actif ? 'step' : undefined} disabled={!libre}
               title={!ouverte ? 'Réglée par la direction' : verrou || undefined}
-              className={`relative z-10 w-full flex flex-col items-center text-center px-2 ${libre ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              className={`relative z-10 w-full flex flex-col items-center text-center px-2 rounded-carte py-1 ${libre ? 'cursor-pointer hover:bg-slate-50' : 'cursor-not-allowed opacity-60'}`}>
               <PastilleEtape n={n} etat={fait ? 'fait' : actif ? 'courant' : 'avenir'} choisie={actif} />
               <span className={`mt-1 text-second ${actif ? 'font-semibold text-iip-blue' : 'text-slate-700'}`}>{l}</span>
               <span className="text-mention text-slate-500 leading-tight">
@@ -249,10 +249,27 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
             <button type="button" className="bouton ml-auto" onClick={() => setFace('croisement')}>Aller à l'étape 1</button>
           </div>
         </Encadre>)}
+      {/* PASSER D'UNE ÉTAPE À L'AUTRE SE VOIT (3.5.253, Charles : « on ne sait pas passer l'étape 2 ni 3… moi je sais, mais Amélie
+          ne sait pas, ni les coordinations ni les profs ») : les boules de la frise s'ouvrent au clic, mais rien ne le disait, et
+          « Étape suivante » n'apparaissait qu'après un enregistrement. Une barre, en haut et au bas de chaque étape. */}
+      {ue && <NavEtapes ouvertes={ouvertes} face={face} setFace={setFace} />}
       {ue && face === 'dossier' && <ApercuDossier key={ue} ueNum={ue} onSuivante={() => setFace('croisement')} />}
       {ue && face === 'croisement' && <CroisementUE key={ue} ueNum={ue} onEnregistre={() => lireSuivi(ue)}
         suivante={ouvertes.find(f => f[3] === 2) ? () => setFace('ponderation') : ouvertes.find(f => f[3] === 3) ? () => setFace('descriptif') : null} />}
       {ue && face === 'ponderation' && faces.includes('ponderation') && (!verrouDe('ponderation', suivi) || passe) && <PonderationsUE key={ue} ueFixe={ue} />}
       {ue && face === 'descriptif' && (!verrouDe('descriptif', suivi) || passe) && <Fiche key={ue} ueNum={ue} integree />}
+      {ue && <NavEtapes ouvertes={ouvertes} face={face} setFace={setFace} bas />}
+    </div>);
+}
+
+function NavEtapes({ ouvertes, face, setFace, bas = false }) {
+  const i = ouvertes.findIndex(f => f[0] === face);
+  const prec = i > 0 ? ouvertes[i - 1] : null, suiv = i >= 0 && i < ouvertes.length - 1 ? ouvertes[i + 1] : null;
+  if (!prec && !suiv) return null;
+  const aller = k => { setFace(k); if (bas) window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${bas ? 'pt-3 border-t border-slate-200' : ''}`}>
+      {prec && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => aller(prec[0])}><IconArrowLeft size={15} /> Étape {prec[3]} : {prec[1]}</button>}
+      {suiv && <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5 ml-auto" onClick={() => aller(suiv[0])}>Étape {suiv[3]} : {suiv[1]} <IconArrowRight size={15} /></button>}
     </div>);
 }

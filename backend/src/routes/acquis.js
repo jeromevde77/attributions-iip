@@ -38,7 +38,7 @@ import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { piedDocument, getParam } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
-import { marquerPonderationFixee, dueValidee } from './due.js';
+import { marquerPonderationFixee, dueValidee, droitsSurLUE } from './due.js';
 import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
@@ -2675,16 +2675,23 @@ r.put('/ue/:ueNum/poids-cours', authRequired, fixerPonderation(req => req.params
  * GÈLE. Une écriture réussie marque l'étape « Pondérations » de la DUE (qui, quand). */
 function fixerPonderation(ueDe) {
   return (req, res, next) => {
-    if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) {
-      return res.status(403).json({ error: 'Les pondérations se fixent par la direction ; la coordination les propose par le croisement de la DUE.' });
-    }
+    /* LE RÉFÉRENT ET LA COORDINATION VALIDENT OU CHANGENT LA PROPOSITION (3.5.254, Charles : « les pondérations proposées à
+       l'étape 1 par acquis dans le cours, proposées en gris et à valider ou changer par le prof ») : qui rédige la DUE de l'unité
+       (droitsSurLUE : référent, coordination) enregistre les points ; seule la direction les FIXE (marquerPonderationFixee), et
+       la validation de la DUE les gèle. */
+    const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role);
     const ue = Number(ueDe(req)), annee = req.body?.annee || anneeDeTravail(req);
+    let redige = false;
+    if (!direction && ue) { try { redige = !!droitsSurLUE(req.user, ue, annee)?.ecrire; } catch { redige = false; } }
+    if (!direction && !redige) {
+      return res.status(403).json({ error: 'Les pondérations se règlent par le référent de l’unité, la coordination ou la direction.' });
+    }
     if (ue && dueValidee(ue, annee)) {
       return res.status(409).json({ error: `La DUE de l'UE ${ue} est validée : ses pondérations sont gelées. Rouvrez-la d'abord.` });
     }
     const envoyer = res.json.bind(res);
     res.json = corps => {
-      if (ue && res.statusCode < 400 && corps?.ok !== false && req.body?.simulation !== true
+      if (direction && ue && res.statusCode < 400 && corps?.ok !== false && req.body?.simulation !== true
         && !(req.path.endsWith('/reprendre') && req.body?.simulation !== false)) {
         marquerPonderationFixee(ue, annee, req.user?.nom || req.user?.email || null);
       }

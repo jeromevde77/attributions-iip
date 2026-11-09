@@ -4,6 +4,7 @@ import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import { TuileEtat, EnteteCarte, Encadre, PastilleEtat } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
+import { proposer } from '../components/CroisementUE.jsx';
 
 /**
  * ORGANISATION → PONDÉRATIONS : le tableau de bord d'une UE, pour une année
@@ -28,7 +29,7 @@ const ANNEE_PERIODES = '2026-2027';
    couleur « Données » des réglages, non par un arc-en-ciel qui ne dit rien et
    brouille les couleurs qui alertent. */
 const TEINTES = [700, 500, 800, 400, 600, 300].map(n => `rgb(var(--e-donnees-${n}))`);
-const PEUT_REGLER = ['admin', 'editeur', 'coordination'];
+const PEUT_REGLER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'];
 const fr = (n, d = 1) => Number(n || 0).toLocaleString('fr-BE', { maximumFractionDigits: d });
 const anneeAvant = a => { const m = /^(\d{4})-(\d{4})$/.exec(a || ''); return m ? `${+m[1] - 1}-${+m[2] - 1}` : null; };
 
@@ -75,7 +76,11 @@ export default function PonderationsUE({ ueFixe = null }) {
   const annee = getAnnee();
   const role = getUser?.()?.role;
   const passee = annee < ANNEE_PERIODES;
-  const peutRegler = PEUT_REGLER.includes(role) && !passee;
+  /* LA PROPOSITION DU CROISEMENT, EN GRIS (3.5.254, Charles : « les pondérations proposées à l'étape 1 par acquis dans le cours,
+     proposées en gris et à valider ou changer par le prof »). La DUE donne les croix (contenu.croisement) et les droits : le
+     référent de l'unité et la coordination règlent les points ici ; la direction les fixe. */
+  const [due, setDue] = useState(null);
+  const peutRegler = (PEUT_REGLER.includes(role) || !!due?.droits?.ecrire) && !passee;
 
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
@@ -116,7 +121,9 @@ export default function PonderationsUE({ ueFixe = null }) {
     setErreur(null);
     try {
       const q = `?annee=${encodeURIComponent(annee)}`;
-      const [st, li] = await Promise.all([lire(`/api/acquis/ue/${n}/structure${q}`), lire(`/api/acquis/ue/${n}/liens${q}`)]);
+      const [st, li, du] = await Promise.all([lire(`/api/acquis/ue/${n}/structure${q}`), lire(`/api/acquis/ue/${n}/liens${q}`),
+        lire(`/api/due/${n}`).catch(() => null)]);
+      setDue(du);
       setStructure(st); setLiens(li);
       const b = {};
       for (const c of li.cours) b[c.cours_code] = {};
@@ -158,6 +165,20 @@ export default function PonderationsUE({ ueFixe = null }) {
     !== JSON.stringify(Object.entries(saved[code] || {}).filter(([, v]) => v).sort());
   const nbReliés = acquis.filter(a => coursEval.some(c => brouillon[c.cours_code]?.[a.aa_code])).length;
 
+  // Ce que propose le croisement, cours par cours : dix points au prorata des croix (la règle de l'étape 1).
+  const propose = useMemo(() => {
+    const cr = due?.contenu?.croisement || {};
+    const m = {};
+    for (const c of cours) {
+      const n = Object.fromEntries(acquis.map(a => [a.aa_code, 0]));
+      for (const l of Object.values(cr[c.cours_code] || {})) for (const k of l || []) if (k in n) n[k] += 1;
+      const p = proposer(n);
+      if (Object.keys(p).length) m[c.cours_code] = p;
+    }
+    return m;
+  }, [due, cours, acquis]);
+  const suitProposition = code => !!propose[code] && acquis.every(a => (Number(brouillon[code]?.[a.aa_code]) || 0) === (propose[code][a.aa_code] || 0));
+  const reprendreProposition = code => { setMessage(null); setBrouillon(b => ({ ...b, [code]: Object.fromEntries(acquis.map(a => [a.aa_code, propose[code]?.[a.aa_code] || 0])) })); };
   const poser = (code, aa, v) => {
     setMessage(null);
     setBrouillon(b => ({ ...b, [code]: { ...(b[code] || {}), [aa]: v === '' ? 0 : Number(String(v).replace(',', '.')) } }));
@@ -367,9 +388,10 @@ export default function PonderationsUE({ ueFixe = null }) {
                                         className="w-14 h-7 rounded-champ border-[1.5px] text-center font-bold tabular-nums"
                                         style={{ borderColor: t, color: t, background: 'var(--c-fond_champ, #fff)' }} />
                                     ) : (
-                                      <button onClick={() => poser(c.cours_code, a.aa_code, 1)}
+                                      <button onClick={() => poser(c.cours_code, a.aa_code, propose[c.cours_code]?.[a.aa_code] || 1)}
                                         aria-label={`Relier ${a.aa_code} à ${c.cours_code}`}
-                                        className="w-14 h-7 rounded-champ border-[1.5px] border-dashed border-slate-300 text-slate-400 hover:border-slate-400">+</button>
+                                        title={propose[c.cours_code]?.[a.aa_code] ? `Proposé par le croisement : ${fr(propose[c.cours_code][a.aa_code])} — un clic le reprend` : undefined}
+                                        className="w-14 h-7 rounded-champ border-[1.5px] border-dashed border-slate-300 text-slate-400 hover:border-slate-400">{propose[c.cours_code]?.[a.aa_code] ? fr(propose[c.cours_code][a.aa_code]) : '+'}</button>
                                     )
                                   ) : (
                                     <span className="font-bold tabular-nums" style={{ color: v ? t : 'rgb(var(--gris-300))' }}>{v ? fr(v) : '·'}</span>
@@ -387,6 +409,8 @@ export default function PonderationsUE({ ueFixe = null }) {
                         {coursEval.map(c => (
                           <td key={c.cours_code} className="tab-entete px-1.5 py-1.5 text-center">
                             <div className={`font-bold tabular-nums ${coursJuste(c.cours_code) ? 'text-slate-700' : 'text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</div>
+                            {peutRegler && propose[c.cours_code] && !suitProposition(c.cours_code) && (
+                              <button type="button" className="block mx-auto text-xs text-slate-500 underline" onClick={() => reprendreProposition(c.cours_code)}>reprendre la proposition</button>)}
                             {peutRegler && modifie(c.cours_code) && (
                               <button className="text-xs font-semibold text-iip-blue underline disabled:text-slate-400 disabled:no-underline"
                                 disabled={!coursJuste(c.cours_code)} onClick={() => enregistrerCours(c.cours_code)}
@@ -427,7 +451,8 @@ export default function PonderationsUE({ ueFixe = null }) {
                           <span className="font-bold text-second text-slate-800">{a.aa_code}</span>
                           <div className="h-5 rounded bg-slate-100 overflow-hidden"><div className="h-full rounded" style={{ width: `${v * 10}%`, background: t }} /></div>
                           {peutRegler ? (
-                            <input type="number" min="0" max="10" step="0.5" value={v || ''} placeholder="0"
+                            <input type="number" min="0" max="10" step="0.5" value={v || ''} placeholder={propose[coursC.cours_code] ? fr(propose[coursC.cours_code][a.aa_code] || 0) : '0'}
+                              title={propose[coursC.cours_code] ? `Proposé par le croisement : ${fr(propose[coursC.cours_code][a.aa_code] || 0)}` : undefined}
                               onChange={e => poser(coursC.cours_code, a.aa_code, e.target.value)}
                               aria-label={`Points de ${a.aa_code} dans ${coursC.cours_code}`}
                               className="controle w-full !h-7 !px-1.5 text-right tabular-nums text-second" />
@@ -435,6 +460,12 @@ export default function PonderationsUE({ ueFixe = null }) {
                         </div>
                       );
                     })}
+                    {propose[coursC.cours_code] && (
+                      <div className="flex items-center gap-2 flex-wrap text-second text-slate-500 pt-1">
+                        <span>Proposé par le croisement (étape 1) : {acquis.filter(a => propose[coursC.cours_code][a.aa_code]).map(a => `${a.aa_code} ${fr(propose[coursC.cours_code][a.aa_code])}`).join(' · ')}</span>
+                        {suitProposition(coursC.cours_code) ? <PastilleEtat etat="reussi">suit la proposition</PastilleEtat>
+                          : peutRegler && <button type="button" className="bouton !h-7" onClick={() => reprendreProposition(coursC.cours_code)}>Reprendre la proposition</button>}
+                      </div>)}
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
                       <span className="text-second tabular-nums">Total : <b>{fr(somme(coursC.cours_code))} / 10</b>
                         {pasJuste(coursC.cours_code) && <span className="text-amber-700"> · par pas de 0,5</span>}</span>
