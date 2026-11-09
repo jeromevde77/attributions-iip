@@ -185,13 +185,23 @@ r.post('/piece/:id/trajet', async (req, res) => {
       b.a_charge || 'Entité', km, calc).lastInsertRowid;
   res.json({ ok: true, id: Number(id), km, km_calcule: calc });
 });
-r.put('/trajet/:tid', (req, res) => {
+/* UN TRAJET SE CORRIGE SUR SA LIGNE (3.5.263, Charles : « rouvrir mes frais pour corriger ») : date, départ, arrivée, entreprise,
+   raison, à charge de, km. Une adresse changée fait recalculer la distance de la carte ; le chiffre tapé l'emporte toujours. */
+r.put('/trajet/:tid', async (req, res) => {
   const t = db.prepare('SELECT t.* FROM frais_trajet t JOIN frais_piece p ON p.id = t.piece_id WHERE t.id = ? AND p.user_id = ?').get(Number(req.params.tid), req.user.id);
   if (!t) return res.status(404).json({ error: 'Trajet introuvable.' });
-  const b = req.body || {};
+  const b = { ...(req.body || {}) };
+  if ('km' in b && b.km !== '' && b.km != null && !(Number(b.km) >= 0)) return res.status(400).json({ error: 'Kilomètres illisibles.' });
   const ch = ['date', 'depart', 'arrivee', 'entreprise', 'raison', 'a_charge', 'km'].filter(c => c in b);
-  if (ch.length) db.prepare(`UPDATE frais_trajet SET ${ch.map(c => `${c} = ?`).join(', ')} WHERE id = ?`).run(...ch.map(c => (b[c] === '' ? null : b[c])), t.id);
-  res.json({ ok: true });
+  const depart = 'depart' in b ? b.depart : t.depart, arrivee = 'arrivee' in b ? b.arrivee : t.arrivee;
+  let calc = t.km_calcule;
+  if ((depart || '') !== (t.depart || '') || (arrivee || '') !== (t.arrivee || '')) {
+    try { calc = (await kmAllerRetour(depart || '', arrivee || '')).km_ar ?? null; } catch { calc = null; }
+    if (!('km' in b) || b.km === '' || b.km == null) { b.km = calc; if (!ch.includes('km')) ch.push('km'); }
+  }
+  db.prepare(`UPDATE frais_trajet SET ${[...ch.map(c => `${c} = ?`), 'km_calcule = ?'].join(', ')} WHERE id = ?`)
+    .run(...ch.map(c => (b[c] === '' ? null : b[c])), calc, t.id);
+  res.json({ ok: true, km_calcule: calc });
 });
 r.delete('/trajet/:tid', (req, res) => {
   const t = db.prepare('SELECT t.id FROM frais_trajet t JOIN frais_piece p ON p.id = t.piece_id WHERE t.id = ? AND p.user_id = ?').get(Number(req.params.tid), req.user.id);
