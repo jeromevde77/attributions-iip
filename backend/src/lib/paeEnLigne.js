@@ -13,6 +13,7 @@
 import db from '../db/index.js';
 import { composerPAE, ecrireProgramme } from '../routes/etudiants.js';
 import { tarifPAE } from './fraisEstimes.js';
+import { fonctionPour } from './fonctions.js';
 
 export function migrerPaeEnLigne(dbx = db) {
   dbx.exec(`
@@ -90,7 +91,8 @@ export function offrePAE(e, anneeVoulue = null) {
   });
   // LES FRAIS ESTIMÉS (3.1.526) : le tarif de l'année du PAE, pour chaque unité offerte ; le portail additionne.
   let tarif = null;
-  try { tarif = tarifPAE(e.id, annee, [...new Set([...unites.map(u => Number(u.ue_num)), ...programme.map(Number)])]); } catch (x) { console.error('[pae en ligne] tarif :', x.message); }
+  // PAS DE FINANCES CETTE ANNÉE (3.5.275, Charles) : sans « Mes frais » ouvert pour l'étudiant, aucun montant ne part avec le PAE.
+  if (fonctionPour('espace.frais', { etudiantId: e.id })) try { tarif = tarifPAE(e.id, annee, [...new Set([...unites.map(u => Number(u.ue_num)), ...programme.map(Number)])]); } catch (x) { console.error('[pae en ligne] tarif :', x.message); }
   return { ...base, unites, sections: c.sections || [], confirme_le: c.pae_confirme_le || null, tarif };
 }
 
@@ -115,10 +117,11 @@ export function deposerProposition(e, ues) {
 export function recevoirSignature(e, s) {
   migrerPaeEnLigne();
   const annee = String(s.annee || '');
-  const confirme = db.prepare('SELECT confirme_le FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?').get(e.id, annee)?.confirme_le;
+  /* LE PROGRAMME TEL QU'IL EST DANS LUCIE (3.5.275, Charles : « celui de 2026-2027, tel qu'il est », confirmé ou non par
+     l'école) : la validation de l'étudiant vaut accord sur ces unités ; un programme modifié ensuite la redemande. */
   const programme = JSON.stringify(programmeDe(e.id, annee));
-  if (!confirme) return 'Votre PAE n’est pas encore confirmé par l’école.';
-  if (String(s.programme || '') !== programme) return 'Votre programme a changé entre-temps : relisez-le, puis confirmez à nouveau.';
+  const lu = (() => { try { return JSON.stringify(JSON.parse(String(s.programme || '[]')).map(Number).sort((x, y) => x - y)); } catch { return ''; } })();
+  if (lu !== programme) return 'Votre programme a changé entre-temps : relisez-le, puis confirmez à nouveau.';
   db.prepare(`INSERT OR IGNORE INTO pae_signature_etudiant (etudiant_id, annee_scolaire, programme, signe_le, ip, ref_portail)
     VALUES (?,?,?,?,?,?)`).run(e.id, annee, programme, String(s.signe_le || ''), String(s.ip || '').slice(0, 60), Number(s.id) || null);
   return null;
