@@ -44,6 +44,8 @@ export const CATALOGUE = [
     quoi: "L'étudiant dépose son certificat médical (PDF ou photo) et les dates de son absence ; remis dans les 3 jours ouvrables, ses absences de la période sont justifiées ; professeurs et secrétariat sont prévenus." },
   { cle: 'espace.amenagements', famille: 'espace', titre: 'Aménagement raisonnable — la demande en ligne',
     quoi: "L'étudiant remplit la demande (cadre A : unités, aménagements demandés, difficultés, pièce jointe) au moins 10 jours ouvrables avant l'ouverture de l'unité ; au-delà, il est renvoyé vers la personne de référence, à qui il écrit depuis son espace. La personne de référence est prévenue et reprend le dossier." },
+  { cle: 'espace.sante', famille: 'espace', titre: 'Ma santé — la visite médicale',
+    quoi: "L'étudiant voit sa visite médicale (CESI) : la date de l'examen, jusqu'à quand elle vaut, ou qu'elle manque — pas de visite médicale, pas de stage et pas de réussite. Encodée par le secrétariat dans la fiche → Santé." },
   { cle: 'espace.candidats', famille: 'espace', titre: "Le code d'accès des candidats",
     quoi: "Un candidat sans adresse d'institut reçoit à son adresse privée un code pour entrer dans l'espace (demande de VA, documents, frais, messages)." },
   { cle: 'enseignant.espace', famille: 'personnel', titre: 'L’espace enseignant',
