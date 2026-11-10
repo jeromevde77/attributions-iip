@@ -11,7 +11,7 @@
 import db from '../db/index.js';
 import { anneeDe, releve, ficheConges, plusJours, semainesDeLAnnee, REGLES, hm, ABSENCES } from './tempsTravail.js';
 import { fermetures } from './agendaEcole.js';
-import { modulations, proposer } from './ligneTemps.js';
+import { modulations, proposer, assistant } from './ligneTemps.js';
 
 const lundiDe = s => { const d = new Date(`${s}T00:00:00Z`); const w = (d.getUTCDay() + 6) % 7; return plusJours(s, -w); };
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -137,4 +137,43 @@ export function deposerDemande(uid, annee, b, user, nomUser) {
     const raisons = [...new Set([...(e.bilan?.erreurs || []), ...(e.bilan?.changees || []).flatMap(c => c.controles || [])])].filter(Boolean);
     throw Object.assign(err(raisons.length ? raisons.join(' ') : e.message, e.status || 400), { bilan: e.bilan });
   }
+}
+
+
+/* LE PLAN D'HEURES DE L'ÉQUIPE (3.5.304, Charles : « gérer l'année en entier avec des moments avec plus d'heures pour certains et
+   d'autres moins » ; tranché : peindre sur la grille, Lucie propose la compensation et la direction corrige, pour toute l'équipe ou
+   certaines personnes). Pour chaque personne : ses semaines peintes portent `delta` minutes de plus (ou de moins) ; l'assistant de la
+   ligne du temps remet la différence dans ses semaines calmes, en évitant les grands moments, dans les bornes légales. `exclure` :
+   { uid: [lundis] } — les semaines que la direction retire de la compensation. Simulation d'abord ; `ecrire` : tout ou rien, appliqué
+   directement (la direction approuve seule). */
+export function planHeures(annee, { uids = [], lundis = [], delta = 0, exclure = {} } = {}, { ecrire = false, user = null, nomUser = '' } = {}) {
+  const d = Math.round(Number(delta) || 0);
+  if (!d) throw err('Combien d’heures de plus ou de moins par semaine ?');
+  if (!uids.length) throw err('Cochez au moins une personne.');
+  const semaines = [...new Set(lundis.map(l => lundiDe(String(l))))].sort();
+  if (!semaines.length) throw err('Quelles semaines ?');
+  const resultats = uids.map(Number).map(uid => {
+    const p = db.prepare('SELECT p.*, u.nom_complet, u.email FROM tt_personne p JOIN utilisateur u ON u.id = p.utilisateur_id WHERE p.utilisateur_id = ?').get(uid);
+    if (!p) return { uid, nom: `#${uid}`, erreurs: ['Personne non désignée dans le module.'] };
+    const sem = new Map(anneeDe(uid, annee).map(s => [s.lundi, s]));
+    const cibles = {};
+    for (const l of semaines) { const s = sem.get(l); if (s?.statut === 'travail') cibles[l] = s.minutes + d; }
+    const v = { cibles, exclure: (exclure[uid] || []).map(String) };
+    const nom = p.nom_complet || p.email;
+    if (!Object.keys(cibles).length) return { uid, nom, erreurs: ['Aucune semaine de travail dans la période choisie (congés ou école fermée).'] };
+    try {
+      const plan = assistant(uid, annee, v);
+      return { uid, nom, v, du: plan.du, apres: plan.apres, erreurs: plan.erreurs, avertissements: plan.avertissements,
+        en_defaut: plan.en_defaut,
+        chargees: plan.changees.filter(c => !c.report).map(c => ({ lundi: c.lundi, avant: c.avant, apres: c.apres, controles: c.controles })),
+        compensees: plan.changees.filter(c => c.report).map(c => ({ lundi: c.lundi, avant: c.avant, apres: c.apres, chaleur: c.chaleur, controles: c.controles })) };
+    } catch (e) { return { uid, nom, erreurs: [e.message] }; }
+  });
+  const bloque = resultats.some(r => r.erreurs?.length || r.en_defaut);
+  if (!ecrire) return { simulation: true, resultats, bloque };
+  if (bloque) throw Object.assign(err('Le plan ne tient pas pour toutes les personnes : rien n’est enregistré.'), { bilan: { resultats } });
+  const h = Math.abs(d) / 60, hTxt = `${Number.isInteger(h) ? h : h.toFixed(1).replace('.', ',')} h`;
+  const resume = `Plan d’heures : ${d > 0 ? '+' : '−'} ${hTxt} par semaine du ${semaines[0].split('-').reverse().join('/')} au ${plusJours(semaines[semaines.length - 1], 4).split('-').reverse().join('/')}`;
+  const faits = resultats.map(r => proposer(r.uid, annee, { ...r.v, resume }, user, nomUser));
+  return { ecrit: faits.length, resultats };
 }

@@ -3251,6 +3251,15 @@ Configuration.jsx, groupes de paramètres `session` + `planification`, retirés 
 forme** (schema.sql : nom en clé, sans `id` ni `actif`) : `routes/locaux.js` ajoute `actif` et `equipements` et désigne une ligne par
 son `rowid` — `GET /api/locaux` échouait en production (« no such column: actif »).
 
+**TEMPS DE TRAVAIL, CÔTÉ DIRECTION** (3.5.304, Charles : « je ne comprends pas Temps de travail » ; « gérer l'année en entier avec
+des moments avec plus d'heures pour certains et d'autres moins » ; « la direction / direction adjointe approuve seule » ; maquette
+`docs/maquettes/temps-direction.html`). Onglets : L'équipe (`components/EquipeTemps.jsx` : ce qui attend — modulations à accepter,
+relevés du mois précédent signés par la personne, années non générées ; grille de l'équipe `GET /equipe-annee` ; le plan d'heures :
+cocher, glisser, ± n h par semaine → `POST /plan`, `planHeures` de `lib/monTemps.js`, sur l'assistant de `lib/ligneTemps.js`, `exclure`
+par personne, simulation puis tout ou rien appliqué directement) · Relevés · Préparer l'année · Outils avancés (la ligne du temps).
+**Une seule approbation** : `ORDRE` = relevé personne → direction, congés → direction ; l'étape « direction » se signe par la direction
+OU la direction adjointe ; `valider` d'une modulation n'exige plus le contrôle de l'adjointe.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

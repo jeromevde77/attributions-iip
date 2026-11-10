@@ -1,0 +1,202 @@
+<title>Temps de travail — direction</title>
+<style>
+:root{--marine:#16406A;--fond:#F4F6F9;--carte:#fff;--filet:#E2E6ED;--texte:#1F2A3A;--gris:#6B7684;--vert:#3E7D5E;--ocre:#B45309;--brique:#9D4A38;--bleu:#2F6FB0;--travail:#E3EAF3;--conge:#DDEEE3;--ferme:#E9ECF1;--forte:#D3E3F6}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--fond:#0F1722;--carte:#172232;--filet:#2A3648;--texte:#E6ECF4;--gris:#9AA7B8;--marine:#9CC3EA;--travail:#22344B;--conge:#1C3528;--ferme:#1E2836;--forte:#1D3350;color-scheme:dark}}
+:root[data-theme="dark"]{--fond:#0F1722;--carte:#172232;--filet:#2A3648;--texte:#E6ECF4;--gris:#9AA7B8;--marine:#9CC3EA;--travail:#22344B;--conge:#1C3528;--ferme:#1E2836;--forte:#1D3350;color-scheme:dark}
+body{background:var(--fond);color:var(--texte);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;padding-inline:16px;padding-block:18px 40px}
+.page{max-width:1180px;margin:0 auto;display:grid;gap:14px}
+h1{font-size:20px;margin:0;color:var(--marine)}
+.sous{color:var(--gris);margin:2px 0 0}
+.note{background:#FFF7E0;border:1px solid #F0D58A;color:#6A4B00;border-radius:10px;padding:8px 12px;font-size:13px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .note{background:#2E2610;border-color:#5E4B17;color:#F3D98B}}
+.onglets{display:flex;gap:2px;border-bottom:1px solid var(--filet);overflow-x:auto}
+.onglets button{font:inherit;border:0;background:none;padding:8px 14px;color:var(--gris);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.onglets button.actif{color:var(--marine);border-bottom-color:var(--marine);font-weight:600}
+.carte{background:var(--carte);border:1px solid var(--filet);border-radius:14px;overflow:hidden;min-width:0}
+.entete{padding:10px 14px;border-bottom:1px solid var(--filet);background:color-mix(in srgb,var(--marine) 5%,var(--carte));display:flex;justify-content:space-between;gap:10px;align-items:center}
+.entete h2{font-size:15px;margin:0}
+.entete small{color:var(--gris)}
+.ligne{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--filet);border-left:4px solid var(--c)}
+.ligne:last-child{border-bottom:0}
+.ligne .t{flex:1;min-width:0}.ligne .t small{display:block;color:var(--gris)}
+button.b{font:inherit;cursor:pointer;border-radius:8px;padding:6px 12px;border:1px solid var(--filet);background:var(--carte);color:var(--texte)}
+button.fort{background:#16406A;border-color:#16406A;color:#fff;font-weight:600}
+.vide{padding:12px 14px;color:var(--gris)}
+.equipe{overflow-x:auto}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums;width:100%}
+th,td{padding:4px 3px;text-align:center;font-size:11px}
+th.nom,td.nom{text-align:left;padding-left:14px;white-space:nowrap;font-size:13px;position:sticky;left:0;background:var(--carte)}
+th{color:var(--gris);font-weight:600}
+td.s{min-width:22px;cursor:crosshair;user-select:none}
+td.s.sel i{box-shadow:0 0 0 2px var(--ocre)}
+td.s i.plus{background:#F6C46B} td.s i.moins{background:#CFE2D6}
+td.chk{width:22px}
+.menu-zone{display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--filet);background:color-mix(in srgb,var(--ocre) 7%,var(--carte))}
+.menu-zone.ouvert{display:flex}
+.menu-zone select{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid var(--filet)}
+.proposition{display:none;border-top:1px solid var(--filet);padding:12px 14px;gap:8px}
+.proposition.ouvert{display:grid}
+.proposition table{width:auto}
+.proposition td,.proposition th{text-align:left;font-size:12.5px;padding:4px 10px}
+td.s i{display:block;height:22px;border-radius:4px;background:var(--travail)}
+td.s i.c{background:var(--conge)} td.s i.f{background:var(--ferme)} td.s i.fo{background:var(--forte)} td.s i.d{outline:1.5px dashed var(--ocre);outline-offset:-2px}
+td.s.ici i{box-shadow:0 0 0 2px #16406A}
+tr.pres td{color:var(--gris);font-size:11px;border-top:1px solid var(--filet)}
+tr.pres td.manque{color:var(--brique);font-weight:700}
+td.solde{white-space:nowrap;padding:0 14px;font-size:12.5px}
+.legende{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--gris);padding:10px 14px}
+.legende i{display:inline-block;width:14px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+.vue{display:none}.vue.ouverte{display:grid;gap:14px}
+.etapes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;padding:14px}
+.etape{border:1px solid var(--filet);border-radius:12px;padding:10px 12px;border-left:4px solid var(--c)}
+.etape b{display:block}.etape small{color:var(--gris)}
+.outils{padding:14px;display:grid;gap:8px;color:var(--gris)}
+</style>
+
+<div class="page">
+  <div>
+    <h1>Temps de travail</h1>
+    <p class="sous">Le secrétariat : 36 h par semaine pour un temps plein, 1 404 h sur l’année, 13 semaines de congé · vue de la direction</p>
+  </div>
+  <div class="note">Maquette pour validation — données fictives. Essayez : cochez une ou plusieurs personnes, glissez sur des semaines de septembre, choisissez « + 4 h » et « Proposer ». Quatre onglets : <b>L’équipe</b> (ce qu’on ouvre chaque jour), <b>Relevés</b>, <b>Préparer l’année</b> (une fois par an), <b>Outils avancés</b> (ce qui est aujourd’hui dans la ligne du temps).</div>
+
+  <div class="onglets" id="onglets">
+    <button class="actif" data-v="equipe">L’équipe</button>
+    <button data-v="releves">Relevés</button>
+    <button data-v="preparer">Préparer l’année</button>
+    <button data-v="avances">Outils avancés</button>
+  </div>
+
+  <!-- L'ÉQUIPE -->
+  <div class="vue ouverte" id="v-equipe">
+    <section class="carte">
+      <div class="entete"><h2>Ce qui vous attend</h2><small>3 choses</small></div>
+      <div class="ligne" style="--c:var(--ocre)"><div class="t"><b>Demande de DUPONT Marie</b><small>Congé la semaine du 18 janvier, travail la semaine du 15 février · « mariage de ma sœur » · Lucie a vérifié : 1 404 h et 13 semaines tiennent</small></div><button class="b">Refuser</button><button class="b fort">Accepter</button></div>
+      <div class="ligne" style="--c:var(--ocre)"><div class="t"><b>Demande de MARTIN Paul</b><small>2 h de plus la semaine du 23 novembre (inscriptions), reportées sur décembre · 3 présents cette semaine-là, 2 requis</small></div><button class="b">Refuser</button><button class="b fort">Accepter</button></div>
+      <div class="ligne" style="--c:var(--bleu)"><div class="t"><b>Relevés d’octobre à approuver : 2</b><small>DUPONT Marie (+ 1 h 12), MARTIN Paul (− 0 h 30) — signés par chacun</small></div><button class="b fort">Voir et approuver</button></div>
+    </section>
+
+    <section class="carte">
+      <div class="entete"><h2>L’équipe, semaine par semaine</h2><small>cochez une ou plusieurs personnes, puis glissez sur des semaines pour leur donner plus ou moins d’heures</small></div>
+      <div class="equipe"><table id="tab"></table></div>
+      <div class="menu-zone" id="menu"><b id="menuTitre"></b>
+        <label>par semaine <select id="menuH"><option value="4">+ 4 h</option><option value="2">+ 2 h</option><option value="6">+ 6 h</option><option value="-2">− 2 h</option><option value="-4">− 4 h</option></select></label>
+        <button class="b fort" onclick="poser()">Proposer</button><button class="b" onclick="fermerMenu()">Annuler</button></div>
+      <div class="proposition" id="prop"></div>
+      <div class="legende">
+        <span><i style="background:var(--travail)"></i>travail</span><span><i style="background:var(--forte)"></i>semaine forte</span>
+        <span><i style="background:var(--conge)"></i>congé</span><span><i style="background:var(--ferme)"></i>école fermée</span>
+        <span><i style="outline:1.5px dashed var(--ocre);outline-offset:-2px;background:var(--travail)"></i>demande en attente</span>
+        <span>« présents » en brique : moins de monde que les sections n’en demandent</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- RELEVÉS -->
+  <div class="vue" id="v-releves">
+    <section class="carte">
+      <div class="entete"><h2>Octobre 2026</h2><small>chaque personne signe, vous approuvez ; approuvé, le mois est verrouillé</small></div>
+      <div class="ligne" style="--c:var(--bleu)"><div class="t"><b>DUPONT Marie</b><small>152 h 24 prestées · 151 h 12 prévues · + 1 h 12 · signé le 2 novembre</small></div><button class="b">Voir</button><button class="b fort">Approuver</button></div>
+      <div class="ligne" style="--c:var(--bleu)"><div class="t"><b>MARTIN Paul</b><small>150 h 42 prestées · 151 h 12 prévues · − 0 h 30 · signé le 3 novembre</small></div><button class="b">Voir</button><button class="b fort">Approuver</button></div>
+      <div class="ligne" style="--c:var(--ocre)"><div class="t"><b>LEROY Sophie</b><small>pas encore signé par la personne</small></div><button class="b">Voir</button></div>
+    </section>
+  </div>
+
+  <!-- PRÉPARER -->
+  <div class="vue" id="v-preparer">
+    <section class="carte">
+      <div class="entete"><h2>Préparer 2027-2028</h2><small>une fois par an, dans l’ordre</small></div>
+      <div class="etapes">
+        <div class="etape" style="--c:var(--vert)"><b>1. Les personnes</b><small>3 personnes · formule et part de temps plein ✓</small></div>
+        <div class="etape" style="--c:var(--vert)"><b>2. Les congés</b><small>13 semaines peintes dans l’agenda de l’école ✓</small></div>
+        <div class="etape" style="--c:var(--ocre)"><b>3. Générer les années</b><small>à faire — Lucie pose les 52 semaines de chacun et vérifie les règles</small></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- OUTILS AVANCÉS -->
+  <div class="vue" id="v-avances">
+    <section class="carte">
+      <div class="entete"><h2>Outils avancés</h2><small>la ligne du temps d’aujourd’hui, inchangée</small></div>
+      <div class="outils">
+        <div>· La ligne du temps à zoom (année · semaines · semaine), la tension et le calme, les grands moments.</div>
+        <div>· L’assistant de report (moduler les heures d’une personne sur plusieurs semaines) et les modulations à contrôler.</div>
+        <div>· L’équipe jour par jour, une semaine.</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('#onglets button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#onglets button').forEach(x => x.classList.toggle('actif', x === b));
+  document.querySelectorAll('.vue').forEach(v => v.classList.toggle('ouverte', v.id === 'v-' + b.dataset.v));
+});
+const debut = new Date(Date.UTC(2026, 7, 17));
+const fmt = d => d.toLocaleDateString('fr-BE', { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace('.', '');
+const ferme = new Set([18, 19, 47, 48, 49, 50, 51]);
+const gens = [
+  { nom: 'DUPONT Marie', conge: new Set([10, 11, 26, 27, 33, 34]), fortes: new Set([2, 3, 4]), dem: new Set([22]), solde: '+ 3 h 15' },
+  { nom: 'MARTIN Paul', conge: new Set([10, 11, 26, 27, 33, 34]), fortes: new Set([14]), dem: new Set([14]), solde: '− 0 h 45' },
+  { nom: 'LEROY Sophie', conge: new Set([10, 12, 26, 28, 33, 35]), fortes: new Set([40, 41]), dem: new Set(), solde: '+ 0 h 00' },
+];
+const ici = 12;
+const plus = gens.map(() => new Map());   // index de semaine → heures en plus (ou en moins)
+const choisis = new Set([0]);
+function dessiner() {
+  let h = '<thead><tr><th class="chk"></th><th class="nom"></th>';
+  for (let i = 0; i < 52; i++) h += `<th>${i % 4 === 0 ? fmt(new Date(debut.getTime() + i * 7 * 864e5)) : ''}</th>`;
+  h += '<th>Année</th></tr></thead><tbody>';
+  gens.forEach((g, k) => {
+    h += `<tr><td class="chk"><input type="checkbox" ${choisis.has(k) ? 'checked' : ''} onchange="cocher(${k}, this.checked)"></td><td class="nom">${g.nom}</td>`;
+    let total = 0;
+    for (let i = 0; i < 52; i++) {
+      const c = ferme.has(i) ? 'f' : g.conge.has(i) ? 'c' : '';
+      const d = plus[k].get(i) || 0;
+      if (!c) total += 36 + d;
+      const cl = c || (d > 0 ? 'plus' : d < 0 ? 'moins' : '');
+      h += `<td class="s${i === ici ? ' ici' : ''}" data-k="${k}" data-i="${i}"><i class="${cl}" title="Semaine du ${fmt(new Date(debut.getTime() + i * 7 * 864e5))}${d ? ` : ${36 + d} h` : ''}"></i></td>`;
+    }
+    h += `<td class="solde">${total} h ${total === 1404 ? '✓' : `<b style="color:var(--brique)">(${total > 1404 ? '+' : ''}${total - 1404})</b>`}</td></tr>`;
+  });
+  h += '<tr class="pres"><td></td><td class="nom">présents</td>';
+  for (let i = 0; i < 52; i++) { const n = ferme.has(i) ? 0 : gens.filter(g => !g.conge.has(i)).length; h += `<td class="${!ferme.has(i) && n < 2 ? 'manque' : ''}">${ferme.has(i) ? '' : n}</td>`; }
+  h += '<td></td></tr></tbody>';
+  document.getElementById('tab').innerHTML = h;
+}
+window.cocher = (k, v) => { v ? choisis.add(k) : choisis.delete(k); };
+let zone = null, en = false;
+document.addEventListener('pointerdown', e => { const td = e.target.closest('td.s'); if (!td) return; en = true; zone = [+td.dataset.i, +td.dataset.i]; marquer(); });
+document.addEventListener('pointerover', e => { if (!en) return; const td = e.target.closest('td.s'); if (!td) return; zone[1] = +td.dataset.i; marquer(); });
+document.addEventListener('pointerup', () => { if (!en) return; en = false; ouvrirMenu(); });
+function bornes() { return [Math.min(...zone), Math.max(...zone)]; }
+function marquer() { const [a, b] = bornes(); document.querySelectorAll('td.s').forEach(td => td.classList.toggle('sel', choisis.has(+td.dataset.k) && +td.dataset.i >= a && +td.dataset.i <= b)); }
+function ouvrirMenu() {
+  const [a, b] = bornes();
+  document.getElementById('menuTitre').textContent = `${[...choisis].map(k => gens[k].nom).join(', ') || 'Personne de cochée'} · du ${fmt(new Date(debut.getTime() + a * 7 * 864e5))} au ${fmt(new Date(debut.getTime() + (b * 7 + 4) * 864e5))}`;
+  document.getElementById('menu').classList.add('ouvert');
+}
+window.fermerMenu = () => { document.getElementById('menu').classList.remove('ouvert'); document.querySelectorAll('td.s.sel').forEach(x => x.classList.remove('sel')); };
+window.poser = () => {
+  const [a, b] = bornes(); const d = Number(document.getElementById('menuH').value);
+  let lignes = '';
+  for (const k of choisis) {
+    const g = gens[k]; const sem = [];
+    for (let i = a; i <= b; i++) if (!ferme.has(i) && !g.conge.has(i)) { plus[k].set(i, (plus[k].get(i) || 0) + d); sem.push(i); }
+    // Lucie compense dans les semaines calmes (ici : octobre-novembre et mars, hors grands moments), au plus 4 h par semaine.
+    let reste = sem.length * d; const calmes = [];
+    for (const i of [8, 9, 12, 13, 15, 16, 20, 21, 23, 24, 29, 30, 31, 36, 37, 38]) {
+      if (!reste) break; if (ferme.has(i) || g.conge.has(i) || (i >= a && i <= b)) continue;
+      const m = Math.max(-4, Math.min(4, -reste)); plus[k].set(i, (plus[k].get(i) || 0) + m); reste += m; calmes.push(i);
+    }
+    lignes += `<tr><td><b>${g.nom}</b></td><td>${sem.length} semaine(s) à ${36 + d} h</td><td>compensé : ${calmes.length} semaine(s) calmes (${calmes.map(i => fmt(new Date(debut.getTime() + i * 7 * 864e5))).join(', ')})</td><td>année : 1404 h ✓</td></tr>`;
+  }
+  dessiner(); fermerMenu();
+  const p = document.getElementById('prop');
+  p.innerHTML = `<b>Proposition de Lucie — rien n’est encore enregistré</b><table>${lignes}</table>
+    <div style="color:var(--gris);font-size:12.5px">Les semaines compensées sont prises dans les périodes calmes de chacun, en évitant les grands moments ; touchez une semaine pour la changer. Chaque semaine reste dans les bornes : 45 h au plus, 8 h par jour (9 h en semaine de 4 jours).</div>
+    <div><button class="b fort">Enregistrer pour toute l’équipe</button> <button class="b" onclick="location.reload()">Annuler</button></div>`;
+  p.classList.add('ouvert');
+};
+dessiner();
+</script>

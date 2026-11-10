@@ -12,7 +12,7 @@ import {
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
-import { monTemps, deposerDemande, notifierReponse } from '../lib/monTemps.js';
+import { monTemps, deposerDemande, notifierReponse, planHeures } from '../lib/monTemps.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
 try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); const n = recalerAnnees(); if (n) console.log(`[temps de travail] ${n} semaine(s) recalée(s) sur l'année qui commence le 15 août`); } catch (e) { console.error('[temps de travail] migration', e.message); }
@@ -206,6 +206,12 @@ r.post('/demande', authRequired, (req, res) => {
   const uid = cible(req, res); if (uid == null) return;
   try { res.json(deposerDemande(uid, annee(req), req.body || {}, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
 });
+// LE PLAN D'HEURES (3.5.304) : la direction peint plus ou moins d'heures sur des semaines, pour une ou plusieurs personnes.
+r.post('/plan', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { res.json(planHeures(annee(req), req.body || {}, { ecrire: req.body?.ecrire === true, user: req.user, nomUser: nomDe(req.user) })); }
+  catch (e) { faute(res, e); }
+});
 // L'assistant : une proposition, rien n'est écrit.
 r.post('/moduler/:uid/assistant', authRequired, (req, res) => {
   const uid = cible(req, res); if (uid == null) return;
@@ -233,7 +239,7 @@ r.post('/modulations/:id/refuser', authRequired, (req, res) => {
 
 // ── Les deux pièces : le relevé du mois, la fiche de congés ──
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-const ETAPES = { personne: 'La personne', adjoint: 'La direction adjointe (contrôle)', direction: 'La direction (accord)' };
+const ETAPES = { personne: 'La personne', adjoint: 'La direction adjointe (contrôle)', direction: 'La direction (approbation)' };
 const blocSignatures = (sig, ordre) => `<table class="sig"><tr>${ordre.map(e => {
   const s = sig.find(x => x.etape === e && x.valable);
   return `<td><b>${ETAPES[e]}</b><br>${s ? `${esc(s.par_nom)}<br><span class="m">signé dans Lucie le ${esc(String(s.le).slice(0, 16).replace('T', ' '))}</span>` : '<span class="m">à signer</span>'}</td>`;
@@ -259,7 +265,7 @@ r.get('/releve/:uid/:mois/document', authRequired, (req, res) => {
     <table><thead><tr><th>Jour</th><th>Prévu</th><th>Réel / absence</th><th></th><th class="n">Prévu</th><th class="n">Presté</th><th class="n">Écart</th></tr></thead>
     <tbody>${lignes}<tr class="tot"><td colspan="4">Total du mois</td><td class="n">${hm(rel.prevu)}</td><td class="n">${hm(rel.reel)}</td><td class="n">${hm(rel.ecart)}</td></tr></tbody></table>
     <p class="regle">Solde depuis le début de l’année, à la fin du mois : <b>${hm(rel.solde)}</b> (à ramener à zéro en fin de période). Un jour férié pendant une semaine de travail compte pour ses heures prévues. Pause d’au moins 15 min au-delà de 6 h, jamais plus de 6 h d’affilée (loi du 16 mars 1971, art. 38quater).</p>
-    ${blocSignatures(rel.signatures, ['personne', 'adjoint', 'direction'])}</div>`;
+    ${blocSignatures(rel.signatures, ['personne', 'direction'])}</div>`;
   res.json({ html: envelopperDocument({ html: corps, titre: `Relevé des heures — ${nom} — ${req.params.mois}`, styles: STYLES,
     entete: { titre: 'Relevé mensuel des heures', sous: `${nom} · ${req.params.mois}`, ligne: `Année ${an}` } }),
     titre: `Relevé des heures — ${nom}`, nom_fichier: `Releve_heures_${nom.replace(/\W+/g, '_')}_${req.params.mois}.pdf` });
@@ -281,7 +287,7 @@ r.get('/conges/:uid/document', authRequired, (req, res) => {
     <tr class="tot"><td>Semaines de travail · heures dues</td><td colspan="2">${travail.length} · ${hm(travail.reduce((s, x) => s + x.minutes, 0))}</td></tr>
     </tbody></table>
     <p class="regle">Congés scolaires fixés par l’école et cinq semaines consécutives d’été. 36 h de travail effectif par semaine pour un temps plein (circulaire 9760, point 1.3.8). Les jours fériés pendant les semaines de travail ne sont pas à récupérer.</p>
-    ${blocSignatures(fc.signatures, ['adjoint', 'direction'])}</div>`;
+    ${blocSignatures(fc.signatures, ['direction'])}</div>`;
   res.json({ html: envelopperDocument({ html: corps, titre: `Fiche de congés — ${nom} — ${an}`, styles: STYLES,
     entete: { titre: 'Fiche de congés', sous: nom, ligne: `Année ${an}` } }),
     titre: `Fiche de congés — ${nom}`, nom_fichier: `Fiche_conges_${nom.replace(/\W+/g, '_')}_${an}.pdf` });
