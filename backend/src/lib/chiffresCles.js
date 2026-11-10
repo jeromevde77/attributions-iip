@@ -10,6 +10,7 @@
 // recalculés : deux formules pour une même grandeur donneraient deux chiffres.
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { situationsDeLAnnee } from './situationPro.js';
 import { versDate } from './versDate.js';
 import { calculerEtp } from '../routes/pilotage.js';
 
@@ -130,9 +131,13 @@ export function donneesChiffresCles(annee, ref = new Date()) {
     }
     return r;
   };
+  // LA SITUATION PROFESSIONNELLE DE L'ANNÉE (3.5.287).
+  const situations = situationsDeLAnnee(annee);
   const diplomes = list => {
-    const r = { acces: {}, max: {}, acces_connu: 0, max_connu: 0 };
+    const r = { acces: {}, max: {}, acces_connu: 0, max_connu: 0, situation: {}, situation_connue: 0 };
     for (const f of list) {
+      const st = situations[f.id];
+      if (st) { r.situation[st] = (r.situation[st] || 0) + 1; r.situation_connue++; }
       if (f.titre_acces) { r.acces[f.titre_acces] = (r.acces[f.titre_acces] || 0) + 1; r.acces_connu++; }
       if (f.diplome_max) { r.max[f.diplome_max] = (r.max[f.diplome_max] || 0) + 1; r.max_connu++; }
     }

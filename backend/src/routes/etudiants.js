@@ -44,7 +44,8 @@ import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
 import { schemaSvg, legendeSchemaHtml } from '../lib/schemaSvg.js';
 import { appelerCharges, avisCoordination, motifsVA } from '../lib/avisVA.js';
-import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
+import { TITRES_ACCES, DIPLOMES_MAX, SITUATIONS_PRO } from '../lib/profilEtudiant.js';
+import { situationDe, poserSituation } from '../lib/situationPro.js';
 import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
 import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
@@ -6357,7 +6358,18 @@ r.post('/purge', authRequired, gesteRequis('etudiants.purge'), (req, res) => {
 // ── Fiche étudiant avec inscriptions ─────────────────────────────────────────
 /** Les listes fermées du diplôme (titre d'accès, plus haut diplôme). */
 r.get('/listes/diplomes', authRequired, (req, res) => {
-  res.json({ titres_acces: TITRES_ACCES, diplomes_max: DIPLOMES_MAX });
+  res.json({ titres_acces: TITRES_ACCES, diplomes_max: DIPLOMES_MAX, situations_pro: SITUATIONS_PRO });
+});
+/** La situation professionnelle d'une année (3.5.287) : lue avec l'identité, écrite par qui modifie l'identité. */
+r.get('/:id/situation-pro', authRequired, (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  res.json({ annee, ...(situationDe(req.params.id, annee) || { situation: null }) });
+});
+r.put('/:id/situation-pro', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  const x = poserSituation(req.params.id, annee, req.body?.situation, req.user?.nom || req.user?.email || null);
+  if (x.erreur) return res.status(400).json({ error: x.erreur });
+  res.json({ annee, ...x });
 });
 
 r.get('/:id', authRequired, (req, res) => {

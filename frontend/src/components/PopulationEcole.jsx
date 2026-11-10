@@ -135,6 +135,43 @@ export default function PopulationEcole({ annee: anneeProp }) {
         </Carte>
       </div>
 
+      {/* LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section — CESS,
+          etc. — et aussi si chômeur, travailleur… »). Le titre se lit sur la fiche (Identité) ; la situation, celle de l'année. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Carte titre="Titre d'accès" sous={`Ce qui a ouvert l'inscription · sur ${k0(v.acces_connu || 0)} fiches renseignées${v.n - (v.acces_connu || 0) ? ` · ${k0(v.n - (v.acces_connu || 0))} non renseignées` : ''}`}>
+          {(v.acces_connu || 0) > 0
+            ? <Barres format={n => `${k0(n)} · ${pc(n, v.acces_connu)}`} lignes={(d.listes?.acces || []).filter(([c]) => v.acces?.[c]).map(([c, l]) => ({ nom: l, valeur: v.acces[c] }))} />
+            : <p className="text-sm text-slate-500 m-0">Aucun titre d'accès encodé (fiche → Identité, ou l'import sur mesure).</p>}
+        </Carte>
+        <Carte titre="Situation professionnelle" sous={`Cette année · sur ${k0(v.situation_connue || 0)} fiches renseignées${v.n - (v.situation_connue || 0) ? ` · ${k0(v.n - (v.situation_connue || 0))} non renseignées` : ''}`}>
+          {(v.situation_connue || 0) > 0
+            ? <Barres format={n => `${k0(n)} · ${pc(n, v.situation_connue)}`} lignes={(d.listes?.situations || []).filter(([c]) => v.situation?.[c]).map(([c, l]) => ({ nom: l, valeur: v.situation[c] }))} />
+            : <p className="text-sm text-slate-500 m-0">Aucune situation encodée pour {d.annee} (fiche → Identité → Situation professionnelle).</p>}
+        </Carte>
+      </div>
+      {!section && [['acces', 'acces_connu', "Titre d'accès par section", d.listes?.acces || []], ['situation', 'situation_connue', 'Situation professionnelle par section', d.listes?.situations || []]].map(([k, kc, titre, liste]) => {
+        const codes = liste.filter(([c]) => d.sections.some(x => x[k]?.[c]));
+        if (!codes.length) return null;
+        return (
+          <Carte key={k} titre={titre} sous="Le nombre d'étudiants de chaque section, et sa part parmi les fiches renseignées de la section.">
+            <div className="overflow-x-auto">
+              <table className="w-full text-second">
+                <thead><tr className="tab-entete">
+                  <th className="px-2 py-1 text-left">Section</th>
+                  {codes.map(([c, l]) => <th key={c} className="px-2 py-1 text-right">{l}</th>)}
+                  <th className="px-2 py-1 text-right">Non renseigné</th>
+                </tr></thead>
+                <tbody>{d.sections.map(x => (
+                  <tr key={x.section} className="border-t border-slate-100">
+                    <td className="px-2 py-1">{NOM_SECTION(x.section)}</td>
+                    {codes.map(([c]) => <td key={c} className="px-2 py-1 text-right tabular-nums">{x[k]?.[c] ? <>{k0(x[k][c])} <span className="text-slate-400">· {pc(x[k][c], x[kc])}</span></> : '—'}</td>)}
+                    <td className="px-2 py-1 text-right tabular-nums text-slate-500">{k0(x.n - (x[kc] || 0))}</td>
+                  </tr>))}</tbody>
+              </table>
+            </div>
+          </Carte>);
+      })}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Carte titre="Par bloc" sous="Le niveau principal de chaque étudiant : celui où il a le plus d'unités, le plus bas en cas d'égalité.">
           <Barres format={n => `${k0(n)} · ${pc(n, v.n)}`} lignes={niveaux.filter(n => v.par_niveau[n]).map(n => ({ nom: n === 'BA3' ? 'BA3 — diplômante' : n, valeur: v.par_niveau[n] }))} />

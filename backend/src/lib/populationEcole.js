@@ -10,6 +10,8 @@
 // réelle. L'inscrit est celui des chiffres clés : une inscription dans l'année, hors archivés.
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { situationsDeLAnnee } from './situationPro.js';
+import { TITRES_ACCES, SITUATIONS_PRO } from './profilEtudiant.js';
 import { profil, regionDuCp } from './chiffresCles.js';
 import { anciensAvant } from './primo.js';
 import { niveauEtudiant } from '../routes/etudiants.js';
@@ -178,14 +180,20 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
   const lignes = inscrits(annee).filter(l => voit(l.section));
   const ids = [...new Set(lignes.map(l => l.id))];
   const fiches = new Map(ids.length ? db.prepare(`
-    SELECT id, sexe, date_naissance, nationalite, cp, localite FROM etudiant
+    SELECT id, sexe, date_naissance, nationalite, cp, localite, titre_acces FROM etudiant
      WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids).map(f => [f.id, f]) : []);
   const anciens = anciensAvant(annee);
   const niveauDe = id => { try { return niveauPrincipal(niveauEtudiant(id, annee)) || 'sans niveau'; } catch { return 'sans niveau'; } };
   const niveaux = new Map(ids.map(id => [id, niveauDe(id)]));
 
+  // LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section, et aussi si
+  // chômeur, travailleur… ») : le titre se lit sur la fiche, la situation dans celle de L'ANNÉE.
+  const situations = situationsDeLAnnee(annee);
+  const repartir = (idsG, de) => { const r = {}; let connu = 0; for (const id of idsG) { const v = de(id); if (v) { r[v] = (r[v] || 0) + 1; connu++; } } return { r, connu }; };
   const resume = idsGroupe => {
     const fs = idsGroupe.map(id => fiches.get(id)).filter(Boolean);
+    const ac = repartir(idsGroupe, id => fiches.get(id)?.titre_acces || null);
+    const si = repartir(idsGroupe, id => situations[id] || null);
     const parNiveau = {};
     for (const id of idsGroupe) parNiveau[niveaux.get(id)] = (parNiveau[niveaux.get(id)] || 0) + 1;
     return {
@@ -194,6 +202,7 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
       ba3: idsGroupe.filter(id => niveaux.get(id) === 'BA3').length,
       par_niveau: parNiveau,
       domicile: domicile(fs),
+      acces: ac.r, acces_connu: ac.connu, situation: si.r, situation_connue: si.connu,
     };
   };
 
@@ -235,5 +244,6 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
       par_section: Object.fromEntries(Object.entries(parS).map(([s, set]) => [s, set.size])) };
   });
 
-  return { annee, ref: ref.toISOString().slice(0, 10), ensemble: resume(ids), sections, evolution };
+  return { annee, ref: ref.toISOString().slice(0, 10), ensemble: resume(ids), sections, evolution,
+    listes: { acces: TITRES_ACCES, situations: SITUATIONS_PRO } };
 }

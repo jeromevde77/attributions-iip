@@ -2,7 +2,7 @@ import ChampsAdresse, { ChoixPays } from './ChampsAdresse.jsx';
 import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck, IconX } from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { authHeaders, getAnnee } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge, EnteteCarte } from './ui.jsx';
 
@@ -43,6 +43,32 @@ const CHAMPS = [
   { k: 'email_ecole', l: 'Courriel école', type: 'email' },
   { k: 'email_perso', l: 'Courriel personnel', type: 'email' },
 ];
+
+/** LA SITUATION PROFESSIONNELLE DE L'ANNÉE (3.5.287) : une par année, enregistrée au choix (les statistiques de Gestion → Population). */
+function SituationPro({ etudId, liste, peut }) {
+  const annee = getAnnee();
+  const [v, setV] = useState(null);
+  const [msg, setMsg] = useState(null);
+  useEffect(() => {
+    fetch(`/api/etudiants/${etudId}/situation-pro?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : {})).then(j => setV(j.situation || '')).catch(() => setV(''));
+  }, [etudId, annee]);
+  async function poser(s) {
+    setV(s); setMsg(null);
+    const r = await fetch(`/api/etudiants/${etudId}/situation-pro`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee, situation: s }) });
+    const j = await r.json().catch(() => ({}));
+    setMsg(r.ok ? 'Enregistrée.' : (j.error || 'Refusé.'));
+  }
+  if (v === null) return null;
+  return (
+    <label className="text-xs block">
+      <span className="intertitre block mb-1">Situation professionnelle ({annee})</span>
+      <select value={v} disabled={!peut} onChange={e => poser(e.target.value)} className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+        {[['', '—'], ...(liste || [])].map(([c, l]) => <option key={c} value={c}>{l}</option>)}
+      </select>
+      {msg && <span className="block text-slate-500 mt-0.5">{msg}</span>}
+    </label>);
+}
 
 export default function IdentiteEtudiant({ etudId, onModifie }) {
   const droits = useDroits();
@@ -142,6 +168,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
             {c.aide && <span className="block text-mention text-slate-400 mt-0.5">{c.aide}</span>}
           </label>
         ))}
+        <SituationPro etudId={etudId} liste={listes?.situations_pro} peut={peut} />
       </div>
 
       {/* Le séjour limité aux études conditionne l'annexe 2 remise à l'Office

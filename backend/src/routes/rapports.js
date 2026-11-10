@@ -31,7 +31,7 @@ import { epreuves as epreuvesDeLAnnee } from '../lib/examens.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
 import { financesFormations, donneesCout, syntheseCout } from '../lib/coutFormation.js';
 import { getParamNum } from './parametres.js';
-import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
+import { TITRES_ACCES, DIPLOMES_MAX, SITUATIONS_PRO } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
 import { controlePrerequisPae, corpsControlePae, prenomSeul, STYLES_CONTROLE_PAE } from '../lib/controlePae.js';
 import { ROLES_GRILLE, grillePermise, grilleUE, grilleCours, pieceGrille, excelGrille } from '../lib/grillePresence.js';
@@ -1736,12 +1736,26 @@ function documentChiffresCles(p) {
   const repartition = (comptes, libs, connu) => (connu
     ? Object.entries(comptes).sort((a, b) => b[1] - a[1]).map(([k, c]) => `${esc(libs[k] || k)} : ${c}`).join(' · ')
     : 'non renseigné');
+  /* PAR SECTION (3.5.287, Charles : « le type de titre d'entrée par section — CESS, etc. — et si chômeur, travailleur… ») : une
+     ligne par section, une colonne par valeur présente ; le nombre et sa part parmi les fiches renseignées de la section. */
+  const parSection = (k, kc, liste, titre) => {
+    const codes = liste.filter(([c]) => d.lignes.some(l => l.etudiants[k]?.[c]));
+    if (!codes.length) return '';
+    return `<h3>${esc(titre)}</h3><table>${tete([['Section'], ...codes.map(([, lib]) => [lib]), ['Non renseigné']])}
+      <tbody>${d.lignes.filter(l => l.etudiants.n).map(l => { const e = l.etudiants; return `<tr><td>${esc(l.section)}</td>${codes.map(([c]) =>
+        `<td class="n">${e[k]?.[c] ? `${n0(e[k][c])} <span class="g">(${pc(e[k][c], e[kc])})</span>` : '—'}</td>`).join('')}<td class="n">${n0(e.n - (e[kc] || 0))}</td></tr>`; }).join('')}</tbody></table>`;
+  };
+  const tSituation = (E.situation_connue
+    ? `<p class="fin"><b>Situation professionnelle (${esc(d.annee)})</b> — ${repartition(E.situation, Object.fromEntries(SITUATIONS_PRO), E.situation_connue)} · connue pour ${pc(E.situation_connue, E.n)} des inscrits.</p>
+      ${parSection('situation', 'situation_connue', SITUATIONS_PRO, 'La situation professionnelle, section par section')}`
+    : `<p class="fin">La situation professionnelle (salarié, demandeur d'emploi, CPAS…) n'est encore renseignée pour aucun inscrit de ${esc(d.annee)} (fiche de l'étudiant, onglet Identité).</p>`);
   const tDipl = (E.acces_connu || E.max_connu)
     ? `<table>${tete([['Section'], ['Inscrits', 16], ["Titre d'accès connu", 30], ['Plus haut diplôme connu', 34]])}
       <tbody>${d.lignes.filter(l => l.etudiants.n).map(l => { const e = l.etudiants; return `<tr><td>${esc(l.section)}</td>
         <td class="n">${n0(e.n)}</td><td class="n">${pc(e.acces_connu, e.n)}</td><td class="n">${pc(e.max_connu, e.n)}</td></tr>`; }).join('')}</tbody></table>
       <p class="fin"><b>Titre d'accès</b> — ${repartition(E.acces, libAcces, E.acces_connu)}.<br>
-        <b>Plus haut diplôme</b> — ${repartition(E.max, libMax, E.max_connu)}.</p>`
+        <b>Plus haut diplôme</b> — ${repartition(E.max, libMax, E.max_connu)}.</p>
+      ${parSection('acces', 'acces_connu', TITRES_ACCES, "Le titre d'accès, section par section")}`
     : `<p class="fin">Le titre d'accès et le plus haut diplôme ne sont encore renseignés pour aucun inscrit
         (fiche de l'étudiant, onglet Identité, ou Import sur mesure).</p>`;
 
@@ -1832,6 +1846,7 @@ function documentChiffresCles(p) {
     <h2>Étudiants — sexe et âge</h2>${tEtu}
     <h2>Étudiants — nationalités</h2>${tNat}
     <h2>Étudiants — diplômes</h2>${tDipl}
+    <h2>Étudiants — situation professionnelle</h2>${tSituation}
     <h2>Personnel et charge</h2>${tPers}
     <h2>Offre de formation</h2>${tOffre}`;
 

@@ -3162,6 +3162,13 @@ Lecteurs : `donneesExamens` (une page par passage), `examensEtDeliberations` (ag
 l'école ; ligne en lecture dans `AgendaDates`), `examensDe` (`parcours.examens` de l'espace étudiant, « Mes prochains examens »).
 **Un nouveau lecteur des dates d'examen lit d'abord les passages (`tousLesPassages`, `placer`), puis la date unique.**
 
+**LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE DANS LES STATISTIQUES** (3.5.287, Charles, 10 novembre 2026 : « le type de titre
+d'entrée par section — CESS, etc. — et aussi si chômeur, travailleur » ; tranché : par section dans la pièce Chiffres clés ET à l'écran
+dans Gestion ; une situation professionnelle à liste fermée, une par ANNÉE). `SITUATIONS_PRO` (`lib/profilEtudiant.js`), table
+`etudiant_situation_pro` (`lib/situationPro.js`), routes `GET/PUT /api/etudiants/:id/situation-pro` (geste `etudiants.identite`),
+choix dans la fiche → Identité (`SituationPro`). Lue par `donneesPopulation` (Gestion → Population : cartes et tableaux par section)
+et `donneesChiffresCles` (`parSection` de la pièce). Pas dans l'import sur mesure (il écrit la fiche, pas l'année).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

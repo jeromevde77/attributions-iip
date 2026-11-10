@@ -4,6 +4,13 @@ export const chapitres = [];
 export const ajouts = {
   etudiants: [
     {
+      titre: "La situation professionnelle, et les statistiques par section",
+      pour: 'sec coo dir',
+      ou: "La fiche de l'étudiant → Identité → « Situation professionnelle (année) » ; Gestion → Population.",
+      texte: "Dans l'onglet Identité, la situation professionnelle de l'année se choisit dans une liste : travailleur salarié, indépendant, demandeur d'emploi, revenu d'intégration (CPAS), étudiant, sans activité, pensionné, autre. Elle s'enregistre au choix, une par année : celle d'une année passée ne change pas. Gestion → Population montre, pour l'école ou une section, le titre d'accès et la situation professionnelle, puis deux tableaux section par section ; la pièce « Chiffres clés par section » les imprime.",
+      savoir: ["Chaque répartition dit sur combien de fiches renseignées elle porte : un chiffre calculé sur peu de fiches se lit comme tel."],
+    },
+    {
       titre: "Un examen en plusieurs passages",
       pour: 'sec coo dir',
       ou: "Organisation → L'année → Sessions : épreuves et délibérations → une unité → sous un cours, « Plusieurs passages ? ».",
