@@ -17,6 +17,28 @@ const lundiDe = s => { const d = new Date(`${s}T00:00:00Z`); const w = (d.getUTC
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 const err = (m, status = 400) => Object.assign(new Error(m), { status });
 
+/* LES NOTIFICATIONS DES DEMANDES (3.5.303, Charles : « ajoute la notification pour les demandes de temps »). Une demande déposée
+   prévient la direction, à sa personne (directeur, administrateur : ceux qui l'acceptent) ; la réponse prévient la personne. */
+const LIEN_DIRECTION = '/professeurs?vue=temps';
+function notifier(uid, titre, corps, lien, par) {
+  try {
+    db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_user_id, cree_par) VALUES ('temps_demande', ?, ?, ?, ?, ?)`)
+      .run(titre, corps || null, lien, uid, par || null);
+  } catch (e) { console.error('[mon temps] notification :', e.message); }
+}
+export function notifierDemande(dm, nomUser) {
+  const direction = db.prepare("SELECT id FROM utilisateur WHERE actif = 1 AND role IN ('directeur', 'admin')").all();
+  for (const u of direction) {
+    if (u.id === dm.utilisateur_id) continue;
+    notifier(u.id, `Temps de travail — demande de ${nomUser}`, `${dm.resume}${dm.mot ? ` · « ${dm.mot} »` : ''}. À accepter ou refuser dans la ligne du temps.`, LIEN_DIRECTION, nomUser);
+  }
+}
+export function notifierReponse(m, nomUser) {
+  if (!m?.simple || !['acceptee', 'refusee'].includes(m.statut)) return;
+  notifier(m.utilisateur_id, m.statut === 'acceptee' ? 'Votre demande de temps est acceptée' : 'Votre demande de temps est refusée',
+    `${m.resume}${m.statut === 'refusee' && m.motif_refus ? ` — ${m.motif_refus}` : ''}`, LIEN_DIRECTION, nomUser);
+}
+
 /** Tout ce que l'écran montre, pour une personne et une année. `lundi` : la semaine regardée (cette semaine par défaut). */
 export function monTemps(uid, annee, lundi = null) {
   const p = db.prepare('SELECT * FROM tt_personne WHERE utilisateur_id = ?').get(uid);
@@ -107,7 +129,9 @@ export function deposerDemande(uid, annee, b, user, nomUser) {
     resume = `${b.type === 'plus' ? 'Plus' : 'Moins'} d’heures la semaine du ${jour(lundi)} : ${hm(s.minutes + delta)} au lieu de ${hm(s.minutes)}`;
   } else throw err('Type de demande inconnu.');
   try {
-    return proposer(uid, annee, { ...v, simple: true, resume, mot: b.mot }, user, nomUser);
+    const dm = proposer(uid, annee, { ...v, simple: true, resume, mot: b.mot }, user, nomUser);
+    if (['proposee', 'controlee'].includes(dm.statut)) notifierDemande(dm, nomUser);
+    return dm;
   } catch (e) {
     // Le moteur dit pourquoi en détail : on rend la première raison, en clair.
     const raisons = [...new Set([...(e.bilan?.erreurs || []), ...(e.bilan?.changees || []).flatMap(c => c.controles || [])])].filter(Boolean);

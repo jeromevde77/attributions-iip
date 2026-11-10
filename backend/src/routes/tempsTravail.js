@@ -12,7 +12,7 @@ import {
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
-import { monTemps, deposerDemande } from '../lib/monTemps.js';
+import { monTemps, deposerDemande, notifierReponse } from '../lib/monTemps.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
 try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); const n = recalerAnnees(); if (n) console.log(`[temps de travail] ${n} semaine(s) recalée(s) sur l'année qui commence le 15 août`); } catch (e) { console.error('[temps de travail] migration', e.message); }
@@ -222,13 +222,13 @@ r.get('/modulations', authRequired, (req, res) => {
 });
 r.post('/modulations/:id/valider', authRequired, (req, res) => {
   if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
-  try { res.json(valider(Number(req.params.id), req.body?.etape, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
+  try { const m = valider(Number(req.params.id), req.body?.etape, req.user, nomDe(req.user)); notifierReponse(m, nomDe(req.user)); res.json(m); } catch (e) { faute(res, e); }
 });
 // Refuser (direction, avec motif) ou retirer sa propre proposition.
 r.post('/modulations/:id/refuser', authRequired, (req, res) => {
   const m = db.prepare('SELECT utilisateur_id FROM tt_modulation WHERE id = ?').get(Number(req.params.id));
   if (!m || (m.utilisateur_id !== req.user.id && !gere(req.user))) return res.status(404).json({ error: 'Introuvable.' });
-  try { res.json(refuser(Number(req.params.id), req.body?.motif, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
+  try { const m2 = refuser(Number(req.params.id), req.body?.motif, req.user, nomDe(req.user)); notifierReponse(m2, nomDe(req.user)); res.json(m2); } catch (e) { faute(res, e); }
 });
 
 // ── Les deux pièces : le relevé du mois, la fiche de congés ──

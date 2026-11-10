@@ -3239,7 +3239,8 @@ autrement » → `PUT /ecart`), ses relevés (signer), son année en 52 cases, s
 /api/temps-travail/mon-temps`) et `deposerDemande()` (`POST /demande` : congé ⇄ semaine de congé travaillée, plus/moins d'heures),
 composée par l'assistant de `lib/ligneTemps.js` et déposée `simple` : la direction l'accepte d'un clic (pas de contrôle préalable
 de la direction adjointe) ; un simple échange de semaines ne fait plus passer la personne en « annualisé », et n'exige plus
-l'horaire variable (seules les heures modulées l'exigent).
+l'horaire variable (seules les heures modulées l'exigent). **Notifications** (3.5.303) : `notifierDemande` (direction et
+administrateur, à leur personne, type `temps_demande`) au dépôt ; `notifierReponse` (la personne) à l'acceptation ou au refus.
 
 **LE TEMPS DE L'ÉCOLE, UN SEUL GROUPE D'ORGANISATION** (3.5.302, Charles : « tout ce qui est lié à l'organisation doit être au même
 endroit avec horaire » ; étude `docs/maquettes/etude-organisation-temps.html` ; tranché : comme proposé, examens aux deux endroits,
