@@ -3276,7 +3276,9 @@ trou se signale et Lucie propose un relais). `lib/besoinsEcole.js` : `besoins()`
 12:00–21:30 pause 15:00 ; un jour non travaillé se récupère la même semaine, jamais sur un autre jour d'examen), appliqué par
 `retoucherSemaine`. Routes `GET /besoins`, `GET /relais?date=`. Écran `components/BesoinsEcole.jsx` (onglet « Les besoins de
 l'école », la ligne du temps détaillée repliée dessous) ; alerte dans « Ce qui vous attend ». `retoucherSemaine` n'applique plus
-l'écart de 2 h par jour à un jour déplacé.
+l'écart de 2 h par jour à un jour déplacé. **3.5.310** : les écarts de l'horaire annualisé (`controleSemaine`, `controleModule`)
+ne bornent plus que le DÉPASSEMENT (art. 20bis : 2 h de plus par jour, 5 h de plus par semaine) — une journée plus courte
+s'enregistre (cas de Mati, jeudi 9 h → 5 h 30) ; la fenêtre de la semaine dit dans son pied pourquoi « Enregistrer » est gris.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
