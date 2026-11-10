@@ -3130,6 +3130,23 @@ plus de confirmation au milieu de la visite — elle FINIT sur « Mon PAE » (`o
 coordination » (/pae/signaler → `pae_desaccord` au tableau de bord de la coordination de la section), sur Mon PAE (confirmé ou non
 par l'école) et dans la fenêtre d'entrée ; vue gardée en
 `localStorage` par matricule (par appareil). **Une face nouvelle de l'espace étudiant ajoute son étape à `ETAPES_VISITE`.**
+**Et l'espace enseignant a la sienne** (3.5.280, Charles : « le même type de guide pour la partie prof » ; tranché : elle finit sur
+Aujourd'hui) : même moteur (`VisiteGuidee` prend `etapes` et `espace`), étapes dans `frontend/src/enseignant/visiteEnseignant.js`
+(`ETAPES_ENSEIGNANT`), vue gardée sous `lucie.visite.ens.<adresse>` ; « Revoir la visite guidée » en tête de l'Aide. **Une face
+nouvelle de l'espace enseignant ajoute son étape à `ETAPES_ENSEIGNANT`.** **« Bientôt »** (3.5.282, Charles : « Mes stages, Mes TFE et
+présences encore en bientôt disponible avec un badge orange ») : une face de l'espace enseignant peut porter `bientot: true` (FACES) —
+pastille orange `--c-attente` dans le rail (`BoutonRail`, point sur l'icône quand le rail est étroit), écran « bientôt disponible »,
+sautée par la visite. Aujourd'hui : presences, tfe, stages. Pour les rouvrir : retirer `bientot`.
+
+**LE SUIVI DE SANTÉ — LA VISITE MÉDICALE DU CESI** (3.5.283, Charles, 10 novembre 2026, note du secrétariat : « organisme CESI,
+date de l'examen du formulaire de santé ; pas de visite médicale, pas de stage et pas de réussite » ; tranché : la FICHE est la source
+et les stages la lisent ; durée de validité réglable ; Lucie signale sans bloquer ; le formulaire se dépose). `lib/suiviSante.js`
+(table `etudiant_visite_medicale` — une ligne par visite, retirée avec motif, jamais effacée ; `visiteAuJour`, `etatsDeTous`,
+`lucie_config` « sante.validite_mois », 12 par défaut ; formulaire sous DATA_DIR/sante/<id> ; reprise unique des `stage.medecine_le`,
+« sante_reprise_stages »), `routes/sante.js` sur `/api/sante` (lire : direction, secrétariat, coordination de ses sections ; écrire :
+direction, secrétariat ; régler : direction). Fiche → onglet « Santé » (`components/SuiviSante.jsx`). Lecteurs : `piecesDuStage` et
+les blocages du stage (plus de saisie `medecine_le` à l'écran), filtre « Visite médicale manquante » de la liste, `sante_manquante`
+de la feuille de délibération d'une UE à cours `is_stage`.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

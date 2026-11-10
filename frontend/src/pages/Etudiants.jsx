@@ -1,5 +1,6 @@
 import NettoyerArchives from '../components/NettoyerArchives.jsx';
 import SuiviEspace from '../components/SuiviEspace.jsx';
+import SuiviSante from '../components/SuiviSante.jsx';
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import ImportTfe from '../components/ImportTfe.jsx';
 import { useTransfertsFermes } from '../lib/transferts.js';
@@ -2477,6 +2478,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             ['va', 'Valorisation'],
             ['finances', 'Finances'],
             ['stages', 'Stages'],
+            ['sante', 'Santé'],
             ['tfe', 'TFE'],
             ['amenagements', 'Aménagements'],
             ['cep', 'Congé-éducation'],
@@ -2529,6 +2531,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {/* LE SUIVI CONFIDENTIEL — la porte est jugée par le serveur, pas
               par l'onglet : à qui n'est ni enseignant de l'étudiant, ni sa
               coordination, ni la direction, l'écran dit que c'est fermé. */}
+          {onglet === 'sante' && <SuiviSante etudId={id} />}
           {onglet === 'suivi' && <SuiviEspace id={id} />}
           {onglet === 'suivi' && <SuiviEtudiant etudId={id} />}
 
@@ -3001,6 +3004,13 @@ export default function Etudiants() {
   // '' tous · 'primo' les primo-arrivés · 'anciens' les autres (2 octobre 2026).
   const [fPrimo, setFPrimo] = useState('');
   const [fPlus60, setFPlus60] = useState(false);   // plus de 60 ECTS au programme (3 octobre 2026)
+  // VISITE MÉDICALE MANQUANTE (3.5.283) : sans visite, ou visite échue — l'état vient de /api/sante/etats, lu à la demande.
+  const [fSante, setFSante] = useState(false);
+  const [etatsSante, setEtatsSante] = useState(null);
+  useEffect(() => {
+    if (!fSante || etatsSante) return;
+    fetch('/api/sante/etats', { headers: authHeaders() }).then(r => (r.ok ? r.json() : { etats: {} })).then(j => setEtatsSante(j.etats || {})).catch(() => setEtatsSante({}));
+  }, [fSante, etatsSante]);
   // CE QUI MANQUE AU DOSSIER (9 octobre 2026) : '' · 'tout' (au moins un champ) · une clé de MANQUES.
   const [fManque, setFManque] = useState('');
   // « Doublons » : ne garder que les étudiants dont le nom+prénom (accents et
@@ -3372,6 +3382,7 @@ export default function Etudiants() {
           : (e.section_rattachement && !e.section_deduite)))
       .filter(e => !fPrimo || (fPrimo === 'primo' ? e.primo : !e.primo))
       .filter(e => !fPlus60 || Number(frises?.etats?.[e.id]?.ects) > 60)
+      .filter(e => !fSante || !etatsSante || etatsSante[e.id] !== 'valide')
       .filter(e => !fManque || (fManque === 'tout' ? (e.manques || []).length > 0 : (e.manques || []).includes(fManque)));
     if (fDoublons) {
       const cleDe = e => `${e.nom || ''}|${e.prenom || ''}`.normalize('NFD')
@@ -3401,7 +3412,7 @@ export default function Etudiants() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens;
       return String(va).localeCompare(String(vb), 'fr') * tri.sens;
     });
-  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo, fDoublons, fPlus60, fManque, frises]);
+  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo, fDoublons, fPlus60, fSante, etatsSante, fManque, frises]);
 
   // Volets par section, comme dans la répartition des périodes : la liste se
   // parcourt section par section, et un étudiant inscrit dans plusieurs
@@ -3761,8 +3772,9 @@ export default function Etudiants() {
           fManque && { k: 'manque', l: fManque === 'tout' ? 'Dossier incomplet' : `Sans ${LIBELLE_MANQUE[fManque] || fManque}`, off: () => setFManque('') },
           fDoublons && { k: 'doublons', l: 'Doublons', off: () => setFDoublons(false) },
           fPlus60 && { k: 'plus60', l: 'Plus de 60 ECTS', off: () => setFPlus60(false) },
+          fSante && { k: 'sante', l: 'Visite médicale manquante', off: () => setFSante(false) },
         ].filter(Boolean);
-        const toutEffacer = () => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); setFManque(''); };
+        const toutEffacer = () => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); setFSante(false); setFManque(''); };
         const ligne = (libelle, champ) => (
           <label className="grid grid-cols-[110px_1fr] items-center gap-3 text-sm text-iip-texte">{libelle}{champ}</label>);
         return (
@@ -3838,6 +3850,9 @@ export default function Etudiants() {
                       <label className="flex items-center gap-1.5"
                         title="Ne montrer que les étudiants dont le programme de l'année dépasse 60 ECTS">
                         <input type="checkbox" checked={fPlus60} onChange={e => setFPlus60(e.target.checked)} /> Plus de 60 ECTS</label>
+                      <label className="flex items-center gap-1.5"
+                        title="Ne montrer que les étudiants sans visite médicale (CESI) encodée, ou dont la visite est échue">
+                        <input type="checkbox" checked={fSante} onChange={e => setFSante(e.target.checked)} /> Visite médicale manquante</label>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                       <button type="button" className="text-second text-iip-blue underline" onClick={toutEffacer}>Tout effacer</button>

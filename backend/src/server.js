@@ -3202,6 +3202,8 @@ app.use('/api/qualite', (await import('./routes/qualite.js')).default);
 app.use('/api/correction-ue', (await import('./routes/correctionUE.js')).default);
 // Les certificats médicaux (3.5.125) : routes/certificats.js, métier lib/certificatMedical.js.
 app.use('/api/certificats-medicaux', (await import('./routes/certificats.js')).default);
+// LE SUIVI DE SANTÉ (3.5.283) : la visite médicale du CESI, au dossier de l'étudiant.
+app.use('/api/sante', (await import('./routes/sante.js')).default);
 try { (await import('./lib/certificatMedical.js')).migrerCertificats(); } catch (e) { console.error('[migration] certificats médicaux :', e.message); }
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);

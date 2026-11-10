@@ -12,6 +12,8 @@ import { preparerLucie } from './relais.js';
 import { rangBloc } from '../lib/blocs.js';
 import TrainUE from '../components/TrainUE.jsx';
 import { BoutonRail as BoutonFace } from '../components/RailEspace.jsx';
+import VisiteGuidee, { visiteVue } from '../portail/VisiteGuidee.jsx';
+import { ETAPES_ENSEIGNANT } from './visiteEnseignant.js';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
 const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
@@ -803,15 +805,15 @@ function MesAmenagements() {
 const FACES = [
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
   { k: 'notes', l: 'Mes notes', I: IconPencil },
-  { k: 'presences', l: 'Mes présences', I: IconUserCheck },
+  { k: 'presences', l: 'Mes présences', I: IconUserCheck, bientot: true },
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'Les avis à rendre', I: IconChecklist },
   { k: 'examens', l: 'Mes examens', I: IconWriting },
   { k: 'prestations', l: 'Mes prestations', I: IconClockHour4, expert: true },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
-  { k: 'tfe', l: 'Mes TFE', I: IconSchool },
-  { k: 'stages', l: 'Mes stages', I: IconBriefcase },
+  { k: 'tfe', l: 'Mes TFE', I: IconSchool, bientot: true },
+  { k: 'stages', l: 'Mes stages', I: IconBriefcase, bientot: true },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
 ];
 const FACES_BAS = [
@@ -877,6 +879,11 @@ export default function EspaceEnseignant() {
   // « Mes prestations » ne paraît que pour un expert (3.5.241) : Lucie le sait par ses attributions.
   const [expert, setExpert] = useState(false);
   useEffect(() => { if (lucie) fetch('/api/prestations-experts/moi').then(r => r.json()).then(j => setExpert(!!j?.expert)).catch(() => {}); }, [lucie]);
+  // LA VISITE GUIDÉE (3.5.280, comme l'espace étudiant) : à la première entrée, une fois les écrans de Lucie prêts ; elle finit sur
+  // Aujourd'hui. Relancée depuis Aide.
+  const [visite, setVisite] = useState(false);
+  const idVisite = moi ? (moi.email || moi.id) : null;
+  useEffect(() => { if (lucie && idVisite && !visiteVue(idVisite, 'ens.')) { const t = setTimeout(() => setVisite(true), 600); return () => clearTimeout(t); } return undefined; }, [lucie, idVisite]);
   // Le trousseau du navigateur ne reste pas accroché au champ d'identifiant de l'entrée (3.5.235).
   useEffect(() => { if (moi && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!moi]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!token) return <>{erreur && <div className="bloc-etat px-3 py-2 text-sm m-4" data-etat="corriger">{erreur}</div>}<Entree onEntre={entrer} /></>;
@@ -940,12 +947,15 @@ export default function EspaceEnseignant() {
       <main className="flex-1 min-w-0 p-4 md:p-8 md:pt-4">
         {/* LES OUTILS EN HAUT (3.5.245) : Contacter, chercher, proposer une idée, annuler — une barre, plus dans le rail. */}
         <div className="hidden md:flex items-center justify-end gap-2 mb-4"><BoutonContact />{chercher}{outils}</div>
+        <div data-visite="contenu">
+        {face === 'aide' && <div className="flex justify-end mb-2"><button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setVisite(true)}>
+          <IconRoute size={15} /> Revoir la visite guidée</button></div>}
         <Garde cle={face}>
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
         {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}
         {lucie && (
-          <div hidden={!VUES_LUCIE.has(face)}>
+          <div hidden={!VUES_LUCIE.has(face) || !!FACE[face]?.bientot}>
             <MesCoursEspace vue={face} tic={tic} allerA={k => setFace(k)} demande={demande} />
           </div>)}
         {!lucie && (VUES_LUCIE.has(face) || face === 'aujourdhui' || face === 'fiche') && <ChargementLucie texte="Ouverture de votre espace…" />}
@@ -953,7 +963,14 @@ export default function EspaceEnseignant() {
             doit être fusionné avec aujourd'hui »). */}
         {lucie && face === 'aujourdhui' && <TableauDeBord allerA={k => aller(k)}
           apresEntete={<Suspense fallback={null}><MaJourneeLucie onAgir={ouvrirSeance} onSemaine={() => aller('agenda')} /></Suspense>} />}
-        {!seance && (face === 'etudiants' ? <MesUE />
+        {/* BIENTÔT DISPONIBLE (3.5.282, Charles : « Mes stages, Mes TFE et Mes présences encore en bientôt disponible, avec un badge
+            orange ») : l'entrée reste visible, l'écran dit qu'il arrive. */}
+        {FACE[face]?.bientot ? (
+          <div className="space-y-3">
+            <h1 className="titre-ecran flex items-center gap-2">{FACE[face].l} <span className="pastille-etat" style={{ background: 'var(--c-attente)', color: '#fff' }}>bientôt disponible</span></h1>
+            <Encadre etat="surveiller">Cet écran arrive bientôt dans votre espace. En attendant, adressez-vous au secrétariat ou à votre coordination.</Encadre>
+          </div>)
+        : !seance && (face === 'etudiants' ? <MesUE />
           : face === 'amenagements' ? <MesAmenagements />
           : face === 'agenda' ? <MonAgenda moi={moi} onPresences={s => ouvrirSeance('presences', s)} />
           // L'AIDE INTERACTIVE (3.5.161) : le mode d'emploi illustré de Lucie, celui des enseignants (le serveur filtre par rôle).
@@ -975,8 +992,12 @@ export default function EspaceEnseignant() {
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}
         </Garde>
+        </div>
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>
+      {visite && idVisite && <VisiteGuidee etudiantId={idVisite} espace="ens." etapes={ETAPES_ENSEIGNANT} aller={k => aller(k)}
+        dispo={et => !!FACE[et.face] && !FACE[et.face].bientot && (!FACE[et.face].expert || expert)}
+        onFin={() => { setVisite(false); aller('aujourdhui'); }} />}
     </div>
   );
 }

@@ -466,7 +466,16 @@ export async function relayerEnseignants(appel) {
       const chemin = String(q.chemin || '');
       if (!chemin.startsWith('/api/') || chemin.includes('..') || RELAIS_INTERDIT.some(x => x.test(chemin.split('?')[0]))) return fin(403, { error: 'Cette fonction n’est pas disponible dans l’espace enseignant.' });
       const u = q.ens_id > 0 ? db.prepare('SELECT * FROM utilisateur WHERE id = ? AND COALESCE(actif, 1) = 1').get(q.ens_id) : null;
-      if (!u) return fin(403, { error: 'Compte introuvable dans Lucie.' });
+      if (!u) {
+        // UN APERÇU SANS COMPTE (3.5.281, Charles, aperçu de BARBIER Antoine : « Compte introuvable dans Lucie ») : la fiche n'a pas de
+        // compte Lucie relié ; les écrans de Lucie s'ouvrent avec les droits d'un COMPTE — sans lui, ni l'aperçu ni le professeur
+        // lui-même n'y ont accès. On le dit, avec le chemin pour le relier.
+        const p = q.ens_id < 0 ? db.prepare('SELECT nom, prenom FROM professeur WHERE id = ?').get(-q.ens_id) : null;
+        const qui = p ? `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim() : 'Ce professeur';
+        return fin(403, { error: q.apercu
+          ? `${qui} n’a pas de compte Lucie relié à sa fiche : cet écran ne peut pas s’ouvrir, pour lui non plus. À relier dans Personnel → sa fiche → Accès Lucie.`
+          : 'Votre compte Lucie est introuvable ou désactivé : adressez-vous au secrétariat.' });
+      }
       if (!q.apercu && !fonctionPour('enseignant.espace', { userId: u.id })) return fin(403, { error: 'L’espace enseignant n’est pas ouvert pour votre compte.' });
       const jeton = q.apercu ? signPreviewToken(u, { id: null, nom: 'Aperçu de l’espace enseignant' }) : signRelaisToken(u);
       const h = { Authorization: `Bearer ${jeton}` };

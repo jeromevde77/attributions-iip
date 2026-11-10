@@ -26,6 +26,7 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 import { getParam } from './parametres.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { premierDixiemeUE } from '../lib/datesReelles.js';
+import { visiteAuJour } from '../lib/suiviSante.js';
 
 const r = Router();
 
@@ -376,6 +377,8 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
     if (['termine', 'rompu', 'annule'].includes(s.statut)) { s.pret = true; continue; }
     if (!s.autorisation_le) s.blocages.push("autorisation écrite du professeur de stage");
     if (!s.convention_le) s.blocages.push("convention signée");
+    { const v = visiteAuJour(etudId, s.date_debut || new Date().toISOString().slice(0, 10)); s.visite = v;
+      if (!v.valide) s.blocages.push(v.etat === 'echue' ? 'visite médicale échue (à refaire)' : 'visite médicale (CESI)'); }
     if (s.casier_le) {
       const six = new Date(s.casier_le + 'T00:00:00Z');
       six.setUTCMonth(six.getUTCMonth() + 6);
@@ -533,7 +536,9 @@ export function piecesDuStage(x, annee, auj = new Date().toISOString().slice(0, 
   if (!x.convention_le) manquent.push('convention signée (art. 51)');
   if (!x.casier_le) manquent.push('casier judiciaire (art. 55)');
   else if (x.date_debut) { const six = new Date(`${x.casier_le}T00:00:00Z`); six.setUTCMonth(six.getUTCMonth() + 6); if (new Date(`${x.date_debut}T00:00:00Z`) > six) manquent.push('casier de plus de six mois'); }
-  if (!x.medecine_le) manquent.push('médecine du travail (art. 55)');
+  // LA VISITE MÉDICALE SE LIT DANS LA FICHE (3.5.283) : celle du CESI, encodée une fois au dossier de l'étudiant, valable la durée
+  // réglée par la direction — plus de seconde date sur le stage.
+  { const v = visiteAuJour(x.etudiant_id, x.date_debut || auj); if (!v.valide) manquent.push(v.etat === 'echue' ? `visite médicale échue le ${String(v.jusqu_au).split('-').reverse().join('/')} (art. 55)` : 'visite médicale (CESI, art. 55)'); }
   if (!x.vaccination_ok) manquent.push('vaccination (art. 55)');
   let dixieme = null;
   // Le premier dixième de L'ORGANISATION de l'étudiant (AESI : Toussaint–Noël ou Carnaval–Pâques), pas celui de la première venue.

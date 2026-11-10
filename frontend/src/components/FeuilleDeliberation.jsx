@@ -879,6 +879,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
         </div>
       )}
 
+          {/* UNE UE DE STAGE : LA VISITE MÉDICALE (3.5.283) — signalée, le Conseil décide. */}
+          {data.sante_manquante?.length > 0 && (
+            <Encadre etat="surveiller" titre={`Visite médicale manquante ou échue — ${data.sante_manquante.length} étudiant(s)`}>
+              <div className="text-slate-700">Pas de visite médicale, pas de stage et pas de réussite en fin d’année (à encoder dans la fiche → Santé) :
+                {' '}{data.sante_manquante.map(x => `${x.nom}${x.etat === 'echue' ? ' (échue)' : ''}`).join(', ')}.</div>
+            </Encadre>)}
           {!!data.sans_structure && (
             /* UNE ALERTE SE VOIT (Charles, 3 octobre 2026) : bloc signalé orange,
                icône, titre — un fond pâle ton sur ton ne se lisait pas. */

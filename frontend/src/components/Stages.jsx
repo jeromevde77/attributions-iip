@@ -327,8 +327,15 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                       onValider={v => maj(s.id, { convention_le: v })} lecture={!peutEcrire} />
                     <ChampTexte libelle="Casier modèle 2" valeur={s.casier_le} type="date"
                       onValider={v => maj(s.id, { casier_le: v })} lecture={!peutEcrire} />
-                    <ChampTexte libelle="Médecine du travail" valeur={s.medecine_le} type="date"
-                      onValider={v => maj(s.id, { medecine_le: v })} lecture={!peutEcrire} />
+                    {/* LA VISITE MÉDICALE SE LIT DANS LA FICHE (3.5.283) : encodée une fois, onglet « Santé ». */}
+                    <Champ libelle="Visite médicale (CESI)">
+                      <div className="text-sm py-1.5">
+                        {s.visite?.date
+                          ? <span style={{ color: s.visite.valide ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{String(s.visite.date).split('-').reverse().join('/')}{s.visite.valide ? '' : ' — échue'}</span>
+                          : <span style={{ color: 'var(--c-refuse)' }}>pas encodée</span>}
+                        <span className="block text-xs text-slate-500">à encoder dans l’onglet « Santé »</span>
+                      </div>
+                    </Champ>
                     <Champ libelle="Vaccination (art. 55)">
                       <label className="flex items-center gap-2 text-sm py-1.5">
                         <input type="checkbox" checked={!!s.vaccination_ok} disabled={!peutEcrire}
