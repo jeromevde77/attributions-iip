@@ -581,6 +581,27 @@ function SchemaParcours({ schema, onNoeud = null }) {
 }
 
 /** MON PARCOURS (3.1.517) : le schéma de l'année — chaque unité de ses sections, par bloc, et les crédits acquis. */
+/** MA SANTÉ (3.5.286, Charles : « je ne vois pas Ma santé dans l'espace étudiant ») : sa visite médicale du CESI, telle que le
+ *  secrétariat l'a encodée — en ordre jusqu'au…, échue, ou à faire. Pas le formulaire : il reste au dossier. */
+function MaSante({ onErreur }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { appel('GET', '/sante').then(setD).catch(onErreur); }, [onErreur]);
+  if (!d) return <ChargementLucie />;
+  const s = d.sante;
+  if (!s) return <p className="text-sm text-slate-500">Votre suivi de santé n’est pas encore disponible. Revenez dans quelques minutes.</p>;
+  return (
+    <div className="space-y-3">
+      {s.etat === 'valide' && <Encadre etat="reussi" titre="Votre visite médicale est en ordre">
+        Visite du {jourFr(s.date)}{s.organisme ? ` (${s.organisme})` : ''} — valable jusqu’au {jourFr(s.jusqu_au)}.</Encadre>}
+      {s.etat === 'echue' && <Encadre etat="corriger" titre="Votre visite médicale est échue">
+        Votre dernière visite date du {jourFr(s.date)} ; elle valait jusqu’au {jourFr(s.jusqu_au)}. Une nouvelle visite est à faire : vous recevrez la convocation du CESI.</Encadre>}
+      {s.etat === 'aucune' && <Encadre etat="surveiller" titre="Pas encore de visite médicale enregistrée">
+        Vous recevrez votre convocation du CESI. Après la visite, le CESI envoie à l’école le formulaire de santé : il paraîtra ici.</Encadre>}
+      <p className="text-sm text-slate-600">Pas de visite médicale, pas de stage et pas de réussite en fin d’année. Une visite vaut {s.validite_mois} mois.
+        Une question ? Écrivez au secrétariat depuis « Messages ».</p>
+    </div>);
+}
+
 /** MES EXAMENS (3.5.284) : ses prochaines épreuves — le passage qui le concerne (date, heure, local, partie), déposés avec son
  *  parcours. Montrés dans « Aujourd'hui ». */
 function MesExamens() {
@@ -1324,7 +1345,7 @@ function Espace() {
   const a_ = k => ouvertes.includes(k);
   const SOUS = {
     parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
-    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé']].filter(([k]) => a_(k)),
   };
   const FACES = [
     ['aujourdhui', 'Aujourd’hui', IconHome],
@@ -1424,7 +1445,7 @@ function Espace() {
                     : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}>
                   <Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} />
                 </LigneEtat>))}
-            </ListeEtats>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.</p>)}
+            </ListeEtats>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.<br />Le chargement des documents peut prendre plusieurs minutes, selon la durée de votre parcours : revenez plus tard si vous attendez une attestation.</p>)}
           {d.reglements.length > 0 && (<>
             <h2 className="intertitre pt-2">Les règlements</h2>
             <ListeEtats>
@@ -1446,6 +1467,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'stage' && <MonStage appel={appel} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'sante' && <MaSante onErreur={echec} />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
         {d && face === 'aide' && <AideRegles onRevoir={() => { setVisiteDepart(0); setVisite(true); }} />}

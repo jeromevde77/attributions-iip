@@ -153,6 +153,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS ar_geste (id INTEGER PRIMARY KEY AUTOINCREME
   type TEXT NOT NULL, texte TEXT, nom TEXT, taille INTEGER, contenu BLOB,
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
 try { db.exec('ALTER TABLE espace_lot ADD COLUMN ar TEXT'); } catch { /* déjà là */ }
+try { db.exec('ALTER TABLE espace_lot ADD COLUMN sante TEXT'); } catch { /* déjà là */ }
 
 /* LA MOTIVATION PAR ACQUIS (3.5.006) : un type de geste de plus et sa colonne. Une contrainte CHECK ne se
    modifie pas en SQLite : la table se reconstruit, ses lignes recopiées. */
@@ -422,7 +423,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante'];
 const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
 const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
@@ -807,6 +808,12 @@ pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw(
 pub.use('/api/portail/certificat', (err, req, res, next) => (err?.type === 'entity.too.large'
   ? res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' }) : next(err)));
 
+// ── MA SANTÉ (3.5.286) : la visite médicale du CESI, déposée par Lucie (sans le formulaire). ──
+pub.get('/api/portail/sante', connecte, exige('sante'), (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  res.json({ pret: !!l, sante: l?.sante ? JSON.parse(l.sante) : null });
+});
+
 // ── L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) ──
 pub.get('/api/portail/amenagement', connecte, exige('amenagements'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
@@ -1042,6 +1049,7 @@ int.post('/interne/va', (req, res) => {
     ON CONFLICT(etudiant_id) DO UPDATE SET parcours = excluded.parcours, frais = excluded.frais, maj_le = excluded.maj_le`);
   const its = db.prepare(`UPDATE espace_lot SET tfe = ?, stage = ? WHERE etudiant_id = ?`);
   const iar = db.prepare(`INSERT INTO espace_lot (etudiant_id, ar, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET ar = excluded.ar`);
+  const isa = db.prepare(`INSERT INTO espace_lot (etudiant_id, sante, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET sante = excluded.sante`);
   const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
   db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
@@ -1050,6 +1058,7 @@ int.post('/interne/va', (req, res) => {
     if (x.parcours !== undefined || x.frais !== undefined) ie.run(Number(x.etudiant_id), JSON.stringify(x.parcours ?? null), JSON.stringify(x.frais ?? null));
     if (x.tfe !== undefined || x.stage !== undefined) its.run(JSON.stringify(x.tfe ?? null), JSON.stringify(x.stage ?? null), Number(x.etudiant_id));
     if (x.ar !== undefined) iar.run(Number(x.etudiant_id), JSON.stringify(x.ar ?? null));
+    if (x.sante !== undefined) isa.run(Number(x.etudiant_id), JSON.stringify(x.sante ?? null));
   } })();
   res.json({ ok: true, n: l.length });
 });

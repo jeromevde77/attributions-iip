@@ -25,6 +25,7 @@ import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
 import { parcoursPortail, fraisPortail, docsDesUnites } from './portailEspace.js';
+import { santePortail } from './suiviSante.js';
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offreAR, demandeEnLigne, messageAR } from './portailAmenagements.js';
@@ -185,7 +186,9 @@ async function deposerVA(ids) {
         parcours: !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null,
         tfe: f.has('tfe') ? tfePortail(e, anneeActive()) : null, stage: f.has('stage') ? stagePortail(e, anneeActive()) : null,
         // L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : les unités et leur délai, les mesures, la référente, le dossier.
-        ar: f.has('amenagements') ? offreAR(e, anneeActive()) : null });
+        ar: f.has('amenagements') ? offreAR(e, anneeActive()) : null,
+        // MA SANTÉ (3.5.286) : la visite médicale du CESI, telle que la fiche la connaît.
+        sante: f.has('sante') ? santePortail(e) : null });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }

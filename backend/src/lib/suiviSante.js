@@ -148,3 +148,9 @@ export function etatsDeTous(aLaDate = new Date().toISOString().slice(0, 10)) {
   }
   return out;
 }
+
+/** Ce que l'espace de l'étudiant montre (3.5.286, « Ma santé ») : l'état de sa visite, sans le formulaire. */
+export function santePortail(e) {
+  const v = visiteAuJour(e.id);
+  return { etat: v.etat, date: v.date, jusqu_au: v.jusqu_au, organisme: v.visite?.organisme || null, validite_mois: validiteMois() };
+}

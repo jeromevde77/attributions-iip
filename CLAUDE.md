@@ -3146,7 +3146,9 @@ et les stages la lisent ; durée de validité réglable ; Lucie signale sans blo
 « sante_reprise_stages »), `routes/sante.js` sur `/api/sante` (lire : direction, secrétariat, coordination de ses sections ; écrire :
 direction, secrétariat ; régler : direction). Fiche → onglet « Santé » (`components/SuiviSante.jsx`). Lecteurs : `piecesDuStage` et
 les blocages du stage (plus de saisie `medecine_le` à l'écran), filtre « Visite médicale manquante » de la liste, `sante_manquante`
-de la feuille de délibération d'une UE à cours `is_stage`.
+de la feuille de délibération d'une UE à cours `is_stage`. **Dans l'espace de l'étudiant** (3.5.286, « Ma santé ») : fonction
+`espace.sante` (née éteinte), `santePortail` déposé avec le lot (`espace_lot.sante` du portail, `GET /api/portail/sante`), onglet
+« Ma santé » de Mes démarches — l'état seul, jamais le formulaire.
 
 **UN EXAMEN EN PLUSIEURS PASSAGES** (3.5.284, Charles, 10 novembre 2026 : « plusieurs groupes et donc plusieurs dates ; un cours
 coupé en parties, avec des listes d'étudiants » ; tranché : placement par groupe, tranche alphabétique et à la main ; une partie =
