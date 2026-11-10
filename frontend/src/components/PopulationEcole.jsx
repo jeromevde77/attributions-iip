@@ -12,6 +12,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, SERIES, couleurSerie } from './graphiques.jsx';
 import { TuileEtat, EnteteCarte } from './ui.jsx';
 import { saisir, informer } from '../lib/dialogue.jsx';
+import CarteCommunes from './CarteCommunes.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const pc = (k, n) => (n ? `${Math.round((k / n) * 100)} %` : '—');
@@ -134,6 +135,11 @@ export default function PopulationEcole({ annee: anneeProp }) {
           </>}
         </Carte>
       </div>
+
+      {/* LA CARTE DES COMMUNES (3.5.289) : où habitent les étudiants — l'école ou la section choisie. */}
+      <Carte titre="Où habitent les étudiants" sous={`Par commune · sur ${k0(domConnu)} adresses belges${section ? ` · ${NOM_SECTION(section)}` : ''}`}>
+        <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} />
+      </Carte>
 
       {/* LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section — CESS,
           etc. — et aussi si chômeur, travailleur… »). Le titre se lit sur la fiche (Identité) ; la situation, celle de l'année. */}

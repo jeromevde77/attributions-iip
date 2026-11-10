@@ -3168,6 +3168,11 @@ dans Gestion ; une situation professionnelle à liste fermée, une par ANNÉE). 
 `etudiant_situation_pro` (`lib/situationPro.js`), routes `GET/PUT /api/etudiants/:id/situation-pro` (geste `etudiants.identite`),
 choix dans la fiche → Identité (`SituationPro`). Lue par `donneesPopulation` (Gestion → Population : cartes et tableaux par section)
 et `donneesChiffresCles` (`parSection` de la pièce). Pas dans l'import sur mesure (il écrit la fiche, pas l'année).
+**La carte des communes** (3.5.289, Charles : « une carte des communes, couleurs en dégradé selon les chiffres » ; tranché : Belgique +
+encart de Bruxelles, le nombre d'étudiants) : `components/CarteCommunes.jsx` sur Gestion → Population ; contours
+`frontend/public/carte/communes-be.json` (secteurs statistiques Statbel au 1er janvier 2026, regroupés en 565 communes par les arêtes
+non partagées, simplifiés, en Lambert 72 projeté) ; code postal → REFNIS `backend/src/donnees/cp-nis.json` (liste bpost 2025) ; comptes
+`domicile.par_nis` (`lib/populationEcole.js`). Un changement de communes (fusions) = refaire les deux fichiers.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

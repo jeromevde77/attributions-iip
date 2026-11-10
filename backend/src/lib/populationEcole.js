@@ -9,6 +9,7 @@
 // du personnel (`regionDuCp`), le primo celui de `lib/primo.js`, le niveau celui de la population
 // réelle. L'inscrit est celui des chiffres clés : une inscription dans l'année, hors archivés.
 // ─────────────────────────────────────────────────────────────────────────────
+import { readFileSync } from 'node:fs';
 import db from '../db/index.js';
 import { situationsDeLAnnee } from './situationPro.js';
 import { TITRES_ACCES, SITUATIONS_PRO } from './profilEtudiant.js';
@@ -160,8 +161,17 @@ const premiereSection = lignes => {
 
 const casse = t => String(t || '').trim().toLowerCase().replace(/(^|[\s-])\S/g, c => c.toUpperCase());
 
+/* LA CARTE DES COMMUNES (3.5.289, Charles : « une carte des communes concernées avec des couleurs en dégradé en fonction des
+   chiffres ») : chaque code postal belge se rattache à SA commune (code REFNIS de Statbel) par la liste des codes postaux de bpost
+   (donnees/cp-nis.json) ; l'écran dessine les communes (public/carte/communes-be.json, contours Statbel 2026). */
+let CP_NIS = null;
+function cpNis() {
+  if (CP_NIS) return CP_NIS;
+  try { CP_NIS = JSON.parse(readFileSync(new URL('../donnees/cp-nis.json', import.meta.url), 'utf-8')); } catch (e) { console.error('[carte] codes postaux :', e.message); CP_NIS = {}; }
+  return CP_NIS;
+}
 function domicile(fiches) {
-  const r = { bruxelles: 0, wallonie: 0, flandre: 0, inconnu: 0, communes: {} };
+  const r = { bruxelles: 0, wallonie: 0, flandre: 0, inconnu: 0, communes: {}, par_nis: {} };
   for (const f of fiches) {
     const cp = String(f.cp || '').replace(/\D/g, '');
     const reg = regionDuCp(cp);
@@ -171,6 +181,8 @@ function domicile(fiches) {
     const nom = `${cp} ${casse(String(f.localite || '').replace(new RegExp(`^\\s*${cp}\\s*`), '')) || ''}`.trim();
     r.communes[cp] = r.communes[cp] || { cp, nom, n: 0 };
     r.communes[cp].n++;
+    const nis = cpNis()[cp.padStart(4, '0')];
+    if (nis) r.par_nis[nis] = (r.par_nis[nis] || 0) + 1;
   }
   r.communes = Object.values(r.communes).sort((a, b) => b.n - a.n);
   return r;
