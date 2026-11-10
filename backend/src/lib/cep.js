@@ -190,6 +190,17 @@ export function dispenses(etudId, ueNum, annee) {
   return { complete, cours };
 }
 
+/** LES LISTES D'EXAMENS SANS LES DISPENSÉS (3.5.296, Charles : « tu ne me mets pas les reports de notes, les dispenses »). Une
+ *  valorisation complète retire l'étudiant de toutes les épreuves de l'unité ; une dispense par cours ou un report de notes, des
+ *  épreuves de ce cours. Une épreuve d'unité (sans cours) ne garde que ceux qui ne sont pas dispensés de l'unité entière. */
+export function sansDispenses(etudiants, annee, ueNum, coursCode = '') {
+  return (etudiants || []).filter(x => {
+    const d = dispenses(x.id, Number(ueNum), annee);
+    if (d.complete) return false;
+    return !(coursCode && d.cours.has(coursCode));
+  });
+}
+
 /**
  * Les séances d'une unité QUI CONCERNENT l'étudiant, avec leur sort.
  *

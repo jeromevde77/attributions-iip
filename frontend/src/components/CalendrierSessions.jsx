@@ -4,7 +4,7 @@ import {
   IconLock, IconWand, IconSearch, IconLayoutRows, IconCalendarEvent, IconGavel, IconWriting, IconEye,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { PageHeader, Fenetre, Chevron, PastilleEtat } from './ui.jsx';
+import { PageHeader, Fenetre, Chevron, PastilleEtat, OuvrirEditions } from './ui.jsx';
 import PassagesExamen from './PassagesExamen.jsx';
 
 /**
@@ -194,6 +194,12 @@ function DetailSession({ u, ses, locaux, poserSeance, poserEpreuve, onPassages }
               {/* PLUSIEURS PASSAGES (3.5.284) : groupes, parties — chacun sa date et sa liste. */}
               <button type="button" className="text-iip-blue underline font-normal shrink-0" onClick={() => onPassages(u, c, ses)}>
                 {nbP ? `${nbP} passages` : 'Plusieurs passages ?'}</button>
+              {/* LA LISTE DE CETTE ÉPREUVE (3.5.296) : le centre d'impression, onglet Examens, réglé sur ce jour et cette épreuve. */}
+              {d[`${p}_date`] && (
+                <OuvrirEditions taille="petit" titre="Listes et pièces de cette épreuve — centre d’impression"
+                  ongletInitial="etudiants" familleInitiale="examens"
+                  perimetre={{ examen: { section: u.section || '', session: ses, du: String(d[`${p}_date`]).slice(0, 10),
+                    au: String(d[`${p}_date`]).slice(0, 10), cle: `${ses}|${u.ue_num}|${c.cours_code || ''}` } }} />)}
             </div>
             {nbP > 0 && <div className="text-mention text-slate-500">L’épreuve a {nbP} passages : leurs dates se règlent dans « {nbP} passages ». La date ci-dessous est le premier.</div>}
             <div className="grid grid-cols-2 gap-2 mt-1">

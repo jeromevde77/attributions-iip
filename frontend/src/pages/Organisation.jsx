@@ -17,7 +17,7 @@ import Rentree from './Rentree.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
-const ExamensPreparer = lazy(() => import('../components/ExamensPreparer.jsx'));
+const CentreImpressionCentral = lazy(() => import('../components/CentreImpressionCentral.jsx'));
 const VoyagesEtudes = lazy(() => import('../components/VoyagesEtudes.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
@@ -48,7 +48,9 @@ export default function Organisation({ ongletInitial }) {
   // Groupes communs est devenu une face du laboratoire temporel (10 octobre 2026) : l'ancienne adresse y mène.
   const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande === 'groupes-communs' ? 'laboratoire'
     // La planification en trois entrées (3.5.146) : l'ancienne adresse « onglet=planifier&sous=… » mène à la bonne.
-    : demande === 'planifier' ? ({ dates: 'planif-dates', sessions: 'planif-sessions' }[params.get('sous')] || 'planif-ue') : demande;
+    : demande === 'planifier' ? ({ dates: 'planif-dates', sessions: 'planif-sessions' }[params.get('sous')] || 'planif-ue')
+    : demande === 'examens' ? 'planif-sessions' : demande;
+  const [examens, setExamens] = useState(demande === 'examens');
   const [annee, setAnnee] = useState('');
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -66,6 +68,10 @@ export default function Organisation({ ongletInitial }) {
         est rémanente : ouvert un jour sur l'an dernier pour vérifier une
         charge, on y reste le lendemain — et l'on y encode. */}
     <GardeAnnee quoi="l'organisation" />
+    {examens && (
+      <Suspense fallback={null}>
+        <CentreImpressionCentral ongletInitial="etudiants" familleInitiale="examens" onClose={() => setExamens(false)} />
+      </Suspense>)}
     <Axe
       titre="Organisation" icone={ICONE_AXE.organisation} impression="organisation" echanges
       question="« Qu'organise-t-on cette année ? »"
@@ -91,7 +97,7 @@ export default function Organisation({ ongletInitial }) {
             { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription, seulementPresent: true },
           ] },
         { key: 'g-annee', label: 'L’année', icone: IconCalendar,
-          enfants: [{ key: 'agenda' }, { key: 'planif-ue' }, { key: 'planif-dates' }, { key: 'planif-sessions' }, { key: 'examens' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
+          enfants: [{ key: 'agenda' }, { key: 'planif-ue' }, { key: 'planif-dates' }, { key: 'planif-sessions' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
         { key: 'g-enseigne', label: 'Qui enseigne et quand', icone: IconChalkboard,
           enfants: [
             { key: 'attributions' }, { key: 'laboratoire' },
@@ -139,9 +145,8 @@ export default function Organisation({ ongletInitial }) {
           key, module: 'planification', label, icone, sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <CentrePlanification annee={annee} face={face} /></Suspense> })),
-        /* EXAMENS : PRÉPARER ET IMPRIMER (3.5.226) — les pièces de l'enveloppe d'examen, après les sessions qui datent les épreuves. */
-        { key: 'examens', module: 'planification', label: 'Examens : préparer et imprimer', icone: IconWriting,
-          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><ExamensPreparer annee={annee} /></Suspense> },
+        /* EXAMENS : PRÉPARER ET IMPRIMER a quitté Organisation (3.5.296) : Éditions → Étudiants → Examens. L'ancienne adresse
+           (onglet=examens, celle des rappels) ouvre le centre d'impression sur cet onglet. */
         /* LE LABORATOIRE TEMPOREL DE LUCIE (10 octobre 2026) : les UE posées sur
            l'année en tuiles, leurs couches, et le verre de chacune — sur la
            grille d'organisation et les dates des UE, sans rien doubler. */

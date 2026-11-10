@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
 import { aRepresenterParCours } from '../routes/acquis.js';
+import { sansDispenses } from './cep.js';
 
 export function migrerExamens(dbx = db) {
   dbx.exec(`CREATE TABLE IF NOT EXISTS epreuve_detail (
@@ -91,6 +92,7 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
       const par = ajournes[e.ue_num];
       etudiants = e.cours_code ? (par[e.cours_code] || []) : [...new Map(Object.values(par).flat().map(x => [x.id, x])).values()];
     } else etudiants = essai(() => inscrits.all(annee, e.ue_num), []);
+    etudiants = essai(() => sansDispenses(etudiants, annee, e.ue_num, e.cours_code), etudiants);
     const d = essai(() => det.get(annee, e.session, e.ue_num, e.cours_code), null) || {};
     const lesEtudiants = etudiants.map(x => ({ id: x.id, nom: nomP(x), matricule: x.id_ecampus || x.matricule || '',
       ar: (amenagements.get(x.id) || []).filter(m => (!m.ue_num || Number(m.ue_num) === Number(e.ue_num)) && (!m.ues || m.ues.includes(Number(e.ue_num)))) }));

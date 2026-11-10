@@ -15,6 +15,7 @@ const LIBELLE_TYPE = {
   date_ue: "Dates d'unité d'enseignement",
   attribution: 'Attribution',
   dossier_pedagogique: 'Dossier pédagogique',
+  cours_nom: 'Nom d’un cours',
 };
 
 /* UN TEXTE LONG SE LIT LIGNE À LIGNE (3.5.262, le dossier pédagogique proposé par la coordination) : les lignes retirées barrées,

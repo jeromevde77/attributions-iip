@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconMail, IconFileText, IconListCheck, IconLayoutGrid, IconAccessible, IconAlertTriangle, IconArchive, IconId, IconCalendarEvent } from '@tabler/icons-react';
 import { authHeaders, api } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -19,23 +19,31 @@ function Champ({ valeur, onPoser, liste, largeur = 'w-44', placeholder = '' }) {
     onChange={e => setV(e.target.value)} onBlur={() => { if ((v || '') !== (valeur || '')) onPoser(v); }} />;
 }
 
-export default function ExamensPreparer({ annee }) {
+/* DANS LE CENTRE D'IMPRESSION (3.5.296, Charles : « simplifier la sortie des listes d'examens ; il faut que cela aille dans le
+   centre d'impression ») : Éditions → Étudiants → Examens. `initial` règle l'écran à l'ouverture (depuis le calendrier des
+   sessions : section, session, le jour de l'épreuve, l'épreuve cochée) ; `integre` retire le titre d'écran. */
+export default function ExamensPreparer({ annee, initial = null, integre = false }) {
   const [sections, setSections] = useState([]);
-  const [section, setSection] = useState('');
-  const [session, setSession] = useState(1);
-  const [du, setDu] = useState('');
-  const [au, setAu] = useState('');
+  const [section, setSection] = useState(initial?.section || '');
+  const [session, setSession] = useState(Number(initial?.session) === 2 ? 2 : 1);
+  const [du, setDu] = useState(initial?.du || '');
+  const [au, setAu] = useState(initial?.au || '');
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [coches, setCoches] = useState(new Set());
   const [enCours, setEnCours] = useState(null);
+  const premiereCle = useRef(initial?.cle || null);
 
   useEffect(() => { api.sections().then(l => setSections(Array.isArray(l) ? l : [])).catch(() => {}); }, []);
   const charger = () => {
     const q = new URLSearchParams({ annee: annee || '', session: String(session), ...(section ? { section } : {}), ...(du ? { du } : {}), ...(au ? { au } : {}) });
     fetch(`/api/examens?${q}`, { headers: authHeaders() })
       .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Lecture impossible.'); return j; })
-      .then(j => { setD(j); setErreur(null); setCoches(new Set()); }).catch(e => setErreur(e.message));
+      .then(j => { setD(j); setErreur(null);
+        // L'épreuve demandée par le calendrier est cochée une fois, à l'ouverture.
+        const voulue = premiereCle.current; premiereCle.current = null;
+        setCoches(voulue && (j.epreuves || []).some(e => e.cle === voulue) ? new Set([voulue]) : new Set()); })
+      .catch(e => setErreur(e.message));
   };
   useEffect(() => { charger(); }, [annee, section, session, du, au]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -64,8 +72,8 @@ export default function ExamensPreparer({ annee }) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="titre-ecran">Examens : préparer et imprimer</h1>
-        <p className="text-second text-slate-500 m-0">Les épreuves datées dans « Sessions : épreuves et délibérations ». Complétez ce qui manque — surveillants, écrit ou oral, durée, matériel —, cochez (aucune coche = toutes), puis sortez les pièces. L’enveloppe suit la procédure pour l’organisation des examens 2026-2027.</p>
+        {!integre && <h1 className="titre-ecran">Examens : préparer et imprimer</h1>}
+        <p className="text-second text-slate-500 m-0">Les épreuves datées dans « Sessions : épreuves et délibérations ». Choisissez la section et la période, complétez ce qui manque — surveillants, écrit ou oral, durée, matériel —, cochez (aucune coche = toutes), puis sortez les pièces. Les étudiants dispensés (valorisation accordée, report de notes) ne figurent pas sur les listes de l’épreuve dont ils sont dispensés. L’enveloppe suit la procédure pour l’organisation des examens 2026-2027.</p>
       </div>
       <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
         <select className="controle" value={section} onChange={e => setSection(e.target.value)}>

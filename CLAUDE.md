@@ -3198,6 +3198,20 @@ ramenait tout rôle hors de `ROLES_CONNUS` à « consultation » dans le jeton :
 touchaient ni plafonds, ni gestes, ni règles. Il accepte désormais `rolesConnus().codes`, et `authRequired` RELIT le rôle en base à
 chaque requête (un changement de rôle vaut aussitôt ; les jetons de trente jours déjà délivrés se réparent seuls).
 
+**LES EXAMENS SORTENT DU CENTRE D'IMPRESSION** (3.5.296, Charles : « simplifier la sortie ; dans le centre d'impression ; pas les
+reports de notes ni les dispenses » ; tranché : section puis période ; un bouton par épreuve). `ExamensPreparer` (props `initial`,
+`integre`) est l'onglet « Examens » d'Éditions → Étudiants ; l'entrée d'Organisation est retirée, `?onglet=examens` ouvre le centre.
+Le rapport `listes-examens` (doublon) est retiré du catalogue. `sansDispenses` (`lib/cep.js`, sur `dispenses()`) filtre les listes
+de `epreuves()` (`lib/examens.js`) et d'`etudiantsDeLEpreuve` (`lib/passages.js`). L'avion d'une épreuve du calendrier des sessions
+ouvre le centre réglé sur elle (`perimetre.examen`).
+
+**LE NOM D'UN COURS SE CORRIGE DEPUIS L'ÉTAPE 0** (3.5.297, Charles : « proposer aussi le nom du cours ; le référentiel en dur SI
+la direction valide ; sinon, cela reste pour l'année en cours » ; tranché : l'année en cours d'office, mêmes acteurs que les
+rubriques). `POST /api/due/:ue/cours-noms` (`lib/nomsCours.js`, `appliquerNomCours`) : la coordination renomme la ligne `cours` de
+l'année et dépose une demande `cours_nom` ; acceptée (applicateur de `routes/demandes.js`), le nom vaut pour l'année et les
+suivantes ; la direction écrit d'emblée l'année et les suivantes. Le titre du cours est renommé dans `ue.ue_dp`
+(`renommerDansDossier`, lignes de titre seulement) : le programme se découpe par les noms des cours.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

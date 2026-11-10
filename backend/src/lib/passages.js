@@ -45,6 +45,11 @@ const sans = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpp
 
 /** Les étudiants de l'épreuve (la règle des listes d'examens). */
 export async function etudiantsDeLEpreuve(annee, session, ue, cours) {
+  // Les dispensés (valorisation, report de notes) ne passent pas l'épreuve (3.5.296, `sansDispenses`).
+  const { sansDispenses } = await import('./cep.js');
+  return sansDispenses(await etudiantsBruts(annee, session, ue, cours), annee, ue, cours || '');
+}
+async function etudiantsBruts(annee, session, ue, cours) {
   if (Number(session) === 2) {
     const { aRepresenterParCours } = await import('../routes/acquis.js');
     let par = {}; try { par = aRepresenterParCours(Number(ue), annee, 1) || {}; } catch { par = {}; }
