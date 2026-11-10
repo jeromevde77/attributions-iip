@@ -1424,7 +1424,7 @@ function Espace() {
                     : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}>
                   <Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} />
                 </LigneEtat>))}
-            </ListeEtats>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.</p>)}
+            </ListeEtats>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.<br />Le chargement des documents peut prendre plusieurs minutes, selon la durée de votre parcours : revenez plus tard si vous attendez une attestation.</p>)}
           {d.reglements.length > 0 && (<>
             <h2 className="intertitre pt-2">Les règlements</h2>
             <ListeEtats>
