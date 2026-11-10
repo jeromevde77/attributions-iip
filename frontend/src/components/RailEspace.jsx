@@ -16,7 +16,11 @@ export function BoutonRail({ f, actif, onClick, etroit = false }) {   // data-vi
       style={style}>
       <f.I size={19} stroke={1.8} className="flex-shrink-0" style={{ color: actif ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />
       <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
+      {/* « BIENTÔT » (3.5.282) : une entrée annoncée mais pas encore ouverte porte une pastille orange — à côté du libellé, et en
+          point sur l'icône quand le rail est étroit. */}
+      {f.bientot && <span className={`pastille-etat text-[10px] ${etroit ? 'md:hidden' : ''}`} style={{ background: 'var(--c-attente)', color: '#fff' }}>bientôt</span>}
+      {f.bientot && etroit && <span aria-hidden="true" className="hidden md:block absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white" style={{ background: 'var(--c-attente)' }} />}
       {etroit && <span role="tooltip" className="hidden md:group-hover:block md:group-focus-visible:block pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50 px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium text-xs whitespace-nowrap"
-        style={{ background: 'var(--c-principal, #16406A)' }}>{f.l}</span>}
+        style={{ background: 'var(--c-principal, #16406A)' }}>{f.l}{f.bientot ? ' — bientôt disponible' : ''}</span>}
     </button>);
 }

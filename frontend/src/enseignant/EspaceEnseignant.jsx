@@ -805,15 +805,15 @@ function MesAmenagements() {
 const FACES = [
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
   { k: 'notes', l: 'Mes notes', I: IconPencil },
-  { k: 'presences', l: 'Mes présences', I: IconUserCheck },
+  { k: 'presences', l: 'Mes présences', I: IconUserCheck, bientot: true },
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'Les avis à rendre', I: IconChecklist },
   { k: 'examens', l: 'Mes examens', I: IconWriting },
   { k: 'prestations', l: 'Mes prestations', I: IconClockHour4, expert: true },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
-  { k: 'tfe', l: 'Mes TFE', I: IconSchool },
-  { k: 'stages', l: 'Mes stages', I: IconBriefcase },
+  { k: 'tfe', l: 'Mes TFE', I: IconSchool, bientot: true },
+  { k: 'stages', l: 'Mes stages', I: IconBriefcase, bientot: true },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
 ];
 const FACES_BAS = [
@@ -955,7 +955,7 @@ export default function EspaceEnseignant() {
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
         {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}
         {lucie && (
-          <div hidden={!VUES_LUCIE.has(face)}>
+          <div hidden={!VUES_LUCIE.has(face) || !!FACE[face]?.bientot}>
             <MesCoursEspace vue={face} tic={tic} allerA={k => setFace(k)} demande={demande} />
           </div>)}
         {!lucie && (VUES_LUCIE.has(face) || face === 'aujourdhui' || face === 'fiche') && <ChargementLucie texte="Ouverture de votre espace…" />}
@@ -963,7 +963,14 @@ export default function EspaceEnseignant() {
             doit être fusionné avec aujourd'hui »). */}
         {lucie && face === 'aujourdhui' && <TableauDeBord allerA={k => aller(k)}
           apresEntete={<Suspense fallback={null}><MaJourneeLucie onAgir={ouvrirSeance} onSemaine={() => aller('agenda')} /></Suspense>} />}
-        {!seance && (face === 'etudiants' ? <MesUE />
+        {/* BIENTÔT DISPONIBLE (3.5.282, Charles : « Mes stages, Mes TFE et Mes présences encore en bientôt disponible, avec un badge
+            orange ») : l'entrée reste visible, l'écran dit qu'il arrive. */}
+        {FACE[face]?.bientot ? (
+          <div className="space-y-3">
+            <h1 className="titre-ecran flex items-center gap-2">{FACE[face].l} <span className="pastille-etat" style={{ background: 'var(--c-attente)', color: '#fff' }}>bientôt disponible</span></h1>
+            <Encadre etat="surveiller">Cet écran arrive bientôt dans votre espace. En attendant, adressez-vous au secrétariat ou à votre coordination.</Encadre>
+          </div>)
+        : !seance && (face === 'etudiants' ? <MesUE />
           : face === 'amenagements' ? <MesAmenagements />
           : face === 'agenda' ? <MonAgenda moi={moi} onPresences={s => ouvrirSeance('presences', s)} />
           // L'AIDE INTERACTIVE (3.5.161) : le mode d'emploi illustré de Lucie, celui des enseignants (le serveur filtre par rôle).
@@ -989,7 +996,7 @@ export default function EspaceEnseignant() {
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>
       {visite && idVisite && <VisiteGuidee etudiantId={idVisite} espace="ens." etapes={ETAPES_ENSEIGNANT} aller={k => aller(k)}
-        dispo={et => !!FACE[et.face] && (!FACE[et.face].expert || expert)}
+        dispo={et => !!FACE[et.face] && !FACE[et.face].bientot && (!FACE[et.face].expert || expert)}
         onFin={() => { setVisite(false); aller('aujourdhui'); }} />}
     </div>
   );
