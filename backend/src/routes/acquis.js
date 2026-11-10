@@ -33,7 +33,8 @@ import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces
 // Les trois pièces de la délibération — attestation de réussite, motivation
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
-import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
+import { envelopper, unitesReussies, pageAttestation, frDate, dateDeDecision } from './attestations.js';
+import { marqueDecision } from '../lib/authentique.js';
 import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { piedDocument, getParam } from './parametres.js';
@@ -1974,7 +1975,7 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   };
 
   const corps = `
-<div class="attestation piece">
+<div class="attestation piece">${marqueDecision(dateDeDecision(etudId, ueNum, annee, session))}
   ${enteteDocument({
     titre: `Motivation d'une décision ${estRefus ? 'de refus' : "d'ajournement"}`,
     sous: ue.ue_nom || `UE ${ueNum}`,

@@ -151,7 +151,8 @@ function Verification({ reference }) {
               <Ligne l="Nature" v={r.nature} />
               <Ligne l="Objet" v={r.objet} />
               <Ligne l="Au nom de" v={r.personne} />
-              <Ligne l="Émise le" v={jourFr(r.emise_le)} />
+              {r.decision_le && <Ligne l="Décision du Conseil des études du" v={jourFr(r.decision_le)} />}
+              <Ligne l="Pièce émise le" v={jourFr(r.emise_le)} />
               <Ligne l="Par" v={r.etablissement} />
             </div>
           </div>
