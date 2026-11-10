@@ -3125,7 +3125,10 @@ doit être le premier acte de chacun ») : la visite s'ouvre AVANT la confirmati
 reprend à l'étape suivante (`depart`). `frontend/src/portail/VisiteGuidee.jsx` (`ETAPES_VISITE`) ; une étape dont l'écran n'est pas
 ouvert pour l'étudiant (`dispo`) est sautée ; 3.5.278 (« après le tour, tu vas à cette fenêtre ; tu ne permets pas de refuser le PAE ! ») :
 plus de confirmation au milieu de la visite — elle FINIT sur « Mon PAE » (`onFin('pae')`, même fermée), et l'écran Mon PAE porte
-« Mon programme n'est pas juste » (`SignalerPAE`, /pae/signaler) à côté de « Confirmer » ; vue gardée en
+« Mon programme n'est pas juste » à côté de « Confirmer » ; 3.5.279 (« je veux les deux ; le bouton vert, le bouton fraise ») :
+`DecisionPAE` — vert « Je confirme mon PAE » (/pae/valider, sans code) et fraise « Mon PAE n'est pas juste, j'en informe la
+coordination » (/pae/signaler → `pae_desaccord` au tableau de bord de la coordination de la section), sur Mon PAE (confirmé ou non
+par l'école) et dans la fenêtre d'entrée ; vue gardée en
 `localStorage` par matricule (par appareil). **Une face nouvelle de l'espace étudiant ajoute son étape à `ETAPES_VISITE`.**
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`

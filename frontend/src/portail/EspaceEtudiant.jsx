@@ -194,9 +194,11 @@ function ValiderPAE({ annee, onFait }) {
     <FenetreEspace titre={`Votre programme ${annee || ''}`} sous="À valider avant d’entrer dans votre espace" large
       pied={desaccord
         ? <><button type="button" className="bouton" onClick={() => setDesaccord(false)}>Retour</button>
-            <button type="button" className="bouton bouton-fort" disabled={envoi || mot.trim().length < 5} onClick={signaler}>Envoyer à ma coordination</button></>
-        : <><button type="button" className="bouton" onClick={() => setDesaccord(true)}>Mon programme n’est pas juste</button>
-            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={envoi || !lu || !o} onClick={valider}><IconCheck size={15} /> Je confirme mon programme</button></>}>
+            <button type="button" className="bouton" style={{ background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' }} disabled={envoi || mot.trim().length < 5} onClick={signaler}>Envoyer à ma coordination</button></>
+        : <><button type="button" className="bouton inline-flex items-center gap-1.5" style={{ background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' }}
+              onClick={() => setDesaccord(true)}><IconAlertTriangle size={15} /> Mon PAE n’est pas juste, j’en informe la coordination</button>
+            <button type="button" className="bouton inline-flex items-center gap-1.5" style={{ background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }}
+              disabled={envoi || !lu || !o} onClick={valider}><IconCheck size={15} /> Je confirme mon PAE</button></>}>
       <div className="space-y-3 text-sm">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {!o ? <p className="text-slate-500">Chargement de votre programme…</p> : desaccord ? (<>
@@ -869,8 +871,6 @@ function FraisEstimes({ tarif, ues }) {
 function MonPAE({ onErreur, email }) {
   const [p, setP] = useState(null);
   const [choix, setChoix] = useState(null);
-  const [code, setCode] = useState('');
-  const [codeEnvoye, setCodeEnvoye] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const charger = useCallback(() => appel('GET', '/pae').then(x => { setP(x); }).catch(onErreur), [onErreur]);
   useEffect(() => { charger(); }, [charger]);
@@ -917,26 +917,13 @@ function MonPAE({ onErreur, email }) {
         <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={signe ? 'reussi' : 'disponible'}>
           <div className="font-semibold text-iip-texte">PAE {o.annee} — confirmé par l’école le {jourFr(o.confirme_le)}</div>
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
-            : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut (ou à votre adresse privée tant que vous entrez par un code d’accès).</div>}
+            : <div>Relisez-le : s’il est juste, confirmez-le ; sinon, dites-le à votre coordination.</div>}
         </div>
         <ul className="carte divide-y divide-slate-100">
           {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
-        {!signe && !attend && (codeEnvoye ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="w-full text-sm text-slate-600">Un code à six chiffres vient de partir par courriel{email ? <> à <b>{email}</b></> : ' à votre adresse'} ;
-              il vaut 10 minutes. Rien reçu ? Regardez les indésirables, ou{' '}
-              <button type="button" className="underline text-iip-blue" onClick={() => setCodeEnvoye(false)}>demandez-en un autre</button>.</p>
-            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Code reçu"
-              className="controle w-36 text-center tracking-widest" autoComplete="one-time-code" />
-            <button type="button" className="bouton bouton-fort" disabled={code.length !== 6 || enCours}
-              onClick={() => geste('/pae/confirmer', { code }, () => { setCode(''); setCodeEnvoye(false); })}>Je confirme mon PAE</button>
-          </div>) : (
-          <button type="button" className="bouton bouton-fort w-full" disabled={enCours}
-            onClick={() => geste('/code', { objet_type: 'pae', objet_id: Number(String(o.annee).slice(0, 4)) }, () => setCodeEnvoye(true))}>
-            <IconSignature size={15} /> Confirmer mon PAE</button>))}
-        {!signe && !attend && <SignalerPAE onErreur={onErreur} />}
+        {!signe && !attend && <DecisionPAE programme={o.programme || []} onFait={charger} onErreur={onErreur} />}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
       </div>);
   }
@@ -956,7 +943,9 @@ function MonPAE({ onErreur, email }) {
           {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
-        {prog.length > 0 && <SignalerPAE onErreur={onErreur} />}
+        {prog.length > 0 && (o.signature?.a_jour
+          ? <Encadre etat="reussi">Vous avez confirmé ce programme le {jourFr(o.signature.signe_le)}.</Encadre>
+          : !attend && <DecisionPAE programme={prog} onFait={charger} onErreur={onErreur} />)}
       </div>);
   }
 
@@ -993,28 +982,45 @@ function MonPAE({ onErreur, email }) {
   );
 }
 
-/** MON PROGRAMME N'EST PAS JUSTE (3.5.278, Charles : « tu ne permets pas de refuser le PAE ! ») : sur l'écran du PAE, à côté de
- *  « Confirmer » ; le message part à la coordination de la section et au secrétariat (/pae/signaler, comme la fenêtre d'entrée). */
-function SignalerPAE({ onErreur }) {
+/** LES DEUX RÉPONSES AU PAE (3.5.279, Charles : « je veux les deux : Je confirme mon PAE et Mon PAE n'est pas juste, j'en informe
+ *  la coordination ; juste → le bouton vert ; pas juste → le bouton fraise, et la coordination de la section reçoit une
+ *  notification sur son tableau de bord »). Confirmer = /pae/valider (sans code, comme la fenêtre d'entrée) ; pas juste =
+ *  /pae/signaler (notification `pae_desaccord`, coordination et secrétariat de la section). */
+function DecisionPAE({ programme, onFait, onErreur }) {
   const [ouvert, setOuvert] = useState(false);
   const [mot, setMot] = useState('');
   const [envoi, setEnvoi] = useState(false);
   const [parti, setParti] = useState(false);
-  if (parti) return <Encadre etat="reussi">Votre message est parti à votre coordination et au secrétariat : ils vous répondront dans « Messages ».</Encadre>;
-  if (!ouvert) return <button type="button" className="bouton w-full" onClick={() => setOuvert(true)}>Mon programme n’est pas juste</button>;
+  const vert = { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' };
+  const fraise = { background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' };
+  const confirmer = async () => {
+    setEnvoi(true);
+    try { await appel('POST', '/pae/valider', { accepte: true, programme }); try { sessionStorage.setItem(PAE_REMIS, '1'); } catch { /* */ } await onFait?.(); }
+    catch (e) { onErreur(e); } finally { setEnvoi(false); }
+  };
   const envoyer = async () => {
     setEnvoi(true);
     try { await appel('POST', '/pae/signaler', { message: mot }); setParti(true); try { sessionStorage.setItem(PAE_REMIS, '1'); } catch { /* */ } }
     catch (e) { onErreur(e); } finally { setEnvoi(false); }
   };
+  if (parti) return <Encadre etat="disponible">Votre message est parti à votre coordination : elle vous répondra dans « Messages ». Quand votre programme sera corrigé, vous pourrez le confirmer ici.</Encadre>;
   return (
-    <div className="carte p-4 space-y-2 text-sm">
-      <p className="m-0">Dites ce qui ne va pas : une unité qui manque, une unité en trop… Votre coordination et le secrétariat reçoivent votre message et vous répondent.</p>
-      <textarea className="controle w-full !h-auto py-2" rows={3} value={mot} onChange={e => setMot(e.target.value)} placeholder="Par exemple : l’UE 250 manque à mon programme." />
-      <div className="flex justify-end gap-2">
-        <button type="button" className="bouton" onClick={() => setOuvert(false)}>Annuler</button>
-        <button type="button" className="bouton bouton-fort" disabled={envoi || mot.trim().length < 5} onClick={envoyer}>Envoyer à ma coordination</button>
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button type="button" className="bouton justify-center min-h-11" style={vert} disabled={envoi} onClick={confirmer}>
+          <IconCheck size={16} /> Je confirme mon PAE</button>
+        <button type="button" className="bouton justify-center min-h-11" style={fraise} disabled={envoi} onClick={() => setOuvert(true)}>
+          <IconAlertTriangle size={16} /> Mon PAE n’est pas juste, j’en informe la coordination</button>
       </div>
+      {ouvert && (
+        <div className="carte p-4 space-y-2 text-sm">
+          <p className="m-0">Dites ce qui ne va pas : une unité qui manque, une unité en trop… Votre coordination reçoit votre message sur son tableau de bord et vous répond.</p>
+          <textarea className="controle w-full !h-auto py-2" rows={3} value={mot} onChange={e => setMot(e.target.value)} placeholder="Par exemple : l’UE 250 manque à mon programme." />
+          <div className="flex justify-end gap-2">
+            <button type="button" className="bouton" onClick={() => setOuvert(false)}>Annuler</button>
+            <button type="button" className="bouton" style={fraise} disabled={envoi || mot.trim().length < 5} onClick={envoyer}>Envoyer à ma coordination</button>
+          </div>
+        </div>)}
     </div>);
 }
 
