@@ -12,7 +12,7 @@ import {
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
-import { monTemps, deposerDemande, notifierReponse, planHeures } from '../lib/monTemps.js';
+import { monTemps, deposerDemande, notifierReponse, planHeures, retoucherSemaine } from '../lib/monTemps.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
 try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); const n = recalerAnnees(); if (n) console.log(`[temps de travail] ${n} semaine(s) recalée(s) sur l'année qui commence le 15 août`); } catch (e) { console.error('[temps de travail] migration', e.message); }
@@ -205,6 +205,12 @@ r.get('/mon-temps', authRequired, (req, res) => {
 r.post('/demande', authRequired, (req, res) => {
   const uid = cible(req, res); if (uid == null) return;
   try { res.json(deposerDemande(uid, annee(req), req.body || {}, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
+});
+// UNE SEMAINE RETOUCHÉE (3.5.305) : la direction allonge ou raccourcit des journées ; Lucie compense ailleurs si le total change.
+r.post('/semaine/:uid/:lundi', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { res.json(retoucherSemaine(Number(req.params.uid), annee(req), req.params.lundi, req.body?.jours || [], { ecrire: req.body?.ecrire === true, user: req.user, nomUser: nomDe(req.user) })); }
+  catch (e) { faute(res, e); }
 });
 // LE PLAN D'HEURES (3.5.304) : la direction peint plus ou moins d'heures sur des semaines, pour une ou plusieurs personnes.
 r.post('/plan', authRequired, (req, res) => {

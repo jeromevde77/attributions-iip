@@ -9,9 +9,9 @@
  * tension, les grands moments restent dans l'écran de la direction.
  */
 import db from '../db/index.js';
-import { anneeDe, releve, ficheConges, plusJours, semainesDeLAnnee, REGLES, hm, ABSENCES } from './tempsTravail.js';
+import { anneeDe, releve, ficheConges, plusJours, semainesDeLAnnee, REGLES, hm, ABSENCES, dureeJour, controleSemaine, reglage, verrouille } from './tempsTravail.js';
 import { fermetures } from './agendaEcole.js';
-import { modulations, proposer, assistant } from './ligneTemps.js';
+import { modulations, proposer, assistant, valider } from './ligneTemps.js';
 
 const lundiDe = s => { const d = new Date(`${s}T00:00:00Z`); const w = (d.getUTCDay() + 6) % 7; return plusJours(s, -w); };
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -176,4 +176,54 @@ export function planHeures(annee, { uids = [], lundis = [], delta = 0, exclure =
   const resume = `Plan d’heures : ${d > 0 ? '+' : '−'} ${hTxt} par semaine du ${semaines[0].split('-').reverse().join('/')} au ${plusJours(semaines[semaines.length - 1], 4).split('-').reverse().join('/')}`;
   const faits = resultats.map(r => proposer(r.uid, annee, { ...r.v, resume }, user, nomUser));
   return { ecrit: faits.length, resultats };
+}
+
+
+/* UNE SEMAINE RETOUCHÉE À LA MAIN (3.5.305, Charles : « si je clique sur une case, l'horaire de la semaine du MDP apparaît, toute la
+   semaine, les heures en vertical ; que je puisse réduire ou ajouter »). `jours` : les sept journées telles que la direction les veut
+   ({ debut, fin, pause_debut, pause_fin } ou null). Si le total change, Lucie remet la différence dans les semaines calmes à venir
+   (l'assistant de la ligne du temps), pour que l'année garde ses heures ; la semaine retouchée garde EXACTEMENT ce qui a été posé.
+   Simulation d'abord ; `ecrire` applique directement (la direction approuve seule), avec la trace d'une modulation acceptée. */
+const totalJ = jours => (jours || []).reduce((t, j) => t + (j && !j.recup ? dureeJour(j) : 0), 0);
+export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, user = null, nomUser = '' } = {}) {
+  lundi = lundiDe(String(lundi || ''));
+  const p = db.prepare('SELECT * FROM tt_personne WHERE utilisateur_id = ?').get(uid);
+  if (!p) throw err('Personne non désignée.', 404);
+  const sem = anneeDe(uid, annee);
+  const s = sem.find(x => x.lundi === lundi);
+  if (!s) throw err('Semaine inconnue : préparez d’abord l’année.', 404);
+  if (s.statut !== 'travail') throw err('Une semaine de congé ne porte pas d’heures.', 409);
+  if (verrouille(uid, lundi) || verrouille(uid, plusJours(lundi, 6))) throw err('Ce mois est approuvé : il ne change plus.', 409);
+  const propres = Array.from({ length: 7 }, (_, i) => {
+    const j = jours?.[i];
+    if (!j || !j.debut || !j.fin) return null;
+    return { debut: j.debut, fin: j.fin, ...(j.pause_debut && j.pause_fin ? { pause_debut: j.pause_debut, pause_fin: j.pause_fin } : {}) };
+  });
+  const R = reglage(annee);
+  const avantT = s.minutes, apresT = totalJ(propres);
+  let compensees = [], du = Math.round(REGLES.hebdo * (Number(p.fraction) || 1)) * (52 - REGLES.congesAnnuels), apresAnnee = sem.reduce((t, x) => t + x.minutes, 0) - avantT + apresT;
+  let erreurs = [];
+  if (apresT !== avantT) {
+    const plan = assistant(uid, annee, { cibles: { [lundi]: apresT } });
+    compensees = plan.changees.filter(c => c.report).map(c => ({ lundi: c.lundi, avant: c.avant, apres: c.apres, jours: c.jours, controles: c.controles }));
+    apresAnnee = plan.apres - (plan.changees.find(c => c.lundi === lundi)?.apres || 0) + apresT;
+    erreurs = [...plan.erreurs.filter(e => !/compterait/.test(e))];
+    if (apresAnnee !== du) erreurs.push(`L’année compterait ${hm(apresAnnee)} pour ${hm(du)} : ${hm(Math.abs(du - apresAnnee))} ${du > apresAnnee ? 'restent à placer' : 'sont en trop'}.`);
+  }
+  // La semaine retouchée suit les règles de l'horaire annualisé dès que son total change (8 h ou 9 h par jour, 45 h au plus, 2 h d'écart).
+  const formule = apresT !== avantT ? 'annualise' : p.formule;
+  const controles = controleSemaine(propres, { formule, fraction: Number(p.fraction) || 1, modele: s.jours, rtVariable: R.rt_variable })
+    .filter(c => !/doit compter exactement/.test(c));
+  for (const c of compensees) for (const e of c.controles || []) erreurs.push(`Semaine du ${c.lundi.split('-').reverse().join('/')} : ${e}`);
+  const bilan = { lundi, avant: avantT, apres: apresT, jours: propres, compensees, du, apres_annee: apresAnnee, controles, erreurs };
+  if (!ecrire) return { simulation: true, ...bilan };
+  if (controles.length || erreurs.length) throw Object.assign(err('La semaine ne tient pas encore : rien n’est enregistré.'), { bilan });
+  // La trace : une modulation, acceptée aussitôt par la direction (le registre des demandes garde qui, quand, quoi).
+  const changements = [{ lundi, jours: propres, avant: avantT, apres: apresT, statut: 'travail', statut_avant: 'travail' },
+    ...compensees.map(c => ({ lundi: c.lundi, jours: c.jours, avant: c.avant, apres: c.apres, statut: 'travail', statut_avant: 'travail' }))];
+  const avant = Object.fromEntries(sem.filter(x => changements.some(c => c.lundi === x.lundi)).map(x => [x.lundi, { statut: x.statut, jours: x.jours }]));
+  const resume = `Semaine du ${lundi.split('-').reverse().join('/')} retouchée : ${hm(apresT)} au lieu de ${hm(avantT)}${compensees.length ? `, compensé sur ${compensees.length} semaine(s)` : ''}`;
+  const id = Number(db.prepare(`INSERT INTO tt_modulation (utilisateur_id, annee, statut, resume, changements_json, avant_json, propose_par, propose_par_id, simple)
+    VALUES (?,?,?,?,?,?,?,?,1)`).run(uid, annee, 'proposee', resume, JSON.stringify(changements), JSON.stringify(avant), nomUser, user?.id ?? null).lastInsertRowid);
+  return valider(id, 'direction', user, nomUser);
 }
