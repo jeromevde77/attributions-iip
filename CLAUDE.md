@@ -3258,7 +3258,10 @@ relevés du mois précédent signés par la personne, années non générées ; 
 cocher, glisser, ± n h par semaine → `POST /plan`, `planHeures` de `lib/monTemps.js`, sur l'assistant de `lib/ligneTemps.js`, `exclure`
 par personne, simulation puis tout ou rien appliqué directement) · Relevés · Préparer l'année · Outils avancés (la ligne du temps).
 **Une seule approbation** : `ORDRE` = relevé personne → direction, congés → direction ; l'étape « direction » se signe par la direction
-OU la direction adjointe ; `valider` d'une modulation n'exige plus le contrôle de l'adjointe.
+OU la direction adjointe ; `valider` d'une modulation n'exige plus le contrôle de l'adjointe. **La semaine en vertical** (3.5.305) :
+un clic (sans glisser) sur une case ouvre `components/SemaineTemps.jsx` (7 jours, 7 h → 20 h, journées étirables au quart d'heure) ;
+`POST /semaine/:uid/:lundi` = `retoucherSemaine` (monTemps.js) : la semaine garde exactement les jours posés, l'assistant compense
+la différence, simulation à chaque geste, `ecrire` = modulation acceptée aussitôt.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

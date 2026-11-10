@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EnteteCarte, ListeEtats, LigneEtat, Encadre, PastilleEtat } from './ui.jsx';
 import { informer, saisir } from '../lib/dialogue.jsx';
+import SemaineTemps from './SemaineTemps.jsx';
 
 /* L'ÉQUIPE — L'ÉCRAN DE LA DIRECTION (3.5.304, Charles : « je ne comprends pas Temps de travail » ; « trop d'outils, je ne sais pas
    ce que je dois faire » ; « gérer l'année en entier, avec des moments avec plus d'heures pour certains et moins pour d'autres » ;
@@ -31,6 +32,9 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
   const [exclure, setExclure] = useState({});    // { uid: [lundis] } retirés de la compensation
   const [enCours, setEnCours] = useState(false);
   const glisse = useRef(false);
+  const depart = useRef(null);                  // { k, i } : la case où le geste a commencé ; un clic sans glisser ouvre la semaine
+  const [semaine, setSemaine] = useState(null); // { k, i } : la fenêtre de la semaine (3.5.305)
+  const eqRef = useRef(null);
   const mois = moisPrecedent();
 
   const charger = () => Promise.all([
@@ -39,8 +43,24 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
     api(`/suivi?mois=${mois}`).then(setSuivi).catch(() => setSuivi([])),
   ]).then(() => setErreur(null)).catch(e => setErreur(e.message));
   useEffect(() => { charger(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const fin = () => { if (glisse.current) { glisse.current = false; setMenu(true); } }; window.addEventListener('pointerup', fin); return () => window.removeEventListener('pointerup', fin); }, []);
+  useEffect(() => {
+    const fin = () => {
+      if (!glisse.current) return;
+      glisse.current = false;
+      const d = depart.current;
+      // UN CLIC, PAS UN GLISSÉ : la semaine de la personne s'ouvre, heures en vertical.
+      if (d && !d.bouge) {
+        setZone(null); setMenu(false);
+        if (eqRef.current?.personnes[d.k]?.semaines[d.i]?.statut === 'travail') setSemaine({ k: d.k, i: d.i });
+        else informer({ message: 'Cette semaine est un congé, une fermeture de l’école, ou n’est pas encore préparée : elle ne porte pas d’heures.' });
+        return;
+      }
+      setMenu(true);
+    };
+    window.addEventListener('pointerup', fin); return () => window.removeEventListener('pointerup', fin);
+  }, []);
 
+  eqRef.current = eq;
   if (erreur && !eq) return <Encadre etat="corriger" titre="L’équipe">{erreur}</Encadre>;
   if (!eq) return <p className="text-sm text-slate-500">Chargement…</p>;
 
@@ -56,8 +76,16 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
 
   const bornes = zone ? [Math.min(...zone), Math.max(...zone)] : null;
   const dansZone = (k, i) => bornes && choisis.has(eq.personnes[k].id) && i >= bornes[0] && i <= bornes[1];
-  const commencer = (k, i) => { if (!choisis.has(eq.personnes[k].id)) setChoisis(c => new Set([...c, eq.personnes[k].id])); glisse.current = true; setZone([i, i]); setMenu(false); setProp(null); };
-  const etendre = i => { if (glisse.current) setZone(z => (z ? [z[0], i] : z)); };
+  const commencer = (k, i) => { depart.current = { k, i, bouge: false }; glisse.current = true; setZone([i, i]); setMenu(false); setProp(null); };
+  const etendre = i => {
+    if (!glisse.current) return;
+    if (depart.current && i !== depart.current.i && !depart.current.bouge) {
+      depart.current.bouge = true;
+      const id = eq.personnes[depart.current.k].id;
+      if (!choisis.has(id)) setChoisis(c => new Set([...c, id]));   // glisser sur sa ligne coche la personne
+    }
+    setZone(z => (z ? [z[0], i] : z));
+  };
   const cocher = id => setChoisis(c => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const proposer = async (excl = exclure) => {
     if (!bornes) return;
@@ -106,7 +134,7 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
       </section>
 
       <section className="carte overflow-hidden">
-        <EnteteCarte titre="L’équipe, semaine par semaine" sous="Cochez une ou plusieurs personnes, puis glissez sur des semaines pour leur donner plus ou moins d’heures." />
+        <EnteteCarte titre="L’équipe, semaine par semaine" sous="Touchez une case pour ouvrir la semaine de la personne. Cochez une ou plusieurs personnes et glissez sur des semaines pour leur donner plus ou moins d’heures." />
         <div className="overflow-x-auto select-none" onPointerLeave={() => { /* on garde la zone */ }}>
           <table className="border-separate" style={{ borderSpacing: 2 }}>
             <thead><tr>
@@ -184,6 +212,9 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
             </div>
           </div>)}
       </section>
+      {semaine && eq.personnes[semaine.k]?.semaines[semaine.i]?.statut === 'travail' && (
+        <SemaineTemps api={api} personne={eq.personnes[semaine.k]} lundi={eq.semaines[semaine.i]}
+          onFermer={() => setSemaine(null)} onFait={() => { setSemaine(null); charger(); }} />)}
     </div>
   );
 }
