@@ -3177,7 +3177,10 @@ ou exclus ? » ; « carte du monde en plus » ; tranché : le choix SLE vaut pou
 côte à côte) : `donneesPopulation(…, { sle })` (`?sle=exclus`, `sle_nombre`) ; carte du monde `frontend/public/carte/monde.json`
 (Natural Earth 1:110 M, domaine public, équirectangulaire), nationalité → ISO par `listePays()`. 3.5.291 (« trois tuiles Bruxelles, Belgique, Monde avec mini carte » ; proposition A ; « un zoom de
 la carte du monde sur la largeur de la tuile ») : `CarteCommunes` = trois tuiles (chiffre, mini carte ; le monde cadré sur les pays
-concernés), un clic ouvre la carte en grand dans une `Fenetre`.
+concernés), un clic ouvre la carte en grand dans une `Fenetre`. 3.5.292 (d'après une page de la HELB, tout retenu) : campus Erasme
+(`campus` du fichier des communes, projeté en Lambert 72) ; cinq CLASSES de part (`CLASSES`, `teinte`) ; voisines de chaque commune
+(`voisins`) ; `BruxellesTroisAns` (trois années, évolution, campus + limitrophes, 5 premières communes ; `par_annee` du serveur, adresse
+ACTUELLE de la fiche) ; choix « Tous / Nouveaux » (`?nouveaux=1`, `anciensAvant`).
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
