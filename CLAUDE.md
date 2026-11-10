@@ -3279,6 +3279,9 @@ l'école », la ligne du temps détaillée repliée dessous) ; alerte dans « Ce
 l'écart de 2 h par jour à un jour déplacé. **3.5.310** : les écarts de l'horaire annualisé (`controleSemaine`, `controleModule`)
 ne bornent plus que le DÉPASSEMENT (art. 20bis : 2 h de plus par jour, 5 h de plus par semaine) — une journée plus courte
 s'enregistre (cas de Mati, jeudi 9 h → 5 h 30) ; la fenêtre de la semaine dit dans son pied pourquoi « Enregistrer » est gris.
+**3.5.311** (Charles, semaine de Mati réduite de 2 h 45 : « cela ne comptabilise pas les heures en moins » — Lucie les avait reportées
+d'office sur une autre semaine) : `retoucherSemaine` ne compense plus que sur demande (`compenser: true`, case de la fenêtre de la
+semaine ; le relais des examens la passe) ; sinon la différence va au solde de l'année.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

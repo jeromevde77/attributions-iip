@@ -186,7 +186,7 @@ export function planHeures(annee, { uids = [], lundis = [], delta = 0, exclure =
    (l'assistant de la ligne du temps), pour que l'année garde ses heures ; la semaine retouchée garde EXACTEMENT ce qui a été posé.
    Simulation d'abord ; `ecrire` applique directement (la direction approuve seule), avec la trace d'une modulation acceptée. */
 const totalJ = jours => (jours || []).reduce((t, j) => t + (j && !j.recup ? dureeJour(j) : 0), 0);
-export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, user = null, nomUser = '' } = {}) {
+export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, user = null, nomUser = '', compenser = false } = {}) {
   lundi = lundiDe(String(lundi || ''));
   const p = db.prepare('SELECT * FROM tt_personne WHERE utilisateur_id = ?').get(uid);
   if (!p) throw err('Personne non désignée.', 404);
@@ -204,7 +204,10 @@ export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, use
   const avantT = s.minutes, apresT = totalJ(propres);
   let compensees = [], du = Math.round(REGLES.hebdo * (Number(p.fraction) || 1)) * (52 - REGLES.congesAnnuels), apresAnnee = sem.reduce((t, x) => t + x.minutes, 0) - avantT + apresT;
   let erreurs = [];
-  if (apresT !== avantT) {
+  /* LA DIFFÉRENCE VA AU SOLDE, PAR DÉFAUT (3.5.311, Charles, semaine de Mati du 17/08 réduite de 2 h 45 : « cela ne comptabilise
+     pas les heures en moins » — Lucie les avait reportées d'office sur la semaine du 16/11). Une semaine retouchée garde ce qu'on y a
+     posé, et l'écart se lit sur l'année ; on ne compense ailleurs que si on le demande (`compenser`). */
+  if (apresT !== avantT && compenser) {
     const plan = assistant(uid, annee, { cibles: { [lundi]: apresT } });
     compensees = plan.changees.filter(c => c.report).map(c => ({ lundi: c.lundi, avant: c.avant, apres: c.apres, jours: c.jours, controles: c.controles }));
     apresAnnee = plan.apres - (plan.changees.find(c => c.lundi === lundi)?.apres || 0) + apresT;
@@ -229,7 +232,7 @@ export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, use
   const changements = [{ lundi, jours: propres, avant: avantT, apres: apresT, statut: 'travail', statut_avant: 'travail' },
     ...compensees.map(c => ({ lundi: c.lundi, jours: c.jours, avant: c.avant, apres: c.apres, statut: 'travail', statut_avant: 'travail' }))];
   const avant = Object.fromEntries(sem.filter(x => changements.some(c => c.lundi === x.lundi)).map(x => [x.lundi, { statut: x.statut, jours: x.jours }]));
-  const resume = `Semaine du ${lundi.split('-').reverse().join('/')} retouchée : ${hm(apresT)} au lieu de ${hm(avantT)}${compensees.length ? `, compensé sur ${compensees.length} semaine(s)` : ''}`;
+  const resume = `Semaine du ${lundi.split('-').reverse().join('/')} retouchée : ${hm(apresT)} au lieu de ${hm(avantT)}${compensees.length ? `, compensé sur ${compensees.length} semaine(s)` : apresT !== avantT ? `, ${apresT < avantT ? `${hm(avantT - apresT)} en moins` : `${hm(apresT - avantT)} en plus`} au solde` : ''}`;
   const id = Number(db.prepare(`INSERT INTO tt_modulation (utilisateur_id, annee, statut, resume, changements_json, avant_json, propose_par, propose_par_id, simple)
     VALUES (?,?,?,?,?,?,?,?,1)`).run(uid, annee, 'proposee', resume, JSON.stringify(changements), JSON.stringify(avant), nomUser, user?.id ?? null).lastInsertRowid);
   return valider(id, 'direction', user, nomUser);

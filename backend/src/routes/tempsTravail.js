@@ -229,7 +229,7 @@ r.post('/semaine-type/:uid', authRequired, (req, res) => {
 // UNE SEMAINE RETOUCHÉE (3.5.305) : la direction allonge ou raccourcit des journées ; Lucie compense ailleurs si le total change.
 r.post('/semaine/:uid/:lundi', authRequired, (req, res) => {
   if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
-  try { res.json(retoucherSemaine(Number(req.params.uid), annee(req), req.params.lundi, req.body?.jours || [], { ecrire: req.body?.ecrire === true, user: req.user, nomUser: nomDe(req.user) })); }
+  try { res.json(retoucherSemaine(Number(req.params.uid), annee(req), req.params.lundi, req.body?.jours || [], { ecrire: req.body?.ecrire === true, compenser: req.body?.compenser === true, user: req.user, nomUser: nomDe(req.user) })); }
   catch (e) { faute(res, e); }
 });
 // LE PLAN D'HEURES (3.5.304) : la direction peint plus ou moins d'heures sur des semaines, pour une ou plusieurs personnes.
