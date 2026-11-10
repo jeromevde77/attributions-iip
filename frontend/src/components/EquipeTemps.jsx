@@ -213,8 +213,8 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
           </div>)}
       </section>
       {semaine && eq.personnes[semaine.k]?.semaines[semaine.i]?.statut === 'travail' && (
-        <SemaineTemps api={api} personne={eq.personnes[semaine.k]} lundi={eq.semaines[semaine.i]}
-          onFermer={() => setSemaine(null)} onFait={() => { setSemaine(null); charger(); }} />)}
+        <SemaineTemps api={api} equipe={eq.personnes} personneInitiale={eq.personnes[semaine.k]} lundiInitial={eq.semaines[semaine.i]}
+          semaines={eq.semaines} onFermer={() => setSemaine(null)} onFait={() => charger()} />)}
     </div>
   );
 }
