@@ -3,6 +3,7 @@ import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
 import MonAmenagement from './MonAmenagement.jsx';
+import VisiteGuidee, { visiteVue } from './VisiteGuidee.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
@@ -193,9 +194,11 @@ function ValiderPAE({ annee, onFait }) {
     <FenetreEspace titre={`Votre programme ${annee || ''}`} sous="À valider avant d’entrer dans votre espace" large
       pied={desaccord
         ? <><button type="button" className="bouton" onClick={() => setDesaccord(false)}>Retour</button>
-            <button type="button" className="bouton bouton-fort" disabled={envoi || mot.trim().length < 5} onClick={signaler}>Envoyer à ma coordination</button></>
-        : <><button type="button" className="bouton" onClick={() => setDesaccord(true)}>Mon programme n’est pas juste</button>
-            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={envoi || !lu || !o} onClick={valider}><IconCheck size={15} /> Je confirme mon programme</button></>}>
+            <button type="button" className="bouton" style={{ background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' }} disabled={envoi || mot.trim().length < 5} onClick={signaler}>Envoyer à ma coordination</button></>
+        : <><button type="button" className="bouton inline-flex items-center gap-1.5" style={{ background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' }}
+              onClick={() => setDesaccord(true)}><IconAlertTriangle size={15} /> Mon PAE n’est pas juste, j’en informe la coordination</button>
+            <button type="button" className="bouton inline-flex items-center gap-1.5" style={{ background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }}
+              disabled={envoi || !lu || !o} onClick={valider}><IconCheck size={15} /> Je confirme mon PAE</button></>}>
       <div className="space-y-3 text-sm">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {!o ? <p className="text-slate-500">Chargement de votre programme…</p> : desaccord ? (<>
@@ -753,9 +756,11 @@ const GRILLE = [
   ['10 (faveur)', "Le Conseil des études a accordé l'unité : elle vaut 10 partout, chaque acquis compris."],
   ['VA', 'Unité valorisée : vous en êtes dispensé, sur la base de vos études ou de votre expérience.'],
 ];
-function AideRegles() {
+function AideRegles({ onRevoir }) {
   return (
     <div className="space-y-5">
+      {onRevoir && <div><button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={onRevoir}>
+        <IconRoute size={15} /> Revoir la visite guidée</button></div>}
       <section className="space-y-2">
         <h2 className="intertitre flex items-center gap-2">Votre espace, en bref</h2>
         <ListeEtats>{GUIDE.map(([t, x]) => <LigneEtat key={t} titre={t} sous={null}><div className="text-sm text-slate-600 -mt-1">{x}</div></LigneEtat>)}</ListeEtats>
@@ -866,8 +871,6 @@ function FraisEstimes({ tarif, ues }) {
 function MonPAE({ onErreur, email }) {
   const [p, setP] = useState(null);
   const [choix, setChoix] = useState(null);
-  const [code, setCode] = useState('');
-  const [codeEnvoye, setCodeEnvoye] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const charger = useCallback(() => appel('GET', '/pae').then(x => { setP(x); }).catch(onErreur), [onErreur]);
   useEffect(() => { charger(); }, [charger]);
@@ -914,25 +917,13 @@ function MonPAE({ onErreur, email }) {
         <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={signe ? 'reussi' : 'disponible'}>
           <div className="font-semibold text-iip-texte">PAE {o.annee} — confirmé par l’école le {jourFr(o.confirme_le)}</div>
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
-            : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut (ou à votre adresse privée tant que vous entrez par un code d’accès).</div>}
+            : <div>Relisez-le : s’il est juste, confirmez-le ; sinon, dites-le à votre coordination.</div>}
         </div>
         <ul className="carte divide-y divide-slate-100">
           {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
-        {!signe && !attend && (codeEnvoye ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="w-full text-sm text-slate-600">Un code à six chiffres vient de partir par courriel{email ? <> à <b>{email}</b></> : ' à votre adresse'} ;
-              il vaut 10 minutes. Rien reçu ? Regardez les indésirables, ou{' '}
-              <button type="button" className="underline text-iip-blue" onClick={() => setCodeEnvoye(false)}>demandez-en un autre</button>.</p>
-            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Code reçu"
-              className="controle w-36 text-center tracking-widest" autoComplete="one-time-code" />
-            <button type="button" className="bouton bouton-fort" disabled={code.length !== 6 || enCours}
-              onClick={() => geste('/pae/confirmer', { code }, () => { setCode(''); setCodeEnvoye(false); })}>Je confirme mon PAE</button>
-          </div>) : (
-          <button type="button" className="bouton bouton-fort w-full" disabled={enCours}
-            onClick={() => geste('/code', { objet_type: 'pae', objet_id: Number(String(o.annee).slice(0, 4)) }, () => setCodeEnvoye(true))}>
-            <IconSignature size={15} /> Confirmer mon PAE</button>))}
+        {!signe && !attend && <DecisionPAE programme={o.programme || []} onFait={charger} onErreur={onErreur} />}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
       </div>);
   }
@@ -952,6 +943,9 @@ function MonPAE({ onErreur, email }) {
           {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
+        {prog.length > 0 && (o.signature?.a_jour
+          ? <Encadre etat="reussi">Vous avez confirmé ce programme le {jourFr(o.signature.signe_le)}.</Encadre>
+          : !attend && <DecisionPAE programme={prog} onFait={charger} onErreur={onErreur} />)}
       </div>);
   }
 
@@ -986,6 +980,48 @@ function MonPAE({ onErreur, email }) {
         onClick={() => geste('/pae/proposer', { ues: [...choix] })}>Envoyer ma proposition — {n + verrouillees} unité{n + verrouillees > 1 ? 's' : ''}</button>}
     </div>
   );
+}
+
+/** LES DEUX RÉPONSES AU PAE (3.5.279, Charles : « je veux les deux : Je confirme mon PAE et Mon PAE n'est pas juste, j'en informe
+ *  la coordination ; juste → le bouton vert ; pas juste → le bouton fraise, et la coordination de la section reçoit une
+ *  notification sur son tableau de bord »). Confirmer = /pae/valider (sans code, comme la fenêtre d'entrée) ; pas juste =
+ *  /pae/signaler (notification `pae_desaccord`, coordination et secrétariat de la section). */
+function DecisionPAE({ programme, onFait, onErreur }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [mot, setMot] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+  const [parti, setParti] = useState(false);
+  const vert = { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' };
+  const fraise = { background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' };
+  const confirmer = async () => {
+    setEnvoi(true);
+    try { await appel('POST', '/pae/valider', { accepte: true, programme }); try { sessionStorage.setItem(PAE_REMIS, '1'); } catch { /* */ } await onFait?.(); }
+    catch (e) { onErreur(e); } finally { setEnvoi(false); }
+  };
+  const envoyer = async () => {
+    setEnvoi(true);
+    try { await appel('POST', '/pae/signaler', { message: mot }); setParti(true); try { sessionStorage.setItem(PAE_REMIS, '1'); } catch { /* */ } }
+    catch (e) { onErreur(e); } finally { setEnvoi(false); }
+  };
+  if (parti) return <Encadre etat="disponible">Votre message est parti à votre coordination : elle vous répondra dans « Messages ». Quand votre programme sera corrigé, vous pourrez le confirmer ici.</Encadre>;
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button type="button" className="bouton justify-center min-h-11" style={vert} disabled={envoi} onClick={confirmer}>
+          <IconCheck size={16} /> Je confirme mon PAE</button>
+        <button type="button" className="bouton justify-center min-h-11" style={fraise} disabled={envoi} onClick={() => setOuvert(true)}>
+          <IconAlertTriangle size={16} /> Mon PAE n’est pas juste, j’en informe la coordination</button>
+      </div>
+      {ouvert && (
+        <div className="carte p-4 space-y-2 text-sm">
+          <p className="m-0">Dites ce qui ne va pas : une unité qui manque, une unité en trop… Votre coordination reçoit votre message sur son tableau de bord et vous répond.</p>
+          <textarea className="controle w-full !h-auto py-2" rows={3} value={mot} onChange={e => setMot(e.target.value)} placeholder="Par exemple : l’UE 250 manque à mon programme." />
+          <div className="flex justify-end gap-2">
+            <button type="button" className="bouton" onClick={() => setOuvert(false)}>Annuler</button>
+            <button type="button" className="bouton" style={fraise} disabled={envoi || mot.trim().length < 5} onClick={envoyer}>Envoyer à ma coordination</button>
+          </div>
+        </div>)}
+    </div>);
 }
 
 /** Choisir son mot de passe : après le lien (première visite, oubli), ou depuis « Mon compte » avec l'actuel. */
@@ -1060,6 +1096,14 @@ function Espace() {
      on retire le focus. */
   useEffect(() => { if (d && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!d]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [face, setFace] = useState('aujourdhui');
+  /* LA VISITE GUIDÉE (3.5.276-278) : à la première entrée, AVANT tout ; elle finit sur « Mon PAE » (Charles : « après le tour, tu vas
+     à cette fenêtre » — confirmer, ou dire que le programme n'est pas juste). La fenêtre de confirmation ne la recouvre pas dans la
+     même visite ; aux connexions suivantes, tant que rien n'est fait, elle revient. Relancée depuis Aide. */
+  const [visite, setVisite] = useState(false);
+  const [visiteDepart, setVisiteDepart] = useState(0);
+  const paeEnAttente = !!(d?.pae_a_valider && !d.apercu && !paeRemis);
+  const idEtud = d?.etudiant?.matricule || d?.etudiant?.email;   // /moi ne rend pas l’identifiant interne
+  useEffect(() => { if (idEtud && !visiteVue(idEtud)) { const t = setTimeout(() => { setVisiteDepart(0); setVisite(true); }, 400); return () => clearTimeout(t); } return undefined; }, [idEtud]);
   const [sous, setSous] = useState({});
   const [texte, setTexte] = useState(null);   // règlement ouvert
   const [nonLus, setNonLus] = useState(0);
@@ -1300,9 +1344,11 @@ function Espace() {
         </div>
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">
-      {d?.pae_a_valider && !d.apercu && !paeRemis && (
-        <ValiderPAE annee={d.pae_a_valider.annee} onFait={quoi => { setPaeRemis(true); if (quoi === 'valide') setD(x => ({ ...x, pae_a_valider: null })); }} />)}
-      <div className="space-y-4">
+      {paeEnAttente && !visite && (
+        <ValiderPAE annee={d.pae_a_valider.annee} onFait={quoi => {
+          setPaeRemis(true); if (quoi === 'valide') setD(x => ({ ...x, pae_a_valider: null }));
+        }} />)}
+      <div className="space-y-4" data-visite="contenu">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {d?.apercu && <Encadre etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</Encadre>}
@@ -1381,7 +1427,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
-        {d && face === 'aide' && <AideRegles />}
+        {d && face === 'aide' && <AideRegles onRevoir={() => { setVisiteDepart(0); setVisite(true); }} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>
@@ -1397,6 +1443,9 @@ function Espace() {
           </FenetreEspace>)}
       </div>
       </main>
+      {visite && idEtud && <VisiteGuidee etudiantId={idEtud} depart={visiteDepart} aller={aller}
+        dispo={et => FACES.some(([k]) => k === et.face) && (!et.sous || (SOUS[et.face] || []).some(([k]) => k === et.sous))}
+        onFin={dest => { setVisite(false); if (dest === 'pae') { setPaeRemis(true); aller('parcours', 'pae'); window.scrollTo({ top: 0 }); } else setFace('aujourdhui'); }} />}
     </div>
   );
 }
