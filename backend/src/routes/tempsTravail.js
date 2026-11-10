@@ -12,6 +12,7 @@ import {
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
+import { besoins, relais } from '../lib/besoinsEcole.js';
 import { monTemps, deposerDemande, notifierReponse, planHeures, retoucherSemaine, semaineType, poserSemaineType } from '../lib/monTemps.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
@@ -205,6 +206,15 @@ r.get('/mon-temps', authRequired, (req, res) => {
 r.post('/demande', authRequired, (req, res) => {
   const uid = cible(req, res); if (uid == null) return;
   try { res.json(deposerDemande(uid, annee(req), req.body || {}, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
+});
+// LES BESOINS DE L'ÉCOLE (3.5.309) : la charge des semaines, les jours d'examen et leur couverture ; le relais proposé.
+r.get('/besoins', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { res.json(besoins(annee(req))); } catch (e) { faute(res, e); }
+});
+r.get('/relais', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { res.json(relais(annee(req), String(req.query.date || ''))); } catch (e) { faute(res, e); }
 });
 // LA SEMAINE TYPE (3.5.308) : lire, simuler, enregistrer (et appliquer aux semaines à venir).
 r.get('/semaine-type/:uid', authRequired, (req, res) => {

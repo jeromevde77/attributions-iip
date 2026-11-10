@@ -1,6 +1,7 @@
 import MonTemps from '../components/MonTemps.jsx';
 import EquipeTemps from '../components/EquipeTemps.jsx';
 import SemaineTypeTemps from '../components/SemaineTypeTemps.jsx';
+import BesoinsEcole from '../components/BesoinsEcole.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { IconPrinter, IconSignature } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
@@ -78,7 +79,9 @@ export default function TempsTravail() {
     </div>);
   /* QUATRE ONGLETS POUR LA DIRECTION (3.5.304, maquette validée docs/maquettes/temps-direction.html) : l'équipe (ce qui attend,
      l'année de chacun, le plan d'heures), les relevés, la préparation de l'année, et les outils avancés (la ligne du temps). */
-  const faces = [['equipe', 'L’équipe'], ['releve', 'Relevés'], ['preparer', 'Préparer l’année'], ['ligne', 'Outils avancés']];
+  // 3.5.309 : « Outils avancés » devient « Les besoins de l'école » (la charge de l'école, les jours d'examen et leur couverture) ;
+  // la ligne du temps détaillée reste dessous, repliée.
+  const faces = [['equipe', 'L’équipe'], ['besoins', 'Les besoins de l’école'], ['releve', 'Relevés'], ['preparer', 'Préparer l’année']];
   const listePers = personnes.personnes || [];
   const ouvrir = async url => { try { setApercu(await api(url)); } catch (e) { informer({ message: e.message }); } };
 
@@ -98,7 +101,14 @@ export default function TempsTravail() {
       </div>
       {erreur && <div className="text-sm text-red-700">{erreur}</div>}
       <div key={an} className="space-y-4">
-        {face === 'equipe' && <EquipeTemps api={api} onReleve={id => { setUid(id); setFace('releve'); }} onPreparer={() => setFace('preparer')} />}
+        {face === 'equipe' && <EquipeTemps api={api} onReleve={id => { setUid(id); setFace('releve'); }} onPreparer={() => setFace('preparer')} onBesoins={() => setFace('besoins')} />}
+        {face === 'besoins' && <>
+          <BesoinsEcole api={api} />
+          <details className="carte overflow-hidden">
+            <summary className="px-4 py-3 cursor-pointer text-sm font-semibold text-iip-texte">La ligne du temps détaillée (zoom, tension, grands moments, assistant)</summary>
+            <div className="px-4 pb-4"><LigneTempsTravail api={api} info={info} onReleve={id => { setUid(id); setFace('releve'); }} /></div>
+          </details>
+        </>}
         {face === 'ligne' && <LigneTempsTravail api={api} info={info} onReleve={id => { setUid(id); setFace('releve'); }} />}
         {face === 'releve' && <>
           {info.gere && <Suivi uid={uid} onOuvrir={id => setUid(id)} />}

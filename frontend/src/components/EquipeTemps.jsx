@@ -19,10 +19,11 @@ const FOND = {
   legere: 'color-mix(in srgb, var(--c-disponible) 35%, white)', conge: 'color-mix(in srgb, var(--c-reussi) 40%, white)', vide: 'rgb(var(--gris-300))',
 };
 
-export default function EquipeTemps({ api, onReleve, onPreparer }) {
+export default function EquipeTemps({ api, onReleve, onPreparer, onBesoins }) {
   const [eq, setEq] = useState(null);
   const [mods, setMods] = useState([]);
   const [suivi, setSuivi] = useState([]);
+  const [aCouvrir, setACouvrir] = useState([]);    // les jours d'examen à venir sans personne à un moment (3.5.309)
   const [erreur, setErreur] = useState(null);
   const [choisis, setChoisis] = useState(new Set());
   const [zone, setZone] = useState(null);        // [i0, i1] des semaines glissées
@@ -41,6 +42,7 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
     api('/equipe-annee').then(setEq),
     api('/modulations').then(l => setMods((l || []).filter(m => ['proposee', 'controlee'].includes(m.statut)))).catch(() => setMods([])),
     api(`/suivi?mois=${mois}`).then(setSuivi).catch(() => setSuivi([])),
+    api('/besoins').then(b => setACouvrir((b.jours_examen || []).filter(j => !j.couvert && !j.passe))).catch(() => setACouvrir([])),
   ]).then(() => setErreur(null)).catch(e => setErreur(e.message));
   useEffect(() => { charger(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
   };
   const aApprouver = suivi.filter(p => p.releve.includes('personne') && !p.releve.includes('direction'));
   const sansAnnee = eq.personnes.filter(p => !p.genere);
-  const nbAttente = mods.length + (aApprouver.length ? 1 : 0) + (sansAnnee.length ? 1 : 0);
+  const nbAttente = mods.length + (aApprouver.length ? 1 : 0) + (sansAnnee.length ? 1 : 0) + (aCouvrir.length ? 1 : 0);
 
   const bornes = zone ? [Math.min(...zone), Math.max(...zone)] : null;
   const dansZone = (k, i) => bornes && choisis.has(eq.personnes[k].id) && i >= bornes[0] && i <= bornes[1];
@@ -122,6 +124,10 @@ export default function EquipeTemps({ api, onReleve, onPreparer }) {
                 sous={`${m.resume}${m.mot ? ` · « ${m.mot} »` : ''} · Lucie a vérifié : l’année garde ses heures et ses 13 semaines de congé`}
                 droite={<div className="flex gap-2"><button type="button" className="bouton" onClick={() => refuser(m)}>Refuser</button>
                   <button type="button" className="bouton bouton-fort" onClick={() => accepter(m)}>Accepter</button></div>} />))}
+            {aCouvrir.length > 0 && (
+              <LigneEtat etat="corriger" titre={`Jours d’examen sans personne du secrétariat à un moment : ${aCouvrir.length}`}
+                sous={aCouvrir.slice(0, 4).map(j => `${new Date(`${j.date}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })} (${j.trous.map(t => `${t.de}–${t.a}`).join(', ')})`).join(' · ')}
+                droite={<button type="button" className="bouton bouton-fort" onClick={onBesoins}>Voir et couvrir</button>} />)}
             {aApprouver.length > 0 && (
               <LigneEtat etat="disponible" titre={`Relevés de ${moisFr(mois)} à approuver : ${aApprouver.length}`}
                 sous={aApprouver.map(p => `${p.nom} (${p.solde >= 0 ? '+ ' : ''}${hm(p.solde)})`).join(' · ')}

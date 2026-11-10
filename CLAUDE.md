@@ -3269,6 +3269,14 @@ renvoie la direction vers Organisation ; notifications : direction → Organisat
 de chaque personne (`tt_personne.semaine_type`, `components/SemaineTypeTemps.jsx`, `GET/POST /semaine-type/:uid` → `poserSemaineType`) :
 modèle du générateur, appliquée aux semaines de travail à venir encore égales à l'ancien modèle (hors mois approuvés). Et dans
 `retoucherSemaine`, ce que la compensation ne peut pas placer **va au solde** (`au_solde`, sans bloquer) — cas de Mati, 4 × 9 h.
+**3.5.309 — Les besoins de l'école** (Charles : « ce n'est pas un outil avancé » ; « si examen, même un samedi, un MDP du staff admin
+de 7 h 00 à 21 h 30 » ; tranché : en relais ; pas pour les jours de cours ordinaires — téléphone et ligne d'urgence du campus ; un
+trou se signale et Lucie propose un relais). `lib/besoinsEcole.js` : `besoins()` (chaleur des semaines × présents ; `joursExamen` =
+épreuves s1/s2 + passages ; couverture 07:00–21:30, pauses = absences), `relais(date)` (matin 07:00–15:30 pause 12:00, soir
+12:00–21:30 pause 15:00 ; un jour non travaillé se récupère la même semaine, jamais sur un autre jour d'examen), appliqué par
+`retoucherSemaine`. Routes `GET /besoins`, `GET /relais?date=`. Écran `components/BesoinsEcole.jsx` (onglet « Les besoins de
+l'école », la ligne du temps détaillée repliée dessous) ; alerte dans « Ce qui vous attend ». `retoucherSemaine` n'applique plus
+l'écart de 2 h par jour à un jour déplacé.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
