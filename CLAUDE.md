@@ -3225,6 +3225,13 @@ monde réussissait d'office, Lucie sautait à la Clôture déjà remplie). Le re
 `GET /deliberation/ue/:ue/seance`), sinon elle reste vide et l'écran la réclame. **Proposer une correction du dossier** (rubriques,
 noms des cours) : `peutProposerDP` = `droitsSurLUE().ecrire` (enseignants de l'unité, coordination, conseillère qualité).
 
+**LE QR DIT LA DATE DE LA DÉCISION ET CELLE DE LA PIÈCE** (3.5.300, Charles : « si la délibération a lieu le 30 juin, le QR indique
+cela » ; tranché : les deux dates). `piece_authentique.emise_le` = la date imprimée dans le `.lieu` du bloc de clôture
+(`dateDeLaPiece`), `decision_le` = la marque invisible `marqueDecision(date)` posée par la pièce (attestation de réussite :
+`dateDeDecision` — séance close de la session et de l'organisation de l'étudiant ; valorisation : `decision_ce_date` ; motivation).
+`filigraner` lit les deux ; le portail les garde (`authentique.decision_le`) et la vérification affiche « Décision du Conseil des
+études du » et « Pièce émise le ». **Une nouvelle pièce qui constate une décision pose sa `marqueDecision`.**
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

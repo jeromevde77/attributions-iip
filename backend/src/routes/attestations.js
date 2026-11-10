@@ -21,6 +21,7 @@ import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
 import { sectionDuDossier } from '../lib/sectionDossier.js';
 import { protegerSignature } from '../lib/protectionSignature.js';
 import db from '../db/index.js';
+import { marqueDecision } from '../lib/authentique.js';
 import { delibererUE } from './acquis.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
@@ -714,7 +715,7 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
     : '<i style="color:#b45309">répartition par activité à compléter</i>';
   const dateSig = frDate(dateDoc || va?.decision_ce_date || new Date().toISOString());
 
-  return `<div class="attestation">
+  return `<div class="attestation">${marqueDecision(va?.decision_ce_date)}
   ${enteteDocument({
     titre: "Attestation de réussite — valorisation de l'unité d'enseignement",
     sous: u.ue_nom || null,
@@ -772,6 +773,21 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
  * tairaient la seconde session que celles du lot mentionnent — deux documents
  * contradictoires pour une même réussite.
  */
+/* LA DATE DE LA DÉCISION (3.5.300, Charles : « si la délibération a lieu le 30 juin, le QR indique cela ») : la séance du Conseil
+   des études qui a délibéré l'étudiant — la session donnée, sinon la dernière close ; son organisation d'abord, sinon l'unité
+   entière. Elle part au registre des pièces authentiques par une marque invisible (`marqueDecision`). */
+export function dateDeDecision(etudId, ueNum, annee, session = null) {
+  try {
+    const org = db.prepare(`SELECT COALESCE(num_organisation, 0) o FROM etudiant_inscription
+      WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?`).get(Number(etudId), Number(ueNum), annee)?.o ?? 0;
+    const l = db.prepare(`SELECT date_seance FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND cloturee = 1 AND date_seance IS NOT NULL AND date_seance <> ''
+        AND (? IS NULL OR session = ?)
+      ORDER BY session DESC, (COALESCE(num_organisation, 0) = ?) DESC, (COALESCE(num_organisation, 0) = 0) DESC LIMIT 1`)
+      .get(Number(ueNum), annee, session ?? null, session ?? null, org);
+    return l?.date_seance || null;
+  } catch { return null; }
+}
 function sessionDeReussite(etudId, ueNum, annee) {
   try {
     const l = db.prepare(`
@@ -799,7 +815,7 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     : '<p class="manque">Les acquis d\'apprentissage de cette unité ne sont pas encodés.</p>';
 
   return `
-<div class="attestation">
+<div class="attestation">${marqueDecision(dateDeDecision(e.id, u.ue_num, annee, session))}
   ${enteteDocument({
     titre: "Attestation de réussite de l'unité d'enseignement"
          + (u.epreuve_integree ? ' « épreuve intégrée »' : ''),

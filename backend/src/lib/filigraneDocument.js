@@ -20,7 +20,7 @@
  * leur bloc `.cloture` — ce serait autant d'occasions d'en oublier un.
  */
 import { nouvelleReference } from '../services/filigrane.js';
-import { enregistrerPiece, blocAuthenticite, STYLE_AUTHENTICITE } from './authentique.js';
+import { enregistrerPiece, blocAuthenticite, STYLE_AUTHENTICITE, dateDeLaPiece } from './authentique.js';
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
@@ -122,13 +122,14 @@ export function filigraner(html, o = {}) {
     const l = [...bloc.matchAll(new RegExp(`<div class="${classe}">([\\s\\S]*?)</div>`, 'g'))];
     return l.length ? l[l.length - 1][1] : '';
   };
-  const texteDe = bloc => {
+  const texteDe = (bloc, dateBloc = null) => {
     // La personne : le nom en tête de la pièce, quand elle en porte un.
     // Le DERNIER nom avant ce bloc : le morceau commence au bloc précédent, et
     // son premier nom est celui du signataire de la page d'avant.
     const noms = [...bloc.matchAll(/<div class="nom">([^<]+)<\/div>/g)];
     const nom = noms.length ? noms[noms.length - 1][1] : undefined;
-    return [o.texte || 'Institut Ilya Prigogine', nom, date].filter(Boolean).join(' · ');
+    const d = dateBloc ? dateBloc.split('-').reverse().join('/') : date;
+    return [o.texte || 'Institut Ilya Prigogine', nom, d].filter(Boolean).join(' · ');
   };
   /* Chaque bloc de clôture reçoit son fond, avec la personne de SA page — ET SA RÉFÉRENCE (3.1.511, le QR
      d'authenticité) : une pièce par bloc, inscrite au registre, et son QR juste au-dessus. La première garde la
@@ -140,10 +141,14 @@ export function filigraner(html, o = {}) {
     const page = doc.slice(dernier, m.index);
     const refBloc = k++ === 0 ? ref : nouvelleReference();
     if (SPECIMEN || doc.includes(MARQUE_SPECIMEN)) { sortie += page + '<div class="authenticite"><div class="authenticite-t"><b>SPÉCIMEN</b> — ' + (SPECIMEN ? 'données fictives, ' : '') + 'pièce sans valeur</div></div>' + m[0] + fondCloture({ ref: 'SPÉCIMEN', texte: 'Spécimen — sans valeur' }); dernier = re.lastIndex; continue; }
+    // La date du bloc : son « lieu » (« Fait à …, le 30 juin 2027 »), lu dans la suite du document après l'ouverture du bloc.
+    const lieu = (doc.slice(re.lastIndex, re.lastIndex + 2000).match(/<div class="lieu">([\s\S]*?)<\/div>/) || [])[1] || '';
     enregistrerPiece({ reference: refBloc, nature: dernierTexte(page, 'doc-cadre-t') || o.texte,
       objet: [dernierTexte(page, 'doc-cadre-s'), dernierTexte(page, 'doc-cadre-l')].filter(Boolean).join(' — '),
-      personne: dernierTexte(page, 'nom') });
-    sortie += page + blocAuthenticite(refBloc) + m[0] + fondCloture({ ref: refBloc, texte: texteDe(page) });
+      personne: dernierTexte(page, 'nom'), date: dateDeLaPiece(lieu),
+      // La décision que la pièce constate : la DERNIÈRE marque avant ce bloc (celle de sa page).
+      decision: ([...page.matchAll(/class="date-decision" data-date="(\d{4}-\d{2}-\d{2})"/g)].pop() || [])[1] || null });
+    sortie += page + blocAuthenticite(refBloc) + m[0] + fondCloture({ ref: refBloc, texte: texteDe(page, dateDeLaPiece(lieu)) });
     dernier = re.lastIndex;
   }
   doc = sortie + doc.slice(dernier);

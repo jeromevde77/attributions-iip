@@ -137,6 +137,8 @@ db.exec(`
 /* LE TFE ET LE STAGE (3.5.081) : déposés par Lucie avec le lot de l'étudiant ; les gestes TFE (question, remise) attendent ici
    le relevé de Lucie, qui les juge. Une remise ne vit ici que jusqu'au relevé. */
 for (const c of ['tfe TEXT', 'stage TEXT']) { try { db.exec(`ALTER TABLE espace_lot ADD COLUMN ${c}`); } catch { /* déjà là */ } }
+// 3.5.300 : la date de la décision que la pièce constate (Conseil des études), à côté de sa date d'émission.
+try { db.exec('ALTER TABLE authentique ADD COLUMN decision_le TEXT'); } catch { /* déjà là */ }
 db.exec(`CREATE TABLE IF NOT EXISTS ts_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('question','remise')), tfe_id INTEGER, jalon_id INTEGER, nom TEXT, taille INTEGER, contenu BLOB,
   texte TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT)`);
@@ -959,7 +961,7 @@ pub.get('/api/portail/verifier/:ref', (req, res) => {
   if (tropDEssais(ipDe(req), 120)) return res.status(429).json({ error: 'Trop de vérifications. Réessayez dans une heure.' });
   const ref = String(req.params.ref || '').trim().toUpperCase();
   if (!/^[A-Z0-9-]{6,40}$/.test(ref)) return res.json({ trouve: false });
-  const p = db.prepare('SELECT reference, nature, objet, personne, emise_le FROM authentique WHERE reference = ?').get(ref);
+  const p = db.prepare('SELECT reference, nature, objet, personne, emise_le, decision_le FROM authentique WHERE reference = ?').get(ref);
   res.json(p ? { trouve: true, ...p, etablissement: 'Institut Ilya Prigogine' } : { trouve: false, reference: ref });
 });
 
@@ -1024,9 +1026,10 @@ int.post('/interne/reglements', (req, res) => {
 
 int.post('/interne/authentiques', (req, res) => {
   const l = Array.isArray(req.body?.pieces) ? req.body.pieces : [];
-  const i = db.prepare('INSERT OR IGNORE INTO authentique (reference, nature, objet, personne, emise_le) VALUES (?,?,?,?,?)');
+  const i = db.prepare('INSERT OR IGNORE INTO authentique (reference, nature, objet, personne, emise_le, decision_le) VALUES (?,?,?,?,?,?)');
   db.transaction(() => { for (const x of l) if (x?.reference) i.run(String(x.reference).toUpperCase(), String(x.nature || ''),
-    x.objet ? String(x.objet) : null, x.personne ? String(x.personne) : null, String(x.emise_le || '')); })();
+    x.objet ? String(x.objet) : null, x.personne ? String(x.personne) : null, String(x.emise_le || ''),
+    /^\d{4}-\d{2}-\d{2}/.test(String(x.decision_le || '')) ? String(x.decision_le).slice(0, 10) : null); })();
   res.json({ ok: true, n: l.length });
 });
 

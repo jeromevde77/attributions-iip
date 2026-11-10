@@ -22,6 +22,8 @@ export function migrerAuthentique(dbx = db) {
   if (migre && dbx === db) return;
   dbx.exec(`CREATE TABLE IF NOT EXISTS piece_authentique (reference TEXT PRIMARY KEY, nature TEXT, objet TEXT, personne TEXT,
     emise_le TEXT NOT NULL DEFAULT (datetime('now')), emise_par TEXT, transmise_le TEXT)`);
+  // 3.5.300 : la date de la DÉCISION (Conseil des études) que la pièce constate, à côté de sa date d'émission.
+  try { dbx.exec('ALTER TABLE piece_authentique ADD COLUMN decision_le TEXT'); } catch { /* déjà là */ }
   // 3.5.047 : les spécimens de la galerie s'y inscrivaient (« SPÉCIMEN Camille ») — ce ne sont pas des pièces. Retirés une fois.
   try { dbx.prepare("DELETE FROM piece_authentique WHERE personne LIKE '%SPÉCIMEN%' OR personne LIKE '%SPECIMEN%'").run(); } catch { /* déclencheurs absents hors requête */ }
   if (dbx === db) migre = true;
@@ -31,12 +33,29 @@ const net = t => String(t || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' '
   .replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim().slice(0, 300);
 
 /** Inscrit une pièce au registre. Ne lève jamais : une pièce se produit même si le registre manque. */
-export function enregistrerPiece({ reference, nature, objet, personne }) {
+/* LA DATE DE LA PIÈCE, PAS CELLE DE L'IMPRESSION (3.5.300, Charles : « le QR doit mentionner la date du document émis ; si la
+   délibération a lieu le 30 juin, le QR indique cela dans la vérification »). La date se lit dans le bloc de clôture
+   (« Fait à Anderlecht, le 30 juin 2027 », ou 30/06/2027) ; `emise_le` la porte, et c'est elle que la vérification affiche
+   (« Émise le »). Sans date lisible, celle du jour. `composee_le` garde le moment où Lucie l'a produite. */
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+export function dateDeLaPiece(texte) {
+  const t = net(texte).toLowerCase();
+  let m = t.match(/\ble\s+(\d{1,2})(?:er)?\s+([a-zéû]+)\s+(\d{4})/);
+  if (m) { const k = MOIS.indexOf(m[2]); if (k >= 0) return `${m[3]}-${String(k + 1).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`; }
+  m = t.match(/\ble\s+(\d{1,2})[/.](\d{1,2})[/.](\d{4})/);
+  if (m) return `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+  return null;
+}
+/** La marque qu'une pièce pose pour dire la date de la décision qu'elle constate ; `filigraner` la lit. Invisible. */
+export const marqueDecision = d => (/^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? `<span class="date-decision" data-date="${String(d).slice(0, 10)}" hidden></span>` : '');
+export function enregistrerPiece({ reference, nature, objet, personne, date = null, decision = null }) {
   try {
     migrerAuthentique();
     const u = utilisateurCourant();
-    db.prepare(`INSERT OR IGNORE INTO piece_authentique (reference, nature, objet, personne, emise_par) VALUES (?,?,?,?,?)`)
-      .run(reference, net(nature) || 'Pièce de l’Institut', net(objet) || null, net(personne) || null, u?.nom || u?.email || null);
+    db.prepare(`INSERT OR IGNORE INTO piece_authentique (reference, nature, objet, personne, emise_par, emise_le, decision_le)
+      VALUES (?,?,?,?,?, COALESCE(?, datetime('now')), ?)`)
+      .run(reference, net(nature) || 'Pièce de l’Institut', net(objet) || null, net(personne) || null, u?.nom || u?.email || null,
+        /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : null, /^\d{4}-\d{2}-\d{2}$/.test(decision || '') ? decision : null);
   } catch (e) { console.error('[authentique] registre :', e.message); }
 }
 
@@ -69,7 +88,7 @@ export const STYLE_AUTHENTICITE = `
 /** Ce que le portail doit connaître : les pièces pas encore transmises. */
 export function piecesATransmettre(limite = 500) {
   migrerAuthentique();
-  return db.prepare(`SELECT reference, nature, objet, personne, emise_le FROM piece_authentique WHERE transmise_le IS NULL
+  return db.prepare(`SELECT reference, nature, objet, personne, emise_le, decision_le FROM piece_authentique WHERE transmise_le IS NULL
     ORDER BY emise_le LIMIT ?`).all(limite);
 }
 export function marquerTransmises(refs) {
