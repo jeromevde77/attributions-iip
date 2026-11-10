@@ -24,14 +24,14 @@ export default function BesoinsEcole({ api, onChange }) {
     setEnCours(true);
     try {
       const p = await api(`/relais?date=${date}`);
-      const sims = await Promise.all((p.semaines || []).map(s => api(`/semaine/${s.uid}/${s.lundi}`, { method: 'POST', body: JSON.stringify({ jours: s.jours }) }).catch(e => ({ erreurs: [e.message] }))));
+      const sims = await Promise.all((p.semaines || []).map(s => api(`/semaine/${s.uid}/${s.lundi}`, { method: 'POST', body: JSON.stringify({ jours: s.jours, compenser: true }) }).catch(e => ({ erreurs: [e.message] }))));
       setRelais({ date, p, sims });
     } catch (e) { informer({ message: e.message }); } finally { setEnCours(false); }
   };
   const appliquer = async () => {
     setEnCours(true);
     try {
-      for (const s of relais.p.semaines) await api(`/semaine/${s.uid}/${s.lundi}`, { method: 'POST', body: JSON.stringify({ jours: s.jours, ecrire: true }) });
+      for (const s of relais.p.semaines) await api(`/semaine/${s.uid}/${s.lundi}`, { method: 'POST', body: JSON.stringify({ jours: s.jours, ecrire: true, compenser: true }) });
       setRelais(null); await charger(); onChange?.();
       informer({ message: 'Le relais est enregistré.' });
     } catch (e) { informer({ message: e.message }); } finally { setEnCours(false); }

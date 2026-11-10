@@ -27,6 +27,7 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
   const [donnees, setDonnees] = useState({});      // uid → { statut, jours, depart, sim }
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [compenser, setCompenser] = useState(false);   // 3.5.311 : par défaut, la différence va au solde
   const annees = useRef({});                         // uid → semaines de l'année (cache)
   const tire = useRef(null);                         // { uid, i, bord, y0, m0 }
   const couleur = uid => COULEURS[Math.max(0, ids.indexOf(uid)) % COULEURS.length];
@@ -52,13 +53,13 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
     if (!modifiees.length) return undefined;
     const t = setTimeout(() => {
       for (const uid of modifiees) {
-        api(`/semaine/${uid}/${lundi}`, { method: 'POST', body: JSON.stringify({ jours: donnees[uid].jours }) })
+        api(`/semaine/${uid}/${lundi}`, { method: 'POST', body: JSON.stringify({ jours: donnees[uid].jours, compenser }) })
           .then(r => setDonnees(d => ({ ...d, [uid]: { ...d[uid], sim: r } })))
           .catch(e => setDonnees(d => ({ ...d, [uid]: { ...d[uid], sim: { erreurs: [e.message] } } })));
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [empreinte]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [empreinte, compenser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const bouger = e => {
@@ -91,7 +92,7 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
   const enregistrer = async () => {
     setEnCours(true);
     try {
-      for (const uid of modifiees) await api(`/semaine/${uid}/${lundi}`, { method: 'POST', body: JSON.stringify({ jours: donnees[uid].jours, ecrire: true }) });
+      for (const uid of modifiees) await api(`/semaine/${uid}/${lundi}`, { method: 'POST', body: JSON.stringify({ jours: donnees[uid].jours, ecrire: true, compenser }) });
       for (const uid of modifiees) delete annees.current[uid];
       onFait();
       setIds(x => [...x]);                          // relit la semaine
@@ -180,6 +181,10 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
 
       {modifiees.length > 0 && (
         <div className="space-y-1.5 text-second mt-3">
+          <label className="flex items-center gap-2 text-second">
+            <input type="checkbox" checked={compenser} onChange={e => { setCompenser(e.target.checked); setDonnees(d => Object.fromEntries(Object.entries(d).map(([u, x]) => [u, { ...x, sim: null }]))); }} />
+            Compenser la différence sur les semaines à venir <span className="text-slate-500">(sinon, elle va au solde de l’année)</span>
+          </label>
           {modifiees.map(uid => {
             const s = donnees[uid]?.sim;
             return (
@@ -189,7 +194,7 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
                   {(s.compensees || []).length > 0 && <>compensé : {s.compensees.map(c => `semaine du ${jourFr(c.lundi, 0)} (${hm(c.avant)} → ${hm(c.apres)})`).join(', ')} · </>}
                   {s.apres_annee != null && (s.apres_annee === s.du
                     ? <PastilleEtat etat="reussi">année : {hm(s.apres_annee)} ✓</PastilleEtat>
-                    : <PastilleEtat etat="surveiller">{s.au_solde < 0 ? `${hm(-s.au_solde)} à replacer plus tard` : `${hm(s.au_solde)} en plus sur l’année`} (au solde)</PastilleEtat>)}
+                    : <PastilleEtat etat="surveiller">{s.au_solde < 0 ? `${hm(-s.au_solde)} en moins sur l’année` : `${hm(s.au_solde)} en plus sur l’année`} (au solde)</PastilleEtat>)}
                   {[...(s.controles || []), ...(s.erreurs || [])].length > 0 && (
                     <ul className="m-0 mt-1 pl-4" style={{ color: 'var(--c-refuse)' }}>{[...(s.controles || []), ...(s.erreurs || [])].map((x, n) => <li key={n}>{x}</li>)}</ul>)}
                 </>}
