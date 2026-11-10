@@ -4,7 +4,7 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconSearch, IconAlertTriangle, IconRotateClockwise, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
-  IconRotate, IconBan, IconTable, IconLock,
+  IconRotate, IconBan, IconTable, IconLock, IconEye,
 } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 
@@ -15,7 +15,7 @@ import { authHeaders, getUser } from '../lib/api.js';
    'editeur'), où le secrétariat passe aussi. Les autres LISENT la feuille. */
 const PEUT_DELIBERER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
 const lectureSeule = () => !PEUT_DELIBERER.includes(getUser()?.role);
-import { Fenetre, EnteteCarte, Encadre, PastilleEtat, TuileEtat } from './ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
@@ -114,6 +114,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   // LA DÉLIBÉRATION SE TIENT PAR ORGANISATION quand l'unité en a plusieurs :
   // null = toute l'unité, N = l'organisation N, 0 = les non répartis.
   const [org, setOrg] = useState(null);
+  const [apercu, setApercu] = useState(false);      // la prévisualisation de la séance
   const [repartir, setRepartir] = useState(false);   // la fenêtre de répartition
   /* SCINDER PAR GROUPE, si on le souhaite — un filtre d'affichage : la séance,
      la clôture et le PV restent par organisation. */
@@ -770,13 +771,19 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               ))}
             </div>
   );
+  const boutonApercu = (
+              <button type="button" onClick={() => setApercu(true)} className="bouton controle inline-flex items-center gap-1"
+                title="Réussites d'office, échecs d'office proposés, étudiants à délibérer">
+                <IconEye size={14} /> Prévisualiser
+              </button>
+  );
   const retour = enPage ? (
               <button onClick={onClose} className="bouton controle inline-flex items-center gap-1">
                 <IconChevronLeft size={14} /> Les unités
               </button>
   ) : null;
   const controles = (
-          <div className="flex items-center gap-2 flex-wrap">{champRecherche}{vues}{retour}</div>
+          <div className="flex items-center gap-2 flex-wrap">{champRecherche}{boutonApercu}{vues}{retour}</div>
   );
 
   const corps = (
@@ -1060,6 +1067,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   );
 
   const annexes = (<>
+      {apercu && (
+        <Previsualisation data={data} session={session} org={org} groupe={groupe}
+          etudiants={groupe ? data.etudiants.filter(e => (e.groupes || []).includes(groupe)) : data.etudiants}
+          onFermer={() => setApercu(false)}
+          onOuvrir={e => { setApercu(false); setBord(e); }} />
+      )}
       {bord && (
         <TableauBordEtudiant etudId={bord.id} ueNum={data.ue_num} annee={annee}
           onClose={() => setBord(null)} onDecide={charger} />
@@ -1113,7 +1126,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
             </p>
           </div>
-          <div className="flex items-center gap-2">{champRecherche}{retour}</div>
+          <div className="flex items-center gap-2">{champRecherche}{boutonApercu}{retour}</div>
           </div>
           <div className="flex items-end justify-between gap-3 flex-wrap">
             <div className="min-w-0">{filtres}</div>
@@ -1142,6 +1155,112 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       </Fenetre>
       {annexes}
     </>
+  );
+}
+
+/* ═══ La prévisualisation de la séance ════════════════════════════════════
+ *
+ * Charles, 10 novembre 2026 : « une liste qui sortirait avec les réussites
+ * d'office, les échecs d'office proposés et la liste des étudiants à
+ * délibérer ; chacun dans l'ordre décroissant de résultats ». Tranché :
+ *  — réussite d'office = la réussite de plein droit (`de_plein_droit`) ;
+ *  — échec d'office proposé = un échec que la faveur ne peut pas rattraper
+ *    (au-delà du barème de l'aide à la décision), ou un PP, NP, CM ;
+ *  — tout le reste se délibère : échec à la portée d'une faveur, note
+ *    manquante, cas que Lucie ne tranche pas.
+ * On ne décide rien ici : c'est la feuille, lue autrement, avant la séance.
+ */
+function classerApercu(e) {
+  const u = e.ue || {};
+  if (u.de_plein_droit) return 'reussite';
+  const echec = u.decision_proposee === 'ajourne' || u.decision_proposee === 'refuse';
+  const mention = (u.mentions || []).length > 0;
+  if (echec && (mention || (Number(u.faveur_cout) > 0 && !u.faveur_eligible))) return 'echec';
+  return 'deliberer';
+}
+const parNote = (a, b) => {
+  const na = a.ue?.note ?? -1, nb = b.ue?.note ?? -1;
+  return nb - na || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+};
+const virgule = v => String(v).replace('.', ',');
+
+function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onOuvrir }) {
+  const groupes = { reussite: [], echec: [], deliberer: [] };
+  for (const e of etudiants) groupes[classerApercu(e)].push(e);
+  for (const k of Object.keys(groupes)) groupes[k].sort(parNote);
+  const echecMot = Number(session) >= 2 ? 'refus' : 'ajournement';
+  const portee = [`Session ${Number(session) >= 2 ? 2 : 1}`,
+    org === 0 ? 'non répartis' : org ? `organisation ${org}` : "toute l'unité",
+    groupe ? `groupe ${groupe}` : null].filter(Boolean).join(' · ');
+
+  const bloc = (cle, titre, sous, etat, avecFaveur) => {
+    const liste = groupes[cle];
+    return (
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre={<span className="inline-flex items-center gap-2">
+            <PastilleEtat etat={etat}>{liste.length}</PastilleEtat>{titre}</span>} sous={sous} />
+        {liste.length === 0
+          ? <p className="text-sm text-slate-500 px-4 py-3 m-0">Personne.</p>
+          : (
+            <div className="overflow-x-auto">
+              <Tableau dense className="!border-0 !rounded-none">
+                <TableauEntete>
+                  <Th>Étudiant</Th>
+                  <Th>Matricule</Th>
+                  <Th align="droite">Note de l'unité</Th>
+                  <Th>Acquis en échec</Th>
+                  {avecFaveur && <Th>Faveur</Th>}
+                </TableauEntete>
+                <tbody>
+                  {liste.map(e => {
+                    const u = e.ue || {};
+                    const mentions = (u.mentions || []).map(m => `${m.mention} (${m.cours_code})`);
+                    const aa = u.acquis_en_defaut || [];
+                    return (
+                      <Tr key={e.id} className="cursor-pointer" onClick={() => onOuvrir(e)} title="Ouvrir son tableau de bord">
+                        <Td className="whitespace-nowrap font-medium">{nomPropre(e.nom, e.prenom)}</Td>
+                        <Td className="tabular-nums whitespace-nowrap text-slate-500">{e.id_ecampus || '—'}</Td>
+                        <Td align="droite" className="tabular-nums whitespace-nowrap">
+                          {u.na ? 'NA' : u.note == null ? '—' : `${virgule(u.note)} / 20`}
+                        </Td>
+                        <Td className="text-second">{[...mentions, ...aa].join(' · ') || '—'}</Td>
+                        {avecFaveur && (
+                          <Td className="text-second whitespace-nowrap">
+                            {!(Number(u.faveur_cout) > 0) ? '—'
+                              : u.faveur_eligible
+                                ? <span>possible · manque {virgule(u.faveur_cout)} pt</span>
+                                : <span className="text-slate-500">non · {u.faveur_motif || `manque ${virgule(u.faveur_cout)} pt`}</span>}
+                          </Td>
+                        )}
+                      </Tr>
+                    );
+                  })}
+                </tbody>
+              </Tableau>
+            </div>
+          )}
+      </section>
+    );
+  };
+
+  return (
+    <Fenetre titre={`Prévisualiser la délibération · UE ${data.ue_num}`}
+      sous={`${data.ue_nom} · ${portee} · ${etudiants.length} étudiant(s)`}
+      large="grande" onFermer={onFermer}
+      pied={<button type="button" className="bouton" onClick={onFermer}>Fermer</button>}>
+      <div className="space-y-4">
+        <p className="text-second text-slate-500 m-0">
+          Ce que Lucie propose, avant la séance : rien n'est décidé ici. Chaque liste est rangée par note
+          d'unité, de la plus haute à la plus basse ; un clic ouvre le tableau de bord de l'étudiant.
+        </p>
+        {bloc('reussite', "Réussites d'office",
+          "Tous les acquis et tous les cours au seuil : le Conseil n'a rien à apprécier.", 'reussi', false)}
+        {bloc('echec', "Échecs d'office proposés",
+          `${echecMot[0].toUpperCase()}${echecMot.slice(1)} proposé que la faveur ne peut pas rattraper (au-delà de 2 points ou de 2 cours), ou épreuve non présentée (PP, NP, CM).`, 'corriger', false)}
+        {bloc('deliberer', 'À délibérer',
+          "Échec à la portée d'une faveur, note manquante, ou cas que Lucie ne tranche pas.", 'surveiller', true)}
+      </div>
+    </Fenetre>
   );
 }
 

@@ -12,7 +12,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, SERIES, couleurSerie } from './graphiques.jsx';
 import { TuileEtat, EnteteCarte } from './ui.jsx';
 import { saisir, informer } from '../lib/dialogue.jsx';
-import CarteCommunes, { BruxellesTroisAns } from './CarteCommunes.jsx';
+import CarteCommunes, { BruxellesTroisAns, anneeCourte } from './CarteCommunes.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const pc = (k, n) => (n ? `${Math.round((k / n) * 100)} %` : '—');
@@ -207,7 +207,7 @@ export default function PopulationEcole({ annee: anneeProp }) {
         <Carte titre="L'évolution des inscrits" sous={`Par section, sur ${d.evolution.length} années. Les années passées se lisent dans les chiffres de référence de la direction (Lucie n'en a qu'une partie) ; les autres, dans les inscriptions de Lucie.`}>
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>
-              <BarChart data={d.evolution.map(a => ({ annee: a.annee, ...(section ? { [section]: a.par_section[section] || 0 } : a.par_section) }))}>
+              <BarChart data={d.evolution.map(a => ({ annee: anneeCourte(a.annee), ...(section ? { [section]: a.par_section[section] || 0 } : a.par_section) }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--g-grille, #E5E7EB)" vertical={false} />
                 <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
@@ -228,7 +228,7 @@ export default function PopulationEcole({ annee: anneeProp }) {
                 </tr></thead>
                 <tbody>{d.evolution.map(a => (
                   <tr key={a.annee} className="border-t border-slate-100">
-                    <td className="px-2 py-1">{a.annee}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{anneeCourte(a.annee)}</td>
                     <td className="px-2 py-1 text-slate-500" title={(a.notes || []).join(' · ')}>{a.source === 'reference' ? 'référence' : 'Lucie'}{a.notes?.length ? ' *' : ''}</td>
                     <td className="px-2 py-1 text-right tabular-nums font-semibold">{k0(a.total)}</td>
                     <td className="px-2 py-1 text-right tabular-nums">{a.source === 'reference' ? (a.ba1 != null ? k0(a.ba1) : '—') : k0(a.primo)}</td>

@@ -158,6 +158,8 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
 
 /* BRUXELLES SUR TROIS ANNÉES (3.5.292, d'après la page de la HELB) : la carte de chaque année, le tableau d'évolution et les cinq
    premières communes. L'adresse est celle de la fiche aujourd'hui (Lucie ne garde pas l'adresse de chaque année). */
+export const anneeCourte = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+
 export function BruxellesTroisAns({ parAnnee = [], titreFiltre = '' }) {
   const { be } = useCartes();
   const [vu, setVu] = useState(null);
@@ -178,14 +180,15 @@ export function BruxellesTroisAns({ parAnnee = [], titreFiltre = '' }) {
   });
   const evol = (a, b, enPoints) => {
     if (a == null || b == null) return '';
-    if (enPoints) { const v = b - a; return `${v >= 0 ? '+' : ''}${v.toFixed(1).replace('.', ',')} pt`; }
+    const signe = (v, u) => { const t = Math.abs(v).toFixed(1); return `${t === '0.0' ? '' : v > 0 ? '+' : '−'}${t.replace('.', ',')} ${u}`; };
+    if (enPoints) return signe(b - a, 'pt');
     if (!a) return '';
-    const v = ((b - a) / a) * 100; return `${v >= 0 ? '+' : ''}${v.toFixed(1).replace('.', ',')} %`;
+    return signe(((b - a) / a) * 100, '%');
   };
   const part = (k, n) => (n ? (k / n) * 100 : null);
   const ligneTab = (libelle, f, enPct, fort) => (
     <Tr className={fort ? 'font-semibold' : ''}>
-      <Td>{libelle}</Td>
+      <Td className="w-full">{libelle}</Td>
       {lignes.map((l, i) => <Fragment key={l.annee}><Td align="droite" className="tabular-nums whitespace-nowrap">{enPct ? (part(...f(l)) == null ? '—' : `${part(...f(l)).toFixed(1).replace('.', ',')} %`) : k0(f(l))}</Td>
         {i > 0 && <Td align="droite" className="tabular-nums whitespace-nowrap text-slate-500">{enPct ? evol(part(...f(lignes[i - 1])), part(...f(l)), true) : evol(f(lignes[i - 1]), f(l), false)}</Td>}</Fragment>)}
     </Tr>);
@@ -199,18 +202,18 @@ export function BruxellesTroisAns({ parAnnee = [], titreFiltre = '' }) {
         <div className="grid gap-3 sm:grid-cols-3">
           {lignes.map((l, i) => (
             <div key={l.annee} className="min-w-0 space-y-1">
-              <div className="text-center font-semibold" style={{ color: i === lignes.length - 1 ? '#B8860B' : undefined }}>{l.annee}</div>
-              <div className="aspect-square"><CarteDomicile be={be} parNis={l.pn} base={l.bxl} quelle="bruxelles" vif onVu={x => setVu(x && { ...x, annee: l.annee })} /></div>
+              <div className="text-center font-semibold" style={{ color: i === lignes.length - 1 ? 'var(--c-attente)' : undefined }}>{anneeCourte(l.annee)}</div>
+              <div className="aspect-square"><CarteDomicile be={be} parNis={l.pn} base={l.bxl} quelle="bruxelles" vif onVu={x => setVu(x && { ...x, annee: anneeCourte(l.annee) })} /></div>
             </div>))}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <LegendeClasses de="% des Bruxellois" />
           <span className="ml-auto text-second font-medium text-iip-texte min-h-[1.25rem]">{vu ? `${vu.annee} · ${vu.libelle} — ${k0(vu.n)} étudiant(s)${vu.n ? ` · ${pc1(vu.n, vu.base)}` : ''}` : ''}</span>
         </div>
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="space-y-4">
           <div className="overflow-x-auto">
             <Tableau dense>
-              <TableauEntete><Th>Domicile</Th>{lignes.map((l, i) => <Fragment key={l.annee}><Th align="droite">{l.annee}</Th>{i > 0 && <Th align="droite">Évol.</Th>}</Fragment>)}</TableauEntete>
+              <TableauEntete><Th>Domicile</Th>{lignes.map((l, i) => <Fragment key={l.annee}><Th align="droite" className="whitespace-nowrap">{anneeCourte(l.annee)}</Th>{i > 0 && <Th align="droite" className="whitespace-nowrap">Évol.</Th>}</Fragment>)}</TableauEntete>
               <tbody>
                 {ligneTab('Domiciliés en Belgique', l => l.belges)}
                 {ligneTab('dont en Région bruxelloise', l => l.bxl)}
@@ -222,11 +225,12 @@ export function BruxellesTroisAns({ parAnnee = [], titreFiltre = '' }) {
             <p className="text-mention text-slate-400 m-0 pt-1">Communes limitrophes d'Anderlecht dans la Région : {[...autour].filter(k => k !== '21001').map(k => nomCommune(be.communes.find(c => c.nis === k))).join(', ')}.</p>
           </div>
           <div className="overflow-x-auto">
-            <div className="intertitre pb-1">5 premières communes</div>
             <Tableau dense>
-              <TableauEntete><Th>N°</Th>{lignes.map(l => <Th key={l.annee}>{l.annee}</Th>)}</TableauEntete>
+              <TableauEntete><Th className="whitespace-nowrap">5 premières communes</Th>{lignes.map(l => <Th key={l.annee} colSpan={2} className="whitespace-nowrap">{anneeCourte(l.annee)}</Th>)}</TableauEntete>
               <tbody>{[0, 1, 2, 3, 4].map(r => (
-                <Tr key={r}><Td>{r + 1}</Td>{lignes.map(l => <Td key={l.annee}>{l.top[r] ? `${l.top[r].nom} · ${pc(l.top[r].n, l.bxl)}` : '—'}</Td>)}</Tr>))}</tbody>
+                <Tr key={r}><Td className="tabular-nums">{r + 1}</Td>{lignes.map(l => <Fragment key={l.annee}>
+                  <Td>{l.top[r]?.nom || '—'}</Td>
+                  <Td align="droite" className="tabular-nums whitespace-nowrap text-slate-500">{l.top[r] ? pc(l.top[r].n, l.bxl) : ''}</Td></Fragment>)}</Tr>))}</tbody>
             </Tableau>
           </div>
         </div>
