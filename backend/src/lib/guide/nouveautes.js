@@ -2,6 +2,15 @@
    des en-têtes. Même forme que les autres compléments. */
 export const chapitres = [];
 export const ajouts = {
+  deliberation: [
+    {
+      titre: "Prévisualiser la délibération : réussites d'office, échecs d'office, à délibérer",
+      pour: 'sec coo dir',
+      ou: "Étudiants → Délibération → l'unité → [[Prévisualiser|IconEye]].",
+      texte: "Avant la séance, trois listes rangées par note d'unité, de la plus haute à la plus basse : les réussites d'office (tous les acquis et tous les cours au seuil), les échecs d'office proposés (un échec que la faveur ne peut pas rattraper — plus de 2 points ou plus de 2 cours — ou une épreuve non présentée : PP, NP, CM), et les étudiants à délibérer, avec pour chacun ses acquis en échec et si une faveur est possible. La liste suit l'organisation et le groupe choisis dans la feuille ; un clic sur un étudiant ouvre son tableau de bord.",
+      savoir: ["Rien n'est décidé dans cette fenêtre : c'est la proposition de Lucie, que le Conseil tranche en séance."],
+    },
+  ],
   etudiants: [
     {
       titre: "La situation professionnelle, et les statistiques par section",

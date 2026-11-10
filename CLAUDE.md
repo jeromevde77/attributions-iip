@@ -3182,6 +3182,13 @@ concernés), un clic ouvre la carte en grand dans une `Fenetre`. 3.5.292 (d'apr�
 (`voisins`) ; `BruxellesTroisAns` (trois années, évolution, campus + limitrophes, 5 premières communes ; `par_annee` du serveur, adresse
 ACTUELLE de la fiche) ; choix « Tous / Nouveaux » (`?nouveaux=1`, `anciensAvant`).
 
+**PRÉVISUALISER UNE DÉLIBÉRATION** (3.5.293, Charles, 10 novembre 2026 : « réussites d'office, échecs d'office proposés, étudiants
+à délibérer, chacun dans l'ordre décroissant de résultats » ; tranché : échec d'office = hors barème de la faveur ou PP/NP/CM ; une
+séance ; dans la feuille ; acquis en échec et faveur possible). Bouton « Prévisualiser » de la feuille de délibération
+(`Previsualisation`, `classerApercu` dans `FeuilleDeliberation.jsx`) : calculé sur les données déjà chargées (`de_plein_droit`,
+`decision_proposee`, `mentions`, `faveur_eligible`/`faveur_cout`/`faveur_motif` d'`aideDecision`), organisation et groupe de la feuille ;
+rien ne s'écrit. Population : années en court (`anneeCourte`, `CarteCommunes.jsx`).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
