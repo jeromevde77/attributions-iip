@@ -48,6 +48,9 @@ export function migrerLigneTemps(base = db) {
       refus_par TEXT, refus_le TEXT, motif_refus TEXT);
     CREATE INDEX IF NOT EXISTS idx_tt_modulation ON tt_modulation(annee, utilisateur_id, statut);
   `);
+  // 3.5.301 : une DEMANDE de « Mon temps » (un congé, une semaine de travail, plus ou moins d'heures) — la direction l'accepte
+  // d'un clic, sans contrôle préalable de la direction adjointe ; et le mot de la personne.
+  for (const c of ['simple INTEGER NOT NULL DEFAULT 0', 'mot TEXT']) { try { base.exec(`ALTER TABLE tt_modulation ADD COLUMN ${c}`); } catch { /* déjà là */ } }
 }
 
 // ── Les éléments de l'agenda : grands moments, réunions, échéances ──
@@ -367,7 +370,10 @@ function margeSemaine(jours, modele, fraction, sens) {
 export function assistant(uid, annee, v = {}) {
   const p = personne(uid); if (!p) throw err('Personne non désignée.', 404);
   const R = reglage(annee);
-  if (!R.rt_variable) throw err('Moduler les semaines suppose l’horaire variable inscrit au règlement de travail (Préparer l’année → Personnes et règles).');
+  // Échanger une semaine de congé contre une semaine de travail ne module pas les heures : l'horaire variable n'est exigé
+  // que pour donner des jours ou charger, alléger une semaine (3.5.301).
+  const moduleHeures = (v.recup || []).length || (v.rendre || []).length || Object.keys(v.cibles || {}).length;
+  if (moduleHeures && !R.rt_variable) throw err('Faire plus ou moins d’heures une semaine suppose l’horaire variable inscrit au règlement de travail : la direction le règle dans Préparer l’année → Personnes et règles.');
   const sem = anneeDe(uid, annee);
   if (!sem.length) throw err('L’année n’est pas encore générée.', 404);
   const fraction = Number(p.fraction) || 1;
@@ -488,8 +494,9 @@ export function proposer(uid, annee, v, user, nomUser) {
   const changements = plan.changees.map(c => ({ lundi: c.lundi, jours: c.jours, avant: c.avant, apres: c.apres, statut: c.statut, statut_avant: c.statut_avant }));
   const resume = String(v.resume || '').trim() || resumer(plan);
   const gereDirect = ['admin', 'directeur', 'directeur_adjoint'].includes(user.role) && user.id !== uid;
-  const id = Number(db.prepare(`INSERT INTO tt_modulation (utilisateur_id, annee, statut, resume, changements_json, avant_json, propose_par, propose_par_id)
-    VALUES (?,?,?,?,?,?,?,?)`).run(uid, annee, 'proposee', resume, JSON.stringify(changements), JSON.stringify(avant), nomUser, user.id).lastInsertRowid);
+  const id = Number(db.prepare(`INSERT INTO tt_modulation (utilisateur_id, annee, statut, resume, changements_json, avant_json, propose_par, propose_par_id, simple, mot)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`).run(uid, annee, 'proposee', resume, JSON.stringify(changements), JSON.stringify(avant), nomUser, user.id,
+      v.simple ? 1 : 0, String(v.mot || '').trim().slice(0, 500) || null).lastInsertRowid);
   if (gereDirect) {
     db.prepare("UPDATE tt_modulation SET adjoint_par = ?, adjoint_le = datetime('now') WHERE id = ?").run(nomUser, id);
     if (['admin', 'directeur'].includes(user.role)) return valider(id, 'direction', user, nomUser);
@@ -536,7 +543,7 @@ export function valider(id, etape, user, nomUser) {
   }
   if (etape !== 'direction') throw err('Étape inconnue.', 400);
   if (!['directeur', 'admin'].includes(user.role)) throw err('Réservé à la direction.', 403);
-  if (!m.adjoint_le) throw err('La direction adjointe contrôle d’abord.');
+  if (!m.adjoint_le && !m.simple) throw err('La direction adjointe contrôle d’abord.');
   const avant = JSON.parse(m.avant_json), ch = JSON.parse(m.changements_json);
   const actuel = new Map(anneeDe(m.utilisateur_id, m.annee).map(s => [s.lundi, { statut: s.statut, jours: s.jours }]));
   // Les propositions d'avant 3.5.058 gardaient les seuls jours.
@@ -548,8 +555,9 @@ export function valider(id, etape, user, nomUser) {
   const up = db.prepare("UPDATE tt_semaine SET statut = COALESCE(?, statut), jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
   db.transaction(() => {
     for (const c of ch) up.run(c.statut || null, JSON.stringify(c.jours), `${nomUser} (modulation)`, m.utilisateur_id, c.lundi);
-    // Une année modulée suit les règles de l'horaire annualisé.
-    db.prepare("UPDATE tt_personne SET formule = 'annualise', maj_par = ?, maj_le = datetime('now') WHERE utilisateur_id = ?").run(nomUser, m.utilisateur_id);
+    // Une année dont les HEURES sont modulées suit les règles de l'horaire annualisé ; un simple échange de semaines de congé, non.
+    if (ch.some(c => (c.statut || null) === (c.statut_avant || null)))
+      db.prepare("UPDATE tt_personne SET formule = 'annualise', maj_par = ?, maj_le = datetime('now') WHERE utilisateur_id = ?").run(nomUser, m.utilisateur_id);
     db.prepare("UPDATE tt_modulation SET statut = 'acceptee', direction_par = ?, direction_le = datetime('now') WHERE id = ?").run(nomUser, id);
   })();
   return lireModulation(id);

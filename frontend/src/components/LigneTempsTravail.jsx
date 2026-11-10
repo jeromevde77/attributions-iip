@@ -452,13 +452,14 @@ function Propositions({ mods, gere, api, recharger }) {
       <div className="text-sm font-semibold text-iip-texte">{gere ? `${mods.length} modulation(s) à valider` : 'Mes modulations'}</div>
       {mods.map(m => (
         <div key={m.id} className="flex flex-wrap items-center gap-2 text-second">
-          <span><b>{gere ? m.nom : 'Proposée'}</b> · {m.resume} · {m.changements.length} semaine(s) · le {String(m.propose_le).slice(8, 10)}/{String(m.propose_le).slice(5, 7)}</span>
+          <span><b>{gere ? m.nom : 'Proposée'}</b> · {m.simple ? 'demande : ' : ''}{m.resume}{m.mot ? ` (« ${m.mot} »)` : ''} · {m.changements.length} semaine(s) · le {String(m.propose_le).slice(8, 10)}/{String(m.propose_le).slice(5, 7)}</span>
           {m.statut === 'refusee' ? <PastilleEtat etat="corriger">refusée par {m.refus_par} : {m.motif_refus}</PastilleEtat>
-            : <PastilleEtat etat={m.statut === 'controlee' ? 'disponible' : 'neutre'}>{m.statut === 'controlee' ? `contrôlée par ${m.adjoint_par}` : 'à contrôler'}</PastilleEtat>}
+            : <PastilleEtat etat={m.statut === 'controlee' ? 'disponible' : 'neutre'}>{m.statut === 'controlee' ? `contrôlée par ${m.adjoint_par}` : m.simple ? 'à accepter' : 'à contrôler'}</PastilleEtat>}
           <span className="flex-1" />
           {m.statut === 'refusee' ? null : <>
-          {gere && m.statut === 'proposee' && <button className="bouton text-second" onClick={() => geste(m, 'adjoint')}>Contrôler</button>}
-          {gere && m.statut === 'controlee' && <button className="bouton bouton-fort text-second" onClick={() => geste(m, 'direction')}>Accepter</button>}
+          {/* UNE DEMANDE DE « MON TEMPS » (3.5.301) s'accepte d'un clic, sans contrôle préalable. */}
+          {gere && m.statut === 'proposee' && !m.simple && <button className="bouton text-second" onClick={() => geste(m, 'adjoint')}>Contrôler</button>}
+          {gere && (m.statut === 'controlee' || (m.simple && m.statut === 'proposee')) && <button className="bouton bouton-fort text-second" onClick={() => geste(m, 'direction')}>Accepter</button>}
           <button className="bouton text-second" onClick={() => refuser(m)}>{gere ? 'Refuser' : 'Retirer'}</button></>}
         </div>))}
     </div>

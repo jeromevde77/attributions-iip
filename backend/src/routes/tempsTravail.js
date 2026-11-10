@@ -12,6 +12,7 @@ import {
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
+import { monTemps, deposerDemande } from '../lib/monTemps.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
 try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); const n = recalerAnnees(); if (n) console.log(`[temps de travail] ${n} semaine(s) recalée(s) sur l'année qui commence le 15 août`); } catch (e) { console.error('[temps de travail] migration', e.message); }
@@ -194,6 +195,16 @@ r.delete('/moments/:id', authRequired, (req, res) => {
 r.put('/chaleur/:lundi', authRequired, (req, res) => {
   if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
   try { forcerChaleur(annee(req), req.params.lundi, req.body?.niveau, nomDe(req.user)); res.json({ ok: true }); } catch (e) { faute(res, e); }
+});
+// MON TEMPS (3.5.301) : l'écran du personnel — sa semaine, son année, ses relevés, ses demandes.
+r.get('/mon-temps', authRequired, (req, res) => {
+  const uid = cible(req, res); if (uid == null) return;
+  try { res.json(monTemps(uid, annee(req), req.query.lundi || null)); } catch (e) { faute(res, e); }
+});
+// Une demande (congé, semaine de travail, plus ou moins d'heures) : composée et contrôlée par Lucie, acceptée par la direction.
+r.post('/demande', authRequired, (req, res) => {
+  const uid = cible(req, res); if (uid == null) return;
+  try { res.json(deposerDemande(uid, annee(req), req.body || {}, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
 });
 // L'assistant : une proposition, rien n'est écrit.
 r.post('/moduler/:uid/assistant', authRequired, (req, res) => {

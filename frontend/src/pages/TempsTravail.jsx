@@ -1,3 +1,4 @@
+import MonTemps from '../components/MonTemps.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { IconPrinter, IconSignature } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
@@ -63,6 +64,16 @@ export default function TempsTravail() {
      de l'équipe à zoom, les moments, la chaleur, l'assistant —, le relevé du mois et ses signatures, et pour la direction la
      préparation de l'année, en étapes numérotées. Les onglets Équipe (année, semaine, mois), Suivi, Congés et Générer de
      3.5.039-3.5.056 s'y sont fondus. */
+  /* MON TEMPS (3.5.301) : une personne désignée qui ne gère pas l'équipe n'a qu'un écran, le sien — la ligne du temps, la
+     tension et les grands moments restent à la direction. */
+  if (!info.gere) return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="titre-ecran">Mon temps</h1>
+        <p className="text-second text-slate-500">36 h de travail effectif par semaine pour un temps plein, 1 404 h sur l’année.</p>
+      </div>
+      <MonTemps key={an} api={api} />
+    </div>);
   const faces = [['ligne', 'Ligne du temps'], ['releve', 'Relevé et signatures'], ...(info.gere ? [['preparer', 'Préparer l’année']] : [])];
   const listePers = personnes.personnes || [];
   const ouvrir = async url => { try { setApercu(await api(url)); } catch (e) { informer({ message: e.message }); } };
