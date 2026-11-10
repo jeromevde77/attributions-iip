@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useEnregistrementAuto, heureCourte } from '../lib/enregistrementAuto.js';
 import { IconArrowsSplit, IconCheck, IconAlertTriangle, IconHistory, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
@@ -184,15 +185,23 @@ export default function PonderationsUE({ ueFixe = null }) {
     setBrouillon(b => ({ ...b, [code]: { ...(b[code] || {}), [aa]: v === '' ? 0 : Number(String(v).replace(',', '.')) } }));
   };
 
-  async function enregistrerCours(code) {
+  async function enregistrerCours(code, opt = {}) {
     setErreur(null);
     try {
       await ecrire('/api/acquis/ponderations', { ue_num: ue, cours_code: code, annee,
         ponderations: acquis.map(a => ({ aa_code: a.aa_code, poids: brouillon[code]?.[a.aa_code] || 0 })) });
-      setMessage(`Points du cours ${code} enregistrés pour ${annee}.`);
-      await charger();
+      setMessage(opt.auto ? `Points du cours ${code} enregistrés automatiquement à ${heureCourte()}.` : `Points du cours ${code} enregistrés pour ${annee}.`);
+      // Enregistré seul : on relit ce qui est en base SANS toucher au brouillon des autres cours, peut-être en cours de saisie.
+      if (opt.auto) setLiens(await lire(`/api/acquis/ue/${ue}/liens?annee=${encodeURIComponent(annee)}`));
+      else await charger();
     } catch (e) { setErreur(e.message); }
   }
+  /* AU CLIC (3.5.298) : un cours dont les dix points sont posés (par pas de 0,5) et qui diffère de ce qui est enregistré part seul ;
+     un cours incomplet attend, et son pied le dit. */
+  const aEnvoyer = (liens?.cours || []).filter(c => !c.non_evalue && String(c.ct_pp || '').toUpperCase() !== 'Z')
+    .map(c => c.cours_code).filter(k => modifie(k) && coursJuste(k));
+  useEnregistrementAuto(brouillon, { pret: !!peutRegler && aEnvoyer.length > 0, delai: 900,
+    enregistrer: async opt => { for (const k of aEnvoyer) await enregistrerCours(k, { auto: true, ...opt }); } });
   async function enregistrerBase() {
     setErreur(null);
     try {

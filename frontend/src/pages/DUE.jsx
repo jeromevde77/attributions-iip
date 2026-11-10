@@ -1,7 +1,8 @@
 import { memeCours } from '../lib/texteDossier.js';
 import { FriseEtapes } from '../components/graphiques.jsx';
 import { demander } from '../lib/dialogue.jsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEnregistrementAuto, heureCourte } from '../lib/enregistrementAuto.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { OuvrirEditions, Tableau, TableauEntete, Th, Td, Tr, TableauVide, PastilleEtat, ListeEtats, LigneEtat } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
@@ -691,6 +692,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
 /* `integree` : la fiche vit dans l'onglet « Pondération, croisement et DUE », qui
    porte déjà l'unité et son titre — ni retour, ni second titre. */
 export function Fiche({ ueNum, onRetour, integree = false }) {
+  const cRef = useRef(null);
   const [d, setD] = useState(null);
   const [c, setC] = useState({});
   const [erreur, setErreur] = useState(null);
@@ -730,16 +732,21 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
     setC(x => ({ ...x, [cle]: { ...(x[cle] || {}), [sous]: val } })); setSale(true);
   };
 
-  async function enregistrer() {
-    setEnCours(true); setErreur(null); setMessage(null);
+  cRef.current = c;
+  async function enregistrer(opt = {}) {
+    const snap = cRef.current;
+    if (!opt.sortie) { setEnCours(true); setErreur(null); if (!opt.auto) setMessage(null); }
     try {
-      const j = await api.dueEnregistrer(ueNum, c);
-      setD(x => ({ ...x, ...j })); setSale(false);
-      setMessage('Descriptif enregistré.');
+      const j = await api.dueEnregistrer(ueNum, snap);
+      if (opt.sortie) return true;
+      // Une frappe pendant l'envoi reste à enregistrer : le brouillon n'est « propre » que s'il n'a pas bougé.
+      setD(x => ({ ...x, ...j, contenu: x?.contenu })); if (cRef.current === snap) setSale(false);
+      setMessage(opt.auto ? `Enregistré automatiquement à ${heureCourte()}.` : 'Descriptif enregistré.');
       return true;
-    } catch (e) { setErreur(e.message); return false; }
-    finally { setEnCours(false); }
+    } catch (e) { if (!opt.sortie) setErreur(e.message); return false; }
+    finally { if (!opt.sortie) setEnCours(false); }
   }
+  useEnregistrementAuto(c, { pret: sale && !!d && !lecture && d?.statut !== 'validee' && !enCours, enregistrer });
 
   async function voirApercu() {
     setVue('apercu');

@@ -972,7 +972,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 if (decides?.length) { const frais = await charger(); if (frais) figerOrdre(frais); }
                 setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
-            <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
+            <Cloture seance={seance?.seance} visiteCalendrier={seance?.visite_calendrier || null} enCours={enCours} nb={liste.length}
               quorum={seance?.quorum} erreur={erreur}
               onPresences={() => setEtape('presences')}
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
@@ -2002,7 +2002,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits =
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
+function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
                    coursSession2, quorum, erreur, onPresences }) {
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
@@ -2010,9 +2010,10 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
   const [heureS, setHeureS] = useState(seance?.heure_seance || '');
   // La publication des résultats fait courir le recours (RDE art. 88 §1).
   const [publieLe, setPublieLe] = useState(seance?.publie_le || new Date().toISOString().slice(0, 10));
-  const [date, setDate] = useState(seance?.visite_date || '');
-  const [heure, setHeure] = useState(seance?.visite_heure || '');
-  const [local, setLocal] = useState(seance?.visite_local || '');
+  // LA VISITE SE DEMANDE (3.5.299) : celle de la séance, sinon celle du calendrier des sessions, sinon rien — jamais une date inventée.
+  const [date, setDate] = useState(seance?.visite_date || visiteCalendrier?.date || '');
+  const [heure, setHeure] = useState(seance?.visite_heure || visiteCalendrier?.heure || '');
+  const [local, setLocal] = useState(seance?.visite_local || visiteCalendrier?.local || '');
   /* LA VISITE N'A PAS TOUJOURS DE PLAGE. Quand l'Institut renvoie l'étudiant
      vers son enseignant, il n'y a ni jour, ni heure, ni local à annoncer — et
      la notification partait alors avec trois rangées de pointillés, c'est-à-dire
@@ -2068,13 +2069,17 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
   // la seconde session dix jours plus tard à huit heures. Les retaper vingt
   // fois par session n'apportait rien. Un bouton les pose, et tout reste
   // modifiable — la clôture ne fige que ce qu'on aura laissé.
-  const proposer = () => {
+  // `auto` : le remplissage du premier affichage. Il ne pose PAS la visite des copies (3.5.299, Charles : « il ne me demande plus la
+  // date de visite des copies ») — elle se demande ; le bouton « Valeurs par défaut » la propose si l'on veut.
+  const proposer = (auto = false) => {
     const p = proposition(seance);
     if (!dateS) setDateS(p.date_seance);
     if (!heureS) setHeureS(p.heure_seance);
-    if (!date) setDate(p.visite_date);
-    if (!heure) setHeure(p.visite_heure);
-    if (!local.trim()) setLocal(p.visite_local);
+    if (!auto) {
+      if (!date) setDate(p.visite_date);
+      if (!heure) setHeure(p.visite_heure);
+      if (!local.trim()) setLocal(p.visite_local);
+    }
     setS2(l => l.map(c => ({
       ...c,
       date: c.date || p.session2_date,
@@ -2089,7 +2094,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
   useEffect(() => {
     if (pose.current || seance?.cloturee) return;
     pose.current = true;
-    proposer();
+    proposer(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seance?.cloturee]);
 
@@ -2152,7 +2157,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
               le dernier moment pour les corriger.
             </p>
           </div>
-          <button onClick={proposer} disabled={enCours}
+          <button onClick={() => proposer(false)} disabled={enCours}
             title={'Aujourd’hui pour la séance, la visite des copies à deux jours '
                  + 'ouvrables (contacter le professeur), la seconde session à dix '
                  + 'jours à 8h00 (contacter la coordination). Ne remplace aucun '
@@ -2187,6 +2192,12 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             L'étudiant a le droit de consulter sa copie. La date, l'heure et le
             local figurent sur la notification qui lui est remise.
           </p>
+          {!mention && !(date && heure && local.trim()) && (
+            <p className="text-second font-semibold m-0 mt-1" style={{ color: 'var(--c-attente)' }}>
+              À poser avant de clore : date, heure et local de la visite{visiteCalendrier ? '' : ' (le calendrier des sessions n’en porte pas pour cette unité)'}.
+            </p>)}
+          {visiteCalendrier && !seance?.visite_date && (
+            <p className="text-mention text-slate-500 m-0 mt-1">Reprise du calendrier des sessions.</p>)}
         </div>
         {/* GRISER PLUTÔT QUE CACHER. Les trois champs disparaissaient dès
             qu'une mention existait : l'écran devenait incompréhensible — on ne

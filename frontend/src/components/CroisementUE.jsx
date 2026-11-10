@@ -24,6 +24,7 @@
  * ajouté ici s'ajoute au programme du descriptif : une seule liste de points.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useEnregistrementAuto } from '../lib/enregistrementAuto.js';
 import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
 import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
@@ -191,7 +192,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
 
   const coche = (co, pt, aa) => (croix[co]?.[pt] || []).includes(aa);
   const basculer = (co, pt, aa) => {
-    if (lecture) return;
+    if (lecture || enCours) return;   // pendant l'envoi automatique, la grille se recharge : un clic s'y perdrait
     setMessage(null); setSale(true);
     setCroix(x => {
       const l = x[co]?.[pt] || [];
@@ -274,6 +275,9 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
+
+  // AU CLIC (3.5.298) : une pause d'une seconde et demie après la dernière croix, et le croisement part seul.
+  useEnregistrementAuto(croix, { pret: sale && !!d && !lecture && !enCours, delai: 1500, enregistrer: () => enregistrer() });
 
   if (erreur && !d) return <p className="text-sm text-red-700">{erreur}</p>;
   if (!d) return <p className="text-sm text-slate-400">Chargement…</p>;

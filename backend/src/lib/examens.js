@@ -70,6 +70,9 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
       (SELECT c.cours_nom FROM cours c WHERE c.cours_code = e.cours_code AND c.annee_scolaire = e.annee_scolaire LIMIT 1) AS cours_nom
     FROM ${t} e WHERE e.annee_scolaire = ? AND e.${k}_date IS NOT NULL AND e.${k}_date <> ''
     ORDER BY e.${k}_date, e.${k}_heure, e.ue_num, e.cours_code`).all(annee), []);
+  /* UNE ÉPREUVE D'UNE UE QUI N'EXISTE PAS CETTE ANNÉE NE SORT PAS (3.5.298, Charles : « cette 901 n'existe pas ») : le calendrier
+     garde des lignes d'unités retirées du référentiel de l'année ; aucun écran ne les montre, la liste des examens non plus. */
+  l = l.filter(e => e.ue_nom != null || e.section != null);
   l = l.map(e => ({ ...e, session: s2 ? 2 : 1 }));
   if (section) l = l.filter(e => e.section === section);
   if (Array.isArray(sections)) l = l.filter(e => !e.section || sections.includes(e.section));
