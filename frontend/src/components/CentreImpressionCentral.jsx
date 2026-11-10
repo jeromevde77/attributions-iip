@@ -14,6 +14,7 @@ import {
   IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId, IconZoomIn, IconCheck,
 } from '@tabler/icons-react';
 const RegistreEnvois = lazy(() => import('./RegistreEnvois.jsx'));
+const ExamensPreparer = lazy(() => import('./ExamensPreparer.jsx'));
 import PreviewModal, { IconeApercu } from './PreviewModal.jsx';
 import SaisieAnnexe from './SaisieAnnexe.jsx';
 import FenetreAnnexe from './FenetreAnnexe.jsx';
@@ -717,7 +718,7 @@ function ListesEtRapports({ domaine }) {
 const FAMILLES_RAPPORTS = {
   etudiants: [
     ['Les inscriptions', ['inscrits-par-ue', 'listes-par-ue', 'organisation-effectifs', 'pae-hors-regle', 'registre-matricule']],
-    ['Les examens et les présences', ['listes-examens', 'grille-presences']],
+    ['Les présences', ['grille-presences']],
     ['Les résultats', ['resultats-section']],
   ],
   personnel: [
@@ -2960,6 +2961,12 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 className={`onglet-page ${famille === 'diplomes' ? 'onglet-page-actif' : ''}`}>
                 Diplômes et titres
               </button>
+              {/* LES EXAMENS (3.5.296, Charles : « il faut que cela aille dans le centre d'impression ») : tout « Examens :
+                  préparer et imprimer » d'Organisation vit ici — section, période, et les pièces de la procédure. */}
+              <button onClick={() => setFamille('examens')}
+                className={`onglet-page ${famille === 'examens' ? 'onglet-page-actif' : ''}`}>
+                Examens
+              </button>
               <button onClick={() => setFamille('listes')}
                 className={`onglet-page ${famille === 'listes' || famille === 'rapports' ? 'onglet-page-actif' : ''}`}>
                 Listes et rapports
@@ -2979,6 +2986,8 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 ...(perimetre?.pieces ? { pieces: perimetre.pieces } : {}), ...(anneeEtudiant ? { annee: anneeEtudiant } : {}) }} />          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} />
             : famille === 'valorisation' ? <OngletValorisation initial={perimetre?.valorisation || null} />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
+            : famille === 'examens' ? <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
+                <ExamensPreparer annee={getAnnee()} integre initial={perimetre?.examen || null} /></Suspense>
             : famille === 'lettres' ? <LettresModele annee={getAnnee()} />
             : <RapportsEnZones domaine="etudiants" />}
         </>
