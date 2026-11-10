@@ -144,9 +144,8 @@ export default function PopulationEcole({ annee: anneeProp }) {
       </div>
 
       {/* LA CARTE DES COMMUNES (3.5.289) : où habitent les étudiants — l'école ou la section choisie. */}
-      <Carte titre="Où habitent les étudiants, et d'où ils viennent" sous={`Domicile par commune (${k0(domConnu)} adresses belges) · nationalité par pays (${k0(natConnue)} renseignées)${section ? ` · ${NOM_SECTION(section)}` : ''}${sle === 'exclus' ? ' · SLE exclus' : ''}`}>
-        <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />
-      </Carte>
+      {/* LES CARTES EN TUILES (3.5.291, proposition A) : un clic ouvre la carte en grand. */}
+      <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />
 
       {/* LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section — CESS,
           etc. — et aussi si chômeur, travailleur… »). Le titre se lit sur la fiche (Identité) ; la situation, celle de l'année. */}
