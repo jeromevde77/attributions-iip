@@ -6657,8 +6657,17 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   const quorum = etatQuorum(membres,
     Object.fromEntries(membres.map(m => [m.cle, m.present])));
 
+  /* LA VISITE DES COPIES DU CALENDRIER DES SESSIONS (3.5.299, Charles : « il ne me demande plus la date de visite des copies ») :
+     la clôture la reprend quand elle y est posée ; sinon elle la DEMANDE — plus de date inventée deux jours après. */
+  let visite_calendrier = null;
+  try {
+    const t = Number(session) === 2 ? 'deliberation_session2' : 'epreuve_session1', k = Number(session) === 2 ? 's2' : 's1';
+    visite_calendrier = db.prepare(`SELECT ${k}_visite_date AS date, ${k}_visite_heure AS heure, ${k}_visite_local AS local FROM ${t}
+      WHERE annee_scolaire = ? AND ue_num = ? AND ${k}_visite_date IS NOT NULL AND ${k}_visite_date <> ''
+      ORDER BY ${k}_visite_date, ${k}_visite_heure LIMIT 1`).get(annee, ueNum) || null;
+  } catch { visite_calendrier = null; }
   res.json({ ue_num: ueNum, annee, session, organisation: org,
-             seance, membres, session2, quorum,
+             seance, membres, session2, quorum, visite_calendrier,
              // Les titres auxquels on siège, pour que l'écran n'invente pas sa
              // propre liste et que la voix suive le décret des deux côtés.
              categories: CATEGORIES_MEMBRE,

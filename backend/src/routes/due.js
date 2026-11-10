@@ -728,11 +728,17 @@ r.put('/:ueNum/mode-evaluation', authRequired, (req, res) => {
    `dossier_pedagogique` (routes/demandes.js) : avant et après, rubrique par rubrique ; la direction la valide (le texte entre au
    référentiel, ue_dp) ou la refuse avec un motif. La direction, elle, corrige directement (PUT /api/ref/ue/:num/dossier). */
 const ACTEURS_DP = ['admin', 'directeur', 'directeur_adjoint'];
+/** Proposer une correction du dossier (rubriques, noms des cours) : qui peut rédiger l'unité. */
+function peutProposerDP(user, ueNum, annee) {
+  try { return !!droitsSurLUE(user, ueNum, annee)?.ecrire; } catch { return false; }
+}
 r.get('/:ueNum/dossier/proposition', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const ueNum = Number(req.params.ueNum);
   const direction = ACTEURS_DP.includes(req.user?.role);
-  const peut = direction ? 'direct' : (estCoordinationDe(req.user, ueNum, annee) ? 'proposer' : null);
+  /* QUI PROPOSE (3.5.299, Charles : « Amélie n'a pas cela… ni les profs ») : quiconque rédige l'unité — ses enseignants, sa
+     coordination, la conseillère qualité (droitsSurLUE) ; la direction corrige directement. */
+  const peut = direction ? 'direct' : (peutProposerDP(req.user, ueNum, annee) ? 'proposer' : null);
   let en_attente = [];
   try {
     en_attente = db.prepare(`SELECT id, auteur_id, auteur_nom, cree_le, apres FROM demande_modification
@@ -746,7 +752,7 @@ r.post('/:ueNum/dossier/proposer', authRequired, (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
   const ueNum = Number(req.params.ueNum);
   if (ACTEURS_DP.includes(req.user?.role)) return res.status(400).json({ error: 'La direction corrige directement le dossier (fiche de l’UE).' });
-  if (!estCoordinationDe(req.user, ueNum, annee)) return res.status(403).json({ error: 'La correction du dossier pédagogique se propose par la coordination de la section.' });
+  if (!peutProposerDP(req.user, ueNum, annee)) return res.status(403).json({ error: 'La correction du dossier pédagogique se propose par les enseignants de l’unité ou sa coordination.' });
   const ue = db.prepare('SELECT ue_dp, section, ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee);
   if (!ue) return res.status(404).json({ error: 'UE introuvable pour cette année.' });
   const recues = req.body?.rubriques;
@@ -777,7 +783,7 @@ r.post('/:ueNum/cours-noms', authRequired, (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
   const ueNum = Number(req.params.ueNum);
   const direction = ACTEURS_DP.includes(req.user?.role);
-  if (!direction && !estCoordinationDe(req.user, ueNum, annee)) return res.status(403).json({ error: 'Le nom d’un cours se propose par la coordination de la section.' });
+  if (!direction && !peutProposerDP(req.user, ueNum, annee)) return res.status(403).json({ error: 'Le nom d’un cours se propose par les enseignants de l’unité ou sa coordination.' });
   const recus = req.body?.noms && typeof req.body.noms === 'object' ? req.body.noms : {};
   const motif = String(req.body?.motif || '').trim();
   const ue = db.prepare('SELECT section, ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee);

@@ -3219,6 +3219,12 @@ autres cours), DUE (1,2 s ; une frappe pendant l'envoi reste « à enregistrer �
 l'écran. **Un écran de saisie nouveau s'enregistre de même.** Au passage : `epreuves()` (`lib/examens.js`) écarte les épreuves
 d'une UE absente du référentiel de l'année (UE 901 en 2026-2027, restes du calendrier).
 
+**LA VISITE DES COPIES SE DEMANDE** (3.5.299, Charles, UE 256 : « il ne me demande plus la date de visite des copies » — tout le
+monde réussissait d'office, Lucie sautait à la Clôture déjà remplie). Le remplissage du premier affichage (`proposer(true)` de
+`Cloture`) ne pose plus la visite ; elle vient de la séance, sinon du calendrier des sessions (`visite_calendrier` de
+`GET /deliberation/ue/:ue/seance`), sinon elle reste vide et l'écran la réclame. **Proposer une correction du dossier** (rubriques,
+noms des cours) : `peutProposerDP` = `droitsSurLUE().ecrire` (enseignants de l'unité, coordination, conseillère qualité).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
