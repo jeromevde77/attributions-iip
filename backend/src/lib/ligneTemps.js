@@ -499,7 +499,7 @@ export function proposer(uid, annee, v, user, nomUser) {
       v.simple ? 1 : 0, String(v.mot || '').trim().slice(0, 500) || null).lastInsertRowid);
   if (gereDirect) {
     db.prepare("UPDATE tt_modulation SET adjoint_par = ?, adjoint_le = datetime('now') WHERE id = ?").run(nomUser, id);
-    if (['admin', 'directeur'].includes(user.role)) return valider(id, 'direction', user, nomUser);
+    return valider(id, 'direction', user, nomUser);   // 3.5.304 : la direction comme la direction adjointe applique seule
   }
   return lireModulation(id);
 }
@@ -542,8 +542,7 @@ export function valider(id, etape, user, nomUser) {
     return lireModulation(id);
   }
   if (etape !== 'direction') throw err('Étape inconnue.', 400);
-  if (!['directeur', 'admin'].includes(user.role)) throw err('Réservé à la direction.', 403);
-  if (!m.adjoint_le && !m.simple) throw err('La direction adjointe contrôle d’abord.');
+  if (!['directeur', 'directeur_adjoint', 'admin'].includes(user.role)) throw err('Réservé à la direction et à la direction adjointe.', 403);
   const avant = JSON.parse(m.avant_json), ch = JSON.parse(m.changements_json);
   const actuel = new Map(anneeDe(m.utilisateur_id, m.annee).map(s => [s.lundi, { statut: s.statut, jours: s.jours }]));
   // Les propositions d'avant 3.5.058 gardaient les seuls jours.

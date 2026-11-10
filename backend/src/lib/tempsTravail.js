@@ -536,7 +536,10 @@ export function ficheConges(uid, annee) {
   return { annee, periodes, semaines_conge: sem.filter(s => s.statut !== 'travail').length, empreinte, signatures };
 }
 
-const ORDRE = { releve: ['personne', 'adjoint', 'direction'], conges: ['adjoint', 'direction'] };
+/* UNE SEULE APPROBATION (3.5.304, Charles : « la direction / direction adjointe approuve seule ») : la personne signe son relevé,
+   puis la direction OU la direction adjointe l'approuve — l'étape « direction » ; le contrôle de la direction adjointe n'existe
+   plus. Les signatures « adjoint » déjà posées restent au registre, sans effet. */
+const ORDRE = { releve: ['personne', 'direction'], conges: ['direction'] };
 /** Signer : l'étape suivante seulement, par la bonne main, sur le contenu tel qu'il est. */
 export function signer(uid, objet, periode, etape, user, nomUser, annee) {
   const ordre = ORDRE[objet]; if (!ordre?.includes(etape)) throw Object.assign(new Error('Étape inconnue.'), { status: 400 });
@@ -548,7 +551,7 @@ export function signer(uid, objet, periode, etape, user, nomUser, annee) {
   const role = user.role;
   if (etape === 'personne' && user.id !== uid) throw Object.assign(new Error('Seule la personne signe son propre relevé.'), { status: 403 });
   if (etape === 'adjoint' && !['directeur_adjoint', 'admin', 'directeur'].includes(role)) throw Object.assign(new Error('Réservé à la direction adjointe.'), { status: 403 });
-  if (etape === 'direction' && !['directeur', 'admin'].includes(role)) throw Object.assign(new Error('Réservé à la direction.'), { status: 403 });
+  if (etape === 'direction' && !['directeur', 'directeur_adjoint', 'admin'].includes(role)) throw Object.assign(new Error('Réservé à la direction et à la direction adjointe.'), { status: 403 });
   if (etape !== 'personne' && user.id === uid) throw Object.assign(new Error('On ne contrôle pas son propre relevé.'), { status: 403 });
   if (objet === 'releve' && etape === 'personne' && doc.jours.some(j => j.controles.length))
     throw Object.assign(new Error('Un jour du mois enfreint une règle : corrigez-le avant de signer.'), { status: 409 });

@@ -1,4 +1,5 @@
 import MonTemps from '../components/MonTemps.jsx';
+import EquipeTemps from '../components/EquipeTemps.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { IconPrinter, IconSignature } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
@@ -26,7 +27,7 @@ const fmt = d => `${d.slice(8)}/${d.slice(5, 7)}`;
 const moisCourant = () => new Date().toISOString().slice(0, 7);
 const ETAT_JOUR = { prevu: ['neutre', 'prévu'], recup: ['disponible', 'jour donné'], libre: [null, 'libre'], conge: ['disponible', 'congé'], ete: ['disponible', 'été'],
   ferie: ['disponible', 'férié'], reel: ['surveiller', 'réel'], absence: ['surveiller', 'absence'], hors: [null, ''] };
-const ETAPES = { personne: 'la personne', adjoint: 'la direction adjointe', direction: 'la direction' };
+const ETAPES = { personne: 'la personne', adjoint: 'la direction adjointe', direction: 'la direction (approbation)' };
 
 function Signatures({ sig, ordre }) {
   return (
@@ -45,7 +46,7 @@ function Signatures({ sig, ordre }) {
 export default function TempsTravail() {
   const moi = getUser();
   const [info, setInfo] = useState(null);
-  const [face, setFace] = useState('ligne');
+  const [face, setFace] = useState('equipe');
   const [uid, setUid] = useState(moi?.id);
   const [personnes, setPersonnes] = useState([]);
   const [apercu, setApercu] = useState(null);
@@ -74,7 +75,9 @@ export default function TempsTravail() {
       </div>
       <MonTemps key={an} api={api} />
     </div>);
-  const faces = [['ligne', 'Ligne du temps'], ['releve', 'Relevé et signatures'], ...(info.gere ? [['preparer', 'Préparer l’année']] : [])];
+  /* QUATRE ONGLETS POUR LA DIRECTION (3.5.304, maquette validée docs/maquettes/temps-direction.html) : l'équipe (ce qui attend,
+     l'année de chacun, le plan d'heures), les relevés, la préparation de l'année, et les outils avancés (la ligne du temps). */
+  const faces = [['equipe', 'L’équipe'], ['releve', 'Relevés'], ['preparer', 'Préparer l’année'], ['ligne', 'Outils avancés']];
   const listePers = personnes.personnes || [];
   const ouvrir = async url => { try { setApercu(await api(url)); } catch (e) { informer({ message: e.message }); } };
 
@@ -94,6 +97,7 @@ export default function TempsTravail() {
       </div>
       {erreur && <div className="text-sm text-red-700">{erreur}</div>}
       <div key={an} className="space-y-4">
+        {face === 'equipe' && <EquipeTemps api={api} onReleve={id => { setUid(id); setFace('releve'); }} onPreparer={() => setFace('preparer')} />}
         {face === 'ligne' && <LigneTempsTravail api={api} info={info} onReleve={id => { setUid(id); setFace('releve'); }} />}
         {face === 'releve' && <>
           {info.gere && <Suivi uid={uid} onOuvrir={id => setUid(id)} />}
@@ -182,7 +186,7 @@ function FicheConges({ uid, info, ouvrir }) {
   const role = getUser()?.role;
   return (
     <div className="carte overflow-hidden">
-      <EnteteCarte titre="Fiche de congés" sous="À signer par la direction adjointe, puis par la direction pour accord, avant le 1er décembre.">
+      <EnteteCarte titre="Fiche de congés" sous="À approuver par la direction ou la direction adjointe, avant le 1er décembre.">
         <button className="bouton-sortir px-2.5 py-1 text-second inline-flex items-center gap-1.5" onClick={() => ouvrir(`/conges/${uid}/document`)}><IconPrinter size={14} /> Fiche de congés</button>
       </EnteteCarte>
       <Tableau dense>
@@ -190,9 +194,8 @@ function FicheConges({ uid, info, ouvrir }) {
         <tbody>{fc.periodes.map(p => <Tr key={p.du}><Td>{p.libelle}</Td><Td>{p.du}</Td><Td>{p.au}</Td></Tr>)}</tbody>
       </Tableau>
       <div className="px-4 py-3 flex flex-wrap items-center gap-3">
-        <Signatures sig={fc.signatures} ordre={['adjoint', 'direction']} />
-        {['directeur_adjoint', 'admin', 'directeur'].includes(role) && uid !== getUser()?.id && <button className="bouton text-second" onClick={() => signer('adjoint')}><IconSignature size={14} /> Signer (direction adjointe)</button>}
-        {['directeur', 'admin'].includes(role) && uid !== getUser()?.id && <button className="bouton text-second" onClick={() => signer('direction')}><IconSignature size={14} /> Accord de la direction</button>}
+        <Signatures sig={fc.signatures} ordre={['direction']} />
+        {['directeur_adjoint', 'admin', 'directeur'].includes(role) && uid !== getUser()?.id && <button className="bouton text-second" onClick={() => signer('direction')}><IconSignature size={14} /> Approuver</button>}
       </div>
     </div>
   );
@@ -252,10 +255,9 @@ function Releve({ uid, info, ouvrir }) {
       </Tableau>
       <div className="carte px-4 py-3 flex flex-wrap items-center gap-3">
         <span className="text-second text-slate-600">Signatures :</span>
-        <Signatures sig={d.signatures} ordre={['personne', 'adjoint', 'direction']} />
+        <Signatures sig={d.signatures} ordre={['personne', 'direction']} />
         {soi && <button className="bouton text-second" onClick={() => signer('personne')}><IconSignature size={14} /> Je confirme mon relevé</button>}
-        {!soi && ['directeur_adjoint', 'admin', 'directeur'].includes(role) && <button className="bouton text-second" onClick={() => signer('adjoint')}><IconSignature size={14} /> Contrôlé (direction adjointe)</button>}
-        {!soi && ['directeur', 'admin'].includes(role) && <button className="bouton text-second" onClick={() => signer('direction')}><IconSignature size={14} /> Accord de la direction</button>}
+        {!soi && ['directeur_adjoint', 'admin', 'directeur'].includes(role) && <button className="bouton text-second" onClick={() => signer('direction')}><IconSignature size={14} /> Approuver</button>}
         {d.verrouille && <span className="text-second text-slate-500">Mois signé par la direction : il ne change plus.</span>}
       </div>
       {edit && <EditionEcart edit={edit} info={info} onClose={() => setEdit(null)} onSave={enregistrer} />}
@@ -347,7 +349,7 @@ function CongesAgenda({ onSuivant }) {
         {c.agenda ? <p className="m-0"><b>{c.totales}</b> semaine(s) de fermeture totale — congé pour tout le personnel — et <b>{c.partielles}</b> en partie fermée(s), au choix de chacun : <b>{total}</b> semaine(s). Treize semaines de congé, 39 de travail, 1 404 h pour un temps plein.</p>
           : <p className="m-0 text-amber-700">L’agenda de l’école ne porte encore aucune fermeture pour {ANNEE.v} : peignez Noël et l’été (fermée), Toussaint, Carnaval et Pâques (en partie).</p>}
         {c.agenda && total !== 13 && <p className="m-0 text-amber-700">L’agenda compte {total} semaine(s) de fermeture : chaque personne devra en choisir {13 - (c.totales || 0)} hors des fermetures totales pour arriver à 13.</p>}
-        <p className="m-0 text-slate-600">Hors Noël et l’été, chacun échange ses semaines depuis la ligne du temps (« Prendre cette semaine en congé », « Travailler cette semaine ») ; la direction adjointe contrôle, la direction accepte.</p>
+        <p className="m-0 text-slate-600">Hors Noël et l’été, chacun échange ses semaines depuis la ligne du temps (« Prendre cette semaine en congé », « Travailler cette semaine ») ; la direction ou la direction adjointe accepte.</p>
         <div className="flex flex-wrap gap-2 pt-1">
           <a className="bouton bouton-fort" href="/organisation?onglet=agenda">Ouvrir l’agenda de l’école</a>
           <button className="bouton" onClick={onSuivant}>Étape suivante : Grands moments →</button>
