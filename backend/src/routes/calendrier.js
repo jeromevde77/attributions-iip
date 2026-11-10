@@ -2,6 +2,7 @@ import express from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { repartir, enregistrer as enregistrerPassages, choixDeGroupes, tousLesPassages } from '../lib/passages.js';
 
 const r = express.Router();
 
@@ -152,6 +153,9 @@ r.get('/', authRequired, (req, res) => {
     `).all(annee)) profs[l.code] = l.noms;
   } catch { /* le calendrier vaut sans les noms */ }
 
+  // Le nombre de passages de chaque épreuve (3.5.284) : l'écran l'annonce sous la date.
+  const nbPassages = {};
+  for (const p of tousLesPassages(annee)) { const k = `${p.session}|${p.ue_num}|${p.cours_code || ''}`; nbPassages[k] = (nbPassages[k] || 0) + 1; }
   res.json({
     annee, section,
     ues: ues.map(u => ({
@@ -163,6 +167,8 @@ r.get('/', authRequired, (req, res) => {
         professeurs: profs[c.cours_code] || '',
         s1: parS1[`${u.ue_num}|${c.cours_code}`] || null,
         s2: parS2[`${u.ue_num}|${c.cours_code}`] || null,
+        passages_s1: nbPassages[`1|${u.ue_num}|${c.cours_code}`] || 0,
+        passages_s2: nbPassages[`2|${u.ue_num}|${c.cours_code}`] || 0,
       })),
     })),
   });
@@ -291,6 +297,34 @@ r.put('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
 
   res.json({ ok: true, annee, seances: nSeances, epreuves: nEpreuves,
              corrections_apres_cloture: closes.length });
+});
+
+/* LES PASSAGES D'UN EXAMEN (3.5.284) : plusieurs dates pour un même cours (groupes, parties), chacune avec sa liste. Lire et
+   écrire : direction, secrétariat, et la coordination pour les unités de ses sections. Le métier : `lib/passages.js`. */
+const POSE_PASSAGES = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
+const gardePassages = (req, res, next) => (POSE_PASSAGES.includes(req.user?.role) ? next() : res.status(403).json({ error: 'Accès refusé.' }));
+const sectionDeLUE = (ue, annee) => db.prepare(`SELECT section FROM ue WHERE ue_num = ?
+  ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(Number(ue), annee)?.section;
+r.get('/passages', authRequired, gardePassages, async (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const ue = Number(req.query.ue), session = Number(req.query.session) === 2 ? 2 : 1, cours = String(req.query.cours || '');
+  if (!ue) return res.status(400).json({ error: 'ue requise' });
+  if (horsPerimetre(req, sectionDeLUE(ue, annee))) return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  const x = await repartir(annee, session, ue, cours);
+  const net = e => ({ id: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), matricule: e.id_ecampus || '' });
+  res.json({ annee, session, ue_num: ue, cours_code: cours, ...choixDeGroupes(annee, ue, cours),
+    etudiants: x.etudiants.map(net),
+    passages: x.passages.map(p => ({ ...p, etudiants: p.etudiants.map(net) })),
+    non_places: x.non_places.map(e => ({ ...net(e), partie: e.partie })), doubles: x.doubles.map(e => ({ ...net(e), partie: e.partie })) });
+});
+r.put('/passages', authRequired, gardePassages, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ue = Number(req.body?.ue_num), session = Number(req.body?.session) === 2 ? 2 : 1, cours = String(req.body?.cours_code || '');
+  if (!ue) return res.status(400).json({ error: 'ue requise' });
+  if (horsPerimetre(req, sectionDeLUE(ue, annee))) return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  const x = enregistrerPassages(annee, session, ue, cours, req.body?.passages, req.user?.nom || req.user?.email || null);
+  if (x.erreur) return res.status(400).json({ error: x.erreur });
+  res.json({ ok: true, ...x });
 });
 
 /** Les corrections faites après clôture — pour qu'elles se lisent. */

@@ -5,6 +5,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { PageHeader, Fenetre, Chevron, PastilleEtat } from './ui.jsx';
+import PassagesExamen from './PassagesExamen.jsx';
 
 /**
  * LE CALENDRIER DES SESSIONS — une section, une page, les deux sessions.
@@ -172,7 +173,7 @@ function Champ({ label, children }) {
   return <label className="block min-w-0"><span className="block text-mention text-slate-500 mb-0.5">{label}</span><div className="flex gap-1">{children}</div></label>;
 }
 
-function DetailSession({ u, ses, locaux, poserSeance, poserEpreuve }) {
+function DetailSession({ u, ses, locaux, poserSeance, poserEpreuve, onPassages }) {
   const { sc } = etatSession(u, ses);
   const p = ses === 2 ? 's2' : 's1';
   return (
@@ -185,9 +186,16 @@ function DetailSession({ u, ses, locaux, poserSeance, poserEpreuve }) {
       </Champ>
       {(u.cours || []).map(c => {
         const d = (ses === 1 ? c.s1 : c.s2) || {};
+        const nbP = ses === 1 ? c.passages_s1 : c.passages_s2;
         return (
           <div key={c.cours_code} className="border-t border-slate-100 pt-2">
-            <div className="text-second font-medium">{c.cours_code} {c.cours_nom}{c.professeurs && <span className="font-normal text-slate-500"> · {c.professeurs}</span>}</div>
+            <div className="text-second font-medium flex items-center gap-2">
+              <span className="min-w-0 flex-1">{c.cours_code} {c.cours_nom}{c.professeurs && <span className="font-normal text-slate-500"> · {c.professeurs}</span>}</span>
+              {/* PLUSIEURS PASSAGES (3.5.284) : groupes, parties — chacun sa date et sa liste. */}
+              <button type="button" className="text-iip-blue underline font-normal shrink-0" onClick={() => onPassages(u, c, ses)}>
+                {nbP ? `${nbP} passages` : 'Plusieurs passages ?'}</button>
+            </div>
+            {nbP > 0 && <div className="text-mention text-slate-500">L’épreuve a {nbP} passages : leurs dates se règlent dans « {nbP} passages ». La date ci-dessous est le premier.</div>}
             <div className="grid grid-cols-2 gap-2 mt-1">
               <Champ label="Épreuve">
                 <Case valeur={d[`${p}_date`]} classe="flex-1 min-w-0" onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_date`, v)} />
@@ -207,7 +215,7 @@ function DetailSession({ u, ses, locaux, poserSeance, poserEpreuve }) {
   );
 }
 
-function VueUnites({ ues, locaux, deplie, setDeplie, coches, setCoches, poserSeance, poserEpreuve }) {
+function VueUnites({ ues, locaux, deplie, setDeplie, coches, setCoches, poserSeance, poserEpreuve, onPassages }) {
   const basculer = (set, k) => set(x => { const n = new Set(x); n.has(k) ? n.delete(k) : n.add(k); return n; });
   return (
     <div className="carte overflow-hidden">
@@ -231,8 +239,8 @@ function VueUnites({ ues, locaux, deplie, setDeplie, coches, setCoches, poserSea
             </div>
             {ouvert && (
               <div className="grid md:grid-cols-2 gap-6 px-4 pb-4 pt-1 bg-slate-50/60">
-                <DetailSession u={u} ses={1} locaux={locaux} poserSeance={poserSeance} poserEpreuve={poserEpreuve} />
-                <DetailSession u={u} ses={2} locaux={locaux} poserSeance={poserSeance} poserEpreuve={poserEpreuve} />
+                <DetailSession u={u} ses={1} locaux={locaux} poserSeance={poserSeance} poserEpreuve={poserEpreuve} onPassages={onPassages} />
+                <DetailSession u={u} ses={2} locaux={locaux} poserSeance={poserSeance} poserEpreuve={poserEpreuve} onPassages={onPassages} />
               </div>)}
           </div>);
       })}
@@ -311,6 +319,7 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
   // La demande de motif, quand une séance close est touchée : on ne l'invente
   // pas, et l'on ne l'impose pas non plus d'avance.
   const [aMotiver, setAMotiver] = useState(null);
+  const [passages, setPassages] = useState(null);   // { u, c, ses } — la fenêtre des passages d'un examen (3.5.284)
   const [motif, setMotif] = useState('');
 
   useEffect(() => {
@@ -470,10 +479,13 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
         {dispo === 'unite' ? (
           <VueUnites ues={ues} locaux={locaux}
             deplie={deplie} setDeplie={setDeplie} coches={coches} setCoches={setCoches}
-            poserSeance={poserSeance} poserEpreuve={poserEpreuve} />
+            poserSeance={poserSeance} poserEpreuve={poserEpreuve} onPassages={(u, c, ses) => setPassages({ u, c, ses })} />
         ) : (
           <VueFrise ues={ues} onOuvrir={n => { setDeplie(new Set([n])); choisirVue('unite'); }} />
         )}
+
+        {passages && <PassagesExamen annee={annee} ue={passages.u} cours={passages.c} session={passages.ses}
+          onFermer={() => { setPassages(null); charger(); }} />}
 
         {/* CORRIGER UNE SÉANCE CLOSE : jamais en silence. Le motif se conserve
             avec l'avant et l'après, parce que c'est ce qu'un recours viendra

@@ -16,6 +16,7 @@ import { dispensesDeLUE } from '../lib/dispenses.js';
  * ajouter une entrée, non un écran.
  */
 import { Router } from 'express';
+import { placer } from '../lib/passages.js';
 import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
@@ -1241,7 +1242,8 @@ function donneesExamens(p) {
     WHERE i.annee_scolaire = ? AND i.ue_num = ? AND COALESCE(i.statut, '') NOT IN ('abandon', 'desinscrit')
     ORDER BY e.nom COLLATE NOCASE, e.prenom COLLATE NOCASE`);
   const ajournes = {};
-  return epreuves.map(e => {
+  const sortie = [];
+  for (const e of epreuves) {
     const cours = e.cours_code || '';
     let etudiants;
     if (s2) {
@@ -1250,12 +1252,17 @@ function donneesExamens(p) {
       etudiants = cours ? (par[cours] || [])
         : [...new Map(Object.values(par).flat().map(x => [x.id, x])).values()];
     } else etudiants = inscrits.all(p.annee, e.ue_num);
-    return {
-      ...e, cours_code: cours,
-      professeurs: profs.all(p.annee, e.ue_num, cours, cours).map(x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim()).join(', '),
-      etudiants: etudiants.map(x => ({ nom: `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim(), matricule: x.id_ecampus || '' })),
-    };
-  });
+    const professeurs = profs.all(p.annee, e.ue_num, cours, cours).map(x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim()).join(', ');
+    const net = l => l.map(x => ({ nom: `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim(), matricule: x.id_ecampus || '' }));
+    // PLUSIEURS PASSAGES (3.5.284) : une page par passage, avec SES étudiants (groupe, tranche, ou choisis à la main).
+    let pl = { passages: [] };
+    try { pl = placer(etudiants, p.annee, s2 ? 2 : 1, e.ue_num, cours); } catch { pl = { passages: [] }; }
+    if (pl.passages.length) {
+      for (const ps of pl.passages) sortie.push({ ...e, cours_code: cours, date: ps.date, heure: ps.heure, local: ps.local, adresse: ps.adresse,
+        partie: ps.partie || null, passage: pl.passages.length > 1 ? `${ps.rang}/${pl.passages.length}` : null, professeurs, etudiants: net(ps.etudiants) });
+    } else sortie.push({ ...e, cours_code: cours, professeurs, etudiants: net(etudiants) });
+  }
+  return sortie.sort((a, b) => `${a.date || ''}${a.heure || ''}`.localeCompare(`${b.date || ''}${b.heure || ''}`) || a.ue_num - b.ue_num);
 }
 function documentExamens(p) {
   const d = donneesExamens(p);
@@ -1266,7 +1273,7 @@ function documentExamens(p) {
     <section class="examen"${k ? ' style="break-before:page;page-break-before:always"' : ''}>
       <h2>UE ${e.ue_num} — ${esc(e.ue_nom || '')}</h2>
       <table class="serre fiche-examen">
-        <tr><th>Épreuve</th><td>${e.cours_code ? `${esc(e.cours_code)} — ${esc(e.cours_nom || '')}` : 'Unité entière'}</td></tr>
+        <tr><th>Épreuve</th><td>${e.cours_code ? `${esc(e.cours_code)} — ${esc(e.cours_nom || '')}` : 'Unité entière'}${e.partie ? ` · <b>${esc(e.partie)}</b>` : ''}${e.passage ? ` · passage ${esc(e.passage)}` : ''}</td></tr>
         <tr><th>Date</th><td><b>${esc(jour(e.date))}</b>${e.heure ? ` à <b>${esc(e.heure)}</b>` : ''}</td></tr>
         <tr><th>Local</th><td>${esc(e.local || '—')}${e.adresse ? ` · ${esc(e.adresse)}` : ''}</td></tr>
         <tr><th>Professeur(s)</th><td>${esc(e.professeurs || '—')}</td></tr>

@@ -9,7 +9,7 @@ import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
 import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome } from '@tabler/icons-react';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -581,6 +581,24 @@ function SchemaParcours({ schema, onNoeud = null }) {
 }
 
 /** MON PARCOURS (3.1.517) : le schéma de l'année — chaque unité de ses sections, par bloc, et les crédits acquis. */
+/** MES EXAMENS (3.5.284) : ses prochaines épreuves — le passage qui le concerne (date, heure, local, partie), déposés avec son
+ *  parcours. Montrés dans « Aujourd'hui ». */
+function MesExamens() {
+  const [l, setL] = useState(null);
+  useEffect(() => { appel('GET', '/parcours').then(x => setL(x?.parcours?.examens || [])).catch(() => setL([])); }, []);
+  if (!l || !l.length) return null;
+  const jour = d => new Date(`${d}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+  return (
+    <section className="space-y-2">
+      <h2 className="intertitre flex items-center gap-2"><IconCalendarEvent size={16} /> Mes prochains examens</h2>
+      <ListeEtats>{l.slice(0, 12).map((x, i) => (
+        <LigneEtat key={i} etat="disponible" icone={IconCalendarEvent}
+          titre={`${jour(x.date)}${x.heure ? ` à ${String(x.heure).slice(0, 5)}` : ''} — ${x.intitule}${x.partie ? ` · ${x.partie}` : ''}`}
+          sous={`${x.session === 2 ? 'Seconde session' : 'Première session'}${x.local ? ` · local ${x.local}` : ''}`} />))}
+      </ListeEtats>
+    </section>);
+}
+
 function MonParcours({ onErreur }) {
   const [p, setP] = useState(null);
   const [ouverte, setOuverte] = useState(null);
@@ -1366,9 +1384,12 @@ function Espace() {
             a_('resultats') && { k: 'res', etat: 'neutre', I: IconCertificate, t: 'Mes résultats', s: 'Les décisions des délibérations closes', go: () => aller('parcours', 'resultats') },
             a_('frais') && { k: 'frais', etat: 'neutre', I: IconCash, t: 'Mes frais', s: 'Ce qui est dû, versé, ce qui reste — et le QR pour payer', go: () => aller('frais') },
           ].filter(Boolean);
-          return lignes.length ? (
-            <ListeEtats>{lignes.map(l => <LigneEtat key={l.k} etat={l.etat} icone={l.I} titre={l.t} sous={l.s} onClick={l.go} />)}</ListeEtats>
-          ) : <p className="text-sm text-slate-500">Rien ne vous attend pour l’instant.</p>;
+          return (<>
+            {lignes.length ? (
+              <ListeEtats>{lignes.map(l => <LigneEtat key={l.k} etat={l.etat} icone={l.I} titre={l.t} sous={l.s} onClick={l.go} />)}</ListeEtats>
+            ) : <p className="text-sm text-slate-500">Rien ne vous attend pour l’instant.</p>}
+            {a_('parcours') && <MesExamens />}
+          </>);
         })()}
 
         {/* MON PARCOURS : schéma et unités · résultats · PAE. */}

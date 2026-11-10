@@ -22,6 +22,7 @@
 // Chaque geste entre au journal (`agenda_journal`, en ajout seul).
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { tousLesPassages } from './passages.js';
 import { getUserSections } from '../middleware/auth.js';
 
 /* UNE DATE ILLISIBLE NE FAIT PLUS TOMBER L'AGENDA (3.5.193, « Invalid time value » partout : l'UE 90 portait « 23/08/2026 »).
@@ -254,7 +255,16 @@ export function unitesEtSessions(annee, semaines) {
     if (b >= 0) { unites[b].fermetures.push(nom); unites[b].items.push({ ...item, quoi: 'ferme' }); }
   }
   for (const [t, k, n] of [['epreuve_session1', 's1', 1], ['deliberation_session2', 's2', 2]]) {
+    // PLUSIEURS PASSAGES (3.5.284) : chaque passage d'un examen paraît à sa semaine ; la date unique cède la place.
+    const aP = essai(() => tousLesPassages(annee), []).filter(p => p.session === n);
+    const avecP = new Set(aP.map(p => `${p.ue_num}|${p.cours_code || ''}`));
+    for (const p of aP) {
+      const i = idx(String(p.date).slice(0, 10)); if (i < 0) continue;
+      sessions[i].epreuves.push(`S${n} ${p.cours_code || `UE ${p.ue_num}`}${p.partie ? ` ${p.partie}` : ''} — ${jm(p.date)}${p.heure ? ` ${String(p.heure).slice(0, 5)}` : ''}`);
+      sessions[i].items.push({ quoi: 'epreuve', session: n, ue_num: p.ue_num, ue_nom: nomUE(p.ue_num), cours_code: p.cours_code || '', date: String(p.date).slice(0, 10), heure: p.heure || '', local: p.local || '', partie: p.partie || '', passage: true });
+    }
     for (const e of essai(() => db.prepare(`SELECT ue_num, cours_code, ${k}_date d, ${k}_heure h, ${k}_local l FROM ${t} WHERE annee_scolaire = ? AND ${k}_date IS NOT NULL AND ${k}_date <> ''`).all(annee), [])) {
+      if (avecP.has(`${e.ue_num}|${e.cours_code || ''}`)) continue;
       const i = idx(String(e.d).slice(0, 10)); if (i < 0) continue;
       sessions[i].epreuves.push(`S${n} ${e.cours_code || `UE ${e.ue_num}`} — ${jm(e.d)}${e.h ? ` ${String(e.h).slice(0, 5)}` : ''}`);
       sessions[i].items.push({ quoi: 'epreuve', session: n, ue_num: e.ue_num, ue_nom: nomUE(e.ue_num), cours_code: e.cours_code || '', date: String(e.d).slice(0, 10), heure: e.h || '', local: e.l || '' });
