@@ -3265,7 +3265,10 @@ la différence, simulation à chaque geste, `ecrire` = modulation acceptée auss
 plusieurs personnes côte à côte (une couleur chacune, `--c-serie_*`), enregistrées personne par personne. **3.5.307** (Charles :
 « tout horaire doit aller dans Organisation ») : l'écran de la direction = Organisation → Le temps de l'école → 7. Horaires du personnel
 (onglet `temps-travail`, rôles de direction) ; Personnel ne garde que « Mon temps » des personnes désignées ; `/professeurs?vue=temps`
-renvoie la direction vers Organisation ; notifications : direction → Organisation, personne → Mon temps.
+renvoie la direction vers Organisation ; notifications : direction → Organisation, personne → Mon temps. **3.5.308** : la semaine type
+de chaque personne (`tt_personne.semaine_type`, `components/SemaineTypeTemps.jsx`, `GET/POST /semaine-type/:uid` → `poserSemaineType`) :
+modèle du générateur, appliquée aux semaines de travail à venir encore égales à l'ancien modèle (hors mois approuvés). Et dans
+`retoucherSemaine`, ce que la compensation ne peut pas placer **va au solde** (`au_solde`, sans bloquer) — cas de Mati, 4 × 9 h.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

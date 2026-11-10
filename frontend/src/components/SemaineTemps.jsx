@@ -174,7 +174,9 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
                 <b>{nom(uid)}</b>{' · '}
                 {!s ? <span className="text-slate-500">Lucie vérifie…</span> : <>
                   {(s.compensees || []).length > 0 && <>compensé : {s.compensees.map(c => `semaine du ${jourFr(c.lundi, 0)} (${hm(c.avant)} → ${hm(c.apres)})`).join(', ')} · </>}
-                  {s.apres_annee != null && <PastilleEtat etat={s.apres_annee === s.du ? 'reussi' : 'corriger'}>année : {hm(s.apres_annee)} {s.apres_annee === s.du ? '✓' : `pour ${hm(s.du)}`}</PastilleEtat>}
+                  {s.apres_annee != null && (s.apres_annee === s.du
+                    ? <PastilleEtat etat="reussi">année : {hm(s.apres_annee)} ✓</PastilleEtat>
+                    : <PastilleEtat etat="surveiller">{s.au_solde < 0 ? `${hm(-s.au_solde)} à replacer plus tard` : `${hm(s.au_solde)} en plus sur l’année`} (au solde)</PastilleEtat>)}
                   {[...(s.controles || []), ...(s.erreurs || [])].length > 0 && (
                     <ul className="m-0 mt-1 pl-4" style={{ color: 'var(--c-refuse)' }}>{[...(s.controles || []), ...(s.erreurs || [])].map((x, n) => <li key={n}>{x}</li>)}</ul>)}
                 </>}

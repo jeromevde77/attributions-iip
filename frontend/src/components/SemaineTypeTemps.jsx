@@ -1,0 +1,102 @@
+import { useEffect, useRef, useState } from 'react';
+import { IconPlus, IconX } from '@tabler/icons-react';
+import { Fenetre, Encadre, PastilleEtat } from './ui.jsx';
+
+/* LA SEMAINE TYPE D'UNE PERSONNE (3.5.308, Charles : « je ne sais pas proposer un horaire qui se répète » ; tranché : un horaire
+   type par personne). La semaine habituelle, dessinée en vertical comme la semaine de l'équipe (7 h → 20 h, journées étirables au
+   quart d'heure) ; Lucie contrôle (les heures dues, 8 h par jour, 11 h de repos) et dit combien de semaines à venir la recevront.
+   Le générateur de l'année la reprend. Serveur : GET/POST /semaine-type/:uid (lib/monTemps.js). */
+const H0 = 7, H1 = 20, PX = 40;
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const min = h => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+const hh = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const hm = m => { if (m == null) return ''; const s = m < 0 ? '−' : ''; m = Math.abs(Math.round(m)); return `${s}${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}`; };
+const duree = j => { if (!j?.debut || !j?.fin) return 0; const p = j.pause_debut && j.pause_fin ? min(j.pause_fin) - min(j.pause_debut) : 0; return min(j.fin) - min(j.debut) - p; };
+const y = m => ((m - H0 * 60) / 60) * PX;
+
+export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
+  const [jours, setJours] = useState(null);
+  const [cible, setCible] = useState(null);
+  const [sim, setSim] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const tire = useRef(null);
+
+  useEffect(() => {
+    api(`/semaine-type/${personne.utilisateur_id}`).then(j => { setJours(j.jours.map(x => (x ? { ...x } : null))); setCible(j.cible); }).catch(e => setErreur(e.message));
+  }, [personne.utilisateur_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!jours) return undefined;
+    const t = setTimeout(() => {
+      api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours }) }).then(setSim).catch(e => setSim({ controles: [e.message] }));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [jours]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const bouger = e => {
+      const t = tire.current; if (!t) return;
+      const m = Math.round((t.m0 + ((e.clientY - t.y0) / PX) * 60) / 15) * 15;
+      setJours(js => js.map((j, i) => {
+        if (i !== t.i || !j) return j;
+        if (t.bord === 'debut') return { ...j, debut: hh(Math.max(H0 * 60, Math.min(m, min(j.fin) - 60))) };
+        return { ...j, fin: hh(Math.min(H1 * 60, Math.max(m, min(j.debut) + 60))) };
+      }));
+    };
+    const lacher = () => { tire.current = null; };
+    window.addEventListener('pointermove', bouger); window.addEventListener('pointerup', lacher);
+    return () => { window.removeEventListener('pointermove', bouger); window.removeEventListener('pointerup', lacher); };
+  }, []);
+  const saisir = (i, bord) => e => { e.preventDefault(); tire.current = { i, bord, y0: e.clientY, m0: min(jours[i][bord]) }; };
+  const changer = (i, f) => setJours(js => js.map((j, k) => (k === i ? f(j) : j)));
+  const pause = j => { if (!j) return j; if (j.pause_debut) { const r = { ...j }; delete r.pause_debut; delete r.pause_fin; return r; } return { ...j, pause_debut: '12:00', pause_fin: '12:30' }; };
+  const enregistrer = async () => {
+    setEnCours(true);
+    try { await api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours, ecrire: true }) }); onFait(); }
+    catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
+  const total = (jours || []).reduce((t, j) => t + duree(j), 0);
+  const ok = sim && !(sim.controles || []).length;
+
+  return (
+    <Fenetre titre={`Semaine type — ${personne.nom}`} sous={`${hm(total)} sur ${hm(cible)} dues par semaine`} large="grande" onFermer={onFermer}
+      pied={<div className="flex items-center gap-2 w-full">
+        <span className="text-second text-slate-500 flex-1 min-w-0">{ok ? `Enregistrée, elle s’applique aux ${sim.a_appliquer} semaine(s) de travail à venir restées telles quelles${sim.gardees ? ` ; ${sim.gardees} semaine(s) déjà retouchée(s) gardent leur horaire` : ''}.` : 'Tirez le haut ou le bas d’une journée pour la changer, au quart d’heure.'}</span>
+        <button type="button" className="bouton" onClick={onFermer}>Fermer</button>
+        <button type="button" className="bouton bouton-fort" disabled={!ok || enCours} onClick={enregistrer}>Enregistrer</button></div>}>
+      {erreur && <Encadre etat="corriger" titre="Refusé">{erreur}</Encadre>}
+      {!jours ? <p className="text-sm text-slate-500">Chargement…</p> : (
+        <div className="space-y-3">
+          <div className="flex select-none">
+            <div className="relative w-12 flex-none" style={{ height: (H1 - H0) * PX + 24 }}>
+              {Array.from({ length: H1 - H0 + 1 }, (_, h) => <div key={h} className="absolute right-2 text-mention text-slate-400 tabular-nums" style={{ top: 24 + h * PX - 7 }}>{H0 + h} h</div>)}
+            </div>
+            {jours.map((j, i) => (
+              <div key={i} className="flex-1 min-w-0 border-l" style={{ borderColor: 'rgb(var(--gris-200))' }}>
+                <div className="h-6 text-center text-second font-semibold text-slate-600">{JOURS[i]}</div>
+                <div className="relative" style={{ height: (H1 - H0) * PX }}>
+                  {Array.from({ length: H1 - H0 }, (_, h) => <div key={h} className="absolute inset-x-0 border-t pointer-events-none" style={{ top: h * PX, borderColor: 'rgb(var(--gris-100))' }} />)}
+                  {j ? (
+                    <div className="absolute inset-x-1 rounded-md text-white text-mention overflow-hidden" style={{ top: y(min(j.debut)), height: y(min(j.fin)) - y(min(j.debut)), background: 'var(--c-principal)' }}>
+                      <div className="absolute inset-x-0 top-0 h-2 cursor-ns-resize" style={{ background: 'rgba(255,255,255,.35)' }} onPointerDown={saisir(i, 'debut')} title="Tirer pour changer le début" />
+                      {j.pause_debut && <div className="absolute inset-x-0 pointer-events-none" style={{ top: y(min(j.pause_debut)) - y(min(j.debut)), height: y(min(j.pause_fin)) - y(min(j.pause_debut)), background: 'rgba(255,255,255,.28)' }} />}
+                      <div className="px-1.5 pt-2.5 leading-tight"><div className="tabular-nums font-semibold">{j.debut}–{j.fin}</div><div className="opacity-80">{hm(duree(j))}</div></div>
+                      <div className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize" style={{ background: 'rgba(255,255,255,.35)' }} onPointerDown={saisir(i, 'fin')} title="Tirer pour changer la fin" />
+                      <div className="absolute right-0.5 bottom-2.5 flex gap-0.5">
+                        <button type="button" className="text-[10px] px-1 rounded bg-white/25 hover:bg-white/40" onClick={() => changer(i, pause)}>{j.pause_debut ? '− pause' : '+ pause'}</button>
+                        <button type="button" className="px-0.5 rounded bg-white/25 hover:bg-white/40" onClick={() => changer(i, () => null)} aria-label="Retirer cette journée"><IconX size={11} /></button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" className="absolute left-1/2 -translate-x-1/2 text-slate-400 hover:text-iip-blue" style={{ top: y(8 * 60) }} onClick={() => changer(i, () => ({ debut: '08:30', fin: '12:30' }))} aria-label={`Ajouter le ${JOURS[i]}`}><IconPlus size={16} /></button>
+                  )}
+                </div>
+              </div>))}
+          </div>
+          <div className="text-second flex flex-wrap items-center gap-2">
+            <PastilleEtat etat={total === cible ? 'reussi' : 'corriger'}>{hm(total)} {total === cible ? '✓' : `pour ${hm(cible)}`}</PastilleEtat>
+            {(sim?.controles || []).length > 0 && <ul className="m-0 pl-4 w-full" style={{ color: 'var(--c-refuse)' }}>{sim.controles.map((x, k) => <li key={k}>{x}</li>)}</ul>}
+          </div>
+        </div>)}
+    </Fenetre>
+  );
+}

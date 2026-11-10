@@ -106,6 +106,8 @@ export function migrerTempsTravail(base = db) {
     CREATE TRIGGER IF NOT EXISTS tt_signature_sans_effacement BEFORE DELETE ON tt_signature
       BEGIN SELECT RAISE(ABORT, 'Une signature ne s''efface pas.'); END;
   `);
+  // 3.5.308 : la semaine type de chaque personne (7 journées), dessinée par la direction.
+  try { base.exec('ALTER TABLE tt_personne ADD COLUMN semaine_type TEXT'); } catch { /* déjà là */ }
 }
 
 /** Le réglage de l'école : fenêtre d'été, règlement de travail à jour (horaire variable permis). */
@@ -279,7 +281,9 @@ export function genererAnnee(uid, annee, opts = {}, { ecrire = false, par = null
   if (!FORMULES[formule]) throw Object.assign(new Error('Formule inconnue.'), { status: 400 });
   if (!(fraction > 0 && fraction <= 1)) throw Object.assign(new Error('La fraction de temps plein est entre 0 et 1.'), { status: 400 });
   const R = reglage(annee);
-  const modele = Array.isArray(opts.modele) && opts.modele.length === 7 ? opts.modele : modeleSemaine(formule, fraction, Number(opts.jourLibre ?? 4));
+  // LA SEMAINE TYPE DE LA PERSONNE (3.5.308) : dessinée par la direction, elle sert de modèle à toute l'année.
+  const type = (() => { try { const t = JSON.parse(personne(uid)?.semaine_type || 'null'); return Array.isArray(t) && t.length === 7 ? t : null; } catch { return null; } })();
+  const modele = Array.isArray(opts.modele) && opts.modele.length === 7 ? opts.modele : (type || modeleSemaine(formule, fraction, Number(opts.jourLibre ?? 4)));
   const semaines = semainesDeLAnnee(annee), conges = semainesDeConge(annee), feries = feriesDe(annee);
   const erreurs = [], avertissements = [];
   /* LES 13 SEMAINES (3.5.056, Charles : « je fixe les congés, c'est-à-dire 5 semaines en été et les semaines à Toussaint,

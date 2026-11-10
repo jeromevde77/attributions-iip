@@ -9,7 +9,7 @@
  * tension, les grands moments restent dans l'écran de la direction.
  */
 import db from '../db/index.js';
-import { anneeDe, releve, ficheConges, plusJours, semainesDeLAnnee, REGLES, hm, ABSENCES, dureeJour, controleSemaine, reglage, verrouille } from './tempsTravail.js';
+import { anneeDe, releve, ficheConges, plusJours, semainesDeLAnnee, REGLES, hm, ABSENCES, dureeJour, controleSemaine, reglage, verrouille, modeleSemaine } from './tempsTravail.js';
 import { fermetures } from './agendaEcole.js';
 import { modulations, proposer, assistant, valider } from './ligneTemps.js';
 
@@ -208,15 +208,16 @@ export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, use
     const plan = assistant(uid, annee, { cibles: { [lundi]: apresT } });
     compensees = plan.changees.filter(c => c.report).map(c => ({ lundi: c.lundi, avant: c.avant, apres: c.apres, jours: c.jours, controles: c.controles }));
     apresAnnee = plan.apres - (plan.changees.find(c => c.lundi === lundi)?.apres || 0) + apresT;
-    erreurs = [...plan.erreurs.filter(e => !/compterait/.test(e))];
-    if (apresAnnee !== du) erreurs.push(`L’année compterait ${hm(apresAnnee)} pour ${hm(du)} : ${hm(Math.abs(du - apresAnnee))} ${du > apresAnnee ? 'restent à placer' : 'sont en trop'}.`);
+    // CE QUI NE TROUVE PAS DE PLACE VA AU SOLDE (3.5.308, Charles, cas de Mati : 4 jours de 9 h, plus aucune marge dans ses
+    // journées) : l'année affiche l'écart, à replacer plus tard ; l'enregistrement n'est pas bloqué.
+    erreurs = [...plan.erreurs.filter(e => !/compterait|restent à placer|sont en trop/.test(e))];
   }
   // La semaine retouchée suit les règles de l'horaire annualisé dès que son total change (8 h ou 9 h par jour, 45 h au plus, 2 h d'écart).
   const formule = apresT !== avantT ? 'annualise' : p.formule;
   const controles = controleSemaine(propres, { formule, fraction: Number(p.fraction) || 1, modele: s.jours, rtVariable: R.rt_variable })
     .filter(c => !/doit compter exactement/.test(c));
   for (const c of compensees) for (const e of c.controles || []) erreurs.push(`Semaine du ${c.lundi.split('-').reverse().join('/')} : ${e}`);
-  const bilan = { lundi, avant: avantT, apres: apresT, jours: propres, compensees, du, apres_annee: apresAnnee, controles, erreurs };
+  const bilan = { lundi, avant: avantT, apres: apresT, jours: propres, compensees, du, apres_annee: apresAnnee, au_solde: apresAnnee - du, controles, erreurs };
   if (!ecrire) return { simulation: true, ...bilan };
   if (controles.length || erreurs.length) throw Object.assign(err('La semaine ne tient pas encore : rien n’est enregistré.'), { bilan });
   // La trace : une modulation, acceptée aussitôt par la direction (le registre des demandes garde qui, quand, quoi).
@@ -227,4 +228,45 @@ export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, use
   const id = Number(db.prepare(`INSERT INTO tt_modulation (utilisateur_id, annee, statut, resume, changements_json, avant_json, propose_par, propose_par_id, simple)
     VALUES (?,?,?,?,?,?,?,?,1)`).run(uid, annee, 'proposee', resume, JSON.stringify(changements), JSON.stringify(avant), nomUser, user?.id ?? null).lastInsertRowid);
   return valider(id, 'direction', user, nomUser);
+}
+
+
+/* LA SEMAINE TYPE (3.5.308, Charles : « je ne sais pas proposer un horaire qui se répète » ; tranché : un horaire type par personne).
+   La direction dessine la semaine habituelle de chacun ; le générateur de l'année la reprend, et elle s'applique aux semaines de
+   travail À VENIR de l'année déjà posée — seulement celles restées telles que le modèle précédent les avait posées : une semaine
+   modulée, retouchée ou dans un mois approuvé garde ce qu'on y a fait. */
+export function semaineType(uid) {
+  const p = db.prepare('SELECT * FROM tt_personne WHERE utilisateur_id = ?').get(uid);
+  if (!p) throw err('Personne non désignée.', 404);
+  let t = null; try { t = JSON.parse(p.semaine_type || 'null'); } catch { t = null; }
+  const defaut = modeleSemaine(p.formule, Number(p.fraction) || 1);
+  return { jours: Array.isArray(t) && t.length === 7 ? t : defaut, propre: Array.isArray(t), formule: p.formule, fraction: p.fraction, cible: Math.round(REGLES.hebdo * (Number(p.fraction) || 1)) };
+}
+export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer = true, par = '' } = {}) {
+  const t = semaineType(uid);
+  const propres = Array.from({ length: 7 }, (_, i) => {
+    const j = jours?.[i];
+    if (!j || !j.debut || !j.fin) return null;
+    return { debut: j.debut, fin: j.fin, ...(j.pause_debut && j.pause_fin ? { pause_debut: j.pause_debut, pause_fin: j.pause_fin } : {}) };
+  });
+  const R = reglage(annee);
+  const total = propres.reduce((s, j) => s + (j ? dureeJour(j) : 0), 0);
+  // Une semaine type est une semaine ordinaire : elle compte exactement les heures dues par semaine.
+  const controles = controleSemaine(propres, { formule: t.formule === 'annualise' ? '5j' : t.formule, fraction: Number(t.fraction) || 1, rtVariable: R.rt_variable })
+    .map(c => c.replace('prévues : la semaine doit compter exactement', 'dans la semaine type : elle doit compter exactement'));
+  // Les semaines qui la recevront : à venir, de travail, hors mois approuvés, et encore égales à l'ancien modèle.
+  const ancien = JSON.stringify(t.jours);
+  const lundiAuj = lundiDe(aujourdhui());
+  const cibles = anneeDe(uid, annee).filter(s => s.statut === 'travail' && s.lundi >= lundiAuj
+    && !verrouille(uid, s.lundi) && !verrouille(uid, plusJours(s.lundi, 6)) && JSON.stringify(s.jours) === ancien);
+  const bilan = { jours: propres, total, cible: t.cible, controles, a_appliquer: appliquer ? cibles.length : 0,
+    gardees: anneeDe(uid, annee).filter(s => s.statut === 'travail' && s.lundi >= lundiAuj).length - cibles.length };
+  if (!ecrire) return { simulation: true, ...bilan };
+  if (controles.length) throw Object.assign(err('La semaine type ne tient pas : rien n’est enregistré.'), { bilan });
+  const up = db.prepare("UPDATE tt_semaine SET jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
+  db.transaction(() => {
+    db.prepare("UPDATE tt_personne SET semaine_type = ?, maj_par = ?, maj_le = datetime('now') WHERE utilisateur_id = ?").run(JSON.stringify(propres), par, uid);
+    if (appliquer) for (const s of cibles) up.run(JSON.stringify(propres), `${par} (semaine type)`, uid, s.lundi);
+  })();
+  return { ecrit: true, ...bilan };
 }
