@@ -3262,7 +3262,21 @@ OU la direction adjointe ; `valider` d'une modulation n'exige plus le contrôle 
 un clic (sans glisser) sur une case ouvre `components/SemaineTemps.jsx` (7 jours, 7 h → 20 h, journées étirables au quart d'heure) ;
 `POST /semaine/:uid/:lundi` = `retoucherSemaine` (monTemps.js) : la semaine garde exactement les jours posés, l'assistant compense
 la différence, simulation à chaque geste, `ecrire` = modulation acceptée aussitôt. 3.5.306 : flèches de semaine dans le bandeau, et
-plusieurs personnes côte à côte (une couleur chacune, `--c-serie_*`), enregistrées personne par personne.
+plusieurs personnes côte à côte (une couleur chacune, `--c-serie_*`), enregistrées personne par personne. **3.5.307** (Charles :
+« tout horaire doit aller dans Organisation ») : l'écran de la direction = Organisation → Le temps de l'école → 7. Horaires du personnel
+(onglet `temps-travail`, rôles de direction) ; Personnel ne garde que « Mon temps » des personnes désignées ; `/professeurs?vue=temps`
+renvoie la direction vers Organisation ; notifications : direction → Organisation, personne → Mon temps. **3.5.308** : la semaine type
+de chaque personne (`tt_personne.semaine_type`, `components/SemaineTypeTemps.jsx`, `GET/POST /semaine-type/:uid` → `poserSemaineType`) :
+modèle du générateur, appliquée aux semaines de travail à venir encore égales à l'ancien modèle (hors mois approuvés). Et dans
+`retoucherSemaine`, ce que la compensation ne peut pas placer **va au solde** (`au_solde`, sans bloquer) — cas de Mati, 4 × 9 h.
+**3.5.309 — Les besoins de l'école** (Charles : « ce n'est pas un outil avancé » ; « si examen, même un samedi, un MDP du staff admin
+de 7 h 00 à 21 h 30 » ; tranché : en relais ; pas pour les jours de cours ordinaires — téléphone et ligne d'urgence du campus ; un
+trou se signale et Lucie propose un relais). `lib/besoinsEcole.js` : `besoins()` (chaleur des semaines × présents ; `joursExamen` =
+épreuves s1/s2 + passages ; couverture 07:00–21:30, pauses = absences), `relais(date)` (matin 07:00–15:30 pause 12:00, soir
+12:00–21:30 pause 15:00 ; un jour non travaillé se récupère la même semaine, jamais sur un autre jour d'examen), appliqué par
+`retoucherSemaine`. Routes `GET /besoins`, `GET /relais?date=`. Écran `components/BesoinsEcole.jsx` (onglet « Les besoins de
+l'école », la ligne du temps détaillée repliée dessous) ; alerte dans « Ce qui vous attend ». `retoucherSemaine` n'applique plus
+l'écart de 2 h par jour à un jour déplacé.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

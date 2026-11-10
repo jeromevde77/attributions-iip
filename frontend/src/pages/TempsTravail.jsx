@@ -1,5 +1,7 @@
 import MonTemps from '../components/MonTemps.jsx';
 import EquipeTemps from '../components/EquipeTemps.jsx';
+import SemaineTypeTemps from '../components/SemaineTypeTemps.jsx';
+import BesoinsEcole from '../components/BesoinsEcole.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { IconPrinter, IconSignature } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
@@ -77,7 +79,9 @@ export default function TempsTravail() {
     </div>);
   /* QUATRE ONGLETS POUR LA DIRECTION (3.5.304, maquette validée docs/maquettes/temps-direction.html) : l'équipe (ce qui attend,
      l'année de chacun, le plan d'heures), les relevés, la préparation de l'année, et les outils avancés (la ligne du temps). */
-  const faces = [['equipe', 'L’équipe'], ['releve', 'Relevés'], ['preparer', 'Préparer l’année'], ['ligne', 'Outils avancés']];
+  // 3.5.309 : « Outils avancés » devient « Les besoins de l'école » (la charge de l'école, les jours d'examen et leur couverture) ;
+  // la ligne du temps détaillée reste dessous, repliée.
+  const faces = [['equipe', 'L’équipe'], ['besoins', 'Les besoins de l’école'], ['releve', 'Relevés'], ['preparer', 'Préparer l’année']];
   const listePers = personnes.personnes || [];
   const ouvrir = async url => { try { setApercu(await api(url)); } catch (e) { informer({ message: e.message }); } };
 
@@ -97,7 +101,14 @@ export default function TempsTravail() {
       </div>
       {erreur && <div className="text-sm text-red-700">{erreur}</div>}
       <div key={an} className="space-y-4">
-        {face === 'equipe' && <EquipeTemps api={api} onReleve={id => { setUid(id); setFace('releve'); }} onPreparer={() => setFace('preparer')} />}
+        {face === 'equipe' && <EquipeTemps api={api} onReleve={id => { setUid(id); setFace('releve'); }} onPreparer={() => setFace('preparer')} onBesoins={() => setFace('besoins')} />}
+        {face === 'besoins' && <>
+          <BesoinsEcole api={api} />
+          <details className="carte overflow-hidden">
+            <summary className="px-4 py-3 cursor-pointer text-sm font-semibold text-iip-texte">La ligne du temps détaillée (zoom, tension, grands moments, assistant)</summary>
+            <div className="px-4 pb-4"><LigneTempsTravail api={api} info={info} onReleve={id => { setUid(id); setFace('releve'); }} /></div>
+          </details>
+        </>}
         {face === 'ligne' && <LigneTempsTravail api={api} info={info} onReleve={id => { setUid(id); setFace('releve'); }} />}
         {face === 'releve' && <>
           {info.gere && <Suivi uid={uid} onOuvrir={id => setUid(id)} />}
@@ -457,6 +468,7 @@ function Reglages({ info, donnees, recharger }) {
   const sauver = async v => { try { setR(await api('/reglage', { method: 'PUT', body: JSON.stringify(v) })); recharger(); } catch (e) { informer({ message: e.message }); } };
   const majPers = async (p, v) => { try { await api(`/personnes/${p.utilisateur_id ?? p.id}`, { method: 'PUT', body: JSON.stringify({ fraction: p.fraction ?? 1, formule: p.formule ?? '5j', actif: p.actif !== 0, ...v }) }); recharger(); } catch (e) { informer({ message: e.message }); } };
   const deja = new Set((donnees.personnes || []).map(p => p.utilisateur_id));
+  const [type, setType] = useState(null);   // la personne dont on dessine la semaine type (3.5.308)
   return (
     <div className="space-y-4">
       <div className="carte overflow-hidden">
@@ -469,9 +481,12 @@ function Reglages({ info, donnees, recharger }) {
               <Td><select className="border border-slate-300 rounded-champ text-second px-1 py-0.5" value={p.formule} onChange={e => majPers(p, { formule: e.target.value })}>{Object.entries(info.formules).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Td>
               <Td><input type="number" min="0.1" max="1" step="0.05" className="border border-slate-300 rounded-champ text-second px-1 py-0.5 w-20" defaultValue={p.fraction} onBlur={e => Number(e.target.value) !== p.fraction && majPers(p, { fraction: Number(e.target.value) })} /></Td>
               <Td ton="secondaire">{p.genere ? `${hm(p.total)} / ${hm(p.cible)}` : 'à générer'}</Td>
-              <Td align="droite"><button className="bouton px-2 py-0.5 text-second" onClick={() => majPers(p, { actif: !p.actif })}>{p.actif ? 'Retirer' : 'Réintégrer'}</button></Td>
+              <Td align="droite"><div className="inline-flex gap-1.5">
+                <button className="bouton px-2 py-0.5 text-second" onClick={() => setType(p)} title="Dessiner la semaine habituelle de cette personne">Semaine type</button>
+                <button className="bouton px-2 py-0.5 text-second" onClick={() => majPers(p, { actif: !p.actif })}>{p.actif ? 'Retirer' : 'Réintégrer'}</button></div></Td>
             </Tr>))}</tbody>
         </Tableau>
+        {type && <SemaineTypeTemps api={api} personne={type} onFermer={() => setType(null)} onFait={() => { setType(null); recharger(); }} />}
         <div className="px-4 py-3 flex flex-nowrap items-center gap-2">
           <select className="controle border border-slate-300 rounded-champ text-sm" value={ajout} onChange={e => setAjout(e.target.value)}>
             <option value="">— ajouter une personne —</option>

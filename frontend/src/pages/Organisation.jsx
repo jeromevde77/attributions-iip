@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconBook2, IconCalendar, IconChalkboard, IconUsers, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconAdjustments, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconWriting, IconPlane, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
+  IconClock, IconClockHour4, IconCalendarStats, IconAdjustments, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconWriting, IconPlane, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -34,6 +34,7 @@ const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default:
 const ReglesCalendrier = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.ReglesCalendrier })));
 const ExamensPreparer = lazy(() => import('../components/ExamensPreparer.jsx'));
 const Locaux = lazy(() => import('../components/Locaux.jsx'));
+const TempsTravail = lazy(() => import('./TempsTravail.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -116,14 +117,15 @@ export default function Organisation({ ongletInitial }) {
             { key: 'labo-disponibilites', label: '5. Les disponibilités', icone: IconUserCheck, seulementPresent: true },
             { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarTime, seulementPresent: true },
             { key: 'labo-horaire', label: '7. L’horaire', icone: IconCalendarCheck, seulementPresent: true },
-            { key: 'horaire-semaine', label: '6. L’horaire' },
+            { key: 'horaire-semaine', label: '6. L’horaire des cours' },
             { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye, seulementPresent: true },
             { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent, seulementPresent: true },
             { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock, seulementPresent: true },
-            { key: 'planif-sessions', label: '7. Sessions : épreuves et délibérations' },
-            { key: 'examens', label: '8. Examens : préparer et imprimer' },
-            { key: 'absences-prof', label: '9. Absences et remplacements' },
-            { key: 'locaux', label: '10. Locaux' },
+            { key: 'temps-travail', label: '7. Horaires du personnel' },
+            { key: 'planif-sessions', label: '8. Sessions : épreuves et délibérations' },
+            { key: 'examens', label: '9. Examens : préparer et imprimer' },
+            { key: 'absences-prof', label: '10. Absences et remplacements' },
+            { key: 'locaux', label: '11. Locaux' },
           ] },
         { key: 'g-enseigne', label: 'Qui enseigne', icone: IconChalkboard,
           enfants: [{ key: 'attributions' }, { key: 'effectifs' }] },
@@ -227,6 +229,10 @@ export default function Organisation({ ongletInitial }) {
         { key: 'effectifs', module: 'organisation', label: 'Effectifs et postes PNCC', icone: IconChartBar,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <Effectifs /></Suspense> },
+        /* LES HORAIRES DU PERSONNEL (3.5.307, Charles : « tout horaire doit aller dans Organisation ») : l'écran de la direction du
+           temps de travail (l'équipe, le plan d'heures, les relevés, préparer l'année), venu de Personnel. */
+        { key: 'temps-travail', label: 'Horaires du personnel', icone: IconClockHour4, roles: ['admin', 'directeur', 'directeur_adjoint'],
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><TempsTravail /></Suspense> },
         { key: 'locaux', module: 'planification', label: 'Locaux', icone: IconBuilding,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><Locaux /></Suspense> },
         /* LES RÈGLES DU CALENDRIER (3.5.302) quittent Configuration : les semaines et les délais des sessions se règlent à côté
