@@ -3138,6 +3138,16 @@ présences encore en bientôt disponible avec un badge orange ») : une face de 
 pastille orange `--c-attente` dans le rail (`BoutonRail`, point sur l'icône quand le rail est étroit), écran « bientôt disponible »,
 sautée par la visite. Aujourd'hui : presences, tfe, stages. Pour les rouvrir : retirer `bientot`.
 
+**LE SUIVI DE SANTÉ — LA VISITE MÉDICALE DU CESI** (3.5.283, Charles, 10 novembre 2026, note du secrétariat : « organisme CESI,
+date de l'examen du formulaire de santé ; pas de visite médicale, pas de stage et pas de réussite » ; tranché : la FICHE est la source
+et les stages la lisent ; durée de validité réglable ; Lucie signale sans bloquer ; le formulaire se dépose). `lib/suiviSante.js`
+(table `etudiant_visite_medicale` — une ligne par visite, retirée avec motif, jamais effacée ; `visiteAuJour`, `etatsDeTous`,
+`lucie_config` « sante.validite_mois », 12 par défaut ; formulaire sous DATA_DIR/sante/<id> ; reprise unique des `stage.medecine_le`,
+« sante_reprise_stages »), `routes/sante.js` sur `/api/sante` (lire : direction, secrétariat, coordination de ses sections ; écrire :
+direction, secrétariat ; régler : direction). Fiche → onglet « Santé » (`components/SuiviSante.jsx`). Lecteurs : `piecesDuStage` et
+les blocages du stage (plus de saisie `medecine_le` à l'écran), filtre « Visite médicale manquante » de la liste, `sante_manquante`
+de la feuille de délibération d'une UE à cours `is_stage`.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

@@ -4,6 +4,18 @@ export const chapitres = [];
 export const ajouts = {
   etudiants: [
     {
+      titre: "Le suivi de santé : la visite médicale du CESI",
+      pour: 'sec coo dir',
+      ou: "Étudiants → la fiche de l'étudiant → onglet « Santé ».",
+      texte: "Après la visite médicale, le CESI envoie le formulaire de santé. On l'encode dans l'onglet « Santé » : suivi médical / organisme (CESI par défaut), date de l'examen (celle du formulaire, un formulaire par étudiant), et le formulaire lui-même (PDF ou photo), qu'on peut aussi joindre plus tard. L'onglet dit si la visite est en ordre, et jusqu'à quand ; une visite encodée par erreur se retire avec un motif et reste lisible, barrée.",
+      savoir: [
+        "Pas de visite médicale, pas de stage et pas de réussite en fin d'année : Lucie le signale sans bloquer — le stage réclame la visite, la délibération d'une unité de stage nomme les étudiants sans visite valable, et la liste des étudiants a le filtre « Visite médicale manquante ». Le Conseil décide.",
+        "Une visite vaut une durée fixée par la direction (12 mois au départ), réglée en bas de l'onglet « Santé ».",
+        "Les stages lisent cette date : il n'y a plus de date « médecine du travail » à encoder sur chaque stage ; celles déjà posées ont été reprises dans la fiche.",
+        "La coordination lit le suivi des étudiants de ses sections ; le secrétariat et la direction encodent.",
+      ],
+    },
+    {
       titre: "Le rail Étudiants, par étape du parcours",
       pour: 'sec coo dir',
       ou: "Étudiants → le rail de gauche.",

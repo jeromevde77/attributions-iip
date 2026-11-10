@@ -46,6 +46,7 @@ import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
 import { noteVerrouillee, MESSAGE_CLOSE, DIRECTION_CORRIGE, avecNoteForcee } from '../lib/gardeNotes.js';
 import { uesValorisees } from '../lib/valorisation.js';
 import { logoCourant } from '../lib/identite.js';
+import { visiteAuJour } from '../lib/suiviSante.js';
 const r = Router();
 
 export function migrerSessions(dbx) {
@@ -5981,6 +5982,15 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     etudiants: lignes,
     // Ce qui empêcherait la feuille d'avoir un sens, dit franchement.
     sans_structure: !modele.cours.length || !modele.acquis.length,
+    // UNE UE DE STAGE ET LA VISITE MÉDICALE (3.5.283, Charles : « pas de visite médicale, pas de stage et pas de réussite ») :
+    // Lucie SIGNALE les étudiants sans visite valable ; le Conseil décide.
+    sante_manquante: (() => {
+      try {
+        if (!db.prepare('SELECT 1 FROM cours WHERE ue_num = ? AND COALESCE(is_stage, 0) = 1 LIMIT 1').get(ueNum)) return null;
+        return lignes.map(e => ({ e, v: visiteAuJour(e.id) })).filter(x => !x.v.valide)
+          .map(({ e, v }) => ({ id: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), etat: v.etat, jusqu_au: v.jusqu_au }));
+      } catch { return null; }
+    })(),
   });
 });
 
