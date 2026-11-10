@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconBook2, IconCalendar, IconChalkboard, IconUsers, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconWriting, IconPlane, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
+  IconClock, IconCalendarStats, IconAdjustments, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconWriting, IconPlane, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconUserOff,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -31,6 +31,9 @@ const STAGES_TFE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secre
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
+const ReglesCalendrier = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.ReglesCalendrier })));
+const ExamensPreparer = lazy(() => import('../components/ExamensPreparer.jsx'));
+const Locaux = lazy(() => import('../components/Locaux.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -49,8 +52,8 @@ export default function Organisation({ ongletInitial }) {
   const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande === 'groupes-communs' ? 'laboratoire'
     // La planification en trois entrées (3.5.146) : l'ancienne adresse « onglet=planifier&sous=… » mène à la bonne.
     : demande === 'planifier' ? ({ dates: 'planif-dates', sessions: 'planif-sessions' }[params.get('sous')] || 'planif-ue')
-    : demande === 'examens' ? 'planif-sessions' : demande;
-  const [examens, setExamens] = useState(demande === 'examens');
+    : demande;
+  const [examens, setExamens] = useState(false);
   const [annee, setAnnee] = useState('');
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -86,7 +89,7 @@ export default function Organisation({ ongletInitial }) {
       /* QUATRE GROUPES À TIROIR (3.5.130, Charles, 5 novembre 2026 : « le rail d'Organisation devient fort long » ; maquette
          validée) : le programme, l'année, qui enseigne et quand, les étudiants. Les étapes de l'Unité, du Laboratoire et des
          Horaires se déplient dans le tiroir de leur groupe quand leur écran est ouvert (`seulementPresent`). */
-      ordreRail={[['g-programme', 'g-annee', 'g-enseigne', 'g-etudiants']]}
+      ordreRail={[['g-programme', 'g-temps', 'g-enseigne', 'g-etudiants']]}
       sousMenus={[
         { key: 'g-programme', label: 'Le programme', icone: IconBook2,
           enfants: [
@@ -96,11 +99,15 @@ export default function Organisation({ ongletInitial }) {
             { key: 'face-ponderation', label: '2. Pondérer', icone: IconPercentage, seulementPresent: true },
             { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription, seulementPresent: true },
           ] },
-        { key: 'g-annee', label: 'L’année', icone: IconCalendar,
-          enfants: [{ key: 'agenda' }, { key: 'planif-ue' }, { key: 'planif-dates' }, { key: 'planif-sessions' }, { key: 'planification' }, { key: 'effectifs' }, { key: 'rentree' }] },
-        { key: 'g-enseigne', label: 'Qui enseigne et quand', icone: IconChalkboard,
+        /* LE TEMPS DE L'ÉCOLE (3.5.302, Charles : « tout ce qui est lié à l'organisation doit être au même endroit avec horaire » ;
+           étude docs/maquettes/etude-organisation-temps.html) : tout ce qui se date, dans l'ordre du travail, numéroté. */
+        { key: 'g-temps', label: 'Le temps de l’école', icone: IconCalendar,
           enfants: [
-            { key: 'attributions' }, { key: 'laboratoire' },
+            { key: 'agenda', label: '1. Agenda de l’école' },
+            { key: 'regles-calendrier', label: '2. Règles du calendrier' },
+            { key: 'planif-dates', label: '3. Dates des UE' },
+            { key: 'planif-ue', label: '4. Planification des UE et cours' },
+            { key: 'laboratoire', label: '5. Composer l’horaire' },
             // LES ÉTAPES DANS L'ORDRE DU TRAVAIL (3.1.465) — celui de ETAPES_LABO (LaboratoireTemporel.jsx).
             { key: 'labo-schema', label: '1. Le schéma', icone: IconHierarchy2, seulementPresent: true },
             { key: 'labo-temps', label: '2. Le temps', icone: IconTimeline, seulementPresent: true },
@@ -109,14 +116,19 @@ export default function Organisation({ ongletInitial }) {
             { key: 'labo-disponibilites', label: '5. Les disponibilités', icone: IconUserCheck, seulementPresent: true },
             { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarTime, seulementPresent: true },
             { key: 'labo-horaire', label: '7. L’horaire', icone: IconCalendarCheck, seulementPresent: true },
-            { key: 'horaire-semaine' },
+            { key: 'horaire-semaine', label: '6. L’horaire' },
             { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye, seulementPresent: true },
             { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent, seulementPresent: true },
             { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock, seulementPresent: true },
-            { key: 'absences-prof' },
+            { key: 'planif-sessions', label: '7. Sessions : épreuves et délibérations' },
+            { key: 'examens', label: '8. Examens : préparer et imprimer' },
+            { key: 'absences-prof', label: '9. Absences et remplacements' },
+            { key: 'locaux', label: '10. Locaux' },
           ] },
+        { key: 'g-enseigne', label: 'Qui enseigne', icone: IconChalkboard,
+          enfants: [{ key: 'attributions' }, { key: 'effectifs' }] },
         { key: 'g-etudiants', label: 'Les étudiants', icone: IconUsers,
-          enfants: [{ key: 'repartition' }, { key: 'stages' }, { key: 'tfe' }, { key: 'voyages' }] },
+          enfants: [{ key: 'rentree' }, { key: 'repartition' }, { key: 'stages' }, { key: 'tfe' }, { key: 'voyages' }] },
       ]}
       onglets={[
         { key: 'attributions', module: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
@@ -215,8 +227,16 @@ export default function Organisation({ ongletInitial }) {
         { key: 'effectifs', module: 'organisation', label: 'Effectifs et postes PNCC', icone: IconChartBar,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <Effectifs /></Suspense> },
-        { key: 'locaux', label: 'Locaux', icone: IconBuilding, futur: true,
-          description: "Les locaux quitteront Configuration pour rejoindre le travail d'organisation." },
+        { key: 'locaux', module: 'planification', label: 'Locaux', icone: IconBuilding,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><Locaux /></Suspense> },
+        /* LES RÈGLES DU CALENDRIER (3.5.302) quittent Configuration : les semaines et les délais des sessions se règlent à côté
+           de l'agenda qu'ils servent. */
+        { key: 'regles-calendrier', module: 'planification', label: 'Règles du calendrier', icone: IconAdjustments,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><ReglesCalendrier /></Suspense> },
+        /* LES EXAMENS AUX DEUX ENDROITS (3.5.302, tranché) : ici, dans l'ordre du temps de l'école, et dans Éditions → Étudiants →
+           Examens — le même écran. */
+        { key: 'examens', module: 'planification', label: 'Examens : préparer et imprimer', icone: IconWriting,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}><ExamensPreparer annee={annee} /></Suspense> },
       ]}
     />
     </>

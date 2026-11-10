@@ -3241,6 +3241,15 @@ composée par l'assistant de `lib/ligneTemps.js` et déposée `simple` : la dire
 de la direction adjointe) ; un simple échange de semaines ne fait plus passer la personne en « annualisé », et n'exige plus
 l'horaire variable (seules les heures modulées l'exigent).
 
+**LE TEMPS DE L'ÉCOLE, UN SEUL GROUPE D'ORGANISATION** (3.5.302, Charles : « tout ce qui est lié à l'organisation doit être au même
+endroit avec horaire » ; étude `docs/maquettes/etude-organisation-temps.html` ; tranché : comme proposé, examens aux deux endroits,
+échéancier dans Équipe). Rail d'Organisation : `g-programme` · `g-temps` (1 agenda · 2 `regles-calendrier` = `ReglesCalendrier` de
+Configuration.jsx, groupes de paramètres `session` + `planification`, retirés de Configuration · 3 dates · 4 planif-ue · 5 laboratoire
+· 6 horaire-semaine · 7 sessions · 8 `examens` = ExamensPreparer · 9 absences · 10 `locaux` = `components/Locaux.jsx`) · `g-enseigne`
+(attributions, effectifs) · `g-etudiants` (rentrée, répartition, stages, TFE, voyages). **La table `local` de production a l'ancienne
+forme** (schema.sql : nom en clé, sans `id` ni `actif`) : `routes/locaux.js` ajoute `actif` et `equipements` et désigne une ligne par
+son `rowid` — `GET /api/locaux` échouait en production (« no such column: actif »).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

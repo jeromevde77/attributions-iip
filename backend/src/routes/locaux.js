@@ -7,9 +7,23 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
 
+/* DEUX FORMES DE TABLE (3.5.302). La production porte l'ancienne `local` (schema.sql : nom en clé, type, places, micro,
+   equipement, son, it, projection — ni `id` ni `actif`) ; server.js déclare la nouvelle. Cette route lisait `id` et `actif` :
+   en production, la liste des locaux échouait (« no such column: actif »). On ajoute ce qui manque, sans rien effacer, et l'on
+   désigne une ligne par son `rowid` (qui est l'`id` dans la nouvelle forme). */
+try {
+  const cols = db.prepare('PRAGMA table_info(local)').all().map(c => c.name);
+  if (cols.length && !cols.includes('actif')) db.exec('ALTER TABLE local ADD COLUMN actif INTEGER NOT NULL DEFAULT 1');
+  if (cols.length && !cols.includes('equipements')) {
+    db.exec('ALTER TABLE local ADD COLUMN equipements TEXT');
+    if (cols.includes('equipement')) db.exec('UPDATE local SET equipements = equipement WHERE equipements IS NULL');
+  }
+} catch (e) { console.error('[locaux] migration :', e.message); }
+
 // GET /locaux — liste de tous les locaux
 r.get('/', authRequired, (req, res) => {
-  const rows = db.prepare('SELECT * FROM local WHERE actif = 1 ORDER BY nom').all();
+  const rows = db.prepare('SELECT rowid AS id, * FROM local WHERE COALESCE(actif, 1) = 1 ORDER BY nom').all()
+    .map(x => ({ ...x, id: x.id ?? x.rowid }));
   res.json(rows);
 });
 
@@ -33,13 +47,13 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const updates = [], params = { id: req.params.id };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Rien à modifier' });
-  db.prepare(`UPDATE local SET ${updates.join(', ')} WHERE id = @id`).run(params);
+  db.prepare(`UPDATE local SET ${updates.join(', ')} WHERE rowid = @id`).run(params);
   res.json({ ok: true });
 });
 
 // DELETE /locaux/:id — désactiver un local (soft delete)
 r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
-  db.prepare('UPDATE local SET actif = 0 WHERE id = ?').run(req.params.id);
+  db.prepare('UPDATE local SET actif = 0 WHERE rowid = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
@@ -49,8 +63,8 @@ r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
 r.get('/cours/:code', authRequired, (req, res) => {
   const { annee, section } = req.query;
   const rows = db.prepare(`
-    SELECT l.* FROM cours_local cl
-    JOIN local l ON l.id = cl.local_id
+    SELECT l.rowid AS id, l.* FROM cours_local cl
+    JOIN local l ON l.rowid = cl.local_id
     WHERE cl.cours_code = ? AND cl.annee_scolaire = ? AND (cl.section = ? OR cl.section IS NULL)
     ORDER BY l.nom
   `).all(req.params.code, annee, section || null);
