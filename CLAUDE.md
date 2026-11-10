@@ -3172,7 +3172,10 @@ et `donneesChiffresCles` (`parSection` de la pièce). Pas dans l'import sur mesu
 encart de Bruxelles, le nombre d'étudiants) : `components/CarteCommunes.jsx` sur Gestion → Population ; contours
 `frontend/public/carte/communes-be.json` (secteurs statistiques Statbel au 1er janvier 2026, regroupés en 565 communes par les arêtes
 non partagées, simplifiés, en Lambert 72 projeté) ; code postal → REFNIS `backend/src/donnees/cp-nis.json` (liste bpost 2025) ; comptes
-`domicile.par_nis` (`lib/populationEcole.js`). Un changement de communes (fusions) = refaire les deux fichiers.
+`domicile.par_nis` (`lib/populationEcole.js`). Un changement de communes (fusions) = refaire les deux fichiers. 3.5.290 (« SLE compris
+ou exclus ? » ; « carte du monde en plus » ; tranché : le choix SLE vaut pour toute la page, le monde = les nationalités, trois cartes
+côte à côte) : `donneesPopulation(…, { sle })` (`?sle=exclus`, `sle_nombre`) ; carte du monde `frontend/public/carte/monde.json`
+(Natural Earth 1:110 M, domaine public, équirectangulaire), nationalité → ISO par `listePays()`.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

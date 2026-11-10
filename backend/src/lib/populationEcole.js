@@ -188,9 +188,15 @@ function domicile(fiches) {
   return r;
 }
 
-export function donneesPopulation(annee, { sections: perim = null, ref = new Date() } = {}) {
+export function donneesPopulation(annee, { sections: perim = null, ref = new Date(), sle = 'compris' } = {}) {
   const voit = s => !perim || (s && perim.includes(s));
-  const lignes = inscrits(annee).filter(l => voit(l.section));
+  // SLE COMPRIS OU EXCLUS (3.5.290, Charles : « s'ils sont SLE, ils sont dedans ? il faudrait pouvoir faire SLE compris et
+  // exclus ») : le choix vaut pour toute la page de l'année (pas pour l'évolution, faite de chiffres de référence).
+  let sles = new Set();
+  try { sles = new Set(db.prepare('SELECT id FROM etudiant WHERE COALESCE(sejour_limite_etudes, 0) = 1').all().map(x => x.id)); } catch { /* colonne absente */ }
+  const tousLesInscrits = inscrits(annee).filter(l => voit(l.section));
+  const nbSle = new Set(tousLesInscrits.filter(l => sles.has(l.id)).map(l => l.id)).size;
+  const lignes = tousLesInscrits.filter(l => sle !== 'exclus' || !sles.has(l.id));
   const ids = [...new Set(lignes.map(l => l.id))];
   const fiches = new Map(ids.length ? db.prepare(`
     SELECT id, sexe, date_naissance, nationalite, cp, localite, titre_acces FROM etudiant
@@ -258,5 +264,6 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
   });
 
   return { annee, ref: ref.toISOString().slice(0, 10), ensemble: resume(ids), sections, evolution,
+    sle, sle_nombre: nbSle,
     listes: { acces: TITRES_ACCES, situations: SITUATIONS_PRO } };
 }

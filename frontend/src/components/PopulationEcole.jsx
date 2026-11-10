@@ -31,6 +31,7 @@ export default function PopulationEcole({ annee: anneeProp }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState('');   // '' = toute l'école
+  const [sle, setSle] = useState('compris');      // SLE compris ou exclus (3.5.290)
   const [tour, setTour] = useState(0);
   // LES EFFECTIFS DE L'ANNÉE (3.5.196) : la même source que la liste des étudiants.
   const [eff, setEff] = useState(null);
@@ -58,10 +59,10 @@ export default function PopulationEcole({ annee: anneeProp }) {
 
   useEffect(() => {
     setErreur(null);
-    fetch(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+    fetch(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&sle=${sle}`, { headers: authHeaders() })
       .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setD(j); })
       .catch(e => setErreur(e.message));
-  }, [annee, tour]);
+  }, [annee, tour, sle]);
 
   if (erreur) return <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>;
   if (!d) return <div className="text-slate-400 py-12 text-center">Chargement…</div>;
@@ -86,7 +87,13 @@ export default function PopulationEcole({ annee: anneeProp }) {
             <button key={k || 'tout'} type="button" onClick={() => setSection(k)}
               className={section === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
         </div>
-        <span className="text-second text-slate-400 ml-auto">{d.annee} · inscrits au {d.ref.split('-').reverse().join('/')}, hors archivés</span>
+        {/* SLE COMPRIS OU EXCLUS (3.5.290) : toute la page de l'année suit. */}
+        <div className="segments" title="Les étudiants en séjour limité aux études (SLE)">
+          {[['compris', 'SLE compris'], ['exclus', 'SLE exclus']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setSle(k)}
+              className={sle === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        </div>
+        <span className="text-second text-slate-400 ml-auto">{d.annee} · inscrits au {d.ref.split('-').reverse().join('/')}, hors archivés{d.sle_nombre ? ` · ${k0(d.sle_nombre)} SLE ${sle === 'exclus' ? 'exclus' : 'compris'}` : ''}</span>
       </div>
 
       {eff && !section && (
@@ -137,8 +144,8 @@ export default function PopulationEcole({ annee: anneeProp }) {
       </div>
 
       {/* LA CARTE DES COMMUNES (3.5.289) : où habitent les étudiants — l'école ou la section choisie. */}
-      <Carte titre="Où habitent les étudiants" sous={`Par commune · sur ${k0(domConnu)} adresses belges${section ? ` · ${NOM_SECTION(section)}` : ''}`}>
-        <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} />
+      <Carte titre="Où habitent les étudiants, et d'où ils viennent" sous={`Domicile par commune (${k0(domConnu)} adresses belges) · nationalité par pays (${k0(natConnue)} renseignées)${section ? ` · ${NOM_SECTION(section)}` : ''}${sle === 'exclus' ? ' · SLE exclus' : ''}`}>
+        <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />
       </Carte>
 
       {/* LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section — CESS,
