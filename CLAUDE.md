@@ -3212,6 +3212,13 @@ l'année et dépose une demande `cours_nom` ; acceptée (applicateur de `routes/
 suivantes ; la direction écrit d'emblée l'année et les suivantes. Le titre du cours est renommé dans `ue.ue_dp`
 (`renommerDansDossier`, lignes de titre seulement) : le programme se découpe par les noms des cours.
 
+**L'UNITÉ S'ENREGISTRE AU CLIC** (3.5.298, Charles : « que ce qui est écrit dans la partie DUE / pondération soit sauvé au clic »).
+`useEnregistrementAuto(trace, { pret, enregistrer, delai })` (`lib/enregistrementAuto.js`) : croisement (1,5 s, la grille ne se
+coche pas pendant l'envoi), pondération (un cours juste et modifié part seul ; relecture des liens SANS toucher au brouillon des
+autres cours), DUE (1,2 s ; une frappe pendant l'envoi reste « à enregistrer »). Ce qui n'est pas parti part à la sortie de
+l'écran. **Un écran de saisie nouveau s'enregistre de même.** Au passage : `epreuves()` (`lib/examens.js`) écarte les épreuves
+d'une UE absente du référentiel de l'année (UE 901 en 2026-2027, restes du calendrier).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
