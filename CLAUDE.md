@@ -3232,6 +3232,15 @@ cela » ; tranché : les deux dates). `piece_authentique.emise_le` = la date imp
 `filigraner` lit les deux ; le portail les garde (`authentique.decision_le`) et la vérification affiche « Décision du Conseil des
 études du » et « Pièce émise le ». **Une nouvelle pièce qui constate une décision pose sa `marqueDecision`.**
 
+**MON TEMPS, L'ÉCRAN DU PERSONNEL** (3.5.301, Charles : « mon personnel me dit que cette gestion est un peu complexe » ; tranché :
+un écran « Mon temps » et des demandes au lieu de l'assistant ; maquette validée `docs/maquettes/mon-temps.html`). Une personne
+désignée qui ne gère pas l'équipe n'a plus que `components/MonTemps.jsx` (TempsTravail.jsx) : sa semaine (« J'ai travaillé
+autrement » → `PUT /ecart`), ses relevés (signer), son année en 52 cases, ses demandes. `lib/monTemps.js` : `monTemps()` (`GET
+/api/temps-travail/mon-temps`) et `deposerDemande()` (`POST /demande` : congé ⇄ semaine de congé travaillée, plus/moins d'heures),
+composée par l'assistant de `lib/ligneTemps.js` et déposée `simple` : la direction l'accepte d'un clic (pas de contrôle préalable
+de la direction adjointe) ; un simple échange de semaines ne fait plus passer la personne en « annualisé », et n'exige plus
+l'horaire variable (seules les heures modulées l'exigent).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
