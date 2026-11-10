@@ -1,0 +1,104 @@
+<title>Le temps de l’école — étude</title>
+<style>
+:root{--marine:#16406A;--fond:#F4F6F9;--carte:#fff;--filet:#E2E6ED;--texte:#1F2A3A;--gris:#6B7684;--vert:#3E7D5E;--ocre:#B45309;--brique:#9D4A38;--bleu:#2F6FB0;--pale:#EEF3F9}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--fond:#0F1722;--carte:#172232;--filet:#2A3648;--texte:#E6ECF4;--gris:#9AA7B8;--pale:#1C2A3D;--marine:#9CC3EA;color-scheme:dark}}
+:root[data-theme="dark"]{--fond:#0F1722;--carte:#172232;--filet:#2A3648;--texte:#E6ECF4;--gris:#9AA7B8;--pale:#1C2A3D;--marine:#9CC3EA;color-scheme:dark}
+body{background:var(--fond);color:var(--texte);font:14.5px/1.55 "Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;padding-inline:16px;padding-block:22px 48px}
+.page{max-width:1040px;margin:0 auto;display:grid;gap:18px}
+h1{font-size:23px;margin:0;color:var(--marine);text-wrap:balance}
+h2{font-size:17px;margin:0 0 8px;color:var(--marine)}
+p{margin:0 0 8px;max-width:72ch}
+.sous{color:var(--gris)}
+.carte{background:var(--carte);border:1px solid var(--filet);border-radius:14px;padding:16px 18px;min-width:0}
+.tab{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gris);padding:6px 10px;border-bottom:1px solid var(--filet)}
+td{padding:7px 10px;border-bottom:1px solid var(--filet);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.p{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;color:#fff;background:var(--c);white-space:nowrap}
+.pb{display:grid;gap:8px}
+.probleme{border-left:4px solid var(--brique);padding:6px 12px;background:var(--carte);border-radius:0 10px 10px 0;border-top:1px solid var(--filet);border-right:1px solid var(--filet);border-bottom:1px solid var(--filet)}
+.probleme b{display:block}
+.rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.bloc{border:1px solid var(--filet);border-radius:12px;padding:12px 14px;background:var(--pale)}
+.bloc h3{margin:0 0 6px;font-size:14.5px}
+.bloc ol{margin:0;padding-left:20px}
+.bloc li{margin:2px 0}
+.bloc small{color:var(--gris)}
+.neuf{color:var(--vert);font-weight:600}
+.reste{color:var(--gris)}
+.fleche{color:var(--gris);font-size:12.5px}
+</style>
+
+<div class="page">
+  <div>
+    <h1>Le temps de l’école : tout au même endroit</h1>
+    <p class="sous">Étude pour Charles Sohet · Lucie 3.5.301 · 10 novembre 2026 · d’après les écrans tels qu’ils existent aujourd’hui</p>
+  </div>
+
+  <section class="carte">
+    <h2>La question</h2>
+    <p>Ce qui organise l’année — les dates, les congés, les horaires, les sessions, les examens — est aujourd’hui réparti entre cinq axes de Lucie. Chacun a été construit au moment où on en avait besoin, et a pris place là où l’on travaillait ce jour-là. Résultat : pour préparer une session, on passe par Organisation, Configuration et Éditions ; pour un horaire, il existe trois portes.</p>
+  </section>
+
+  <section class="carte">
+    <h2>Où vit chaque chose aujourd’hui</h2>
+    <div class="tab"><table>
+      <thead><tr><th>Ce qu’on fait</th><th>Où c’est aujourd’hui</th><th>Qui</th></tr></thead>
+      <tbody>
+        <tr><td>Peindre l’année : cours, congés, fermetures, jours fermés, grands moments</td><td>Organisation → L’année → <b>Agenda de l’école</b></td><td>direction</td></tr>
+        <tr><td>Les règles du calendrier (semaines, dernier jour administratif, délais EV1, VC, EV2, délibération, recours)</td><td><b>Configuration</b> → Planification, Calendrier des sessions</td><td>direction</td></tr>
+        <tr><td>Dates de chaque UE (ouverture, fermeture, 1/10)</td><td>Organisation → L’année → Dates des UE</td><td>secrétariat, coordination</td></tr>
+        <tr><td>Planifier UE et cours</td><td>Organisation → L’année → Planification des UE et cours</td><td>secrétariat, coordination</td></tr>
+        <tr><td>Sessions : épreuves, délibérations, visites des copies</td><td>Organisation → L’année → Sessions</td><td>secrétariat</td></tr>
+        <tr><td>Examens : surveillants, enveloppe, listes</td><td><b>Éditions</b> → Étudiants → Examens (depuis aujourd’hui)</td><td>secrétariat</td></tr>
+        <tr><td>Composer l’horaire (simulation, plan)</td><td>Organisation → Qui enseigne → <b>Laboratoire temporel</b> (7 étapes)</td><td>direction, coordination</td></tr>
+        <tr><td>Consulter, composer, contrôler l’horaire de la semaine</td><td>Organisation → Qui enseigne → <b>Horaires</b> (3 faces)</td><td>tous</td></tr>
+        <tr><td>« Horaires &amp; planification » (ancien écran)</td><td>masqué, encore dans le code</td><td>—</td></tr>
+        <tr><td>Absences des enseignants, remplacements</td><td>Organisation → Qui enseigne</td><td>secrétariat</td></tr>
+        <tr><td>Locaux</td><td>Configuration (annoncé « à venir » dans Organisation)</td><td>direction</td></tr>
+        <tr><td>Échéances de l’année (rappels, jalons)</td><td><b>Équipe</b> → Échéancier</td><td>tous</td></tr>
+        <tr><td>Temps de travail du secrétariat (lit l’agenda de l’école)</td><td><b>Personnel</b> → Temps de travail</td><td>direction, personnes désignées</td></tr>
+        <tr><td>Mon horaire, mes dates d’examens et de délibérations</td><td>Mes cours, espace enseignant</td><td>enseignants</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="carte">
+    <h2>Ce qui coince</h2>
+    <div class="pb">
+      <div class="probleme"><b>Trois portes pour l’horaire.</b>Le laboratoire (étape 7 « L’horaire »), l’écran Horaires (consulter, composer, contrôler) et l’ancien « Horaires &amp; planification », masqué mais vivant. On ne sait pas où l’horaire « vrai » se lit.</div>
+      <div class="probleme"><b>Le calendrier se règle à deux endroits.</b>L’agenda de l’école (Organisation) peint les semaines ; Configuration garde le calendrier des semaines et les délais des sessions. Ce sont les mêmes semaines.</div>
+      <div class="probleme"><b>Une session se prépare sur trois axes.</b>Les dates dans Organisation, les délais dans Configuration, les listes et l’enveloppe dans Éditions.</div>
+      <div class="probleme"><b>« L’année » et « Qui enseigne et quand » se recoupent.</b>Le « quand » (horaire) est rangé avec le « qui » (attributions), loin des dates et des sessions de « L’année ».</div>
+      <div class="probleme"><b>L’échéancier est à part.</b>Il vit dans Équipe, alors que ses jalons viennent des dates des UE et des sessions.</div>
+    </div>
+  </section>
+
+  <section class="carte">
+    <h2>Proposition : un groupe « Le temps de l’école », dans l’ordre du travail</h2>
+    <p>Dans Organisation, un seul groupe pour tout ce qui se date, avec ses étapes numérotées comme le laboratoire. Les « qui » (attributions, répartition, stages) restent dans leurs groupes. Rien ne se recode : on range des écrans qui existent.</p>
+    <div class="rail">
+      <div class="bloc"><h3>Le programme</h3><ol><li>Schéma de capitalisation</li><li>Unité : croiser, pondérer, décrire</li></ol><small>inchangé</small></div>
+      <div class="bloc"><h3>Le temps de l’école</h3><ol>
+        <li>Agenda de l’école <span class="neuf">+ ses règles (Configuration → Planification, Calendrier des sessions)</span></li>
+        <li>Dates des UE et planification</li>
+        <li>Composer l’horaire <span class="fleche">(le laboratoire, ses étapes)</span></li>
+        <li>L’horaire <span class="fleche">(consulter · retoucher · contrôler — une seule porte)</span></li>
+        <li>Sessions : épreuves, délibérations</li>
+        <li>Examens : préparer et imprimer <span class="neuf">(aussi ici)</span></li>
+        <li>Absences et remplacements</li>
+        <li>Locaux <span class="neuf">(quitte Configuration)</span></li>
+      </ol></div>
+      <div class="bloc"><h3>Qui enseigne</h3><ol><li>Attributions</li><li>Effectifs et postes PNCC</li></ol></div>
+      <div class="bloc"><h3>Les étudiants</h3><ol><li>Rentrée</li><li>Répartition des étudiants</li><li>Stages · TFE · Voyages</li></ol></div>
+    </div>
+    <p style="margin-top:10px" class="reste">Restent où ils sont, parce qu’ils servent une personne et non l’organisation : Mon temps (Personnel), Mon horaire et Mes dates (Mes cours, espace enseignant). L’échéancier peut rester dans Équipe (c’est un tableau de tâches) — ou rejoindre le groupe : voir les questions.</p>
+  </section>
+
+  <section class="carte">
+    <h2>Ce que cela change pour l’équipe</h2>
+    <p><b>Secrétariat :</b> une seule entrée pour préparer une session (dates → épreuves → examens) et une seule pour l’horaire. <b>Coordination :</b> l’horaire de ses sections se lit au même endroit qu’on le compose. <b>Direction :</b> le calendrier se règle une fois, dans l’agenda. Les anciennes adresses (liens des rappels, des notifications) mènent au nouvel endroit.</p>
+    <p class="reste">Une réorganisation change les habitudes du jour au lendemain : à annoncer, avec le guide « Quoi de neuf » et le mode d’emploi mis à jour.</p>
+  </section>
+</div>

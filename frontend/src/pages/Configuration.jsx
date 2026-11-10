@@ -333,6 +333,18 @@ const PARAM_TYPES = {
  * procédure, texte des courriels, sécurité des connexions… — et chacun avait
  * AUSSI un écran à lui ailleurs : deux endroits pour un même sujet. Le même
  * composant, limité à `groupes`, se pose désormais dans chaque écran. */
+/** LES RÈGLES DU CALENDRIER (3.5.302) : affichées dans Organisation → Le temps de l'école → 2 ; elles ont quitté Configuration. */
+export function ReglesCalendrier() {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="titre-ecran">Règles du calendrier</h1>
+        <p className="text-second text-slate-500 m-0">Les délais des sessions (dernier jour administratif, EV1, VC, EV2, délibération, recours) et les valeurs de la planification. Ils se règlent à côté de l’agenda qu’ils servent ; seule la direction les modifie.</p>
+      </div>
+      <GestionParametres groupes={['session', 'planification']} />
+    </div>);
+}
+
 function GestionParametres({ groupes = null }) {
   const [grouped, setGrouped]   = useState({});
   const [pending, setPending]   = useState({});  // { cle: valeur }
@@ -1091,7 +1103,6 @@ export default function Configuration() {
       { key: 'cursus-compatibles', label: 'Cursus compatibles', icon: IconLink },
       { key: 'ref-deliberation', label: 'Règles de délibération', icon: IconScale, annee: true },
       { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
-      { key: 'planification', label: 'Planification', icon: IconCalendarEvent },
     ]},
     // Les modèles de ce qui sort de Lucie — sur papier ou par courriel.
     { label: 'Documents et envois', icon: IconFileText, items: [
@@ -1250,8 +1261,9 @@ export default function Configuration() {
       {tab === 'ref-deliberation' && <ReglesDeliberation />}
 
       {/* ── Onglet Années ── */}
-      {tab === 'annees' && <div className="space-y-4"><Annees embedded /><GestionParametres groupes={['session']} /></div>}
-      {tab === 'planification' && <GestionParametres groupes={['planification']} />}
+      {tab === 'annees' && <div className="space-y-4"><Annees embedded />
+        <p className="text-second text-slate-500">Le calendrier des sessions se règle désormais dans Organisation → Le temps de l’école → <a className="underline" href="/organisation?onglet=regles-calendrier">2. Règles du calendrier</a>.</p></div>}
+      {tab === 'planification' && <p className="text-second text-slate-500">Les valeurs de la planification se règlent désormais dans Organisation → Le temps de l’école → <a className="underline" href="/organisation?onglet=regles-calendrier">2. Règles du calendrier</a>.</p>}
       {tab === 'due' && <GestionParametres groupes={['due']} />}
       {tab === 'securite' && <GestionParametres groupes={['securite']} />}
       {tab === 'couts' && <><GestionParametres groupes={['couts']} /><InscritsPrevus /></>}
