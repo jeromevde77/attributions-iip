@@ -3130,6 +3130,10 @@ plus de confirmation au milieu de la visite — elle FINIT sur « Mon PAE » (`o
 coordination » (/pae/signaler → `pae_desaccord` au tableau de bord de la coordination de la section), sur Mon PAE (confirmé ou non
 par l'école) et dans la fenêtre d'entrée ; vue gardée en
 `localStorage` par matricule (par appareil). **Une face nouvelle de l'espace étudiant ajoute son étape à `ETAPES_VISITE`.**
+**Et l'espace enseignant a la sienne** (3.5.280, Charles : « le même type de guide pour la partie prof » ; tranché : elle finit sur
+Aujourd'hui) : même moteur (`VisiteGuidee` prend `etapes` et `espace`), étapes dans `frontend/src/enseignant/visiteEnseignant.js`
+(`ETAPES_ENSEIGNANT`), vue gardée sous `lucie.visite.ens.<adresse>` ; « Revoir la visite guidée » en tête de l'Aide. **Une face
+nouvelle de l'espace enseignant ajoute son étape à `ETAPES_ENSEIGNANT`.**
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

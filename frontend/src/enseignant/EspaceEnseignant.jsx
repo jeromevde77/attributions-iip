@@ -12,6 +12,8 @@ import { preparerLucie } from './relais.js';
 import { rangBloc } from '../lib/blocs.js';
 import TrainUE from '../components/TrainUE.jsx';
 import { BoutonRail as BoutonFace } from '../components/RailEspace.jsx';
+import VisiteGuidee, { visiteVue } from '../portail/VisiteGuidee.jsx';
+import { ETAPES_ENSEIGNANT } from './visiteEnseignant.js';
 const MesCoursLucie = lazy(() => import('../pages/MesCours.jsx'));
 const AccueilLucie = lazy(() => import('../pages/Accueil.jsx'));
 const MaJourneeLucie = lazy(() => import('../components/MaJournee.jsx'));
@@ -877,6 +879,11 @@ export default function EspaceEnseignant() {
   // « Mes prestations » ne paraît que pour un expert (3.5.241) : Lucie le sait par ses attributions.
   const [expert, setExpert] = useState(false);
   useEffect(() => { if (lucie) fetch('/api/prestations-experts/moi').then(r => r.json()).then(j => setExpert(!!j?.expert)).catch(() => {}); }, [lucie]);
+  // LA VISITE GUIDÉE (3.5.280, comme l'espace étudiant) : à la première entrée, une fois les écrans de Lucie prêts ; elle finit sur
+  // Aujourd'hui. Relancée depuis Aide.
+  const [visite, setVisite] = useState(false);
+  const idVisite = moi ? (moi.email || moi.id) : null;
+  useEffect(() => { if (lucie && idVisite && !visiteVue(idVisite, 'ens.')) { const t = setTimeout(() => setVisite(true), 600); return () => clearTimeout(t); } return undefined; }, [lucie, idVisite]);
   // Le trousseau du navigateur ne reste pas accroché au champ d'identifiant de l'entrée (3.5.235).
   useEffect(() => { if (moi && document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, [!!moi]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!token) return <>{erreur && <div className="bloc-etat px-3 py-2 text-sm m-4" data-etat="corriger">{erreur}</div>}<Entree onEntre={entrer} /></>;
@@ -940,6 +947,9 @@ export default function EspaceEnseignant() {
       <main className="flex-1 min-w-0 p-4 md:p-8 md:pt-4">
         {/* LES OUTILS EN HAUT (3.5.245) : Contacter, chercher, proposer une idée, annuler — une barre, plus dans le rail. */}
         <div className="hidden md:flex items-center justify-end gap-2 mb-4"><BoutonContact />{chercher}{outils}</div>
+        <div data-visite="contenu">
+        {face === 'aide' && <div className="flex justify-end mb-2"><button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setVisite(true)}>
+          <IconRoute size={15} /> Revoir la visite guidée</button></div>}
         <Garde cle={face}>
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
@@ -975,8 +985,12 @@ export default function EspaceEnseignant() {
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}
         </Garde>
+        </div>
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>
+      {visite && idVisite && <VisiteGuidee etudiantId={idVisite} espace="ens." etapes={ETAPES_ENSEIGNANT} aller={k => aller(k)}
+        dispo={et => !!FACE[et.face] && (!FACE[et.face].expert || expert)}
+        onFin={() => { setVisite(false); aller('aujourdhui'); }} />}
     </div>
   );
 }

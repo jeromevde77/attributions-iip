@@ -72,9 +72,10 @@ export const ETAPES_VISITE = [
     texte: 'À chaque visite, commencez par « Aujourd’hui » : tout ce qui vous attend y est. Bonne année à l’Institut !', bouton: 'Commencer' },
 ];
 
-const cleVue = id => `lucie.visite.${id}`;
-export const visiteVue = id => { try { return !!localStorage.getItem(cleVue(id)); } catch { return true; } };
-const marquerVue = id => { try { localStorage.setItem(cleVue(id), new Date().toISOString()); } catch { /* navigation privée */ } };
+// Une visite vue se retient par personne et par appareil ; `espace` sépare l'étudiant (« ») de l'enseignant (« ens. »).
+const cleVue = (id, espace = '') => `lucie.visite.${espace}${id}`;
+export const visiteVue = (id, espace = '') => { try { return !!localStorage.getItem(cleVue(id, espace)); } catch { return true; } };
+const marquerVue = (id, espace = '') => { try { localStorage.setItem(cleVue(id, espace), new Date().toISOString()); } catch { /* navigation privée */ } };
 
 const MARGE = 6;
 const LARGEUR = 380;
@@ -85,10 +86,10 @@ const rectDe = sel => { const el = sel && document.querySelector(sel); if (!el) 
  * PAE quand il est ouvert (3.5.278, Charles : « après le tour, tu vas à cette fenêtre ») : `onFin('pae')`, que la visite soit
  * suivie jusqu'au bout ou fermée.
  */
-export default function VisiteGuidee({ etudiantId, dispo = () => true, aller, depart = 0, onFin }) {
+export default function VisiteGuidee({ etudiantId, etapes: catalogue = ETAPES_VISITE, espace = '', dispo = () => true, aller, depart = 0, onFin }) {
   const [etapes] = useState(() => {
     const paeOuvert = dispo({ face: 'parcours', sous: 'pae' });
-    return ETAPES_VISITE.filter(e => (!e.face || dispo(e)) && (!e.cible || e.cible === 'contenu' || document.querySelector(`[data-visite="${e.cible}"]`))
+    return catalogue.filter(e => (!e.face || dispo(e)) && (!e.cible || e.cible === 'contenu' || document.querySelector(`[data-visite="${e.cible}"]`))
       && (!e.fin || (e.fin === 'pae') === paeOuvert));
   });
   const [i, setI] = useState(() => Math.min(depart, etapes.length - 1));
@@ -119,7 +120,7 @@ export default function VisiteGuidee({ etudiantId, dispo = () => true, aller, de
     return () => { clearInterval(t); clearTimeout(arret); window.removeEventListener('resize', mesurer); window.removeEventListener('scroll', mesurer, true); };
   }, [mesurer]);
 
-  const finir = useCallback(() => { marquerVue(etudiantId); onFin?.(etapes[etapes.length - 1]?.fin || 'aujourdhui'); }, [etudiantId, onFin, etapes]);
+  const finir = useCallback(() => { marquerVue(etudiantId, espace); onFin?.(etapes[etapes.length - 1]?.fin || 'aujourdhui'); }, [etudiantId, espace, onFin, etapes]);
   useEffect(() => {
     const k = ev => {
       if (ev.key === 'Escape') finir();
