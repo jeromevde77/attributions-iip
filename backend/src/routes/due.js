@@ -158,6 +158,10 @@ function peutReglerMode(user, ueNum, annee) {
  *  de coordination sur la fiche (cursus pour sa section, pédagogique, qualité). */
 function estCoordinationDe(user, ueNum, annee) {
   if (NIVEAU_DIRECTION.includes(user?.role)) return true;
+  /* LA CONSEILLÈRE QUALITÉ ÉCRIT PARTOUT, QUELLE QUE SOIT L'ANNÉE (3.5.294, Charles : « Amélie ne sait toujours pas cocher dans
+     croisement AA et points programme »). Sa fonction « Conseiller qualité » n'était lue que dans les missions de l'année de
+     travail (personnel_mission) : sur une autre année, ou sans mission encodée, elle retombait en lecture. Le rôle suffit. */
+  if (user?.role === 'conseiller_qualite') return true;
   const section = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.section || null;
   if (user?.role === 'coordination') {
     const perim = getUserSections(user);

@@ -3189,6 +3189,10 @@ séance ; dans la feuille ; acquis en échec et faveur possible). Bouton « Pré
 `decision_proposee`, `mentions`, `faveur_eligible`/`faveur_cout`/`faveur_motif` d'`aideDecision`), organisation et groupe de la feuille ;
 rien ne s'écrit. Population : années en court (`anneeCourte`, `CarteCommunes.jsx`).
 
+**LA CONSEILLÈRE QUALITÉ ÉCRIT L'UNITÉ PARTOUT** (3.5.294, Charles : « Amélie ne sait toujours pas cocher dans croisement AA et
+points programme »). `estCoordinationDe` (`routes/due.js`) rend vrai pour le rôle `conseiller_qualite`, sans dépendre de la mission
+« Conseiller qualité » de l'année de travail (`personnel_mission` n'en avait qu'une, en 2026-2027).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
