@@ -188,7 +188,7 @@ function domicile(fiches) {
   return r;
 }
 
-export function donneesPopulation(annee, { sections: perim = null, ref = new Date(), sle = 'compris' } = {}) {
+export function donneesPopulation(annee, { sections: perim = null, ref = new Date(), sle = 'compris', nouveaux = false, section = null } = {}) {
   const voit = s => !perim || (s && perim.includes(s));
   // SLE COMPRIS OU EXCLUS (3.5.290, Charles : « s'ils sont SLE, ils sont dedans ? il faudrait pouvoir faire SLE compris et
   // exclus ») : le choix vaut pour toute la page de l'année (pas pour l'évolution, faite de chiffres de référence).
@@ -196,7 +196,10 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
   try { sles = new Set(db.prepare('SELECT id FROM etudiant WHERE COALESCE(sejour_limite_etudes, 0) = 1').all().map(x => x.id)); } catch { /* colonne absente */ }
   const tousLesInscrits = inscrits(annee).filter(l => voit(l.section));
   const nbSle = new Set(tousLesInscrits.filter(l => sles.has(l.id)).map(l => l.id)).size;
-  const lignes = tousLesInscrits.filter(l => sle !== 'exclus' || !sles.has(l.id));
+  // TOUS OU NOUVEAUX (3.5.292, d'après la page de la HELB) : les nouveaux = aucune inscription ni valorisation avant l'année.
+  const anciensAnnee = anciensAvant(annee);
+  const garder = (l, anc) => (sle !== 'exclus' || !sles.has(l.id)) && (!nouveaux || !anc.has(l.id));
+  const lignes = tousLesInscrits.filter(l => garder(l, anciensAnnee));
   const ids = [...new Set(lignes.map(l => l.id))];
   const fiches = new Map(ids.length ? db.prepare(`
     SELECT id, sexe, date_naissance, nationalite, cp, localite, titre_acces FROM etudiant
@@ -263,7 +266,19 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
       par_section: Object.fromEntries(Object.entries(parS).map(([s, set]) => [s, set.size])) };
   });
 
-  return { annee, ref: ref.toISOString().slice(0, 10), ensemble: resume(ids), sections, evolution,
+  /* TROIS ANNÉES CÔTE À CÔTE (3.5.292, d'après la page de la HELB « Domicile à Bruxelles des nouveaux étudiants ») : le domicile par
+     commune des inscrits de chacune des trois années — les mêmes filtres (section, SLE, nouveaux). L'adresse est celle de la fiche
+     AUJOURD'HUI : Lucie ne garde pas l'adresse de chaque année. */
+  const [a0] = String(annee).split('-').map(Number);
+  const par_annee = [a0 - 2, a0 - 1, a0].map(y => {
+    const a = `${y}-${y + 1}`;
+    const ls = (a === annee ? lignes : inscrits(a).filter(l => voit(l.section) && garder(l, anciensAvant(a)))).filter(l => !section || l.section === section);
+    const idsA = [...new Set(ls.map(l => l.id))];
+    if (!idsA.length) return { annee: a, n: 0, domicile: null };
+    const fsA = db.prepare(`SELECT id, cp, localite FROM etudiant WHERE id IN (${idsA.map(() => '?').join(',')})`).all(...idsA);
+    return { annee: a, n: idsA.length, domicile: domicile(fsA) };
+  });
+  return { annee, ref: ref.toISOString().slice(0, 10), ensemble: resume(ids), sections, evolution, par_annee, nouveaux,
     sle, sle_nombre: nbSle,
     listes: { acces: TITRES_ACCES, situations: SITUATIONS_PRO } };
 }
