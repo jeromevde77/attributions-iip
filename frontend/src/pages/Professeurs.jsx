@@ -1467,6 +1467,8 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   const [vue, setVue] = useState(() => { try { return new URLSearchParams(window.location.search).get('vue') || vueInitiale; } catch { return vueInitiale; } });
   const [ttMoi, setTtMoi] = useState(null);
   useEffect(() => { fetch('/api/temps-travail/moi', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setTtMoi).catch(() => {}); }, []);
+  // L'ancienne adresse de la direction (liens, notifications) mène à Organisation (3.5.307).
+  useEffect(() => { if (vue === 'temps' && ttMoi?.gere) window.location.replace('/organisation?onglet=temps-travail'); }, [vue, ttMoi?.gere]);
   const [sortBy, setSortBy] = useState({ key: 'nom_prenom', dir: 'asc' });
   const [deleting, setDeleting] = useState(null);
   const [selection, setSelection] = useState(new Set());
@@ -2315,9 +2317,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           ...((estDirection(getUser()) || ['secretariat', 'editeur'].includes(getUser()?.role)) ? [{ label: 'Experts', items: [
             { key: 'nav-prestations', label: 'Prestations des experts', icon: IconClockHour4, actif: vue === 'prestations', onClick: () => setVue('prestations') },
           ]}] : []),
-          // LE TEMPS DE TRAVAIL (3.5.039) : la direction, et les personnes qu'elle a désignées (le secrétariat).
-          ...(ttMoi?.gere || ttMoi?.designe ? [{ label: 'Temps de travail', items: [
-            { key: 'nav-temps', label: 'Temps de travail', icon: IconClockHour4, actif: vue === 'temps', onClick: () => setVue('temps') },
+          /* MON TEMPS (3.5.301) reste ici pour les personnes désignées ; L'ÉCRAN DE LA DIRECTION a rejoint Organisation → Le temps de
+             l'école → Horaires du personnel (3.5.307, Charles : « tout horaire doit aller dans Organisation »). */
+          ...(ttMoi?.designe && !ttMoi?.gere ? [{ label: 'Mon temps', items: [
+            { key: 'nav-temps', label: 'Mon temps', icon: IconClockHour4, actif: vue === 'temps', onClick: () => setVue('temps') },
           ]}] : []),
           ...(estDirection(getUser()) ? [{ label: 'Carrière', items: [
             { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription,

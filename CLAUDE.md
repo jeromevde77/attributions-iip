@@ -3262,7 +3262,10 @@ OU la direction adjointe ; `valider` d'une modulation n'exige plus le contrôle 
 un clic (sans glisser) sur une case ouvre `components/SemaineTemps.jsx` (7 jours, 7 h → 20 h, journées étirables au quart d'heure) ;
 `POST /semaine/:uid/:lundi` = `retoucherSemaine` (monTemps.js) : la semaine garde exactement les jours posés, l'assistant compense
 la différence, simulation à chaque geste, `ecrire` = modulation acceptée aussitôt. 3.5.306 : flèches de semaine dans le bandeau, et
-plusieurs personnes côte à côte (une couleur chacune, `--c-serie_*`), enregistrées personne par personne.
+plusieurs personnes côte à côte (une couleur chacune, `--c-serie_*`), enregistrées personne par personne. **3.5.307** (Charles :
+« tout horaire doit aller dans Organisation ») : l'écran de la direction = Organisation → Le temps de l'école → 7. Horaires du personnel
+(onglet `temps-travail`, rôles de direction) ; Personnel ne garde que « Mon temps » des personnes désignées ; `/professeurs?vue=temps`
+renvoie la direction vers Organisation ; notifications : direction → Organisation, personne → Mon temps.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
