@@ -220,7 +220,7 @@ export function retoucherSemaine(uid, annee, lundi, jours, { ecrire = false, use
   const JOURS_NOM = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
   const controles = controleSemaine(propres, { formule, fraction: Number(p.fraction) || 1, modele: s.jours, rtVariable: R.rt_variable })
     .filter(c => !/doit compter exactement/.test(c))
-    .filter(c => !(/au plus 2 h d’écart avec l’horaire prévu/.test(c) && [...deplaces].some(i => c.startsWith(`${JOURS_NOM[i]} :`))));
+    .filter(c => !(/au plus 2 h de plus que l’horaire prévu/.test(c) && [...deplaces].some(i => c.startsWith(`${JOURS_NOM[i]} :`))));
   for (const c of compensees) for (const e of c.controles || []) erreurs.push(`Semaine du ${c.lundi.split('-').reverse().join('/')} : ${e}`);
   const bilan = { lundi, avant: avantT, apres: apresT, jours: propres, compensees, du, apres_annee: apresAnnee, au_solde: apresAnnee - du, controles, erreurs };
   if (!ecrire) return { simulation: true, ...bilan };

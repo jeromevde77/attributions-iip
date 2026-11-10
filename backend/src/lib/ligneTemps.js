@@ -318,10 +318,10 @@ export function controleModule(jours, { fraction = 1, modele }) {
   if (t > REGLES.semaineMaxFlex) out.push(`${hm(t)} : 45 h par semaine au plus.`);
   // L'écart de la semaine se mesure sur les jours travaillés : un jour de récupération sort de la référence.
   const ref = Math.round(REGLES.hebdo * fraction) - jours.reduce((s, j, i) => s + (estRecup(j) ? dureeJour(modele[i]) : 0), 0);
-  if (Math.abs(t - ref) > REGLES.ecartSemaine) out.push(`${hm(t)} : au plus 5 h d’écart avec les ${hm(ref)} de référence de la semaine.`);
+  if (t - ref > REGLES.ecartSemaine) out.push(`${hm(t)} : au plus 5 h de plus que les ${hm(ref)} de référence de la semaine.`);   // art. 20bis : le dépassement (3.5.310)
   jours.forEach((j, i) => {
     if (!j || estRecup(j) || !modele[i]) return;
-    if (Math.abs(dureeJour(j) - dureeJour(modele[i])) > REGLES.ecartJour) out.push(`${JOURS[i]} : au plus 2 h d’écart avec l’horaire de référence (${hm(dureeJour(modele[i]))}).`);
+    if (dureeJour(j) - dureeJour(modele[i]) > REGLES.ecartJour) out.push(`${JOURS[i]} : au plus 2 h de plus que l’horaire de référence (${hm(dureeJour(modele[i]))}).`);
   });
   return out;
 }

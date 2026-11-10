@@ -98,6 +98,16 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
   const bloque = !modifiees.length || enCours || modifiees.some(u => { const s = donnees[u]?.sim; return !s || (s.controles || []).length || (s.erreurs || []).length; });
+  const raisonPied = (() => {
+    if (!modifiees.length) return null;
+    for (const u of modifiees) {
+      const s = donnees[u]?.sim;
+      if (!s) return { etat: 'neutre', texte: 'Lucie vérifie…' };
+      const r = [...(s.controles || []), ...(s.erreurs || [])];
+      if (r.length) return { etat: 'corriger', texte: `${modifiees.length > 1 ? `${nom(u)} : ` : ''}${r[0]}${r.length > 1 ? ` (et ${r.length - 1} autre(s), détail sous la grille)` : ''}` };
+    }
+    return { etat: 'reussi', texte: 'Tout tient : « Enregistrer » applique.' };
+  })();
   const autres = equipe.filter(p => !ids.includes(p.id) && p.genere);
   const k = semaines.indexOf(lundi);
 
@@ -109,7 +119,10 @@ export default function SemaineTemps({ api, equipe, personneInitiale, lundiIniti
         <button type="button" className="text-white/90 hover:text-white disabled:opacity-40" disabled={k >= semaines.length - 1} onClick={() => aller(1)} aria-label="Semaine suivante" title="Semaine suivante"><IconChevronRight size={20} /></button>
       </>}
       pied={<div className="flex items-center gap-2 w-full">
-        <span className="text-second text-slate-500 flex-1 min-w-0">Tirez le haut ou le bas d’une journée pour la changer, au quart d’heure. Rien n’est enregistré avant « Enregistrer ».</span>
+        {/* POURQUOI LE BOUTON EST GRIS SE DIT À CÔTÉ DE LUI (3.5.310, Charles : « je ne sais pas enregistrer » — la raison
+            restait sous la grille, hors de vue). */}
+        <span className="text-second flex-1 min-w-0" style={{ color: raisonPied?.etat === 'corriger' ? 'var(--c-refuse)' : undefined }}>
+          {raisonPied ? raisonPied.texte : 'Tirez le haut ou le bas d’une journée pour la changer, au quart d’heure. Rien n’est enregistré avant « Enregistrer ».'}</span>
         <button type="button" className="bouton" onClick={onFermer}>Fermer</button>
         <button type="button" className="bouton bouton-fort" disabled={bloque} onClick={enregistrer}>Enregistrer{modifiees.length > 1 ? ` (${modifiees.length})` : ''}</button></div>}>
       {/* Les personnes affichées, chacune sa couleur ; « + » en ajoute une à côté. */}

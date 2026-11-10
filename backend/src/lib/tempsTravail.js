@@ -258,9 +258,12 @@ export function controleSemaine(jours, { formule, fraction = 1, modele = null, r
   if (formule === 'annualise') {
     if (!rtVariable) out.push('Horaire annualisé : il ne s’applique qu’une fois l’horaire variable inscrit au règlement de travail (Réglages).');
     if (t > REGLES.semaineMaxFlex) out.push(`${hm(t)} : 45 h par semaine au plus.`);
-    if (Math.abs(t - cible) > REGLES.ecartSemaine) out.push(`${hm(t)} : au plus 5 h d’écart avec les ${hm(cible)} prévues.`);
+    /* L'ART. 20BIS LIMITE LE DÉPASSEMENT (3.5.310, Charles, journée de Mati réduite de 9 h à 5 h 30 : « je ne sais pas
+       enregistrer ») : 2 h de plus par jour et 5 h de plus par semaine au plus ; une journée ou une semaine plus courte n'est pas
+       bornée par lui — l'année garde ses heures (compensation ou solde). */
+    if (t - cible > REGLES.ecartSemaine) out.push(`${hm(t)} : au plus 5 h de plus que les ${hm(cible)} prévues.`);
     if (modele) jours.forEach((j, i) => {
-      if (Math.abs(dureeJour(j) - dureeJour(modele[i])) > REGLES.ecartJour) out.push(`${JOURS[i]} : au plus 2 h d’écart avec l’horaire prévu (${hm(dureeJour(modele[i]))}).`);
+      if (dureeJour(j) - dureeJour(modele[i]) > REGLES.ecartJour) out.push(`${JOURS[i]} : au plus 2 h de plus que l’horaire prévu (${hm(dureeJour(modele[i]))}).`);
     });
   } else if (t !== cible) out.push(`${hm(t)} prévues : la semaine doit compter exactement ${hm(cible)}.`);
   return out;
