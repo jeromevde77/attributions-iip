@@ -37,6 +37,7 @@ import { assainir } from '../lib/texteCorpus.js';
 import { gesteAutorise } from '../lib/gestes.js';
 import { texteVersHtml, rubriquesDuDossier, texteDesRubriques, rubriquesDuTexte } from '../lib/texteDossier.js';
 import { deposerDemande } from './demandes.js';
+import { appliquerNomCours } from '../lib/nomsCours.js';
 import { synchroniserGrille, bilanGrille } from '../lib/grilleDuCroisement.js';
 
 const r = Router();
@@ -768,6 +769,39 @@ r.post('/:ueNum/dossier/proposer', authRequired, (req, res) => {
     annee_scolaire: annee, libelle: `Dossier pédagogique de l’UE ${ueNum} — ${ue.ue_nom || ''} : ${Object.keys(avant).join(', ')}`,
     avant, apres, user: req.user });
   res.json(rep);
+});
+
+/* LE NOM DES COURS (3.5.297, lib/nomsCours.js). { annee, noms: { code: nom }, motif } — la direction écrit au référentiel (année et
+   suivantes) ; la coordination de la section (la conseillère qualité comprise) renomme pour l'année et propose à la direction. */
+r.post('/:ueNum/cours-noms', authRequired, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  const direction = ACTEURS_DP.includes(req.user?.role);
+  if (!direction && !estCoordinationDe(req.user, ueNum, annee)) return res.status(403).json({ error: 'Le nom d’un cours se propose par la coordination de la section.' });
+  const recus = req.body?.noms && typeof req.body.noms === 'object' ? req.body.noms : {};
+  const motif = String(req.body?.motif || '').trim();
+  const ue = db.prepare('SELECT section, ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee);
+  if (!ue) return res.status(404).json({ error: 'UE introuvable pour cette année.' });
+  const lire = db.prepare('SELECT cours_code, cours_nom FROM cours WHERE cours_code = ? AND ue_num = ? AND annee_scolaire = ?');
+  const changes = [];
+  for (const [code, v] of Object.entries(recus)) {
+    const nom = String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    const c = lire.get(String(code), ueNum, annee);
+    if (!c || nom.length < 3 || nom === c.cours_nom) continue;
+    changes.push({ code: c.cours_code, avant: c.cours_nom || '', apres: nom });
+  }
+  if (!changes.length) return res.status(400).json({ error: 'Aucun nom de cours n’a changé.' });
+  if (!direction && !motif) return res.status(400).json({ error: 'Dites en une phrase ce que corrige la proposition.' });
+  for (const c of changes) {
+    appliquerNomCours(c.code, c.apres, annee, { suivantes: direction });
+    if (!direction) {
+      db.prepare(`DELETE FROM demande_modification WHERE type = 'cours_nom' AND statut = 'en_attente' AND cible_id = ?`).run(`${c.code}|${annee}`);
+      deposerDemande({ type: 'cours_nom', operation: 'modifier', cible_id: `${c.code}|${annee}`, section: ue.section, annee_scolaire: annee,
+        libelle: `Nom du cours ${c.code} (UE ${ueNum}) : « ${c.avant} » → « ${c.apres} »`,
+        avant: { nom: c.avant }, apres: { nom: c.apres, 'Motif de la correction': motif.slice(0, 2000) }, user: req.user });
+    }
+  }
+  res.json({ ok: true, n: changes.length, direct: direction });
 });
 
 // SOUMETTRE À LA DIRECTION (14 octobre 2026) : le rédacteur — titulaire ou coordination — dit que

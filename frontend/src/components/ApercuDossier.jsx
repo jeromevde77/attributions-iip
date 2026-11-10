@@ -24,6 +24,7 @@ export default function ApercuDossier({ ueNum, onSuivante }) {
   const [rub, setRub] = useState({});
   const [touchees, setTouchees] = useState({});
   const [motif, setMotif] = useState('');
+  const [nomsCours, setNomsCours] = useState({});   // { code: nouveau nom } (3.5.297)
   const [envoi, setEnvoi] = useState(false);
   const [msg, setMsg] = useState(null);
   const charger = useCallback(() => {
@@ -51,19 +52,28 @@ export default function ApercuDossier({ ueNum, onSuivante }) {
   const m = edition ? 'e' : 'l';
   const bloc = (k, titre) => ((R[k] || edition)
     ? <EditeurRubrique key={`${m}-${k}`} titre={titre} texte={R[k] || ''} lecture={!edition} onChange={v => poser(k, v)} /> : null);
-  const ouvrir = () => { setRub(R0); setTouchees({}); setMotif(''); setMsg(null); setEdition(true); };
+  const ouvrir = () => { setRub(R0); setTouchees({}); setNomsCours({}); setMotif(''); setMsg(null); setEdition(true); };
   const direct = droit.peut === 'direct';
   const nb = Object.keys(touchees).length;
+  const nomsChanges = Object.fromEntries(Object.entries(nomsCours).filter(([k, v]) => v.trim() && v.trim() !== (cours.find(c => c.cours_code === k)?.cours_nom || '')));
+  const nbNoms = Object.keys(nomsChanges).length;
   async function envoyer() {
     setEnvoi(true); setMsg(null);
     try {
-      const r = direct
+      const r = !nb ? { ok: true, json: async () => ({}) } : direct
         ? await fetch(`/api/ref/ue/${ueNum}/dossier`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee: getAnnee(), rubriques: touchees }) })
         : await fetch(`/api/due/${ueNum}/dossier/proposer`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee: getAnnee(), rubriques: touchees, motif }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'Refusé.');
+      // LE NOM DES COURS (3.5.297), APRÈS les rubriques : il renomme aussi le titre du cours dans le programme du dossier.
+      if (nbNoms) {
+        const rn = await fetch(`/api/due/${ueNum}/cours-noms`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee: getAnnee(), noms: nomsChanges, motif }) });
+        const jn = await rn.json().catch(() => ({}));
+        if (!rn.ok) throw new Error(jn.error || 'Nom du cours refusé.');
+      }
       setEdition(false);
-      setMsg({ etat: 'reussi', t: direct ? 'Le dossier pédagogique est enregistré au référentiel.' : 'Votre correction est transmise à la direction. Le dossier ne change qu’après son accord.' });
+      setMsg({ etat: 'reussi', t: [nb ? (direct ? 'Le dossier pédagogique est enregistré au référentiel.' : 'Votre correction est transmise à la direction. Le dossier ne change qu’après son accord.') : null,
+        nbNoms ? (direct ? 'Le nom du cours est enregistré au référentiel, pour cette année et les suivantes.' : 'Le nouveau nom du cours vaut pour cette année ; il entrera au référentiel quand la direction l’aura accepté.') : null].filter(Boolean).join(' ') });
       charger();
     } catch (e) { setMsg({ etat: 'corriger', t: e.message }); } finally { setEnvoi(false); }
   }
@@ -85,6 +95,18 @@ export default function ApercuDossier({ ueNum, onSuivante }) {
           {direct ? 'Ce que vous corrigez ici entre directement au référentiel.'
             : 'Corrigez les rubriques mal importées. Rien ne change au référentiel : votre proposition part à la direction, qui l’accepte ou la refuse.'}
         </Encadre>)}
+      {edition && cours.length > 0 && (
+        <section className="carte p-3 space-y-2">
+          <div className="intertitre m-0">Nom des cours</div>
+          <p className="text-second text-slate-500 m-0">{direct ? 'Le nom corrigé entre au référentiel, pour cette année et les suivantes.'
+            : 'Le nom corrigé vaut tout de suite pour cette année ; il entre au référentiel quand la direction l’accepte.'}</p>
+          {cours.map(c => (
+            <label key={c.cours_code} className="flex items-center gap-2 text-sm">
+              <span className="w-16 shrink-0 tabular-nums text-slate-500">{c.cours_code}</span>
+              <input className="controle flex-1 min-w-0" data-reponses="non" value={nomsCours[c.cours_code] ?? c.cours_nom ?? ''}
+                onChange={e => setNomsCours(n => ({ ...n, [c.cours_code]: e.target.value }))} />
+            </label>))}
+        </section>)}
       {bloc('Finalités', '1. Finalités de l’unité')}
       {bloc('Capacités préalables', '2. Capacités préalables requises')}
       {bloc("Acquis d'apprentissage", '3. Acquis d’apprentissage')}
@@ -98,9 +120,9 @@ export default function ApercuDossier({ ueNum, onSuivante }) {
             <input className="controle w-full mt-1" data-reponses="non" value={motif} onChange={e => setMotif(e.target.value)}
               placeholder="ex. le programme du cours 2 était coupé à l’import" /></label>}
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className="text-second text-slate-500 mr-auto">{nb ? `${nb} rubrique(s) modifiée(s)` : 'Aucune rubrique modifiée'}</span>
+            <span className="text-second text-slate-500 mr-auto">{nb || nbNoms ? [nb ? `${nb} rubrique(s) modifiée(s)` : null, nbNoms ? `${nbNoms} nom(s) de cours` : null].filter(Boolean).join(' · ') : 'Rien de modifié'}</span>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setEdition(false)}><IconX size={15} /> Annuler</button>
-            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={envoi || !nb || (!direct && !motif.trim())} onClick={envoyer}>
+            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={envoi || (!nb && !nbNoms) || (!direct && !motif.trim())} onClick={envoyer}>
               {direct ? <><IconDeviceFloppy size={15} /> Enregistrer au référentiel</> : <><IconSend size={15} /> Proposer à la direction</>}</button>
           </div>
         </div>

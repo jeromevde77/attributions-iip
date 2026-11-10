@@ -17,6 +17,7 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 import { gesteRequis } from '../lib/gestes.js';
 import { ecrireTitres } from '../lib/titresCapacite.js';
 import { rubriquesDuTexte, texteDesRubriques } from '../lib/texteDossier.js';
+import { appliquerNomCours } from '../lib/nomsCours.js';
 
 const r = Router();
 
@@ -100,6 +101,14 @@ const APPLICATEURS = {
   },
   /* Le dossier pédagogique proposé par la coordination (routes/due.js, 3.5.262) : les rubriques acceptées entrent au référentiel,
      la version lue à l'import reste dans ue_dp_origine. Le motif n'est pas une rubrique. */
+  // LE NOM D'UN COURS (3.5.297) : déjà valable pour l'année depuis la proposition ; accepté, il vaut aussi pour les suivantes.
+  cours_nom: (d) => {
+    const [code, annee] = String(d.cible_id || '').split('|');
+    const a = JSON.parse(d.apres);
+    if (!a?.nom) throw new Error('Nom absent');
+    appliquerNomCours(code, String(a.nom), annee, { suivantes: true });
+    return 'Nom du cours enregistré au référentiel.';
+  },
   dossier_pedagogique: (d) => {
     const [num, annee] = String(d.cible_id || '').split('|');
     const ue = db.prepare('SELECT ue_dp FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(Number(num), annee);

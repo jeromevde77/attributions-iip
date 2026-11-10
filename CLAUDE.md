@@ -3205,6 +3205,13 @@ Le rapport `listes-examens` (doublon) est retiré du catalogue. `sansDispenses` 
 de `epreuves()` (`lib/examens.js`) et d'`etudiantsDeLEpreuve` (`lib/passages.js`). L'avion d'une épreuve du calendrier des sessions
 ouvre le centre réglé sur elle (`perimetre.examen`).
 
+**LE NOM D'UN COURS SE CORRIGE DEPUIS L'ÉTAPE 0** (3.5.297, Charles : « proposer aussi le nom du cours ; le référentiel en dur SI
+la direction valide ; sinon, cela reste pour l'année en cours » ; tranché : l'année en cours d'office, mêmes acteurs que les
+rubriques). `POST /api/due/:ue/cours-noms` (`lib/nomsCours.js`, `appliquerNomCours`) : la coordination renomme la ligne `cours` de
+l'année et dépose une demande `cours_nom` ; acceptée (applicateur de `routes/demandes.js`), le nom vaut pour l'année et les
+suivantes ; la direction écrit d'emblée l'année et les suivantes. Le titre du cours est renommé dans `ue.ue_dp`
+(`renommerDansDossier`, lignes de titre seulement) : le programme se découpe par les noms des cours.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
