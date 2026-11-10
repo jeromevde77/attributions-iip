@@ -167,7 +167,8 @@ function domicile(fiches) {
     const reg = regionDuCp(cp);
     if (!reg) { r.inconnu++; continue; }
     r[reg]++;
-    const nom = `${cp} ${casse(f.localite) || ''}`.trim();
+    // « 1020 1020 Bruxelles » : la localité porte parfois déjà le code postal (import) — on ne l'écrit qu'une fois.
+    const nom = `${cp} ${casse(String(f.localite || '').replace(new RegExp(`^\\s*${cp}\\s*`), '')) || ''}`.trim();
     r.communes[cp] = r.communes[cp] || { cp, nom, n: 0 };
     r.communes[cp].n++;
   }

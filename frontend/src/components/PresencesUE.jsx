@@ -186,9 +186,9 @@ export default function PresencesUE({ ueInitiale = null }) {
                       style={Object.values(d.jalons).includes(s.date) && !s.annule ? { background: 'color-mix(in srgb, #C9A227 18%, transparent)' } : undefined}>
                       <div className="font-semibold text-slate-800">{fr(s.date)}</div>
                       <div>{s.cours_code}</div>
-                      {!s.annule && !s.sous_groupe && s.date <= d.aujourdhui && (
+                      {!s.annule && s.date <= d.aujourdhui && (
                         <button type="button" className="mt-0.5 text-[10px] font-semibold underline text-iip-blue"
-                          title="Toutes les cases vides de cette séance en « présent »" onClick={() => remplir({ seance_id: s.id }, `le ${frl(s.date)}`)}>tous P</button>)}
+                          title={s.sous_groupe ? `Les étudiants du groupe ${s.sous_groupe} (répartition des groupes) en « présent », cases vides seulement` : 'Toutes les cases vides de cette séance en « présent »'} onClick={() => remplir({ seance_id: s.id }, `le ${frl(s.date)}`)}>tous P</button>)}
                     </th>
                     {(apres[i] || []).map(colReg)}
                   </Fragment>
