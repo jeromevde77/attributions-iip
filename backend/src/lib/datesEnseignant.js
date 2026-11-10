@@ -8,6 +8,7 @@
 // Ses unités et ses cours : ceux de ses attributions (`attributionsDe`), la règle de Mes cours.
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { tousLesPassages } from './passages.js';
 import { attributionsDe } from './etudiantsCours.js';
 
 /** L'agenda de l'école tel qu'un enseignant le lit (sorti de portailEnseignants.js). */
@@ -46,6 +47,8 @@ export function examensEtDeliberations(profId, annee) {
   const nom = (u) => { try { return db.prepare('SELECT MAX(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(u, annee)?.n || ''; } catch { return ''; } };
   const nomCours = (c) => { try { return db.prepare('SELECT MAX(cours_nom) n FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(c, annee)?.n || ''; } catch { return ''; } };
   const out = [];
+  const aPassages = new Map();
+  for (const p of tousLesPassages(annee)) { const k = `${p.session}|${p.ue_num}|${p.cours_code || ''}`; if (!aPassages.has(k)) aPassages.set(k, []); aPassages.get(k).push(p); }
   for (const [t, k, session] of [['epreuve_session1', 's1', 1], ['deliberation_session2', 's2', 2]]) {
     let l = [];
     try {
@@ -56,6 +59,14 @@ export function examensEtDeliberations(profId, annee) {
       if (!ues.has(Number(e.ue_num))) continue;
       const c = String(e.cours_code || '');
       if (c && !cours.has(c)) continue;
+      // PLUSIEURS PASSAGES (3.5.284) : un événement par passage (partie, groupe), à la place de la date unique.
+      const ps = aPassages.get(`${session}|${e.ue_num}|${c}`);
+      if (ps) {
+        for (const p of ps) out.push({ type: 'examen', session, date: String(p.date).slice(0, 10), heure: p.heure || null, ue_num: Number(e.ue_num), cours_code: c || null,
+          titre: `Examen S${session} — ${c ? `${c} ${nomCours(c)}` : `UE ${e.ue_num} ${nom(e.ue_num)}`}${p.partie ? ` · ${p.partie}` : ''}${ps.length > 1 ? ` (passage ${p.rang}/${ps.length})` : ''}`.trim(),
+          lieu: [p.local, p.adresse].filter(Boolean).join(', ') || null, uid: `examen-p${p.id}` });
+        continue;
+      }
       out.push({ type: 'examen', session, date: String(e.date).slice(0, 10), heure: e.heure || null, ue_num: Number(e.ue_num), cours_code: c || null,
         titre: `Examen S${session} — ${c ? `${c} ${nomCours(c)}` : `UE ${e.ue_num} ${nom(e.ue_num)}`}`.trim(),
         lieu: [e.local, e.adresse].filter(Boolean).join(', ') || null, uid: `examen-s${session}-${e.ue_num}-${c || 'ue'}` });

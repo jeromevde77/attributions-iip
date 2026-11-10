@@ -4,6 +4,18 @@ export const chapitres = [];
 export const ajouts = {
   etudiants: [
     {
+      titre: "Un examen en plusieurs passages",
+      pour: 'sec coo dir',
+      ou: "Organisation → L'année → Sessions : épreuves et délibérations → une unité → sous un cours, « Plusieurs passages ? ».",
+      texte: "Quand un cours s'examine en plusieurs fois — un groupe le matin, un autre l'après-midi, ou un écrit puis un oral —, chaque passage reçoit sa partie (facultative), sa date, son heure, son local et ses étudiants : tous, des groupes de la répartition (ou une organisation), une tranche alphabétique, ou à la main. [[Enregistrer|IconDeviceFloppy|fort]] calcule les listes ; Lucie nomme les étudiants placés nulle part, ou deux fois pour une même partie.",
+      savoir: [
+        "Les listes d'examens à émarger (Éditions) sortent une page par passage, avec ses seuls étudiants.",
+        "Le professeur voit chaque passage dans son agenda, l'étudiant le sien dans son espace (« Mes prochains examens »).",
+        "La date unique du calendrier porte le premier passage ; « Revenir à une seule date » retire les passages.",
+        "Une partie n'est qu'un moment d'examen : les notes restent par acquis.",
+      ],
+    },
+    {
       titre: "Le suivi de santé : la visite médicale du CESI",
       pour: 'sec coo dir',
       ou: "Étudiants → la fiche de l'étudiant → onglet « Santé ».",

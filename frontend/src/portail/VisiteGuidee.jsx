@@ -19,7 +19,7 @@ export const ETAPES_VISITE = [
     gestes: ['« Suivant » pour avancer, « Passer » pour fermer.', 'À la fin, la visite vous mène à votre premier geste : vérifier votre programme de l’année (votre PAE), puis le confirmer ou dire ce qui ne va pas.', 'Vous pourrez relancer la visite à tout moment depuis « Aide ».'] },
   { face: 'aujourdhui', cible: 'contenu', titre: 'Aujourd’hui',
     texte: 'Votre point de départ, à chaque visite : ce qui vous attend, une ligne par chose.',
-    gestes: ['Documents et règlements à signer, messages non lus : ils apparaissent ici en premier.', 'Touchez une ligne : elle vous mène là où la faire.'] },
+    gestes: ['Documents et règlements à signer, messages non lus : ils apparaissent ici en premier.', 'Touchez une ligne : elle vous mène là où la faire.', 'Plus bas, vos prochains examens : date, heure, local — et la partie, quand l’examen se passe en plusieurs fois.'] },
   { face: 'parcours', sous: 'parcours', cible: 'contenu', titre: 'Mon parcours — schéma et unités',
     texte: 'Votre formation d’un coup d’œil : ce que vous avez acquis, ce qui est à votre programme, ce qui vient ensuite.',
     gestes: ['Le schéma montre les unités de votre section et les liens entre elles (ce qu’il faut avoir réussi avant).',

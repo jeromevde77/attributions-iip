@@ -61,10 +61,12 @@ function LigneSession({ it, annee, onFait }) {
     <div className="flex flex-wrap items-center gap-2 py-1.5 border-t border-slate-100">
       <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: it.quoi === 'deliberation' ? 'var(--c-principal)' : 'var(--c-attente)' }}>{quoi} S{it.session}</span>
       <span className="min-w-0 flex-1"><b>{it.cours_code || `UE ${it.ue_num}`}</b> <span className="text-slate-500">{it.ue_nom}</span>
-        {it.org ? <span className="text-second text-slate-400"> · org. {it.org} (se règle dans la délibération)</span> : null}{it.close ? <span className="text-second text-slate-400"> · séance close</span> : null}</span>
-      <input type="date" className="controle !h-8" value={date} onChange={e => setDate(e.target.value)} disabled={!!it.org} aria-label="Date" />
-      <input type="time" className="controle !h-8" value={heure} onChange={e => setHeure(e.target.value)} disabled={!!it.org} aria-label="Heure" />
-      <button type="button" className="bouton !h-8" disabled={!change || !!it.org} onClick={enregistrer}>Enregistrer</button>
+        {it.org ? <span className="text-second text-slate-400"> · org. {it.org} (se règle dans la délibération)</span> : null}{it.close ? <span className="text-second text-slate-400"> · séance close</span> : null}
+        {/* UN PASSAGE (3.5.284) se règle dans sa fenêtre « Passages » du calendrier des sessions, avec sa liste. */}
+        {it.passage ? <span className="text-second text-slate-400"> · {it.partie ? `${it.partie} · ` : ''}passage (se règle dans le calendrier des sessions → Passages)</span> : null}</span>
+      <input type="date" className="controle !h-8" value={date} onChange={e => setDate(e.target.value)} disabled={!!it.org || !!it.passage} aria-label="Date" />
+      <input type="time" className="controle !h-8" value={heure} onChange={e => setHeure(e.target.value)} disabled={!!it.org || !!it.passage} aria-label="Heure" />
+      <button type="button" className="bouton !h-8" disabled={!change || !!it.org || !!it.passage} onClick={enregistrer}>Enregistrer</button>
     </div>);
 }
 

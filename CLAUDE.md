@@ -3148,6 +3148,18 @@ direction, secrétariat ; régler : direction). Fiche → onglet « Santé » (`
 les blocages du stage (plus de saisie `medecine_le` à l'écran), filtre « Visite médicale manquante » de la liste, `sante_manquante`
 de la feuille de délibération d'une UE à cours `is_stage`.
 
+**UN EXAMEN EN PLUSIEURS PASSAGES** (3.5.284, Charles, 10 novembre 2026 : « plusieurs groupes et donc plusieurs dates ; un cours
+coupé en parties, avec des listes d'étudiants » ; tranché : placement par groupe, tranche alphabétique et à la main ; une partie =
+un moment d'examen, les notes restent par acquis ; posés par secrétariat, direction et coordination ; lus par les listes à émarger,
+l'agenda du professeur, l'agenda de l'école, l'espace de l'étudiant). `lib/passages.js` (tables `epreuve_passage` — partie, date,
+heure, local, mode tous|groupes|alpha|main, groupes JSON avec « org:N » — et `epreuve_passage_etudiant` ; `etudiantsDeLEpreuve` =
+la règle des listes d'examens ; `placer`/`repartir` : listes, non placés, doublons par partie ; `enregistrer` remplace tous les
+passages d'une épreuve et pose le PREMIER sur la ligne du calendrier `epreuve_session1`/`deliberation_session2`). Routes
+`GET/PUT /api/calendrier/passages`. Écran : `components/PassagesExamen.jsx`, ouvert sous chaque cours du calendrier des sessions.
+Lecteurs : `donneesExamens` (une page par passage), `examensEtDeliberations` (agenda du professeur), `unitesEtSessions` (agenda de
+l'école ; ligne en lecture dans `AgendaDates`), `examensDe` (`parcours.examens` de l'espace étudiant, « Mes prochains examens »).
+**Un nouveau lecteur des dates d'examen lit d'abord les passages (`tousLesPassages`, `placer`), puis la date unique.**
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

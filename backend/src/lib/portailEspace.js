@@ -11,6 +11,8 @@ import { composerPAE, donneesCapitalisation } from '../routes/etudiants.js';
 import { sigleVA } from './valorisation.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
 import { qrSvg } from './banque.js';
+import { placer } from './passages.js';
+import { aRepresenterParCours } from '../routes/acquis.js';
 
 /** Le parcours de l'année : chaque unité de ses sections, son état, ses crédits ; les crédits acquis. */
 export function parcoursPortail(e, annee) {
@@ -42,7 +44,42 @@ export function parcoursPortail(e, annee) {
   // ne passent pas derrière, comme partout ailleurs ») : on dépose les DONNÉES du schéma de la fiche ; le site des étudiants
   // les dessine avec le même composant (SchemaCapitalisation, lib/schemaCouches.js). Le SVG du serveur ne sert plus ici.
   try { const g = donneesCapitalisation(e.id, annee); if (g.nodes?.length) schema = { nodes: g.nodes, edges: g.edges, groupes: g.groupes, colonnes: g.colonnes }; } catch (x) { console.error('[portail] schéma :', x.message); }
-  return { annee, sections: c.sections || [], unites, ects_total: total, ects_acquis: acquis, schema };
+  return { annee, sections: c.sections || [], unites, ects_total: total, ects_acquis: acquis, schema, examens: examensDe(e, annee) };
+}
+
+/** SES EXAMENS (3.5.284, Charles : les passages visibles « dans l'espace de l'étudiant ») : pour chaque épreuve datée de ses
+ *  unités de l'année — 1re session s'il y est inscrit, 2e s'il représente CE cours —, le passage qui le concerne (date, heure,
+ *  local, partie) ; sans passage, la date unique du calendrier. De la veille à la fin de l'année. */
+export function examensDe(e, annee) {
+  const out = [];
+  const depuis = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+  let ues = [];
+  try { ues = db.prepare(`SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(statut, '') NOT IN ('abandon', 'desinscrit')`).all(e.id, annee).map(x => Number(x.ue_num)); } catch { return []; }
+  if (!ues.length) return [];
+  const nomCours = c => { try { return db.prepare('SELECT MAX(cours_nom) n FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(c, annee)?.n || ''; } catch { return ''; } };
+  const nomUE = u => { try { return db.prepare('SELECT MAX(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(u, annee)?.n || ''; } catch { return ''; } };
+  const moi = { id: e.id, nom: e.nom, prenom: e.prenom };
+  for (const [t, k, session] of [['epreuve_session1', 's1', 1], ['deliberation_session2', 's2', 2]]) {
+    let l = [];
+    try { l = db.prepare(`SELECT ue_num, cours_code, ${k}_date d, ${k}_heure h, ${k}_local lo FROM ${t} WHERE annee_scolaire = ? AND ue_num IN (${ues.map(() => '?').join(',')}) AND ${k}_date IS NOT NULL AND ${k}_date <> ''`).all(annee, ...ues); } catch { l = []; }
+    const ajournes = {};
+    for (const ep of l) {
+      const cours = String(ep.cours_code || '');
+      if (session === 2) {
+        if (!ajournes[ep.ue_num]) { try { ajournes[ep.ue_num] = aRepresenterParCours(Number(ep.ue_num), annee, 1) || {}; } catch { ajournes[ep.ue_num] = {}; } }
+        const par = ajournes[ep.ue_num];
+        const concerne = cours ? (par[cours] || []).some(x => x.id === e.id) : Object.values(par).flat().some(x => x.id === e.id);
+        if (!concerne) continue;
+      }
+      const intitule = cours ? `${cours} ${nomCours(cours)}`.trim() : `UE ${ep.ue_num} ${nomUE(ep.ue_num)}`.trim();
+      let pl = { passages: [] };
+      try { pl = placer([moi], annee, session, ep.ue_num, cours); } catch { pl = { passages: [] }; }
+      if (pl.passages.length) {
+        for (const p of pl.passages.filter(x => x.etudiants.length)) out.push({ session, ue_num: Number(ep.ue_num), cours, intitule, partie: p.partie || null, date: p.date, heure: p.heure || null, local: p.local || null });
+      } else out.push({ session, ue_num: Number(ep.ue_num), cours, intitule, partie: null, date: String(ep.d).slice(0, 10), heure: ep.h || null, local: ep.lo || null });
+    }
+  }
+  return out.filter(x => x.date >= depuis).sort((a, b) => `${a.date}${a.heure || ''}`.localeCompare(`${b.date}${b.heure || ''}`));
 }
 
 /** Les frais de l'année : ce qui est dû, versé, reste ; l'échéance ; comment payer, avec le QR. */
