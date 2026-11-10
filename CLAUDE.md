@@ -3162,6 +3162,21 @@ Lecteurs : `donneesExamens` (une page par passage), `examensEtDeliberations` (ag
 l'école ; ligne en lecture dans `AgendaDates`), `examensDe` (`parcours.examens` de l'espace étudiant, « Mes prochains examens »).
 **Un nouveau lecteur des dates d'examen lit d'abord les passages (`tousLesPassages`, `placer`), puis la date unique.**
 
+**LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE DANS LES STATISTIQUES** (3.5.287, Charles, 10 novembre 2026 : « le type de titre
+d'entrée par section — CESS, etc. — et aussi si chômeur, travailleur » ; tranché : par section dans la pièce Chiffres clés ET à l'écran
+dans Gestion ; une situation professionnelle à liste fermée, une par ANNÉE). `SITUATIONS_PRO` (`lib/profilEtudiant.js`), table
+`etudiant_situation_pro` (`lib/situationPro.js`), routes `GET/PUT /api/etudiants/:id/situation-pro` (geste `etudiants.identite`),
+choix dans la fiche → Identité (`SituationPro`). Lue par `donneesPopulation` (Gestion → Population : cartes et tableaux par section)
+et `donneesChiffresCles` (`parSection` de la pièce). Pas dans l'import sur mesure (il écrit la fiche, pas l'année).
+**La carte des communes** (3.5.289, Charles : « une carte des communes, couleurs en dégradé selon les chiffres » ; tranché : Belgique +
+encart de Bruxelles, le nombre d'étudiants) : `components/CarteCommunes.jsx` sur Gestion → Population ; contours
+`frontend/public/carte/communes-be.json` (secteurs statistiques Statbel au 1er janvier 2026, regroupés en 565 communes par les arêtes
+non partagées, simplifiés, en Lambert 72 projeté) ; code postal → REFNIS `backend/src/donnees/cp-nis.json` (liste bpost 2025) ; comptes
+`domicile.par_nis` (`lib/populationEcole.js`). Un changement de communes (fusions) = refaire les deux fichiers. 3.5.290 (« SLE compris
+ou exclus ? » ; « carte du monde en plus » ; tranché : le choix SLE vaut pour toute la page, le monde = les nationalités, trois cartes
+côte à côte) : `donneesPopulation(…, { sle })` (`?sle=exclus`, `sle_nombre`) ; carte du monde `frontend/public/carte/monde.json`
+(Natural Earth 1:110 M, domaine public, équirectangulaire), nationalité → ISO par `listePays()`.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

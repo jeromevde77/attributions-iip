@@ -12,6 +12,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, SERIES, couleurSerie } from './graphiques.jsx';
 import { TuileEtat, EnteteCarte } from './ui.jsx';
 import { saisir, informer } from '../lib/dialogue.jsx';
+import CarteCommunes from './CarteCommunes.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const pc = (k, n) => (n ? `${Math.round((k / n) * 100)} %` : '—');
@@ -30,6 +31,7 @@ export default function PopulationEcole({ annee: anneeProp }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState('');   // '' = toute l'école
+  const [sle, setSle] = useState('compris');      // SLE compris ou exclus (3.5.290)
   const [tour, setTour] = useState(0);
   // LES EFFECTIFS DE L'ANNÉE (3.5.196) : la même source que la liste des étudiants.
   const [eff, setEff] = useState(null);
@@ -57,10 +59,10 @@ export default function PopulationEcole({ annee: anneeProp }) {
 
   useEffect(() => {
     setErreur(null);
-    fetch(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+    fetch(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&sle=${sle}`, { headers: authHeaders() })
       .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setD(j); })
       .catch(e => setErreur(e.message));
-  }, [annee, tour]);
+  }, [annee, tour, sle]);
 
   if (erreur) return <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>;
   if (!d) return <div className="text-slate-400 py-12 text-center">Chargement…</div>;
@@ -85,7 +87,13 @@ export default function PopulationEcole({ annee: anneeProp }) {
             <button key={k || 'tout'} type="button" onClick={() => setSection(k)}
               className={section === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
         </div>
-        <span className="text-second text-slate-400 ml-auto">{d.annee} · inscrits au {d.ref.split('-').reverse().join('/')}, hors archivés</span>
+        {/* SLE COMPRIS OU EXCLUS (3.5.290) : toute la page de l'année suit. */}
+        <div className="segments" title="Les étudiants en séjour limité aux études (SLE)">
+          {[['compris', 'SLE compris'], ['exclus', 'SLE exclus']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setSle(k)}
+              className={sle === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        </div>
+        <span className="text-second text-slate-400 ml-auto">{d.annee} · inscrits au {d.ref.split('-').reverse().join('/')}, hors archivés{d.sle_nombre ? ` · ${k0(d.sle_nombre)} SLE ${sle === 'exclus' ? 'exclus' : 'compris'}` : ''}</span>
       </div>
 
       {eff && !section && (
@@ -134,6 +142,48 @@ export default function PopulationEcole({ annee: anneeProp }) {
           </>}
         </Carte>
       </div>
+
+      {/* LA CARTE DES COMMUNES (3.5.289) : où habitent les étudiants — l'école ou la section choisie. */}
+      <Carte titre="Où habitent les étudiants, et d'où ils viennent" sous={`Domicile par commune (${k0(domConnu)} adresses belges) · nationalité par pays (${k0(natConnue)} renseignées)${section ? ` · ${NOM_SECTION(section)}` : ''}${sle === 'exclus' ? ' · SLE exclus' : ''}`}>
+        <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />
+      </Carte>
+
+      {/* LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section — CESS,
+          etc. — et aussi si chômeur, travailleur… »). Le titre se lit sur la fiche (Identité) ; la situation, celle de l'année. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Carte titre="Titre d'accès" sous={`Ce qui a ouvert l'inscription · sur ${k0(v.acces_connu || 0)} fiches renseignées${v.n - (v.acces_connu || 0) ? ` · ${k0(v.n - (v.acces_connu || 0))} non renseignées` : ''}`}>
+          {(v.acces_connu || 0) > 0
+            ? <Barres format={n => `${k0(n)} · ${pc(n, v.acces_connu)}`} lignes={(d.listes?.acces || []).filter(([c]) => v.acces?.[c]).map(([c, l]) => ({ nom: l, valeur: v.acces[c] }))} />
+            : <p className="text-sm text-slate-500 m-0">Aucun titre d'accès encodé (fiche → Identité, ou l'import sur mesure).</p>}
+        </Carte>
+        <Carte titre="Situation professionnelle" sous={`Cette année · sur ${k0(v.situation_connue || 0)} fiches renseignées${v.n - (v.situation_connue || 0) ? ` · ${k0(v.n - (v.situation_connue || 0))} non renseignées` : ''}`}>
+          {(v.situation_connue || 0) > 0
+            ? <Barres format={n => `${k0(n)} · ${pc(n, v.situation_connue)}`} lignes={(d.listes?.situations || []).filter(([c]) => v.situation?.[c]).map(([c, l]) => ({ nom: l, valeur: v.situation[c] }))} />
+            : <p className="text-sm text-slate-500 m-0">Aucune situation encodée pour {d.annee} (fiche → Identité → Situation professionnelle).</p>}
+        </Carte>
+      </div>
+      {!section && [['acces', 'acces_connu', "Titre d'accès par section", d.listes?.acces || []], ['situation', 'situation_connue', 'Situation professionnelle par section', d.listes?.situations || []]].map(([k, kc, titre, liste]) => {
+        const codes = liste.filter(([c]) => d.sections.some(x => x[k]?.[c]));
+        if (!codes.length) return null;
+        return (
+          <Carte key={k} titre={titre} sous="Le nombre d'étudiants de chaque section, et sa part parmi les fiches renseignées de la section.">
+            <div className="overflow-x-auto">
+              <table className="w-full text-second">
+                <thead><tr className="tab-entete">
+                  <th className="px-2 py-1 text-left">Section</th>
+                  {codes.map(([c, l]) => <th key={c} className="px-2 py-1 text-right">{l}</th>)}
+                  <th className="px-2 py-1 text-right">Non renseigné</th>
+                </tr></thead>
+                <tbody>{d.sections.map(x => (
+                  <tr key={x.section} className="border-t border-slate-100">
+                    <td className="px-2 py-1">{NOM_SECTION(x.section)}</td>
+                    {codes.map(([c]) => <td key={c} className="px-2 py-1 text-right tabular-nums">{x[k]?.[c] ? <>{k0(x[k][c])} <span className="text-slate-400">· {pc(x[k][c], x[kc])}</span></> : '—'}</td>)}
+                    <td className="px-2 py-1 text-right tabular-nums text-slate-500">{k0(x.n - (x[kc] || 0))}</td>
+                  </tr>))}</tbody>
+              </table>
+            </div>
+          </Carte>);
+      })}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Carte titre="Par bloc" sous="Le niveau principal de chaque étudiant : celui où il a le plus d'unités, le plus bas en cas d'égalité.">

@@ -9,7 +9,10 @@
 // du personnel (`regionDuCp`), le primo celui de `lib/primo.js`, le niveau celui de la population
 // réelle. L'inscrit est celui des chiffres clés : une inscription dans l'année, hors archivés.
 // ─────────────────────────────────────────────────────────────────────────────
+import { readFileSync } from 'node:fs';
 import db from '../db/index.js';
+import { situationsDeLAnnee } from './situationPro.js';
+import { TITRES_ACCES, SITUATIONS_PRO } from './profilEtudiant.js';
 import { profil, regionDuCp } from './chiffresCles.js';
 import { anciensAvant } from './primo.js';
 import { niveauEtudiant } from '../routes/etudiants.js';
@@ -158,34 +161,58 @@ const premiereSection = lignes => {
 
 const casse = t => String(t || '').trim().toLowerCase().replace(/(^|[\s-])\S/g, c => c.toUpperCase());
 
+/* LA CARTE DES COMMUNES (3.5.289, Charles : « une carte des communes concernées avec des couleurs en dégradé en fonction des
+   chiffres ») : chaque code postal belge se rattache à SA commune (code REFNIS de Statbel) par la liste des codes postaux de bpost
+   (donnees/cp-nis.json) ; l'écran dessine les communes (public/carte/communes-be.json, contours Statbel 2026). */
+let CP_NIS = null;
+function cpNis() {
+  if (CP_NIS) return CP_NIS;
+  try { CP_NIS = JSON.parse(readFileSync(new URL('../donnees/cp-nis.json', import.meta.url), 'utf-8')); } catch (e) { console.error('[carte] codes postaux :', e.message); CP_NIS = {}; }
+  return CP_NIS;
+}
 function domicile(fiches) {
-  const r = { bruxelles: 0, wallonie: 0, flandre: 0, inconnu: 0, communes: {} };
+  const r = { bruxelles: 0, wallonie: 0, flandre: 0, inconnu: 0, communes: {}, par_nis: {} };
   for (const f of fiches) {
     const cp = String(f.cp || '').replace(/\D/g, '');
     const reg = regionDuCp(cp);
     if (!reg) { r.inconnu++; continue; }
     r[reg]++;
-    const nom = `${cp} ${casse(f.localite) || ''}`.trim();
+    // « 1020 1020 Bruxelles » : la localité porte parfois déjà le code postal (import) — on ne l'écrit qu'une fois.
+    const nom = `${cp} ${casse(String(f.localite || '').replace(new RegExp(`^\\s*${cp}\\s*`), '')) || ''}`.trim();
     r.communes[cp] = r.communes[cp] || { cp, nom, n: 0 };
     r.communes[cp].n++;
+    const nis = cpNis()[cp.padStart(4, '0')];
+    if (nis) r.par_nis[nis] = (r.par_nis[nis] || 0) + 1;
   }
   r.communes = Object.values(r.communes).sort((a, b) => b.n - a.n);
   return r;
 }
 
-export function donneesPopulation(annee, { sections: perim = null, ref = new Date() } = {}) {
+export function donneesPopulation(annee, { sections: perim = null, ref = new Date(), sle = 'compris' } = {}) {
   const voit = s => !perim || (s && perim.includes(s));
-  const lignes = inscrits(annee).filter(l => voit(l.section));
+  // SLE COMPRIS OU EXCLUS (3.5.290, Charles : « s'ils sont SLE, ils sont dedans ? il faudrait pouvoir faire SLE compris et
+  // exclus ») : le choix vaut pour toute la page de l'année (pas pour l'évolution, faite de chiffres de référence).
+  let sles = new Set();
+  try { sles = new Set(db.prepare('SELECT id FROM etudiant WHERE COALESCE(sejour_limite_etudes, 0) = 1').all().map(x => x.id)); } catch { /* colonne absente */ }
+  const tousLesInscrits = inscrits(annee).filter(l => voit(l.section));
+  const nbSle = new Set(tousLesInscrits.filter(l => sles.has(l.id)).map(l => l.id)).size;
+  const lignes = tousLesInscrits.filter(l => sle !== 'exclus' || !sles.has(l.id));
   const ids = [...new Set(lignes.map(l => l.id))];
   const fiches = new Map(ids.length ? db.prepare(`
-    SELECT id, sexe, date_naissance, nationalite, cp, localite FROM etudiant
+    SELECT id, sexe, date_naissance, nationalite, cp, localite, titre_acces FROM etudiant
      WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids).map(f => [f.id, f]) : []);
   const anciens = anciensAvant(annee);
   const niveauDe = id => { try { return niveauPrincipal(niveauEtudiant(id, annee)) || 'sans niveau'; } catch { return 'sans niveau'; } };
   const niveaux = new Map(ids.map(id => [id, niveauDe(id)]));
 
+  // LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section, et aussi si
+  // chômeur, travailleur… ») : le titre se lit sur la fiche, la situation dans celle de L'ANNÉE.
+  const situations = situationsDeLAnnee(annee);
+  const repartir = (idsG, de) => { const r = {}; let connu = 0; for (const id of idsG) { const v = de(id); if (v) { r[v] = (r[v] || 0) + 1; connu++; } } return { r, connu }; };
   const resume = idsGroupe => {
     const fs = idsGroupe.map(id => fiches.get(id)).filter(Boolean);
+    const ac = repartir(idsGroupe, id => fiches.get(id)?.titre_acces || null);
+    const si = repartir(idsGroupe, id => situations[id] || null);
     const parNiveau = {};
     for (const id of idsGroupe) parNiveau[niveaux.get(id)] = (parNiveau[niveaux.get(id)] || 0) + 1;
     return {
@@ -194,6 +221,7 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
       ba3: idsGroupe.filter(id => niveaux.get(id) === 'BA3').length,
       par_niveau: parNiveau,
       domicile: domicile(fs),
+      acces: ac.r, acces_connu: ac.connu, situation: si.r, situation_connue: si.connu,
     };
   };
 
@@ -235,5 +263,7 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
       par_section: Object.fromEntries(Object.entries(parS).map(([s, set]) => [s, set.size])) };
   });
 
-  return { annee, ref: ref.toISOString().slice(0, 10), ensemble: resume(ids), sections, evolution };
+  return { annee, ref: ref.toISOString().slice(0, 10), ensemble: resume(ids), sections, evolution,
+    sle, sle_nombre: nbSle,
+    listes: { acces: TITRES_ACCES, situations: SITUATIONS_PRO } };
 }

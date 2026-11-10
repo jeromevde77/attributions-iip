@@ -86,13 +86,30 @@ r.post('/ue/:ue/remplir', authRequired, EDITEUR, (req, res) => {
   const borne = jusquau && jusquau < aujourdhui ? jusquau : aujourdhui;
   const lignes = [], seancesTouchees = new Set();
   let sousGroupes = 0;
+  /* LES SÉANCES EN SOUS-GROUPES (3.5.288, Charles : « quand je fais remplir, il ne corrige pas les NE ») : elles se remplissent
+     d'après la répartition des groupes (Organisation → Répartition des étudiants) quand elle existe pour le cours ; sans
+     répartition, elles restent à encoder case par case. */
+  const groupesDe = new Map();
+  try {
+    for (const g of db.prepare(`SELECT etudiant_id, cours_code, groupe_code FROM etudiant_cours_groupe WHERE annee_scolaire = ?
+        AND cours_code IN (SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?) AND COALESCE(groupe_code, '') <> ''`).all(annee, ue, annee)) {
+      const k = `${g.cours_code}|${g.etudiant_id}`;
+      if (!groupesDe.has(k)) groupesDe.set(k, new Set());
+      groupesDe.get(k).add(String(g.groupe_code).trim().toUpperCase());
+    }
+  } catch { /* pas de répartition */ }
+  const coursAvecGroupes = new Set([...groupesDe.keys()].map(k => k.split('|')[0]));
   x.g.seances.forEach((s, i) => {
     if (seanceId ? s.id !== seanceId : s.date > borne) return;
     if (s.annule || s.date > aujourdhui) return;
-    if (s.sous_groupe != null && s.sous_groupe !== '') { sousGroupes++; return; }
+    const sg = s.sous_groupe != null && s.sous_groupe !== '' ? String(s.sous_groupe).trim().toUpperCase() : null;
+    if (sg && !coursAvecGroupes.has(s.cours_code)) { sousGroupes++; return; }
     for (const l of x.g.lignes) {
       const c = l.cases[i];
-      if (c?.statut) continue;                          // déjà encodée, dispensée ou non concernée
+      // « NE » (non encodée) est une case VIDE : c'est elle qu'on remplit. Le reste — présence encodée, dispense, non concerné,
+      // abandon — ne se touche pas.
+      if (c?.statut && c.statut !== 'non_encode') continue;
+      if (sg && !groupesDe.get(`${s.cours_code}|${l.etudiant.id}`)?.has(sg)) continue;   // pas de ce sous-groupe
       const ins = inscr.get(l.etudiant.id);
       if (ins && s.date < ins) continue;                // pas encore inscrit ce jour-là
       lignes.push({ seance_id: s.id, etudiant_id: l.etudiant.id, statut: 'present', motif: null, retard: false });

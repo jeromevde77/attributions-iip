@@ -29,6 +29,19 @@ export const DIPLOMES_MAX = [
   ['autre', 'Autre'],
 ];
 
+/* LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « et aussi si chômeur, travailleur, etc. » ; tranché : une liste fermée, une
+   par ANNÉE — les statistiques d'une année passée ne changent pas). Table `etudiant_situation_pro` (lib/situationPro.js). */
+export const SITUATIONS_PRO = [
+  ['salarie', 'Travailleur salarié'],
+  ['independant', 'Travailleur indépendant'],
+  ['demandeur_emploi', "Demandeur d'emploi"],
+  ['cpas', 'Revenu d’intégration (CPAS)'],
+  ['etudiant', 'Étudiant (sans activité professionnelle)'],
+  ['sans_activite', 'Sans activité professionnelle'],
+  ['pensionne', 'Pensionné'],
+  ['autre', 'Autre'],
+];
+
 const nu = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 /** Reconnaît une valeur d'import : le code, le libellé, ou un mot clé. */

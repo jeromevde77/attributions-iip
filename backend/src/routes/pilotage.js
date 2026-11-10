@@ -270,7 +270,7 @@ r.get('/effectifs', authRequired, (req, res) => {
 r.get('/population-ecole', authRequired, (req, res) => {
   try {
     const annee = req.query.annee || anneeDeTravail(req);
-    res.json({ ...donneesPopulation(annee, { sections: getUserSections(req.user) }),
+    res.json({ ...donneesPopulation(annee, { sections: getUserSections(req.user), sle: req.query.sle === 'exclus' ? 'exclus' : 'compris' }),
       peut_corriger: ['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
