@@ -3193,6 +3193,11 @@ rien ne s'écrit. Population : années en court (`anneeCourte`, `CarteCommunes.j
 points programme »). `estCoordinationDe` (`routes/due.js`) rend vrai pour le rôle `conseiller_qualite`, sans dépendre de la mission
 « Conseiller qualité » de l'année de travail (`personnel_mission` n'en avait qu'une, en 2026-2027).
 
+**UN RÔLE CRÉÉ À L'ÉCRAN EST UN RÔLE** (3.5.295 — la vraie cause du croisement d'Amélie). `normaliserRole` (`middleware/auth.js`)
+ramenait tout rôle hors de `ROLES_CONNUS` à « consultation » dans le jeton : les rôles de `role_defini` (« Conseiller qualité ») ne
+touchaient ni plafonds, ni gestes, ni règles. Il accepte désormais `rolesConnus().codes`, et `authRequired` RELIT le rôle en base à
+chaque requête (un changement de rôle vaut aussitôt ; les jetons de trente jours déjà délivrés se réparent seuls).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

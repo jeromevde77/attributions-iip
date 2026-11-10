@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { estBascule, refusBascule } from '../lib/bascule.js';
 import crypto from 'crypto';
 import db from '../db/index.js';
-import { litLaConfiguration, ecritLaConfiguration } from './permissions.js';
+import { litLaConfiguration, ecritLaConfiguration, rolesConnus } from './permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-prod';
 
@@ -64,6 +64,14 @@ export function authRequired(req, res, next) {
     }
 
     // Mode aperçu ("voir comme") : token en lecture seule
+    // LE RÔLE SE RELIT EN BASE (3.5.295) : un jeton de trente jours gardait le rôle du jour de la connexion — un rôle changé, ou
+    // ramené à tort à « consultation », restait faux jusqu'à la reconnexion.
+    if (req.user.id && req.user.role && !req.user.is_demo) {
+      try {
+        const r = db.prepare('SELECT role FROM utilisateur WHERE id = ?').get(req.user.id)?.role;
+        if (r) req.user.role = normaliserRole(r);
+      } catch { /* base sans la table : le jeton fait foi */ }
+    }
     if (req.user.preview && req.method !== 'GET') {
       return res.status(403).json({ error: 'Mode aperçu (voir comme) — lecture seule. Revenez à votre compte pour modifier.' });
     }
@@ -316,8 +324,13 @@ export function administrateurSeul(req, res, next) {
   next();
 }
 
+/* LES RÔLES CRÉÉS À L'ÉCRAN SONT DES RÔLES (3.5.295, Charles : « Amélie ne sait toujours pas cocher dans croisement AA et points
+   programme »). Le jeton ramenait tout rôle hors de la liste d'origine à « consultation » : un rôle créé dans Configuration → Accès
+   (« Conseiller qualité ») n'atteignait aucune règle — ni ses plafonds, ni ses gestes, ni les règles écrites pour lui. */
 export function normaliserRole(role) {
-  return ROLES_CONNUS.includes(role) ? role : 'consultation';
+  if (ROLES_CONNUS.includes(role)) return role;
+  try { if (rolesConnus().codes.includes(role)) return role; } catch { /* table absente */ }
+  return 'consultation';
 }
 
 export function signToken(user) {
