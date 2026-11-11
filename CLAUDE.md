@@ -3364,6 +3364,10 @@ Espace enseignant : `.carte` + `EnteteCarte`, listes de dates et d'appareils en 
 libellés visibles (Liste, Rechercher, Une idée). 3.5.332 : listes du PAE en `LigneEtat` (liseré bleu = au programme), choix du PAE en lignes de
 hauteur fixe, demande de VA sans liseré autour des cartes (intertitre), replis hexadécimaux retirés (VisiteGuidee).
 
+**L'APERÇU DES ESPACES : 5 MINUTES, ET LA CAUSE D'UN REFUS SE DIT** (3.5.333, Charles en production : « Lien d'aperçu expiré »).
+Les liens d'aperçu (`apercu_jeton` du portail, `ens_apercu_jeton` de l'espace enseignant) valent 5 minutes au lieu d'une, toujours à
+usage unique ; le refus distingue « déjà servi » (onglet rechargé) d'« expiré ».
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

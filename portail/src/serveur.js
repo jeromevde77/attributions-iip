@@ -383,7 +383,9 @@ pub.post('/api/portail/candidat', (req, res) => {
 pub.post('/api/portail/apercu', (req, res) => {
   if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives.' });
   const j = db.prepare('SELECT * FROM apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
-  if (!j || j.utilise_le || j.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(j.etudiant_id)) {
+  // LA CAUSE SE DIT (3.5.333) : déjà utilisé ou expiré (5 minutes).
+  if (j?.utilise_le) return res.status(401).json({ error: 'Ce lien d’aperçu a déjà servi (un lien ne s’ouvre qu’une fois) : rouvrez-le depuis la fiche de l’étudiant.' });
+  if (!j || j.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(j.etudiant_id)) {
     return res.status(401).json({ error: 'Ce lien d’aperçu a expiré : rouvrez-le depuis la fiche de l’étudiant.' });
   }
   db.prepare("UPDATE apercu_jeton SET utilise_le = datetime('now') WHERE jeton_hash = ?").run(j.jeton_hash);
@@ -1113,7 +1115,7 @@ int.post('/interne/apercu', (req, res) => {
   if (!db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(id)) return res.status(404).json({ error: 'Cet étudiant n’a pas d’espace.' });
   const jeton = crypto.randomBytes(32).toString('base64url');
   db.prepare("DELETE FROM apercu_jeton WHERE expire_le < datetime('now', '-1 day')").run();
-  db.prepare("INSERT INTO apercu_jeton (jeton_hash, etudiant_id, par, expire_le) VALUES (?,?,?, datetime('now', '+1 minute'))")
+  db.prepare("INSERT INTO apercu_jeton (jeton_hash, etudiant_id, par, expire_le) VALUES (?,?,?, datetime('now', '+5 minutes'))")
     .run(empreinte(jeton), id, String(req.body?.par || '').slice(0, 120));
   res.json({ url: `${URL_PUBLIQUE}/?apercu=${jeton}` });
 });
