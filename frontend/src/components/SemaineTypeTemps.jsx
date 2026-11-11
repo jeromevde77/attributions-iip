@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconPlus, IconX } from '@tabler/icons-react';
 import { Fenetre, Encadre, PastilleEtat } from './ui.jsx';
-import { saisir } from '../lib/dialogue.jsx';
+import { saisir as demanderTexte } from '../lib/dialogue.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 
 /* LA SEMAINE TYPE D'UNE PERSONNE (3.5.308, Charles : « je ne sais pas proposer un horaire qui se répète » ; tranché : un horaire
@@ -62,9 +62,9 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
   /* LA DÉROGATION MOTIVÉE (3.5.345, Charles : « c'est la demande de la personne ; je dois le valider et sortir un document à
      signer ») : seul le plafond de 8 h (9 h) par jour se lève, jusqu'à 10 h ; un motif ; puis l'accord individuel, à signer. */
   const deroger = async () => {
-    const motif = await saisir({ titre: 'Accepter par dérogation', obligatoire: true,
+    const motif = await demanderTexte({ titre: 'Accepter par dérogation', obligatoire: true,
       message: `Écarts : ${(sim.depassements || []).join(' ; ')}. Pourquoi les accepter ? (par exemple : « à la demande de la personne »). Le motif figure sur l’accord individuel à signer.` });
-    if (!motif || !String(motif).trim()) return;
+    if (typeof motif !== 'string' || !motif.trim()) return;
     setEnCours(true);
     try {
       const r = await api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours, ecrire: true, compenser, derogation: String(motif).trim() }) });
