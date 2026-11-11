@@ -3313,6 +3313,13 @@ l'UE »). `donneesGrille` (`lib/grillePresence.js`) : une séance d'avant `date_
 case vide, hors compte (et hors `regulariteAuJalon`). `GET /api/presences-ue/ue/:ue` rend `dates_horaire` (`comparerDatesUE`) ;
 `PresencesUE.jsx` propose « Aligner sur l'horaire » (`PUT /annuel/dates-ue`, échéancier recalculé) ; le pilotage l'ajoute aux alertes.
 
+**LE DÉTAIL D'UNE NOTE DANS L'ESPACE DE L'ÉTUDIANT ; LES BOUTONS DU CONSEIL EN HAUT** (3.5.316, Charles, 11 novembre 2026 : « en
+cliquant sur la ligne, il voit la note de ses cours et AA ; NA si ajournement ou échec ; noter les examens et AA à représenter » ;
+« ces boutons en haut, à côté de la note UE »). `detailResultat` (`lib/portailSync.js`, mémoire d'une heure) : `delibererUE` de la
+dernière session close, `coteEtudiant` (NA sous 10), faveur = 10, `a_representer_detail` + date d'examen (`deliberation_session2`) +
+visite (`visitesParCours`) ; année active seulement ; colonne `resultat.detail` du portail ; `DetailResultat` d'`EspaceEtudiant.jsx`.
+`Fiche` de la délibération : `Decision partie="boutons"` dans l'en-tête collant, sous la navigation.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

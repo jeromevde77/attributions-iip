@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { delibererUE, coteEtudiant, visitesParCours } from '../routes/acquis.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // LUCIE ET LE PORTAIL DES ÉTUDIANTS — LE PASSAGE À SENS UNIQUE (3.1.477, Charles, 30 octobre 2026 : « un mur
 // de Berlin infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants »).
@@ -116,6 +117,47 @@ function etudiantsVisibles() {
 }
 
 /** Les résultats PUBLIÉS : séance close (de son organisation, ou « toute l'unité »), ou année antérieure. Jamais une note de travail. */
+/* LE DÉTAIL D'UNE NOTE, POUR L'ÉTUDIANT (3.5.316, Charles, 11 novembre 2026 : « en cliquant sur la ligne, il voit la note de
+ * ses cours et AA ; si ajournement ou échec, NA comme toujours ; noter les examens et AA à représenter »). Calculé par
+ * `delibererUE` (la séance close de la dernière session), jamais une cote sous 10 (`coteEtudiant`), une faveur vaut 10 partout.
+ * Mis en mémoire une heure : les notes d'une séance close ne bougent plus. */
+const CACHE_DETAIL = new Map();
+function detailResultat(etudId, ueNum, annee, resultat) {
+  const cle = `${etudId}|${ueNum}|${annee}|${resultat}`;
+  const c0 = CACHE_DETAIL.get(cle);
+  if (c0 && Date.now() - c0.t < 3600e3) return c0.v;
+  let v = null;
+  try {
+    const closeS2 = !!db.prepare(`SELECT 1 FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND cloturee = 1 LIMIT 1`).get(ueNum, annee);
+    const session = closeS2 ? 2 : 1;
+    const d = delibererUE(etudId, ueNum, annee, session);
+    const faveur = !!(d.ue?.faveur || d.ue?.faveur_ue);
+    const cote = (n, na) => (faveur ? '10' : na ? 'NA' : n == null ? '—' : coteEtudiant(n));
+    const s2 = Object.fromEntries(db.prepare('SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee).map(l => [l.cours_code, l]));
+    const visites = visitesParCours(ueNum, annee, session);
+    const representer = new Map((resultat === 'ajourne' ? (d.ue?.a_representer_detail || []) : []).map(x => [x.cours_code, x.aas || []]));
+    v = {
+      session, faveur,
+      cours: (d.cours || []).map(c => {
+        const vis = visites[c.cours_code];
+        const l2 = s2[c.cours_code];
+        return {
+          code: c.cours_code, nom: c.cours_nom || '', note: cote(c.note, c.na || (c.mention && !faveur)),
+          acquis: (d.acquis || []).filter(a => (a.evaluations || []).some(x => x.cours_code === c.cours_code)).map(a => {
+            const x = a.evaluations.find(y => y.cours_code === c.cours_code);
+            return { code: a.aa_code, libelle: a.description || '', note: cote(x.note, !!x.ajourne || !!a.ajourne_directement || !!x.mention) };
+          }),
+          a_representer: representer.get(c.cours_code) || null,
+          examen: representer.has(c.cours_code) && l2?.s2_date ? { date: l2.s2_date, heure: l2.s2_heure || null, local: l2.s2_local || null } : null,
+          visite: vis ? (vis.rdv ? { rdv: true } : vis.date ? { date: vis.date, heure: vis.heure, local: vis.local } : null) : null,
+        };
+      }),
+    };
+  } catch (e) { console.error('[portail] détail du résultat', e.message); v = null; }
+  CACHE_DETAIL.set(cle, { t: Date.now(), v });
+  return v;
+}
+
 export function resultatsPublies(ids) {
   const annee = anneeActive();
   const cs = colonnes('deliberation_seance');
@@ -135,7 +177,9 @@ export function resultatsPublies(ids) {
       decision: { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé' }[l.resultat] || l.resultat,
       // NA sous 10 (circulaire Sanction des études) ; une faveur vaut 10.
       note: reussi ? (l.points != null ? String(Math.max(10, Math.round(Number(l.points)))) : '—') : 'NA',
-      etat: reussi ? 'reussi' : l.resultat === 'ajourne' ? 'surveiller' : 'corriger' });
+      etat: reussi ? 'reussi' : l.resultat === 'ajourne' ? 'surveiller' : 'corriger',
+      // Le détail, pour l'année active (les années reprises n'ont pas toujours leurs notes par acquis).
+      detail: l.annee_scolaire === annee && l.close ? detailResultat(l.etudiant_id, l.ue_num, l.annee_scolaire, l.resultat) : null });
   }
   try {
     for (const v of db.prepare(`SELECT etudiant_id, annee_scolaire, ue_num,

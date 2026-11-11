@@ -50,13 +50,14 @@ const db = new Database(process.env.PORTAIL_DB || '/app/data/portail.db');
 db.pragma('journal_mode = WAL');
 // LES FONCTIONS DE CHAQUE ÉTUDIANT (3.5.001) : Lucie les nomme à chaque dépôt (Configuration → Fonctions) ; l'espace ne
 // montre et ne sert que celles-là.
+try { db.exec('ALTER TABLE resultat ADD COLUMN detail TEXT'); } catch { /* déjà là, ou table à naître ci-dessous */ }
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là, ou table à naître ci-dessous */ }
 try { db.exec('ALTER TABLE etudiant ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là, ou table à naître ci-dessous */ }
 db.exec(`
   CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, email_ecole TEXT NOT NULL, maj_le TEXT);
   CREATE TABLE IF NOT EXISTS matricule (code TEXT PRIMARY KEY, etudiant_id INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS resultat (etudiant_id INTEGER NOT NULL, annee TEXT NOT NULL, ue_num INTEGER, ue_nom TEXT,
-    decision TEXT, note TEXT, etat TEXT);
+    decision TEXT, note TEXT, etat TEXT, detail TEXT);
   CREATE INDEX IF NOT EXISTS idx_resultat ON resultat(etudiant_id);
   CREATE TABLE IF NOT EXISTS document (id INTEGER PRIMARY KEY, etudiant_id INTEGER NOT NULL, sujet TEXT, nom_fichier TEXT,
     envoye_le TEXT, reference TEXT, mime TEXT, contenu BLOB);
@@ -493,7 +494,8 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
   const parAnnee = new Map();
   for (const r of db.prepare('SELECT * FROM resultat WHERE etudiant_id = ? ORDER BY annee DESC, ue_num').all(e.id)) {
     if (!parAnnee.has(r.annee)) parAnnee.set(r.annee, []);
-    parAnnee.get(r.annee).push({ ue_num: r.ue_num, ue_nom: r.ue_nom, decision: r.decision, note: /^\d+$/.test(r.note || '') ? Number(r.note) : r.note, etat: r.etat });
+    let detail = null; try { detail = r.detail ? JSON.parse(r.detail) : null; } catch { detail = null; }
+    parAnnee.get(r.annee).push({ ue_num: r.ue_num, ue_nom: r.ue_nom, decision: r.decision, note: /^\d+$/.test(r.note || '') ? Number(r.note) : r.note, etat: r.etat, detail });
   }
   const documents = db.prepare(`SELECT id, sujet, nom_fichier, envoye_le, reference,
       (envoye_le >= datetime('now', '-${JOURS_LIBRES} days')) AS libre,
@@ -1006,8 +1008,9 @@ int.post('/interne/resultats', (req, res) => {
   const l = Array.isArray(req.body?.resultats) ? req.body.resultats : [];
   db.transaction(() => {
     db.exec('DELETE FROM resultat');
-    const i = db.prepare('INSERT INTO resultat (etudiant_id, annee, ue_num, ue_nom, decision, note, etat) VALUES (?,?,?,?,?,?,?)');
-    for (const r of l) i.run(Number(r.etudiant_id), String(r.annee), Number(r.ue_num) || null, String(r.ue_nom || ''), String(r.decision || ''), String(r.note ?? ''), String(r.etat || ''));
+    const i = db.prepare('INSERT INTO resultat (etudiant_id, annee, ue_num, ue_nom, decision, note, etat, detail) VALUES (?,?,?,?,?,?,?,?)');
+    for (const r of l) i.run(Number(r.etudiant_id), String(r.annee), Number(r.ue_num) || null, String(r.ue_nom || ''), String(r.decision || ''), String(r.note ?? ''), String(r.etat || ''),
+      r.detail ? JSON.stringify(r.detail).slice(0, 60000) : null);
   })();
   res.json({ ok: true, n: l.length });
 });
