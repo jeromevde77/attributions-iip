@@ -305,11 +305,15 @@ export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer 
     .filter(c => !/doit compter exactement/.test(c));
   controles.push(...pausesCourtes(propres));
   const lev = plafondsLeves(controles, propres);
-  const derogeable = controles.length > 0 && lev.depassements.length > 0 && lev.reste.length === 0;
+  /* LA DIRECTION N'EST PAS BLOQUÉE (3.5.350, Charles : « ne me bloque pas ; accepte et génère le document à signer ») : tout écart
+     de la semaine type — plus de 8 h, pause réduite, et même au-delà de 10 h — s'accepte par dérogation motivée ; chaque écart
+     est NOMMÉ sur l'accord individuel, qui porte la signature de la personne et celle de la direction. */
+  const derogeable = controles.length > 0;
+  lev.depassements.push(...lev.reste.map(c => c.replace(/ — 10 h par jour au plus, même par dérogation\./, ' : au-delà de 10 h par jour, pause comprise.').replace(/\.$/, '')));
   const motifDerog = String(derogation || '').trim();
   if (derogation != null && !motifDerog) throw err('Une dérogation se motive.');
   const controlesBruts = controles;
-  if (motifDerog) { controles.length = 0; controles.push(...lev.reste); }
+  if (motifDerog) controles.length = 0;
   // Les semaines qui la recevront : à venir, de travail, hors mois approuvés, et encore égales à l'ancien modèle.
   const ancien = JSON.stringify(t.jours);
   const lundiAuj = lundiDe(aujourdhui());
