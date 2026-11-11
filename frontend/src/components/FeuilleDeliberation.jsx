@@ -2528,16 +2528,16 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
       {/* EN HAUT, COLLÉ : de qui l'on parle, et la note de son unité. */}
       <div className="col-span-2 sticky top-0 z-20 -mx-1 px-1 pb-1 border-b border-slate-200"
         style={{ background: 'var(--page-fond, #fff)' }}>
-        {typeof navigation === 'function' ? navigation(tuile) : navigation}
-        {/* LES BOUTONS DU CONSEIL EN HAUT, SOUS LA NOTE DE L'UNITÉ (3.5.316, Charles, 11 novembre 2026 : « plus logique de mettre ces
-            boutons en haut, à côté de la note UE »). Ils étaient collés en bas de l'écran. */}
-        {!lectureSeule() && (
-          <div className="pt-1">
+        {/* LES BOUTONS DU CONSEIL SUR LA LIGNE DU NOM, À CÔTÉ DE LA NOTE DE L'UNITÉ (3.5.316, puis 3.5.321, Charles : « tout sur une
+            même ligne »). Ils étaient collés en bas de l'écran. */}
+        {typeof navigation === 'function' ? navigation(<>
+          {!lectureSeule() && (
             <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
               decision={decision} onDecision={onDecision} enCours={enCours}
-              onAnnuler={onAnnuler} session={session} partie="boutons"
-              onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
-          </div>)}
+              onAnnuler={onAnnuler} session={session} partie="boutons" compact
+              onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />)}
+          {tuile}
+        </>) : navigation}
       </div>
       <Thermometre pc={e.parcours_complet} ueNum={ue.ue_num} onBord={onBord} />
 
@@ -2693,6 +2693,8 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
               </button>)}
           </div>
         )}
+        {!lectureSeule() && <Decision e={e} ue={ue} acquis={acquis} cours={cours} decision={decision}
+          onDecision={onDecision} enCours={enCours} session={session} partie="statut" />}
         {!lectureSeule() && <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
           onDecision={onDecision} decision={decision} />}
         <AideDecision ue={ue} />
@@ -3424,11 +3426,13 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
 }
 
 function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
-                    onAnnuler, session, onFaveurUE, partie = null }) {
+                    onAnnuler, session, onFaveurUE, partie = null, compact = false }) {
   // DEUX PARTIES (29 septembre 2026) : les BOUTONS vivent dans la bande
   // toujours visible au bas de l'écran ; les EXPLICATIONS (ce qu'un refus
   // emporte, ce qui se représente) restent dans la fiche, au-dessus.
-  const boutons = partie !== 'details', details = partie !== 'boutons';
+  // 'statut' (3.5.321) : la seule ligne « Enregistré : … » et ses avertissements — les boutons, compacts, sont sur la ligne du nom.
+  const statut = partie === 'statut';
+  const boutons = partie !== 'details' && !statut, details = partie !== 'boutons' && !statut;
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
   // que le serveur a calculée à l'ouverture de la fiche.
@@ -3451,9 +3455,9 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
       </EnteteCarte>
       )}
 
-      <div className={boutons && details ? 'p-3 space-y-2' : 'space-y-1.5'}>
-        {boutons && (<>
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className={boutons && details ? 'p-3 space-y-2' : compact ? '' : 'space-y-1.5'}>
+        {(boutons || statut) && (<>
+        {boutons && <div className={`flex items-center gap-2 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}>
           {/* LA FAVEUR EST UNE DÉCISION DE L'UNITÉ, pas une retouche de note.
               Le Conseil accorde l'unité malgré un acquis manquant : la cote
               monte au seuil, jamais au-delà (RGE art. 77 §1 et 78 §2). Elle vit
@@ -3512,13 +3516,13 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
             <button onClick={onAnnuler} disabled={enCours}
               title="Effacer la décision et les ajustements de cet étudiant — ses notes sont conservées"
-              className="ml-auto bouton bouton-detruire flex items-center gap-1">
+              className={`${compact ? "" : "ml-auto "}bouton bouton-detruire flex items-center gap-1`}>
               <IconRotate size={13} /> Reprendre ce dossier
             </button>
           )}
-        </div>
+        </div>}
 
-        <div className="flex items-center gap-2 flex-wrap text-second">
+        {(statut || !compact) && <div className="flex items-center gap-2 flex-wrap text-second">
           <span className="text-slate-500">
             {e.resultat
               ? <>Enregistré : <b className="text-slate-700">{LIB_RES[e.resultat]}</b>
@@ -3555,7 +3559,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
               Réussite de plein droit : tous les acquis et tous les cours au seuil.
             </span>
           )}
-        </div>
+        </div>}
 
         </>)}
         {details && (<>
