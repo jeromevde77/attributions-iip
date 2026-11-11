@@ -44,7 +44,7 @@ r.get('/ue/:ue', authRequired, EDITEUR, (req, res) => {
         cours_code: s.cours_code, sous_groupe: s.sous_groupe, annule: !!s.annule })),
       lignes: x.g.lignes.map(l => ({ etudiant: l.etudiant, cases: l.cases.map(c => ({ statut: c.statut, motif: c.motif, retard: !!c.retard, distance: !!c.distance, code: c.code })),
         present: l.present, justifie: l.justifie, absent: l.absent, du: l.du, non_encodees: l.non_encodees,
-        taux_injustifie: l.taux_injustifie, regularite: l.regularite, sortie_le: l.sortie_le || null, tardif: !!l.tardif, incomplet: !!l.incomplet })) });
+        taux_injustifie: l.taux_injustifie, regularite: l.regularite, sortie_le: l.sortie_le || null, tardif: !!l.tardif, incomplet: !!l.incomplet, ch: !!l.ch })) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

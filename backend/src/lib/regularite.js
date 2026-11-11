@@ -56,7 +56,7 @@ export function regulariteAuJalon(g, ligne, jalon, aujourdhui = new Date().toISO
   g.seances.forEach((s, i) => {
     if (s.annule || s.date > jalon || s.date > aujourdhui) return;
     const c = ligne.cases[i];
-    if (!c || c.statut === 'dispense' || c.statut === 'non_concerne' || c.statut === 'avant_inscription') return;
+    if (!c || c.statut === 'dispense' || c.statut === 'non_concerne' || c.statut === 'avant_inscription' || c.statut === 'codiplomation') return;
     if (!c.statut) { non++; return; }
     const m = minutesDe(s);
     du += m;

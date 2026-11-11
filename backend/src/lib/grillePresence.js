@@ -28,6 +28,19 @@ import { dixiemeUE } from './datesReelles.js';
    « — », pour la vérification, veut dire absent : il n'est plus employé · NE séance passée non encodée (« il ne peut pas y avoir de
    blanc ») · un apprenant en dispense complète ne figure pas sur la liste. */
 export const CODES = { present: 'P', absent: 'A', justifie: 'J', non_concerne: 'NC', dispense: 'D' };
+
+/* LA CODIPLOMATION : « CH » (3.5.324, circulaire 9764, p. 24-25 : « dans le cadre d'un programme d'études conjoint menant à une
+   codiplômation […] les apprenants inscrits sont réputés participer de manière assidue […] identifiés par les lettres « CH » à côté
+   des noms » ; « la prise de présences n'est donc pas obligatoire pour ces apprenants » ; « la mention CH est liée à un apprenant et
+   non à une unité d'enseignement » ; un apprenant externe au programme suit les règles classiques). Charles : Orthoptie et TIM.
+   Réglable : `lucie_config` « sections_codiplomation » (liste JSON). Jugé sur la section de rattachement de l'ÉTUDIANT. */
+export function sectionsCodiplomation() {
+  try {
+    const v = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'sections_codiplomation'").get()?.valeur || 'null');
+    if (Array.isArray(v)) return v.map(x => String(x).toLowerCase());
+  } catch { /* réglage illisible */ }
+  return ['orthoptie', 'tim'];
+}
 const PAR_PAGE = 20;            // séances par feuille, en paysage
 const SEUIL_CEP = 0.10;
 
@@ -85,6 +98,8 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
       // que l'étudiant soit inscrit — case vide, hors compte. Une présence encodée quand même reste lue.
       const inscritLe = info.date_inscription ? String(info.date_inscription).slice(0, 10) : null;
       if (!p && inscritLe && x.date < inscritLe) return { code: '', statut: 'avant_inscription', motif: null };
+      // CODIPLOMATION (« CH ») : réputé assidu, la présence n'est pas due — une case non encodée reste vide, hors compte.
+      if (!p && info.ch) return { code: '', statut: 'codiplomation', motif: null };
       // Une activité dont l'étudiant est dispensé (partiellement) ne lui est pas due : « D », hors compte.
       if (disp && disp.cours.has(x.cours_code)) return { code: x.annule ? '' : CODES.dispense, statut: 'dispense', motif: null };
       if (tenue(x) && p?.statut !== 'non_concerne') {
@@ -101,7 +116,7 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
     });
     const du = Object.values(t.par_cours).reduce((a, c) => a + c.du, 0);
     return { etudiant: e, cases, ...t, du, taux_injustifie: du ? t.absent / du : 0,
-      tardif: tardif(e), sortie_le: sortie, date_inscription: info.date_inscription || null, incomplet: !!info.incomplet };
+      tardif: tardif(e), sortie_le: sortie, date_inscription: info.date_inscription || null, incomplet: !!info.incomplet, ch: !!info.ch };
   });
   const parSeance = s.map((x, i) => lignes.filter(l => l.cases[i].statut === 'present').length);
   const motifs = lignes.flatMap(l => l.cases.map((c, i) => (c.statut === 'justifie'
@@ -118,10 +133,13 @@ export function contexteGrille(ueNum, annee, seancesUE, { coursCode = null } = {
   const cinquieme = (() => { try { return dixiemeUE(ueNum, annee, { pct: 50, seances: seancesUE }); } catch { return null; } })();
   const infos = new Map();
   try {
+    const codip = new Set(sectionsCodiplomation());
     for (const x of db.prepare(`SELECT i.etudiant_id, i.date_inscription, i.sortie_le,
-        (SELECT COUNT(*) FROM etudiant_piece p WHERE p.etudiant_id = i.etudiant_id AND p.statut = 'manquant') AS manquantes
+        (SELECT COUNT(*) FROM etudiant_piece p WHERE p.etudiant_id = i.etudiant_id AND p.statut = 'manquant') AS manquantes,
+        (SELECT e.section_rattachement FROM etudiant e WHERE e.id = i.etudiant_id) AS section
       FROM etudiant_inscription i WHERE i.ue_num = ? AND i.annee_scolaire = ?`).all(ueNum, annee)) {
-      infos.set(x.etudiant_id, { date_inscription: x.date_inscription, sortie_le: x.sortie_le, incomplet: x.manquantes > 0 });
+      infos.set(x.etudiant_id, { date_inscription: x.date_inscription, sortie_le: x.sortie_le, incomplet: x.manquantes > 0,
+        ch: !!(x.section && codip.has(String(x.section).toLowerCase())) });
     }
   } catch { /* colonnes absentes : base ancienne */ }
   const ue = db.prepare('SELECT ue_nom, ue_code_fwb, section FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(ueNum, annee) || {};
@@ -188,7 +206,7 @@ export function pieceGrille(g, { titre, sous, ligne = null, ue = false, cours = 
     const observation = l => [l.sortie_le ? `abandon le ${fr(l.sortie_le)}` : null, l.tardif && l.date_inscription ? `inscrit le ${fr(l.date_inscription)}` : null,
       l.incomplet ? 'dossier incomplet' : null].filter(Boolean).join(' · ');
     const corps = g.lignes.map((l, n) => (n === premierTardif ? `<tr class="sep"><td colspan="${tranche.length + (derniere ? 4 : 2)}">Inscriptions après le premier dixième</td></tr>` : '')
-      + `<tr class="${l.incomplet ? 'raye' : ''}"><td class="nom"><b>${esc(String(l.etudiant.nom || '').toUpperCase())}</b> ${esc(l.etudiant.prenom || '')}`
+      + `<tr class="${l.incomplet ? 'raye' : ''}"><td class="nom"><b>${esc(String(l.etudiant.nom || '').toUpperCase())}</b> ${esc(l.etudiant.prenom || '')}${l.ch ? ' <b>CH</b>' : ''}`
       + `<span class="mat">${esc(l.etudiant.id_ecampus || '')}</span></td>`
       + l.cases.slice(i, i + PAR_PAGE).map((c, k) => `<td class="c ${tranche[k].annule ? 'ann' : ''} ${dix(tranche[k]) ? 'dix' : ''} ${c.statut || ''}">${esc(c.code)}</td>`).join('')
       + (derniere ? `<td class="tot">${h(l.present)} / ${h(l.du)}</td><td class="tot${l.taux_injustifie > SEUIL_CEP ? ' alerte' : ''}">${Math.round(l.taux_injustifie * 100)} %</td>` : '')
@@ -208,13 +226,13 @@ export function pieceGrille(g, { titre, sous, ligne = null, ue = false, cours = 
     const codes = [...new Set(g.seances.map(x => x.cours_code || ''))];
     recap = `<div class="saut"><div class="tranche">Récapitulatif des heures par cours</div>
       <table class="grille recap"><thead><tr><th class="nom">Étudiant</th>${codes.map(c => `<th>${esc(c)}<br><span class="cc">${esc(cours[c] || '')}</span></th>`).join('')}<th class="tot">Total UE</th><th class="tot">Absences injustifiées</th><th class="tot">Séances non encodées</th></tr></thead>
-      <tbody>${g.lignes.map(l => `<tr><td class="nom"><b>${esc(String(l.etudiant.nom || '').toUpperCase())}</b> ${esc(l.etudiant.prenom || '')}</td>`
+      <tbody>${g.lignes.map(l => `<tr><td class="nom"><b>${esc(String(l.etudiant.nom || '').toUpperCase())}</b> ${esc(l.etudiant.prenom || '')}${l.ch ? ' <b>CH</b>' : ''}</td>`
         + codes.map(c => { const x = l.par_cours[c]; return `<td class="c">${x ? `${h(x.present)} / ${h(x.du)}` : '—'}</td>`; }).join('')
         + `<td class="tot">${h(l.present)} / ${h(l.du)}</td><td class="tot${l.taux_injustifie > SEUIL_CEP ? ' alerte' : ''}">${Math.round(l.taux_injustifie * 100)} %</td><td class="tot${l.non_encodees ? ' alerte' : ''}">${l.non_encodees || ''}</td></tr>`).join('')}</tbody></table></div>`;
   }
   const notes = g.motifs.length ? `<div class="notes"><b>Absences justifiées</b><ul>${g.motifs.map(m =>
     `<li>${esc(m.etudiant)} — ${fr(m.date)} ${esc(String(m.heure || '').slice(0, 5))}${ue ? ` (${esc(m.cours)})` : ''} : ${esc(m.motif)}</li>`).join('')}</ul></div>` : '';
-  const legende = `<div class="legende">P présent · P* présent, arrivé en retard · M présent à un cours à distance · A absent · CM absence couverte par le certificat médical de l’apprenant (présence effective au comptage) · J autre absence justifiée (motif ci-dessous ; comptée absente au comptage) · D dispense partielle · NC non concerné (autre groupe) · NE séance passée non encodée — à compléter · case vide : séance d’avant l’inscription de l’apprenant, rien n’est dû · colonne grisée : séance annulée · ligne barrée : dossier incomplet · après un abandon, plus rien n’est dû.
+  const legende = `<div class="legende">P présent · P* présent, arrivé en retard · M présent à un cours à distance · A absent · CM absence couverte par le certificat médical de l’apprenant (présence effective au comptage) · J autre absence justifiée (motif ci-dessous ; comptée absente au comptage) · D dispense partielle · NC non concerné (autre groupe) · NE séance passée non encodée — à compléter · case vide : séance d’avant l’inscription de l’apprenant, rien n’est dû · CH apprenant d’un programme menant à une codiplômation, réputé assidu (prise de présences non obligatoire) · colonne grisée : séance annulée · ligne barrée : dossier incomplet · après un abandon, plus rien n’est dû.
     Heures : séances tenues jusqu’à aujourd’hui. Absences injustifiées : sur les heures dues ; signalées au-delà de 10 % (seuil du congé-éducation payé).</div>`;
   const avert = g.non_encodees ? `<div class="avert">${g.non_encodees} présence(s) de séances passées ne sont pas encodées (NE) : le registre ne peut pas comporter de blanc ; complétez-les avant de le présenter.</div>` : '';
   return {
@@ -262,7 +280,7 @@ export async function excelGrille(g, { titre, ue = false, cours = {} }) {
   f.addRow(['Nom', 'Prénom', 'Matricule', ...g.seances.map(x => `${fr(x.date)} ${String(x.heure_debut || '').slice(0, 5)}${ue ? ` ${x.cours_code || ''}` : ''}${x.annule ? ' (annulée)' : ''}${g.dixieme && String(x.date).slice(0, 10) === g.dixieme.date ? ' — 1/10' : ''}${g.cinquieme && String(x.date).slice(0, 10) === g.cinquieme.date ? ' — 5/10' : ''}`),
     'Heures présentes', 'Heures dues', 'Absences injustifiées (%)']);
   for (const l of g.lignes) {
-    f.addRow([String(l.etudiant.nom || '').toUpperCase(), l.etudiant.prenom || '', l.etudiant.id_ecampus || '', ...l.cases.map(c => c.code),
+    f.addRow([String(l.etudiant.nom || '').toUpperCase(), `${l.etudiant.prenom || ''}${l.ch ? ' CH' : ''}`, l.etudiant.id_ecampus || '', ...l.cases.map(c => c.code),
       Math.round(l.present / 6) / 10, Math.round(l.du / 6) / 10, Math.round(l.taux_injustifie * 1000) / 10]);
   }
   f.addRow(['Présents', '', '', ...g.parSeance]);
@@ -277,7 +295,7 @@ export async function excelGrille(g, { titre, ue = false, cours = {} }) {
     const r = wb.addWorksheet('Récapitulatif UE');
     r.addRow(['Nom', 'Prénom', ...codes.flatMap(c => [`${c} ${cours[c] || ''} — présentes (h)`.replace('  ', ' '), `${c} — dues (h)`]), 'Total présentes (h)', 'Total dues (h)', 'Absences injustifiées (%)', 'Séances non encodées']);
     for (const l of g.lignes) {
-      r.addRow([String(l.etudiant.nom || '').toUpperCase(), l.etudiant.prenom || '',
+      r.addRow([String(l.etudiant.nom || '').toUpperCase(), `${l.etudiant.prenom || ''}${l.ch ? ' CH' : ''}`,
         ...codes.flatMap(c => { const x = l.par_cours[c]; return x ? [Math.round(x.present / 6) / 10, Math.round(x.du / 6) / 10] : ['', '']; }),
         Math.round(l.present / 6) / 10, Math.round(l.du / 6) / 10, Math.round(l.taux_injustifie * 1000) / 10, l.non_encodees || '']);
     }
