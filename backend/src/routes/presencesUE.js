@@ -196,7 +196,7 @@ r.get('/pilotage', authRequired, EDITEUR, (req, res) => {
     } catch { /* le comparatif n'empêche pas le reste */ }
     for (const u of ues) {
       if (u.non_encodees) alertes.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: 'surveiller', texte: `${u.non_encodees} présence(s) non encodée(s) sur des séances tenues` });
-      if (u.au10.atteint && u.inscrits && u.au10.IR / u.inscrits > 0.2) alertes.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: 'corriger', texte: `${u.au10.IR} irrégulier(s) sur ${u.inscrits} au 1er dixième` });
+      // L'alerte des irréguliers est retirée (3.5.318) : la régularité est l'affaire de la vérificatrice.
       if (!u.seances_tenues && u.jalons[10] && u.jalons[10] <= aujourdhui) alertes.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: 'surveiller', texte: 'premier dixième passé sans séance tenue' });
     }
     res.json({ annee, seuil: SEUIL_REGULARITE, ues, sections: Object.values(parSection), alertes });

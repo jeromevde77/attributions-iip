@@ -3325,6 +3325,10 @@ alors plus le détail des AA ni des cours d'emblée — des volets, comme dans I
 (`lireUE` par unité, 20 au plus) ; `CorrectionUE.jsx` : unités cochées dans un panneau, une colonne repliée par unité (calc., note,
 décision), clic sur l'en-tête = volet des cours et acquis ; une seule unité s'ouvre d'office.
 
+**PLUS DE R / IR DANS LA GRILLE DES PRÉSENCES** (3.5.318, Charles, 11 novembre 2026 : « retirer IR et R dans présences, c'est la
+vérificatrice qui doit le faire »). `PresencesUE.jsx` ne demande aucun jalon (pas de colonne, pas de choix des dixièmes) ; l'alerte
+« irréguliers » du pilotage est retirée. Le calcul (`lib/regularite.js`) et le Pilotage (réguliers, PEP estimée) restent.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
