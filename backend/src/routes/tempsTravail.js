@@ -223,7 +223,7 @@ r.get('/semaine-type/:uid', authRequired, (req, res) => {
 });
 r.post('/semaine-type/:uid', authRequired, (req, res) => {
   if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
-  try { res.json(poserSemaineType(Number(req.params.uid), annee(req), req.body?.jours || [], { ecrire: req.body?.ecrire === true, appliquer: req.body?.appliquer !== false, par: nomDe(req.user) })); }
+  try { res.json(poserSemaineType(Number(req.params.uid), annee(req), req.body?.jours || [], { ecrire: req.body?.ecrire === true, appliquer: req.body?.appliquer !== false, par: nomDe(req.user), compenser: req.body?.compenser === true })); }
   catch (e) { faute(res, e); }
 });
 // UNE SEMAINE RETOUCHÉE (3.5.305) : la direction allonge ou raccourcit des journées ; Lucie compense ailleurs si le total change.

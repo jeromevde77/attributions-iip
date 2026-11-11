@@ -3368,6 +3368,11 @@ hauteur fixe, demande de VA sans liseré autour des cartes (intertitre), replis 
 Les liens d'aperçu (`apercu_jeton` du portail, `ens_apercu_jeton` de l'espace enseignant) valent 5 minutes au lieu d'une, toujours à
 usage unique ; le refus distingue « déjà servi » (onglet rechargé) d'« expiré ».
 
+**UNE SEMAINE TYPE PEUT S'ÉCARTER DES HEURES DUES** (3.5.334, Charles : « je ne peux pas sauver » ; tranché : « accepter et PROPOSER de
+compenser »). `poserSemaineType` (lib/monTemps.js) ne bloque plus sur « doit compter exactement » ; il rend `ecart_semaine`, `au_solde`
+(l'année avec la semaine type posée) et, avec `compenser`, les semaines ajustées par l'assistant (`compensees`, `restes`) — écrites avec
+la semaine type. `SemaineTypeTemps.jsx` : l'écart sur l'année, la case « Compenser », la raison d'un refus dans le pied.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
