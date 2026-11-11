@@ -29,7 +29,7 @@ import { forfaitVA, migrerForfaitVA, exonererForfait } from '../lib/forfaitVA.js
 import { logoCourant, etablissementDeSection } from '../lib/identite.js';
 import { etablissementCourant } from '../lib/contexteRequete.js';
 import multer from 'multer';
-import { communicationStructuree, lireExtrait, chercherCommunication, lireCommunication, chargeEpc, qrSvg } from '../lib/banque.js';
+import { communicationStructuree, lireExtrait, chercherCommunication, paiementCarte, lireCommunication, chargeEpc, qrSvg } from '../lib/banque.js';
 
 const r = Router();
 
@@ -449,6 +449,27 @@ ${piedBalisage(logoCourant())}
 const extrait = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const sansAccents = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
 
+const frDate = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+const eurTexte = n => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
+/* Le relevé de la banque en ligne s'exporte aussi en Excel : la première feuille devient un CSV. */
+async function classeurEnCsv(buffer) {
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook(); await wb.xlsx.load(buffer);
+  const f = wb.worksheets[0]; if (!f) return '';
+  const val = v => {
+    if (v == null) return '';
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    if (typeof v === 'object') return v.text ?? (v.richText ? v.richText.map(x => x.text).join('') : v.result ?? '');
+    return String(v);
+  };
+  const out = [];
+  f.eachRow({ includeEmpty: false }, r => {
+    const c = []; for (let i = 1; i <= f.columnCount; i++) c.push(`"${val(r.getCell(i).value).replace(/"/g, '""')}"`);
+    out.push(c.join(';'));
+  });
+  return out.join('\n');
+}
+
 function etudiantDe(id) {
   return db.prepare('SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE id = ?').get(id) || null;
 }
@@ -464,21 +485,48 @@ function parNom(nom, annee) {
       return a.length && b.length && [...a, ...b].every(m => m && mots.has(m)); });
 }
 
-r.post('/banque/lire', authRequired, roleRequired('admin', 'editeur', 'secretariat'), extrait.single('fichier'), (req, res) => {
+r.post('/banque/lire', authRequired, roleRequired('admin', 'editeur', 'secretariat'), extrait.single('fichier'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Déposez l’extrait de compte (CODA, CAMT.053 ou CSV).' });
   const anneeDefaut = String(req.body?.annee || '');
-  let texte = req.file.buffer.toString('utf8');
-  if (texte.includes('�')) texte = req.file.buffer.toString('latin1');
-  const { format, mouvements } = lireExtrait(texte);
+  let texte;
+  if (req.file.buffer.slice(0, 2).toString('latin1') === 'PK') {
+    try { texte = await classeurEnCsv(req.file.buffer); }
+    catch { return res.status(400).json({ error: 'Ce classeur Excel ne se lit pas.' }); }
+  } else {
+    texte = req.file.buffer.toString('utf8');
+    if (texte.includes('�')) texte = req.file.buffer.toString('latin1');
+  }
+  const { format: fmt, mouvements } = lireExtrait(texte);
+  const format = fmt && req.file.buffer.slice(0, 2).toString('latin1') === 'PK' ? 'Excel' : fmt;
   if (!format) return res.status(400).json({ error: 'Ce fichier n’est ni un extrait CODA, ni un CAMT.053, ni un CSV de banque reconnu (il faut au moins une date, un montant et une communication). Téléchargez-le depuis la banque en ligne, au format CODA, XML (CAMT.053) ou CSV.' });
   const deja = db.prepare('SELECT etudiant_id, annule_le FROM frais_paiement WHERE banque_ref = ?');
   const cache = new Map();
   const frais = (id, an) => { const k = `${id}|${an}`; if (!cache.has(k)) { try { cache.set(k, calculerFrais(id, an)); } catch { cache.set(k, null); } } return cache.get(k); };
+  // Les versements encodés au guichet (carte, ou moyen non précisé), chacun ne sert qu'une fois.
+  const auGuichet = db.prepare(`SELECT id, etudiant_id, annee_scolaire, date_paiement, montant, moyen FROM frais_paiement
+    WHERE annule_le IS NULL AND COALESCE(moyen, '') IN ('', 'bancontact', 'autre') AND ABS(montant - ?) < 0.005
+      AND date_paiement BETWEEN date(?, '-3 day') AND date(?, '+3 day') ORDER BY ABS(julianday(date_paiement) - julianday(?)), id`);
+  const pris = new Set();
   const lignes = mouvements.map(m => {
     const l = { ...m, etat: null, etudiant: null, annee: null, motif: null };
     if (m.montant <= 0) return { ...l, etat: 'ignore', motif: 'Débit du compte : ce n’est pas un versement d’étudiant.' };
     const d = deja.get(m.ref);
     if (d) return { ...l, etat: 'deja', etudiant: etudiantDe(d.etudiant_id), motif: d.annule_le ? 'Déjà importé, puis annulé.' : 'Déjà importé.' };
+    const k = paiementCarte(m);
+    if (k) {
+      const quand = `${frDate(k.date)}${k.heure ? ` à ${k.heure.replace(':', ' h ')}` : ''}`;
+      const detail = k.type === 'worldline'
+        ? `${k.carte} payé au terminal le ${quand} : ${eurTexte(k.brut)} payés, ${eurTexte(k.commission)} de commission retenus par Worldline.`
+        : `Bancontact au terminal le ${quand}${k.ticket ? ` (ticket ${k.ticket})` : ''}.`;
+      const v = auGuichet.all(k.brut, k.date, k.date, k.date).find(x => !pris.has(x.id));
+      if (v) {
+        pris.add(v.id);
+        return { ...l, etat: 'guichet', carte: k, etudiant: etudiantDe(v.etudiant_id), annee: v.annee_scolaire,
+          motif: `${detail} Versement encodé au guichet${v.date_paiement !== k.date ? ` le ${frDate(v.date_paiement)}` : ''} : rien à importer.` };
+      }
+      return { ...l, etat: 'carte', carte: k,
+        motif: `${detail} Aucun versement de ${eurTexte(k.brut)} encodé au guichet autour de cette date : à retrouver, puis à encoder dans la fiche de l’étudiant (moyen Bancontact).` };
+    }
     const c = (m.structuree && lireCommunication(m.communication)) || chercherCommunication(m.communication);
     if (c) {
       const e = etudiantDe(c.etudiant_id);
@@ -501,7 +549,9 @@ r.post('/banque/lire', authRequired, roleRequired('admin', 'editeur', 'secretari
   });
   const compte = (e) => lignes.filter(x => x.etat === e).length;
   res.json({ format, fichier: req.file.originalname, lignes,
-    resume: { total: lignes.length, reconnu: compte('reconnu'), douteux: compte('douteux'), inconnu: compte('inconnu'), deja: compte('deja'), ignore: compte('ignore') } });
+    resume: { total: lignes.length, reconnu: compte('reconnu'), douteux: compte('douteux'), inconnu: compte('inconnu'), deja: compte('deja'), ignore: compte('ignore'),
+      guichet: compte('guichet'), carte: compte('carte'),
+      commissions: Math.round(lignes.reduce((t, x) => t + (x.carte?.commission || 0), 0) * 100) / 100 } });
 });
 
 r.post('/banque/verser', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, res) => {

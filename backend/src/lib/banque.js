@@ -130,17 +130,17 @@ const sansAcc = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g
 // Les motifs se lisent DANS L'ORDRE : le premier qui trouve une colonne libre l'emporte (« Nom de la
 // contrepartie » avant « Contrepartie », qui chez BNP Paribas Fortis est le numéro de compte).
 const COLONNES = [
-  ['ref', [/^(numero de sequence|n. de sequence|numero de transaction|numero de mouvement|reference|reference bancaire|volgnummer|transactienummer|referentie|transaction id)$/]],
-  ['date', [/^date d.execution$/, /^date de comptabilisation$/, /^date comptable$/, /^(boekingsdatum|uitvoeringsdatum)$/, /^date$/, /^datum$/, /^booking date$/, /^date (de )?valeur$/, /^valutadatum$/]],
-  ['montant', [/^montant( \(eur\))?$/, /^montant de l.operation$/, /^bedrag( \(eur\))?$/, /^amount$/]],
+  ['ref', [/^(numero de sequence|n. de sequence|numero de transaction|numero de mouvement|reference|reference bancaire|volgnummer|transactienummer|referentie|transaction id|bank reference)$/]],
+  ['date', [/^entry date$/, /^date d.execution$/, /^date de comptabilisation$/, /^date comptable$/, /^(boekingsdatum|uitvoeringsdatum)$/, /^date$/, /^datum$/, /^booking date$/, /^date (de )?valeur$/, /^valutadatum$/, /^value date$/]],
+  ['montant', [/^montant( \(eur\))?$/, /^montant de l.operation$/, /^bedrag( \(eur\))?$/, /^amount$/, /^transaction amount$/]],
   ['credit', [/^credit$/, /^(bedrag )?credit$/]],
   ['debit', [/^debit$/, /^(bedrag )?debet$/]],
-  ['nom', [/^nom( de la)? contrepartie( contient)?$/, /^nom du donneur d.ordre$/, /^naam (van de )?tegenpartij( bevat)?$/, /^donneur d.ordre$/, /^tegenpartij$/]],
-  ['compte', [/^(numero de )?compte( de la)? contrepartie$/, /^compte partie adverse$/, /^iban contrepartie$/, /^rekening(nummer)? tegenpartij$/, /^tegenrekening$/, /^contrepartie$/]],
+  ['nom', [/^counterparty name$/, /^nom( de la)? contrepartie( contient)?$/, /^nom du donneur d.ordre$/, /^naam (van de )?tegenpartij( bevat)?$/, /^donneur d.ordre$/, /^tegenpartij$/]],
+  ['compte', [/^counterparty account$/, /^(numero de )?compte( de la)? contrepartie$/, /^compte partie adverse$/, /^iban contrepartie$/, /^rekening(nummer)? tegenpartij$/, /^tegenrekening$/, /^contrepartie$/]],
 ];
 // La communication peut tenir en plusieurs colonnes (KBC : structurée ET libre ; ING : libellés, détails,
 // message) : on les réunit toutes.
-const COMMUNICATION = /^(communications?( structuree| libre)?|mededelingen?|communicatie|gestructureerde mededeling|vrije mededeling|details( du mouvement)?|libelles?|omschrijving|message|description)$/;
+const COMMUNICATION = /^(communications?( structuree| libre)?|mededelingen?|communicatie|gestructureerde mededeling|vrije mededeling|details( du mouvement)?|libelles?|omschrijving|message|description|structured reference|unstructured reference|transaction message)$/;
 function decouperLigne(l, sep) {
   const out = []; let cur = '', q = false;
   for (let i = 0; i < l.length; i++) {
@@ -158,7 +158,7 @@ const nombre = v => {
 };
 const dateCsv = v => {
   const s = String(v || '').trim();
-  let m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/.exec(s); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  let m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)/.exec(s); if (m) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   return null;
 };
@@ -207,6 +207,31 @@ export function lireCsv(texte) {
       }
       return mouvements;
     }
+  }
+  return null;
+}
+
+/* LES PAIEMENTS PAR CARTE (3.5.342, Charles : l'extrait CBC revu avec la comptabilité). Le terminal
+   de l'école crédite le compte de deux façons : Bancontact (« OPERATION TERMINAL DE PAIEMENT …
+   LE 05-11-2026 13.27 ») et, pour Visa et Mastercard, un virement de Worldline qui porte le montant
+   payé (BRT), la commission retenue (C) et le jour du paiement. Ces versements se sont encodés AU
+   GUICHET : ils ne s'importent pas une seconde fois — on les retrouve. */
+const montantTexte = v => Number(String(v).replace(/^0+(?=\d)/, '').replace(',', '.'));
+export function paiementCarte(m) {
+  const t = String(m?.communication || '');
+  let x = /OPERATION TERMINAL DE PAIEMENT[\s\S]*?\bLE (\d{2})-(\d{2})-(\d{4}) (\d{2})[.:](\d{2})/i.exec(t);
+  if (x) {
+    const ref = /REFERENCE:\s*(\d+)/i.exec(t);
+    return { type: 'bancontact', carte: 'Bancontact', date: `${x[3]}-${x[2]}-${x[1]}`, heure: `${x[4]}:${x[5]}`,
+      brut: Math.abs(m.montant), commission: 0, ticket: ref ? ref[1] : null };
+  }
+  x = /WORLDLINE[\s\S]*?\b(VI|MC|MA|AX|BC)\b[\s\S]*?\b(\d{2})\/(\d{2})\s+BRT:\s*([\d.,]+)\s*EUR(?:\s*C:\s*([\d.,]+))?/i.exec(t);
+  if (x) {
+    const [an, mois] = String(m.date || '').split('-').map(Number);
+    const annee = an ? (Number(x[3]) > mois ? an - 1 : an) : new Date().getFullYear();
+    const carte = { VI: 'Visa', MC: 'Mastercard', MA: 'Maestro', AX: 'American Express', BC: 'Bancontact' }[x[1].toUpperCase()];
+    return { type: 'worldline', carte, date: `${annee}-${x[3]}-${x[2]}`, heure: null,
+      brut: montantTexte(x[4]), commission: x[5] ? montantTexte(x[5]) : 0, ticket: null };
   }
   return null;
 }

@@ -3410,6 +3410,15 @@ de l'espace enseignant). Déclarées au catalogue général (`prof_<id>`, porté
 Finances → Coûts des formations restait ~1 min sur « Calcul du rapport… » : ~23 s de `donneesCout`, demandé deux fois). `CACHE_COUT`
 (routes/rapports.js, par année, 10 min) ; « Recalculer » envoie `recalculer=1`.
 
+**L'EXTRAIT CBC ET LES PAIEMENTS PAR CARTE** (3.5.342, Charles, 11 novembre 2026 : le relevé CBC « revu avec la compta pour la
+banque »). `lireCsv` (`lib/banque.js`) reconnaît les intitulés anglais de CBC/KBC (Entry date, Transaction amount, Structured /
+Unstructured Reference, Transaction message, Counterparty name/account, Bank reference) et les années sur deux chiffres ;
+`/banque/lire` lit aussi un classeur Excel (`classeurEnCsv`). `paiementCarte(m)` reconnaît le terminal de l'école — Bancontact
+(« OPERATION TERMINAL DE PAIEMENT … LE jj-mm-aaaa hh.mm », ticket) et Worldline (VI/MC, jour du paiement, BRT = payé, C =
+commission) : ces lignes ne se versent JAMAIS (déjà encodées au guichet) ; Lucie cherche un versement non annulé, moyen
+bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servant une fois → `guichet` (retrouvé) ou `carte` (à
+retrouver) ; total des commissions dans le résumé.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

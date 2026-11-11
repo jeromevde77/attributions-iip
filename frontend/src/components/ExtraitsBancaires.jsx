@@ -19,6 +19,8 @@ const ETAT = {
   inconnu: ['corriger', 'non rattaché'],
   deja: ['neutre', 'déjà importé'],
   ignore: ['indisponible', 'débit'],
+  guichet: ['reussi', 'carte, encodé au guichet'],
+  carte: ['surveiller', 'carte, à retrouver'],
 };
 
 export default function ExtraitsBancaires({ onFermer }) {
@@ -73,14 +75,16 @@ export default function ExtraitsBancaires({ onFermer }) {
       {!lu ? (
         <div className="space-y-3 text-sm text-slate-700">
           <p>Dans la banque en ligne, téléchargez l’extrait du compte qui reçoit les frais, au format <b>CODA</b>,
-            <b> XML (CAMT.053)</b> ou <b>CSV</b>, puis déposez-le ici. Pour le CSV, gardez la ligne des titres de colonnes
+            <b> XML (CAMT.053)</b>, <b>CSV</b> ou <b>Excel</b>, puis déposez-le ici. Pour le CSV, gardez la ligne des titres de colonnes
             telle que la banque la donne : Lucie y reconnaît la date, le montant, le donneur d’ordre et la communication.</p>
           <p className="text-second text-slate-500">Un virement est reconnu par la <b>communication structurée</b> de
             l’étudiant (elle figure sur sa note de frais). Sans elle, Lucie cherche le nom du donneur d’ordre parmi les
-            inscrits de l’année ; la ligne est alors à vérifier.</p>
+            inscrits de l’année ; la ligne est alors à vérifier. Un paiement par carte au terminal de l’école
+            (Bancontact, ou Visa et Mastercard versés par Worldline) a été encodé au guichet : Lucie le retrouve
+            et ne l’importe pas une seconde fois.</p>
           <label className="bouton bouton-fort inline-flex items-center gap-2 cursor-pointer">
             <IconUpload size={15} /> {envoi ? 'Lecture…' : 'Choisir l’extrait'}
-            <input type="file" className="hidden" accept=".cod,.coda,.txt,.xml,.csv,.CODA,.COD,.XML,.CSV" onChange={e => lire(e.target.files?.[0])} />
+            <input type="file" className="hidden" accept=".cod,.coda,.txt,.xml,.csv,.xlsx,.CODA,.COD,.XML,.CSV,.XLSX" onChange={e => lire(e.target.files?.[0])} />
           </label>
         </div>
       ) : (
@@ -90,6 +94,11 @@ export default function ExtraitsBancaires({ onFermer }) {
             <PastilleEtat etat="reussi">{lu.resume.reconnu} reconnu(s)</PastilleEtat>
             <PastilleEtat etat="surveiller">{lu.resume.douteux} à vérifier</PastilleEtat>
             <PastilleEtat etat="corriger">{lu.resume.inconnu} non rattaché(s)</PastilleEtat>
+            {(lu.resume.guichet + lu.resume.carte) > 0 && <>
+              <PastilleEtat etat="reussi">{lu.resume.guichet} carte(s) retrouvée(s) au guichet</PastilleEtat>
+              {lu.resume.carte > 0 && <PastilleEtat etat="surveiller">{lu.resume.carte} carte(s) à retrouver</PastilleEtat>}
+              {lu.resume.commissions > 0 && <span>commissions Worldline : {eur(lu.resume.commissions)}</span>}
+            </>}
             {(lu.resume.deja + lu.resume.ignore) > 0 && (
               <button type="button" className="underline text-slate-500" onClick={() => setVoirTout(v => !v)}>
                 {voirTout ? 'masquer' : 'voir'} les {lu.resume.deja} déjà importé(s) et {lu.resume.ignore} débit(s)
@@ -110,7 +119,7 @@ export default function ExtraitsBancaires({ onFermer }) {
                     <Td>{cochable && <input type="checkbox" checked={coches.has(i)} onChange={() => basculer(i)} />}</Td>
                     <Td>{fr(l.date)}</Td>
                     <Td align="droite" className="tabular-nums whitespace-nowrap">{eur(l.montant)}</Td>
-                    <Td>{l.nom || '—'}<div className="text-second text-slate-400">{l.compte_tiers}</div></Td>
+                    <Td>{l.nom || (l.carte ? `Terminal · ${l.carte.carte}` : '—')}<div className="text-second text-slate-400">{l.compte_tiers}</div></Td>
                     <Td className="max-w-[260px] break-words">{l.communication || '—'}</Td>
                     <Td>{l.etudiant ? <>{String(l.etudiant.nom).toUpperCase()} {l.etudiant.prenom}
                       <div className="text-second text-slate-400">{l.annee}{l.etudiant.id_ecampus ? ` · ${l.etudiant.id_ecampus}` : ''}</div></> : '—'}</Td>
