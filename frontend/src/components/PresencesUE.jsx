@@ -258,7 +258,7 @@ export default function PresencesUE({ ueInitiale = null }) {
       )}
       {d && d.seances.length > 0 && (
         <p className="text-second text-slate-500 m-0">
-          P présent · P* en retard · M à distance · A absent · CM certificat médical de l’étudiant · J autre absence justifiée · NC non concerné · D dispense partielle · NE non encodé.
+          P présent · P* en retard · M à distance · A absent · CM certificat médical de l’étudiant · J autre absence justifiée · NC non concerné · D dispense partielle · NE non encodé · case vide : séance d’avant l’inscription de l’étudiant (rien n’est dû).
           Chaque changement s’écrit au journal des présences, à votre nom.
         </p>)}
 
