@@ -156,12 +156,12 @@ export default function VisiteGuidee({ etudiantId, etapes: catalogue = ETAPES_VI
       {trou ? (
         <div className="absolute pointer-events-none rounded-carte transition-all duration-300 ease-ios"
           style={{ top: trou.top - MARGE, left: trou.left - MARGE, width: trou.width + 2 * MARGE, height: trou.height + 2 * MARGE,
-            boxShadow: '0 0 0 9999px rgba(14, 42, 79, 0.55), 0 0 0 3px var(--c-accent, #05B7E6)' }} />
-      ) : <div className="absolute inset-0" style={{ background: 'rgba(14, 42, 79, 0.55)' }} />}
+            boxShadow: '0 0 0 9999px color-mix(in srgb, var(--c-principal) 55%, transparent), 0 0 0 3px var(--c-accent)' }} />
+      ) : <div className="absolute inset-0" style={{ background: 'color-mix(in srgb, var(--c-principal) 55%, transparent)' }} />}
       {/* L'entrée du rail de l'écran ouvert, cerclée : on voit où le retrouver. */}
       {contenu && rail && (
         <div className="absolute pointer-events-none rounded-carte transition-all duration-300 ease-ios"
-          style={{ top: rail.top - 4, left: rail.left - 4, width: rail.width + 8, height: rail.height + 8, boxShadow: '0 0 0 3px var(--c-accent, #05B7E6)' }} />)}
+          style={{ top: rail.top - 4, left: rail.left - 4, width: rail.width + 8, height: rail.height + 8, boxShadow: '0 0 0 3px var(--c-accent)' }} />)}
       <div className="absolute bg-white rounded-fenetre shadow-dessus p-5 space-y-3 transition-all duration-300 ease-ios overflow-y-auto"
         style={{ ...pos, width: pos.right !== undefined && pos.left !== undefined ? undefined : larg, maxHeight: telephone ? '62vh' : '80vh' }}>
         <div className="flex items-start gap-3">
@@ -177,13 +177,13 @@ export default function VisiteGuidee({ etudiantId, etapes: catalogue = ETAPES_VI
             {e.gestes.map((g, n) => (
               <li key={n} className="flex gap-2 text-sm text-slate-600">
                 <span className="flex-none w-5 h-5 rounded-full text-white text-[11px] font-semibold inline-flex items-center justify-center mt-px"
-                  style={{ background: 'var(--c-principal, #16406A)' }}>{n + 1}</span>
+                  style={{ background: 'var(--c-principal)' }}>{n + 1}</span>
                 <span>{g}</span>
               </li>))}
           </ol>)}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <div className="flex gap-1 mr-auto" aria-hidden="true">
-            {etapes.map((_, n) => <span key={n} className="w-1.5 h-1.5 rounded-full" style={{ background: n === i ? 'var(--c-principal, #16406A)' : 'rgb(var(--gris-300, 203 213 225))' }} />)}
+            {etapes.map((_, n) => <span key={n} className="w-1.5 h-1.5 rounded-full" style={{ background: n === i ? 'var(--c-principal)' : 'rgb(var(--gris-300))' }} />)}
           </div>
           {!dernier && <button type="button" className="text-second text-slate-500 underline px-1" onClick={finir}>Passer</button>}
           {i > 0 && <button type="button" className="bouton" onClick={() => setI(i - 1)} aria-label="Étape précédente"><IconArrowLeft size={15} /></button>}

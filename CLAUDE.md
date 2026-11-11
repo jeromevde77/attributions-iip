@@ -3361,7 +3361,8 @@ plein, refusée = contour fraise). **Une nouvelle représentation d'une UE du pa
 `ListeEtats`/`LigneEtat` ; frais et versements en carte + `EnteteCarte` + `Tableau` ; boutons `.bouton-confirmer` / `.bouton-signaler`
 (index.css) ; frise VA en `PastilleEtat` ; `text-xs` → `text-second` ; faveur = état « faveur » (`resultatsPublies`, « Réussi par faveur »).
 Espace enseignant : `.carte` + `EnteteCarte`, listes de dates et d'appareils en `LigneEtat`, pastilles de type de date en `PastilleEtat`,
-libellés visibles (Liste, Rechercher, Une idée). **Restent** : les listes du PAE en ligne et la demande de VA (liseré autour de cartes).
+libellés visibles (Liste, Rechercher, Une idée). 3.5.332 : listes du PAE en `LigneEtat` (liseré bleu = au programme), choix du PAE en lignes de
+hauteur fixe, demande de VA sans liseré autour des cartes (intertitre), replis hexadécimaux retirés (VisiteGuidee).
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
