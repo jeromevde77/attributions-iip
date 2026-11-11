@@ -68,7 +68,9 @@ export default function PresencesUE({ ueInitiale = null }) {
   useEffect(() => { appel(`/ues?annee=${encodeURIComponent(annee)}`).then(j => setUes(j.ues)).catch(e => setErreur(e.message)); }, [annee]);
   /* LES JALONS SE CHOISISSENT (3.5.124, Charles : « laisse la vérificatrice décider ; 1/10, 5/10 et autre 3/10 ») : les dixièmes
      cochés ont chacun leur colonne de régularité ; le choix se garde sur l'appareil. */
-  const [choisis, setChoisis] = useState(() => { try { const v = JSON.parse(localStorage.getItem('lucie.jalonsRegularite') || 'null'); return Array.isArray(v) && v.length ? v : [10, 50]; } catch { return [10, 50]; } });
+  /* PLUS DE R / IR DANS LA GRILLE (3.5.318, Charles, 11 novembre 2026 : « tu dois retirer IR et R dans présences, c'est la
+     vérificatrice qui doit le faire »). Aucun jalon n'est demandé : ni colonne de régularité, ni choix des dixièmes. */
+  const [choisis, setChoisis] = useState([]);
   const basculerJalon = n => setChoisis(c => { const x = c.includes(n) ? c.filter(y => y !== n) : [...c, n].sort((a, b) => a - b);
     try { localStorage.setItem('lucie.jalonsRegularite', JSON.stringify(x)); } catch { /* */ } return x; });
   const charger = (u = ue) => u && appel(`/ue/${u}?annee=${encodeURIComponent(annee)}&jalons=${(choisis.length ? choisis : [0]).join(',')}`).then(j => { setD(j); setErreur(null); }).catch(e => setErreur(e.message));
@@ -157,17 +159,6 @@ export default function PresencesUE({ ueInitiale = null }) {
               onChange={e => setJusquau(e.target.value)} />
             <button type="button" className="bouton" onClick={() => remplir({ jusquau }, `jusqu’au ${frl(jusquau)}`)}>Remplir</button>
           </span>)}
-        {d && (
-          <span className="inline-flex items-center gap-1.5" title="Les dixièmes auxquels la régularité se lit : chacun a sa colonne">
-            <span className="text-second text-slate-600">Régularité au</span>
-            <span className="segments flex h-9">
-              {[10, 20, 30, 40, 50, 60, 70, 80, 90].map(n => (
-                <button key={n} type="button" onClick={() => basculerJalon(n)}
-                  className={`px-1.5 text-second ${choisis.includes(n) ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{n / 10}/10</button>))}
-            </span>
-          </span>)}
-        {d && vus.length > 0 && <span className="text-second text-slate-500">
-          {vus.map(j => <span key={j}>{d.libelles_jalons[j]} : <b>{frl(d.jalons[j])}</b> · </span>)}régulier : présences + justifiées ≥ {Math.round(d.seuil * 100)} %</span>}
       </div>
       {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
       {!ue && <p className="text-sm text-slate-500">Choisissez une unité : ses inscrits, toutes ses séances, et la régularité au 1er et au 5e dixième.</p>}
@@ -267,8 +258,7 @@ export default function PresencesUE({ ueInitiale = null }) {
       )}
       {d && d.seances.length > 0 && (
         <p className="text-second text-slate-500 m-0">
-          P présent · P* en retard · M à distance · A absent · CM certificat médical de l’étudiant · J autre absence justifiée · NC non concerné · D dispense partielle · NE non encodé. Les colonnes dorées : la séance du
-          1er et du 5e dixième, puis la régularité. Un badge pointillé a été inversé à la main ; un point après R/IR signale des séances non encodées avant le jalon.
+          P présent · P* en retard · M à distance · A absent · CM certificat médical de l’étudiant · J autre absence justifiée · NC non concerné · D dispense partielle · NE non encodé.
           Chaque changement s’écrit au journal des présences, à votre nom.
         </p>)}
 
