@@ -3406,6 +3406,10 @@ routes `GET /api/mes-cours/editions/catalogue` et `/editions/:piece?cours=&forma
 de l'espace enseignant). Déclarées au catalogue général (`prof_<id>`, portée 'cours'). Banc d'essai hors dépôt (données fictives) : 23 ok.
 **À faire** : le chapitre du mode d'emploi ; vérifier sur des volumes réels (les statistiques recalculent 3 années).
 
+**LES COÛTS DES FORMATIONS, GARDÉS DIX MINUTES** (3.5.341, Charles : « je ne trouve plus le coût financier des MDP » — Gestion →
+Finances → Coûts des formations restait ~1 min sur « Calcul du rapport… » : ~23 s de `donneesCout`, demandé deux fois). `CACHE_COUT`
+(routes/rapports.js, par année, 10 min) ; « Recalculer » envoie `recalculer=1`.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

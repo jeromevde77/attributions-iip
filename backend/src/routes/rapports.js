@@ -3054,13 +3054,22 @@ r.get('/cout-formations/finances', authRequired, (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* LE CALCUL GARDÉ DIX MINUTES (3.5.341, Charles : « je ne trouve plus le coût financier des MDP » — l'écran restait près d'une
+   minute sur « Calcul du rapport… » : ~23 s de calcul, lancé deux fois de suite à l'ouverture). Le résultat se garde par année ;
+   « Recalculer » (`recalculer=1`) le refait. */
+const CACHE_COUT = new Map();
 r.get('/cout-formations/donnees', authRequired, (req, res) => {
   try {
     const annee = String(req.query.annee || anneeDeTravail(req));
+    const c = CACHE_COUT.get(annee);
+    if (c && !req.query.recalculer && Date.now() - c.t < 600e3) return res.json({ ...c.v, calcule_le: c.le });
     const d = donneesCout(annee);
     const { missions, ...reste } = d;
-    res.json({ ...reste, nb_fonctions: missions.length, synthese: syntheseCout(d),
-      remplacement_jours: getParamNum('cout.remplacement_jours', 10) });
+    const v = { ...reste, nb_fonctions: missions.length, synthese: syntheseCout(d),
+      remplacement_jours: getParamNum('cout.remplacement_jours', 10) };
+    const le = new Date().toISOString();
+    CACHE_COUT.set(annee, { t: Date.now(), v, le });
+    res.json({ ...v, calcule_le: le });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

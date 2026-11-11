@@ -352,7 +352,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
   useEffect(() => {
     let vivant = true;
     setEnCours(true); setErreur(null);
-    fetch(`/api/rapports/cout-formations/donnees?annee=${encodeURIComponent(annee)}`, { headers: authHeaders({ 'X-Annee': annee }) })
+    fetch(`/api/rapports/cout-formations/donnees?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`, { headers: authHeaders({ 'X-Annee': annee }) })
       .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); if (vivant) setD(j); })
       .catch(e => { if (vivant) setErreur(e.message); })
       .finally(() => { if (vivant) setEnCours(false); });
@@ -395,7 +395,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
         <InscritsPrevus replie annee={annee} onEnregistre={() => setTour(t => t + 1)} />
       </div>
       {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
-      {!d ? <p className="text-sm text-slate-400">{enCours ? 'Calcul du rapport…' : ''}</p> : (<>
+      {!d ? <p className="text-sm text-slate-400">{enCours ? 'Calcul du rapport… (une vingtaine de secondes : toutes les attributions et les fonctions de l’année sont recomptées)' : ''}</p> : (<>
         <div className="text-second text-slate-600">
           Montants au <b>coût de convention</b> : ce que coûte une période quand l'établissement doit l'acheter à la Fédération —
           pas les traitements réellement versés. Un membre du personnel absent peut être remplacé <b>sans coût supplémentaire</b> à
