@@ -238,6 +238,7 @@ function caseNote(note, { faveur, representer, refuse }) {
 }
 function VoletResultat({ u }) {
   const d = u.detail;
+  const [motifVu, setMotifVu] = useState(null);   // l'acquis dont la motivation est dépliée (3.5.325)
   const refuse = u.etat === 'corriger';
   return (
     <div className="px-3 py-3 space-y-3" style={{ background: 'color-mix(in srgb, var(--c-principal) 4%, transparent)' }}>
@@ -253,10 +254,21 @@ function VoletResultat({ u }) {
             <div className="divide-y divide-slate-100">
               {c.acquis.map(a => {
                 const aRep = rep && (!rep.length || rep.includes(a.code));
+                const cle = `${c.code}|${a.code}`;
+                const ouvert = motifVu === cle;
                 return (
-                  <div key={a.code} className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                    <span className="flex-1 min-w-0"><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span></span>
-                    {caseNote(a.note, { faveur: d.faveur, representer: aRep, refuse })}
+                  <div key={a.code}>
+                    <div className={`flex items-center gap-2 px-3 py-1.5 text-sm ${a.motif ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                      onClick={a.motif ? () => setMotifVu(ouvert ? null : cle) : undefined}
+                      title={a.motif ? (ouvert ? 'Replier la motivation' : 'Voir pourquoi cet acquis n’est pas acquis') : undefined}>
+                      <span className="flex-1 min-w-0"><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span>
+                        {a.motif && <span className="ml-1.5 text-mention text-iip-blue underline">{ouvert ? 'masquer' : 'pourquoi ?'}</span>}</span>
+                      {caseNote(a.note, { faveur: d.faveur, representer: aRep, refuse })}
+                    </div>
+                    {ouvert && (
+                      <div className="mx-3 mb-2 px-3 py-2 text-second whitespace-pre-line bloc-etat" data-etat={refuse ? 'corriger' : 'surveiller'}>
+                        <div className="text-mention text-slate-500 mb-0.5">Motivation du Conseil des études</div>{a.motif}
+                      </div>)}
                   </div>);
               })}
             </div>
