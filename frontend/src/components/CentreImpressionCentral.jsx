@@ -733,7 +733,7 @@ const FAMILLES_RAPPORTS = {
     ['Les lieux', ['organisation-locaux']],
   ],
   gestion: [
-    ['La charge et la dotation', ['etp']],
+    ['La charge et la dotation', ['dotation-felsi', 'etp']],
     ['Les chiffres', ['chiffres-cles', 'cout-formations']],
   ],
 };

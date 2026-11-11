@@ -24,7 +24,8 @@ import { envelopperDocument } from '../lib/document.js';
 import { donneesInscritsUnites } from './etudiants.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE, aRepresenterParCours } from './acquis.js';
-import { calculerEtp } from './pilotage.js';
+import { calculerEtp, syntheseCivile } from './pilotage.js';
+import { identiteEtablissement } from './config.js';
 import { MOTIFS_DI, calculerDI, libelleMotifDI, exemptionDI } from './droitInscription.js';
 import { dixiemeUE } from '../lib/datesReelles.js';
 import { epreuves as epreuvesDeLAnnee } from '../lib/examens.js';
@@ -1792,6 +1793,74 @@ function documentChiffresCles(p) {
   };
 }
 
+/* LA DOTATION ORGANIQUE, AU TABLEAU DE LA FELSI (3.5.322, Charles, 11 novembre 2026 : « pouvoir sortir ce tableau de Gestion avec
+ * une jolie mise en page »). L'année civile = la première de l'année académique choisie (2026-2027 → 2026). Les colonnes du modèle
+ * FELSI : dotation, banque 1 %, utilisé janvier-juin (24 sem.), prévisions septembre-décembre (16 sem.), total (4 + 5 + 6),
+ * disponible (3 − 4 − 5 − 6). Les dépassements d'enveloppes que Lucie impute à l'organique entrent dans les prévisions. */
+function donneesFelsi(annee) {
+  const y = Number(String(annee || '').slice(0, 4));
+  const d = syntheseCivile().find(x => x.annee_civile === y);
+  if (!d) return null;
+  const banque = Math.round(d.dotation_organique * 0.01);
+  const jj = Math.round(d.usage_jan_juin || 0);
+  const sd = Math.round((d.usage_sep_dec || 0) + (d.dot_total || 0));
+  const total = banque + jj + sd;
+  return { y, d, banque, jj, sd, sdBrut: Math.round(d.usage_sep_dec || 0), depassement: Math.round(d.dot_total || 0), total, dispo: d.dotation_organique - total };
+}
+function documentDotationFelsi(p) {
+  const f = donneesFelsi(p.annee);
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
+  const sg = n => `${n >= 0 ? '+' : '−'}${n0(Math.abs(n))}`;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  if (!f) {
+    return { corps: `<p>Aucune dotation n'est configurée pour l'année civile ${esc(String(p.annee).slice(0, 4))} (Gestion → Dotation → Configuration).</p>`,
+      entete: { titre: 'Dotation organique', sous: '' }, titre: 'Dotation organique', nom: 'Dotation-organique.html', styles: STYLE_RAPPORT + STYLE_REPORTING };
+  }
+  const id = identiteEtablissement();
+  const { d } = f;
+  const env = (d.enveloppes || []);
+  const corps = `
+    ${rangeeTuiles([
+      tuile({ valeur: n0(d.dotation_organique), libelle: `Dotation ${f.y}`, precision: 'périodes B', ton: 'fort' }),
+      tuile({ valeur: n0(f.jj), libelle: 'Janvier – juin', precision: `Q2 de ${esc(d.scolaire_jan_juin || '')} — consommé` }),
+      tuile({ valeur: n0(f.sd), libelle: 'Septembre – décembre', precision: `Q1 de ${esc(d.scolaire_sep_dec || '')}${f.depassement ? `, dont ${n0(f.depassement)} de dépassement` : ''}` }),
+      tuile({ valeur: sg(f.dispo), libelle: f.dispo >= 0 ? 'Disponible' : 'À emprunter', precision: 'après la banque de 1 %', couleur: f.dispo >= 0 ? '#3E7D5E' : '#9D4A38' }),
+    ])}
+    <h2>Le tableau de la FELSI</h2>
+    <table class="felsi">
+      <thead><tr>
+        <th>Établissement</th><th>Matricule</th><th class="n">Dotation année civile ${f.y}</th><th class="n">Banque 1 %</th>
+        <th class="n">Utilisé J à J<br><span class="fin">(24 sem.)</span></th><th class="n">Prévisions S à D<br><span class="fin">(16 sem.)</span></th>
+        <th class="n">Total année civile ${f.y}</th><th class="n">Disponible (+) ou à emprunter (−)</th>
+      </tr>
+      <tr class="numeros"><td>1</td><td>2</td><td class="n">3</td><td class="n">4</td><td class="n">5</td><td class="n">6</td><td class="n">7 = 4 + 5 + 6</td><td class="n">8 = 3 − 4 − 5 − 6</td></tr></thead>
+      <tbody><tr>
+        <td>${esc(id.nom)}</td><td>${esc(id.matricule || '—')}</td><td class="n">${n0(d.dotation_organique)}</td><td class="n">${n0(f.banque)}</td>
+        <td class="n">${n0(f.jj)}</td><td class="n">${n0(f.sd)}</td><td class="n g">${n0(f.total)}</td>
+        <td class="n g" style="color:${f.dispo >= 0 ? '#3E7D5E' : '#9D4A38'}">${sg(f.dispo)}</td>
+      </tr></tbody>
+    </table>
+    <p class="fin">Exprimé en périodes B. Colonne 6 : ${n0(f.sdBrut)} périodes engagées au premier quadrimestre de ${esc(d.scolaire_sep_dec || '')}${f.depassement
+      ? `, plus ${n0(f.depassement)} périodes de dépassement des enveloppes extérieures, imputées à la dotation organique` : ''}. Banque : 1 % de la dotation, arrondi.
+      Les prévisions de septembre à décembre sont celles des attributions encodées à ce jour : elles bougent tant que l'année n'est pas close.</p>
+    ${env.length ? `<h2>Les enveloppes extérieures</h2>
+    <table><thead><tr><th>Enveloppe</th><th class="n">Utilisé</th><th class="n">Enveloppe</th><th class="n">Solde</th><th class="n">Dépassement imputé</th></tr></thead>
+      <tbody>${env.map(e => `<tr><td>${esc(e.libelle || e.nom || e.code)}</td><td class="n">${n0(e.usage)}</td>
+        <td class="n">${e.illimite ? 'illimitée' : n0(e.periodes_b)}</td><td class="n">${e.solde == null ? '—' : sg(e.solde)}</td>
+        <td class="n">${e.dot ? n0(e.dot) : '—'}</td></tr>`).join('')}</tbody></table>` : ''}`;
+  return {
+    corps,
+    entete: { titre: `Dotation organique ${f.y}`, sous: `Tableau de la FELSI · année civile ${f.y} · situation au ${new Date().toLocaleDateString('fr-BE')}` },
+    titre: `Dotation organique ${f.y}`,
+    nom: `Dotation-organique-${f.y}.html`,
+    orientation: 'paysage',
+    styles: STYLE_RAPPORT + STYLE_REPORTING + `
+      table.felsi th, table.felsi td { font-size: 10pt; padding: 2.5mm 2mm; }
+      table.felsi tr.numeros td { font-size: 7.5pt; color: #64748b; background: #F6F8FB; padding: 1mm 2mm; }
+      table.felsi td.g { font-weight: 700; }`,
+  };
+}
+
 /**
  * L'AIGUILLAGE. Une seule entrée au catalogue, quatre pièces selon la portée —
  * et c'est l'utilisateur qui choisit, non le menu qui a décidé pour lui.
@@ -2251,6 +2320,16 @@ export const RAPPORTS = [
         };
       }).filter(l => l.inscrits > 0);
     },
+  },
+  {
+    id: 'dotation-felsi', domaine: 'gestion', params: ['annee'],
+    libelle: 'Dotation organique — tableau de la FELSI',
+    aide: "La dotation de l'année civile, la banque de 1 %, l'utilisé de janvier à juin, les prévisions de septembre à décembre et le disponible : le tableau que demande la FELSI, mis en page.",
+    colonnes: COLS([['etablissement', 'Établissement', 28], ['matricule', 'Matricule'], ['dotation', 'Dotation'], ['banque', 'Banque 1 %'],
+      ['jj', 'Utilisé J à J'], ['sd', 'Prévisions S à D'], ['total', 'Total'], ['disponible', 'Disponible']]),
+    lignes: (p) => { const f = donneesFelsi(p.annee); if (!f) return []; const id = identiteEtablissement();
+      return [{ etablissement: id.nom, matricule: id.matricule || '', dotation: f.d.dotation_organique, banque: f.banque, jj: f.jj, sd: f.sd, total: f.total, disponible: f.dispo }]; },
+    document: (p) => documentDotationFelsi(p),
   },
   {
     id: 'dotation-emploi', domaine: 'gestion', params: ['annee'],
