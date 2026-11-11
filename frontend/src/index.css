@@ -1201,6 +1201,7 @@ select[multiple], select[size]:not([size="1"]) {
 .gelule > span[data-c="i"] { background: var(--c-disponible); color: #fff; }
 .gelule > span[data-c="a"] { background: var(--c-attente); color: #fff; }
 .gelule > span[data-c="x"] { background: var(--c-refuse); color: #fff; }   /* échouée deux fois (3.5.215) */
+.gelule > span[data-c="z"] { background: #fff; color: var(--c-refuse); box-shadow: inset 0 0 0 2px var(--c-refuse); }   /* refusée cette année (3.5.328) */
 .gelule > span[data-c="o"] { color: rgb(var(--gris-500)); }
 .gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: rgb(var(--gris-400)); }
 

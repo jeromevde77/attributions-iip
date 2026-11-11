@@ -3349,6 +3349,9 @@ et TIM). `sectionsCodiplomation()` (`lib/grillePresence.js`, `lucie_config` « s
 `donneesCapitalisation` pose `ajournee_annee` (résultat « ajourne » de l'année, non acquise) et `refusee_annee` (« refuse » de l'année,
 pas deux fois) ; orange plein (`--c-attente`) ; blanc à contour fraise épais ; fraise pleine = `echec_double`. Mêmes règles dans
 `SchemaCapitalisation.jsx` (mode étudiant), `ParcoursCompact.jsx` et `lib/schemaSvg.js` (pièce et portail), légendes comprises.
+**LE MÊME CODE PARTOUT** (3.5.328, « toutes les icônes PAE codées de la même manière ») : la frise de la liste (`/api/etudiants/frises`,
+code « a » ajournée et « z » refusée de l'année avant « i », `.gelule [data-c="z"]`) et `CasePAE` (`ComposerPAE.jsx` : inscrite = bleu
+plein, refusée = contour fraise). **Une nouvelle représentation d'une UE du parcours reprend ces cinq couleurs.**
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

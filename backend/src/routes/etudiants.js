@@ -1368,6 +1368,8 @@ r.get('/frises', authRequired, (req, res) => {
   // ÉCHOUÉE DEUX FOIS (3.5.215) : refusée deux années distinctes — puce rouge (« x ») dans la frise, comme dans le schéma.
   const echecDouble = new Set(db.prepare(`SELECT etudiant_id, ue_num FROM etudiant_inscription WHERE resultat = 'refuse'
       GROUP BY etudiant_id, ue_num HAVING COUNT(DISTINCT annee_scolaire) >= 2`).all().map(x => `${x.etudiant_id}|${x.ue_num}`));
+  const decisionsAnnee = new Map(db.prepare(`SELECT etudiant_id, ue_num, resultat FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND resultat IN ('ajourne', 'refuse')`).all(annee).map(x => [`${x.etudiant_id}|${x.ue_num}`, x.resultat]));
   const graphes = {};
   const graphe = sec => {
     if (graphes[sec] !== undefined) return graphes[sec];
@@ -1402,6 +1404,11 @@ r.get('/frises', authRequired, (req, res) => {
       const st = faits.etats.get(u)?.statut || 'bloquee';
       if (st === 'acquise') return faveurs.has(`${e.id}|${u}|${reussiesAn.get(`${e.id}|${u}`)}`) ? 'f' : 'r';
       if (echecDouble.has(`${e.id}|${u}`)) return 'x';
+      // LE MÊME CODE PARTOUT (3.5.328, Charles : « toutes les icônes PAE codées de la même manière ») : ajournée cette année = « a »
+      // (orange plein), refusée cette année = « z » (contour fraise) — comme le schéma du parcours.
+      const dec = decisionsAnnee.get(`${e.id}|${u}`);
+      if (dec === 'ajourne') return 'a';
+      if (dec === 'refuse') return 'z';
       if (inscrites.has(u)) return 'i';
       if (st === 'en_attente') return 'a';
       if (st === 'accessible' || st === 'sous_reserve') return 'o';
