@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
@@ -224,44 +224,68 @@ function ValiderPAE({ annee, onFait }) {
     </FenetreEspace>);
 }
 
-/* LE DÉTAIL D'UNE NOTE (3.5.316, Charles, 11 novembre 2026 : « en cliquant sur la ligne, l'étudiant voit la note de ses cours et
-   AA ; si ajournement ou échec, NA comme toujours ; noter les examens et AA à représenter »). Calculé par Lucie (portailSync,
-   `detailResultat`) : jamais une cote sous 10, une faveur vaut 10 partout. */
+/* LE DÉTAIL D'UNE NOTE (3.5.316 ; en VOLET depuis 3.5.320, Charles : « pas une fenêtre qui s'ouvre, un volet qui se déplie, avec
+   des couleurs ; et surtout la liste des examens à repasser, quand »). Calculé par Lucie (portailSync, `detailResultat`) : jamais
+   une cote sous 10, une faveur vaut 10 partout. Vert : acquis ; orange : à représenter ; fraise : non acquis (refus) ; violet :
+   accordé par le Conseil. */
 const dateFr = x => (x ? new Date(`${String(x).slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '');
-function DetailResultat({ u, onFermer }) {
+function caseNote(note, { faveur, representer, refuse }) {
+  const chiffre = /^\d+$/.test(String(note));
+  const fond = faveur ? 'var(--c-faveur)' : chiffre ? 'var(--c-reussi)' : note === 'NA' ? (representer ? 'var(--c-attente)' : refuse ? 'var(--c-refuse)' : 'var(--c-attente)') : null;
+  return fond
+    ? <span className="inline-flex items-center justify-center min-w-[3.5rem] h-7 px-2 rounded-champ text-white font-semibold tabular-nums" style={{ background: fond }}>{note}{chiffre ? '/20' : ''}</span>
+    : <span className="text-slate-400">{note}</span>;
+}
+function VoletResultat({ u }) {
   const d = u.detail;
-  const rep = d.cours.filter(c => c.a_representer);
+  const refuse = u.etat === 'corriger';
   return (
-    <FenetreEspace titre={`UE ${u.ue_num} — ${u.ue_nom || ''}`} sous={`${u.decision} · note de l’unité : ${u.note}${typeof u.note === 'number' ? '/20' : ''}`} onFermer={onFermer}>
-      <div className="space-y-3">
-        {rep.length > 0 && (
-          <Encadre etat="surveiller" titre="À représenter en seconde session">
-            <ul className="m-0 pl-4 space-y-1">
-              {rep.map(c => (
-                <li key={c.code}><b>{c.code}</b> {c.nom} — {c.a_representer.length ? `acquis ${c.a_representer.join(', ')}` : 'tout le cours'}
-                  {c.examen ? <> · examen le <b>{dateFr(c.examen.date)}</b>{c.examen.heure ? ` à ${c.examen.heure}` : ''}{c.examen.local ? `, local ${c.examen.local}` : ''}</> : ' · date d’examen à venir'}</li>))}
-            </ul>
-          </Encadre>)}
-        {d.cours.map(c => (
-          <section key={c.code} className="carte overflow-hidden">
-            <EnteteCarte titre={`${c.code} — ${c.nom}`} sous={c.visite ? (c.visite.rdv ? 'Visite des copies : sur rendez-vous, contactez le professeur'
-              : `Visite des copies : ${dateFr(c.visite.date)}${c.visite.heure ? ` à ${c.visite.heure}` : ''}${c.visite.local ? `, local ${c.visite.local}` : ''}`) : null}
->
-              <span className="font-semibold tabular-nums">{c.note}{/^\d+$/.test(c.note) ? '/20' : ''}</span>
-            </EnteteCarte>
-            <Tableau className="!border-0 !rounded-none">
-              <TableauEntete><Th>Acquis d’apprentissage</Th><Th align="droite">Note</Th></TableauEntete>
-              <tbody>{c.acquis.map(a => (
-                <Tr key={a.code}>
-                  <Td><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span>
-                    {c.a_representer && (!c.a_representer.length || c.a_representer.includes(a.code)) && <> <PastilleEtat etat="surveiller">à représenter</PastilleEtat></>}</Td>
-                  <Td align="droite" className="font-semibold tabular-nums whitespace-nowrap">{a.note}{/^\d+$/.test(a.note) ? '/20' : ''}</Td>
-                </Tr>))}</tbody>
-            </Tableau>
-          </section>))}
-        <p className="text-xs text-slate-500 m-0">« NA » : non acquis — aucune cote sous 10 n’est communiquée.{d.faveur ? ' L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.' : ''} Ce qui fait foi reste la pièce que l’école vous remet.</p>
-      </div>
-    </FenetreEspace>);
+    <div className="px-3 py-3 space-y-3" style={{ background: 'color-mix(in srgb, var(--c-principal) 4%, transparent)' }}>
+      {d.cours.map(c => {
+        const rep = c.a_representer;
+        return (
+          <div key={c.code} className="carte bg-white overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-100">
+              <span className="flex-1 min-w-0"><b>{c.code}</b> {c.nom}</span>
+              {rep && <PastilleEtat etat="surveiller">à représenter{rep.length ? ` : ${rep.join(', ')}` : ' : tout le cours'}</PastilleEtat>}
+              {caseNote(c.note, { faveur: d.faveur, representer: !!rep, refuse })}
+            </div>
+            <div className="divide-y divide-slate-100">
+              {c.acquis.map(a => {
+                const aRep = rep && (!rep.length || rep.includes(a.code));
+                return (
+                  <div key={a.code} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                    <span className="flex-1 min-w-0"><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span></span>
+                    {caseNote(a.note, { faveur: d.faveur, representer: aRep, refuse })}
+                  </div>);
+              })}
+            </div>
+            {(c.examen || rep || c.visite) && (
+              <div className="px-3 py-2 text-second text-slate-600 border-t border-slate-100 space-y-0.5">
+                {rep && <div>Examen de seconde session : {c.examen ? <b>{dateFr(c.examen.date)}{c.examen.heure ? ` à ${c.examen.heure}` : ''}{c.examen.local ? `, local ${c.examen.local}` : ''}</b> : 'date à venir'}</div>}
+                {c.visite && <div>Visite des copies : {c.visite.rdv ? 'sur rendez-vous, contactez le professeur' : <>{dateFr(c.visite.date)}{c.visite.heure ? ` à ${c.visite.heure}` : ''}{c.visite.local ? `, local ${c.visite.local}` : ''}</>}</div>}
+              </div>)}
+          </div>);
+      })}
+      {d.faveur && <p className="text-xs text-slate-500 m-0">L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.</p>}
+    </div>);
+}
+/** Les examens à repasser : tous les cours à représenter de l'année, par date. */
+function ExamensARepasser({ resultats }) {
+  const liste = resultats.flatMap(a => a.ues.flatMap(u => (u.detail?.cours || []).filter(c => c.a_representer)
+    .map(c => ({ ue: u, c })))).sort((x, y) => String(x.c.examen?.date || '9999').localeCompare(String(y.c.examen?.date || '9999')));
+  if (!liste.length) return null;
+  return (
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Mes examens à repasser" sous="Seconde session : ce que vous représentez, et quand." />
+      <ListeEtats className="!border-0 !rounded-none">
+        {liste.map(({ ue, c }) => (
+          <LigneEtat key={`${ue.ue_num}|${c.code}`} etat="surveiller"
+            titre={<><b>{c.code}</b> {c.nom}</>}
+            sous={`UE ${ue.ue_num} · ${c.a_representer.length ? `acquis ${c.a_representer.join(', ')}` : 'tout le cours'}`}
+            droite={<span className="text-sm font-semibold text-right">{c.examen ? <>{dateFr(c.examen.date)}{c.examen.heure ? ` à ${c.examen.heure}` : ''}{c.examen.local ? <span className="block font-normal text-slate-500">local {c.examen.local}</span> : null}</> : <span className="font-normal text-slate-500">date à venir</span>}</span>} />))}
+      </ListeEtats>
+    </section>);
 }
 
 export default function EspaceEtudiant() {
@@ -1170,7 +1194,7 @@ function Espace() {
   const [erreur, setErreur] = useState(null);
   const [horsBe, setHorsBe] = useState(null);
   const [d, setD] = useState(null);
-  const [detailUE, setDetailUE] = useState(null);   // le détail d'une note (3.5.316)
+  const [detailUE, setDetailUE] = useState(null);   // la clé de l'unité dont le volet est ouvert (3.5.320)
   const [paeRemis, setPaeRemis] = useState(() => { try { return !!sessionStorage.getItem(PAE_REMIS); } catch { return false; } });
   /* LA FENÊTRE DES MOTS DE PASSE NE RESTE PAS SUR UN CHAMP DISPARU (3.5.235, capture de Charles : le trousseau de Safari restait
      ouvert par-dessus l'espace, accroché au champ d'identifiant de la page d'entrée, que l'aperçu affiche un instant). L'espace ouvert,
@@ -1459,21 +1483,23 @@ function Espace() {
         {face === 'parcours' && <Onglets f="parcours" />}
         {face === 'parcours' && sousActif === 'parcours' && <MonParcours onErreur={echec} />}
         {d && face === 'parcours' && sousActif === 'resultats' && (d.resultats.length ? (<>
+          <ExamensARepasser resultats={d.resultats} />
           {d.resultats.map(a => (
             <section key={a.annee} className="carte overflow-hidden">
               <EnteteCarte titre={a.annee.replace('-', ' – ')} />
               <Tableau className="!border-0 !rounded-none">
                 <TableauEntete><Th>Unité</Th><Th>Intitulé</Th><Th>Décision</Th><Th align="droite">Note</Th></TableauEntete>
-                <tbody>{a.ues.map(u => (
-                  <Tr key={`${u.ue_num}-${u.decision}`} className={u.detail ? 'cursor-pointer' : ''} onClick={u.detail ? () => setDetailUE(u) : undefined}
-                    title={u.detail ? 'Voir le détail par cours et par acquis' : undefined}>
+                <tbody>{a.ues.map(u => { const cle = `${a.annee}|${u.ue_num}|${u.decision}`; const ouvert = detailUE === cle; return (<Fragment key={cle}>
+                  <Tr className={u.detail ? 'cursor-pointer' : ''} onClick={u.detail ? () => setDetailUE(ouvert ? null : cle) : undefined}
+                    title={u.detail ? (ouvert ? 'Replier le détail' : 'Voir le détail par cours et par acquis') : undefined}>
                     <Td className="tabular-nums whitespace-nowrap">UE {u.ue_num}</Td><Td>{u.ue_nom}</Td>
                     <Td><PastilleEtat etat={u.etat === 'reussi' ? 'reussi' : u.etat === 'surveiller' ? 'surveiller' : u.etat === 'corriger' ? 'corriger' : 'neutre'}>{u.decision}</PastilleEtat></Td>
-                    <Td align="droite" className="font-semibold tabular-nums whitespace-nowrap">{u.note}{typeof u.note === 'number' ? ' /20' : ''}{u.detail && <span className="ml-2 text-slate-400">›</span>}</Td>
-                  </Tr>))}</tbody>
+                    <Td align="droite" className="font-semibold tabular-nums whitespace-nowrap">{u.note}{typeof u.note === 'number' ? ' /20' : ''}{u.detail && <span className="ml-2 text-slate-400">{ouvert ? '▾' : '›'}</span>}</Td>
+                  </Tr>
+                  {ouvert && <tr><td colSpan={4} className="p-0"><VoletResultat u={u} /></td></tr>}
+                </Fragment>); })}</tbody>
               </Tableau>
             </section>))}
-          {detailUE && <DetailResultat u={detailUE} onFermer={() => setDetailUE(null)} />}
           <p className="text-xs text-slate-500">« NA » : non acquis. Touchez une unité pour voir ses cours et ses acquis. Seuls les résultats des délibérations closes paraissent ici ; ce qui fait foi reste la pièce que l’école vous remet.</p>
         </>) : <p className="text-sm text-slate-500">Aucun résultat délibéré pour l’instant. Un résultat paraît ici quand la délibération de l’unité est close.</p>)}
         {face === 'parcours' && sousActif === 'pae' && <MonPAE onErreur={echec} email={d?.etudiant?.email} />}

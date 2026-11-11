@@ -3317,8 +3317,11 @@ case vide, hors compte (et hors `regulariteAuJalon`). `GET /api/presences-ue/ue/
 cliquant sur la ligne, il voit la note de ses cours et AA ; NA si ajournement ou échec ; noter les examens et AA à représenter » ;
 « ces boutons en haut, à côté de la note UE »). `detailResultat` (`lib/portailSync.js`, mémoire d'une heure) : `delibererUE` de la
 dernière session close, `coteEtudiant` (NA sous 10), faveur = 10, `a_representer_detail` + date d'examen (`deliberation_session2`) +
-visite (`visitesParCours`) ; année active seulement ; colonne `resultat.detail` du portail ; `DetailResultat` d'`EspaceEtudiant.jsx`.
-`Fiche` de la délibération : `Decision partie="boutons"` dans l'en-tête collant, sous la navigation.
+visite (`visitesParCours`) ; année active seulement ; colonne `resultat.detail` du portail. 3.5.320 (Charles : « un volet qui se
+déplie, avec des couleurs ; et la liste des examens à repasser ») : `VoletResultat` sous la ligne (`caseNote` : vert, orange à
+représenter, fraise refus, violet faveur) et `ExamensARepasser` en tête, triés par date.
+`Fiche` de la délibération : `Decision partie="boutons" compact` sur la ligne de la navigation, à côté de la tuile (3.5.321,
+« tout sur une même ligne ») ; la ligne « Enregistré » = `partie="statut"`, dans le corps.
 
 **CORRIGER UNE UE : PLUSIEURS UE, EN VOLETS** (3.5.317, le secrétariat par Charles, 11 novembre 2026 : « choisir plusieurs UE ;
 alors plus le détail des AA ni des cours d'emblée — des volets, comme dans Inscrits par unité »). `GET /api/correction-ue/plusieurs`
