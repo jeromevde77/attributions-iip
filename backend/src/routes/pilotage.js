@@ -285,9 +285,10 @@ r.get('/population-personnel', authRequired, (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-r.get('/civil', authRequired, (req, res) => {
+/** Le résumé de toutes les années civiles (organique + enveloppes) : l'écran de Pilotage et la pièce « tableau FELSI » le lisent. */
+export function syntheseCivile() {
   const years = db.prepare('SELECT * FROM dotation_civile ORDER BY annee_civile').all();
-  if (!years.length) return res.json([]);
+  if (!years.length) return [];
 
   const toCompute = years.filter(y => y.usage_historique_organique == null).map(y => y.annee_civile);
   const usageDB = toCompute.length ? computeUsageDB(toCompute) : {};
@@ -373,7 +374,11 @@ r.get('/civil', authRequired, (req, res) => {
     };
   });
 
-  res.json(result);
+  return result;
+}
+
+r.get('/civil', authRequired, (req, res) => {
+  res.json(syntheseCivile());
 });
 
 // GET /civil/:annee — détail par section pour une année civile

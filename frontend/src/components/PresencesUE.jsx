@@ -219,6 +219,7 @@ export default function PresencesUE({ ueInitiale = null }) {
                 <tr key={l.etudiant.id} className="border-t border-slate-100 bg-white">
                   <td className="px-2 py-1 sticky left-0 bg-white z-10 whitespace-nowrap">
                     <b>{String(l.etudiant.nom || '').toUpperCase()}</b> {l.etudiant.prenom}
+                    {l.ch && <b className="ml-1" title="Programme menant à une codiplômation : réputé assidu, prise de présences non obligatoire (circulaire 9764)">CH</b>}
                     {l.etudiant.id_ecampus && <span className="block text-xs text-slate-400">{l.etudiant.id_ecampus}</span>}
                     {/* L'ABANDON (3.5.237, circulaire 9764) : sa date, au registre. */}
                     <button type="button" className="block text-xs underline text-slate-500" onClick={async () => {
@@ -258,7 +259,7 @@ export default function PresencesUE({ ueInitiale = null }) {
       )}
       {d && d.seances.length > 0 && (
         <p className="text-second text-slate-500 m-0">
-          P présent · P* en retard · M à distance · A absent · CM certificat médical de l’étudiant · J autre absence justifiée · NC non concerné · D dispense partielle · NE non encodé.
+          P présent · P* en retard · M à distance · A absent · CM certificat médical de l’étudiant · J autre absence justifiée · NC non concerné · D dispense partielle · NE non encodé · case vide : séance d’avant l’inscription de l’étudiant (rien n’est dû) · CH codiplômation (Orthoptie, TIM) : réputé assidu, prise de présences non obligatoire.
           Chaque changement s’écrit au journal des présences, à votre nom.
         </p>)}
 

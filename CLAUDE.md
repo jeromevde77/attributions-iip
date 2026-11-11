@@ -3333,6 +3333,16 @@ vérificatrice qui doit le faire »). `PresencesUE.jsx` ne demande aucun jalon (
 « irréguliers » du pilotage est retirée. 3.5.319 : le Pilotage (`PilotagePresences.jsx`) ne montre plus ni réguliers, ni
 irréguliers, ni PEP estimée (le serveur les calcule encore ; `lib/regularite.js` reste).
 
+**LA DOTATION ORGANIQUE AU TABLEAU DE LA FELSI** (3.5.322, Charles, 11 novembre 2026 : « sortir ce tableau de Gestion avec une
+jolie mise en page »). Rapport `dotation-felsi` (`routes/rapports.js`, `donneesFelsi`, `documentDotationFelsi`), famille « La charge et
+la dotation » : `syntheseCivile()` (sortie de `GET /api/pilotage/civil`, `routes/pilotage.js`) pour l'année civile = première année de
+l'année choisie ; banque = 1 % arrondi ; colonne 6 = Q1 engagé + dépassements d'enveloppes ; 7 = 4 + 5 + 6 ; 8 = 3 − 4 − 5 − 6.
+
+**« CH » : LA CODIPLOMATION DANS LE REGISTRE DE PRÉSENCE** (3.5.324, circulaire Dossiers apprenants EA, p. 24-25 ; Charles : Orthoptie
+et TIM). `sectionsCodiplomation()` (`lib/grillePresence.js`, `lucie_config` « sections_codiplomation », défaut orthoptie + tim), jugé sur
+`etudiant.section_rattachement` : « CH » à côté du nom (grille, PDF, tableur, `PresencesUE.jsx`), une séance non encodée = statut
+`codiplomation`, vide et hors compte (et hors régularité). **À faire** : « CH » à côté des UE sur la fiche d'inscription (p. 8).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
