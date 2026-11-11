@@ -126,6 +126,9 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   const etatTuile = n => {
     // ÉCHOUÉE DEUX FOIS (3.5.215) : rouge plein, devant tout le reste.
     if (n.echec_double) return plein(ROUGE);
+    // AJOURNÉE / REFUSÉE CETTE ANNÉE (3.5.326) : orange plein ; contour fraise épais.
+    if (n.ajournee_annee) return plein('var(--c-attente)');
+    if (n.refusee_annee) return { fond: BLANC, bord: ROUGE, lisere: ROUGE, texte: ENCRE, epais: 2.5 };
     if (n.epreuve_integree && !['acquise'].includes(n.statut)) return { fond: BLANC, bord: FILET, lisere: OR_EPREUVE, texte: ENCRE };
     // ACQUISE PAR VALORISATION : CONTOUR VERT ET « VA » ÉCRIT (Charles, 7 octobre
     // 2026) — le vert plein reste à l'unité réussie en délibération.

@@ -7136,10 +7136,18 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
      scolaires distinctes avec un refus (la décision finale de l'année), tant que l'unité n'est pas acquise depuis. */
   const refusAnnees = new Map(db.prepare(`SELECT ue_num, COUNT(DISTINCT annee_scolaire) n FROM etudiant_inscription
       WHERE etudiant_id = ? AND resultat = 'refuse' GROUP BY ue_num`).all(etudId).map(r0 => [r0.ue_num, r0.n]));
+  /* AJOURNÉE OU REFUSÉE CETTE ANNÉE (3.5.326, Charles, 11 novembre 2026 — proposition A retenue) : la décision de l'année de
+     l'unité au programme. Ajournée = orange plein (« 2e session ») ; refusée une première fois = contour fraise (« à reprendre ») ;
+     la fraise pleine reste à « échouée deux fois ». */
+  const decisionsAnnee = new Map(db.prepare(`SELECT ue_num, resultat FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND resultat IN ('ajourne', 'refuse')`).all(etudId, annee).map(r0 => [r0.ue_num, r0.resultat]));
   for (const n of g.nodes || []) {
     n.refusee = refusees.has(n.ue_num); n.determinante = determinantes.has(n.ue_num);
     n.refus_annees = refusAnnees.get(n.ue_num) || 0;
     n.echec_double = n.refus_annees >= 2 && n.statut !== 'acquise';
+    const dec = n.statut === 'acquise' ? null : decisionsAnnee.get(n.ue_num);
+    n.ajournee_annee = dec === 'ajourne';
+    n.refusee_annee = dec === 'refuse' && !n.echec_double;
   }
 
   return { ...g, sections, annee, archives };

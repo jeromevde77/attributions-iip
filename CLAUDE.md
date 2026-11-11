@@ -3344,6 +3344,11 @@ et TIM). `sectionsCodiplomation()` (`lib/grillePresence.js`, `lucie_config` « s
 `etudiant.section_rattachement` : « CH » à côté du nom (grille, PDF, tableur, `PresencesUE.jsx`), une séance non encodée = statut
 `codiplomation`, vide et hors compte (et hors régularité). **À faire** : « CH » à côté des UE sur la fiche d'inscription (p. 8).
 
+**LE SCHÉMA DU PARCOURS DIT L'AJOURNEMENT ET LE REFUS DE L'ANNÉE** (3.5.326, Charles, 11 novembre 2026, proposition A retenue).
+`donneesCapitalisation` pose `ajournee_annee` (résultat « ajourne » de l'année, non acquise) et `refusee_annee` (« refuse » de l'année,
+pas deux fois) ; orange plein (`--c-attente`) ; blanc à contour fraise épais ; fraise pleine = `echec_double`. Mêmes règles dans
+`SchemaCapitalisation.jsx` (mode étudiant), `ParcoursCompact.jsx` et `lib/schemaSvg.js` (pièce et portail), légendes comprises.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
