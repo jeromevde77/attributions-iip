@@ -262,11 +262,30 @@ export function migrerDerogation() {
     accorde_par TEXT, accorde_par_id INTEGER, accorde_le TEXT DEFAULT (datetime('now')))`);
 }
 const PLAFOND_JOUR = /de travail : .* par jour au plus/;
+const PAUSE_COURTE = /pause réduite à/;
+/* 3.5.345 (Charles : « max 10 h pause comprise » ; « la pause peut être réduite à 15 min, mais avec un papier à signer ») : le
+   plafond de la dérogation se compte du début à la fin de la journée, pause comprise ; une pause de moins de 30 min (15 au moins,
+   la loi) se signale dans la semaine type et ne passe que par l'accord individuel. */
+const amplitude = j => { const m = h => { const x = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return x ? Number(x[1]) * 60 + Number(x[2]) : 0; }; return j ? m(j.fin) - m(j.debut) : 0; };
+const pauseDe = j => { const m = h => { const x = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return x ? Number(x[1]) * 60 + Number(x[2]) : null; };
+  const a = m(j?.pause_debut), b = m(j?.pause_fin); return a != null && b != null && b > a ? b - a : 0; };
+export const PAUSE_HABITUELLE = 30;
+function pausesCourtes(propres) {
+  const JN = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  return propres.map((j, i) => { const p = pauseDe(j); return j && p > 0 && p < PAUSE_HABITUELLE && p >= REGLES.pauseMin
+    ? `${JN[i]} : pause réduite à ${p} min (${PAUSE_HABITUELLE} min d’habitude) : accord à signer.` : null; }).filter(Boolean);
+}
 function plafondsLeves(controles, propres) {
   const JN = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  const reste = controles.filter(c => !PLAFOND_JOUR.test(c));
-  propres.forEach((j, i) => { if (j && dureeJour(j) > JOUR_MAX_DEROGATION) reste.push(`${JN[i]} : ${hm(dureeJour(j))} de travail — 10 h par jour au plus, même par dérogation.`); });
-  const depassements = propres.map((j, i) => (j && controles.some(c => PLAFOND_JOUR.test(c) && c.toLowerCase().startsWith(JN[i].toLowerCase())) ? `${JN[i]} ${hm(dureeJour(j))}` : null)).filter(Boolean);
+  const reste = controles.filter(c => !PLAFOND_JOUR.test(c) && !PAUSE_COURTE.test(c));
+  propres.forEach((j, i) => { if (j && amplitude(j) > JOUR_MAX_DEROGATION) reste.push(`${JN[i]} : ${j.debut}–${j.fin}, ${hm(amplitude(j))} pause comprise — 10 h par jour au plus, même par dérogation.`); });
+  const depassements = propres.map((j, i) => {
+    if (!j) return null;
+    const plus = controles.some(c => PLAFOND_JOUR.test(c) && c.toLowerCase().startsWith(JN[i].toLowerCase()));
+    const p = pauseDe(j), courte = p > 0 && p < PAUSE_HABITUELLE;
+    if (!plus && !courte) return null;
+    return `${JN[i]} ${j.debut}–${j.fin}${plus ? ` (${hm(dureeJour(j))} de travail)` : ''}${courte ? ` pause de ${p} min` : ''}`;
+  }).filter(Boolean);
   return { reste, depassements };
 }
 
@@ -284,6 +303,7 @@ export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer 
      ne reçoivent pas la semaine type. Les autres règles (8 h par jour, 11 h de repos…) restent. */
   const controles = controleSemaine(propres, { formule: t.formule === 'annualise' ? '5j' : t.formule, fraction: Number(t.fraction) || 1, rtVariable: R.rt_variable })
     .filter(c => !/doit compter exactement/.test(c));
+  controles.push(...pausesCourtes(propres));
   const lev = plafondsLeves(controles, propres);
   const derogeable = controles.length > 0 && lev.depassements.length > 0 && lev.reste.length === 0;
   const motifDerog = String(derogation || '').trim();
