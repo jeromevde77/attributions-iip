@@ -62,6 +62,9 @@ table.l.cases td.k{border-left:.2mm solid #E4E7EC}
 .intertitre{font-size:9.5pt;font-weight:700;color:${T.marine};margin:4mm 0 2mm}
 table.tuiles{width:100%;border-collapse:separate;border-spacing:2.5mm 0;margin:0 -2.5mm 5mm;table-layout:fixed}
 table.tuiles td{border:.3mm solid #D8DCE4;border-left:1.6mm solid ${T.marine};border-radius:0 1.5mm 1.5mm 0;padding:2.2mm 3mm;vertical-align:top;background:#fff}
+/* LA PREMIÈRE ET LA DERNIÈRE TUILE GARDENT LEUR MARGE INTÉRIEURE (3.5.347, Charles : « partout la même erreur sur la première tuile ») :
+   l'enveloppe retire le retrait de la première et de la dernière cellule de tout tableau ; une tuile n'est pas une colonne. */
+table.tuiles > * > tr > td:first-child,table.tuiles > * > tr > td:last-child{padding:2.2mm 3mm}
 .tv{font-size:15pt;font-weight:700;color:${T.marine};line-height:1.1}
 .tl{font-size:8pt;color:#334155;margin-top:.6mm}
 .tf{font-size:7pt;color:#64748b;margin-top:.4mm}
