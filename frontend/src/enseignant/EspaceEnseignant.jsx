@@ -31,6 +31,7 @@ const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
 const MaCandidatureLucie = lazy(() => import('../components/MaCandidature.jsx'));
 const VoyagesLucie = lazy(() => import('../components/VoyagesEtudes.jsx'));
 const MesExamensLucie = lazy(() => import('../components/MesExamens.jsx'));
+const MesEditionsLucie = lazy(() => import('../components/MesEditions.jsx'));
 const MesPrestationsLucie = lazy(() => import('../components/MesPrestations.jsx'));
 const AmeliorationsLucie = lazy(() => import('../components/Ameliorations.jsx'));
 import AnnulerGestes from '../components/AnnulerGestes.jsx';
@@ -824,6 +825,8 @@ const FACES = [
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'Les avis à rendre', I: IconChecklist },
   { k: 'examens', l: 'Mes examens', I: IconWriting },
+  // MES ÉDITIONS (3.5.340) : les pièces d'un de ses cours — examens, résultats, statistiques, étudiants et présences.
+  { k: 'editions', l: 'Mes éditions', I: IconPrinter },
   { k: 'prestations', l: 'Mes prestations', I: IconClockHour4, expert: true },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool, bientot: true },
@@ -844,7 +847,7 @@ const VUES_LUCIE = new Set(['notes', 'presences', 'ue', 'rendre']);
 const GROUPES = [
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
   // UNE ICÔNE N'APPARTIENT QU'À UNE ENTRÉE (3.5.267, Charles : « deux fois le crayon pour Mes notes ») : le groupe a la sienne.
-  { k: 'g-cours', l: 'Mes cours', I: IconChalkboard, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens'] },
+  { k: 'g-cours', l: 'Mes cours', I: IconChalkboard, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens', 'editions'] },
   { k: 'g-rendre', l: 'À rendre', I: IconInbox, enfants: ['rendre', 'amenagements', 'prestations'] },
   { k: 'g-suivis', l: 'Mes suivis', I: IconRoute, enfants: ['tfe', 'stages'] },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
@@ -1000,6 +1003,7 @@ export default function EspaceEnseignant() {
           // MA CANDIDATURE (3.5.229) : les formulaires 013 et 014, dans la campagne ouverte par la direction.
           // MES EXAMENS (3.5.234) : la page de garde de chaque épreuve, préremplie par Lucie.
           : face === 'examens' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesExamensLucie /></Suspense> : <ChargementLucie />)
+          : face === 'editions' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesEditionsLucie /></Suspense> : <ChargementLucie />)
           : face === 'prestations' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesPrestationsLucie /></Suspense> : <ChargementLucie />)
           : face === 'candidature' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MaCandidatureLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />

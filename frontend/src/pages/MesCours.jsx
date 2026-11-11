@@ -21,6 +21,7 @@ import VisitesStage from '../components/VisitesStage.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { OuvrirEditions, RailLateral, Encadre, Fenetre } from '../components/ui.jsx';
 import MesTfe from '../components/MesTfe.jsx';
+import MesEditions from '../components/MesEditions.jsx';
 import MesStages from '../components/MesStages.jsx';
 import SupportsCours from '../components/SupportsCours.jsx';
 import { SignalerAbsence } from '../components/AbsencesEnseignants.jsx';
@@ -95,6 +96,7 @@ export default function MesCours({ espace = null }) {
   const [visites, setVisites] = useState(false);     // mes visites de stage (3.5.058)
   const [tfe, setTfe] = useState(false);             // mes TFE (3.5.210)
   const [stages, setStages] = useState(false);       // mes stages, superviseur (3.5.213)
+  const [editions, setEditions] = useState(false);   // mes éditions (3.5.340)
   const [absence, setAbsence] = useState(false);     // signaler une absence (3.5.210)
   const [face, setFace] = useState('notes');          // fiche | notes | carnet | presences | indicateurs
   /* LA SÉANCE CHOISIE DANS « MA JOURNÉE » (28 octobre 2026) : un clic y ouvre le
@@ -812,6 +814,8 @@ export default function MesCours({ espace = null }) {
     {absence && <SignalerAbsence onFermer={() => setAbsence(false)} />}
     {tfe && <Fenetre titre="Mes TFE" icone={IconSchool} large="grande" onFermer={() => setTfe(false)}><MesTfe /></Fenetre>}
     {stages && <Fenetre titre="Mes stages" icone={IconBriefcase} large="grande" onFermer={() => setStages(false)}><MesStages /></Fenetre>}
+    {/* MES ÉDITIONS (3.5.340) : les pièces d'un de ses cours — examens, résultats, statistiques, étudiants et présences. */}
+    {editions && <Fenetre titre="Mes éditions" sous={annee} icone={IconPrinter} large="grande" onFermer={() => setEditions(false)}><MesEditions annee={annee} /></Fenetre>}
     {!espace && <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
         { key: 'liste', label: 'Mes cours de l’année', icon: IconBook2, actif: !ouvert && !vueDue,
@@ -820,6 +824,8 @@ export default function MesCours({ espace = null }) {
           onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },
         { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
+        // MES ÉDITIONS (3.5.340) : listes, examens, résultats, statistiques — pour un de ses cours.
+        { key: 'editions', label: 'Mes éditions', icon: IconPrinter, onClick: () => setEditions(true) },
         { key: 'semaine', label: 'Mon horaire de la semaine', icon: IconCalendarWeek, onClick: () => setSemaine(true) },
         { key: 'agenda', label: 'Mon horaire dans mon agenda', icon: IconCalendarShare, onClick: () => setAgenda(true) },
         // LES VISITES DE STAGE (3.5.058) : dans l'agenda, avec le lieu de l'étudiant ; et la fiche de transport.

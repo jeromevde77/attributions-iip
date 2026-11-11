@@ -3398,6 +3398,14 @@ l'ancienne chaîne passe au groupe `session_ancien`, invisible), `lib/delaisSess
 et `avertissementsDates` (`lib/defautsSeance.js`) : la clôture propose visite J+1 et EV2 ≥ visite + 7, et signale par cours. **À trancher** :
 « seconde session entre un et quatre mois après la clôture » (procédure recours) contre « 10 jours après la délibération » (procédure examens).
 
+**MES ÉDITIONS, LE CENTRE D'IMPRESSION DES ENSEIGNANTS** (3.5.340, Charles, 11 novembre 2026 : « listes d'étudiants, résultats, seconde
+session, dispensés, présences, statistiques… ce dont un prof du supérieur a besoin »). Catalogue `lib/editionsProfCatalogue.js` (13 pièces,
+4 familles), compositeur `lib/editionsProf.js` (il ne décide d'aucun droit : la route lui passe étudiants, séances, acquis, clôtures),
+routes `GET /api/mes-cours/editions/catalogue` et `/editions/:piece?cours=&format=html|pdf|xlsx` (avant les paramétriques ; `accesCours`,
+404 sinon ; PDF comme la grille de présence, archivé `edition_prof_<id>`), écran `components/MesEditions.jsx` (rail de Mes cours, face
+de l'espace enseignant). Déclarées au catalogue général (`prof_<id>`, portée 'cours'). Banc d'essai hors dépôt (données fictives) : 23 ok.
+**À faire** : le chapitre du mode d'emploi ; vérifier sur des volumes réels (les statistiques recalculent 3 années).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
