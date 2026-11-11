@@ -533,9 +533,10 @@ function MesValorisations({ onErreur }) {
           </Zone>)}
 
         {demandes.map(d => (
-          <div key={d.ue_num} className="space-y-2 border-l-4 pl-3" style={{ borderColor: 'var(--c-disponible, #2F6FB0)' }}>
+          /* PLUS DE LISERÉ AUTOUR DES CARTES (3.5.332, audit) : un intertitre par demande, puis ses étapes en cartes. */
+          <div key={d.ue_num} className="space-y-2 pt-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-iip-texte flex-1 min-w-0">UE {d.ue_num} {d.ue_nom || ''}</span>
+              <h3 className="intertitre m-0 flex-1 min-w-0 truncate">UE {d.ue_num} {d.ue_nom || ''}</h3>
               <PastilleEtat etat="disponible">{PORTE[d.porte] || d.porte}</PastilleEtat>
               {!d.attente && d.en_ligne && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
                 onClick={() => geste('/va/retirer', { ue_num: d.ue_num })}>Retirer cette demande</button>}
@@ -640,7 +641,7 @@ function MesValorisations({ onErreur }) {
 const PARCOURS_ETAT = {
   acquise: ['var(--c-reussi)', 'var(--blanc, #fff)', 'acquise'],
   programme: ['var(--c-disponible)', 'var(--blanc, #fff)', 'à mon programme'],
-  accessible: ['var(--c-fond_tuile, #fff)', 'var(--c-disponible)', 'accessible'],
+  accessible: ['var(--c-fond_tuile)', 'var(--c-disponible)', 'accessible'],
   attente: ['var(--c-attente)', 'var(--blanc, #fff)', 'en attente d’une délibération'],
   pas_encore: ['rgb(var(--gris-100))', 'rgb(var(--gris-500))', 'pas encore accessible'],
 };
@@ -1050,9 +1051,7 @@ function MonPAE({ onErreur, email }) {
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
             : <div>Relisez-le : s’il est juste, confirmez-le ; sinon, dites-le à votre coordination.</div>}
         </div>
-        <ul className="carte divide-y divide-slate-100">
-          {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
-        </ul>
+        <ListeEtats>{(o.programme || []).map(n => <LigneEtat key={n} etat="disponible" titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>} />)}</ListeEtats>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
         {!signe && !attend && <DecisionPAE programme={o.programme || []} onFait={charger} onErreur={onErreur} />}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
@@ -1070,9 +1069,7 @@ function MonPAE({ onErreur, email }) {
           <div className="text-slate-600">Pas encore confirmé par l’école. Pour le modifier, adressez-vous à votre coordination
             {o.du && o.au && o.du > new Date().toISOString().slice(0, 10) ? `, ou proposez vos unités en ligne du ${jourFr(o.du)} au ${jourFr(o.au)}` : ''}.</div>
         </div>
-        {prog.length ? <ul className="carte divide-y divide-slate-100">
-          {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
-        </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
+        {prog.length ? <ListeEtats>{prog.map(n => <LigneEtat key={n} etat="disponible" titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>} />)}</ListeEtats> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
         {prog.length > 0 && (o.signature?.a_jour
           ? <Encadre etat="reussi">Vous avez confirmé ce programme le {jourFr(o.signature.signe_le)}.</Encadre>
@@ -1092,18 +1089,23 @@ function MonPAE({ onErreur, email }) {
       {etatProp && <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={etatProp[0]}><div>{etatProp[1]}</div>
         {prop.message && <div className="text-slate-600">« {prop.message} »</div>}</div>}
       {attend && <p className="text-sm text-slate-500">Envoi en cours d’enregistrement…</p>}
-      <div className="carte divide-y divide-slate-100">
-        {(o.unites || []).map(u => (
-          <label key={u.ue_num} className={`flex items-start gap-3 px-4 py-2.5 text-sm ${u.cochable && o.ouvert ? 'cursor-pointer' : 'opacity-60'}`}>
-            <input type="checkbox" className="mt-0.5" disabled={!u.cochable || !o.ouvert} checked={u.verrouillee || !!choix?.has(u.ue_num)}
-              onChange={e => setChoix(c => { const x = new Set(c); e.target.checked ? x.add(u.ue_num) : x.delete(u.ue_num); return x; })} />
-            <span className="flex-1 min-w-0">
-              <span className="text-slate-500 tabular-nums mr-2">UE {u.ue_num}</span>{u.ue_nom}
-              {u.ue_niv && <span className="text-second text-slate-400 ml-1">· {u.ue_niv}</span>}
-              {u.raison && <span className="block text-second text-slate-500">{u.verrouillee ? `au programme, posée par l’école (${u.raison})` : u.raison}</span>}
-              {u.avertissement && <span className="block text-second" style={{ color: 'var(--c-attente, #B45309)' }}>{u.avertissement}</span>}
-            </span>
-          </label>))}
+      {/* UNE LIGNE, UNE HAUTEUR (3.5.332, audit) : le nom se coupe, la raison tient sur une ligne grise (texte entier au survol et
+          dans l'aide de la coordination) ; liseré bleu = au programme (coché ou posé par l'école), comme la frise et le schéma. */}
+      <div className="pile-etats">
+        {(o.unites || []).map(u => {
+          const pris = u.verrouillee || !!choix?.has(u.ue_num);
+          const sous = u.avertissement || (u.raison ? (u.verrouillee ? `au programme, posée par l’école (${u.raison})` : u.raison) : (u.ue_niv || ''));
+          return (
+            <label key={u.ue_num} data-etat={pris ? 'disponible' : 'neutre'}
+              className={`bloc-etat px-4 h-14 flex items-center gap-3 text-sm ${u.cochable && o.ouvert ? 'cursor-pointer' : 'opacity-60'}`} title={sous || undefined}>
+              <input type="checkbox" className="flex-none" disabled={!u.cochable || !o.ouvert} checked={pris}
+                onChange={e => setChoix(c => { const x = new Set(c); e.target.checked ? x.add(u.ue_num) : x.delete(u.ue_num); return x; })} />
+              <span className="flex-1 min-w-0">
+                <span className="block truncate"><b className="text-iip-texte">UE {u.ue_num}</b> {u.ue_nom}</span>
+                {sous && <span className="block truncate text-second" style={u.avertissement ? { color: 'var(--c-attente)' } : undefined}>{sous}</span>}
+              </span>
+            </label>);
+        })}
       </div>
       <p className="text-second text-slate-500">Une unité grisée ne se choisit pas en ligne : si vous pensez qu’elle devrait l’être, parlez-en à votre coordination.</p>
       <FraisEstimes tarif={o.tarif} ues={[...(choix || []), ...(o.unites || []).filter(u => u.verrouillee).map(u => u.ue_num)]} />
