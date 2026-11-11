@@ -312,13 +312,14 @@ r.get('/derogation/:id/document', authRequired, (req, res) => {
     <td>${j?.pause_debut ? `${esc(j.pause_debut)}–${esc(j.pause_fin)}` : ''}</td><td class="n">${j ? hm(duree(j)) : ''}</td></tr>`; }).join('');
   const corps = `<div class="tt">
     <p>À la demande de <b>${esc(nom)}</b>${p?.fraction ? ` (${Math.round(p.fraction * 100)} % d’un temps plein)` : ''}, la direction accorde l’horaire hebdomadaire suivant.
-      Il s’écarte des règles habituelles — 8 heures de travail par jour (9 heures en semaine de 4 jours ou en horaire variable inscrit au règlement de travail), pause de 30 minutes : <b>${esc(d.depassements || '')}</b>.</p>
+      Il s’écarte des règles habituelles (8 heures de travail par jour, 9 heures en semaine de 4 jours ou en horaire variable inscrit au règlement de travail ; pause de 30 minutes), sur les points suivants :</p>
+    <ul>${String(d.depassements || '').split(' ; ').filter(Boolean).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
     <table><thead><tr><th>Jour</th><th>Horaire</th><th>Pause</th><th class="n">Travail</th></tr></thead>
     <tbody>${lignes}<tr class="tot"><td colspan="3">Total de la semaine</td><td class="n">${hm(d.total)}</td></tr>
     <tr><td colspan="3">Heures dues par semaine</td><td class="n">${hm(d.cible)}</td></tr></tbody></table>
     <p><b>Motif :</b> ${esc(d.motif)}</p>
     <p>Cet horaire vaut à partir du ${fmt(d.accorde_le)}, comme semaine type, pour les semaines de travail à venir de l’année ${esc(d.annee_scolaire || '')}. L’écart avec les heures dues est porté au solde de l’année ou compensé sur d’autres semaines.</p>
-    <p class="regle">Les autres règles restent : 10 heures par jour au plus, pause comprise ; pause d’au moins 15 minutes au-delà de 6 heures, jamais plus de 6 heures d’affilée (loi du 16 mars 1971, art. 38quater), 11 heures de repos entre deux journées. La personne peut demander à revenir à l’horaire habituel ; la direction peut y mettre fin pour les besoins du service.</p>
+    <p class="regle">En dehors des écarts nommés ci-dessus, les règles habituelles s’appliquent : 10 heures par jour au plus, pause comprise ; pause d’au moins 15 minutes au-delà de 6 heures, jamais plus de 6 heures d’affilée (loi du 16 mars 1971, art. 38quater), 11 heures de repos entre deux journées. La personne peut demander à revenir à l’horaire habituel ; la direction peut y mettre fin pour les besoins du service.</p>
     <table class="sig"><tr><td><b>La personne</b> — demande et accepte cet horaire<br>${esc(nom)}<br><span class="m">date et signature</span></td>
       <td><b>La direction</b><br>accordé dans Lucie par ${esc(d.accorde_par || '')} le ${fmt(d.accorde_le)}<br><span class="m">signature</span></td></tr></table></div>`;
   res.json({ html: envelopperDocument({ html: corps, titre: `Accord individuel — horaire de travail — ${nom}`, styles: STYLES,

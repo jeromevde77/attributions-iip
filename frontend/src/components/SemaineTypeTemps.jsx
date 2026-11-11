@@ -63,7 +63,7 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
      signer ») : seul le plafond de 8 h (9 h) par jour se lève, jusqu'à 10 h ; un motif ; puis l'accord individuel, à signer. */
   const deroger = async () => {
     const motif = await saisir({ titre: 'Accepter par dérogation', obligatoire: true,
-      message: `${(sim.depassements || []).join(' ; ')} : hors des règles habituelles (8 h de travail par jour, pause de 30 min). Pourquoi l’accepter ? (par exemple : « à la demande de la personne »). Le motif figure sur l’accord individuel à signer.` });
+      message: `Écarts : ${(sim.depassements || []).join(' ; ')}. Pourquoi les accepter ? (par exemple : « à la demande de la personne »). Le motif figure sur l’accord individuel à signer.` });
     if (!motif || !String(motif).trim()) return;
     setEnCours(true);
     try {
@@ -79,7 +79,7 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
   const ok = sim && !(sim.controles || []).length;
   const ecart = total - (cible || 0);
   // POURQUOI « ENREGISTRER » EST GRIS SE DIT À CÔTÉ DE LUI (3.5.334, Charles : « je ne peux pas sauver »).
-  const raison = !sim ? 'Lucie vérifie…' : (sim.controles || []).length ? `${sim.controles[0]}${sim.derogeable ? ' La direction peut l’accepter par dérogation (10 h par jour au plus, pause comprise ; pause de 15 min au moins), avec un accord à signer.' : ''}` : null;
+  const raison = !sim ? 'Lucie vérifie…' : (sim.controles || []).length ? `${sim.controles[0]}${sim.derogeable ? ' La direction peut l’accepter par dérogation : chaque écart est nommé sur l’accord à signer.' : ''}` : null;
 
   return (
     <Fenetre titre={`Semaine type — ${personne.nom}`} sous={`${hm(total)} sur ${hm(cible)} dues par semaine`} large="grande" onFermer={onFermer}
@@ -88,7 +88,7 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
           || `Enregistrée, elle s’applique aux ${sim.a_appliquer} semaine(s) de travail à venir restées telles quelles${sim.gardees ? ` ; ${sim.gardees} semaine(s) déjà retouchée(s) gardent leur horaire` : ''}.`}</span>
         <button type="button" className="bouton" onClick={onFermer}>Fermer</button>
         {sim?.derogeable && <button type="button" className="bouton" disabled={enCours} onClick={deroger}
-          title="Plus de 8 h par jour (10 h au plus, pause comprise) ou pause réduite à 15 min : avec un motif ; l’accord individuel sort pour signature">Accepter par dérogation</button>}
+          title="Accepter cette semaine malgré les écarts, avec un motif ; l’accord individuel, qui les nomme un à un, sort pour signature">Accepter par dérogation</button>}
         <button type="button" className="bouton bouton-fort" disabled={!ok || enCours} onClick={enregistrer}>Enregistrer</button></div>}>
       {erreur && <Encadre etat="corriger" titre="Refusé">{erreur}</Encadre>}
       {!jours ? <p className="text-sm text-slate-500">Chargement…</p> : (

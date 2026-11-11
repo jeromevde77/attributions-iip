@@ -157,15 +157,15 @@ console.log('\nLa dérogation motivée (3.5.345)');
   t('avec motif : enregistré, accord gardé', ec.ecrit && ec.derogation_id > 0 && db.prepare('SELECT motif FROM tt_derogation WHERE id = ?').get(ec.derogation_id)?.motif === 'Demande de la personne', ec);
   const trop = [j('08:00', '18:15'), ...semaine.slice(1)];
   const s2 = M.poserSemaineType(1, A, trop);
-  t('10 h 15 pause comprise : pas dérogeable (10 h au plus)', !s2.derogeable, s2);
-  t('10 h 15 avec motif : toujours refusé', /ne tient pas/.test((() => { try { M.poserSemaineType(1, A, trop, { ecrire: true, derogation: 'x' }); return ''; } catch (e) { return e.message; } })()));
+  t('10 h 15 pause comprise : la direction peut encore accepter (3.5.350)', s2.derogeable, s2);
+  { const w = M.poserSemaineType(1, A, trop, { ecrire: true, derogation: 'x' }); t('10 h 15 avec motif : enregistré, l’écart nommé sur l’accord', w.ecrit && /au-delà de 10 h/.test(db.prepare('SELECT depassements FROM tt_derogation WHERE id = ?').get(w.derogation_id)?.depassements || ''), w); }
   const sansPause = [{ debut: '08:00', fin: '18:00' }, ...semaine.slice(1)];
   const p15 = [{ debut: '08:30', fin: '15:48', pause_debut: '12:00', pause_fin: '12:15' }, ...semaine.slice(1)];
   const s3 = M.poserSemaineType(1, A, p15);
   t('pause de 15 min : signalée, accord à signer', s3.controles.some(c => /pause réduite à 15 min/.test(c)) && s3.derogeable, s3);
   const p10 = [{ debut: '08:30', fin: '15:48', pause_debut: '12:00', pause_fin: '12:10' }, ...semaine.slice(1)];
-  t('pause de 10 min : jamais (15 min au moins)', !M.poserSemaineType(1, A, p10).derogeable);
-  t('sans pause : la dérogation ne lève pas la pause', !M.poserSemaineType(1, A, sansPause).derogeable);
+  t('pause de 10 min : signalée, la direction peut accepter', M.poserSemaineType(1, A, p10).derogeable);
+  t('sans pause : signalé, la direction peut accepter', M.poserSemaineType(1, A, sansPause).derogeable);
 }
 
 console.log(`\n${ok} ok, ${ko} faux`);
