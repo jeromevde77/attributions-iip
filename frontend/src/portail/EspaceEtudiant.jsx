@@ -741,8 +741,13 @@ function MonParcours({ onErreur }) {
       <h2 className="intertitre pt-1">Mes unités et leurs cours</h2>
       <div className="pile-etats">
         {blocs.flatMap(b => x.unites.filter(u => u.bloc === b)).map(u => {
-          const lib = (PARCOURS_ETAT[u.etat] || PARCOURS_ETAT.pas_encore)[2];
-          const etat = { acquise: 'reussi', programme: 'disponible', accessible: 'neutre', attente: 'surveiller', pas_encore: 'indisponible' }[u.etat] || 'neutre';
+          /* LE MÊME CODE QUE LE SCHÉMA (3.5.329, Charles : « si c'est raté ou ajourné, le bord dans Mes unités doit aussi être orange
+             ou rouge ») : la décision de l'année, lue sur le nœud du schéma, l'emporte sur « au programme ». */
+          const nd = (x.schema?.nodes || []).find(n => Number(n.ue_num) === Number(u.ue_num)) || {};
+          const decision = nd.echec_double ? ['corriger', 'échouée deux fois'] : nd.refusee_annee ? ['corriger', 'refusée cette année · à reprendre']
+            : nd.ajournee_annee ? ['surveiller', 'ajournée · 2e session'] : null;
+          const lib = decision ? decision[1] : (PARCOURS_ETAT[u.etat] || PARCOURS_ETAT.pas_encore)[2];
+          const etat = decision ? decision[0] : ({ acquise: 'reussi', programme: 'disponible', accessible: 'neutre', attente: 'surveiller', pas_encore: 'indisponible' }[u.etat] || 'neutre');
           const ouv = ouverte === u.ue_num;
           return (
             <div key={u.ue_num} id={`ue-${u.ue_num}`} className="bloc-etat px-4 py-2.5" data-etat={etat}>
