@@ -2500,6 +2500,11 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const ent = n => n == null ? n : Math.round(Number(n));
   const sousNA = n => n == null ? 'NA'
     : <>{fmt(ent(n))}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
+  /* UNE FAVEUR PORTE TOUT À 10 (Charles, 11 novembre 2026 : « si je donne une faveur, toutes les notes AA et cours sont mises
+     à 10 ; Lucie garde en mémoire les notes, mais on affiche 10 »). La cote réelle reste au survol. */
+  const dix = (v, titre = 'Octroyé par le Conseil') => rect('var(--c-faveur)', <><IconGift size={11} className="mr-0.5" />{fmt(seuil)}</>,
+    v && (v.note_brute ?? v.note) != null ? `${titre} · cote calculée ${fmt(v.note_brute ?? v.note)}/20` : titre);
+  const faveurUE = !!ue.faveur_ue;
   const note = (v, { na = false, aaNA = false } = {}) => {
     if (absent && v && (v.mention || v.note != null || v.note_brute != null)) na = true;
     if (na) {
@@ -2616,18 +2621,19 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                               réussi, restait peinte en échec. Elle ne tombe qu'avec son cours,
                               ou quand l'acquis lui-même est ajourné — et seulement là où ce
                               cours l'évalue : une case vide reste vide. */}
-                          {peutCliquerNote && caseDe(a, c.cours_code) ? (
+                          {peutCliquerNote && !faveurUE && !a.faveur && caseDe(a, c.cours_code) ? (
                             <button type="button" disabled={enCours} className="block w-full hover:opacity-80"
                               title={aaTombeDans(a, c) ? `Retirer ${a.aa_code} de l'ajournement du cours ${c.cours_code}` : `Ajourner ${a.aa_code} dans le cours ${c.cours_code}`}
                               onClick={() => onAACours(c.cours_code, a.aa_code, !aaTombeDans(a, c))}>
                               {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement, aaNA: !!a.na })}
                             </button>
-                          ) : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement), aaNA: !!a.na })}
+                          ) : (faveurUE || a.faveur) && caseDe(a, c.cours_code) ? dix(caseDe(a, c.cours_code))
+                            : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement), aaNA: !!a.na })}
                         </td>
                       ))}
                       <td className="p-0 text-center whitespace-nowrap" style={{ ...CASE_GRILLE, borderLeft: '3px solid var(--c-principal)' }}>
                         <span className="relative flex w-full">
-                        {a.faveur ? rect('var(--c-faveur)', <><IconGift size={11} className="mr-0.5" />{fmt(seuil)}</>, 'Octroyé par le Conseil')
+                        {(a.faveur || (faveurUE && !a.horsEtudiant)) ? dix(a)
                           : note(a, { na: a.na })}
                         {!a.horsEtudiant && bouton(!!a.ajourne_directement, a.ajourne_directement ? "Lever l'ajournement" : 'Ajourner cet acquis — à représenter',
                           () => onAjuster('aa', a.aa_code, a.ajourne_directement ? null : 'ajourne'))}
@@ -2656,7 +2662,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   {coursVus.map(c => (
                     <td key={c.cours_code} className={`p-0 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`} style={CASE_GRILLE}>
                       <span className="relative flex w-full">
-                      {note(c, { na: c.na })}
+                      {(faveurUE || c.faveur) && !c.horsEtudiant ? dix(c) : note(c, { na: c.na })}
 
                       </span>
                       {peutCliquerNote && <div className="py-1" style={c.horsEtudiant ? { visibility: 'hidden' } : undefined}>{badgeCours(c)}</div>}

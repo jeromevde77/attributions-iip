@@ -3292,6 +3292,14 @@ non ajourné (mentions comprises). `cycleCours` : rien → tout le cours (`mode 
 retiré d'un cours (clic sur la note) = « partiel », un clic le remet entier. Colonnes et lignes = union des cours et acquis de
 toute la feuille (`coursGrille`, `acquisGrille`, `horsEtudiant` pâli) ; la motivation lue tient sur une ligne (survol = texte entier).
 
+**LES MOTIVATIONS APRÈS LA DÉLIBÉRATION, DANS MES COURS ET L'ESPACE ENSEIGNANT** (3.5.313, Charles, 11 novembre 2026 : « revoir
+depuis l'espace profs les commentaires après la délibération, car parfois il en manque » ; tranché : voir et compléter). Onglet
+« Motivations » d'un cours (`components/MotivationsCours.jsx`, `GET/POST /api/mes-cours/:cours/motivations`, `motivationsDuCours`) :
+inscrits ajournés ou refusés (`etudiant_inscription.resultat`) dont la séance est close (`clotures`), acquis en échec que le cours
+évalue (`delibererUE`, la dernière session close), motif de `decision_motivation` et sa provenance. Le professeur n'écrit que là où
+il n'y a rien (source `enseignant`) ; notification `motivation_completee` au secrétariat et à la direction adjointe
+(`ROLES_PREVENUS`). **Une faveur affiche 10 partout** dans la feuille (`dix()`, violet, cote calculée au survol).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
