@@ -274,13 +274,16 @@ export function stylesEntete() {
   .doc-ident-c { border-bottom: 0; align-items: center; }
   .doc-ident-g { display: flex; align-items: center; gap: 4mm; min-width: 0; }
   .doc-ident-logo { height: 13mm; width: auto; flex: none; }
-  .doc-tri { display: flex; height: 0.7mm; margin-top: 1mm; }
-  .doc-tri i { flex: 1; }
-  .doc-cadre { border-left-color: var(--doc-ton, #16406A); }
-  .doc-nature { font-size: 7pt; letter-spacing: 1.2pt; text-transform: uppercase; font-weight: 700;
-                color: var(--doc-ton, #16406A); margin-bottom: 1mm; }
-  .doc-cadre-t { color: #16406A; }
-  .doc-ident-n { color: #16406A; }
+  /* AU MODÈLE DU KIT DE LA FeLSI (3.5.337, Charles : « on ne va pas jusqu'aux 3 couleurs pour la ligne ; on se base sur le
+     modèle ») : un seul filet bleu nuit sous l'identité ; plus de barre verticale — une étiquette en petites capitales, dans la
+     couleur de ce que dit la pièce, au-dessus d'un titre bleu nuit. */
+  .doc-tri { height: 0.5mm; margin-top: 1mm; background: #0E2A4F; }
+  .doc-cadre { border-left: 0; padding-left: 0; margin-top: 6mm; }
+  .doc-nature { font-size: 7pt; letter-spacing: 1.4pt; text-transform: uppercase; font-weight: 700;
+                color: var(--doc-ton, #2C7DB8); margin-bottom: 1.2mm; }
+  .doc-cadre-t { color: #0E2A4F; font-size: 16pt; }
+  .doc-ident-n { color: #0E2A4F; }
+  .doc-ligne .doc-cadre { border-left: 0; padding-left: 0; }
   /* Conservé pour les pièces à forme imposée qui ferment encore d'un filet. */
   .doc-filet-or { height: 0.6mm; background: #C9A84C; margin-top: 2.5mm; }`;
 }
@@ -299,8 +302,10 @@ export function tonDocument(titre = '', ton = null) {
   const t = String(titre || '').toLowerCase();
   const cle = ton || (/faveur/.test(t) ? 'faveur' : /refus/.test(t) ? 'refuse' : /ajourn|seconde session|à représenter/.test(t) ? 'attente'
     : /réussite|reussite|diplôme|diplome|attestation de valorisation|dispense/.test(t) ? 'reussi' : 'principal');
-  const defaut = { faveur: '#6B46C1', refuse: '#E0564F', attente: '#F0922E', reussi: '#4FA64A', principal: '#16406A' };
-  return C[cle] || defaut[cle] || '#16406A';
+  const defaut = { faveur: '#6B46C1', refuse: '#E0564F', attente: '#F0922E', reussi: '#4FA64A', principal: '#2C7DB8' };
+  // Le cas général prend le bleu du kit (étiquette), pas le principal sombre du réglage.
+  if (cle === 'principal') return '#2C7DB8';
+  return C[cle] || defaut[cle] || '#2C7DB8';
 }
 
 export function enteteDocument({ titre, sous = null, mention = null,
@@ -358,6 +363,9 @@ export function enteteDocument({ titre, sous = null, mention = null,
     ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
   </div>`;
   const couleurTon = tonDocument(`${nature || ''} ${titre || ''}`, ton);
+  // L'ÉTIQUETTE : la nature donnée, sinon ce que dit la pièce (réussite, ajournement, refus, faveur), sinon le régime.
+  const etiquette = nature || ({ [tonDocument('', 'reussi')]: 'Réussite', [tonDocument('', 'attente')]: 'Ajournement',
+    [tonDocument('', 'refuse')]: 'Refus', [tonDocument('', 'faveur')]: 'Faveur' })[couleurTon] || null;
   return `<div class="doc-entete" style="--doc-ton:${couleurTon}">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ident-c">
@@ -370,9 +378,9 @@ export function enteteDocument({ titre, sous = null, mention = null,
       </div>
       ${refsLignes ? `<div class="doc-ident-r">${refsLignes}</div>` : ''}
     </div>
-    <div class="doc-tri"><i style="background:#19537E"></i><i style="background:#05B7E6"></i><i style="background:#F9B619"></i></div>
+    <div class="doc-tri"></div>
     <div class="doc-cadre">
-      ${nature ? `<div class="doc-nature">${esc(nature)}</div>` : ''}
+      ${etiquette ? `<div class="doc-nature">${esc(etiquette)}</div>` : ''}
       <div class="doc-cadre-t">${esc(titre)}</div>
       ${sous ? `<div class="doc-cadre-s">${esc(sous)}</div>` : ''}
       ${ligne ? `<div class="doc-cadre-l">${esc(ligne)}</div>` : ''}

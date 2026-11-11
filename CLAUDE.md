@@ -3382,6 +3382,9 @@ lib/agendaEcole.js, pages/TempsTravail.jsx — trois copies, une règle) = lundi
 nos codes couleurs en fonction de ce qui est dit » ; tranché : toutes les pièces). `enteteDocument` (lib/document.js) : logo
 (`logoCourant`) dans l'identité, filet `.doc-tri` aux couleurs du logo, trait du titre et `.doc-nature` à la couleur de `tonDocument`
 (lue sur la nature/le titre : faveur, refus, ajournement, réussite ; sinon le principal — couleurs des réglages). Option `nature`, `ton`.
+3.5.337 (Charles : « pas les 3 couleurs ; on se base sur le modèle » — le kit Microcertifications de la FeLSI) : un seul filet bleu nuit
+#0E2A4F, plus de barre verticale ; une étiquette en petites capitales colorée (Réussite, Ajournement, Refus, Faveur, ou `nature`) au-dessus
+d'un titre bleu nuit 16 pt.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
