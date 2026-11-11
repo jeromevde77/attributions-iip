@@ -3373,6 +3373,11 @@ compenser »). `poserSemaineType` (lib/monTemps.js) ne bloque plus sur « doit c
 (l'année avec la semaine type posée) et, avec `compenser`, les semaines ajustées par l'assistant (`compensees`, `restes`) — écrites avec
 la semaine type. `SemaineTypeTemps.jsx` : l'écart sur l'année, la case « Compenser », la raison d'un refus dans le pied.
 
+**L'ANNÉE DU TEMPS DE TRAVAIL COMMENCE UNE SEMAINE AVANT LA RENTRÉE** (3.5.335, Charles, 11 novembre 2026 : « la semaine qui COMPREND
+le 01/09 ; si le 01/09 tombe un lundi, le lundi qui précède » ; tranché : 2026-2027 = 24/08/2026 → 22/08/2027). `debutDAnnee` (lib/tempsTravail.js,
+lib/agendaEcole.js, pages/TempsTravail.jsx — trois copies, une règle) = lundi de la rentrée − 7 jours ; remplace « le premier lundi à partir du
+15 août » (3.5.063). 52 semaines ; `recalerAnnees` déplace au démarrage les semaines d'une année préparée avant.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

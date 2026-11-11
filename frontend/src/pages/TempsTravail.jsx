@@ -18,7 +18,8 @@ import LigneTempsTravail from '../components/LigneTempsTravail.jsx';
 /* L'ANNÉE DU MODULE est la sienne : celle qui contient aujourd'hui (septembre → août), choisie en tête d'écran ; elle ne
    suit pas l'année de travail du reste de Lucie (on prépare 2026-2027 pendant qu'on encode encore 2025-2026). */
 // L'année commence le premier lundi à partir du 15 août (3.5.063) — la règle de lib/tempsTravail.js, recopiée ici.
-const debutDAnnee = y => { const d = new Date(Date.UTC(y, 7, 15)); const w = (d.getUTCDay() + 6) % 7; return new Date(d.getTime() + (w ? 7 - w : 0) * 864e5).toISOString().slice(0, 10); };
+// La règle de lib/tempsTravail.js (3.5.335) : le lundi de la semaine du 1er septembre (le lundi d'avant si c'est un lundi), moins 7 jours.
+const debutDAnnee = y => { const d = new Date(Date.UTC(y, 8, 1)); const w = (d.getUTCDay() + 6) % 7; return new Date(d.getTime() - ((w === 0 ? 7 : w) + 7) * 864e5).toISOString().slice(0, 10); };
 const anneeDuJour = () => { const j = new Date().toISOString().slice(0, 10); const y = Number(j.slice(0, 4)); return j >= debutDAnnee(y) ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
 const ANNEE = { v: anneeDuJour() };
 const api = (url, o = {}) => fetch(`/api/temps-travail${url}${url.includes('?') ? '&' : '?'}annee=${ANNEE.v}`, { ...o, headers: { ...authHeaders(), ...(o.body ? { 'Content-Type': 'application/json' } : {}) } })
