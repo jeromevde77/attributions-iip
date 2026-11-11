@@ -282,10 +282,10 @@ export function stylesEntete() {
   .doc-ligne .doc-cadre { border-left: 1.2mm solid var(--doc-ton, #0E2A4F); padding-left: 4mm; }
   /* LE MODÈLE DU KIT FeLSI, COMMUN À TOUTES LES PIÈCES (3.5.348, Charles : « affine un peu les documents, on est encore loin du
      modèle »). Posé ici parce que les deux enveloppes (lib/document.js et celle des attestations) appellent ces styles APRÈS leurs
-     propres réglages (et `html` en tête de sélecteur l'emporte sur les leurs) : la police Inter (installée sur le serveur, repli Segoe UI / Arial à l'écran), la mention de la Communauté
+     propres réglages (et « html » en tête de sélecteur l'emporte sur les leurs) : la police Inter (installée sur le serveur, repli Segoe UI / Arial à l'écran), la mention de la Communauté
      française lisible, les puces bleues, les intertitres portés par un trait bleu, les encadrés pâles sans bordure ni ombre. */
   body { font-family: 'Inter', 'Segoe UI', Arial, Helvetica, sans-serif; color: #1F2A3D; }
-  .doc-tete-cf { color: #5B6B82; font-size: 6.8pt; letter-spacing: 1.6pt; }
+  .doc-tete-cf { color: #5B6B82; font-size: 6.8pt; letter-spacing: 1.6pt; line-height: 1.7; }
   .doc-cadre-s, .doc-cadre-l { color: #5B6B82; }
   li::marker { color: #2C7DB8; }
   html h2 { color: #0E2A4F; font-size: 11pt; font-weight: 700; letter-spacing: -.1pt;
@@ -375,7 +375,7 @@ export function enteteDocument({ titre, sous = null, mention = null,
   return `<div class="doc-entete" style="--doc-ton:${couleurTon}">
     <div class="doc-tete">
       <img class="doc-tete-logo" src="${logoCourant()}" alt="${esc(etab.nom || 'Institut Ilya Prigogine')}">
-      <div class="doc-tete-cf">Communauté française de Belgique — Enseignement pour adultes</div>
+      <div class="doc-tete-cf">Communauté française de Belgique<br>Enseignement pour adultes</div>
     </div>
     <div class="doc-cadre">
       <div class="doc-cadre-t">${esc(titre)}</div>
@@ -595,6 +595,19 @@ export default envelopperDocument;
  * @param {string}      texte pied de l'établissement, déjà mis en forme
  * @param {boolean}     numeroter  ajoute « n / total » sous le filet
  */
+/* LE PIED TOUJOURS AU BAS DE LA FEUILLE (3.5.349, Charles : « vérifie bien que le pied de page soit TOUJOURS bien collé en bas »).
+   Une pièce qui porte le pied de Lucie se rend avec le gabarit répété du PDF : posé dans les marges par Chromium, il tombe au bas de
+   CHAQUE feuille, quelle que soit la longueur du texte. Rendue sans lui (courriels, copies des envois, dépôts dans les espaces), la
+   pièce des attestations laissait son pied DANS LE FLUX : collé sous la signature, à mi-page. Une pièce sans pied de Lucie (le
+   diplôme, qui porte sa propre page) garde son rendu. */
+export function optionsPdfPiece(html, extra = {}) {
+  if (!/class="pied-lucie"/.test(String(html || ''))) return { pagination: 'si-plusieurs', ...extra };
+  const paysage = extra.orientation === 'paysage' || /size:\s*A4\s+landscape/i.test(String(html));
+  return { pagination: 'si-plusieurs', orientation: paysage ? 'paysage' : 'portrait',
+    pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
+    marges: { top: '12mm', right: paysage ? '12mm' : '15mm', bottom: `${BANDE_PIED_MM}mm`, left: paysage ? '12mm' : '15mm' }, ...extra };
+}
+
 export function piedGabaritPdf(logo, texte, numeroter = false) {
   const T = String(texte || '').trim();
   return '<div style="width:100%;font-family:Arial,Helvetica,sans-serif;'

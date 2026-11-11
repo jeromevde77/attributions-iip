@@ -17,6 +17,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
+import { optionsPdfPiece } from '../lib/document.js';
 import { preparerPourCourriel, variableImage } from '../lib/courrielPiece.js';
 import { nouvelleReference, signatureFiligranee } from '../services/filigrane.js';
 import { protegerSignature, jourDuJour } from '../lib/protectionSignature.js';
@@ -577,7 +578,7 @@ r.post('/', authRequired, gesteRequis('envois.envoyer'), actifRequis, async (req
         const ref = nouvelleReference();
         const signe1 = await signer(String(doc.html || ''), { sujet, destinataire: base.nom, jour, reference: ref });
         try {
-          const pdf1 = await rendrePdf(signe1.htmlSigne, { pagination: 'si-plusieurs' });
+          const pdf1 = await rendrePdf(signe1.htmlSigne, optionsPdfPiece(signe1.htmlSigne));
           const fichier1 = String(doc.nom_fichier || 'document')
             .replace(/\.(html?|pdf)$/i, '').replace(/[^A-Za-z0-9_.-]/g, '_') + '.pdf';
           joints.push({ filename: fichier1, content: pdf1, contentType: 'application/pdf' });
@@ -605,7 +606,7 @@ r.post('/', authRequired, gesteRequis('envois.envoyer'), actifRequis, async (req
     }
     let pdf;
     try {
-      pdf = await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' });
+      pdf = await rendrePdf(htmlSigne, optionsPdfPiece(htmlSigne));
     } catch (e) {
       const err = `rendu PDF : ${String(e.message).slice(0, 200)}`;
       resultats.push({ ...base, statut: 'echec', erreur: err });
@@ -715,7 +716,7 @@ export async function copieDeLEnvoi(id, { format = 'pdf' } = {}) {
   if (format !== 'html' && m.mode !== 'corps') {
     const cap = await capacitePdf();
     if (cap.disponible) {
-      try { return { type: 'application/pdf', corps: await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' }), nom: `${nom}.pdf` }; }
+      try { return { type: 'application/pdf', corps: await rendrePdf(htmlSigne, optionsPdfPiece(htmlSigne)), nom: `${nom}.pdf` }; }
       catch { /* on retombe sur le HTML */ }
     }
   }

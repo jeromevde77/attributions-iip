@@ -12,6 +12,7 @@
 // elle vient. Rouvrir une réunion, c'est retrouver ce qui reste ouvert.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { optionsPdfPiece } from '../lib/document.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
@@ -1277,7 +1278,7 @@ export async function envoyerRapportMensuelSiDu(maintenant = new Date()) {
       const rap = construireRapportMensuel(mois);
       let pieces = [];
       try {
-        const pdf = await rendrePdf(rap.html, { pagination: 'si-plusieurs' });
+        const pdf = await rendrePdf(rap.html, optionsPdfPiece(rap.html));
         pieces = [{ filename: `Rapport_activite_${mois}.pdf`, content: pdf, contentType: 'application/pdf' }];
       } catch {
         pieces = [{ filename: rap.nom, content: Buffer.from(rap.html, 'utf8'), contentType: 'text/html' }];
