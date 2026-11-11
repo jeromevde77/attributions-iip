@@ -3327,7 +3327,8 @@ décision), clic sur l'en-tête = volet des cours et acquis ; une seule unité s
 
 **PLUS DE R / IR DANS LA GRILLE DES PRÉSENCES** (3.5.318, Charles, 11 novembre 2026 : « retirer IR et R dans présences, c'est la
 vérificatrice qui doit le faire »). `PresencesUE.jsx` ne demande aucun jalon (pas de colonne, pas de choix des dixièmes) ; l'alerte
-« irréguliers » du pilotage est retirée. Le calcul (`lib/regularite.js`) et le Pilotage (réguliers, PEP estimée) restent.
+« irréguliers » du pilotage est retirée. 3.5.319 : le Pilotage (`PilotagePresences.jsx`) ne montre plus ni réguliers, ni
+irréguliers, ni PEP estimée (le serveur les calcule encore ; `lib/regularite.js` reste).
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

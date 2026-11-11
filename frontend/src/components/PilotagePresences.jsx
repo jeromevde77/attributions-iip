@@ -25,21 +25,17 @@ export default function PilotagePresences({ annee }) {
 
   if (erreur) return <Encadre etat="corriger">{erreur}</Encadre>;
   if (!d) return <p className="text-sm text-slate-400">Calcul des présences de toutes les unités…</p>;
-  const tot = d.sections.reduce((a, s) => ({ R: a.R + s.reguliers, IR: a.IR + s.irreguliers }), { R: 0, IR: 0 });
+  /* PLUS DE RÉGULIERS NI DE PEP ESTIMÉE (3.5.319, Charles, 11 novembre 2026 : « c'est la vérificatrice qui doit le faire ») :
+     restent les UE, la présence moyenne, ce qui n'est pas encodé, et les dates des dixièmes. */
   const tauxMoyen = (() => { const v = d.ues.filter(u => u.taux_presence != null); return v.length ? Math.round(v.reduce((a, u) => a + u.taux_presence, 0) / v.length * 10) / 10 : null; })();
   const nonEnc = d.ues.reduce((a, u) => a + u.non_encodees, 0);
-  const pep = d.sections.reduce((a, s) => a + (s.pep_estimee || 0), 0);
-  const milliers = n => Math.round(n).toLocaleString('fr-BE');
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <TuileEtat etat="neutre" valeur={d.ues.length} libelle="UE à l’horaire" precision={annee} />
-        <TuileEtat etat="reussi" valeur={tot.R} libelle="Réguliers au 1er dixième" precision={`${tot.IR} irrégulier(s)`} />
         <TuileEtat etat="neutre" valeur={tauxMoyen == null ? '—' : `${nb(tauxMoyen)} %`} libelle="Présence moyenne" precision="présences + justifiées, par UE" />
         <TuileEtat etat={nonEnc ? 'surveiller' : 'reussi'} valeur={nonEnc} libelle="Présences non encodées" precision="séances tenues × étudiants" />
-        <TuileEtat etat="neutre" valeur={pep ? milliers(pep) : '—'} libelle="PEP estimée au 1er dixième"
-          precision="réguliers × périodes de l’UE — une estimation : la PEP officielle reste celle d’eProm" />
       </div>
 
       {d.alertes.length > 0 && (
@@ -51,24 +47,6 @@ export default function PilotagePresences({ annee }) {
             </button>))}
           {d.alertes.length > 12 && <p className="text-second text-slate-500 m-0">… et {d.alertes.length - 12} autre(s).</p>}
         </div>)}
-
-      <div>
-        <h3 className="intertitre">Comptage au 1er dixième, par section</h3>
-        <p className="text-second text-slate-500 mt-0">UE dont le premier dixième est passé. Une UE hors cursus est un groupe mixte : elle se compte à part.
-          Une inscription par UE — un étudiant inscrit à trois UE compte trois fois. La PEP estimée multiplie les réguliers
-          par les périodes de l’UE (professeur, autonomie comprise) : elle se compare à celle d’eProm, elle ne la remplace pas.</p>
-        <table className="text-sm border-collapse min-w-[420px]">
-          <thead><tr className="tab-entete"><th className="px-2 py-1.5 text-left">Section</th><th className="px-2 py-1.5 text-right">UE</th>
-            <th className="px-2 py-1.5 text-right">Réguliers</th><th className="px-2 py-1.5 text-right">Irréguliers</th>
-            <th className="px-2 py-1.5 text-right">PEP estimée</th></tr></thead>
-          <tbody>{d.sections.map(s => (
-            <tr key={s.section} className="border-t border-slate-100"><td className="px-2 py-1">{s.section}</td><td className="px-2 text-right">{s.ues}</td>
-              <td className="px-2 text-right font-semibold">{s.reguliers}</td><td className="px-2 text-right">{s.irreguliers}</td>
-              <td className="px-2 text-right">{s.pep_estimee ? milliers(s.pep_estimee) : '—'}</td></tr>))}
-            {!d.sections.length && <tr><td colSpan={5} className="px-2 py-2 text-slate-500">Aucun premier dixième n’est encore passé.</td></tr>}
-          </tbody>
-        </table>
-      </div>
 
       <div>
         <h3 className="intertitre">Par unité</h3>
@@ -86,8 +64,7 @@ export default function PilotagePresences({ annee }) {
                 <td className="px-2 text-right">{u.taux_presence == null ? '—' : `${nb(u.taux_presence)} %`}</td>
                 {['au10', 'au50'].map((k, i) => (
                   <td key={k} className="px-2 whitespace-nowrap">{frl(u.jalons[i ? 50 : 10])}
-                    {u[k].atteint ? <span className="text-second"> · <b style={{ color: 'var(--c-reussi)' }}>{u[k].R} R</b> · <b style={{ color: 'var(--c-refuse)' }}>{u[k].IR} IR</b>{u[k].marques ? ` · ${u[k].marques} inversé(s)` : ''}</span>
-                      : <span className="text-second text-slate-400"> · à venir</span>}</td>))}
+                    {!u[k].atteint && <span className="text-second text-slate-400"> · à venir</span>}</td>))}
                 <td className="px-2 text-right" style={{ color: u.non_encodees ? 'var(--c-attente)' : undefined }}>{u.non_encodees || '—'}</td>
               </tr>))}
             </tbody>
