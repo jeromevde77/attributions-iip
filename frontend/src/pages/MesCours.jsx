@@ -2,7 +2,7 @@ import { ICONE_AXE } from '../lib/iconesAxes.js';
 import MotivationsCours from '../components/MotivationsCours.jsx';
 import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { IconChalkboard, IconSchool, IconUserOff, IconBriefcase } from '@tabler/icons-react';
+import { IconChalkboard, IconSchool, IconUserOff, IconBriefcase, IconSend } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useRef, useState } from 'react';
 import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight, IconChevronDown, IconListDetails, IconX } from '@tabler/icons-react';
@@ -815,17 +815,17 @@ export default function MesCours({ espace = null }) {
     {tfe && <Fenetre titre="Mes TFE" icone={IconSchool} large="grande" onFermer={() => setTfe(false)}><MesTfe /></Fenetre>}
     {stages && <Fenetre titre="Mes stages" icone={IconBriefcase} large="grande" onFermer={() => setStages(false)}><MesStages /></Fenetre>}
     {/* MES ÉDITIONS (3.5.340) : les pièces d'un de ses cours — examens, résultats, statistiques, étudiants et présences. */}
-    {editions && <Fenetre titre="Mes éditions" sous={annee} icone={IconPrinter} large="grande" onFermer={() => setEditions(false)}><MesEditions annee={annee} /></Fenetre>}
+    {editions && <Fenetre titre="Éditions" sous={annee} icone={IconSend} large="grande" onFermer={() => setEditions(false)}><MesEditions annee={annee} /></Fenetre>}
     {!espace && <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
+        // ÉDITIONS EN TÊTE DU RAIL, L'AVION COMME DANS LUCIE (3.5.343) : listes, examens, résultats, statistiques d'un de ses cours.
+        { key: 'editions', label: 'Éditions', icon: IconSend, couleur: 'var(--menu-accent)', onClick: () => setEditions(true) },
         { key: 'liste', label: 'Mes cours de l’année', icon: IconBook2, actif: !ouvert && !vueDue,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); } },
         { key: 'due', label: 'Mes unités : croisement et DUE', icon: IconFileDescription, actif: vueDue,
           onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },
         { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
-        // MES ÉDITIONS (3.5.340) : listes, examens, résultats, statistiques — pour un de ses cours.
-        { key: 'editions', label: 'Mes éditions', icon: IconPrinter, onClick: () => setEditions(true) },
         { key: 'semaine', label: 'Mon horaire de la semaine', icon: IconCalendarWeek, onClick: () => setSemaine(true) },
         { key: 'agenda', label: 'Mon horaire dans mon agenda', icon: IconCalendarShare, onClick: () => setAgenda(true) },
         // LES VISITES DE STAGE (3.5.058) : dans l'agenda, avec le lieu de l'étudiant ; et la fiche de transport.

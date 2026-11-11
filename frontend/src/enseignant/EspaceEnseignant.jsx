@@ -826,7 +826,7 @@ const FACES = [
   { k: 'rendre', l: 'Les avis à rendre', I: IconChecklist },
   { k: 'examens', l: 'Mes examens', I: IconWriting },
   // MES ÉDITIONS (3.5.340) : les pièces d'un de ses cours — examens, résultats, statistiques, étudiants et présences.
-  { k: 'editions', l: 'Mes éditions', I: IconPrinter },
+  { k: 'editions', l: 'Éditions', I: IconSend },
   { k: 'prestations', l: 'Mes prestations', I: IconClockHour4, expert: true },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool, bientot: true },
@@ -845,9 +845,11 @@ const VUES_LUCIE = new Set(['notes', 'presences', 'ue', 'rendre']);
    tiroirs, les outils dans une barre en haut). Une entrée à tiroir ouvre sa première face (ou celle où l'on était) et déplie ses
    faces sous elle ; un second clic sur l'entrée ouverte la replie. */
 const GROUPES = [
+  // ÉDITIONS EN TÊTE DU RAIL, L'AVION COMME DANS LUCIE (3.5.343, Charles : « Éditions, le petit avion, en haut à gauche du rail, toujours visible »).
+  { k: 'editions', l: 'Éditions', I: IconSend },
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
   // UNE ICÔNE N'APPARTIENT QU'À UNE ENTRÉE (3.5.267, Charles : « deux fois le crayon pour Mes notes ») : le groupe a la sienne.
-  { k: 'g-cours', l: 'Mes cours', I: IconChalkboard, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens', 'editions'] },
+  { k: 'g-cours', l: 'Mes cours', I: IconChalkboard, enfants: ['etudiants', 'ue', 'presences', 'notes', 'examens'] },
   { k: 'g-rendre', l: 'À rendre', I: IconInbox, enfants: ['rendre', 'amenagements', 'prestations'] },
   { k: 'g-suivis', l: 'Mes suivis', I: IconRoute, enfants: ['tfe', 'stages'] },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
