@@ -229,57 +229,56 @@ function ValiderPAE({ annee, onFait }) {
    une cote sous 10, une faveur vaut 10 partout. Vert : acquis ; orange : à représenter ; fraise : non acquis (refus) ; violet :
    accordé par le Conseil. */
 const dateFr = x => (x ? new Date(`${String(x).slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '');
-function caseNote(note, { faveur, representer, refuse }) {
+function caseNote(note, { faveur, representer, refuse, petit = false }) {
   const chiffre = /^\d+$/.test(String(note));
   const fond = faveur ? 'var(--c-faveur)' : chiffre ? 'var(--c-reussi)' : note === 'NA' ? (representer ? 'var(--c-attente)' : refuse ? 'var(--c-refuse)' : 'var(--c-attente)') : null;
   return fond
-    ? <span className="inline-flex items-center justify-center min-w-[3.5rem] h-7 px-2 rounded-champ text-white font-semibold tabular-nums" style={{ background: fond }}>{note}{chiffre ? '/20' : ''}</span>
+    ? <span className={`inline-flex items-center justify-center ${petit ? 'min-w-[3rem] h-5 text-mention' : 'min-w-[3.5rem] h-7'} px-2 rounded-champ text-white font-semibold tabular-nums flex-none`} style={{ background: fond }}>{note}{chiffre ? '/20' : ''}</span>
     : <span className="text-slate-400">{note}</span>;
 }
 function VoletResultat({ u }) {
   const d = u.detail;
   const [motifVu, setMotifVu] = useState(null);   // l'acquis dont la motivation est dépliée (3.5.325)
   const refuse = u.etat === 'corriger';
+  /* LÉGER (3.5.327, Charles : « trop de tableaux dans des tableaux ») : pas de carte par cours — le cours en intertitre avec sa note,
+     ses acquis en retrait, un filet entre deux cours. */
   return (
-    <div className="px-3 py-3 space-y-3" style={{ background: 'color-mix(in srgb, var(--c-principal) 4%, transparent)' }}>
-      {d.cours.map(c => {
+    <div className="pl-4 pr-3 py-2">
+      {d.cours.map((c, k) => {
         const rep = c.a_representer;
         return (
-          <div key={c.code} className="carte bg-white overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-100">
-              <span className="flex-1 min-w-0"><b>{c.code}</b> {c.nom}</span>
+          <div key={c.code} className={k ? 'border-t border-slate-100 pt-2 mt-2' : ''}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex-1 min-w-0 font-semibold text-sm">{c.code} <span className="font-normal">{c.nom}</span></span>
               {rep && <PastilleEtat etat="surveiller">à représenter{rep.length ? ` : ${rep.join(', ')}` : ' : tout le cours'}</PastilleEtat>}
               {caseNote(c.note, { faveur: d.faveur, representer: !!rep, refuse })}
             </div>
-            <div className="divide-y divide-slate-100">
-              {c.acquis.map(a => {
-                const aRep = rep && (!rep.length || rep.includes(a.code));
-                const cle = `${c.code}|${a.code}`;
-                const ouvert = motifVu === cle;
-                return (
-                  <div key={a.code}>
-                    <div className={`flex items-center gap-2 px-3 py-1.5 text-sm ${a.motif ? 'cursor-pointer hover:bg-slate-50' : ''}`}
-                      onClick={a.motif ? () => setMotifVu(ouvert ? null : cle) : undefined}
-                      title={a.motif ? (ouvert ? 'Replier la motivation' : 'Voir pourquoi cet acquis n’est pas acquis') : undefined}>
-                      <span className="flex-1 min-w-0"><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span>
-                        {a.motif && <span className="ml-1.5 text-mention text-iip-blue underline">{ouvert ? 'masquer' : 'pourquoi ?'}</span>}</span>
-                      {caseNote(a.note, { faveur: d.faveur, representer: aRep, refuse })}
-                    </div>
-                    {ouvert && (
-                      <div className="mx-3 mb-2 px-3 py-2 text-second whitespace-pre-line bloc-etat" data-etat={refuse ? 'corriger' : 'surveiller'}>
-                        <div className="text-mention text-slate-500 mb-0.5">Motivation du Conseil des études</div>{a.motif}
-                      </div>)}
-                  </div>);
-              })}
-            </div>
-            {(c.examen || rep || c.visite) && (
-              <div className="px-3 py-2 text-second text-slate-600 border-t border-slate-100 space-y-0.5">
-                {rep && <div>Examen de seconde session : {c.examen ? <b>{dateFr(c.examen.date)}{c.examen.heure ? ` à ${c.examen.heure}` : ''}{c.examen.local ? `, local ${c.examen.local}` : ''}</b> : 'date à venir'}</div>}
-                {c.visite && <div>Visite des copies : {c.visite.rdv ? 'sur rendez-vous, contactez le professeur' : <>{dateFr(c.visite.date)}{c.visite.heure ? ` à ${c.visite.heure}` : ''}{c.visite.local ? `, local ${c.visite.local}` : ''}</>}</div>}
+            {c.acquis.map(a => {
+              const aRep = rep && (!rep.length || rep.includes(a.code));
+              const cle = `${c.code}|${a.code}`;
+              const ouvert = motifVu === cle;
+              return (
+                <div key={a.code} className="pl-3">
+                  <div className={`flex items-center gap-2 py-0.5 text-second ${a.motif ? 'cursor-pointer' : ''}`}
+                    onClick={a.motif ? () => setMotifVu(ouvert ? null : cle) : undefined}>
+                    <span className="flex-1 min-w-0 text-slate-600"><span className="font-semibold text-slate-700">{a.code}</span> {a.libelle}
+                      {a.motif && <span className="ml-1.5 text-mention text-iip-blue underline">{ouvert ? 'masquer' : 'pourquoi ?'}</span>}</span>
+                    {caseNote(a.note, { faveur: d.faveur, representer: aRep, refuse, petit: true })}
+                  </div>
+                  {ouvert && (
+                    <div className="ml-1 mb-1 pl-3 text-second whitespace-pre-line border-l-2" style={{ borderColor: refuse ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
+                      <span className="text-mention text-slate-500">Motivation du Conseil des études — </span>{a.motif}
+                    </div>)}
+                </div>);
+            })}
+            {(rep || c.visite) && (
+              <div className="pl-3 pt-0.5 text-mention text-slate-500">
+                {rep && <>Examen de seconde session : {c.examen ? <b className="text-slate-700">{dateFr(c.examen.date)}{c.examen.heure ? ` à ${c.examen.heure}` : ''}{c.examen.local ? `, local ${c.examen.local}` : ''}</b> : 'date à venir'}{c.visite ? ' · ' : ''}</>}
+                {c.visite && <>Visite des copies : {c.visite.rdv ? 'sur rendez-vous, contactez le professeur' : <>{dateFr(c.visite.date)}{c.visite.heure ? ` à ${c.visite.heure}` : ''}{c.visite.local ? `, local ${c.visite.local}` : ''}</>}</>}
               </div>)}
           </div>);
       })}
-      {d.faveur && <p className="text-xs text-slate-500 m-0">L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.</p>}
+      {d.faveur && <p className="text-xs text-slate-500 mt-2 mb-0">L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.</p>}
     </div>);
 }
 /** Les examens à repasser : tous les cours à représenter de l'année, par date. */
