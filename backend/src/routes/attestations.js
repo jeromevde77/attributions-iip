@@ -16,12 +16,12 @@
 import { filigraner } from '../lib/filigraneDocument.js';
 import { Router } from 'express';
 import { manquesDossier, uniteValorisable, vaRetenue, vaPourcent } from '../lib/valorisation.js';
-import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
+import { piedBalisage, ponctuerListes, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { sectionDuDossier } from '../lib/sectionDossier.js';
 import { protegerSignature } from '../lib/protectionSignature.js';
 import db from '../db/index.js';
-import { marqueDecision } from '../lib/authentique.js';
+import { marqueDecision, marqueNote } from '../lib/authentique.js';
 import { delibererUE } from './acquis.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
@@ -619,7 +619,7 @@ ${STYLE_MODELE}
     body > .pied-lucie { margin-top: auto; }
   }
 </style></head><body>
-${corps}
+${ponctuerListes(corps)}
 ${piedBalisage(logoCourant())}
 </body></html>`;
 }
@@ -718,7 +718,7 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
   return `<div class="attestation">${marqueDecision(va?.decision_ce_date)}
   ${enteteDocument({
     titre: "Attestation de réussite — valorisation de l'unité d'enseignement",
-    sous: u.ue_nom || null,
+    sous: [u.ue_num ? `UE ${u.ue_num}` : null, u.ue_nom].filter(Boolean).join(' — ') || null,
     ligne: `Année ${u.superieur ? 'académique' : 'scolaire'} `
          + `${String(annee).replace('-', '/')}`,
   })}
@@ -815,11 +815,11 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     : '<p class="manque">Les acquis d\'apprentissage de cette unité ne sont pas encodés.</p>';
 
   return `
-<div class="attestation">${marqueDecision(dateDeDecision(e.id, u.ue_num, annee, session))}
+<div class="attestation">${marqueDecision(dateDeDecision(e.id, u.ue_num, annee, session))}${marqueNote(u.pourcentage != null ? `${u.pourcentage} %` : null)}
   ${enteteDocument({
     titre: "Attestation de réussite de l'unité d'enseignement"
          + (u.epreuve_integree ? ' « épreuve intégrée »' : ''),
-    sous: u.ue_nom || null,
+    sous: [u.ue_num ? `UE ${u.ue_num}` : null, u.ue_nom].filter(Boolean).join(' — ') || null,
     ligne: `Année académique ${String(annee).replace('-', '/')}`,
   })}
 
@@ -1983,7 +1983,7 @@ async function documentsValorisationUE(req, res) {
   const pv = `<div class="attestation">
   ${enteteDocument({
     titre: 'Procès-verbal de délibération de valorisation des acquis',
-    sous: ue.ue_nom || `UE ${ueNum}`,
+    sous: `UE ${ueNum}${ue.ue_nom ? ` — ${ue.ue_nom}` : ''}`,
     ligne: `Année ${String(annee).replace('-', '/')} · `
          + `${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}`,
   })}

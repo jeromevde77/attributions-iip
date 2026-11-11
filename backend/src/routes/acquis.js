@@ -35,7 +35,7 @@ import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
 import { envelopper, unitesReussies, pageAttestation, frDate, dateDeDecision } from './attestations.js';
-import { marqueDecision } from '../lib/authentique.js';
+import { marqueDecision, marqueNote } from '../lib/authentique.js';
 import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { piedDocument, getParam } from './parametres.js';
@@ -1990,10 +1990,10 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   };
 
   const corps = `
-<div class="attestation piece">${marqueDecision(dateDeDecision(etudId, ueNum, annee, session))}
+<div class="attestation piece">${marqueDecision(dateDeDecision(etudId, ueNum, annee, session))}${marqueNote(d?.ue?.cote_etudiant || 'NA')}
   ${enteteDocument({
     titre: `Motivation d'une décision ${estRefus ? 'de refus' : "d'ajournement"}`,
-    sous: ue.ue_nom || `UE ${ueNum}`,
+    sous: `UE ${ueNum}${ue.ue_nom ? ` — ${ue.ue_nom}` : ''}`,
     ligne: `Année ${String(annee).replace('-', '/')} · `
          + (estRefus ? 'Annexe 9' : 'Annexe 8')
          + " — circulaire « Sanction des études »",
@@ -8698,7 +8698,7 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
   ${enteteDocument({
     titre: "Procès-verbal de délibération d'une unité d'enseignement"
          + (integree ? ' « épreuve intégrée »' : ''),
-    sous: (ue.ue_nom || `UE ${ueNum}`) + (anonyme ? ' — version anonymisée (matricules)' : ''),
+    sous: `UE ${ueNum}${ue.ue_nom ? ` — ${ue.ue_nom}` : ''}` + (anonyme ? ' — version anonymisée (matricules)' : ''),
     ligne: `Année ${String(annee).replace('-', '/')} · `
          + (/sup|bach|bes|master/i.test(ue.ue_niveau || ue.ue_niv || sec?.niveau || '')
             ? 'Enseignement supérieur' : 'Enseignement secondaire'),

@@ -37,6 +37,8 @@ export function piedDocument() {
     on('miseenpage.pied_num_entreprise') && etab.num_entreprise ? 'N° entreprise ' + etab.num_entreprise : null,
   ].filter(Boolean).join(' • ');
   const ligne2 = [
+    // Le matricule quitte l'en-tête (3.5.339) : il se lit ici, avec le numéro FASE.
+    etab.num_ecot ? 'Matricule ' + etab.num_ecot : null,
     on('miseenpage.pied_num_fase') && etab.num_fase ? 'Fase ' + etab.num_fase : null,
     on('miseenpage.pied_adresse')  ? etab.adresse : null,
     on('miseenpage.pied_tel') && etab.gest_tel ? 'T. ' + etab.gest_tel : null,
@@ -65,8 +67,10 @@ export function piedDocument() {
    * sait pas compter ses pages. On lui réserve sa place, `pied-page`, que
    * piedGabaritPdf() remplit. */
   const ANTHRACITE = '#3F4652';
+  /* « PRODUIT PAR… » À DROITE, SUR LA LIGNE DU PIED (3.5.339, Charles) : marqué `pied-trace`, l'enveloppe et le gabarit PDF le
+     posent dans la case de droite du pied, à côté du numéro de page. */
   const traceHtml = trace
-    ? `<div class="pied-trace" style="text-align:right;font-size:5.5pt;color:${ANTHRACITE};line-height:1.3;margin:-4.3mm 0 1.7mm">${trace}</div>`
+    ? `<div class="pied-trace" style="text-align:right;font-size:5.5pt;color:${ANTHRACITE};line-height:1.3">${trace}</div>`
     : '';
   const l1 = ligne1 ? `<div>${ligne1}</div>` : '';
   const l2 = `<div style="position:relative">${ligne2 || '&nbsp;'}<span class="pied-page" style="position:absolute;right:0;top:0"></span></div>`;

@@ -3385,6 +3385,11 @@ nos codes couleurs en fonction de ce qui est dit » ; tranché : toutes les piè
 3.5.337 (Charles : « pas les 3 couleurs ; on se base sur le modèle » — le kit Microcertifications de la FeLSI) : un seul filet bleu nuit
 #0E2A4F, plus de barre verticale ; une étiquette en petites capitales colorée (Réussite, Ajournement, Refus, Faveur, ou `nature`) au-dessus
 d'un titre bleu nuit 16 pt.
+3.5.339 (Charles : « on laisse juste le logo… ») : en-tête = logo à gauche + « Communauté française de Belgique — Enseignement pour
+adultes » à droite, sans nom, sans filet, sans étiquette ; trait vertical (`--doc-ton`) sur titre, sous-titre, ligne ; « UE n — nom » dans le
+sous-titre des pièces d'unité ; matricule dans le pied (`piedDocument`) ; « Produit par » dans la case de droite du pied (`pied-trace`,
+`piedBalisage`, `piedGabaritPdf`) ; `ponctuerListes` (enveloppes) : majuscule, « ; », point final ; `marqueNote` (attestation : pourcentage ;
+motivation : `cote_etudiant`) → `piece_authentique.note` → portail (`authentique.note`) → ligne d'authenticité et page de vérification.
 
 **LES RÈGLES DU CALENDRIER SUIVENT LES PROCÉDURES, PAR UE** (3.5.338, Charles : « cela ne respecte pas nos procédures » ; tranché :
 remplacer la chaîne rétroactive par les délais des procédures, depuis la délibération de chaque UE). Paramètres `session.p_*` (server.js ;
