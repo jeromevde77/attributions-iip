@@ -3319,7 +3319,10 @@ cliquant sur la ligne, il voit la note de ses cours et AA ; NA si ajournement ou
 dernière session close, `coteEtudiant` (NA sous 10), faveur = 10, `a_representer_detail` + date d'examen (`deliberation_session2`) +
 visite (`visitesParCours`) ; année active seulement ; colonne `resultat.detail` du portail. 3.5.320 (Charles : « un volet qui se
 déplie, avec des couleurs ; et la liste des examens à repasser ») : `VoletResultat` sous la ligne (`caseNote` : vert, orange à
-représenter, fraise refus, violet faveur) et `ExamensARepasser` en tête, triés par date. 3.5.325 (« le justificatif de l'échec par AA,
+représenter, fraise refus, violet faveur) et `ExamensARepasser` en tête, triés par date. 3.5.327 (« trop de tableaux dans des tableaux ») : plus de carte par cours dans le
+volet — intertitre du cours et sa note, acquis en retrait, filet entre deux cours. 3.5.330 (« pas de lignes plus hautes que d'autres ; … et cliquer ; la note comme une fin de ligne sur fond de couleur ») :
+une ligne de même hauteur par cours et par acquis (`H_LIGNE`, « … »), note = bloc de couleur au bout (`finDeLigne`), un clic ouvre
+la ligne (texte entier, motivation, examen et visite) ; `w-0 min-w-full` garde le volet à la largeur du tableau. 3.5.325 (« le justificatif de l'échec par AA,
 en cliquant encore ») : chaque acquis NA porte `motif` (`decision_motivation`, au dossier seulement) ; « pourquoi ? » le déplie.
 `Fiche` de la délibération : `Decision partie="boutons" compact` sur la ligne de la navigation, à côté de la tuile (3.5.321,
 « tout sur une même ligne ») ; la ligne « Enregistré » = `partie="statut"`, dans le corps.
@@ -3348,6 +3351,17 @@ et TIM). `sectionsCodiplomation()` (`lib/grillePresence.js`, `lucie_config` « s
 `donneesCapitalisation` pose `ajournee_annee` (résultat « ajourne » de l'année, non acquise) et `refusee_annee` (« refuse » de l'année,
 pas deux fois) ; orange plein (`--c-attente`) ; blanc à contour fraise épais ; fraise pleine = `echec_double`. Mêmes règles dans
 `SchemaCapitalisation.jsx` (mode étudiant), `ParcoursCompact.jsx` et `lib/schemaSvg.js` (pièce et portail), légendes comprises.
+**LE MÊME CODE PARTOUT** (3.5.328, « toutes les icônes PAE codées de la même manière ») : la frise de la liste (`/api/etudiants/frises`,
+code « a » ajournée et « z » refusée de l'année avant « i », `.gelule [data-c="z"]`) et `CasePAE` (`ComposerPAE.jsx` : inscrite = bleu
+plein, refusée = contour fraise). **Une nouvelle représentation d'une UE du parcours reprend ces cinq couleurs.** 3.5.329 : « Mes unités et leurs cours » de l'espace
+étudiant prend son liseré du nœud du schéma (ajournée orange, refusée ou échouée deux fois fraise).
+
+**AUDIT DE DESIGN DES DEUX ESPACES** (3.5.331, Charles, 11 novembre 2026 : « il faut vraiment que cela soit parfait »). `LigneEtat`
+(ui.jsx) : le titre se coupe (« … »), ne passe plus à la ligne — partout dans Lucie. Espace étudiant : Mes unités, Messages en
+`ListeEtats`/`LigneEtat` ; frais et versements en carte + `EnteteCarte` + `Tableau` ; boutons `.bouton-confirmer` / `.bouton-signaler`
+(index.css) ; frise VA en `PastilleEtat` ; `text-xs` → `text-second` ; faveur = état « faveur » (`resultatsPublies`, « Réussi par faveur »).
+Espace enseignant : `.carte` + `EnteteCarte`, listes de dates et d'appareils en `LigneEtat`, pastilles de type de date en `PastilleEtat`,
+libellés visibles (Liste, Rechercher, Une idée). **Restent** : les listes du PAE en ligne et la demande de VA (liseré autour de cartes).
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

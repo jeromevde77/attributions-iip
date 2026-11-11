@@ -179,13 +179,16 @@ export function resultatsPublies(ids) {
     FROM etudiant_inscription i WHERE i.resultat IS NOT NULL`).all()) {
     if (!voulus.has(l.etudiant_id) || !(l.close || l.annee_scolaire < annee)) continue;
     const reussi = l.resultat === 'reussi';
+    // Le détail, pour l'année active (les années reprises n'ont pas toujours leurs notes par acquis).
+    const detail = l.annee_scolaire === annee && l.close ? detailResultat(l.etudiant_id, l.ue_num, l.annee_scolaire, l.resultat) : null;
+    // LA FAVEUR EN VIOLET (3.5.331, audit) : une unité accordée par le Conseil se dit « Réussi par faveur », état « faveur ».
+    const faveur = reussi && !!detail?.faveur;
     out.push({ etudiant_id: l.etudiant_id, annee: l.annee_scolaire, ue_num: l.ue_num, ue_nom: l.ue_nom,
-      decision: { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé' }[l.resultat] || l.resultat,
+      decision: faveur ? 'Réussi par faveur' : ({ reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé' }[l.resultat] || l.resultat),
       // NA sous 10 (circulaire Sanction des études) ; une faveur vaut 10.
-      note: reussi ? (l.points != null ? String(Math.max(10, Math.round(Number(l.points)))) : '—') : 'NA',
-      etat: reussi ? 'reussi' : l.resultat === 'ajourne' ? 'surveiller' : 'corriger',
-      // Le détail, pour l'année active (les années reprises n'ont pas toujours leurs notes par acquis).
-      detail: l.annee_scolaire === annee && l.close ? detailResultat(l.etudiant_id, l.ue_num, l.annee_scolaire, l.resultat) : null });
+      note: faveur ? '10' : reussi ? (l.points != null ? String(Math.max(10, Math.round(Number(l.points)))) : '—') : 'NA',
+      etat: faveur ? 'faveur' : reussi ? 'reussi' : l.resultat === 'ajourne' ? 'surveiller' : 'corriger',
+      detail });
   }
   try {
     for (const v of db.prepare(`SELECT etudiant_id, annee_scolaire, ue_num,

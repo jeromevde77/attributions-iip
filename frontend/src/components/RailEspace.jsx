@@ -1,3 +1,4 @@
+import { PastilleEtat } from './ui.jsx';
 /* LE RAIL DES ESPACES (3.5.173 → 3.5.184, Charles : « dans l'espace étudiant, tu n'as pas utilisé le même design que dans
    l'espace prof ; TOUT doit être semblable, sinon les gens se perdent »). Un seul bouton pour l'espace enseignant et l'espace
    étudiant, aux mesures du rail de Lucie : case carrée de 36 px, icône 19 trait 1,8, grise ; l'entrée ouverte en pastille pâle
@@ -18,9 +19,9 @@ export function BoutonRail({ f, actif, onClick, etroit = false }) {   // data-vi
       <span className={etroit ? 'md:hidden' : ''}>{f.l}</span>
       {/* « BIENTÔT » (3.5.282) : une entrée annoncée mais pas encore ouverte porte une pastille orange — à côté du libellé, et en
           point sur l'icône quand le rail est étroit. */}
-      {f.bientot && <span className={`pastille-etat text-[10px] ${etroit ? 'md:hidden' : ''}`} style={{ background: 'var(--c-attente)', color: '#fff' }}>bientôt</span>}
+      {f.bientot && <PastilleEtat etat="surveiller" className={`text-mention ${etroit ? 'md:hidden' : ''}`}>bientôt</PastilleEtat>}
       {f.bientot && etroit && <span aria-hidden="true" className="hidden md:block absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white" style={{ background: 'var(--c-attente)' }} />}
-      {etroit && <span role="tooltip" className="hidden md:group-hover:block md:group-focus-visible:block pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50 px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium text-xs whitespace-nowrap"
-        style={{ background: 'var(--c-principal, #16406A)' }}>{f.l}{f.bientot ? ' — bientôt disponible' : ''}</span>}
+      {etroit && <span role="tooltip" className="hidden md:group-hover:block md:group-focus-visible:block pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50 px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium text-second whitespace-nowrap"
+        style={{ background: 'var(--c-principal)' }}>{f.l}{f.bientot ? ' — bientôt disponible' : ''}</span>}
     </button>);
 }

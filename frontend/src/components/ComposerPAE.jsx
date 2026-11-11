@@ -64,10 +64,11 @@ export function CasePAE({ x = {}, resultat, attente = null, anneau = null, titre
   } else if (x.inscrit && res === 'ajourne') {
     style = { ...base, background: COUL.orange, color: '#fff' }; glyphe = '…'; dit = 'ajournée cette année — seconde session en attente';
   } else if (x.inscrit && res === 'refuse') {
-    style = { ...base, background: COUL.brique, color: '#fff' }; glyphe = <IconX size={11} stroke={3} />; dit = 'refusée cette année';
+    // LE MÊME CODE PARTOUT (3.5.328) : refusée cette année = blanc, contour fraise (la fraise pleine = échouée deux fois).
+    style = { ...base, background: '#fff', border: `2px solid ${COUL.brique}`, color: COUL.brique }; glyphe = <IconX size={11} stroke={3} />; dit = 'refusée cette année';
   } else if (x.inscrit) {
-    style = { ...base, border: `1.5px solid ${COUL.bleu}`, background: 'var(--blanc)', color: COUL.bleu,
-      fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 700 };
+    // Au programme = BLEU PLEIN, comme dans le schéma et la frise (3.5.328).
+    style = { ...base, background: COUL.bleu, color: '#fff', fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 700 };
     glyphe = 'i'; dit = res === 'absent' ? 'inscrite cette année — absent' : 'inscrite cette année';
   } else {
     style = { ...base, border: '1.5px solid rgb(var(--gris-300))', background: 'var(--blanc)' }; dit = 'pas prise';

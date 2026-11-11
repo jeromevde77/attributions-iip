@@ -24,7 +24,7 @@ export default function MonAmenagement({ appel, onErreur }) {
   useEffect(() => { if (!p?.gestes?.some(g => !g.releve_le)) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [p, charger]);
 
   if (!p) return <ChargementLucie />;
-  if (!p.pret || !p.ar) return <div className="carte p-4 text-sm text-slate-600">Vos informations arrivent de l’école : revenez dans quelques minutes.</div>;
+  if (!p.pret || !p.ar) return <div className="carte px-4 py-3 text-sm text-slate-600">Vos informations arrivent de l’école : revenez dans quelques minutes.</div>;
   const ar = p.ar;
   const ref = ar.referente?.nom || 'la personne de référence';
   const dansDelai = ar.ues.filter(u => u.dans_delai);
@@ -53,17 +53,17 @@ export default function MonAmenagement({ appel, onErreur }) {
     <div className="space-y-4">
       {/* L'ÉTAT DE SA DEMANDE */}
       {ar.dossier ? (
-        <div className="carte p-4 space-y-2">
-          <h2 className="text-base font-semibold text-iip-texte m-0">Ma demande d’aménagement raisonnable — {ar.annee}</h2>
+        <div className="carte px-4 py-3 space-y-2">
+          <h2 className="titre-carte m-0">Ma demande d’aménagement raisonnable — {ar.annee}</h2>
           <p className="text-sm text-slate-600 m-0">Introduite le {jourFr(ar.dossier.date_demande)}{ar.dossier.ues?.length ? ` pour les unités ${ar.dossier.ues.join(', ')}` : ''}.
             {' '}{ar.dossier.notifie_le ? `Décision notifiée le ${jourFr(ar.dossier.notifie_le)}.` : 'Elle est à l’examen : la décision motivée du Conseil des études vous sera adressée.'}</p>
           {ar.dossier.mesures?.length > 0 && <ul className="m-0 pl-5 text-sm">{ar.dossier.mesures.map((m, i) => (
             <li key={i}>{m.libelle}{m.precisions ? ` — ${m.precisions}` : ''} : <b>{m.accorde ? 'accordé' : 'non accordé'}</b>{!m.accorde && m.motif_refus ? ` (${m.motif_refus})` : ''}</li>))}</ul>}
         </div>
       ) : dansDelai.length ? (
-        <div className="carte p-4 space-y-4">
+        <div className="carte px-4 py-3 space-y-4">
           <div>
-            <h2 className="text-base font-semibold text-iip-texte m-0">Demander un aménagement raisonnable — {ar.annee}</h2>
+            <h2 className="titre-carte m-0">Demander un aménagement raisonnable — {ar.annee}</h2>
             <p className="text-sm text-slate-600 m-0 mt-1">La demande se remet au moins <b>10 jours ouvrables avant l’ouverture</b> de l’unité concernée. Elle est examinée par le Conseil des études, qui vous adresse une décision motivée ; {ref} vous accompagne.</p>
           </div>
           <div className="space-y-1.5">
@@ -77,7 +77,7 @@ export default function MonAmenagement({ appel, onErreur }) {
           <div className="space-y-1.5">
             <div className="text-sm font-semibold">2. Les aménagements que vous demandez</div>
             {Object.entries(parMoment).map(([mo, l]) => (
-              <div key={mo}><div className="text-xs text-slate-500 uppercase tracking-wide mt-1">{mo}</div>
+              <div key={mo}><div className="text-second text-slate-500 uppercase tracking-wide mt-1">{mo}</div>
                 {l.map(m => <label key={m.code} className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={mesures.has(m.code)} onChange={() => basculer(setMesures, m.code)} /><span>{m.libelle}</span></label>)}</div>))}
             <textarea className="controle w-full !h-auto py-2" rows={2} placeholder="Autre aménagement (facultatif)" value={f.autres} onChange={e => setF(x => ({ ...x, autres: e.target.value }))} />
           </div>
@@ -97,16 +97,16 @@ export default function MonAmenagement({ appel, onErreur }) {
               <input ref={champ} type="file" className="hidden" accept="application/pdf,image/jpeg,image/png" onChange={e => setFichier(e.target.files?.[0] || null)} />
               <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => champ.current?.click()}><IconUpload size={15} /> {fichier ? fichier.name : 'Joindre la pièce (PDF, photo)'}</button>
             </div>
-            <p className="text-xs text-slate-500 m-0">Votre pièce n’est lue que par les personnes qui instruisent les aménagements (secret professionnel).</p>
+            <p className="text-second text-slate-500 m-0">Votre pièce n’est lue que par les personnes qui instruisent les aménagements (secret professionnel).</p>
           </div>
           <div className="flex items-center justify-end gap-3">
-            <span className="text-xs text-slate-500">En envoyant, vous datez et signez votre demande.</span>
+            <span className="text-second text-slate-500">En envoyant, vous datez et signez votre demande.</span>
             <button type="button" className="bouton bouton-fort" disabled={!pret || envoi || enAttente} onClick={deposer}>{envoi ? 'Envoi…' : 'Envoyer ma demande'}</button>
           </div>
         </div>
       ) : (
-        <div className="carte p-4 space-y-1">
-          <h2 className="text-base font-semibold text-iip-texte m-0">Demander un aménagement raisonnable</h2>
+        <div className="carte px-4 py-3 space-y-1">
+          <h2 className="titre-carte m-0">Demander un aménagement raisonnable</h2>
           <p className="text-sm text-slate-600 m-0">{ar.ues.length
             ? <>Le délai de la demande en ligne est passé pour toutes vos unités (10 jours ouvrables avant leur ouverture). Une demande reste possible en cas de circonstances exceptionnelles — inscription, diagnostic ou évolution du handicap survenus après ce délai : <b>contactez {ref}</b>, ci-dessous.</>
             : <>Vous n’êtes inscrit·e à aucune unité cette année : <b>contactez {ref}</b>, ci-dessous.</>}</p>
@@ -114,16 +114,16 @@ export default function MonAmenagement({ appel, onErreur }) {
       )}
 
       {/* ÉCRIRE À LA PERSONNE DE RÉFÉRENCE */}
-      <div className="carte p-4 space-y-2">
-        <h2 className="text-base font-semibold text-iip-texte m-0">Écrire à {ref}</h2>
+      <div className="carte px-4 py-3 space-y-2">
+        <h2 className="titre-carte m-0">Écrire à {ref}</h2>
         <p className="text-sm text-slate-600 m-0">Une question, une demande hors délai, une situation qui change : votre message lui parvient dans Lucie ; elle vous répond dans vos messages.</p>
         <textarea className="controle w-full !h-auto py-2" rows={3} value={message} onChange={e => setMessage(e.target.value)} />
         <div className="flex justify-end"><button type="button" className="bouton inline-flex items-center gap-1.5" disabled={!message.trim() || envoi} onClick={ecrire}><IconSend size={15} /> Envoyer le message</button></div>
       </div>
 
       {(p.gestes || []).length > 0 && (
-        <div className="carte p-4 space-y-1.5">
-          <h2 className="text-sm font-semibold text-iip-texte m-0">Mes envois</h2>
+        <div className="carte px-4 py-3 space-y-1.5">
+          <h2 className="titre-carte m-0">Mes envois</h2>
           {p.gestes.map(g => (
             <div key={g.id} className="flex items-start gap-2 text-sm">
               {!g.releve_le ? <IconClock size={16} className="text-slate-400 mt-0.5" /> : g.erreur ? <IconAlertTriangle size={16} className="mt-0.5" style={{ color: 'var(--c-refuse)' }} /> : <IconCheck size={16} className="mt-0.5" style={{ color: 'var(--c-reussi)' }} />}

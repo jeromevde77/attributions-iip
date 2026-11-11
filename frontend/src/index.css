@@ -958,6 +958,9 @@ select[multiple], select[size]:not([size="1"]) {
 .bouton-sortir:hover:not(:disabled)   { background: color-mix(in srgb, var(--c-bouton_sortir, var(--c-principal)) 8%, var(--c-fond_champ, #fff)); }
 .bouton-detruire { background: var(--c-bouton_detruire, var(--c-refuse)); color: #fff; border-color: transparent; }
 .bouton-detruire:hover:not(:disabled) { background: var(--c-bouton_detruire, var(--c-refuse)); }
+/* LES DEUX BOUTONS D'UNE DÉCISION DE L'ÉTUDIANT (3.5.279, puis classes en 3.5.331) : « le bouton vert, le bouton fraise ». */
+.bouton-confirmer { background: var(--c-reussi); color: #fff; border-color: transparent; }
+.bouton-signaler { background: var(--c-refuse); color: #fff; border-color: transparent; }
 
 /* ═══ LES TABLEAUX — deux tons, pas cinq ══════════════════════════════════
  *
@@ -1201,6 +1204,7 @@ select[multiple], select[size]:not([size="1"]) {
 .gelule > span[data-c="i"] { background: var(--c-disponible); color: #fff; }
 .gelule > span[data-c="a"] { background: var(--c-attente); color: #fff; }
 .gelule > span[data-c="x"] { background: var(--c-refuse); color: #fff; }   /* échouée deux fois (3.5.215) */
+.gelule > span[data-c="z"] { background: #fff; color: var(--c-refuse); box-shadow: inset 0 0 0 2px var(--c-refuse); }   /* refusée cette année (3.5.328) */
 .gelule > span[data-c="o"] { color: rgb(var(--gris-500)); }
 .gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: rgb(var(--gris-400)); }
 
