@@ -3410,6 +3410,16 @@ de l'espace enseignant). Déclarées au catalogue général (`prof_<id>`, porté
 Finances → Coûts des formations restait ~1 min sur « Calcul du rapport… » : ~23 s de `donneesCout`, demandé deux fois). `CACHE_COUT`
 (routes/rapports.js, par année, 10 min) ; « Recalculer » envoie `recalculer=1`.
 
+**LA SEMAINE TYPE PAR DÉROGATION MOTIVÉE** (3.5.345, Charles, 11 novembre 2026 : « c'est la demande de la personne ; je dois le
+valider et sortir un document à signer » ; tranché : un geste de la direction avec motif, un accord individuel, 10 h par jour au
+plus). `poserSemaineType(…, { derogation })` (`lib/monTemps.js`) ne lève QUE le plafond de 8 h (9 h) par jour, jusqu'à
+`JOUR_MAX_DEROGATION` ; la simulation rend `derogeable` et `depassements`. L'accord se garde dans `tt_derogation` (ajout seul) ;
+`GET /api/temps-travail/derogation/:id/document` compose l'accord individuel (horaire jour par jour, motif, signatures personne et
+direction). Bouton « Accepter par dérogation » de `SemaineTypeTemps.jsx`.
+3.5.346 (Charles : « max 10 h pause comprise » ; « la pause peut être réduite à 15 min, mais avec un papier à signer ») : le plafond de
+10 h se compte du début à la fin (amplitude) ; une pause de 15 à 29 min (`PAUSE_HABITUELLE` 30) se signale dans la semaine type et ne
+passe que par l'accord ; sous 15 min, jamais. Bouton de durée de pause (15 → 30 → 45 → 60) sur chaque journée.
+
 **L'EXTRAIT CBC ET LES PAIEMENTS PAR CARTE** (3.5.342, Charles, 11 novembre 2026 : le relevé CBC « revu avec la compta pour la
 banque »). `lireCsv` (`lib/banque.js`) reconnaît les intitulés anglais de CBC/KBC (Entry date, Transaction amount, Structured /
 Unstructured Reference, Transaction message, Counterparty name/account, Bank reference) et les années sur deux chiffres ;

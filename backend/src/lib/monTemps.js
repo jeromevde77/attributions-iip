@@ -250,7 +250,46 @@ export function semaineType(uid) {
   const defaut = modeleSemaine(p.formule, Number(p.fraction) || 1);
   return { jours: Array.isArray(t) && t.length === 7 ? t : defaut, propre: Array.isArray(t), formule: p.formule, fraction: p.fraction, cible: Math.round(REGLES.hebdo * (Number(p.fraction) || 1)) };
 }
-export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer = true, par = '', compenser = false } = {}) {
+/* LA DÉROGATION MOTIVÉE (3.5.345, Charles : « c'est la demande de la personne ; je dois le valider et sortir un document à
+   signer » ; tranché : un geste de la direction, avec un motif ; un accord individuel signé par la personne puis la direction ;
+   10 h par jour au plus, même par dérogation). Seul le plafond de 8 h (9 h) par jour se lève ; la pause, les 6 h d'affilée et les
+   11 h de repos restent. L'accord se garde dans `tt_derogation`, en ajout seul. */
+export const JOUR_MAX_DEROGATION = 10 * 60;
+export function migrerDerogation() {
+  db.exec(`CREATE TABLE IF NOT EXISTS tt_derogation (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, utilisateur_id INTEGER NOT NULL, annee_scolaire TEXT, objet TEXT NOT NULL DEFAULT 'semaine_type',
+    jours_json TEXT NOT NULL, total INTEGER, cible INTEGER, motif TEXT NOT NULL, depassements TEXT,
+    accorde_par TEXT, accorde_par_id INTEGER, accorde_le TEXT DEFAULT (datetime('now')))`);
+}
+const PLAFOND_JOUR = /de travail : .* par jour au plus/;
+const PAUSE_COURTE = /pause réduite à/;
+/* 3.5.345 (Charles : « max 10 h pause comprise » ; « la pause peut être réduite à 15 min, mais avec un papier à signer ») : le
+   plafond de la dérogation se compte du début à la fin de la journée, pause comprise ; une pause de moins de 30 min (15 au moins,
+   la loi) se signale dans la semaine type et ne passe que par l'accord individuel. */
+const amplitude = j => { const m = h => { const x = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return x ? Number(x[1]) * 60 + Number(x[2]) : 0; }; return j ? m(j.fin) - m(j.debut) : 0; };
+const pauseDe = j => { const m = h => { const x = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return x ? Number(x[1]) * 60 + Number(x[2]) : null; };
+  const a = m(j?.pause_debut), b = m(j?.pause_fin); return a != null && b != null && b > a ? b - a : 0; };
+export const PAUSE_HABITUELLE = 30;
+function pausesCourtes(propres) {
+  const JN = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  return propres.map((j, i) => { const p = pauseDe(j); return j && p > 0 && p < PAUSE_HABITUELLE && p >= REGLES.pauseMin
+    ? `${JN[i]} : pause réduite à ${p} min (${PAUSE_HABITUELLE} min d’habitude) : accord à signer.` : null; }).filter(Boolean);
+}
+function plafondsLeves(controles, propres) {
+  const JN = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const reste = controles.filter(c => !PLAFOND_JOUR.test(c) && !PAUSE_COURTE.test(c));
+  propres.forEach((j, i) => { if (j && amplitude(j) > JOUR_MAX_DEROGATION) reste.push(`${JN[i]} : ${j.debut}–${j.fin}, ${hm(amplitude(j))} pause comprise — 10 h par jour au plus, même par dérogation.`); });
+  const depassements = propres.map((j, i) => {
+    if (!j) return null;
+    const plus = controles.some(c => PLAFOND_JOUR.test(c) && c.toLowerCase().startsWith(JN[i].toLowerCase()));
+    const p = pauseDe(j), courte = p > 0 && p < PAUSE_HABITUELLE;
+    if (!plus && !courte) return null;
+    return `${JN[i]} ${j.debut}–${j.fin}${plus ? ` (${hm(dureeJour(j))} de travail)` : ''}${courte ? ` pause de ${p} min` : ''}`;
+  }).filter(Boolean);
+  return { reste, depassements };
+}
+
+export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer = true, par = '', parId = null, compenser = false, derogation = null } = {}) {
   const t = semaineType(uid);
   const propres = Array.from({ length: 7 }, (_, i) => {
     const j = jours?.[i];
@@ -264,6 +303,13 @@ export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer 
      ne reçoivent pas la semaine type. Les autres règles (8 h par jour, 11 h de repos…) restent. */
   const controles = controleSemaine(propres, { formule: t.formule === 'annualise' ? '5j' : t.formule, fraction: Number(t.fraction) || 1, rtVariable: R.rt_variable })
     .filter(c => !/doit compter exactement/.test(c));
+  controles.push(...pausesCourtes(propres));
+  const lev = plafondsLeves(controles, propres);
+  const derogeable = controles.length > 0 && lev.depassements.length > 0 && lev.reste.length === 0;
+  const motifDerog = String(derogation || '').trim();
+  if (derogation != null && !motifDerog) throw err('Une dérogation se motive.');
+  const controlesBruts = controles;
+  if (motifDerog) { controles.length = 0; controles.push(...lev.reste); }
   // Les semaines qui la recevront : à venir, de travail, hors mois approuvés, et encore égales à l'ancien modèle.
   const ancien = JSON.stringify(t.jours);
   const lundiAuj = lundiDe(aujourdhui());
@@ -282,16 +328,23 @@ export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer 
       restes = plan.erreurs || [];
     } catch (e) { restes = [e.message]; }
   }
-  const bilan = { jours: propres, total, cible: t.cible, controles, a_appliquer: nCibles,
+  const bilan = { jours: propres, total, cible: t.cible, controles, derogeable, depassements: lev.depassements, controles_bruts: controlesBruts, a_appliquer: nCibles,
     gardees: sem.filter(s => s.statut === 'travail' && s.lundi >= lundiAuj).length - cibles.length,
     ecart_semaine: total - t.cible, du, apres_annee: apresAnnee, au_solde: apresAnnee - du, compensees, restes };
   if (!ecrire) return { simulation: true, ...bilan };
   if (controles.length) throw Object.assign(err('La semaine type ne tient pas : rien n’est enregistré.'), { bilan });
   const up = db.prepare("UPDATE tt_semaine SET jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
+  let derogationId = null;
   db.transaction(() => {
+    if (motifDerog && lev.depassements.length) {
+      migrerDerogation();
+      derogationId = db.prepare(`INSERT INTO tt_derogation (utilisateur_id, annee_scolaire, objet, jours_json, total, cible, motif, depassements, accorde_par, accorde_par_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?)`).run(uid, annee, 'semaine_type', JSON.stringify(propres), total, t.cible, motifDerog.slice(0, 1000),
+        lev.depassements.join(' ; '), par, parId).lastInsertRowid;
+    }
     db.prepare("UPDATE tt_personne SET semaine_type = ?, maj_par = ?, maj_le = datetime('now') WHERE utilisateur_id = ?").run(JSON.stringify(propres), par, uid);
     if (appliquer) for (const s of cibles) up.run(JSON.stringify(propres), `${par} (semaine type)`, uid, s.lundi);
     for (const c of compensees) if (c.jours) up.run(JSON.stringify(c.jours), `${par} (compensation de la semaine type)`, uid, c.lundi);
   })();
-  return { ecrit: true, ...bilan };
+  return { ecrit: true, derogation_id: derogationId ? Number(derogationId) : null, ...bilan };
 }

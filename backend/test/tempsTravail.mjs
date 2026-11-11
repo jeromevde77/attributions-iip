@@ -144,5 +144,29 @@ t('fixés : 9 semaines de congé', T.periodesDeConge(A).source === 'module' && T
 { const g3 = T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-05' }); t('9 semaines de congé : l’été passe à 4, toujours 39 semaines et 1 404 h', g3.bilan.semaines_ete === 4 && g3.bilan.semaines_travail === 39 && g3.bilan.cible_annee === 1404 * 60, g3.bilan); }
 t('deux périodes qui se chevauchent : refusé', /chevauchent/.test((() => { try { T.fixerConges(A, [{ du: '2026-10-19', au: '2026-10-30', libelle: 'A' }, { du: '2026-10-26', au: '2026-11-06', libelle: 'B' }], 'b'); return ''; } catch (e) { return e.message; } })()));
 
+console.log('\nLa dérogation motivée (3.5.345)');
+{
+  const M = await import('../src/lib/monTemps.js'); M.migrerDerogation();
+  T.genererAnnee(1, A, { formule: '5j', fraction: 1, ete: '2027-07-05' }, { ecrire: true, par: 'banc' });
+  const j = (d, f) => ({ debut: d, fin: f, pause_debut: '12:00', pause_fin: '12:30' });
+  const semaine = [j('08:00', '18:00'), j('08:30', '15:48'), j('08:30', '15:48'), j('08:30', '15:48'), j('08:30', '15:48'), null, null];
+  const sim = M.poserSemaineType(1, A, semaine);
+  t('9 h 30 le lundi (10 h pause comprise) : refusé, mais dérogeable', sim.controles.length > 0 && sim.derogeable && sim.depassements.length === 1, sim);
+  t('sans motif : refusé', /se motive/.test((() => { try { M.poserSemaineType(1, A, semaine, { ecrire: true, derogation: ' ' }); return ''; } catch (e) { return e.message; } })()));
+  const ec = M.poserSemaineType(1, A, semaine, { ecrire: true, derogation: 'Demande de la personne', par: 'Direction' });
+  t('avec motif : enregistré, accord gardé', ec.ecrit && ec.derogation_id > 0 && db.prepare('SELECT motif FROM tt_derogation WHERE id = ?').get(ec.derogation_id)?.motif === 'Demande de la personne', ec);
+  const trop = [j('08:00', '18:15'), ...semaine.slice(1)];
+  const s2 = M.poserSemaineType(1, A, trop);
+  t('10 h 15 pause comprise : pas dérogeable (10 h au plus)', !s2.derogeable, s2);
+  t('10 h 15 avec motif : toujours refusé', /ne tient pas/.test((() => { try { M.poserSemaineType(1, A, trop, { ecrire: true, derogation: 'x' }); return ''; } catch (e) { return e.message; } })()));
+  const sansPause = [{ debut: '08:00', fin: '18:00' }, ...semaine.slice(1)];
+  const p15 = [{ debut: '08:30', fin: '15:48', pause_debut: '12:00', pause_fin: '12:15' }, ...semaine.slice(1)];
+  const s3 = M.poserSemaineType(1, A, p15);
+  t('pause de 15 min : signalée, accord à signer', s3.controles.some(c => /pause réduite à 15 min/.test(c)) && s3.derogeable, s3);
+  const p10 = [{ debut: '08:30', fin: '15:48', pause_debut: '12:00', pause_fin: '12:10' }, ...semaine.slice(1)];
+  t('pause de 10 min : jamais (15 min au moins)', !M.poserSemaineType(1, A, p10).derogeable);
+  t('sans pause : la dérogation ne lève pas la pause', !M.poserSemaineType(1, A, sansPause).derogeable);
+}
+
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

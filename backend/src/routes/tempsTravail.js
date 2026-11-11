@@ -13,10 +13,10 @@ import {
 } from '../lib/tempsTravail.js';
 import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
 import { besoins, relais } from '../lib/besoinsEcole.js';
-import { monTemps, deposerDemande, notifierReponse, planHeures, retoucherSemaine, semaineType, poserSemaineType } from '../lib/monTemps.js';
+import { monTemps, deposerDemande, notifierReponse, planHeures, retoucherSemaine, semaineType, poserSemaineType, migrerDerogation } from '../lib/monTemps.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
-try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); const n = recalerAnnees(); if (n) console.log(`[temps de travail] ${n} semaine(s) recalée(s) sur l'année qui commence le 15 août`); } catch (e) { console.error('[temps de travail] migration', e.message); }
+try { migrerAgenda(); migrerTempsTravail(); migrerDerogation(); migrerLigneTemps(); const n = recalerAnnees(); if (n) console.log(`[temps de travail] ${n} semaine(s) recalée(s) sur l'année qui commence le 15 août`); } catch (e) { console.error('[temps de travail] migration', e.message); }
 
 const r = Router();
 const GERER = ['admin', 'directeur', 'directeur_adjoint'];
@@ -223,7 +223,7 @@ r.get('/semaine-type/:uid', authRequired, (req, res) => {
 });
 r.post('/semaine-type/:uid', authRequired, (req, res) => {
   if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
-  try { res.json(poserSemaineType(Number(req.params.uid), annee(req), req.body?.jours || [], { ecrire: req.body?.ecrire === true, appliquer: req.body?.appliquer !== false, par: nomDe(req.user), compenser: req.body?.compenser === true })); }
+  try { res.json(poserSemaineType(Number(req.params.uid), annee(req), req.body?.jours || [], { ecrire: req.body?.ecrire === true, appliquer: req.body?.appliquer !== false, par: nomDe(req.user), parId: req.user.id, compenser: req.body?.compenser === true, derogation: req.body?.derogation ?? null })); }
   catch (e) { faute(res, e); }
 });
 // UNE SEMAINE RETOUCHÉE (3.5.305) : la direction allonge ou raccourcit des journées ; Lucie compense ailleurs si le total change.
@@ -295,6 +295,35 @@ r.get('/releve/:uid/:mois/document', authRequired, (req, res) => {
   res.json({ html: envelopperDocument({ html: corps, titre: `Relevé des heures — ${nom} — ${req.params.mois}`, styles: STYLES,
     entete: { titre: 'Relevé mensuel des heures', sous: `${nom} · ${req.params.mois}`, ligne: `Année ${an}` } }),
     titre: `Relevé des heures — ${nom}`, nom_fichier: `Releve_heures_${nom.replace(/\W+/g, '_')}_${req.params.mois}.pdf` });
+});
+
+// L'ACCORD INDIVIDUEL (3.5.345) : la semaine accordée par dérogation, à signer par la personne puis par la direction.
+r.get('/derogation/:id/document', authRequired, (req, res) => {
+  const d = db.prepare('SELECT * FROM tt_derogation WHERE id = ?').get(Number(req.params.id));
+  if (!d || (d.utilisateur_id !== req.user.id && !gere(req.user))) return res.status(404).json({ error: 'Introuvable.' });
+  const u = db.prepare('SELECT nom_complet, email FROM utilisateur WHERE id = ?').get(d.utilisateur_id);
+  const p = db.prepare('SELECT formule, fraction FROM tt_personne WHERE utilisateur_id = ?').get(d.utilisateur_id);
+  const nom = nomEcranDuCompte(u?.nom_complet, u?.email);
+  const jours = JSON.parse(d.jours_json || '[]');
+  const fmt = x => `${String(x).slice(8, 10)}/${String(x).slice(5, 7)}/${String(x).slice(0, 4)}`;
+  const duree = j => { if (!j?.debut || !j?.fin) return 0; const m = h => { const [a, b] = String(h).split(':').map(Number); return a * 60 + b; };
+    return m(j.fin) - m(j.debut) - (j.pause_debut && j.pause_fin ? m(j.pause_fin) - m(j.pause_debut) : 0); };
+  const lignes = JOURS.map((jn, i) => { const j = jours[i]; return `<tr><td>${esc(jn.charAt(0).toUpperCase() + jn.slice(1))}</td><td>${j ? `${esc(j.debut)}–${esc(j.fin)}` : '<span class="m">non travaillé</span>'}</td>
+    <td>${j?.pause_debut ? `${esc(j.pause_debut)}–${esc(j.pause_fin)}` : ''}</td><td class="n">${j ? hm(duree(j)) : ''}</td></tr>`; }).join('');
+  const corps = `<div class="tt">
+    <p>À la demande de <b>${esc(nom)}</b>${p?.fraction ? ` (${Math.round(p.fraction * 100)} % d’un temps plein)` : ''}, la direction accorde l’horaire hebdomadaire suivant.
+      Il s’écarte des règles habituelles — 8 heures de travail par jour (9 heures en semaine de 4 jours ou en horaire variable inscrit au règlement de travail), pause de 30 minutes : <b>${esc(d.depassements || '')}</b>.</p>
+    <table><thead><tr><th>Jour</th><th>Horaire</th><th>Pause</th><th class="n">Travail</th></tr></thead>
+    <tbody>${lignes}<tr class="tot"><td colspan="3">Total de la semaine</td><td class="n">${hm(d.total)}</td></tr>
+    <tr><td colspan="3">Heures dues par semaine</td><td class="n">${hm(d.cible)}</td></tr></tbody></table>
+    <p><b>Motif :</b> ${esc(d.motif)}</p>
+    <p>Cet horaire vaut à partir du ${fmt(d.accorde_le)}, comme semaine type, pour les semaines de travail à venir de l’année ${esc(d.annee_scolaire || '')}. L’écart avec les heures dues est porté au solde de l’année ou compensé sur d’autres semaines.</p>
+    <p class="regle">Les autres règles restent : 10 heures par jour au plus, pause comprise ; pause d’au moins 15 minutes au-delà de 6 heures, jamais plus de 6 heures d’affilée (loi du 16 mars 1971, art. 38quater), 11 heures de repos entre deux journées. La personne peut demander à revenir à l’horaire habituel ; la direction peut y mettre fin pour les besoins du service.</p>
+    <table class="sig"><tr><td><b>La personne</b> — demande et accepte cet horaire<br>${esc(nom)}<br><span class="m">date et signature</span></td>
+      <td><b>La direction</b><br>accordé dans Lucie par ${esc(d.accorde_par || '')} le ${fmt(d.accorde_le)}<br><span class="m">signature</span></td></tr></table></div>`;
+  res.json({ html: envelopperDocument({ html: corps, titre: `Accord individuel — horaire de travail — ${nom}`, styles: STYLES,
+    entete: { titre: 'Accord individuel — horaire de travail', sous: nom, ligne: `Année ${d.annee_scolaire || ''} · réf. ${d.id}`, nature: 'Personnel' } }),
+    titre: `Accord individuel — ${nom}`, nom_fichier: `Accord_horaire_${nom.replace(/\W+/g, '_')}_${d.id}.pdf` });
 });
 
 r.get('/conges/:uid/document', authRequired, (req, res) => {

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconPlus, IconX } from '@tabler/icons-react';
 import { Fenetre, Encadre, PastilleEtat } from './ui.jsx';
+import { saisir } from '../lib/dialogue.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /* LA SEMAINE TYPE D'UNE PERSONNE (3.5.308, Charles : « je ne sais pas proposer un horaire qui se répète » ; tranché : un horaire
    type par personne). La semaine habituelle, dessinée en vertical comme la semaine de l'équipe (7 h → 20 h, journées étirables au
@@ -49,17 +51,35 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
   }, []);
   const saisir = (i, bord) => e => { e.preventDefault(); tire.current = { i, bord, y0: e.clientY, m0: min(jours[i][bord]) }; };
   const changer = (i, f) => setJours(js => js.map((j, k) => (k === i ? f(j) : j)));
+  // LA PAUSE SE RÉDUIT À 15 MIN (3.5.346, Charles) : 15 → 30 → 45 → 60 ; moins de 30 min passe par l'accord individuel.
+  const dureePause = j => { const p = min(j.pause_fin) - min(j.pause_debut); const n = { 15: 30, 30: 45, 45: 60 }[p] || 15; return { ...j, pause_fin: hh(min(j.pause_debut) + n) }; };
   const pause = j => { if (!j) return j; if (j.pause_debut) { const r = { ...j }; delete r.pause_debut; delete r.pause_fin; return r; } return { ...j, pause_debut: '12:00', pause_fin: '12:30' }; };
   const enregistrer = async () => {
     setEnCours(true);
     try { await api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours, ecrire: true, compenser }) }); onFait(); }
     catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
+  /* LA DÉROGATION MOTIVÉE (3.5.345, Charles : « c'est la demande de la personne ; je dois le valider et sortir un document à
+     signer ») : seul le plafond de 8 h (9 h) par jour se lève, jusqu'à 10 h ; un motif ; puis l'accord individuel, à signer. */
+  const deroger = async () => {
+    const motif = await saisir({ titre: 'Accepter par dérogation', obligatoire: true,
+      message: `${(sim.depassements || []).join(' ; ')} : hors des règles habituelles (8 h de travail par jour, pause de 30 min). Pourquoi l’accepter ? (par exemple : « à la demande de la personne »). Le motif figure sur l’accord individuel à signer.` });
+    if (!motif || !String(motif).trim()) return;
+    setEnCours(true);
+    try {
+      const r = await api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours, ecrire: true, compenser, derogation: String(motif).trim() }) });
+      if (r?.derogation_id) {
+        const d = await api(`/derogation/${r.derogation_id}/document`);
+        ouvrirApercu({ html: d.html, titre: d.titre, nomFichier: d.nom_fichier, envoiPossible: false, astuceImpression: 'A4 portrait' });
+      }
+      onFait();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
   const total = (jours || []).reduce((t, j) => t + duree(j), 0);
   const ok = sim && !(sim.controles || []).length;
   const ecart = total - (cible || 0);
   // POURQUOI « ENREGISTRER » EST GRIS SE DIT À CÔTÉ DE LUI (3.5.334, Charles : « je ne peux pas sauver »).
-  const raison = !sim ? 'Lucie vérifie…' : (sim.controles || []).length ? sim.controles[0] : null;
+  const raison = !sim ? 'Lucie vérifie…' : (sim.controles || []).length ? `${sim.controles[0]}${sim.derogeable ? ' La direction peut l’accepter par dérogation (10 h par jour au plus, pause comprise ; pause de 15 min au moins), avec un accord à signer.' : ''}` : null;
 
   return (
     <Fenetre titre={`Semaine type — ${personne.nom}`} sous={`${hm(total)} sur ${hm(cible)} dues par semaine`} large="grande" onFermer={onFermer}
@@ -67,6 +87,8 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
         <span className="text-second flex-1 min-w-0" style={{ color: raison && sim ? 'var(--c-refuse)' : 'rgb(var(--gris-500))' }}>{raison
           || `Enregistrée, elle s’applique aux ${sim.a_appliquer} semaine(s) de travail à venir restées telles quelles${sim.gardees ? ` ; ${sim.gardees} semaine(s) déjà retouchée(s) gardent leur horaire` : ''}.`}</span>
         <button type="button" className="bouton" onClick={onFermer}>Fermer</button>
+        {sim?.derogeable && <button type="button" className="bouton" disabled={enCours} onClick={deroger}
+          title="Plus de 8 h par jour (10 h au plus, pause comprise) ou pause réduite à 15 min : avec un motif ; l’accord individuel sort pour signature">Accepter par dérogation</button>}
         <button type="button" className="bouton bouton-fort" disabled={!ok || enCours} onClick={enregistrer}>Enregistrer</button></div>}>
       {erreur && <Encadre etat="corriger" titre="Refusé">{erreur}</Encadre>}
       {!jours ? <p className="text-sm text-slate-500">Chargement…</p> : (
@@ -87,6 +109,8 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
                       <div className="px-1.5 pt-2.5 leading-tight"><div className="tabular-nums font-semibold">{j.debut}–{j.fin}</div><div className="opacity-80">{hm(duree(j))}</div></div>
                       <div className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize" style={{ background: 'rgba(255,255,255,.35)' }} onPointerDown={saisir(i, 'fin')} title="Tirer pour changer la fin" />
                       <div className="absolute right-0.5 bottom-2.5 flex gap-0.5">
+                        {j.pause_debut && <button type="button" className="text-[10px] px-1 rounded bg-white/25 hover:bg-white/40 tabular-nums" onClick={() => changer(i, dureePause)}
+                          title="Durée de la pause : 15, 30, 45 ou 60 min (moins de 30 min : accord à signer)">{min(j.pause_fin) - min(j.pause_debut)} min</button>}
                         <button type="button" className="text-[10px] px-1 rounded bg-white/25 hover:bg-white/40" onClick={() => changer(i, pause)}>{j.pause_debut ? '− pause' : '+ pause'}</button>
                         <button type="button" className="px-0.5 rounded bg-white/25 hover:bg-white/40" onClick={() => changer(i, () => null)} aria-label="Retirer cette journée"><IconX size={11} /></button>
                       </div>

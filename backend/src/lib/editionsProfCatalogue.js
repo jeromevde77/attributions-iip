@@ -57,7 +57,7 @@ export const CATALOGUE_EDITIONS_PROF = [
     tableur: false, paysage: false, session: false },
   { id: 'horaire', famille: 'etudiants', libelle: "Mon horaire de l'année",
     aide: 'Toutes vos séances de l’année, mois par mois, avec vos dates d’examens et de délibérations.',
-    tableur: true, paysage: false, session: false },
+    tableur: true, paysage: false, session: false, sansCours: true },
 ];
 
 export const pieceEditionProf = id => CATALOGUE_EDITIONS_PROF.find(p => p.id === id) || null;

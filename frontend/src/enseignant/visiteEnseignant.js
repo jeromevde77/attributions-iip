@@ -31,7 +31,7 @@ export const ETAPES_ENSEIGNANT = [
       'Après la délibération de première session, la feuille s’ouvre sur la seconde session : seuls les ajournés de votre cours, sur leurs acquis à représenter.'] },
   { face: 'examens', cible: 'contenu', titre: 'Mes cours — mes examens',
     texte: 'La page de garde de chacune de vos épreuves, préremplie par Lucie : unité, cours, date, local, étudiants.' },
-  { face: 'editions', cible: 'contenu', titre: 'Mes cours — mes éditions',
+  { face: 'editions', cible: 'contenu', titre: 'Éditions',
     texte: 'Les pièces d’un de vos cours, prêtes à imprimer ou en Excel : feuilles d’émargement, grille de cotation, seconde session, dispensés, relevé de notes, résultats, statistiques, listes d’appel, adresses, présences, fiche du cours, horaire de l’année.',
     gestes: ['Choisissez le cours, puis la pièce : « Aperçu », « PDF » ou « Excel ».'] },
   { face: 'rendre', cible: 'contenu', titre: 'À rendre — les avis',
