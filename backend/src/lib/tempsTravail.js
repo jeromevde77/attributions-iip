@@ -137,8 +137,16 @@ export function ecrireReglage(annee, v) {
 /* L'ANNÉE COMMENCE LE PREMIER LUNDI À PARTIR DU 15 AOÛT (3.5.063, Charles : « que l'année commence le 15 août ou la
    semaine du 15 août dans la ligne du temps »). Le 15 août est le dernier jour de la fermeture d'été : l'année démarre
    juste après, et 52 semaines la mènent au 15 août suivant. */
-export function debutDAnnee(a1) { const d = `${a1}-08-15`; const w = (s2d(d).getUTCDay() + 6) % 7; return w === 0 ? d : plusJours(d, 7 - w); }
-/** Les 52 semaines de l'année : du premier lundi à partir du 15 août. */
+/* L'ANNÉE DU TEMPS DE TRAVAIL (3.5.335, Charles, 11 novembre 2026 : « c'est quasi toujours la semaine qui COMPREND le 01/09 ; si le
+   01/09 tombe un lundi, c'est le lundi qui précède » ; et l'horaire annualisé commence UNE SEMAINE AVANT : 2026-2027 = du lundi 24/08/2026
+   au dimanche 22/08/2027, récupérations comprises). La rentrée R = le lundi de la semaine du 1er septembre (le lundi d'avant si le 1er
+   septembre est un lundi) ; l'année commence à R − 7 jours. Remplace « le premier lundi à partir du 15 août » (3.5.063). */
+export function debutDAnnee(a1) {
+  const d = `${a1}-09-01`; const w = (s2d(d).getUTCDay() + 6) % 7;   // 0 = lundi
+  const rentree = w === 0 ? plusJours(d, -7) : plusJours(d, -w);
+  return plusJours(rentree, -7);
+}
+/** Les 52 semaines de l'année : à partir de `debutDAnnee` (une semaine avant la rentrée). */
 export function semainesDeLAnnee(annee) {
   const a1 = Number(String(annee).split('-')[0]);
   const l0 = debutDAnnee(a1);

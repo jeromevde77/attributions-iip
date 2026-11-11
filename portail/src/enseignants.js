@@ -461,7 +461,10 @@ export function monterEnseignants(pub, int, o) {
 
   pub.post('/api/enseignant/apercu', (req, res) => {
     const j = db.prepare('SELECT * FROM ens_apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
-    if (!j || j.utilise_le || j.expire_le < maintenant()) return res.status(400).json({ error: 'Lien d’aperçu expiré : rouvrez-le depuis la fiche dans Lucie.' });
+    // LA CAUSE SE DIT (3.5.333) : déjà utilisé (onglet rechargé, lien rouvert) ou expiré — les deux se rouvrent depuis Lucie.
+    if (!j) return res.status(400).json({ error: 'Lien d’aperçu inconnu : rouvrez-le depuis la fiche dans Lucie (l’œil de la barre bleue).' });
+    if (j.utilise_le) return res.status(400).json({ error: 'Ce lien d’aperçu a déjà servi (un lien ne s’ouvre qu’une fois) : rouvrez-le depuis la fiche dans Lucie.' });
+    if (j.expire_le < maintenant()) return res.status(400).json({ error: 'Lien d’aperçu expiré (5 minutes) : rouvrez-le depuis la fiche dans Lucie.' });
     if (!db.prepare('SELECT 1 FROM ens WHERE id = ?').get(j.ens_id)) return res.status(404).json({ error: 'Cet espace n’existe plus.' });
     db.prepare("UPDATE ens_apercu_jeton SET utilise_le = datetime('now') WHERE jeton_hash = ?").run(j.jeton_hash);
     res.json({ token: jwt.sign({ scope: 'enseignant', ens_id: j.ens_id, apercu: true, par: j.par }, SECRET, { expiresIn: '30m' }) });
@@ -473,7 +476,7 @@ export function monterEnseignants(pub, int, o) {
     if (!db.prepare('SELECT 1 FROM ens WHERE id = ?').get(id)) return res.status(404).json({ error: 'Cet enseignant n’a pas d’espace.' });
     const jeton = crypto.randomBytes(32).toString('base64url');
     db.prepare("DELETE FROM ens_apercu_jeton WHERE expire_le < datetime('now', '-1 day')").run();
-    db.prepare("INSERT INTO ens_apercu_jeton (jeton_hash, ens_id, par, expire_le) VALUES (?,?,?, datetime('now', '+1 minute'))")
+    db.prepare("INSERT INTO ens_apercu_jeton (jeton_hash, ens_id, par, expire_le) VALUES (?,?,?, datetime('now', '+5 minutes'))")
       .run(empreinte(jeton), id, String(req.body?.par || '').slice(0, 120));
     res.json({ url: `${URL_ENS}/?apercu=${jeton}` });
   });

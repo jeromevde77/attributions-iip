@@ -273,7 +273,7 @@ function ChangelogView({ data }) {
 const GROUPE_LABELS = {
   couts:         { icon: IconCoin, label: 'Coût des périodes de cours', desc: "Montants en euros d'une période, par niveau et par type de cours (circulaire des conventions). Ils font les « Rapport statistique » d'Éditions → Gestion — avec, plus bas, les inscrits prévus des sections qui n'en ont pas encore. À corriger à chaque nouvelle circulaire." },
   planification: { icon: IconAdjustments, label: 'Planification', desc: 'Valeurs des cellules EV1/EV2/VC, durée des périodes, contraintes calendaires' },
-  session:       { icon: IconCalendar, label: 'Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
+  session:       { icon: IconCalendar, label: 'Délais des procédures, par UE', desc: 'Comptés depuis la délibération de chaque UE (procédures examens, Conseil des études, recours) : Lucie propose les dates à la clôture et avertit quand une date posée s’en écarte' },
   procedures:    { icon: IconScale, label: 'Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },
   etablissement: { icon: IconBuilding, label: 'Établissement', desc: 'Nom et informations de l\'établissement' },
   systeme:       { icon: IconHistory, label: 'Conservation des traces',
@@ -339,7 +339,7 @@ export function ReglesCalendrier() {
     <div className="space-y-4">
       <div>
         <h1 className="titre-ecran">Règles du calendrier</h1>
-        <p className="text-second text-slate-500 m-0">Les délais des sessions (dernier jour administratif, EV1, VC, EV2, délibération, recours) et les valeurs de la planification. Ils se règlent à côté de l’agenda qu’ils servent ; seule la direction les modifie.</p>
+        <p className="text-second text-slate-500 m-0">Les délais des procédures de l’IIP, comptés depuis la délibération de chaque UE (visite des copies, seconde session, publication, recours), et les valeurs de la planification. Seule la direction les modifie.</p>
       </div>
       <GestionParametres groupes={['session', 'planification']} />
     </div>);

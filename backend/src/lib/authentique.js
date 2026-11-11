@@ -24,6 +24,8 @@ export function migrerAuthentique(dbx = db) {
     emise_le TEXT NOT NULL DEFAULT (datetime('now')), emise_par TEXT, transmise_le TEXT)`);
   // 3.5.300 : la date de la DÉCISION (Conseil des études) que la pièce constate, à côté de sa date d'émission.
   try { dbx.exec('ALTER TABLE piece_authentique ADD COLUMN decision_le TEXT'); } catch { /* déjà là */ }
+  // 3.5.339 : la note que porte la pièce (attestation de réussite ou d'échec), lue par la vérification.
+  try { dbx.exec('ALTER TABLE piece_authentique ADD COLUMN note TEXT'); } catch { /* déjà là */ }
   // 3.5.047 : les spécimens de la galerie s'y inscrivaient (« SPÉCIMEN Camille ») — ce ne sont pas des pièces. Retirés une fois.
   try { dbx.prepare("DELETE FROM piece_authentique WHERE personne LIKE '%SPÉCIMEN%' OR personne LIKE '%SPECIMEN%'").run(); } catch { /* déclencheurs absents hors requête */ }
   if (dbx === db) migre = true;
@@ -48,14 +50,17 @@ export function dateDeLaPiece(texte) {
 }
 /** La marque qu'une pièce pose pour dire la date de la décision qu'elle constate ; `filigraner` la lit. Invisible. */
 export const marqueDecision = d => (/^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? `<span class="date-decision" data-date="${String(d).slice(0, 10)}" hidden></span>` : '');
-export function enregistrerPiece({ reference, nature, objet, personne, date = null, decision = null }) {
+/** La note que la pièce porte (« 14/20 », « 70 % », « NA ») ; `filigraner` la lit, la vérification l'affiche (3.5.339). */
+export const marqueNote = n => (n != null && String(n).trim() ? `<span class="note-piece" data-note="${esc(String(n).trim().slice(0, 20))}" hidden></span>` : '');
+export function enregistrerPiece({ reference, nature, objet, personne, date = null, decision = null, note = null }) {
   try {
     migrerAuthentique();
     const u = utilisateurCourant();
-    db.prepare(`INSERT OR IGNORE INTO piece_authentique (reference, nature, objet, personne, emise_par, emise_le, decision_le)
-      VALUES (?,?,?,?,?, COALESCE(?, datetime('now')), ?)`)
+    db.prepare(`INSERT OR IGNORE INTO piece_authentique (reference, nature, objet, personne, emise_par, emise_le, decision_le, note)
+      VALUES (?,?,?,?,?, COALESCE(?, datetime('now')), ?, ?)`)
       .run(reference, net(nature) || 'Pièce de l’Institut', net(objet) || null, net(personne) || null, u?.nom || u?.email || null,
-        /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : null, /^\d{4}-\d{2}-\d{2}$/.test(decision || '') ? decision : null);
+        /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : null, /^\d{4}-\d{2}-\d{2}$/.test(decision || '') ? decision : null,
+        note ? String(note).slice(0, 20) : null);
   } catch (e) { console.error('[authentique] registre :', e.message); }
 }
 
@@ -71,9 +76,13 @@ export function qrSvg(texte) {
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 /** La ligne d'authenticité, posée juste avant le bloc de clôture. */
-export function blocAuthenticite(ref) {
+export function blocAuthenticite(ref, { decision = null, note = null } = {}) {
   const url = urlVerification(ref);
-  return `<div class="authenticite"><div class="authenticite-t">Pièce authentifiable · réf. <b>${esc(ref)}</b><br>
+  /* LE QR DIT LA DATE DE LA DÉCISION, ET LA NOTE (3.5.339, Charles : « la date du document, c'est-à-dire la date de la DÉCISION ;
+     une attestation de réussite ou d'échec mentionne la note »). */
+  const fr = d => String(d).slice(0, 10).split('-').reverse().join('/');
+  const quoi = [decision ? `décision du ${fr(decision)}` : null, note ? `note ${esc(note)}` : null].filter(Boolean).join(' · ');
+  return `<div class="authenticite"><div class="authenticite-t">Pièce authentifiable · réf. <b>${esc(ref)}</b>${quoi ? ` · ${quoi}` : ''}<br>
 Scannez le code, ou rendez-vous sur <span>${esc(url.replace(/^https?:\/\//, ''))}</span></div><div class="authenticite-qr">${qrSvg(url)}</div></div>`;
 }
 
@@ -88,7 +97,7 @@ export const STYLE_AUTHENTICITE = `
 /** Ce que le portail doit connaître : les pièces pas encore transmises. */
 export function piecesATransmettre(limite = 500) {
   migrerAuthentique();
-  return db.prepare(`SELECT reference, nature, objet, personne, emise_le, decision_le FROM piece_authentique WHERE transmise_le IS NULL
+  return db.prepare(`SELECT reference, nature, objet, personne, emise_le, decision_le, note FROM piece_authentique WHERE transmise_le IS NULL
     ORDER BY emise_le LIMIT ?`).all(limite);
 }
 export function marquerTransmises(refs) {

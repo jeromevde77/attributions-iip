@@ -3364,6 +3364,52 @@ Espace enseignant : `.carte` + `EnteteCarte`, listes de dates et d'appareils en 
 libellés visibles (Liste, Rechercher, Une idée). 3.5.332 : listes du PAE en `LigneEtat` (liseré bleu = au programme), choix du PAE en lignes de
 hauteur fixe, demande de VA sans liseré autour des cartes (intertitre), replis hexadécimaux retirés (VisiteGuidee).
 
+**L'APERÇU DES ESPACES : 5 MINUTES, ET LA CAUSE D'UN REFUS SE DIT** (3.5.333, Charles en production : « Lien d'aperçu expiré »).
+Les liens d'aperçu (`apercu_jeton` du portail, `ens_apercu_jeton` de l'espace enseignant) valent 5 minutes au lieu d'une, toujours à
+usage unique ; le refus distingue « déjà servi » (onglet rechargé) d'« expiré ».
+
+**UNE SEMAINE TYPE PEUT S'ÉCARTER DES HEURES DUES** (3.5.334, Charles : « je ne peux pas sauver » ; tranché : « accepter et PROPOSER de
+compenser »). `poserSemaineType` (lib/monTemps.js) ne bloque plus sur « doit compter exactement » ; il rend `ecart_semaine`, `au_solde`
+(l'année avec la semaine type posée) et, avec `compenser`, les semaines ajustées par l'assistant (`compensees`, `restes`) — écrites avec
+la semaine type. `SemaineTypeTemps.jsx` : l'écart sur l'année, la case « Compenser », la raison d'un refus dans le pied.
+
+**L'ANNÉE DU TEMPS DE TRAVAIL COMMENCE UNE SEMAINE AVANT LA RENTRÉE** (3.5.335, Charles, 11 novembre 2026 : « la semaine qui COMPREND
+le 01/09 ; si le 01/09 tombe un lundi, le lundi qui précède » ; tranché : 2026-2027 = 24/08/2026 → 22/08/2027). `debutDAnnee` (lib/tempsTravail.js,
+lib/agendaEcole.js, pages/TempsTravail.jsx — trois copies, une règle) = lundi de la rentrée − 7 jours ; remplace « le premier lundi à partir du
+15 août » (3.5.063). 52 semaines ; `recalerAnnees` déplace au démarrage les semaines d'une année préparée avant.
+
+**LES PIÈCES PAPIER, UN COUP DE NEUF** (3.5.336, Charles, 11 novembre 2026 : « un peu vieillies ; intégrer le logo de l'IIP ; jouer sur
+nos codes couleurs en fonction de ce qui est dit » ; tranché : toutes les pièces). `enteteDocument` (lib/document.js) : logo
+(`logoCourant`) dans l'identité, filet `.doc-tri` aux couleurs du logo, trait du titre et `.doc-nature` à la couleur de `tonDocument`
+(lue sur la nature/le titre : faveur, refus, ajournement, réussite ; sinon le principal — couleurs des réglages). Option `nature`, `ton`.
+3.5.337 (Charles : « pas les 3 couleurs ; on se base sur le modèle » — le kit Microcertifications de la FeLSI) : un seul filet bleu nuit
+#0E2A4F, plus de barre verticale ; une étiquette en petites capitales colorée (Réussite, Ajournement, Refus, Faveur, ou `nature`) au-dessus
+d'un titre bleu nuit 16 pt.
+3.5.339 (Charles : « on laisse juste le logo… ») : en-tête = logo à gauche + « Communauté française de Belgique — Enseignement pour
+adultes » à droite, sans nom, sans filet, sans étiquette ; trait vertical (`--doc-ton`) sur titre, sous-titre, ligne ; « UE n — nom » dans le
+sous-titre des pièces d'unité ; matricule dans le pied (`piedDocument`) ; « Produit par » dans la case de droite du pied (`pied-trace`,
+`piedBalisage`, `piedGabaritPdf`) ; `ponctuerListes` (enveloppes) : majuscule, « ; », point final ; `marqueNote` (attestation : pourcentage ;
+motivation : `cote_etudiant`) → `piece_authentique.note` → portail (`authentique.note`) → ligne d'authenticité et page de vérification.
+
+**LES RÈGLES DU CALENDRIER SUIVENT LES PROCÉDURES, PAR UE** (3.5.338, Charles : « cela ne respecte pas nos procédures » ; tranché :
+remplacer la chaîne rétroactive par les délais des procédures, depuis la délibération de chaque UE). Paramètres `session.p_*` (server.js ;
+l'ancienne chaîne passe au groupe `session_ancien`, invisible), `lib/delaisSessions.js` (`delaisSessions`, recours =
+`procedures.delai_recours_jours`), servis avec la séance (`delais` de `GET /deliberation/ue/:ue/seance`) ; `proposition(seance, now, delais)`
+et `avertissementsDates` (`lib/defautsSeance.js`) : la clôture propose visite J+1 et EV2 ≥ visite + 7, et signale par cours. **À trancher** :
+« seconde session entre un et quatre mois après la clôture » (procédure recours) contre « 10 jours après la délibération » (procédure examens).
+
+**MES ÉDITIONS, LE CENTRE D'IMPRESSION DES ENSEIGNANTS** (3.5.340, Charles, 11 novembre 2026 : « listes d'étudiants, résultats, seconde
+session, dispensés, présences, statistiques… ce dont un prof du supérieur a besoin »). Catalogue `lib/editionsProfCatalogue.js` (13 pièces,
+4 familles), compositeur `lib/editionsProf.js` (il ne décide d'aucun droit : la route lui passe étudiants, séances, acquis, clôtures),
+routes `GET /api/mes-cours/editions/catalogue` et `/editions/:piece?cours=&format=html|pdf|xlsx` (avant les paramétriques ; `accesCours`,
+404 sinon ; PDF comme la grille de présence, archivé `edition_prof_<id>`), écran `components/MesEditions.jsx` (rail de Mes cours, face
+de l'espace enseignant). Déclarées au catalogue général (`prof_<id>`, portée 'cours'). Banc d'essai hors dépôt (données fictives) : 23 ok.
+**À faire** : le chapitre du mode d'emploi ; vérifier sur des volumes réels (les statistiques recalculent 3 années).
+
+**LES COÛTS DES FORMATIONS, GARDÉS DIX MINUTES** (3.5.341, Charles : « je ne trouve plus le coût financier des MDP » — Gestion →
+Finances → Coûts des formations restait ~1 min sur « Calcul du rapport… » : ~23 s de `donneesCout`, demandé deux fois). `CACHE_COUT`
+(routes/rapports.js, par année, 10 min) ; « Recalculer » envoie `recalculer=1`.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

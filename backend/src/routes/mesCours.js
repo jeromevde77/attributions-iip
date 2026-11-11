@@ -20,6 +20,7 @@ import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 import { logoCourant } from '../lib/identite.js';
 import { fonctionPour } from '../lib/fonctions.js';
+import { composerEditionProf, classeurEditionProf, CATALOGUE_EDITIONS_PROF, FAMILLES_EDITIONS_PROF } from '../lib/editionsProf.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -472,6 +473,78 @@ r.put('/amenagements/:id/avis', authRequired, (req, res) => {
     motif = excluded.motif, auteur = excluded.auteur, rendu_le = datetime('now')`);
   db.transaction(() => { for (const l of lignes) ecr.run(d.id, Number(l.mesure_id), pid, auteur, l.sens, String(l.motif || '').trim() || null); })();
   res.json({ ok: true, ecrits: lignes.length });
+});
+
+/* ══ MES ÉDITIONS (3.5.340, Charles, 11 novembre 2026 : « un centre Éditions pour les profs : listes d'étudiants, résultats de
+ * leurs cours, étudiants en seconde session, dispensés, présences, statistiques… »). L'enseignant choisit UN de ses cours, puis
+ * une pièce (`lib/editionsProfCatalogue.js`). Tout se lit par les règles de Mes cours, calculées ICI et passées au compositeur
+ * (`lib/editionsProf.js`) : `accesCours` (404 sinon), ses étudiants, `seancesDuCours`, `clotures`. Placées AVANT les routes
+ * paramétriques (`/:cours/...`). ?format=html : la pièce pour l'aperçu commun ; xlsx : le classeur ; sinon le PDF, archivé. */
+r.get('/editions/catalogue', authRequired, (req, res) => {
+  res.json({ familles: FAMILLES_EDITIONS_PROF, pieces: CATALOGUE_EDITIONS_PROF });
+});
+r.get('/editions/:piece', authRequired, async (req, res) => {
+  const def = CATALOGUE_EDITIONS_PROF.find(p => p.id === req.params.piece);
+  if (!def) return res.status(404).json({ error: 'Pièce inconnue.' });
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  const code = String(req.query.cours || '');
+  const acc = code ? accesCours(req, code, annee) : null;
+  if (!acc) return res.status(404).json({ error: 'Cours introuvable dans vos attributions.' });
+  const session = Number(req.query.session) === 2 ? 2 : 1;
+  try {
+    const acquis = acquisDuCours(code, acc.ueNum, annee);
+    const close = clotures(acc.ueNum, annee);
+    let seconde = [];
+    if (def.id === 'releve' || def.id === 'statistiques') {
+      try { seconde = etatSeconde(acc, code, annee, acquis, close).etudiants; } catch { seconde = []; }
+    }
+    let seances = [];
+    try { seances = seancesDuCours(req, acc, code, annee); } catch { seances = []; }
+    // MON HORAIRE DE L'ANNÉE : toutes mes séances, de tous mes cours, et mes examens et délibérations.
+    let toutesSeances = [], dates = [];
+    if (def.id === 'horaire') {
+      const profId = profDe(req);
+      const attrs = profId ? attributionsDe(profId, annee) : [];
+      for (const c of [...new Set(attrs.map(a => a.code_cours))]) {
+        const d = c === code ? acc : accesCours(req, c, annee);
+        if (!d) continue;
+        const nomC = attrs.find(a => a.code_cours === c)?.cours_nom || '';
+        try { for (const x of seancesDuCours(req, d, c, annee)) toutesSeances.push({ ...x, cours_code: c, cours_nom: nomC }); } catch { /* horaire absent */ }
+      }
+      if (!attrs.length) toutesSeances = seances.map(x => ({ ...x, cours_code: code }));
+      try { const { examensEtDeliberations } = await import('../lib/datesEnseignant.js'); dates = examensEtDeliberations(profId, annee); } catch { dates = []; }
+    }
+    const coursNom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(code, annee)?.cours_nom || '';
+    const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(acc.ueNum, annee)?.n || '';
+    const p = await composerEditionProf(def.id, { code, annee, ue: acc.ueNum, ueNom, coursNom, session, etudiants: acc.etudiants, seconde,
+      acquis, close, seances, toutesSeances, dates, enseignants: enseignantsParCours(annee).get(code) || [] });
+    if (!p) return res.status(404).json({ error: 'Pièce inconnue.' });
+    if (req.query.format === 'xlsx') {
+      if (!def.tableur) return res.status(400).json({ error: 'Cette pièce ne sort pas en tableur.' });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${p.nom}.xlsx"`);
+      return res.end(await classeurEditionProf(p));
+    }
+    const html = envelopperDocument({ html: p.corps, titre: p.titre, orientation: p.paysage ? 'paysage' : 'portrait', styles: p.styles,
+      margeCote: p.paysage ? 12 : 15, margeHaut: 12,
+      entete: { titre: p.titre, sous: p.sous, ligne: p.ligne, nature: p.nature } });
+    if (req.query.format === 'html') return res.json({ html, nom: p.nom, titre: p.titre, sous: p.sous, paysage: p.paysage });
+    const cap = await capacitePdf();
+    if (!cap.disponible) return res.status(503).json({ error: 'Le PDF ne peut pas être composé sur ce serveur : ouvrez l’aperçu et imprimez-le.', html, nom: p.nom });
+    const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: p.paysage ? 'paysage' : 'portrait',
+      pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
+      marges: { top: '12mm', right: p.paysage ? '12mm' : '15mm', bottom: `${BANDE_PIED_MM}mm`, left: p.paysage ? '12mm' : '15mm' } });
+    try {
+      archiverDocument({ type_doc: `edition_prof_${def.id}`, annee_scolaire: annee, nom_fichier: `${p.nom}.pdf`, pdf,
+        genere_par: req.user?.email || req.user?.nom || null });
+    } catch (e) { console.error('[mes éditions] archive', e.message); }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${p.nom}.pdf"`);
+    res.end(pdf);
+  } catch (e) {
+    console.error('[mes éditions]', def.id, e);
+    res.status(500).json({ error: `La pièce n’a pas pu être composée : ${e.message}` });
+  }
 });
 
 r.get('/', authRequired, (req, res) => {

@@ -140,6 +140,7 @@ db.exec(`
 for (const c of ['tfe TEXT', 'stage TEXT']) { try { db.exec(`ALTER TABLE espace_lot ADD COLUMN ${c}`); } catch { /* déjà là */ } }
 // 3.5.300 : la date de la décision que la pièce constate (Conseil des études), à côté de sa date d'émission.
 try { db.exec('ALTER TABLE authentique ADD COLUMN decision_le TEXT'); } catch { /* déjà là */ }
+try { db.exec('ALTER TABLE authentique ADD COLUMN note TEXT'); } catch { /* déjà là */ }
 db.exec(`CREATE TABLE IF NOT EXISTS ts_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('question','remise')), tfe_id INTEGER, jalon_id INTEGER, nom TEXT, taille INTEGER, contenu BLOB,
   texte TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT)`);
@@ -383,7 +384,9 @@ pub.post('/api/portail/candidat', (req, res) => {
 pub.post('/api/portail/apercu', (req, res) => {
   if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives.' });
   const j = db.prepare('SELECT * FROM apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
-  if (!j || j.utilise_le || j.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(j.etudiant_id)) {
+  // LA CAUSE SE DIT (3.5.333) : déjà utilisé ou expiré (5 minutes).
+  if (j?.utilise_le) return res.status(401).json({ error: 'Ce lien d’aperçu a déjà servi (un lien ne s’ouvre qu’une fois) : rouvrez-le depuis la fiche de l’étudiant.' });
+  if (!j || j.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(j.etudiant_id)) {
     return res.status(401).json({ error: 'Ce lien d’aperçu a expiré : rouvrez-le depuis la fiche de l’étudiant.' });
   }
   db.prepare("UPDATE apercu_jeton SET utilise_le = datetime('now') WHERE jeton_hash = ?").run(j.jeton_hash);
@@ -963,7 +966,7 @@ pub.get('/api/portail/verifier/:ref', (req, res) => {
   if (tropDEssais(ipDe(req), 120)) return res.status(429).json({ error: 'Trop de vérifications. Réessayez dans une heure.' });
   const ref = String(req.params.ref || '').trim().toUpperCase();
   if (!/^[A-Z0-9-]{6,40}$/.test(ref)) return res.json({ trouve: false });
-  const p = db.prepare('SELECT reference, nature, objet, personne, emise_le, decision_le FROM authentique WHERE reference = ?').get(ref);
+  const p = db.prepare('SELECT reference, nature, objet, personne, emise_le, decision_le, note FROM authentique WHERE reference = ?').get(ref);
   res.json(p ? { trouve: true, ...p, etablissement: 'Institut Ilya Prigogine' } : { trouve: false, reference: ref });
 });
 
@@ -1029,10 +1032,11 @@ int.post('/interne/reglements', (req, res) => {
 
 int.post('/interne/authentiques', (req, res) => {
   const l = Array.isArray(req.body?.pieces) ? req.body.pieces : [];
-  const i = db.prepare('INSERT OR IGNORE INTO authentique (reference, nature, objet, personne, emise_le, decision_le) VALUES (?,?,?,?,?,?)');
+  const i = db.prepare('INSERT OR IGNORE INTO authentique (reference, nature, objet, personne, emise_le, decision_le, note) VALUES (?,?,?,?,?,?,?)');
   db.transaction(() => { for (const x of l) if (x?.reference) i.run(String(x.reference).toUpperCase(), String(x.nature || ''),
     x.objet ? String(x.objet) : null, x.personne ? String(x.personne) : null, String(x.emise_le || ''),
-    /^\d{4}-\d{2}-\d{2}/.test(String(x.decision_le || '')) ? String(x.decision_le).slice(0, 10) : null); })();
+    /^\d{4}-\d{2}-\d{2}/.test(String(x.decision_le || '')) ? String(x.decision_le).slice(0, 10) : null,
+    x.note ? String(x.note).slice(0, 20) : null); })();
   res.json({ ok: true, n: l.length });
 });
 
@@ -1113,7 +1117,7 @@ int.post('/interne/apercu', (req, res) => {
   if (!db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(id)) return res.status(404).json({ error: 'Cet étudiant n’a pas d’espace.' });
   const jeton = crypto.randomBytes(32).toString('base64url');
   db.prepare("DELETE FROM apercu_jeton WHERE expire_le < datetime('now', '-1 day')").run();
-  db.prepare("INSERT INTO apercu_jeton (jeton_hash, etudiant_id, par, expire_le) VALUES (?,?,?, datetime('now', '+1 minute'))")
+  db.prepare("INSERT INTO apercu_jeton (jeton_hash, etudiant_id, par, expire_le) VALUES (?,?,?, datetime('now', '+5 minutes'))")
     .run(empreinte(jeton), id, String(req.body?.par || '').slice(0, 120));
   res.json({ url: `${URL_PUBLIQUE}/?apercu=${jeton}` });
 });

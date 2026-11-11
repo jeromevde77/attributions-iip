@@ -19,6 +19,7 @@ import { piedDocument } from '../routes/parametres.js';
 import { identiteEtablissement } from '../routes/config.js';
 import db from '../db/index.js';
 import { logoCourant } from './identite.js';
+import { couleurs } from './couleurs.js';
 
 // ── RÈGLE UNIQUE DU PIED DE PAGE ─────────────────────────────────────────────
 // Une seule réserve, pour TOUS les documents, comme le pied d'un Word : les
@@ -93,10 +94,13 @@ export function reglesDePage({ haut = 18, cote = 18,
  * Le logo est AU-DESSUS du filet doré et calé à GAUCHE : il sort donc du bloc
  * bordé, qui ne porte plus que le texte.
  */
+const TRACE_RE = /<div class="pied-trace"[^>]*>([\s\S]*?)<\/div>/;
 export function piedBalisage(logo = null) {
+  const T = piedDocument();
+  const trace = (T.match(TRACE_RE) || [])[1] || '';
   return `<div class="pied-lucie"><div class="pied-filet">`
     + `<div class="pied-logo-case">${logo ? `<img class="pied-logo" src="${logo}" alt="">` : ''}</div>`
-    + `<div class="pied-txt">${piedDocument()}</div><div class="pied-logo-case"></div>`
+    + `<div class="pied-txt">${T.replace(TRACE_RE, '')}</div><div class="pied-logo-case pied-trace-case">${trace}</div>`
     + `</div></div>`;
 }
 
@@ -142,7 +146,8 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientatio
   table.feuille > thead > tr > td { padding-bottom: 3mm; }
   .pied-lucie { height: ${hauteur}mm; padding-top: 1.5mm; }
   .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.2mm; text-align: center;
-                            display: grid; grid-template-columns: 24mm 1fr 24mm; align-items: start; }
+                            display: grid; grid-template-columns: 24mm 1fr 38mm; align-items: start; }
+  .pied-lucie .pied-trace-case { font-size: 5.5pt; color: #3F4652; line-height: 1.3; text-align: right; padding-top: 0.3mm; }
   .pied-lucie .pied-logo { height: 6.5mm; width: auto; display: block; opacity: .9; }
   .pied-lucie .pied-txt { font-size: 6pt; color: #3F4652; line-height: 1.3; }  /* anthracite */
   /* À l'écran, la position fixe collerait le pied au bas de la FENÊTRE, non de
@@ -265,6 +270,16 @@ export function stylesEntete() {
      13 pt et la pièce à 15 se lisaient comme deux en-têtes différents. */
   .doc-ligne .doc-ident-n, .doc-ligne .doc-cadre-t { font-size: 14pt; line-height: 1.1; }
   .doc-ligne .doc-ident-a, .doc-ligne .doc-cadre-s { font-size: 8pt; margin-top: 1.2mm; }
+  /* L'EN-TÊTE ÉPURÉ (3.5.339, Charles, 11 novembre 2026 : « on laisse juste le logo ; on enlève le nom, il est dans le bas de page ;
+     on enlève la ligne ; Communauté française — Enseignement pour adultes à droite, centré verticalement avec le logo ; pas d'étiquette,
+     une ligne verticale verte sur la hauteur des trois lignes qui suivent ; le numéro d'UE dans l'encadré »). Le trait vertical prend la
+     couleur de ce que dit la pièce (vert réussite, orange ajournement, fraise refus, violet faveur, bleu nuit sinon). */
+  .doc-tete { display: flex; align-items: center; justify-content: space-between; gap: 8mm; margin-bottom: 7mm; }
+  .doc-tete-logo { height: 15mm; width: auto; flex: none; }
+  .doc-tete-cf { font-size: 7pt; letter-spacing: 1.3pt; color: #8A93A3; font-weight: 700; text-align: right; text-transform: uppercase; }
+  .doc-cadre { margin-top: 0; padding: 0.3mm 0 0.3mm 4mm; border-left: 1.2mm solid var(--doc-ton, #0E2A4F); }
+  .doc-cadre-t { color: #0E2A4F; font-size: 16pt; }
+  .doc-ligne .doc-cadre { border-left: 1.2mm solid var(--doc-ton, #0E2A4F); padding-left: 4mm; }
   /* Conservé pour les pièces à forme imposée qui ferment encore d'un filet. */
   .doc-filet-or { height: 0.6mm; background: #C9A84C; margin-top: 2.5mm; }`;
 }
@@ -277,8 +292,20 @@ export function stylesEntete() {
  *   au-dessus, elle se lisait comme un en-tête de l'école, pas comme une
  *   mention de la pièce.
  */
+/** LA COULEUR DE CE QUE DIT LA PIÈCE (3.5.336) : lue sur sa nature, sauf `ton` explicite. */
+export function tonDocument(titre = '', ton = null) {
+  let C = {}; try { C = couleurs(); } catch { /* base minimale */ }
+  const t = String(titre || '').toLowerCase();
+  const cle = ton || (/faveur/.test(t) ? 'faveur' : /refus/.test(t) ? 'refuse' : /ajourn|seconde session|à représenter/.test(t) ? 'attente'
+    : /réussite|reussite|diplôme|diplome|attestation de valorisation|dispense/.test(t) ? 'reussi' : 'principal');
+  const defaut = { faveur: '#6B46C1', refuse: '#E0564F', attente: '#F0922E', reussi: '#4FA64A', principal: '#2C7DB8' };
+  // Le cas général : le bleu nuit du kit.
+  if (cle === 'principal') return '#0E2A4F';
+  return C[cle] || defaut[cle] || '#0E2A4F';
+}
+
 export function enteteDocument({ titre, sous = null, mention = null,
-                                 ligne = null, compact = false } = {}) {
+                                 ligne = null, compact = false, nature = null, ton = null } = {}) {
   /* DEUX SOURCES POUR UNE MÊME IDENTITÉ, C'EST UNE SOURCE DE MOINS.
    *
    * L'en-tête lisait la table `etablissement` en direct, pendant que toutes les
@@ -315,30 +342,22 @@ export function enteteDocument({ titre, sous = null, mention = null,
    * son en-tête recréerait la neuvième enveloppe qu'on a passé un an à
    * supprimer.
    */
-  if (compact) return `<div class="doc-entete">
-    <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
-    <div class="doc-ligne">
-      <img class="doc-ligne-logo" src="${logoCourant()}" alt="Institut Ilya Prigogine">
-      <div>
-        <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
-        ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
-      </div>
+  if (compact) return `<div class="doc-entete" style="--doc-ton:${tonDocument(`${nature || ''} ${titre || ''}`, ton)}">
+    <div class="doc-ligne" style="border-bottom:0">
+      <img class="doc-ligne-logo" src="${logoCourant()}" alt="${esc(etab.nom || 'Institut Ilya Prigogine')}">
       <div class="doc-cadre">
         <div class="doc-cadre-t">${esc(titre)}</div>
         ${sous ? `<div class="doc-cadre-s">${esc(sous)}</div>` : ''}
       </div>
-      ${refsLignes ? `<div class="doc-ident-r">${refsLignes}</div>` : ''}
+      <div class="doc-tete-cf">Communauté française de Belgique<br>Enseignement pour adultes</div>
     </div>
     ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
   </div>`;
-  return `<div class="doc-entete">
-    <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
-    <div class="doc-ident-c">
-      <div>
-        <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
-        ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
-      </div>
-      ${refsLignes ? `<div class="doc-ident-r">${refsLignes}</div>` : ''}
+  const couleurTon = tonDocument(`${nature || ''} ${titre || ''}`, ton);
+  return `<div class="doc-entete" style="--doc-ton:${couleurTon}">
+    <div class="doc-tete">
+      <img class="doc-tete-logo" src="${logoCourant()}" alt="${esc(etab.nom || 'Institut Ilya Prigogine')}">
+      <div class="doc-tete-cf">Communauté française de Belgique — Enseignement pour adultes</div>
     </div>
     <div class="doc-cadre">
       <div class="doc-cadre-t">${esc(titre)}</div>
@@ -372,6 +391,31 @@ export function identiteDocument() {
   ].filter(Boolean).join(' · ');
   return `<div class="doc-ident">${ident || 'Institut Ilya Prigogine'}${
     refs ? `<span class="doc-refs">${refs}</span>` : ''}</div>`;
+}
+
+
+/* LES LISTES À PUCES SE PONCTUENT (3.5.339, Charles : « avec une puce, chaque phrase commence par une majuscule et se termine par un
+   « ; », sauf la dernière, qui finit par un point »). Appliqué par les enveloppes à toute liste simple (<ul>/<ol> sans liste
+   imbriquée) ; un élément qui finit déjà par « ? » ou « ! » garde sa ponctuation. */
+export function ponctuerListes(html) {
+  return String(html || '').replace(/<(ul|ol)(\b[^>]*)>([\s\S]*?)<\/\1>/g, (tout, tag, attrs, interieur) => {
+    if (/<(ul|ol)\b/.test(interieur)) return tout;
+    const items = [...interieur.matchAll(/<li(\b[^>]*)>([\s\S]*?)<\/li>/g)];
+    if (!items.length) return tout;
+    let k = 0;
+    const out = interieur.replace(/<li(\b[^>]*)>([\s\S]*?)<\/li>/g, (m, a, c) => {
+      const dernier = ++k === items.length;
+      // Majuscule : la première lettre du texte, après d'éventuelles balises.
+      let t = c.replace(/^((?:\s|<[^>]+>)*)([a-zà-ÿ])/, (x, avant, l) => avant + l.toUpperCase());
+      // Fin : on retire « . ; , : » finaux (avant d'éventuelles balises fermantes), puis « ; » ou « . ».
+      t = t.replace(/([\s\S]*?)([\s.;,:]*)((?:<\/[^>]+>\s*)*)$/, (x, corps, ponct, fin) => {
+        if (/[?!…]\s*$/.test(corps)) return corps + fin;
+        return corps + (dernier ? '.' : ' ;') + fin;
+      });
+      return `<li${a}>${t}</li>`;
+    });
+    return `<${tag}${attrs}>${out}</${tag}>`;
+  });
 }
 
 export function envelopperDocument({ html, titre, orientation = 'portrait',
@@ -507,7 +551,7 @@ ${/* LA LIGNE D'IDENTITÉ RÉPÉTÉE EST SUPPRIMÉE, ET CE N'EST PAS UN OUBLI.
 <tfoot><tr><td>${piedHtml}</td></tr></tfoot>
 <tbody><tr><td>
 ${enteteHtml}
-${html}
+${ponctuerListes(html)}
 </td></tr></tbody></table>
 </body></html>`;
 }
@@ -541,7 +585,7 @@ export function piedGabaritPdf(logo, texte, numeroter = false) {
        + '<div style="flex:1;min-width:0">'
        // LE NUMÉRO VA DANS LA CASE DE DROITE (3.5.015, Charles : « 1/12 » se posait sur l'adresse du site). Posé en
        // absolu sur la ligne de l'adresse, il recouvrait le texte dès que la ligne allait jusqu'au bord.
-       + `<div style="font-size:6pt;color:#3F4652;line-height:1.3">${T.replace(/<span class="pied-page"[^>]*><\/span>/, '')}</div>`
-       + '</div><div style="width:24mm;flex:none;text-align:right;font-size:6pt;color:#3F4652;line-height:1.3;padding-top:2.2mm">'
-       + `${numeroter ? '<span class="pageNumber"></span> / <span class="totalPages"></span>' : ''}</div></div></div>`;
+       + `<div style="font-size:6pt;color:#3F4652;line-height:1.3">${T.replace(/<span class="pied-page"[^>]*><\/span>/, '').replace(TRACE_RE, '')}</div>`
+       + '</div><div style="width:38mm;flex:none;text-align:right;font-size:5.5pt;color:#3F4652;line-height:1.3">'
+       + `${(T.match(TRACE_RE) || [])[1] || ''}${numeroter ? '<div style="font-size:6pt;margin-top:0.6mm"><span class="pageNumber"></span> / <span class="totalPages"></span></div>' : ''}</div></div></div>`;
 }

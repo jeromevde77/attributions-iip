@@ -250,7 +250,7 @@ export function semaineType(uid) {
   const defaut = modeleSemaine(p.formule, Number(p.fraction) || 1);
   return { jours: Array.isArray(t) && t.length === 7 ? t : defaut, propre: Array.isArray(t), formule: p.formule, fraction: p.fraction, cible: Math.round(REGLES.hebdo * (Number(p.fraction) || 1)) };
 }
-export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer = true, par = '' } = {}) {
+export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer = true, par = '', compenser = false } = {}) {
   const t = semaineType(uid);
   const propres = Array.from({ length: 7 }, (_, i) => {
     const j = jours?.[i];
@@ -259,22 +259,39 @@ export function poserSemaineType(uid, annee, jours, { ecrire = false, appliquer 
   });
   const R = reglage(annee);
   const total = propres.reduce((s, j) => s + (j ? dureeJour(j) : 0), 0);
-  // Une semaine type est une semaine ordinaire : elle compte exactement les heures dues par semaine.
+  /* UNE SEMAINE TYPE PEUT DÉPASSER OU MANQUER (3.5.334, Charles : « accepter, et PROPOSER de compenser ») : l'écart avec les heures
+     dues ne bloque plus ; la fenêtre dit ce qu'il fait sur l'année (au solde) et propose de le compenser sur les semaines à venir qui
+     ne reçoivent pas la semaine type. Les autres règles (8 h par jour, 11 h de repos…) restent. */
   const controles = controleSemaine(propres, { formule: t.formule === 'annualise' ? '5j' : t.formule, fraction: Number(t.fraction) || 1, rtVariable: R.rt_variable })
-    .map(c => c.replace('prévues : la semaine doit compter exactement', 'dans la semaine type : elle doit compter exactement'));
+    .filter(c => !/doit compter exactement/.test(c));
   // Les semaines qui la recevront : à venir, de travail, hors mois approuvés, et encore égales à l'ancien modèle.
   const ancien = JSON.stringify(t.jours);
   const lundiAuj = lundiDe(aujourdhui());
   const cibles = anneeDe(uid, annee).filter(s => s.statut === 'travail' && s.lundi >= lundiAuj
     && !verrouille(uid, s.lundi) && !verrouille(uid, plusJours(s.lundi, 6)) && JSON.stringify(s.jours) === ancien);
-  const bilan = { jours: propres, total, cible: t.cible, controles, a_appliquer: appliquer ? cibles.length : 0,
-    gardees: anneeDe(uid, annee).filter(s => s.statut === 'travail' && s.lundi >= lundiAuj).length - cibles.length };
+  const sem = anneeDe(uid, annee);
+  const nCibles = appliquer ? cibles.length : 0;
+  const du = Math.round(REGLES.hebdo * (Number(t.fraction) || 1)) * (52 - REGLES.congesAnnuels);
+  let apresAnnee = sem.reduce((x, w) => x + w.minutes, 0) + (appliquer ? cibles.reduce((x, w) => x + (total - w.minutes), 0) : 0);
+  let compensees = [], restes = [];
+  if (compenser && appliquer && cibles.length && apresAnnee !== du) {
+    try {
+      const plan = assistant(uid, annee, { cibles: Object.fromEntries(cibles.map(w => [w.lundi, total])) });
+      compensees = plan.changees.filter(c => c.report).map(c => ({ lundi: c.lundi, avant: c.avant, apres: c.apres, jours: c.jours }));
+      apresAnnee = plan.apres;
+      restes = plan.erreurs || [];
+    } catch (e) { restes = [e.message]; }
+  }
+  const bilan = { jours: propres, total, cible: t.cible, controles, a_appliquer: nCibles,
+    gardees: sem.filter(s => s.statut === 'travail' && s.lundi >= lundiAuj).length - cibles.length,
+    ecart_semaine: total - t.cible, du, apres_annee: apresAnnee, au_solde: apresAnnee - du, compensees, restes };
   if (!ecrire) return { simulation: true, ...bilan };
   if (controles.length) throw Object.assign(err('La semaine type ne tient pas : rien n’est enregistré.'), { bilan });
   const up = db.prepare("UPDATE tt_semaine SET jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
   db.transaction(() => {
     db.prepare("UPDATE tt_personne SET semaine_type = ?, maj_par = ?, maj_le = datetime('now') WHERE utilisateur_id = ?").run(JSON.stringify(propres), par, uid);
     if (appliquer) for (const s of cibles) up.run(JSON.stringify(propres), `${par} (semaine type)`, uid, s.lundi);
+    for (const c of compensees) if (c.jours) up.run(JSON.stringify(c.jours), `${par} (compensation de la semaine type)`, uid, c.lundi);
   })();
   return { ecrit: true, ...bilan };
 }

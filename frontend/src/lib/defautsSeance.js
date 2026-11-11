@@ -44,17 +44,39 @@ export const DEFAUTS = {
  * Ce qu'on propose pour une séance vide. `seance` est ce que la base porte
  * déjà : on ne remplace jamais une valeur enregistrée.
  */
-export function proposition(seance, now = new Date()) {
+/* LES DÉLAIS DES PROCÉDURES (3.5.338) : `delais` vient du serveur (lib/delaisSessions.js) — visite J+1 après la délibération,
+   seconde session au moins 7 jours après la visite. À défaut, les anciens défauts. */
+export function proposition(seance, now = new Date(), delais = null) {
   const dateS = seance?.date_seance || iso(now);
   const heureS = seance?.heure_seance || heureCourante(now);
+  const visite = seance?.visite_date || ouvrable(dateS, delais ? delais.visite_apres_delib : DEFAUTS.visite_jours);
   return {
     date_seance: dateS,
     heure_seance: heureS,
-    visite_date: seance?.visite_date || ouvrable(dateS, DEFAUTS.visite_jours),
+    visite_date: visite,
     visite_heure: seance?.visite_heure || heureS,
     visite_local: seance?.visite_local || DEFAUTS.visite_local,
-    session2_date: ouvrable(dateS, DEFAUTS.session2_jours),
+    session2_date: delais ? ouvrable(visite, delais.ev2_apres_visite) : ouvrable(dateS, DEFAUTS.session2_jours),
     session2_heure: DEFAUTS.session2_heure,
     session2_local: DEFAUTS.session2_local,
   };
+}
+
+/** CE QUE LES PROCÉDURES DISENT D'UNE DATE POSÉE (3.5.338) : des avertissements, jamais un blocage. */
+export function avertissementsDates({ delib, visite, ev2, rdv = false }, delais) {
+  if (!delais || !delib) return [];
+  const j = d => new Date(`${d}T12:00:00`).getTime();
+  const ecart = (a, b) => Math.round((j(b) - j(a)) / 86400000);
+  const out = [];
+  if (visite && !rdv) {
+    if (ecart(delib, visite) < 0) out.push('visite des copies avant la délibération');
+    else if (ecart(delib, visite) > delais.publication_ouvr + delais.visite_max_publication + 2)
+      out.push(`visite des copies tardive (procédure : J+${delais.visite_apres_delib}, au plus ${delais.visite_max_publication} jours après la publication)`);
+  }
+  if (ev2) {
+    const base = visite && !rdv ? visite : delib;
+    const min = visite && !rdv ? delais.ev2_apres_visite : delais.visite_apres_delib + delais.ev2_apres_visite;
+    if (ecart(base, ev2) < min) out.push(`examen de seconde session trop tôt (procédure : au moins ${delais.ev2_apres_visite} jours après la visite des copies)`);
+  }
+  return out;
 }

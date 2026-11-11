@@ -11,6 +11,7 @@
  * l'interface à partir d'elle.
  */
 import db from '../db/index.js';
+import { CATALOGUE_EDITIONS_PROF, FAMILLES_EDITIONS_PROF } from './editionsProfCatalogue.js';
 
 /**
  * Le centre d'impression des ÉTUDIANTS : le contrat de travail n'y figure pas,
@@ -261,6 +262,16 @@ export const DOCUMENTS = [
     destinataires: 'etudiant',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
+  /* MES ÉDITIONS (3.5.340) : les pièces de l'enseignant, pour UN de ses cours (portée 'cours'). Elles se produisent dans Mes cours
+     et dans l'espace enseignant (`GET /api/mes-cours/editions/:piece?cours=`), sous la règle d'accès de Mes cours (`accesCours`) :
+     aucun rôle à cocher ici — c'est l'appartenance du cours qui autorise. Elles ne s'envoient pas. */
+  ...CATALOGUE_EDITIONS_PROF.map(p => ({
+    cle: `prof_${p.id}`, libelle: p.libelle, description: p.aide, portee: 'cours', lot: false,
+    groupe: FAMILLES_EDITIONS_PROF.find(f => f.k === p.famille)?.libelle || 'Mes éditions',
+    route: { methode: 'GET', chemin: `/api/mes-cours/editions/${p.id}` },
+    parametres: ['annee', 'cours', ...(p.session ? ['session'] : [])],
+    nomFichier: `${p.id}_{cours}_{annee}`, destinataires: null, roles: null, tableur: !!p.tableur,
+  })),
 ];
 
 /** Le catalogue taillé au périmètre de la personne. */

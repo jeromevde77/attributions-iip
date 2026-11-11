@@ -20,6 +20,7 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
   const [sim, setSim] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [compenser, setCompenser] = useState(false);   // 3.5.334 : proposé quand la semaine type s'écarte des heures dues
   const tire = useRef(null);
 
   useEffect(() => {
@@ -28,10 +29,10 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
   useEffect(() => {
     if (!jours) return undefined;
     const t = setTimeout(() => {
-      api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours }) }).then(setSim).catch(e => setSim({ controles: [e.message] }));
+      api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours, compenser }) }).then(setSim).catch(e => setSim({ controles: [e.message] }));
     }, 400);
     return () => clearTimeout(t);
-  }, [jours]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [jours, compenser]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const bouger = e => {
       const t = tire.current; if (!t) return;
@@ -51,16 +52,20 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
   const pause = j => { if (!j) return j; if (j.pause_debut) { const r = { ...j }; delete r.pause_debut; delete r.pause_fin; return r; } return { ...j, pause_debut: '12:00', pause_fin: '12:30' }; };
   const enregistrer = async () => {
     setEnCours(true);
-    try { await api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours, ecrire: true }) }); onFait(); }
+    try { await api(`/semaine-type/${personne.utilisateur_id}`, { method: 'POST', body: JSON.stringify({ jours, ecrire: true, compenser }) }); onFait(); }
     catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
   const total = (jours || []).reduce((t, j) => t + duree(j), 0);
   const ok = sim && !(sim.controles || []).length;
+  const ecart = total - (cible || 0);
+  // POURQUOI « ENREGISTRER » EST GRIS SE DIT À CÔTÉ DE LUI (3.5.334, Charles : « je ne peux pas sauver »).
+  const raison = !sim ? 'Lucie vérifie…' : (sim.controles || []).length ? sim.controles[0] : null;
 
   return (
     <Fenetre titre={`Semaine type — ${personne.nom}`} sous={`${hm(total)} sur ${hm(cible)} dues par semaine`} large="grande" onFermer={onFermer}
       pied={<div className="flex items-center gap-2 w-full">
-        <span className="text-second text-slate-500 flex-1 min-w-0">{ok ? `Enregistrée, elle s’applique aux ${sim.a_appliquer} semaine(s) de travail à venir restées telles quelles${sim.gardees ? ` ; ${sim.gardees} semaine(s) déjà retouchée(s) gardent leur horaire` : ''}.` : 'Tirez le haut ou le bas d’une journée pour la changer, au quart d’heure.'}</span>
+        <span className="text-second flex-1 min-w-0" style={{ color: raison && sim ? 'var(--c-refuse)' : 'rgb(var(--gris-500))' }}>{raison
+          || `Enregistrée, elle s’applique aux ${sim.a_appliquer} semaine(s) de travail à venir restées telles quelles${sim.gardees ? ` ; ${sim.gardees} semaine(s) déjà retouchée(s) gardent leur horaire` : ''}.`}</span>
         <button type="button" className="bouton" onClick={onFermer}>Fermer</button>
         <button type="button" className="bouton bouton-fort" disabled={!ok || enCours} onClick={enregistrer}>Enregistrer</button></div>}>
       {erreur && <Encadre etat="corriger" titre="Refusé">{erreur}</Encadre>}
@@ -93,7 +98,17 @@ export default function SemaineTypeTemps({ api, personne, onFermer, onFait }) {
               </div>))}
           </div>
           <div className="text-second flex flex-wrap items-center gap-2">
-            <PastilleEtat etat={total === cible ? 'reussi' : 'corriger'}>{hm(total)} {total === cible ? '✓' : `pour ${hm(cible)}`}</PastilleEtat>
+            <PastilleEtat etat={total === cible ? 'reussi' : 'surveiller'}>{hm(total)} {total === cible ? 'par semaine' : `pour ${hm(cible)} dues`}</PastilleEtat>
+            {ecart !== 0 && sim && !(sim.controles || []).length && (<>
+              <span className="text-slate-600">{ecart > 0 ? `${hm(ecart)} de plus` : `${hm(-ecart)} de moins`} par semaine
+                {sim.a_appliquer ? ` × ${sim.a_appliquer} semaine(s)` : ''} : {sim.au_solde === 0 ? 'l’année tombe juste.'
+                  : `${sim.au_solde > 0 ? '+' : '−'}${hm(Math.abs(sim.au_solde))} au solde de l’année.`}</span>
+              <label className="inline-flex items-center gap-1.5 w-full">
+                <input type="checkbox" checked={compenser} onChange={e => setCompenser(e.target.checked)} />
+                Compenser sur les semaines à venir qui ne reçoivent pas la semaine type
+                {compenser && <span className="text-slate-500"> — {(sim.compensees || []).length ? `${sim.compensees.length} semaine(s) ajustée(s)` : 'aucune semaine où compenser'}{(sim.restes || []).length ? ` ; ${sim.restes[0]}` : ''}</span>}
+              </label>
+            </>)}
             {(sim?.controles || []).length > 0 && <ul className="m-0 pl-4 w-full" style={{ color: 'var(--c-refuse)' }}>{sim.controles.map((x, k) => <li key={k}>{x}</li>)}</ul>}
           </div>
         </div>)}

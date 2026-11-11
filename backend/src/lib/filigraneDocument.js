@@ -147,8 +147,11 @@ export function filigraner(html, o = {}) {
       objet: [dernierTexte(page, 'doc-cadre-s'), dernierTexte(page, 'doc-cadre-l')].filter(Boolean).join(' — '),
       personne: dernierTexte(page, 'nom'), date: dateDeLaPiece(lieu),
       // La décision que la pièce constate : la DERNIÈRE marque avant ce bloc (celle de sa page).
-      decision: ([...page.matchAll(/class="date-decision" data-date="(\d{4}-\d{2}-\d{2})"/g)].pop() || [])[1] || null });
-    sortie += page + blocAuthenticite(refBloc) + m[0] + fondCloture({ ref: refBloc, texte: texteDe(page, dateDeLaPiece(lieu)) });
+      decision: ([...page.matchAll(/class="date-decision" data-date="(\d{4}-\d{2}-\d{2})"/g)].pop() || [])[1] || null,
+      note: ([...page.matchAll(/class="note-piece" data-note="([^"]*)"/g)].pop() || [])[1] || null });
+    sortie += page + blocAuthenticite(refBloc, {
+      decision: ([...page.matchAll(/class="date-decision" data-date="(\d{4}-\d{2}-\d{2})"/g)].pop() || [])[1] || null,
+      note: ([...page.matchAll(/class="note-piece" data-note="([^"]*)"/g)].pop() || [])[1] || null }) + m[0] + fondCloture({ ref: refBloc, texte: texteDe(page, dateDeLaPiece(lieu)) });
     dernier = re.lastIndex;
   }
   doc = sortie + doc.slice(dernier);

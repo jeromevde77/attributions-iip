@@ -67,10 +67,18 @@ const journal = (annee, objet, cle, avant, apres, par) => db.prepare('INSERT INT
   .run(annee, objet, cle, avant == null ? null : String(avant), apres == null ? null : String(apres), par);
 
 /** Les 52 semaines de l'année : du lundi de la semaine du 1er septembre. */
-export function debutDAnnee(a1) { const d = `${a1}-08-15`; const w = (s2d(d).getUTCDay() + 6) % 7; return w === 0 ? d : plus(d, 7 - w); }
+/* L'ANNÉE DU TEMPS DE TRAVAIL (3.5.335, Charles, 11 novembre 2026 : « c'est quasi toujours la semaine qui COMPREND le 01/09 ; si le
+   01/09 tombe un lundi, c'est le lundi qui précède » ; et l'horaire annualisé commence UNE SEMAINE AVANT : 2026-2027 = du lundi 24/08/2026
+   au dimanche 22/08/2027, récupérations comprises). La rentrée R = le lundi de la semaine du 1er septembre (le lundi d'avant si le 1er
+   septembre est un lundi) ; l'année commence à R − 7 jours. Remplace « le premier lundi à partir du 15 août » (3.5.063). */
+export function debutDAnnee(a1) {
+  const d = `${a1}-09-01`; const w = (s2d(d).getUTCDay() + 6) % 7;   // 0 = lundi
+  const rentree = w === 0 ? plus(d, -7) : plus(d, -w);
+  return plus(rentree, -7);
+}
 export function semaines52(annee) {
   const a1 = Number(String(annee).split('-')[0]);
-  const l0 = debutDAnnee(a1);  // le premier lundi à partir du 15 août (3.5.063)
+  const l0 = debutDAnnee(a1);  // une semaine avant la rentrée (3.5.335)
   return Array.from({ length: 52 }, (_, i) => plus(l0, 7 * i));
 }
 const anneeDeDate = d => { const y = Number(d.slice(0, 4)); return d >= debutDAnnee(y) ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
