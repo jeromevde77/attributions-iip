@@ -10,7 +10,7 @@ import { profConcerne, rendreAvis } from '../lib/avisVA.js';
 import { chargerDossier, chargesDeCours } from '../lib/piecesAmenagement.js';
 import { DECIDE } from '../lib/circuitAR.js';
 import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '../lib/cep.js';
-import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
+import { envelopperDocument, enteteDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours, delibererUE } from './acquis.js';
@@ -483,15 +483,11 @@ r.put('/amenagements/:id/avis', authRequired, (req, res) => {
 r.get('/editions/catalogue', authRequired, (req, res) => {
   res.json({ familles: FAMILLES_EDITIONS_PROF, pieces: CATALOGUE_EDITIONS_PROF });
 });
-r.get('/editions/:piece', authRequired, async (req, res) => {
-  const def = CATALOGUE_EDITIONS_PROF.find(p => p.id === req.params.piece);
-  if (!def) return res.status(404).json({ error: 'Pièce inconnue.' });
-  const annee = String(req.query.annee || anneeDeTravail(req));
-  const code = String(req.query.cours || '');
+/* UNE PIÈCE, POUR UN COURS (3.5.344) : la composition, sortie de la route pour servir aussi « plusieurs cours » d'un coup. */
+async function composerPourCours(req, def, code, annee, session) {
   const acc = code ? accesCours(req, code, annee) : null;
-  if (!acc) return res.status(404).json({ error: 'Cours introuvable dans vos attributions.' });
-  const session = Number(req.query.session) === 2 ? 2 : 1;
-  try {
+  if (!acc) return null;
+  {
     const acquis = acquisDuCours(code, acc.ueNum, annee);
     const close = clotures(acc.ueNum, annee);
     let seconde = [];
@@ -518,17 +514,43 @@ r.get('/editions/:piece', authRequired, async (req, res) => {
     const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(acc.ueNum, annee)?.n || '';
     const p = await composerEditionProf(def.id, { code, annee, ue: acc.ueNum, ueNom, coursNom, session, etudiants: acc.etudiants, seconde,
       acquis, close, seances, toutesSeances, dates, enseignants: enseignantsParCours(annee).get(code) || [] });
-    if (!p) return res.status(404).json({ error: 'Pièce inconnue.' });
+    return p ? { ...p, code } : null;
+  }
+}
+
+/* LA PIÈCE D'ABORD, LES COURS ENSUITE (3.5.344, Charles : « on choisit ce qu'on veut et après on filtre ; un enseignant peut
+   vouloir le même document pour TOUS ses étudiants »). ?cours= un code, ou plusieurs séparés par des virgules : une pièce par
+   cours, chacune avec son en-tête, sur sa page (PDF, aperçu) ; un classeur, les feuilles de chaque cours (Excel). */
+r.get('/editions/:piece', authRequired, async (req, res) => {
+  const def = CATALOGUE_EDITIONS_PROF.find(p => p.id === req.params.piece);
+  if (!def) return res.status(404).json({ error: 'Pièce inconnue.' });
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  let codes = [...new Set(String(req.query.cours || '').split(',').map(x => x.trim()).filter(Boolean))].slice(0, 60);
+  if (def.sansCours) codes = codes.slice(0, 1);
+  if (!codes.length) return res.status(400).json({ error: 'Choisissez au moins un cours.' });
+  const session = Number(req.query.session) === 2 ? 2 : 1;
+  try {
+    const ps = [];
+    for (const code of codes) { const p = await composerPourCours(req, def, code, annee, session); if (p) ps.push(p); }
+    if (!ps.length) return res.status(404).json({ error: 'Cours introuvable dans vos attributions.' });
+    const plusieurs = ps.length > 1;
+    const p = plusieurs
+      ? { ...ps[0], nom: `${def.id}_${ps.length}_cours_${annee}${def.session ? `_S${session}` : ''}`.replace(/[^A-Za-z0-9_.-]+/g, '_'),
+          feuilles: ps.flatMap(x => x.feuilles.map(f => ({ ...f, nom: `${x.code} ${f.nom || ''}`.trim(), entete: [x.sous, f.entete].filter(Boolean).join(' · ') }))) }
+      : ps[0];
     if (req.query.format === 'xlsx') {
       if (!def.tableur) return res.status(400).json({ error: 'Cette pièce ne sort pas en tableur.' });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${p.nom}.xlsx"`);
       return res.end(await classeurEditionProf(p));
     }
-    const html = envelopperDocument({ html: p.corps, titre: p.titre, orientation: p.paysage ? 'paysage' : 'portrait', styles: p.styles,
-      margeCote: p.paysage ? 12 : 15, margeHaut: 12,
-      entete: { titre: p.titre, sous: p.sous, ligne: p.ligne, nature: p.nature } });
-    if (req.query.format === 'html') return res.json({ html, nom: p.nom, titre: p.titre, sous: p.sous, paysage: p.paysage });
+    const html = plusieurs
+      ? envelopperDocument({ html: ps.map(x => enteteDocument({ titre: x.titre, sous: x.sous, ligne: x.ligne, nature: x.nature }) + x.corps).join('<div class="saut"></div>'),
+          titre: p.titre, orientation: p.paysage ? 'paysage' : 'portrait', styles: p.styles, margeCote: p.paysage ? 12 : 15, margeHaut: 12, entete: false })
+      : envelopperDocument({ html: p.corps, titre: p.titre, orientation: p.paysage ? 'paysage' : 'portrait', styles: p.styles,
+          margeCote: p.paysage ? 12 : 15, margeHaut: 12,
+          entete: { titre: p.titre, sous: p.sous, ligne: p.ligne, nature: p.nature } });
+    if (req.query.format === 'html') return res.json({ html, nom: p.nom, titre: p.titre, sous: plusieurs ? `${ps.length} cours · ${annee}` : p.sous, paysage: p.paysage });
     const cap = await capacitePdf();
     if (!cap.disponible) return res.status(503).json({ error: 'Le PDF ne peut pas être composé sur ce serveur : ouvrez l’aperçu et imprimez-le.', html, nom: p.nom });
     const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: p.paysage ? 'paysage' : 'portrait',
