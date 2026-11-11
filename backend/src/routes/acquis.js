@@ -581,6 +581,17 @@ function migrerPonderationsParAnnee(dbx) {
  * Structure d'évaluation d'une UE : ses cours, leurs AA, les pondérations et
  * les périodes. Sert au calcul comme à l'écran de paramétrage.
  */
+/* LA VISITE DES COPIES, COURS PAR COURS (3.5.314) : celle du calendrier des sessions (`epreuve_session1` en première
+ * session, `deliberation_session2` en seconde), posée ou corrigée à la clôture. `rdv` : sur rendez-vous, contacter le professeur. */
+export function visitesParCours(ueNum, annee, session) {
+  const [t, k] = Number(session) === 2 ? ['deliberation_session2', 's2'] : ['epreuve_session1', 's1'];
+  try {
+    return Object.fromEntries(db.prepare(`SELECT cours_code, ${k}_visite_date AS date, ${k}_visite_heure AS heure,
+        ${k}_visite_local AS local, ${k}_visite_rdv AS rdv FROM ${t} WHERE ue_num = ? AND annee_scolaire = ?`)
+      .all(Number(ueNum), annee).map(l => [l.cours_code, { date: l.date || null, heure: l.heure || null, local: l.local || null, rdv: !!l.rdv }]));
+  } catch { return {}; }
+}
+
 export function structureUE(ueNum, annee) {
   const anneeRef = annee
     || anneeActiveEnBase();
@@ -1963,6 +1974,9 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     heure: seance.visite_heure || visiteCours?.h || null,
     local: seance.visite_local || visiteCours?.loc || null,
   };
+  // LA VISITE COURS PAR COURS (3.5.314) : dès qu'un cours de l'unité porte la sienne (date ou rendez-vous), la pièce les liste.
+  const visitesC = visitesParCours(ueNum, annee, session);
+  const visiteCoursDoc = structureUE(ueNum, annee).map(c => [c, visitesC[c.cours_code]]).filter(([, v]) => v && (v.rdv || v.date));
   // Ce qui n'est pas fixé pour un cours retombe sur la date de l'unité.
   const quand = (code) => {
     const l = s2[code] || {};
@@ -2179,7 +2193,10 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       visite: `
   <div class="info">
     <div class="titre">Consultation de la copie</div>
-    ${visite.mention
+    ${visiteCoursDoc.length ? visiteCoursDoc.map(([c, v]) => `<div class="ligne"><span class="code">${esc2(c.cours_code)}</span>${
+        c.cours_nom ? ` ${esc2(c.cours_nom)}` : ''} — ${v.rdv ? 'sur rendez-vous : contactez le professeur du cours'
+        : `le <b>${jour(v.date)}</b>${v.heure ? ` à <b>${esc2(v.heure)}</b>` : ''}${v.local ? `, local <b>${esc2(v.local)}</b>` : ''}`}</div>`).join('')
+    : visite.mention
       ? `<div class="ligne">${esc2(visite.mention)}</div>`
       : `<div class="ligne">Le ${visite.date ? `<b>${jour(visite.date)}</b>` : '………………'}
       à ${visite.heure ? `<b>${esc2(visite.heure)}</b>` : '……h……'},
@@ -6655,6 +6672,10 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
     };
   });
 
+  const visites = visitesParCours(ueNum, annee, session);
+  const cours_visite = structureUE(ueNum, annee).map(c => ({ cours_code: c.cours_code, cours_nom: c.cours_nom,
+    ...(visites[c.cours_code] || { date: null, heure: null, local: null, rdv: false }) }));
+
   const quorum = etatQuorum(membres,
     Object.fromEntries(membres.map(m => [m.cle, m.present])));
 
@@ -6668,7 +6689,7 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
       ORDER BY ${k}_visite_date, ${k}_visite_heure LIMIT 1`).get(annee, ueNum) || null;
   } catch { visite_calendrier = null; }
   res.json({ ue_num: ueNum, annee, session, organisation: org,
-             seance, membres, session2, quorum, visite_calendrier,
+             seance, membres, session2, cours_visite, quorum, visite_calendrier,
              // Les titres auxquels on siège, pour que l'écran n'invente pas sa
              // propre liste et que la voix suive le décret des deux côtés.
              categories: CATEGORIES_MEMBRE,
@@ -6868,7 +6889,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const { membres, date_seance, heure_seance, visite_date, visite_heure, visite_local,
           visite_mention, cloturee,
           session2_date, session2_heure, session2_local, session2_adresse,
-          session2_cours, president_role, president_nom, president_titre } = req.body || {};
+          session2_cours, cours_visite, president_role, president_nom, president_titre } = req.body || {};
 
   // LA DATE ET L'HEURE SE CORRIGENT TANT QUE LA SÉANCE EST OUVERTE — après,
   // elles sont dans le procès-verbal signé et ne se retouchent plus : il faut
@@ -7088,6 +7109,20 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
       db.prepare(`UPDATE deliberation_seance SET publie_le = COALESCE(?, publie_le, date('now'))
         WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
         .run(req.body?.publie_le || null, ueNum, annee, session, org);
+    }
+
+    // La visite des copies, cours par cours, dans le calendrier des sessions (3.5.314).
+    if (Array.isArray(cours_visite)) {
+      const [t, k] = session === 2 ? ['deliberation_session2', 's2'] : ['epreuve_session1', 's1'];
+      const up = db.prepare(`INSERT INTO ${t} (ue_num, annee_scolaire, cours_code, ${k}_visite_date, ${k}_visite_heure, ${k}_visite_local, ${k}_visite_rdv)
+        VALUES (?,?,?,?,?,?,?)
+        ON CONFLICT(ue_num, annee_scolaire, cours_code) DO UPDATE SET ${k}_visite_date = excluded.${k}_visite_date,
+          ${k}_visite_heure = excluded.${k}_visite_heure, ${k}_visite_local = excluded.${k}_visite_local, ${k}_visite_rdv = excluded.${k}_visite_rdv`);
+      for (const c of cours_visite) {
+        if (!c?.cours_code) continue;
+        const rdv = c.rdv ? 1 : 0;
+        up.run(ueNum, annee, c.cours_code, rdv ? null : (c.date || null), rdv ? null : (c.heure || null), rdv ? null : (String(c.local || '').trim() || null), rdv);
+      }
     }
 
     // Une date de seconde session par cours.

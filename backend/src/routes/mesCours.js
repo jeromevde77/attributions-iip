@@ -13,7 +13,7 @@ import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '
 import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { piedDocument } from './parametres.js';
-import { aRepresenterParCours } from './acquis.js';
+import { aRepresenterParCours, delibererUE } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
 import { donneesGrille, htmlGrille, excelGrille, premierDixieme, contexteGrille, grillePermise, seancesDeLUE, grilleUE, dispensesUE } from '../lib/grillePresence.js';
 import { archiverDocument } from '../services/document-archive.js';
@@ -539,6 +539,82 @@ r.get('/:cours/fiche', authRequired, (req, res) => {
   const somme = acquis.reduce((x, a) => x + (Number(a.poids) || 0), 0);
   res.json({ annee, cours: c, ue, autonomie_placee: placee,
     acquis: acquis.map(a => ({ ...a, part: somme ? Math.round((Number(a.poids) || 0) / somme * 1000) / 10 : null })) });
+});
+
+/* LES MOTIVATIONS APRÈS LA DÉLIBÉRATION (3.5.313, Charles, 11 novembre 2026 : « pouvoir revoir depuis l'espace profs les
+ * commentaires après la délibération, car parfois il en manque » ; tranché : voir et compléter). Pour CE cours : les étudiants
+ * ajournés ou refusés dont la séance est close, et chacun de leurs acquis en échec que le cours évalue, avec la motivation
+ * retenue au dossier (`decision_motivation`) et sa provenance — ou « manquante ». Le professeur complète ce qui manque ;
+ * il ne remplace jamais un motif déjà au dossier (le Conseil, ou un collègue, l'a écrit). Accès : `accesCours`. */
+function motivationsDuCours(acc, coursCode, annee) {
+  const close = clotures(acc.ueNum, annee);
+  const decisions = new Map(db.prepare(`SELECT etudiant_id, resultat FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num = ?`).all(annee, acc.ueNum).map(x => [x.etudiant_id, x.resultat]));
+  const motifs = new Map(db.prepare(`SELECT etudiant_id, aa_code, motif, source, maj_par, maj_le FROM decision_motivation
+      WHERE annee_scolaire = ? AND ue_num = ?`).all(annee, acc.ueNum).map(m => [`${m.etudiant_id}|${m.aa_code}`, m]));
+  const lignes = [];
+  for (const e of acc.etudiants) {
+    const res = decisions.get(e.id);
+    if (!['ajourne', 'refuse'].includes(res)) continue;
+    const session = close(2, e.id) ? 2 : close(1, e.id) ? 1 : 0;
+    if (!session) continue;
+    let d;
+    try { d = delibererUE(e.id, acc.ueNum, annee, session); } catch { continue; }
+    const acquis = (d.acquis || []).filter(a => !a.faveur
+      && (a.evaluations || []).some(v => v.cours_code === coursCode)
+      && (a.na || (a.note != null && a.note < 10)));
+    if (!acquis.length) continue;
+    lignes.push({ id: e.id, nom: e.nom, prenom: e.prenom, matricule: e.id_ecampus, groupe: e.groupe || '', session, resultat: res,
+      acquis: acquis.map(a => {
+        const m = motifs.get(`${e.id}|${a.aa_code}`);
+        const v = (a.evaluations || []).find(x => x.cours_code === coursCode) || {};
+        return { aa_code: a.aa_code, description: a.description || '', note: v.mention || (v.note != null ? Math.round(Number(v.note)) : null),
+          motif: m?.motif || '', source: m?.motif ? (m.source || 'conseil') : null, maj_par: m?.maj_par || null, maj_le: m?.maj_le || null };
+      }) });
+  }
+  return lignes;
+}
+r.get('/:cours/motivations', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const code = String(req.params.cours);
+  const acc = accesCours(req, code, annee);
+  if (!acc) return res.status(404).json({ error: 'Cours introuvable dans vos attributions.' });
+  const etudiants = motivationsDuCours(acc, code, annee);
+  res.json({ annee, ue_num: acc.ueNum, etudiants,
+    manquantes: etudiants.reduce((n, e) => n + e.acquis.filter(a => !a.motif).length, 0) });
+});
+r.post('/:cours/motivations', authRequired, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const code = String(req.params.cours);
+  const acc = accesCours(req, code, annee);
+  if (!acc) return res.status(404).json({ error: 'Cours introuvable dans vos attributions.' });
+  const etudId = Number(req.body?.etudiant_id), aa = String(req.body?.aa_code || ''), motif = String(req.body?.motif || '').trim();
+  if (motif.length < 5) return res.status(400).json({ error: 'Écrivez la motivation (une phrase au moins).' });
+  const e = motivationsDuCours(acc, code, annee).find(x => x.id === etudId);
+  const a = e?.acquis.find(x => x.aa_code === aa);
+  if (!a) return res.status(404).json({ error: "Cet acquis n'est pas en échec dans votre cours pour cet étudiant, ou sa séance n'est pas close." });
+  if (a.motif) return res.status(409).json({ error: 'Une motivation est déjà au dossier pour cet acquis : demandez au secrétariat de la modifier.' });
+  const qui = req.user?.email || null;
+  const r1 = db.prepare(`INSERT INTO decision_motivation (etudiant_id, annee_scolaire, ue_num, aa_code, motif, portee, source, maj_le, maj_par)
+      VALUES (?,?,?,?,?,'aa','enseignant',datetime('now'),?)
+      ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO UPDATE SET motif = excluded.motif, source = 'enseignant',
+        maj_le = excluded.maj_le, maj_par = excluded.maj_par WHERE decision_motivation.motif IS NULL OR trim(decision_motivation.motif) = ''`)
+    .run(etudId, annee, acc.ueNum, aa, motif, qui);
+  if (!r1.changes) return res.status(409).json({ error: 'Une motivation vient d’être écrite pour cet acquis.' });
+  // Le secrétariat est prévenu : la notification d'ajournement ou de refus est peut-être déjà partie sans ce motif.
+  try {
+    const p = db.prepare('SELECT p.nom, p.prenom FROM professeur p JOIN utilisateur u ON u.professeur_id = p.id WHERE u.id = ?').get(req.user?.id)
+      || { nom: req.user?.nom || qui, prenom: '' };
+    const nomProf = `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
+    const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const titre = `Motivation complétée — ${String(e.nom || '').toUpperCase()} ${e.prenom || ''}, ${aa} (UE ${acc.ueNum})`;
+    const corps = `<strong>${esc(nomProf)}</strong> a écrit la motivation qui manquait pour <strong>${esc(aa)}</strong> `
+      + `(cours ${esc(code)}, ${e.resultat === 'refuse' ? 'refus' : 'ajournement'}, session ${e.session}) : « ${esc(motif)} ». `
+      + 'Si la notification est déjà partie, elle est à renvoyer.';
+    const ins = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par) VALUES ('motivation_completee', ?, ?, ?, ?, ?)`);
+    for (const role of ROLES_PREVENUS) ins.run(titre, corps, `/etudiants?id=${etudId}`, role, nomProf || qui);
+  } catch (err) { console.error('[motivation complétée] notification', err.message); }
+  res.json({ ok: true });
 });
 
 // ── LA GRILLE DE PRÉSENCE (28 octobre 2026) ─────────────────────────────────

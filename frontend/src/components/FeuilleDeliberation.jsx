@@ -366,7 +366,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   async function ajusterLot(portee, codes, action, modeForce = null) {
     if (!etud || !codes.length) return;
     // Un clic : les acquis en échec ; tout le cours se demande par un double-clic (13 octobre 2026).
-    const mode = modeForce || (portee === 'cours' && action === 'ajourne' ? 'echec' : 'tous');
+    const mode = modeForce || 'tous';   // cours ajourné = tous ses acquis (11 novembre 2026)
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/acquis/deliberation/ajustement/lot', {
@@ -414,7 +414,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     if (!etud) return;
     // LE CLIC DIT LA PORTÉE (Charles, 13 octobre 2026) : un clic ajourne les acquis en échec du
     // cours, un double-clic le cours entier. La question qui s'ouvrait à chaque fois disparaît.
-    const mode = modeForce || (portee === 'cours' && action === 'ajourne' ? 'echec' : 'tous');
+    const mode = modeForce || 'tous';   // cours ajourné = tous ses acquis (11 novembre 2026)
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/acquis/deliberation/ajustement', {
@@ -977,7 +977,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onPresences={() => setEtape('presences')}
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
-              coursSession2={seance?.session2 || []}
+              coursSession2={seance?.session2 || []} coursVisite={seance?.cours_visite || []}
               onReprendre={() => setCorrection(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
@@ -2002,7 +2002,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits =
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
+function Cloture({ seance, visiteCalendrier = null, coursVisite = [], onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
                    coursSession2, quorum, erreur, onPresences }) {
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
@@ -2036,13 +2036,24 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
   const reporterPartout = () => setS2(l => l.length ? l.map(c => ({
     ...c, date: l[0].date, heure: l[0].heure, local: l[0].local })) : l);
   const [close, setClose] = useState(!!seance?.cloturee);
+  // LA VISITE PAR COURS (3.5.314) : du calendrier des sessions ; à défaut, la visite de l'unité (ancienne forme) ou du calendrier.
+  const versLigne = c => ({ cours_code: c.cours_code, cours_nom: c.cours_nom, rdv: !!c.rdv,
+    date: c.date || (c.rdv ? '' : date), heure: c.heure || (c.rdv ? '' : heure), local: c.local || (c.rdv ? '' : local) });
+  const [cv, setCv] = useState(() => (coursVisite || []).map(versLigne));
+  useEffect(() => {
+    setCv(l => { const par = new Map(l.map(c => [c.cours_code, c])); return (coursVisite || []).map(c => par.get(c.cours_code) || versLigne(c)); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coursVisite]);
+  const majCv = (i, champ, v) => setCv(l => l.map((c, k) => k === i ? { ...c, [champ]: v } : c));
+  const avecS2 = ajournes > 0 && !!s2.length;
+  const visitesCompletes = !!mention || (cv.length ? cv.every(c => c.rdv || (c.date && c.heure)) : !!(date && heure && local.trim()));
   /* DEUX FORMES DE VISITE, UNE SEULE RÈGLE DE COMPLÉTUDE.
      Le panneau cache les trois champs dès qu'une mention est écrite — mais la
      complétude, elle, continuait de les exiger : la mention rendait donc la
      clôture IMPOSSIBLE, sans rien dire, et sans champ où la débloquer. Ce qui
      est demandé, c'est de dire à l'étudiant comment exercer son droit : une
      plage OU une mention y suffit. */
-  const complet = dateS && (mention || (date && heure && local.trim()));
+  const complet = dateS && visitesCompletes;
 
   // LA DATE SE POSE SEULE — et elle ne s'écrase jamais.
   //
@@ -2079,6 +2090,7 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
       if (!date) setDate(p.visite_date);
       if (!heure) setHeure(p.visite_heure);
       if (!local.trim()) setLocal(p.visite_local);
+      setCv(l => l.map(c => (c.rdv ? c : { ...c, date: c.date || p.visite_date, heure: c.heure || p.visite_heure, local: c.local || p.visite_local })));
     }
     setS2(l => l.map(c => ({
       ...c,
@@ -2148,7 +2160,7 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
         </div>
       )}
 
-      <div className="carte bg-white p-4 space-y-3 h-full">
+      <div className="carte bg-white p-4 space-y-3 h-full lg:col-span-2">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-iip-blue">Séance du Conseil</div>
@@ -2185,108 +2197,76 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
         </div>
       </div>
 
-      <div className="carte bg-white p-4 space-y-3 h-full">
-        <div>
-          <div className="text-sm font-semibold text-iip-blue">Visite des copies</div>
-          <p className="text-second text-slate-500">
-            L'étudiant a le droit de consulter sa copie. La date, l'heure et le
-            local figurent sur la notification qui lui est remise.
-          </p>
-          {!mention && !(date && heure && local.trim()) && (
-            <p className="text-second font-semibold m-0 mt-1" style={{ color: 'var(--c-attente)' }}>
-              À poser avant de clore : date, heure et local de la visite{visiteCalendrier ? '' : ' (le calendrier des sessions n’en porte pas pour cette unité)'}.
-            </p>)}
-          {visiteCalendrier && !seance?.visite_date && (
-            <p className="text-mention text-slate-500 m-0 mt-1">Reprise du calendrier des sessions.</p>)}
-        </div>
-        {/* GRISER PLUTÔT QUE CACHER. Les trois champs disparaissaient dès
-            qu'une mention existait : l'écran devenait incompréhensible — on ne
-            voyait plus ce qui était remplacé, ni pourquoi. Grisés, ils disent
-            à la fois qu'ils existent, qu'ils sont sans effet, et ce qui les
-            neutralise. */}
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-second text-slate-600">
-            Date
-            <input type="date" value={date} disabled={!!mention}
-              onChange={e => setDate(e.target.value)}
-              className="w-full mt-0.5 controle" />
-          </label>
-          <label className="text-second text-slate-600">
-            Heure
-            <input type="time" value={heure} disabled={!!mention}
-              onChange={e => setHeure(e.target.value)}
-              className="w-full mt-0.5 controle" />
-          </label>
-        </div>
-        <label className="text-second text-slate-600 block">
-          Local
-          <input value={local} disabled={!!mention}
-            onChange={e => setLocal(e.target.value)}
-            placeholder="Bâtiment P, local 2.14…"
-            className="w-full mt-0.5 controle" />
-        </label>
-
-        {/* LA MENTION NE SE DÉCIDE PAS ICI. Une délibération se clôt avec ce
-            qu'on lui a donné ; changer la forme de la communication des
-            résultats est une correction administrative — elle se motive, elle
-            s'horodate, et elle a son écran. La clôture ne fait que montrer
-            l'état, sans jamais l'effacer. */}
+      {/* COURS PAR COURS : LA VISITE DES COPIES ET L'EXAMEN DE SECONDE SESSION (3.5.314, Charles, 11 novembre 2026 : « en face de
+          chaque code cours, date visite copie, examen S2… ou visite copie sur RDV, case à cocher, contacter le professeur — alors la
+          date ne doit pas être notée » ; « automatique, et à corriger »). Les dates viennent du calendrier des sessions et s'y
+          réécrivent ; ce qui manque se pose ici. La notification (annexes 8 et 9) les reprend cours par cours. */}
+      <div className="carte lg:col-span-2 overflow-hidden">
+        <EnteteCarte titre={avecS2 ? 'Visite des copies et seconde session, cours par cours' : 'Visite des copies, cours par cours'}
+          sous={`Repris du calendrier des sessions, modifiable. Une visite sur rendez-vous n’a pas de date : l’étudiant contacte le professeur.${
+            avecS2 ? ` ${ajournes} étudiant(s) ajourné(s) : chaque cours a sa date d’examen.` : ''}`} />
         {!!mention && (
-          <div className="carte px-3 py-2">
-            <div className="text-second text-slate-700">{mention}</div>
-            <div className="text-xs text-slate-500 mt-1">
-              Une mention administrative tient lieu de plage de consultation :
-              c'est elle qui figurera sur la notification et au procès-verbal.
-              Elle se modifie depuis <b>Corriger</b>.
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* La seconde session, cours par cours, portée par l'annexe 8. */}
-      {ajournes > 0 && !!s2.length && (
-        <div data-etat="surveiller" className="bloc-etat lg:col-span-2 p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Seconde session</div>
-              <p className="text-second text-slate-700">
-                {ajournes} étudiant(s) ajourné(s). Chaque cours a sa date : elle
-                figure en regard du cours sur la notification (annexe 8).
-              </p>
-            </div>
-            {s2.length > 1 && (
-              <button onClick={reporterPartout} disabled={enCours || !s2[0].date}
-                title="Reporter la date, l'heure et le local du premier cours sur tous les autres"
-                className="flex-none bouton bouton-compact">
-                Même date pour tous
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            {s2.map((c, i) => (
-              <div key={c.cours_code} className="flex items-center gap-2">
-                <span className="w-32 flex-none min-w-0">
-                  <span className="block font-mono text-second font-bold text-slate-700">
-                    {c.cours_code}
-                  </span>
-                  <span className="block text-mention text-slate-500 truncate"
-                    title={c.cours_nom || ''}>{c.cours_nom || ''}</span>
-                </span>
-                <input type="date" value={c.date}
-                  onChange={e => majS2(i, 'date', e.target.value)}
-                  className="controle w-36" />
-                <input type="time" value={c.heure}
-                  onChange={e => majS2(i, 'heure', e.target.value)}
-                  className="controle w-24" />
-                <input value={c.local} placeholder="local…"
-                  onChange={e => majS2(i, 'local', e.target.value)}
-                  className="flex-1 controle" />
-              </div>
-            ))}
-          </div>
+          <div className="px-4 py-2 text-second text-slate-600 border-b border-slate-100">
+            Mention administrative : <b>{mention}</b> <span className="text-slate-400">(se modifie depuis « Corriger »)</span>
+          </div>)}
+        <div className="overflow-x-auto">
+          <table className="w-full text-second">
+            <thead><tr className="text-left">
+              <th className="px-3 py-1.5 font-semibold w-[22%]">Cours</th>
+              <th className="px-3 py-1.5 font-semibold">Visite des copies
+                <span className="ml-2 font-normal">
+                  {cv.length > 1 && <button type="button" className="underline text-iip-blue mr-2" disabled={enCours || !cv[0] || (!cv[0].rdv && !cv[0].date)}
+                    onClick={() => setCv(l => l.map(c => ({ ...c, rdv: l[0].rdv, date: l[0].date, heure: l[0].heure, local: l[0].local })))}>même visite pour tous</button>}
+                  <button type="button" className="underline text-iip-blue" disabled={enCours}
+                    onClick={() => setCv(l => l.map(c => ({ ...c, rdv: true })))}>tous sur rendez-vous</button>
+                </span></th>
+              {avecS2 && <th className="px-3 py-1.5 font-semibold">Examen de seconde session
+                {s2.length > 1 && <button type="button" onClick={reporterPartout} disabled={enCours || !s2[0].date}
+                  className="ml-2 font-normal underline text-iip-blue">même date pour tous</button>}</th>}
+            </tr></thead>
+            <tbody>
+              {cv.map((c, i) => {
+                const e2 = s2.findIndex(x => x.cours_code === c.cours_code);
+                const manque = !mention && !c.rdv && !(c.date && c.heure);
+                return (
+                  <tr key={c.cours_code} className="border-t border-slate-100 align-middle">
+                    <td className="px-3 py-1.5">
+                      <span className="block font-mono font-bold text-slate-700">{c.cours_code}</span>
+                      <span className="block text-mention text-slate-500 truncate max-w-[16rem]" title={c.cours_nom || ''}>{c.cours_nom || ''}</span>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                          <input type="checkbox" checked={!!c.rdv} onChange={ev => majCv(i, 'rdv', ev.target.checked)} />
+                          sur rendez-vous
+                        </label>
+                        {c.rdv ? <span className="text-slate-500">contacter le professeur</span> : (<>
+                          <input type="date" value={c.date || ''} onChange={ev => majCv(i, 'date', ev.target.value)} className="controle w-36"
+                            style={manque ? { borderColor: 'var(--c-attente)' } : undefined} />
+                          <input type="time" value={c.heure || ''} onChange={ev => majCv(i, 'heure', ev.target.value)} className="controle w-24"
+                            style={manque ? { borderColor: 'var(--c-attente)' } : undefined} />
+                          <input value={c.local || ''} placeholder="local…" onChange={ev => majCv(i, 'local', ev.target.value)} className="controle w-28" />
+                        </>)}
+                      </div>
+                    </td>
+                    {avecS2 && <td className="px-3 py-1.5">
+                      {e2 >= 0 ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input type="date" value={s2[e2].date} onChange={ev => majS2(e2, 'date', ev.target.value)} className="controle w-36" />
+                          <input type="time" value={s2[e2].heure} onChange={ev => majS2(e2, 'heure', ev.target.value)} className="controle w-24" />
+                          <input value={s2[e2].local} placeholder="local…" onChange={ev => majS2(e2, 'local', ev.target.value)} className="controle w-28" />
+                        </div>) : <span className="text-slate-400">—</span>}
+                    </td>}
+                  </tr>);
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+        {!visitesCompletes && (
+          <p className="px-4 py-2 m-0 text-second font-semibold" style={{ color: 'var(--c-attente)' }}>
+            À poser avant de clore : la date et l’heure de visite de chaque cours, ou « sur rendez-vous ».
+          </p>)}
+      </div>
 
       <div className="lg:col-span-2 flex items-center justify-between gap-2">
         <button onClick={onRetour}
@@ -2306,17 +2286,19 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
           <button disabled={enCours || !complet} onClick={() => onClore({
             publie_le: publieLe || null,
               date_seance: dateS, heure_seance: heureS || null,
-              visite_date: date, visite_heure: heure, visite_local: local.trim(),
+              // L'unité garde, pour les pièces d'avant, la première visite datée des cours.
+              visite_date: cv.find(c => !c.rdv && c.date)?.date || date, visite_heure: cv.find(c => !c.rdv && c.date)?.heure || heure,
+              visite_local: (cv.find(c => !c.rdv && c.date)?.local || local).trim(),
               visite_mention: mention,
+              cours_visite: cv,
               session2_cours: s2,
               // La première date sert de repli pour ce qui n'est pas fixé.
               session2_date: s2[0]?.date || null,
               session2_heure: s2[0]?.heure || null,
               session2_local: s2[0]?.local || null })
               .then(ok => ok && setClose(true))}
-            title={complet ? '' : 'La date de délibération est requise, ainsi que '
-              + 'la date, l’heure et le local de visite des copies — ou, à leur '
-              + 'place, la mention qui dit comment les obtenir'}
+            title={complet ? '' : 'La date de délibération est requise, ainsi que, pour chaque cours, '
+              + 'la date et l’heure de visite des copies — ou « sur rendez-vous »'}
             className="bouton bouton-fort">
             {close ? 'Enregistré' : 'Clore la délibération'}
           </button>
@@ -2375,6 +2357,8 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
  *   · dessous, LA BANDE DE DÉCISION : la note d'unité, puis les choix du
  *     Conseil. Le calcul et les gestes n'ont pas changé : seule la mise en page.
  */
+/* Le filet de la grille de délibération : du blanc entre deux cases colorées (11 novembre 2026). */
+const CASE_GRILLE = { border: '2px solid var(--page-fond, #fff)' };
 const VOIR_COURS_S2 = { ouvert: false };
 function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   decision, onDecision, onAnnuler, session, navigation = null }) {
@@ -2388,8 +2372,28 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const acquis = deuxieme
     ? [...(e.acquis || [])].sort((x, y) => String(x.aa_code).localeCompare(String(y.aa_code), 'fr', { numeric: true }))
     : (e.acquis || []);
-  const tousCours = e.cours || [];
-  const cours = tousCours;
+  const cours = e.cours || [];
+  /* LE MÊME TABLEAU POUR TOUS (Charles, 11 novembre 2026 : « pour une session, dans une UE, pour TOUS les
+     étudiants, le tableau a la même dimension ; sinon on fait des erreurs de clic »). Les colonnes sont les cours
+     de TOUTE la feuille, les lignes ses acquis ; ce qu'un étudiant n'a pas (cours dispensé, autre organisation)
+     garde sa place, vide. La logique (justifier, décider) ne lit que les siens. */
+  const parCode = (x, y) => String(x).localeCompare(String(y), 'fr', { numeric: true });
+  const { coursGrille, acquisGrille } = useMemo(() => {
+    const cs = new Map(), as = new Map();
+    for (const x of [e, ...(data.etudiants || [])]) {
+      for (const c of x.cours || []) if (!cs.has(c.cours_code)) cs.set(c.cours_code, c);
+      for (const a of x.acquis || []) if (!as.has(a.aa_code)) as.set(a.aa_code, a);
+    }
+    const propresC = new Map(cours.map(c => [c.cours_code, c]));
+    const propresA = new Map(acquis.map(a => [a.aa_code, a]));
+    return {
+      coursGrille: [...cs.keys()].sort(parCode).map(k => propresC.get(k) || { cours_code: k, cours_nom: cs.get(k).cours_nom,
+        professeurs: cs.get(k).professeurs, poids_cours_affiche: cs.get(k).poids_cours_affiche, horsEtudiant: true }),
+      acquisGrille: [...as.keys()].sort(parCode).map(k => propresA.get(k) || { aa_code: k, description: as.get(k).description,
+        evaluations: [], horsEtudiant: true }),
+    };
+  }, [e, data.etudiants]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tousCours = coursGrille;
   const coursVus = !deuxieme || voirCours ? tousCours : [];
   const caseDe = (a, coursCode) => (a.evaluations || []).find(v => v.cours_code === coursCode) || null;
   const regarde = e.ue?.regarde || { aa: true, cours: true };
@@ -2401,32 +2405,27 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const aJust = aJustifier(acquis, cours, decision);
   const aJustCodes = new Set(aJust.map(a => a.aa_code));
 
-  /* LE BADGE QUI TOURNE (Charles, 13 octobre 2026 : « je clique une fois, il ajourne ; deux fois, il
+  /* (Remplacé le 11 novembre 2026, voir plus bas.) LE BADGE QUI TOURNE (Charles, 13 octobre 2026 : « je clique une fois, il ajourne ; deux fois, il
      ajourne TOUS les AA du cours ; une troisième fois, il annule et revient à la situation initiale »).
      Un cran par clic : rien → les acquis en échec → tout le cours → rien. Un cours sans acquis réussi
      n'a qu'un cran d'ajournement : tout. L'état se lit du serveur (cours ajourné, liste partielle). */
   const etatCours = c => (!c.ajourne_directement ? 0 : (c.aas_a_representer?.length ? 1 : 2));
-  const koDans = (c) => {
-    const evals = acquis.flatMap(a => (a.evaluations || []).filter(v => v.cours_code === c.cours_code)
-      .map(v => ({ ...v, faveur: a.faveur })));
-    const ko = v => !v.faveur && (['PP', 'NP', 'CM'].includes(v.mention) || v.note == null || Number(v.note) < (seuil ?? 10));
-    return { echecs: evals.some(ko), reussis: evals.some(v => !ko(v)) };
-  };
+  /* COURS AJOURNÉ = TOUS SES ACQUIS AJOURNÉS (Charles, 11 novembre 2026 : « la base c'est : cours ajourné,
+     tous les AA ajournés ; en cliquant sur un AA on peut le faire sauter »). Un clic ajourne le cours entier ;
+     un clic sur une note en retire l'acquis (partiel) ; un clic sur le badge partiel remet tout le cours ;
+     un clic sur le cours entier annule. */
   const cycleCours = c => {
     const etat = etatCours(c);
-    if (etat === 0) {
-      const k = koDans(c);
-      onAjuster('cours', c.cours_code, 'ajourne', k.echecs && k.reussis ? 'echec' : 'tous');
-    } else if (etat === 1) onAjuster('cours', c.cours_code, 'ajourne', 'tous');
-    else onAjuster('cours', c.cours_code, null);
+    if (etat === 2) onAjuster('cours', c.cours_code, null);
+    else onAjuster('cours', c.cours_code, 'ajourne', 'tous');
   };
-  const LIBELLE_ETAT = ['ajourner', 'échecs', 'tout'];
+  const LIBELLE_ETAT = ['ajourner', 'partiel', 'ajourné'];
   const badgeCours = c => {
     const etat = etatCours(c);
     return (
       <button type="button" disabled={enCours} onClick={ev => { ev.stopPropagation(); cycleCours(c); }}
         title={(c.aas_a_representer ? `Seuls ${c.aas_a_representer.join(', ')} à représenter. ` : '')
-          + ['Ajourner les acquis en échec de ce cours', 'Ajourner tous les acquis du cours', 'Annuler l’ajournement du cours'][etat]}
+          + ['Ajourner le cours : tous ses acquis', 'Remettre tous les acquis du cours', 'Annuler l’ajournement du cours'][etat]}
         className="inline-flex items-center justify-center gap-1 h-[22px] w-[84px] px-1.5 rounded-pastille border text-mention font-semibold select-none"
         style={etat ? { background: 'var(--c-attente)', borderColor: 'var(--c-attente)', color: '#fff' }
           : { background: '#fff', borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-500))' }}>
@@ -2463,9 +2462,12 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
      plein, texte blanc — VERT au-dessus du seuil, ORANGE au seuil tout juste,
      ROUGE (fraise écrasée) sous le seuil ou non acquis. Les couleurs sont
      celles des réglages : réussi, à surveiller, à corriger. */
+  /* LA CASE EST LA COULEUR (Charles, 11 novembre 2026 : « un tableau dont le FOND est de la couleur réussite
+     ou échec, sans badges » — vert, orange, fraise, les couleurs des réglages). Plus de pastille : la note
+     remplit sa case, un filet blanc sépare les cours et les acquis. */
   const rect = (fond, texte, titre) => (
     <span title={titre || undefined} style={{ background: fond }}
-      className="inline-flex items-center justify-center min-w-[62px] h-[22px] px-1.5 rounded-pastille text-white font-semibold tabular-nums">{texte}</span>
+      className="flex items-center justify-center w-full h-[30px] px-1 text-white font-semibold tabular-nums">{texte}</span>
   );
   /* LE NA GARDE SA NOTE (Charles, 9 octobre 2026 : « je ne sais pas dire si
      l'échec est profond »). Ajourné, l'acquis ou le cours n'a plus de cote
@@ -2480,6 +2482,11 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const ent = n => n == null ? n : Math.round(Number(n));
   const sousNA = n => n == null ? 'NA'
     : <>{fmt(ent(n))}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
+  /* UNE FAVEUR PORTE TOUT À 10 (Charles, 11 novembre 2026 : « si je donne une faveur, toutes les notes AA et cours sont mises
+     à 10 ; Lucie garde en mémoire les notes, mais on affiche 10 »). La cote réelle reste au survol. */
+  const dix = (v, titre = 'Octroyé par le Conseil') => rect('var(--c-faveur)', <><IconGift size={11} className="mr-0.5" />{fmt(seuil)}</>,
+    v && (v.note_brute ?? v.note) != null ? `${titre} · cote calculée ${fmt(v.note_brute ?? v.note)}/20` : titre);
+  const faveurUE = !!ue.faveur_ue;
   const note = (v, { na = false, aaNA = false } = {}) => {
     if (absent && v && (v.mention || v.note != null || v.note_brute != null)) na = true;
     if (na) {
@@ -2488,22 +2495,24 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
       return rect(sansAjournement ? 'var(--c-refuse)' : 'var(--c-attente)', v?.mention ? <>{v.mention}<span className="ml-1 text-mention font-normal opacity-90">NA</span></> : sousNA(n),
         n != null ? `Non acquis — à représenter · cote calculée ${fmt(n)}/20` : 'Non acquis — à représenter');
     }
-    if (!v) return <span className="text-slate-300">·</span>;
-    if (v.mention) return rect(v.mention === 'PP' ? 'var(--c-refuse)' : 'var(--c-attente)', v.mention,
+    if (!v) return <span className="flex items-center justify-center h-[30px] text-slate-300">·</span>;
+    // L'ORANGE NE DIT QUE L'AJOURNÉ (Charles, 11 novembre 2026) : une mention non ajournée est un échec, fraise.
+    if (v.mention) return rect('var(--c-refuse)', v.mention,
       v.mention === 'NP' ? 'Note de présence' : v.mention === 'PP' ? 'Pas présenté' : '');
-    if (v.note == null) return <span className="text-slate-300">·</span>;
+    if (v.note == null) return <span className="flex items-center justify-center h-[30px] text-slate-300">·</span>;
     const n = ent(v.note);
     // L'ACQUIS EST AJOURNÉ AU GLOBAL (par un autre cours) : son échec ici fait partie du même
     // ajournement — orange, pas une alerte par cours (« les profs se sont peut-être mis d'accord »).
     if (n < seuil) return rect(aaNA && !sansAjournement ? 'var(--c-attente)' : 'var(--c-refuse)', decidee || aaNA ? sousNA(v.note) : fmt(n),
       aaNA ? `Cote ${fmt(v.note)}/20 — l'acquis est ajourné au global` : decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : `Cote ${fmt(v.note)}/20`);
-    if (n === seuil) return rect('var(--c-attente)', fmt(n), `Au seuil, tout juste · cote ${fmt(v.note)}/20`);
+    // 10, C'EST RÉUSSI : VERT (Charles, 11 novembre 2026 : « le orange est réservé aux AA ou cours ajournés »).
+    if (n === seuil) return rect('var(--c-reussi)', fmt(n), `Au seuil · cote ${fmt(v.note)}/20`);
     return rect('var(--c-reussi)', fmt(n), Number(v.note) !== n ? `Cote ${fmt(v.note)}/20` : undefined);
   };
 
   const bouton = (actif, titre, onClick, onDouble = null) => !sansAjournement && (
     <button disabled={enCours} onClick={onClick} onDoubleClick={onDouble || undefined} title={titre}
-      className={`absolute left-full top-1/2 -translate-y-1/2 ml-1 w-4 h-4 rounded-full inline-flex items-center justify-center border
+      className={`absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full inline-flex items-center justify-center border
         ${actif ? 'text-white' : 'bg-white border-slate-300 text-slate-400 hover:text-iip-blue'}`}
       style={actif ? { background: 'var(--c-attente)', borderColor: 'var(--c-attente)' } : undefined}>
       <IconRepeat size={9} />
@@ -2546,16 +2555,16 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   {coursVus.map(c => (
                     <th key={c.cours_code} className={`w-[112px] px-1.5 py-1 text-center font-normal align-middle ${peutCliquerNote ? 'cursor-pointer select-none hover:bg-slate-50' : ''}`}
                       style={c.ajourne_directement ? { boxShadow: 'inset 0 -3px 0 var(--c-attente)' } : undefined}
-                      onClick={peutCliquerNote ? () => cycleCours(c) : undefined}
+                      onClick={peutCliquerNote && !c.horsEtudiant ? () => cycleCours(c) : undefined}
                       title={[c.cours_nom, c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null,
-                        peutCliquerNote ? 'clic : ajourner les échecs → tout le cours → annuler' : null].filter(Boolean).join(' · ')}>
+                        peutCliquerNote ? 'clic : ajourner tout le cours → annuler ; un clic sur une note retire cet acquis' : null].filter(Boolean).join(' · ')}>
                       <div className="text-slate-700 truncate"><b className="font-semibold">{c.cours_code}</b>
                         {c.poids_cours_affiche != null && <span className="text-slate-400"> · {c.poids_cours_affiche} %</span>}</div>
                       {c.cours_nom && <div className="text-mention text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
                       {c.professeurs && <div className="text-mention text-slate-400 italic truncate">{c.professeurs}</div>}
                     </th>
                   ))}
-                  <th className="w-[84px] px-2 py-1 text-center font-semibold text-slate-700 bg-iip-blue/10"
+                  <th className="w-[84px] px-2 py-1 text-center font-semibold text-slate-700" style={{ borderLeft: '3px solid var(--c-principal)' }}
                     title="La note consolidée de l'acquis : c'est elle qui fait foi">Acquis</th>
                   {/* LE TABLEAU GARDE SA LARGEUR (Charles, 13 octobre 2026 : « si j'ajourne, le tableau se
                       réduit ») : la colonne des motivations est toujours là, vide tant qu'il n'y a pas d'échec. */}
@@ -2577,36 +2586,38 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                 </tr>
               </thead>
               <tbody>
-                {regarde.aa && acquis.map(a => {
+                {regarde.aa && acquisGrille.map(a => {
                   const enCause = aJustCodes.has(a.aa_code);
                   return (
-                    <tr key={a.aa_code} className="border-t border-slate-100 bg-white align-middle">
+                    <tr key={a.aa_code} className={`border-t border-slate-100 bg-white align-middle ${a.horsEtudiant ? 'opacity-50' : ''}`}
+                      title={a.horsEtudiant ? 'Cet acquis ne concerne pas cet étudiant' : undefined}>
                       <td className="px-2.5 py-1 max-w-0" title={a.description || ''}>
                         <div className="truncate"><b className={`font-semibold ${enCause ? '' : 'text-slate-700'}`} style={enCause ? { color: 'var(--c-refuse)' } : undefined}>{a.aa_code}</b>
                           <span className="text-mention text-slate-500"> {a.description || ''}</span></div>
                       </td>
                       {coursVus.map(c => (
-                        <td key={c.cours_code} className="px-1.5 py-1 text-center">
+                        <td key={c.cours_code} className="p-0 text-center" style={CASE_GRILLE}>
                           {/* LA CASE DIT CE COURS-CI (Charles, 9 octobre 2026). Ajourner un
                               cours fait tomber ses acquis AU GLOBAL — on représente le cours
                               entier —, mais la case de ce même acquis dans un AUTRE cours,
                               réussi, restait peinte en échec. Elle ne tombe qu'avec son cours,
                               ou quand l'acquis lui-même est ajourné — et seulement là où ce
                               cours l'évalue : une case vide reste vide. */}
-                          {peutCliquerNote && caseDe(a, c.cours_code) ? (
-                            <button type="button" disabled={enCours} className="rounded hover:ring-2 hover:ring-[color:var(--c-attente)]"
+                          {peutCliquerNote && !faveurUE && !a.faveur && caseDe(a, c.cours_code) ? (
+                            <button type="button" disabled={enCours} className="block w-full hover:opacity-80"
                               title={aaTombeDans(a, c) ? `Retirer ${a.aa_code} de l'ajournement du cours ${c.cours_code}` : `Ajourner ${a.aa_code} dans le cours ${c.cours_code}`}
                               onClick={() => onAACours(c.cours_code, a.aa_code, !aaTombeDans(a, c))}>
                               {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement, aaNA: !!a.na })}
                             </button>
-                          ) : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement), aaNA: !!a.na })}
+                          ) : (faveurUE || a.faveur) && caseDe(a, c.cours_code) ? dix(caseDe(a, c.cours_code))
+                            : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement), aaNA: !!a.na })}
                         </td>
                       ))}
-                      <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
-                        <span className="relative inline-flex align-middle">
-                        {a.faveur ? rect('var(--c-faveur)', <><IconGift size={11} className="mr-0.5" />{fmt(seuil)}</>, 'Octroyé par le Conseil')
+                      <td className="p-0 text-center whitespace-nowrap" style={{ ...CASE_GRILLE, borderLeft: '3px solid var(--c-principal)' }}>
+                        <span className="relative flex w-full">
+                        {(a.faveur || (faveurUE && !a.horsEtudiant)) ? dix(a)
                           : note(a, { na: a.na })}
-                        {bouton(!!a.ajourne_directement, a.ajourne_directement ? "Lever l'ajournement" : 'Ajourner cet acquis — à représenter',
+                        {!a.horsEtudiant && bouton(!!a.ajourne_directement, a.ajourne_directement ? "Lever l'ajournement" : 'Ajourner cet acquis — à représenter',
                           () => onAjuster('aa', a.aa_code, a.ajourne_directement ? null : 'ajourne'))}
                         </span>
                       </td>
@@ -2631,12 +2642,12 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                     Note du cours{!regarde.cours && <span className="font-normal text-slate-400"> · indicative</span>}
                   </td>
                   {coursVus.map(c => (
-                    <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
-                      <span className="relative inline-flex align-middle">
-                      {note(c, { na: c.na })}
+                    <td key={c.cours_code} className={`p-0 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`} style={CASE_GRILLE}>
+                      <span className="relative flex w-full">
+                      {(faveurUE || c.faveur) && !c.horsEtudiant ? dix(c) : note(c, { na: c.na })}
 
                       </span>
-                      {peutCliquerNote && <div className="mt-1">{badgeCours(c)}</div>}
+                      {peutCliquerNote && <div className="py-1" style={c.horsEtudiant ? { visibility: 'hidden' } : undefined}>{badgeCours(c)}</div>}
                       {/* RIEN NE BOUGE AU CLIC (Charles, 13 octobre 2026 : « la ligne descend… avec
                           100 étudiants, tout changement peut générer une erreur ») : la liste des
                           acquis rouverts passe dans la bulle du badge, qui garde une largeur fixe. */}
@@ -2647,7 +2658,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                         </div>)}
                     </td>
                   ))}
-                  <td className="bg-iip-blue/10" />
+                  <td style={{ ...CASE_GRILLE, borderLeft: '3px solid var(--c-principal)' }} />
                   <td className="px-2.5 py-1.5 text-mention text-slate-400">
                     {aJust.length > 0 && "Ce texte est celui de l'annexe 8 (ajournement) ou 9 (refus)."}</td>
                 </tr>
@@ -2668,7 +2679,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
             </span>
             {!lectureSeule() && coursDesOublies.length > 0 && (
               <button className="bouton bouton-fort" disabled={enCours}
-                onClick={() => onLot('cours', coursDesOublies, 'ajourne', 'echec')}>
+                onClick={() => onLot('cours', coursDesOublies, 'ajourne', 'tous')}>
                 Ajourner aussi ({coursDesOublies.join(', ')})
               </button>)}
           </div>
@@ -2777,13 +2788,15 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
 
   if (!ecrire && (a.motif || proposition)) {
     return (
-      <div className="space-y-0.5">
-        {/* Un justificatif par chargé de cours, l'un sous l'autre : les retours à la ligne comptent. */}
-        <div className={`text-xs leading-snug whitespace-pre-line ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
-          {a.motif ? texte : proposition}
+      /* UNE LIGNE, TOUJOURS LA MÊME HAUTEUR (Charles, 11 novembre 2026 : « pour une session, dans une UE, pour TOUS
+         les étudiants, le tableau a la même dimension — sinon on fait des erreurs de clic »). Le texte entier et sa
+         provenance se lisent au survol ; « écrire autre chose » l'ouvre en entier. */
+      <div className="flex items-center gap-2 h-[30px] min-w-0"
+        title={`${a.motif ? texte : proposition}\n— ${a.motif ? provenance : 'proposé par Lucie · pas encore retenu'}`}>
+        <div className={`flex-1 min-w-0 truncate text-xs ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
+          {(a.motif ? texte : proposition).replace(/\s*\n\s*/g, ' · ')}
         </div>
-        <div className="flex items-center gap-2 text-mention">
-          <span className="text-slate-400">{a.motif ? provenance : 'proposé par Lucie · pas encore retenu'}</span>
+        <div className="flex-none flex items-center gap-2 text-mention">
           {!a.motif && (
             <button type="button" disabled={enCours} onClick={() => onMotif(a.aa_code, proposition)}
               className="text-iip-blue underline">reprendre</button>

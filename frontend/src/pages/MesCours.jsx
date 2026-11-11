@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import MotivationsCours from '../components/MotivationsCours.jsx';
 import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard, IconSchool, IconUserOff, IconBriefcase } from '@tabler/icons-react';
@@ -415,7 +416,7 @@ export default function MesCours({ espace = null }) {
                 attestations du congé-éducation payé. */}
             <div className={`${vueEspace === 'presences' ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200`}>
               {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
-              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['carnet', 'Carnet'], ['supports', 'Supports'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
+              {[['fiche', 'Le cours'], ['notes', 'Notes'], ['motivations', 'Motivations'], ['carnet', 'Carnet'], ['supports', 'Supports'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']]
                 .filter(([k]) => !espace || (vueEspace === 'presences' ? k === 'presences' : k !== 'presences')).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
@@ -494,6 +495,8 @@ export default function MesCours({ espace = null }) {
             )}
             {/* LA FICHE DU COURS (3.5.129) : son UE, ses périodes, l'autonomie, l'évaluation, ses acquis et son programme. */}
             {face === 'fiche' && <FicheCours key={ouvert} coursCode={ouvert} annee={annee} sansEntete={!!espace} />}
+            {/* LES MOTIVATIONS APRÈS LA DÉLIBÉRATION (3.5.313) : voir, et écrire celles qui manquent. */}
+            {face === 'motivations' && <MotivationsCours key={ouvert} coursCode={ouvert} annee={annee} />}
             {face === 'supports' && <SupportsCours key={ouvert} coursCode={ouvert} annee={annee} />}
             {face === 'presences' && <PresencesCours key={`${ouvert}|${seanceChoisie || ''}`} coursCode={ouvert} annee={annee} seanceInitiale={seanceChoisie} />}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
@@ -836,6 +839,7 @@ export default function MesCours({ espace = null }) {
         ] : []),
         ...(ouvert && !vueDue ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
+          { key: 'motivations', label: 'Motivations après la délibération', icon: IconMessageCircle, actif: face === 'motivations', onClick: () => setFace('motivations') },
           { key: 'carnet', label: 'Carnet de cotes — tests, travaux', icon: IconNotebook, actif: face === 'carnet', onClick: () => setFace('carnet') },
           { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
           // PAS ENCORE EN SERVICE (Charles, 11 octobre 2026) : grisé, badge « soon », bloqué.
