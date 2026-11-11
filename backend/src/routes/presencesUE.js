@@ -15,6 +15,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { ecrirePresences, MOTIFS_JUSTIFIES, STATUTS_PRESENCE } from '../lib/cep.js';
 import { periodesDI } from '../lib/periodesUE.js';
+import { comparerDatesUE } from '../lib/datesReelles.js';
 import { migrerRegularite, presencesDeLUE, marquerRegularite, uesAvecHoraire, SEUIL_REGULARITE, jalonsChoisis, NOM_DIXIEME } from '../lib/regularite.js';
 
 try { migrerRegularite(); } catch (e) { console.error('[migration] régularité :', e.message); }
@@ -36,6 +37,9 @@ r.get('/ue/:ue', authRequired, EDITEUR, (req, res) => {
     res.json({ annee, ue_num: Number(req.params.ue), titre: x.opts.titre, sous: x.opts.sous, cours: x.opts.cours,
       jalons: x.jalons, choisis, libelles_jalons: Object.fromEntries(choisis.map(j => [j, NOM_DIXIEME(j)])), seuil: SEUIL_REGULARITE, dixieme: x.g.dixieme,
       motifs: MOTIFS_JUSTIFIES, statuts: STATUTS_PRESENCE, aujourdhui: new Date().toISOString().slice(0, 10),
+      // LES DATES DE L'UE FACE À L'HORAIRE PUBLIÉ (3.5.315, Charles : « proposer de changer la date du DOCA, donc l'ouverture de l'UE,
+      // si l'horaire finalement publié commence plus tard ou plus tôt que les dates de l'UE ») : les organisations en écart.
+      dates_horaire: (() => { try { return comparerDatesUE(annee).filter(l => l.ue_num === Number(req.params.ue) && ['ecart', 'sans_dates', 'plusieurs_orgs'].includes(l.statut) && (l.statut !== 'plusieurs_orgs' || l.hors > 0)); } catch { return []; } })(),
       seances: x.g.seances.map(s => ({ id: s.id, date: s.date, heure_debut: s.heure_debut, heure_fin: s.heure_fin,
         cours_code: s.cours_code, sous_groupe: s.sous_groupe, annule: !!s.annule })),
       lignes: x.g.lignes.map(l => ({ etudiant: l.etudiant, cases: l.cases.map(c => ({ statut: c.statut, motif: c.motif, retard: !!c.retard, distance: !!c.distance, code: c.code })),
@@ -180,6 +184,16 @@ r.get('/pilotage', authRequired, EDITEUR, (req, res) => {
       s.ues++; s.reguliers += u.au10.R; s.irreguliers += u.au10.IR; s.pep_estimee += u.pep_estimee || 0;
     }
     const alertes = [];
+    // Les dates de l'UE (DOCA) qui ne suivent pas l'horaire publié : à aligner (3.5.315).
+    try {
+      const ecarts = new Map();
+      for (const l of comparerDatesUE(annee)) if (l.alignable && l.statut === 'ecart') ecarts.set(l.ue_num, l);
+      for (const u of ues) {
+        const l = ecarts.get(u.ue_num);
+        if (l) alertes.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: 'surveiller',
+          texte: `dates de l'UE (${l.date_debut || '—'} → ${l.date_fin || '—'}) ≠ horaire (${l.premiere} → ${l.derniere}) : à aligner` });
+      }
+    } catch { /* le comparatif n'empêche pas le reste */ }
     for (const u of ues) {
       if (u.non_encodees) alertes.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: 'surveiller', texte: `${u.non_encodees} présence(s) non encodée(s) sur des séances tenues` });
       if (u.au10.atteint && u.inscrits && u.au10.IR / u.inscrits > 0.2) alertes.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: 'corriger', texte: `${u.au10.IR} irrégulier(s) sur ${u.inscrits} au 1er dixième` });

@@ -2529,6 +2529,15 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
       <div className="col-span-2 sticky top-0 z-20 -mx-1 px-1 pb-1 border-b border-slate-200"
         style={{ background: 'var(--page-fond, #fff)' }}>
         {typeof navigation === 'function' ? navigation(tuile) : navigation}
+        {/* LES BOUTONS DU CONSEIL EN HAUT, SOUS LA NOTE DE L'UNITÉ (3.5.316, Charles, 11 novembre 2026 : « plus logique de mettre ces
+            boutons en haut, à côté de la note UE »). Ils étaient collés en bas de l'écran. */}
+        {!lectureSeule() && (
+          <div className="pt-1">
+            <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
+              decision={decision} onDecision={onDecision} enCours={enCours}
+              onAnnuler={onAnnuler} session={session} partie="boutons"
+              onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
+          </div>)}
       </div>
       <Thermometre pc={e.parcours_complet} ueNum={ue.ue_num} onBord={onBord} />
 
@@ -2698,15 +2707,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
           style={{ background: 'var(--page-fond, #fff)' }}>
           Lecture seule : les décisions du Conseil s'encodent par le secrétariat et la direction.
         </div>
-      ) : (
-      <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 py-1.5 border-t border-slate-200"
-        style={{ background: 'var(--page-fond, #fff)' }}>
-        <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
-          decision={decision} onDecision={onDecision} enCours={enCours}
-          onAnnuler={onAnnuler} session={session} partie="boutons"
-          onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
-      </div>
-      )}
+      ) : null}
     </div>
   );
 }
