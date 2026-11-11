@@ -3378,6 +3378,11 @@ le 01/09 ; si le 01/09 tombe un lundi, le lundi qui précède » ; tranché : 20
 lib/agendaEcole.js, pages/TempsTravail.jsx — trois copies, une règle) = lundi de la rentrée − 7 jours ; remplace « le premier lundi à partir du
 15 août » (3.5.063). 52 semaines ; `recalerAnnees` déplace au démarrage les semaines d'une année préparée avant.
 
+**LES PIÈCES PAPIER, UN COUP DE NEUF** (3.5.336, Charles, 11 novembre 2026 : « un peu vieillies ; intégrer le logo de l'IIP ; jouer sur
+nos codes couleurs en fonction de ce qui est dit » ; tranché : toutes les pièces). `enteteDocument` (lib/document.js) : logo
+(`logoCourant`) dans l'identité, filet `.doc-tri` aux couleurs du logo, trait du titre et `.doc-nature` à la couleur de `tonDocument`
+(lue sur la nature/le titre : faveur, refus, ajournement, réussite ; sinon le principal — couleurs des réglages). Option `nature`, `ton`.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

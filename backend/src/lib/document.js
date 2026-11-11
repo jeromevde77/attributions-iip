@@ -19,6 +19,7 @@ import { piedDocument } from '../routes/parametres.js';
 import { identiteEtablissement } from '../routes/config.js';
 import db from '../db/index.js';
 import { logoCourant } from './identite.js';
+import { couleurs } from './couleurs.js';
 
 // ── RÈGLE UNIQUE DU PIED DE PAGE ─────────────────────────────────────────────
 // Une seule réserve, pour TOUS les documents, comme le pied d'un Word : les
@@ -265,6 +266,21 @@ export function stylesEntete() {
      13 pt et la pièce à 15 se lisaient comme deux en-têtes différents. */
   .doc-ligne .doc-ident-n, .doc-ligne .doc-cadre-t { font-size: 14pt; line-height: 1.1; }
   .doc-ligne .doc-ident-a, .doc-ligne .doc-cadre-s { font-size: 8pt; margin-top: 1.2mm; }
+  /* LE COUP DE NEUF (3.5.336, Charles, 11 novembre 2026 : « nos mises en page papier un peu vieillies ; intégrer le logo de l'IIP ;
+     jouer sur nos codes couleurs en fonction de ce qui est dit »). Le logo ouvre l'identité ; un filet aux trois couleurs du logo
+     (bleu, cyan, or) remplace le filet gris ; la nature de la pièce s'écrit en petites capitales dans la couleur de ce qu'elle dit
+     (vert réussite, orange ajournement, fraise refus, violet faveur, bleu de la maison sinon), et le trait qui porte le titre
+     prend la même couleur. */
+  .doc-ident-c { border-bottom: 0; align-items: center; }
+  .doc-ident-g { display: flex; align-items: center; gap: 4mm; min-width: 0; }
+  .doc-ident-logo { height: 13mm; width: auto; flex: none; }
+  .doc-tri { display: flex; height: 0.7mm; margin-top: 1mm; }
+  .doc-tri i { flex: 1; }
+  .doc-cadre { border-left-color: var(--doc-ton, #16406A); }
+  .doc-nature { font-size: 7pt; letter-spacing: 1.2pt; text-transform: uppercase; font-weight: 700;
+                color: var(--doc-ton, #16406A); margin-bottom: 1mm; }
+  .doc-cadre-t { color: #16406A; }
+  .doc-ident-n { color: #16406A; }
   /* Conservé pour les pièces à forme imposée qui ferment encore d'un filet. */
   .doc-filet-or { height: 0.6mm; background: #C9A84C; margin-top: 2.5mm; }`;
 }
@@ -277,8 +293,18 @@ export function stylesEntete() {
  *   au-dessus, elle se lisait comme un en-tête de l'école, pas comme une
  *   mention de la pièce.
  */
+/** LA COULEUR DE CE QUE DIT LA PIÈCE (3.5.336) : lue sur sa nature, sauf `ton` explicite. */
+export function tonDocument(titre = '', ton = null) {
+  let C = {}; try { C = couleurs(); } catch { /* base minimale */ }
+  const t = String(titre || '').toLowerCase();
+  const cle = ton || (/faveur/.test(t) ? 'faveur' : /refus/.test(t) ? 'refuse' : /ajourn|seconde session|à représenter/.test(t) ? 'attente'
+    : /réussite|reussite|diplôme|diplome|attestation de valorisation|dispense/.test(t) ? 'reussi' : 'principal');
+  const defaut = { faveur: '#6B46C1', refuse: '#E0564F', attente: '#F0922E', reussi: '#4FA64A', principal: '#16406A' };
+  return C[cle] || defaut[cle] || '#16406A';
+}
+
 export function enteteDocument({ titre, sous = null, mention = null,
-                                 ligne = null, compact = false } = {}) {
+                                 ligne = null, compact = false, nature = null, ton = null } = {}) {
   /* DEUX SOURCES POUR UNE MÊME IDENTITÉ, C'EST UNE SOURCE DE MOINS.
    *
    * L'en-tête lisait la table `etablissement` en direct, pendant que toutes les
@@ -315,7 +341,7 @@ export function enteteDocument({ titre, sous = null, mention = null,
    * son en-tête recréerait la neuvième enveloppe qu'on a passé un an à
    * supprimer.
    */
-  if (compact) return `<div class="doc-entete">
+  if (compact) return `<div class="doc-entete" style="--doc-ton:${tonDocument(`${nature || ''} ${titre || ''}`, ton)}">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ligne">
       <img class="doc-ligne-logo" src="${logoCourant()}" alt="Institut Ilya Prigogine">
@@ -331,16 +357,22 @@ export function enteteDocument({ titre, sous = null, mention = null,
     </div>
     ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
   </div>`;
-  return `<div class="doc-entete">
+  const couleurTon = tonDocument(`${nature || ''} ${titre || ''}`, ton);
+  return `<div class="doc-entete" style="--doc-ton:${couleurTon}">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ident-c">
-      <div>
-        <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
-        ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
+      <div class="doc-ident-g">
+        <img class="doc-ident-logo" src="${logoCourant()}" alt="">
+        <div>
+          <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
+          ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
+        </div>
       </div>
       ${refsLignes ? `<div class="doc-ident-r">${refsLignes}</div>` : ''}
     </div>
+    <div class="doc-tri"><i style="background:#19537E"></i><i style="background:#05B7E6"></i><i style="background:#F9B619"></i></div>
     <div class="doc-cadre">
+      ${nature ? `<div class="doc-nature">${esc(nature)}</div>` : ''}
       <div class="doc-cadre-t">${esc(titre)}</div>
       ${sous ? `<div class="doc-cadre-s">${esc(sous)}</div>` : ''}
       ${ligne ? `<div class="doc-cadre-l">${esc(ligne)}</div>` : ''}
