@@ -3283,6 +3283,15 @@ s'enregistre (cas de Mati, jeudi 9 h → 5 h 30) ; la fenêtre de la semaine dit
 d'office sur une autre semaine) : `retoucherSemaine` ne compense plus que sur demande (`compenser: true`, case de la fenêtre de la
 semaine ; le relais des examens la passe) ; sinon la différence va au solde de l'année.
 
+**LA GRILLE DE DÉLIBÉRATION EN CASES COLORÉES, UN COURS AJOURNÉ L'EST ENTIER** (3.5.312, Charles, 11 novembre 2026 : « un tableau
+dont le FOND est de la couleur réussite ou échec, sans badges » ; « cours ajourné : tous les AA ajournés ; en cliquant sur un AA on
+peut le faire sauter » ; « le orange est réservé aux AA ou cours ajournés ; une note à 10, en vert » ; « pour une session, dans une UE,
+pour TOUS les étudiants, le tableau a la même dimension »). `Fiche` de `FeuilleDeliberation.jsx` : `rect` remplit la case
+(`CASE_GRILLE`, filet blanc), vert `--c-reussi` (10 compris), orange `--c-attente` = ajourné seulement, fraise `--c-refuse` = échec
+non ajourné (mentions comprises). `cycleCours` : rien → tout le cours (`mode 'tous'`, partout dans la feuille) → annuler ; un acquis
+retiré d'un cours (clic sur la note) = « partiel », un clic le remet entier. Colonnes et lignes = union des cours et acquis de
+toute la feuille (`coursGrille`, `acquisGrille`, `horsEtudiant` pâli) ; la motivation lue tient sur une ligne (survol = texte entier).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
