@@ -45,6 +45,9 @@ export function teintesSchema() {
     bloquee: { rail: '#C3CAD6', fond: C.fond_indispo || '#F4F5F7', bord: '#E3E6EB', texte: '#7A879E' },
     programme: { rail: fonce(C.disponible, 0.3), fond: C.disponible, bord: C.disponible, texte: '#FFFFFF' },
     echec_double: { rail: fonce(C.refuse || '#9D4A38', 0.3), fond: C.refuse || '#9D4A38', bord: C.refuse || '#9D4A38', texte: '#FFFFFF' },
+    // AJOURNÉE / REFUSÉE CETTE ANNÉE (3.5.326, proposition A) : orange plein ; contour fraise épais sur blanc.
+    ajournee_annee: { rail: fonce(C.attente || '#B45309', 0.3), fond: C.attente || '#B45309', bord: C.attente || '#B45309', texte: '#FFFFFF' },
+    refusee_annee: { rail: C.refuse || '#9D4A38', fond: '#FFFFFF', bord: C.refuse || '#9D4A38', texte: fonce(C.refuse || '#9D4A38', 0.25), epais: 2.5 },
     blocs: { BA1: C.ba1, BA2: C.ba2, BA3: C.ba3 },
     or: C.epreuve || '#C9A84C', faveurHex: C.faveur, reussiHex: C.reussi, incoherence: '#B45309',
   };
@@ -125,7 +128,8 @@ export function schemaSvg(data) {
     if (!p) return '';
     const statut = n.statut === 'acquise' && n.reussite?.faveur ? 'faveur' : n.statut;
     const auProgramme = n.inscrite && statut !== 'acquise' && statut !== 'faveur';
-    let co = n.echec_double ? T.echec_double : auProgramme ? T.programme : (T[statut] || T.bloquee);   // deux refus : rouge plein (3.5.215)
+    let co = n.echec_double ? T.echec_double : n.ajournee_annee ? T.ajournee_annee : n.refusee_annee ? T.refusee_annee
+      : auProgramme ? T.programme : (T[statut] || T.bloquee);   // deux refus : rouge plein (3.5.215)
     if (n.epreuve_integree && !auProgramme) co = { ...co, rail: T.or };
     const aNote = (statut === 'acquise' || statut === 'faveur') && n.reussite;
     const max = (aNote ? 11 : 17) - (n.epreuve_integree ? 2 : 0);
@@ -133,7 +137,7 @@ export function schemaSvg(data) {
     const court = nom.length > max ? nom.slice(0, max - 1) + '…' : nom;
     const xn = p.x + L - (n.determinante ? 15 : 8);
     return `<g>
-      <path d="${boite(p.x, p.y, L, H, 6)}" fill="${co.fond}" stroke="${co.bord}" stroke-width="1"${n.statut === 'sous_reserve' ? ' stroke-dasharray="4 3"' : ''}/>
+      <path d="${boite(p.x, p.y, L, H, 6)}" fill="${co.fond}" stroke="${co.bord}" stroke-width="${co.epais || 1}"${n.statut === 'sous_reserve' ? ' stroke-dasharray="4 3"' : ''}/>
       <rect x="${p.x}" y="${p.y}" width="3.5" height="${H}" fill="${co.rail}"/>
       ${n.determinante ? `<circle cx="${p.x + L}" cy="${p.y}" r="6" fill="#1B2B4B" stroke="#fff" stroke-width="1.1"/><text x="${p.x + L}" y="${p.y + 2.5}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#fff">D</text>` : ''}
       ${n.epreuve_integree ? `<text x="${p.x + L - 5}" y="${p.y + H - 5}" text-anchor="end" font-size="8" fill="${T.or}">★</text>` : ''}
@@ -156,7 +160,8 @@ export function legendeSchemaHtml() {
   const pastille = (co, pointille = false) =>
     `<span style="display:inline-block;width:3.5mm;height:3mm;background:${co.fond};border:0.3mm ${pointille ? 'dashed' : 'solid'} ${co.bord};border-left:0.9mm solid ${co.rail};border-radius:0 0.8mm 0.8mm 0;vertical-align:-0.5mm;margin-right:1.2mm"></span>`;
   const l = [
-    [T.acquise, 'réussie'], [T.faveur, 'réussie par faveur'], [T.programme, 'au programme cette année'], [T.echec_double, 'échouée deux fois'],
+    [T.acquise, 'réussie'], [T.faveur, 'réussie par faveur'], [T.programme, 'au programme cette année'],
+    [T.ajournee_annee, 'ajournée · 2e session'], [T.refusee_annee, 'refusée · à reprendre'], [T.echec_double, 'échouée deux fois'],
     [T.accessible, 'disponible'], [T.sous_reserve, 'disponible sous réserve', true],
     [T.en_attente, 'ajournée, en attente'], [T.bloquee, 'encore indisponible'],
   ];
