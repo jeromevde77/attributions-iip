@@ -84,13 +84,11 @@ r.get('/choix', authRequired, PEUT, (req, res) => {
   res.json({ annees, annee, ues });
 });
 
-r.get('/', authRequired, PEUT, (req, res) => {
-  const ueNum = Number(req.query.ue), annee = String(req.query.annee || '');
-  if (!ueNum) return res.status(400).json({ error: 'ue requise' });
-  if (!anneeReprise(annee)) return res.status(400).json({ error: refusAnnee(annee) });
+/** Une unité : ses sessions, sa structure (cours et acquis), ses inscrits. */
+function lireUE(ueNum, annee, sessionVoulue, etudiant = null) {
   const sessions = aSeconde(ueNum, annee) ? [1, 2] : [1];
-  const session = sessions.includes(Number(req.query.session)) ? Number(req.query.session) : 1;
-  const liste = inscrits(ueNum, annee, Number(req.query.etudiant) || null);
+  const session = sessions.includes(Number(sessionVoulue)) ? Number(sessionVoulue) : 1;
+  const liste = inscrits(ueNum, annee, etudiant);
   const lignes = liste.map(e => ligne(e, ueNum, annee, session));
   // La structure (cours et leurs acquis) se lit du calcul : la même que la délibération.
   let structure = [];
@@ -109,7 +107,24 @@ r.get('/', authRequired, PEUT, (req, res) => {
   } catch { structure = []; }
   const ue_nom = db.prepare(`SELECT ue_nom FROM ue WHERE ue_num = ? AND ue_nom IS NOT NULL ORDER BY (annee_scolaire = ?) DESC LIMIT 1`)
     .get(ueNum, annee)?.ue_nom || '';
-  res.json({ ue_num: ueNum, ue_nom, annee, sessions, session, structure, etudiants: lignes });
+  return { ue_num: ueNum, ue_nom, annee, sessions, session, structure, etudiants: lignes };
+}
+
+r.get('/', authRequired, PEUT, (req, res) => {
+  const ueNum = Number(req.query.ue), annee = String(req.query.annee || '');
+  if (!ueNum) return res.status(400).json({ error: 'ue requise' });
+  if (!anneeReprise(annee)) return res.status(400).json({ error: refusAnnee(annee) });
+  res.json(lireUE(ueNum, annee, req.query.session, Number(req.query.etudiant) || null));
+});
+
+/* PLUSIEURS UE D'UN COUP (3.5.317, le secrétariat : « choisir plusieurs UE ; alors plus le détail des AA ni des cours d'emblée — des
+   volets, comme dans Inscrits par unité »). Une lecture par unité ; l'écran replie chacune en trois colonnes et ouvre son volet. */
+r.get('/plusieurs', authRequired, PEUT, (req, res) => {
+  const annee = String(req.query.annee || '');
+  if (!anneeReprise(annee)) return res.status(400).json({ error: refusAnnee(annee) });
+  const ues = String(req.query.ues || '').split(',').map(Number).filter(Boolean).slice(0, 20);
+  if (!ues.length) return res.status(400).json({ error: 'au moins une unité' });
+  res.json({ annee, ues: ues.map(u => lireUE(u, annee, req.query.session)) });
 });
 
 /** Une note d'acquis dans un cours, sous sa session : la forme que la délibération lit d'abord (« s1|cours|aa »). */

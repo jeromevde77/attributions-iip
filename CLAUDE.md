@@ -3320,6 +3320,11 @@ dernière session close, `coteEtudiant` (NA sous 10), faveur = 10, `a_represente
 visite (`visitesParCours`) ; année active seulement ; colonne `resultat.detail` du portail ; `DetailResultat` d'`EspaceEtudiant.jsx`.
 `Fiche` de la délibération : `Decision partie="boutons"` dans l'en-tête collant, sous la navigation.
 
+**CORRIGER UNE UE : PLUSIEURS UE, EN VOLETS** (3.5.317, le secrétariat par Charles, 11 novembre 2026 : « choisir plusieurs UE ;
+alors plus le détail des AA ni des cours d'emblée — des volets, comme dans Inscrits par unité »). `GET /api/correction-ue/plusieurs`
+(`lireUE` par unité, 20 au plus) ; `CorrectionUE.jsx` : unités cochées dans un panneau, une colonne repliée par unité (calc., note,
+décision), clic sur l'en-tête = volet des cours et acquis ; une seule unité s'ouvre d'office.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
