@@ -21,6 +21,7 @@
 // numérateur ET du dénominateur : il ne pénalise pas l'étudiant.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { delaisSessions } from '../lib/delaisSessions.js';
 import { niveauxEffectifs } from './capitalisation.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -6689,7 +6690,7 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
       ORDER BY ${k}_visite_date, ${k}_visite_heure LIMIT 1`).get(annee, ueNum) || null;
   } catch { visite_calendrier = null; }
   res.json({ ue_num: ueNum, annee, session, organisation: org,
-             seance, membres, session2, cours_visite, quorum, visite_calendrier,
+             seance, membres, session2, cours_visite, quorum, visite_calendrier, delais: delaisSessions(),
              // Les titres auxquels on siège, pour que l'écran n'invente pas sa
              // propre liste et que la voix suive le décret des deux côtés.
              categories: CATEGORIES_MEMBRE,

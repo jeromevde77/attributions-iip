@@ -891,6 +891,15 @@ try {
     ['session.delib1_vc1_cal',           '3',                               'Jours calendrier entre délib. EV1 et VC EV1',           null, 'session'],
     ['session.ev1_delib1_cal',           '5',                               'Jours calendrier entre EV1 et délib. EV1',              null, 'session'],
     ['session.cours_ev1_cal',            '7',                               'Jours calendrier entre dernier cours et EV1',           null, 'session'],
+    /* LES DÉLAIS DES PROCÉDURES DE L'IIP, PAR UE (3.5.338, Charles : « cela ne respecte pas nos procédures » ; tranché : remplacer la
+       chaîne rétroactive par les délais des procédures, comptés depuis la délibération de chaque UE). Lucie PROPOSE les dates à la
+       clôture et AVERTIT quand une date posée les enfreint (lib/delaisSessions.js). */
+    ['session.p_visite_apres_delib',     '1',  'Visite des copies : jours après la délibération (Procédure examens : J+1)',                 null, 'session'],
+    ['session.p_visite_max_publication', '3',  'Visite des copies : au plus tard, jours après la publication (Procédure examens : J+3)',   null, 'session'],
+    ['session.p_ev2_apres_visite',       '7',  'Seconde session : au moins, jours après la visite des copies (Procédure examens : 7)',     null, 'session'],
+    ['session.p_notes_avant_delib_h',    '48', 'Notes encodées : au plus tard, heures avant la délibération (Procédure examens : 48 h)',   null, 'session'],
+    ['session.p_motifs_avant_delib_h',   '24', 'Motivations des échecs : au plus tard, heures avant la délibération (Procédure examens : 24 h)', null, 'session'],
+    ['session.p_publication_ouvr',       '2',  'Publication des résultats : jours ouvrables après la délibération (Procédure CDE : 2)',     null, 'session'],
     // Mise en page des documents imprimés
     ['miseenpage.entete_logo',           '1', 'Afficher le logo en en-tête',                null, 'mise_en_page'],
     ['miseenpage.pied_etab_nom',         '1', 'Pied de page : nom de l\'établissement',     null, 'mise_en_page'],
@@ -905,6 +914,13 @@ try {
   const _insertParam = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
   const _seedParams = db.transaction(() => { for (const p of _params) _insertParam.run(...p); });
   _seedParams();
+  // L'ANCIENNE CHAÎNE RÉTROACTIVE (dernier jour admin → EV1) QUITTE LE PANNEAU (3.5.338) : elle ne calculait rien (dernier jour vide)
+  // et contredisait l'organisation par UE. Les valeurs restent en base, sous un groupe que l'écran n'affiche pas.
+  try {
+    db.prepare(`UPDATE parametre SET groupe = 'session_ancien' WHERE groupe = 'session' AND cle IN ('session.dernier_jour_admin',
+      'session.recours_jours_ouvr', 'session.delib2_recours_cal', 'session.delib2_duree_cal', 'session.corrections_ev2_cal',
+      'session.vc1_ev2_cal', 'session.delib1_vc1_cal', 'session.ev1_delib1_cal', 'session.cours_ev1_cal')`).run();
+  } catch (e) { console.error('[paramètres] session :', e.message); }
 
   // Seed des locaux (si table vide) — liste IIP/HELB campus
   const _nbLocaux = db.prepare('SELECT COUNT(*) AS n FROM local').get().n;

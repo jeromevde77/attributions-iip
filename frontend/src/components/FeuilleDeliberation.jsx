@@ -21,7 +21,7 @@ import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
 // Le centre commun, ouvert sur l'unité et la session qu'on vient de délibérer.
 import CentreImpressionCentral from './CentreImpressionCentral.jsx';
-import { proposition } from '../lib/defautsSeance.js';
+import { proposition, avertissementsDates } from '../lib/defautsSeance.js';
 
 /**
  * La FEUILLE DE DÉLIBÉRATION — un étudiant à la fois.
@@ -977,7 +977,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onPresences={() => setEtape('presences')}
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
-              coursSession2={seance?.session2 || []} coursVisite={seance?.cours_visite || []}
+              coursSession2={seance?.session2 || []} coursVisite={seance?.cours_visite || []} delais={seance?.delais || null}
               onReprendre={() => setCorrection(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
@@ -2002,7 +2002,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits =
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, visiteCalendrier = null, coursVisite = [], onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
+function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = null, onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
                    coursSession2, quorum, erreur, onPresences }) {
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
@@ -2068,7 +2068,7 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], onClore, o
   useEffect(() => {
     if (!seance || seance.cloturee) return;
     if (seance.date_seance) return;
-    const p = proposition(seance);
+    const p = proposition(seance, new Date(), delais);
     setDateS(d => d || p.date_seance);
     setHeureS(h => h || p.heure_seance);
   }, [seance]);
@@ -2083,7 +2083,7 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], onClore, o
   // `auto` : le remplissage du premier affichage. Il ne pose PAS la visite des copies (3.5.299, Charles : « il ne me demande plus la
   // date de visite des copies ») — elle se demande ; le bouton « Valeurs par défaut » la propose si l'on veut.
   const proposer = (auto = false) => {
-    const p = proposition(seance);
+    const p = proposition(seance, new Date(), delais);
     if (!dateS) setDateS(p.date_seance);
     if (!heureS) setHeureS(p.heure_seance);
     if (!auto) {
@@ -2114,7 +2114,7 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], onClore, o
   // le premier rendu : ses lignes neuves reçoivent le défaut à leur tour.
   useEffect(() => {
     if (seance?.cloturee) return;
-    const p = proposition(seance);
+    const p = proposition(seance, new Date(), delais);
     setS2(l => {
       const par = new Map(l.map(c => [c.cours_code, c]));
       return (coursSession2 || []).map(c => {
@@ -2250,6 +2250,8 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], onClore, o
                       </div>
                     </td>
                     {avecS2 && <td className="px-3 py-1.5">
+                      {(() => { const av = avertissementsDates({ delib: dateS, visite: c.date, ev2: e2 >= 0 ? s2[e2].date : null, rdv: c.rdv }, delais);
+                        return av.length ? <div className="mb-1">{av.map(x => <PastilleEtat key={x} etat="surveiller">{x}</PastilleEtat>)}</div> : null; })()}
                       {e2 >= 0 ? (
                         <div className="flex flex-wrap items-center gap-2">
                           <input type="date" value={s2[e2].date} onChange={ev => majS2(e2, 'date', ev.target.value)} className="controle w-36" />

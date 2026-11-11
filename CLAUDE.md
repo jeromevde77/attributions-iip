@@ -3386,6 +3386,13 @@ nos codes couleurs en fonction de ce qui est dit » ; tranché : toutes les piè
 #0E2A4F, plus de barre verticale ; une étiquette en petites capitales colorée (Réussite, Ajournement, Refus, Faveur, ou `nature`) au-dessus
 d'un titre bleu nuit 16 pt.
 
+**LES RÈGLES DU CALENDRIER SUIVENT LES PROCÉDURES, PAR UE** (3.5.338, Charles : « cela ne respecte pas nos procédures » ; tranché :
+remplacer la chaîne rétroactive par les délais des procédures, depuis la délibération de chaque UE). Paramètres `session.p_*` (server.js ;
+l'ancienne chaîne passe au groupe `session_ancien`, invisible), `lib/delaisSessions.js` (`delaisSessions`, recours =
+`procedures.delai_recours_jours`), servis avec la séance (`delais` de `GET /deliberation/ue/:ue/seance`) ; `proposition(seance, now, delais)`
+et `avertissementsDates` (`lib/defautsSeance.js`) : la clôture propose visite J+1 et EV2 ≥ visite + 7, et signale par cours. **À trancher** :
+« seconde session entre un et quatre mois après la clôture » (procédure recours) contre « 10 jours après la délibération » (procédure examens).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
