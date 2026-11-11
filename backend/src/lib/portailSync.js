@@ -136,6 +136,11 @@ function detailResultat(etudId, ueNum, annee, resultat) {
     const s2 = Object.fromEntries(db.prepare('SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee).map(l => [l.cours_code, l]));
     const visites = visitesParCours(ueNum, annee, session);
     const representer = new Map((resultat === 'ajourne' ? (d.ue?.a_representer_detail || []) : []).map(x => [x.cours_code, x.aas || []]));
+    // LA MOTIVATION DE L'ÉCHEC, ACQUIS PAR ACQUIS (3.5.325, Charles : « le justificatif de l'échec par AA, en cliquant encore ») :
+    // celle qui est AU DOSSIER (`decision_motivation`, écrite à la clôture) — jamais une proposition de Lucie restée sans suite.
+    const motifs = ['ajourne', 'refuse'].includes(resultat) ? Object.fromEntries(db.prepare(`SELECT aa_code, motif FROM decision_motivation
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND motif IS NOT NULL AND trim(motif) <> ''`).all(etudId, annee, ueNum)
+      .map(m => [m.aa_code, m.motif])) : {};
     v = {
       session, faveur,
       cours: (d.cours || []).map(c => {
@@ -145,7 +150,8 @@ function detailResultat(etudId, ueNum, annee, resultat) {
           code: c.cours_code, nom: c.cours_nom || '', note: cote(c.note, c.na || (c.mention && !faveur)),
           acquis: (d.acquis || []).filter(a => (a.evaluations || []).some(x => x.cours_code === c.cours_code)).map(a => {
             const x = a.evaluations.find(y => y.cours_code === c.cours_code);
-            return { code: a.aa_code, libelle: a.description || '', note: cote(x.note, !!x.ajourne || !!a.ajourne_directement || !!x.mention) };
+            const note = cote(x.note, !!x.ajourne || !!a.ajourne_directement || !!x.mention);
+            return { code: a.aa_code, libelle: a.description || '', note, motif: note === 'NA' ? (motifs[a.aa_code] || null) : null };
           }),
           a_representer: representer.get(c.cours_code) || null,
           examen: representer.has(c.cours_code) && l2?.s2_date ? { date: l2.s2_date, heure: l2.s2_heure || null, local: l2.s2_local || null } : null,
