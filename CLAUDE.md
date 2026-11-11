@@ -3300,6 +3300,13 @@ inscrits ajournés ou refusés (`etudiant_inscription.resultat`) dont la séance
 il n'y a rien (source `enseignant`) ; notification `motivation_completee` au secrétariat et à la direction adjointe
 (`ROLES_PREVENUS`). **Une faveur affiche 10 partout** dans la feuille (`dix()`, violet, cote calculée au survol).
 
+**LA CLÔTURE COURS PAR COURS : VISITE DES COPIES OU RENDEZ-VOUS, ET SECONDE SESSION** (3.5.314, Charles, 11 novembre 2026 : « en
+face de chaque code cours, date visite copie, examen S2… ou visite copie sur RDV, case à cocher, contacter le professeur — alors la
+date ne doit pas être notée »). `Cloture` (`FeuilleDeliberation.jsx`) : un tableau par cours (`cours_visite` de `GET
+/deliberation/ue/:ue/seance`, `visitesParCours` d'`acquis.js`), écrit au calendrier des sessions (`epreuve_session1.s1_visite_*`,
+`deliberation_session2.s2_visite_*`, colonnes `*_visite_rdv` ajoutées par `calendrier.js`) ; complet = chaque cours daté ou sur
+rendez-vous. `documentMotivation` liste la visite cours par cours (`visiteCoursDoc`) dès qu'un cours en porte une.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

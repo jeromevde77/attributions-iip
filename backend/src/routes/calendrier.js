@@ -76,6 +76,11 @@ const r = express.Router();
         try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`); } catch { /* déjà là */ }
       }
     }
+    // LA VISITE SUR RENDEZ-VOUS (3.5.314, Charles, 11 novembre 2026 : « visite copie sur RDV, case à cocher, contacter le
+    // professeur — alors la date ne doit pas être notée »). Cochée, la date du cours n'est ni demandée ni imprimée.
+    for (const [t, c] of [['epreuve_session1', 's1_visite_rdv'], ['deliberation_session2', 's2_visite_rdv']]) {
+      try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} INTEGER DEFAULT 0`); } catch { /* déjà là */ }
+    }
   } catch (e) { console.error('[migration] calendrier :', e.message); }
 })();
 

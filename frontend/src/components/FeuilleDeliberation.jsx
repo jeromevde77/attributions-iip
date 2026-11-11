@@ -977,7 +977,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onPresences={() => setEtape('presences')}
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
-              coursSession2={seance?.session2 || []}
+              coursSession2={seance?.session2 || []} coursVisite={seance?.cours_visite || []}
               onReprendre={() => setCorrection(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
@@ -2002,7 +2002,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits =
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
+function Cloture({ seance, visiteCalendrier = null, coursVisite = [], onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
                    coursSession2, quorum, erreur, onPresences }) {
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
@@ -2036,13 +2036,24 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
   const reporterPartout = () => setS2(l => l.length ? l.map(c => ({
     ...c, date: l[0].date, heure: l[0].heure, local: l[0].local })) : l);
   const [close, setClose] = useState(!!seance?.cloturee);
+  // LA VISITE PAR COURS (3.5.314) : du calendrier des sessions ; à défaut, la visite de l'unité (ancienne forme) ou du calendrier.
+  const versLigne = c => ({ cours_code: c.cours_code, cours_nom: c.cours_nom, rdv: !!c.rdv,
+    date: c.date || (c.rdv ? '' : date), heure: c.heure || (c.rdv ? '' : heure), local: c.local || (c.rdv ? '' : local) });
+  const [cv, setCv] = useState(() => (coursVisite || []).map(versLigne));
+  useEffect(() => {
+    setCv(l => { const par = new Map(l.map(c => [c.cours_code, c])); return (coursVisite || []).map(c => par.get(c.cours_code) || versLigne(c)); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coursVisite]);
+  const majCv = (i, champ, v) => setCv(l => l.map((c, k) => k === i ? { ...c, [champ]: v } : c));
+  const avecS2 = ajournes > 0 && !!s2.length;
+  const visitesCompletes = !!mention || (cv.length ? cv.every(c => c.rdv || (c.date && c.heure)) : !!(date && heure && local.trim()));
   /* DEUX FORMES DE VISITE, UNE SEULE RÈGLE DE COMPLÉTUDE.
      Le panneau cache les trois champs dès qu'une mention est écrite — mais la
      complétude, elle, continuait de les exiger : la mention rendait donc la
      clôture IMPOSSIBLE, sans rien dire, et sans champ où la débloquer. Ce qui
      est demandé, c'est de dire à l'étudiant comment exercer son droit : une
      plage OU une mention y suffit. */
-  const complet = dateS && (mention || (date && heure && local.trim()));
+  const complet = dateS && visitesCompletes;
 
   // LA DATE SE POSE SEULE — et elle ne s'écrase jamais.
   //
@@ -2079,6 +2090,7 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
       if (!date) setDate(p.visite_date);
       if (!heure) setHeure(p.visite_heure);
       if (!local.trim()) setLocal(p.visite_local);
+      setCv(l => l.map(c => (c.rdv ? c : { ...c, date: c.date || p.visite_date, heure: c.heure || p.visite_heure, local: c.local || p.visite_local })));
     }
     setS2(l => l.map(c => ({
       ...c,
@@ -2148,7 +2160,7 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
         </div>
       )}
 
-      <div className="carte bg-white p-4 space-y-3 h-full">
+      <div className="carte bg-white p-4 space-y-3 h-full lg:col-span-2">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-iip-blue">Séance du Conseil</div>
@@ -2185,108 +2197,76 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
         </div>
       </div>
 
-      <div className="carte bg-white p-4 space-y-3 h-full">
-        <div>
-          <div className="text-sm font-semibold text-iip-blue">Visite des copies</div>
-          <p className="text-second text-slate-500">
-            L'étudiant a le droit de consulter sa copie. La date, l'heure et le
-            local figurent sur la notification qui lui est remise.
-          </p>
-          {!mention && !(date && heure && local.trim()) && (
-            <p className="text-second font-semibold m-0 mt-1" style={{ color: 'var(--c-attente)' }}>
-              À poser avant de clore : date, heure et local de la visite{visiteCalendrier ? '' : ' (le calendrier des sessions n’en porte pas pour cette unité)'}.
-            </p>)}
-          {visiteCalendrier && !seance?.visite_date && (
-            <p className="text-mention text-slate-500 m-0 mt-1">Reprise du calendrier des sessions.</p>)}
-        </div>
-        {/* GRISER PLUTÔT QUE CACHER. Les trois champs disparaissaient dès
-            qu'une mention existait : l'écran devenait incompréhensible — on ne
-            voyait plus ce qui était remplacé, ni pourquoi. Grisés, ils disent
-            à la fois qu'ils existent, qu'ils sont sans effet, et ce qui les
-            neutralise. */}
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-second text-slate-600">
-            Date
-            <input type="date" value={date} disabled={!!mention}
-              onChange={e => setDate(e.target.value)}
-              className="w-full mt-0.5 controle" />
-          </label>
-          <label className="text-second text-slate-600">
-            Heure
-            <input type="time" value={heure} disabled={!!mention}
-              onChange={e => setHeure(e.target.value)}
-              className="w-full mt-0.5 controle" />
-          </label>
-        </div>
-        <label className="text-second text-slate-600 block">
-          Local
-          <input value={local} disabled={!!mention}
-            onChange={e => setLocal(e.target.value)}
-            placeholder="Bâtiment P, local 2.14…"
-            className="w-full mt-0.5 controle" />
-        </label>
-
-        {/* LA MENTION NE SE DÉCIDE PAS ICI. Une délibération se clôt avec ce
-            qu'on lui a donné ; changer la forme de la communication des
-            résultats est une correction administrative — elle se motive, elle
-            s'horodate, et elle a son écran. La clôture ne fait que montrer
-            l'état, sans jamais l'effacer. */}
+      {/* COURS PAR COURS : LA VISITE DES COPIES ET L'EXAMEN DE SECONDE SESSION (3.5.314, Charles, 11 novembre 2026 : « en face de
+          chaque code cours, date visite copie, examen S2… ou visite copie sur RDV, case à cocher, contacter le professeur — alors la
+          date ne doit pas être notée » ; « automatique, et à corriger »). Les dates viennent du calendrier des sessions et s'y
+          réécrivent ; ce qui manque se pose ici. La notification (annexes 8 et 9) les reprend cours par cours. */}
+      <div className="carte lg:col-span-2 overflow-hidden">
+        <EnteteCarte titre={avecS2 ? 'Visite des copies et seconde session, cours par cours' : 'Visite des copies, cours par cours'}
+          sous={`Repris du calendrier des sessions, modifiable. Une visite sur rendez-vous n’a pas de date : l’étudiant contacte le professeur.${
+            avecS2 ? ` ${ajournes} étudiant(s) ajourné(s) : chaque cours a sa date d’examen.` : ''}`} />
         {!!mention && (
-          <div className="carte px-3 py-2">
-            <div className="text-second text-slate-700">{mention}</div>
-            <div className="text-xs text-slate-500 mt-1">
-              Une mention administrative tient lieu de plage de consultation :
-              c'est elle qui figurera sur la notification et au procès-verbal.
-              Elle se modifie depuis <b>Corriger</b>.
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* La seconde session, cours par cours, portée par l'annexe 8. */}
-      {ajournes > 0 && !!s2.length && (
-        <div data-etat="surveiller" className="bloc-etat lg:col-span-2 p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Seconde session</div>
-              <p className="text-second text-slate-700">
-                {ajournes} étudiant(s) ajourné(s). Chaque cours a sa date : elle
-                figure en regard du cours sur la notification (annexe 8).
-              </p>
-            </div>
-            {s2.length > 1 && (
-              <button onClick={reporterPartout} disabled={enCours || !s2[0].date}
-                title="Reporter la date, l'heure et le local du premier cours sur tous les autres"
-                className="flex-none bouton bouton-compact">
-                Même date pour tous
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            {s2.map((c, i) => (
-              <div key={c.cours_code} className="flex items-center gap-2">
-                <span className="w-32 flex-none min-w-0">
-                  <span className="block font-mono text-second font-bold text-slate-700">
-                    {c.cours_code}
-                  </span>
-                  <span className="block text-mention text-slate-500 truncate"
-                    title={c.cours_nom || ''}>{c.cours_nom || ''}</span>
-                </span>
-                <input type="date" value={c.date}
-                  onChange={e => majS2(i, 'date', e.target.value)}
-                  className="controle w-36" />
-                <input type="time" value={c.heure}
-                  onChange={e => majS2(i, 'heure', e.target.value)}
-                  className="controle w-24" />
-                <input value={c.local} placeholder="local…"
-                  onChange={e => majS2(i, 'local', e.target.value)}
-                  className="flex-1 controle" />
-              </div>
-            ))}
-          </div>
+          <div className="px-4 py-2 text-second text-slate-600 border-b border-slate-100">
+            Mention administrative : <b>{mention}</b> <span className="text-slate-400">(se modifie depuis « Corriger »)</span>
+          </div>)}
+        <div className="overflow-x-auto">
+          <table className="w-full text-second">
+            <thead><tr className="text-left">
+              <th className="px-3 py-1.5 font-semibold w-[22%]">Cours</th>
+              <th className="px-3 py-1.5 font-semibold">Visite des copies
+                <span className="ml-2 font-normal">
+                  {cv.length > 1 && <button type="button" className="underline text-iip-blue mr-2" disabled={enCours || !cv[0] || (!cv[0].rdv && !cv[0].date)}
+                    onClick={() => setCv(l => l.map(c => ({ ...c, rdv: l[0].rdv, date: l[0].date, heure: l[0].heure, local: l[0].local })))}>même visite pour tous</button>}
+                  <button type="button" className="underline text-iip-blue" disabled={enCours}
+                    onClick={() => setCv(l => l.map(c => ({ ...c, rdv: true })))}>tous sur rendez-vous</button>
+                </span></th>
+              {avecS2 && <th className="px-3 py-1.5 font-semibold">Examen de seconde session
+                {s2.length > 1 && <button type="button" onClick={reporterPartout} disabled={enCours || !s2[0].date}
+                  className="ml-2 font-normal underline text-iip-blue">même date pour tous</button>}</th>}
+            </tr></thead>
+            <tbody>
+              {cv.map((c, i) => {
+                const e2 = s2.findIndex(x => x.cours_code === c.cours_code);
+                const manque = !mention && !c.rdv && !(c.date && c.heure);
+                return (
+                  <tr key={c.cours_code} className="border-t border-slate-100 align-middle">
+                    <td className="px-3 py-1.5">
+                      <span className="block font-mono font-bold text-slate-700">{c.cours_code}</span>
+                      <span className="block text-mention text-slate-500 truncate max-w-[16rem]" title={c.cours_nom || ''}>{c.cours_nom || ''}</span>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                          <input type="checkbox" checked={!!c.rdv} onChange={ev => majCv(i, 'rdv', ev.target.checked)} />
+                          sur rendez-vous
+                        </label>
+                        {c.rdv ? <span className="text-slate-500">contacter le professeur</span> : (<>
+                          <input type="date" value={c.date || ''} onChange={ev => majCv(i, 'date', ev.target.value)} className="controle w-36"
+                            style={manque ? { borderColor: 'var(--c-attente)' } : undefined} />
+                          <input type="time" value={c.heure || ''} onChange={ev => majCv(i, 'heure', ev.target.value)} className="controle w-24"
+                            style={manque ? { borderColor: 'var(--c-attente)' } : undefined} />
+                          <input value={c.local || ''} placeholder="local…" onChange={ev => majCv(i, 'local', ev.target.value)} className="controle w-28" />
+                        </>)}
+                      </div>
+                    </td>
+                    {avecS2 && <td className="px-3 py-1.5">
+                      {e2 >= 0 ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input type="date" value={s2[e2].date} onChange={ev => majS2(e2, 'date', ev.target.value)} className="controle w-36" />
+                          <input type="time" value={s2[e2].heure} onChange={ev => majS2(e2, 'heure', ev.target.value)} className="controle w-24" />
+                          <input value={s2[e2].local} placeholder="local…" onChange={ev => majS2(e2, 'local', ev.target.value)} className="controle w-28" />
+                        </div>) : <span className="text-slate-400">—</span>}
+                    </td>}
+                  </tr>);
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+        {!visitesCompletes && (
+          <p className="px-4 py-2 m-0 text-second font-semibold" style={{ color: 'var(--c-attente)' }}>
+            À poser avant de clore : la date et l’heure de visite de chaque cours, ou « sur rendez-vous ».
+          </p>)}
+      </div>
 
       <div className="lg:col-span-2 flex items-center justify-between gap-2">
         <button onClick={onRetour}
@@ -2306,17 +2286,19 @@ function Cloture({ seance, visiteCalendrier = null, onClore, onRetour, onPV, onR
           <button disabled={enCours || !complet} onClick={() => onClore({
             publie_le: publieLe || null,
               date_seance: dateS, heure_seance: heureS || null,
-              visite_date: date, visite_heure: heure, visite_local: local.trim(),
+              // L'unité garde, pour les pièces d'avant, la première visite datée des cours.
+              visite_date: cv.find(c => !c.rdv && c.date)?.date || date, visite_heure: cv.find(c => !c.rdv && c.date)?.heure || heure,
+              visite_local: (cv.find(c => !c.rdv && c.date)?.local || local).trim(),
               visite_mention: mention,
+              cours_visite: cv,
               session2_cours: s2,
               // La première date sert de repli pour ce qui n'est pas fixé.
               session2_date: s2[0]?.date || null,
               session2_heure: s2[0]?.heure || null,
               session2_local: s2[0]?.local || null })
               .then(ok => ok && setClose(true))}
-            title={complet ? '' : 'La date de délibération est requise, ainsi que '
-              + 'la date, l’heure et le local de visite des copies — ou, à leur '
-              + 'place, la mention qui dit comment les obtenir'}
+            title={complet ? '' : 'La date de délibération est requise, ainsi que, pour chaque cours, '
+              + 'la date et l’heure de visite des copies — ou « sur rendez-vous »'}
             className="bouton bouton-fort">
             {close ? 'Enregistré' : 'Clore la délibération'}
           </button>
