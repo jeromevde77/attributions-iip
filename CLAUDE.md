@@ -3320,7 +3320,9 @@ dernière session close, `coteEtudiant` (NA sous 10), faveur = 10, `a_represente
 visite (`visitesParCours`) ; année active seulement ; colonne `resultat.detail` du portail. 3.5.320 (Charles : « un volet qui se
 déplie, avec des couleurs ; et la liste des examens à repasser ») : `VoletResultat` sous la ligne (`caseNote` : vert, orange à
 représenter, fraise refus, violet faveur) et `ExamensARepasser` en tête, triés par date. 3.5.327 (« trop de tableaux dans des tableaux ») : plus de carte par cours dans le
-volet — intertitre du cours et sa note, acquis en retrait, filet entre deux cours. 3.5.325 (« le justificatif de l'échec par AA,
+volet — intertitre du cours et sa note, acquis en retrait, filet entre deux cours. 3.5.330 (« pas de lignes plus hautes que d'autres ; … et cliquer ; la note comme une fin de ligne sur fond de couleur ») :
+une ligne de même hauteur par cours et par acquis (`H_LIGNE`, « … »), note = bloc de couleur au bout (`finDeLigne`), un clic ouvre
+la ligne (texte entier, motivation, examen et visite) ; `w-0 min-w-full` garde le volet à la largeur du tableau. 3.5.325 (« le justificatif de l'échec par AA,
 en cliquant encore ») : chaque acquis NA porte `motif` (`decision_motivation`, au dossier seulement) ; « pourquoi ? » le déplie.
 `Fiche` de la délibération : `Decision partie="boutons" compact` sur la ligne de la navigation, à côté de la tuile (3.5.321,
 « tout sur une même ligne ») ; la ligne « Enregistré » = `partie="statut"`, dans le corps.

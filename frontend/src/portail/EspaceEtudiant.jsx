@@ -236,49 +236,60 @@ function caseNote(note, { faveur, representer, refuse, petit = false }) {
     ? <span className={`inline-flex items-center justify-center ${petit ? 'min-w-[3rem] h-5 text-mention' : 'min-w-[3.5rem] h-7'} px-2 rounded-champ text-white font-semibold tabular-nums flex-none`} style={{ background: fond }}>{note}{chiffre ? '/20' : ''}</span>
     : <span className="text-slate-400">{note}</span>;
 }
+/* UNE LIGNE, UNE HAUTEUR (3.5.330, Charles : « pas de lignes plus hautes que d'autres ; "…" et cliquer pour ouvrir le détail ; la note
+   pas dans un badge, mais comme une fin de ligne sur fond de couleur »). Chaque cours et chaque acquis tient sur une ligne de même
+   hauteur, même police ; le texte trop long finit par « … » ; un clic ouvre la ligne (texte entier, motivation). La note est un bloc
+   de couleur au bout de la ligne, de largeur fixe. */
+const H_LIGNE = 'h-10';
+function finDeLigne(note, { faveur, representer, refuse }) {
+  const chiffre = /^\d+$/.test(String(note));
+  const fond = faveur ? 'var(--c-faveur)' : chiffre ? 'var(--c-reussi)' : note === 'NA' ? (refuse && !representer ? 'var(--c-refuse)' : 'var(--c-attente)') : null;
+  return (
+    <span className="flex-none w-20 self-stretch flex items-center justify-center font-semibold tabular-nums text-sm"
+      style={fond ? { background: fond, color: '#fff' } : { background: 'rgb(var(--gris-100))', color: 'rgb(var(--gris-400))' }}>
+      {note}{chiffre ? '/20' : ''}
+    </span>);
+}
 function VoletResultat({ u }) {
   const d = u.detail;
-  const [motifVu, setMotifVu] = useState(null);   // l'acquis dont la motivation est dépliée (3.5.325)
+  const [ouverte, setOuverte] = useState(null);   // la ligne dépliée (texte entier, motivation)
   const refuse = u.etat === 'corriger';
-  /* LÉGER (3.5.327, Charles : « trop de tableaux dans des tableaux ») : pas de carte par cours — le cours en intertitre avec sa note,
-     ses acquis en retrait, un filet entre deux cours. */
+  const ligne = ({ cle, texte, note, fort, retrait, representer, detail }) => {
+    const ouv = ouverte === cle;
+    return (
+      <div key={cle} className="border-t border-slate-100">
+        <button type="button" onClick={() => setOuverte(ouv ? null : cle)}
+          className={`w-full flex items-stretch text-left text-sm ${H_LIGNE} hover:bg-slate-50`}>
+          <span className={`flex-1 min-w-0 flex items-center gap-2 ${retrait ? 'pl-8' : 'pl-4'} pr-3`}>
+            <span className={`truncate ${fort ? 'font-semibold text-iip-texte' : 'text-slate-600'}`}>{texte}</span>
+            {detail?.motif && !ouv && <span className="flex-none text-mention text-iip-blue">pourquoi ?</span>}
+          </span>
+          {finDeLigne(note, { faveur: d.faveur, representer, refuse })}
+        </button>
+        {ouv && (
+          <div className={`${retrait ? 'pl-8' : 'pl-4'} pr-24 pb-2 text-second text-slate-600 space-y-1`}>
+            {texte.length > 90 && <div>{texte}</div>}
+            {detail?.motif && <div className="pl-3 border-l-2 whitespace-pre-line" style={{ borderColor: refuse ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
+              <span className="text-mention text-slate-500">Motivation du Conseil des études — </span>{detail.motif}</div>}
+            {detail?.suite && <div className="text-slate-500">{detail.suite}</div>}
+          </div>)}
+      </div>);
+  };
+  // `w-0 min-w-full` : le volet ne pousse jamais la largeur du tableau (sinon « … » ne coupe rien et la note sort de l'écran).
   return (
-    <div className="pl-4 pr-3 py-2">
-      {d.cours.map((c, k) => {
+    <div className="bg-white w-0 min-w-full">
+      {d.cours.map(c => {
         const rep = c.a_representer;
+        const suite = [rep ? `À représenter : ${rep.length ? rep.join(', ') : 'tout le cours'}${c.examen ? ` — examen le ${dateFr(c.examen.date)}${c.examen.heure ? ` à ${c.examen.heure}` : ''}${c.examen.local ? `, local ${c.examen.local}` : ''}` : ' — date d’examen à venir'}` : null,
+          c.visite ? `Visite des copies : ${c.visite.rdv ? 'sur rendez-vous, contactez le professeur' : `${dateFr(c.visite.date)}${c.visite.heure ? ` à ${c.visite.heure}` : ''}${c.visite.local ? `, local ${c.visite.local}` : ''}`}` : null].filter(Boolean).join(' · ');
         return (
-          <div key={c.code} className={k ? 'border-t border-slate-100 pt-2 mt-2' : ''}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex-1 min-w-0 font-semibold text-sm">{c.code} <span className="font-normal">{c.nom}</span></span>
-              {rep && <PastilleEtat etat="surveiller">à représenter{rep.length ? ` : ${rep.join(', ')}` : ' : tout le cours'}</PastilleEtat>}
-              {caseNote(c.note, { faveur: d.faveur, representer: !!rep, refuse })}
-            </div>
-            {c.acquis.map(a => {
-              const aRep = rep && (!rep.length || rep.includes(a.code));
-              const cle = `${c.code}|${a.code}`;
-              const ouvert = motifVu === cle;
-              return (
-                <div key={a.code} className="pl-3">
-                  <div className={`flex items-center gap-2 py-0.5 text-second ${a.motif ? 'cursor-pointer' : ''}`}
-                    onClick={a.motif ? () => setMotifVu(ouvert ? null : cle) : undefined}>
-                    <span className="flex-1 min-w-0 text-slate-600"><span className="font-semibold text-slate-700">{a.code}</span> {a.libelle}
-                      {a.motif && <span className="ml-1.5 text-mention text-iip-blue underline">{ouvert ? 'masquer' : 'pourquoi ?'}</span>}</span>
-                    {caseNote(a.note, { faveur: d.faveur, representer: aRep, refuse, petit: true })}
-                  </div>
-                  {ouvert && (
-                    <div className="ml-1 mb-1 pl-3 text-second whitespace-pre-line border-l-2" style={{ borderColor: refuse ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
-                      <span className="text-mention text-slate-500">Motivation du Conseil des études — </span>{a.motif}
-                    </div>)}
-                </div>);
-            })}
-            {(rep || c.visite) && (
-              <div className="pl-3 pt-0.5 text-mention text-slate-500">
-                {rep && <>Examen de seconde session : {c.examen ? <b className="text-slate-700">{dateFr(c.examen.date)}{c.examen.heure ? ` à ${c.examen.heure}` : ''}{c.examen.local ? `, local ${c.examen.local}` : ''}</b> : 'date à venir'}{c.visite ? ' · ' : ''}</>}
-                {c.visite && <>Visite des copies : {c.visite.rdv ? 'sur rendez-vous, contactez le professeur' : <>{dateFr(c.visite.date)}{c.visite.heure ? ` à ${c.visite.heure}` : ''}{c.visite.local ? `, local ${c.visite.local}` : ''}</>}</>}
-              </div>)}
+          <div key={c.code}>
+            {ligne({ cle: c.code, texte: `${c.code} ${c.nom}${rep ? ' — à représenter' : ''}`, note: c.note, fort: true, representer: !!rep, detail: { suite } })}
+            {c.acquis.map(a => ligne({ cle: `${c.code}|${a.code}`, texte: `${a.code} ${a.libelle}`, note: a.note, retrait: true,
+              representer: rep && (!rep.length || rep.includes(a.code)), detail: { motif: a.motif } }))}
           </div>);
       })}
-      {d.faveur && <p className="text-xs text-slate-500 mt-2 mb-0">L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.</p>}
+      {d.faveur && <p className="text-xs text-slate-500 px-4 py-2 m-0 border-t border-slate-100">L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.</p>}
     </div>);
 }
 /** Les examens à repasser : tous les cours à représenter de l'année, par date. */
