@@ -3307,6 +3307,12 @@ date ne doit pas être notée »). `Cloture` (`FeuilleDeliberation.jsx`) : un ta
 `deliberation_session2.s2_visite_*`, colonnes `*_visite_rdv` ajoutées par `calendrier.js`) ; complet = chaque cours daté ou sur
 rendez-vous. `documentMotivation` liste la visite cours par cours (`visiteCoursDoc`) dès qu'un cours en porte une.
 
+**PAS DE « NE » AVANT L'INSCRIPTION ; LES DATES DE L'UE SUIVENT L'HORAIRE PUBLIÉ** (3.5.315, Charles, 11 novembre 2026 : « proposer
+de changer la date du DOCA, donc l'ouverture de l'UE, si l'horaire finalement publié commence plus tard ou plus tôt que les dates de
+l'UE »). `donneesGrille` (`lib/grillePresence.js`) : une séance d'avant `date_inscription` sans présence = statut `avant_inscription`,
+case vide, hors compte (et hors `regulariteAuJalon`). `GET /api/presences-ue/ue/:ue` rend `dates_horaire` (`comparerDatesUE`) ;
+`PresencesUE.jsx` propose « Aligner sur l'horaire » (`PUT /annuel/dates-ue`, échéancier recalculé) ; le pilotage l'ajoute aux alertes.
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

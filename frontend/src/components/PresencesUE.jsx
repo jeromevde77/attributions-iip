@@ -173,6 +173,32 @@ export default function PresencesUE({ ueInitiale = null }) {
       {!ue && <p className="text-sm text-slate-500">Choisissez une unité : ses inscrits, toutes ses séances, et la régularité au 1er et au 5e dixième.</p>}
       {ue && !d && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
       {d && !d.seances.length && <Encadre etat="neutre">Cette unité n’a pas de séance à l’horaire.</Encadre>}
+      {/* LES DATES DE L'UE SUIVENT L'HORAIRE PUBLIÉ (3.5.315, Charles : « proposer de changer la date du DOCA si l'horaire finalement
+          publié commence plus tard ou plus tôt que les dates de l'UE »). Les « NE » d'avant l'ouverture viennent souvent de là. */}
+      {d && (d.dates_horaire || []).map(l => (
+        <Encadre key={l.id} etat="surveiller" titre={`Les dates de l’UE ${l.ue_num}${l.nb_orgs > 1 ? ` (org ${l.num_organisation})` : ''} ne suivent pas l’horaire publié`}>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex-1 min-w-0">
+              Dates de l’UE : <b>{frl(l.date_debut)} → {frl(l.date_fin)}</b> · horaire : <b>{frl(l.premiere)} → {frl(l.derniere)}</b>
+              {l.hors > 0 && <> · {l.hors} séance(s) hors des dates</>}.
+              {!l.alignable && ' L’UE a plusieurs organisations : l’alignement se fait dans Organisation → Dates des UE → Comparer à l’horaire réel.'}
+            </span>
+            {l.alignable && (
+              <button type="button" className="bouton bouton-fort" onClick={async () => {
+                if (!(await demander({ titre: 'Aligner les dates de l’UE sur l’horaire',
+                  message: `UE ${l.ue_num} : ouverture ${frl(l.date_debut)} → ${frl(l.premiere)}, fermeture ${frl(l.date_fin)} → ${frl(l.derniere)}.\n\nLe premier dixième et l’échéancier suivront. Continuer ?` }))) return;
+                try {
+                  const r = await fetch('/api/annuel/dates-ue', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                    body: JSON.stringify({ lignes: [{ id: l.id, date_debut: l.premiere, date_fin: l.derniere }] }) });
+                  const j = await r.json().catch(() => ({}));
+                  if (!r.ok) throw new Error(j.error || 'Enregistrement refusé.');
+                  if (!j.en_attente) await fetch('/api/annuel/echeancier/instancier', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ annee }) });
+                  await informer({ message: j.en_attente ? (j.message || 'Demande transmise pour validation.') : 'Dates de l’UE alignées sur l’horaire.' });
+                  charger();
+                } catch (e) { informer({ message: e.message }); }
+              }}>Aligner sur l’horaire</button>)}
+          </div>
+        </Encadre>))}
       {d && d.seances.length > 0 && (
         <div className="carte overflow-auto max-h-[62vh]">
           <table className="text-second border-collapse">

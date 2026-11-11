@@ -81,6 +81,10 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
       // Après l'abandon : un trait continu, plus rien n'est dû.
       if (sortie && x.date > sortie) return { code: '', statut: 'sortie', motif: null };
       const p = pres.get(`${x.id}|${e.id}`);
+      // AVANT SON INSCRIPTION, RIEN N'EST DÛ (3.5.315, Charles, 11 novembre 2026) : pas de « NE » sur une séance donnée avant
+      // que l'étudiant soit inscrit — case vide, hors compte. Une présence encodée quand même reste lue.
+      const inscritLe = info.date_inscription ? String(info.date_inscription).slice(0, 10) : null;
+      if (!p && inscritLe && x.date < inscritLe) return { code: '', statut: 'avant_inscription', motif: null };
       // Une activité dont l'étudiant est dispensé (partiellement) ne lui est pas due : « D », hors compte.
       if (disp && disp.cours.has(x.cours_code)) return { code: x.annule ? '' : CODES.dispense, statut: 'dispense', motif: null };
       if (tenue(x) && p?.statut !== 'non_concerne') {
