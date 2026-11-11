@@ -5,7 +5,7 @@ import ChargementLucie from '../components/ChargementLucie.jsx';
 import { FriseJournee } from '../components/FriseJournee.jsx';
 import QRCode from 'qrcode';
 import { lazy, Suspense } from 'react';
-import { FournisseurRail, ListeEtats, LigneEtat, Encadre, Tableau, TableauEntete, Th, Tr, Td } from '../components/ui.jsx';
+import { FournisseurRail, ListeEtats, LigneEtat, Encadre, Tableau, TableauEntete, Th, Tr, Td, EnteteCarte, PastilleEtat } from '../components/ui.jsx';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { EvaluationsDeliberations } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
@@ -100,8 +100,8 @@ function Entree({ onEntre }) {
     try { const r = await appel('POST', '/lien', { identifiant: ident }); setMsg(r.message); } catch (e) { setErreur(e.message); }
   };
   return (
-    <div className="min-h-screen grid place-items-center px-4" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-carte p-6 space-y-4">
+    <div className="min-h-screen grid place-items-center px-4" style={{ background: 'var(--page-fond)' }}>
+      <div className="w-full max-w-md carte p-6 space-y-4">
         <div className="flex items-center gap-3"><Logo /><div className="text-second text-slate-500">Espace enseignant · Institut Ilya Prigogine</div></div>
         {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
         {vue === 'connexion' && (
@@ -183,13 +183,13 @@ function LireTexte({ vid, onFermer }) {
   return (
     <Volet titre={t?.titre || 'Texte'} sous={t ? `Version ${t.numero}${t.publiee_le ? ` du ${court(t.publiee_le)}` : ''}` : ''} onFermer={onFermer}
       pied={t && (t.confirme_le
-        ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Vous avez confirmé avoir pris connaissance de ce texte le {court(t.confirme_le)}.</span>
+        ? <span className="text-second" style={{ color: 'var(--c-reussi)' }}>Vous avez confirmé avoir pris connaissance de ce texte le {court(t.confirme_le)}.</span>
         : <><span className="flex-1 min-w-0 text-second text-slate-600">La direction vous demande d’en prendre connaissance.</span>
             <button type="button" className="bouton bouton-fort controle" disabled={envoi} onClick={confirmer}>Je confirme avoir pris connaissance</button></>)}>
       {erreur && <Encadre etat="corriger" className="mb-3">{erreur}</Encadre>}
       {!t ? !erreur && <ChargementLucie /> : (
         <div className="space-y-4">
-          <iframe title={t.titre} srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${t.html}`}
+          <iframe title={t.titre} srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#16406A;margin:0;padding:4px}</style>${t.html}`}
             sandbox="" className="w-full border-0" style={{ height: '58vh' }} />
           {t.source_url && <p className="m-0 text-second"><a className="text-iip-blue underline" href={t.source_url} target="_blank" rel="noreferrer">Le texte officiel, en ligne</a></p>}
         </div>)}
@@ -233,7 +233,7 @@ function OuvrirDocument({ d, onFermer }) {
       pied={url && <>
         <a className="bouton controle" href={url} download={d.nom_fichier} target="_blank" rel="noreferrer">Télécharger</a>
         <span className="flex-1" />
-        {etat.accuse_le ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Réception accusée le {court(etat.accuse_le)}</span>
+        {etat.accuse_le ? <span className="text-second" style={{ color: 'var(--c-reussi)' }}>Réception accusée le {court(etat.accuse_le)}</span>
           : <button type="button" className="bouton bouton-fort controle" onClick={accuser}>J’accuse réception de cette pièce</button>}</>}>
       {erreur && <Encadre etat="corriger" className="mb-3">{erreur}</Encadre>}
       {!url ? !erreur && <ChargementLucie /> : (
@@ -253,8 +253,8 @@ function MesDocuments() {
         <ListeEtats>
           {l.map(d => d.sans_copie ? (
             <LigneEtat key={d.envoi_id} etat="indisponible" icone={IconFileText} titre={d.sujet || d.nom_fichier}
-              sous={`envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''}`}
-              droite={<span className="text-second text-slate-500 text-right">copie non conservée par Lucie<span className="block">à redemander au secrétariat</span></span>} />
+              sous={`envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''} · copie non conservée par Lucie, à redemander au secrétariat`}
+              droite={<PastilleEtat etat="neutre">sans copie</PastilleEtat>} />
           ) : (
             <LigneEtat key={d.envoi_id} etat={d.accuse_le ? 'reussi' : 'disponible'} icone={IconFileText} titre={d.sujet || d.nom_fichier}
               sous={`envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''}`} onClick={() => setOuvert(d)}
@@ -283,7 +283,7 @@ function FicheEtudiant({ id, onFermer }) {
                 <div className="font-semibold">{c.nom || c.code} <span className="font-normal text-slate-500">· UE {c.ue_num}{c.groupe ? ` · ${c.groupe}` : ''}</span></div>
                 <div className="text-slate-600 mt-1">Présences : {p.present} présent·e · {p.absent} absent·e · {p.justifie} justifiée(s){p.passees ? ` — sur ${p.passees} séance(s) passée(s)${dus < p.passees ? `, ${p.passees - dus} non encodée(s)` : ''}` : ''}</div>
                 {c.notes.length > 0 ? (
-                  <div className="mt-2 max-w-md"><Tableau dense><tbody>
+                  <div className="mt-2"><Tableau dense><tbody>
                     {c.notes.map((n, i) => <Tr key={i}><Td>{n.evaluation}</Td>
                       <Td align="droite" className="tabular-nums">{n.mention || (n.points != null ? `${String(n.points).replace('.', ',')} / ${n.sur}` : '—')}</Td></Tr>)}
                   </tbody></Tableau></div>) : <div className="text-slate-400 mt-1">Aucune note au carnet.</div>}
@@ -344,10 +344,7 @@ function MesUE() {
       </div>
       {[...t.ues].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num).map(u => (
         <section key={u.ue_num} className="carte overflow-hidden">
-          <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-b border-slate-100">
-            <span className="flex-1 min-w-[16rem] font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
-            <TrainDeLUE u={u} />
-          </div>
+          <EnteteCarte titre={`UE ${u.ue_num} — ${u.ue_nom}`} sous={u.section || null}><TrainDeLUE u={u} /></EnteteCarte>
           {u.cours.map(c => {
             const k = `${u.ue_num}|${c.code}`;
             return (
@@ -355,13 +352,13 @@ function MesUE() {
                 <div className="flex items-center hover:bg-slate-50">
                   <button type="button" className="flex-1 min-w-0 text-left px-4 py-3 flex items-center gap-3" onClick={() => setOuvert(o => ({ ...o, [k]: !o[k] }))}>
                     {ouvert[k] ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                    <span className="flex-1 min-w-0">{c.nom || c.code}</span>
-                    <span className="text-second text-slate-500">{(c.groupes || []).length ? `${c.groupes.length > 1 ? 'groupes' : 'groupe'} ${c.groupes.join(', ')} · ` : ''}{c.etudiants.length} étudiant(s)</span>
+                    <span className="flex-1 min-w-0 truncate">{c.nom || c.code}</span>
+                    <span className="text-second text-slate-500 whitespace-nowrap">{(c.groupes || []).length ? `${c.groupes.length > 1 ? 'groupes' : 'groupe'} ${c.groupes.join(', ')} · ` : ''}{c.etudiants.length} étudiant(s)</span>
                   </button>
                   {/* LA LISTE SUR MESURE (3.5.160, Charles : « le petit avion pour exporter des listes sur mesure ») : colonnes au choix,
                       aperçu, PDF ou Excel — une feuille par groupe. */}
-                  <button type="button" className="mr-3 w-9 h-9 grid place-items-center rounded-champ text-iip-blue hover:bg-white border border-transparent hover:border-slate-200"
-                    title="Exporter une liste sur mesure (PDF ou Excel)" aria-label="Exporter une liste sur mesure" onClick={() => setListe(c.code)}><IconSend size={18} /></button>
+                  <button type="button" className="bouton controle mr-3 shrink-0 inline-flex items-center gap-1.5"
+                    title="Exporter une liste sur mesure (PDF ou Excel)" aria-label="Exporter une liste sur mesure" onClick={() => setListe(c.code)}><IconSend size={16} /><span className="hidden sm:inline">Liste</span></button>
                 </div>
                 {ouvert[k] && <ListeParGroupe etudiants={c.etudiants} onFiche={setFiche} />}
               </div>);
@@ -387,7 +384,7 @@ function BoutonContact({ compact = false }) {
   const Tel = ({ p }) => (p.telephone ? <a className="text-iip-blue underline whitespace-nowrap" href={`tel:${String(p.telephone).replace(/\s+/g, '')}`}>{p.telephone}</a> : <span className="text-slate-400">pas de numéro</span>);
   return (<>
     <button type="button" onClick={() => { charger(); setOuvert(true); }} title={ok ? 'Contacter' : 'Urgence'} className={`shrink-0 min-h-11 md:min-h-9 rounded-carte inline-flex items-center justify-center gap-2 text-sm font-semibold text-white ${compact ? 'md:w-9 md:h-9 md:px-0 px-3' : 'px-3'}`}
-      style={{ background: ok ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-attente, #B45309)' }}>
+      style={{ background: ok ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
       <IconPhone size={17} stroke={1.8} />{!compact && ` ${ok ? 'Contacter' : 'Urgence'}`}
     </button>
     {ouvert && (
@@ -414,17 +411,19 @@ function MonCompte({ moi, onToken }) {
     <div className="space-y-5">
       <h1 className="titre-ecran">Mon compte</h1>
       <p className="m-0 text-slate-600">{String(moi.nom || '').toUpperCase()} {moi.prenom} · {moi.email}</p>
-      <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-        <div className="entete-carte px-4 py-3 font-semibold text-iip-texte inline-flex items-center gap-2 w-full"><IconDevices size={16} /> Mes appareils reconnus ({app?.appareils?.length || 0} sur {app?.max || 3})</div>
-        {(app?.appareils || []).map(a => (
-          <div key={a.id} className="flex items-center gap-3 px-4 py-3 border-t border-slate-100">
-            <span className="flex-1">{a.nom}{a.courant ? ' · cet appareil' : ''} <span className="text-second text-slate-500">· vu le {court(a.vu_le || a.cree_le)}</span></span>
-            <button type="button" className="bouton" aria-label="Oublier cet appareil" onClick={async () => { await appel('POST', `/appareils/${a.id}/oublier`); charger(); }}><IconTrash size={15} /></button>
-          </div>))}
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconDevices} titre={`Mes appareils reconnus (${app?.appareils?.length || 0} sur ${app?.max || 3})`} />
+        {(app?.appareils || []).length > 0 && (
+          <ListeEtats className="!border-0 !rounded-none">
+            {app.appareils.map(a => (
+              <LigneEtat key={a.id} etat={a.courant ? 'disponible' : 'neutre'} icone={IconDevices} titre={a.nom} sous={`vu le ${court(a.vu_le || a.cree_le)}`}
+                meta={a.courant ? <PastilleEtat etat="disponible">cet appareil</PastilleEtat> : null}
+                droite={<button type="button" className="bouton inline-flex items-center gap-1.5" aria-label="Oublier cet appareil" onClick={async () => { await appel('POST', `/appareils/${a.id}/oublier`); charger(); }}><IconTrash size={15} /><span className="hidden sm:inline">Oublier</span></button>} />))}
+          </ListeEtats>)}
       </section>
-      <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-        <div className="entete-carte px-4 py-3 font-semibold text-iip-texte inline-flex items-center gap-2 w-full"><IconLock size={16} /> Mon mot de passe</div>
-        <div className="p-4 text-sm text-slate-600">C’est celui de Lucie (3.5.242) : pour le changer, dans Lucie, le bouclier en haut à droite (Mon compte). Le nouveau vaut ici deux minutes plus tard.</div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconLock} titre="Mon mot de passe" />
+        <div className="px-4 py-3 text-sm text-slate-600">C’est celui de Lucie (3.5.242) : pour le changer, dans Lucie, le bouclier en haut à droite (Mon compte). Le nouveau vaut ici deux minutes plus tard.</div>
       </section>
     </div>
   );
@@ -470,16 +469,18 @@ function MesCoursEspace({ vue, tic, allerA, demande }) {
     </div>);
 }
 
+// Le type d'une date, et l'état qui porte son sens (une pastille de Lucie, jamais une couleur faite main).
 const TYPES_DATE = {
-  examen: ['Examen', 'var(--c-attente, #B45309)'], deliberation: ['Délibération', 'var(--c-principal, #19537E)'],
-  conge: ['Congé', 'rgb(var(--gris-400))'], ferme: ['École fermée', 'rgb(var(--gris-500))'], ferie: ['Férié', 'rgb(var(--gris-400))'],
-  moment: ['École', 'var(--c-disponible, #2F6FB0)'], formation: ['Formation', 'var(--c-reussi, #3E7D5E)'],
+  examen: ['Examen', 'surveiller'], deliberation: ['Délibération', 'disponible'],
+  conge: ['Congé', 'indisponible'], ferme: ['École fermée', 'indisponible'], ferie: ['Férié', 'indisponible'],
+  moment: ['École', 'neutre'], formation: ['Formation', 'reussi'],
 };
 const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 function MesDates({ moi }) {
   const [d, setD] = useState(null);
   const [passees, setPassees] = useState(false);
   const [filtre, setFiltre] = useState('tout');
+  const [detail, setDetail] = useState(null);
   let annee = null; try { annee = localStorage.getItem('annee_active'); } catch { /* */ }
   if (!/^\d{4}-\d{4}$/.test(String(annee || ''))) annee = null;
   useEffect(() => {
@@ -501,16 +502,22 @@ function MesDates({ moi }) {
         <label className="text-second text-slate-600 inline-flex items-center gap-1.5 ml-auto"><input type="checkbox" checked={passees} onChange={e => setPassees(e.target.checked)} /> Montrer les dates passées</label>
       </div>
       {!parMois.length && <p className="text-slate-500">Aucune date à venir{filtre !== 'tout' ? ' dans ce choix' : ''}.</p>}
+      {/* UNE LIGNE PAR DATE, TOUTES DE MÊME HAUTEUR (3.5.199) : le jour et sa pastille, puis l'intitulé sur une ligne (tronqué) ;
+          un clic déplie l'intitulé entier et le lieu. */}
       {parMois.map(g => (
-        <section key={g.k} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-          <div className="entete-carte px-4 py-2 font-semibold text-iip-texte first-letter:uppercase">{MOIS_FR[Number(g.k.slice(5, 7)) - 1]} {g.k.slice(0, 4)}</div>
-          {g.l.map((x, i) => { const [lib, c] = TYPES_DATE[x.type] || ['Date', 'rgb(var(--gris-400))'];
-            return (
-              <div key={i} className={`flex items-start gap-3 px-4 py-2 border-t border-slate-100 ${(x.au || x.date) < auj ? 'opacity-60' : ''}`}>
-                <span className="w-24 shrink-0 tabular-nums text-sm"><b>{jourCourt(x.date)}</b>{x.au ? <span className="text-slate-500"> → {court(x.au)}</span> : null}{x.heure ? <span className="block text-second text-slate-500">{String(x.heure).slice(0, 5)}</span> : null}</span>
-                <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: c }}>{lib}{x.session ? ` S${x.session}` : ''}</span>
-                <span className="flex-1 min-w-0 text-sm">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</span>
-              </div>); })}
+        <section key={g.k} className="carte overflow-hidden">
+          <EnteteCarte titre={<span className="first-letter:uppercase">{MOIS_FR[Number(g.k.slice(5, 7)) - 1]} {g.k.slice(0, 4)}</span>} />
+          <ListeEtats className="!border-0 !rounded-none">
+            {g.l.map((x, i) => { const [lib, etat] = TYPES_DATE[x.type] || ['Date', 'neutre']; const cle = `${g.k}|${i}`;
+              return (
+                <LigneEtat key={i} etat={etat} attenue={(x.au || x.date) < auj}
+                  titre={<span className="tabular-nums">{jourCourt(x.date)}{x.au ? ` → ${court(x.au)}` : ''}{x.heure ? ` · ${String(x.heure).slice(0, 5)}` : ''}</span>}
+                  meta={<PastilleEtat etat={etat}>{lib}{x.session ? ` S${x.session}` : ''}</PastilleEtat>}
+                  sous={`${x.titre || ''}${x.lieu ? ` · ${x.lieu}` : ''}`}
+                  onClick={() => setDetail(v => (v === cle ? null : cle))} ouverte={detail === cle}>
+                  {detail === cle ? <p className="m-0 text-sm">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</p> : null}
+                </LigneEtat>); })}
+          </ListeEtats>
         </section>))}
       <p className="m-0 text-mention text-slate-400">Les examens et les délibérations partent aussi dans l’agenda de votre téléphone (« Dans l’agenda de mon téléphone »).</p>
     </div>);
@@ -521,20 +528,22 @@ function MesDates({ moi }) {
    rangée par sorte d'événement, chaque événement à sa place et à sa durée ; aujourd'hui en trait rouge ; au survol, le détail.
    Sous la ligne, la liste des événements à venir. Les mêmes données que « Mes dates » (les moments de l'agenda de l'école qui
    concernent les enseignants, les congés, les fériés, mes examens et délibérations). */
+// [libellé, filtre, couleur de la barre sur la frise, état de la pastille dans la liste « À venir »]
 const RANGEES_ECOLE = [
-  ['Portes ouvertes', m => m.genre === 'Portes ouvertes', 'var(--c-serie_5)'],
-  ['Inscriptions', m => m.genre === 'Inscriptions' || m.genre === 'Rentrée', 'var(--c-disponible)'],
-  ['Salons', m => m.genre === 'Salon, SIEP', 'var(--c-serie_3)'],
-  ['Examens', m => m.type === 'examen' || m.genre === 'Examens', 'var(--c-attente)'],
-  ['Délibérations', m => m.type === 'deliberation' || m.genre === 'Délibérations', 'var(--c-principal)'],
-  ['Cérémonies', m => m.genre === 'Remise des diplômes' || m.genre === 'Cérémonie', 'var(--c-epreuve, var(--c-serie_4))'],
-  ['Formations, réunions', m => m.type === 'formation' || ['Journée de formation', 'Réunion', 'Conseil', 'Qualité', 'Échéance, document'].includes(m.genre), 'var(--c-reussi)'],
-  ['Congés', m => ['conge', 'ferme', 'ferie'].includes(m.type), 'rgb(var(--gris-400))'],
-  ['Autres', () => true, 'rgb(var(--gris-500))'],
+  ['Portes ouvertes', m => m.genre === 'Portes ouvertes', 'var(--c-serie_5)', 'neutre'],
+  ['Inscriptions', m => m.genre === 'Inscriptions' || m.genre === 'Rentrée', 'var(--c-disponible)', 'disponible'],
+  ['Salons', m => m.genre === 'Salon, SIEP', 'var(--c-serie_3)', 'neutre'],
+  ['Examens', m => m.type === 'examen' || m.genre === 'Examens', 'var(--c-attente)', 'surveiller'],
+  ['Délibérations', m => m.type === 'deliberation' || m.genre === 'Délibérations', 'var(--c-principal)', 'disponible'],
+  ['Cérémonies', m => m.genre === 'Remise des diplômes' || m.genre === 'Cérémonie', 'var(--c-epreuve, var(--c-serie_4))', 'neutre'],
+  ['Formations, réunions', m => m.type === 'formation' || ['Journée de formation', 'Réunion', 'Conseil', 'Qualité', 'Échéance, document'].includes(m.genre), 'var(--c-reussi)', 'reussi'],
+  ['Congés', m => ['conge', 'ferme', 'ferie'].includes(m.type), 'rgb(var(--gris-400))', 'indisponible'],
+  ['Autres', () => true, 'rgb(var(--gris-500))', 'neutre'],
 ];
 function TimelineEcole({ moi, annee }) {
   const [d, setD] = useState(null);
   const [vu, setVu] = useState(null);
+  const [detail, setDetail] = useState(null);
   useEffect(() => {
     fetch(`/api/mes-cours/dates${annee ? `?annee=${encodeURIComponent(annee)}` : ''}`).then(r => (r.ok ? r.json() : { items: [] }))
       .then(setD).catch(() => setD({ items: [] }));
@@ -544,7 +553,7 @@ function TimelineEcole({ moi, annee }) {
   const debut = new Date(Date.UTC(a0, 7, 15)), fin = new Date(Date.UTC(a0 + 1, 7, 15));
   const jours = (fin - debut) / 864e5;
   const pos = iso => Math.max(0, Math.min(100, ((new Date(`${String(iso).slice(0, 10)}T00:00:00Z`) - debut) / 864e5 / jours) * 100));
-  const rangees = RANGEES_ECOLE.map(([l, f, c]) => ({ l, f, c, items: [] }));
+  const rangees = RANGEES_ECOLE.map(([l, f, c, etat]) => ({ l, f, c, etat, items: [] }));
   for (const x of d.items || []) { const r = rangees.find(z => z.f(x)); if (r) r.items.push(x); }
   const visibles = rangees.filter(r => r.items.length);
   const mois = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(a0, 8 + i, 1)));
@@ -553,7 +562,7 @@ function TimelineEcole({ moi, annee }) {
   const aVenir = (d.items || []).filter(x => (x.au || x.date) >= auj && !['ferie'].includes(x.type)).slice(0, 40);
   return (
     <div className="space-y-4">
-      <section className="bg-white border border-slate-200 rounded-carte p-4 overflow-x-auto">
+      <section className="carte px-4 py-3 overflow-x-auto">
         <div className="min-w-[760px]">
           <div className="relative h-6 ml-40 border-b border-slate-200">
             {mois.map(m => <span key={m.toISOString()} className="absolute top-0 text-mention text-slate-500 first-letter:uppercase" style={{ left: `${pos(m.toISOString())}%` }}>{MOIS_FR[m.getUTCMonth()].slice(0, 4)}.</span>)}
@@ -564,7 +573,7 @@ function TimelineEcole({ moi, annee }) {
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.c }} />{r.l}</div>
               <div className="relative flex-1 h-9">
                 {mois.map(m => <span key={m.toISOString()} className="absolute top-0 bottom-0 w-px bg-slate-100" style={{ left: `${pos(m.toISOString())}%` }} />)}
-                {auj >= debut.toISOString().slice(0, 10) && auj < fin.toISOString().slice(0, 10) && <span className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: `${pos(auj)}%`, background: 'var(--c-refuse, #9D4A38)' }} />}
+                {auj >= debut.toISOString().slice(0, 10) && auj < fin.toISOString().slice(0, 10) && <span className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: `${pos(auj)}%`, background: 'var(--c-refuse)' }} />}
                 {r.items.map((x, i) => {
                   const g = pos(x.date), dr = pos(x.au || x.date);
                   return (
@@ -582,16 +591,21 @@ function TimelineEcole({ moi, annee }) {
             : <span className="text-slate-400">Survolez (ou touchez) un événement pour son détail. Le trait rouge, c’est aujourd’hui.</span>}
         </div>
       </section>
-      <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-        <div className="entete-carte px-4 py-2 font-semibold text-iip-texte">À venir</div>
-        {aVenir.map((x, i) => { const r = rangees.find(z => z.f(x));
-          return (
-            <div key={i} className="flex items-start gap-3 px-4 py-2 border-t border-slate-100 text-sm">
-              <span className="w-32 shrink-0 tabular-nums"><b>{dateCourte(x.date)}</b>{x.au && x.au !== x.date ? <span className="text-slate-500"> → {dateCourte(x.au)}</span> : null}</span>
-              <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: r?.c || 'rgb(var(--gris-500))' }}>{r?.l || 'École'}</span>
-              <span className="flex-1 min-w-0">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</span>
-            </div>); })}
-        {!aVenir.length && <p className="px-4 py-3 m-0 text-slate-500">Rien à venir.</p>}
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="À venir" />
+        {aVenir.length > 0 ? (
+          <ListeEtats className="!border-0 !rounded-none">
+            {aVenir.map((x, i) => { const r = rangees.find(z => z.f(x)); const etat = r?.etat || 'neutre';
+              return (
+                <LigneEtat key={i} etat={etat}
+                  titre={<span className="tabular-nums">{dateCourte(x.date)}{x.au && x.au !== x.date ? ` → ${dateCourte(x.au)}` : ''}</span>}
+                  meta={<PastilleEtat etat={etat}>{r?.l || 'École'}</PastilleEtat>}
+                  sous={`${x.titre || ''}${x.lieu ? ` · ${x.lieu}` : ''}`}
+                  onClick={() => setDetail(v => (v === i ? null : i))} ouverte={detail === i}>
+                  {detail === i ? <p className="m-0 text-sm">{x.titre}{x.lieu ? <span className="block text-second text-slate-500">{x.lieu}</span> : null}</p> : null}
+                </LigneEtat>); })}
+          </ListeEtats>)
+          : <p className="px-4 py-3 m-0 text-slate-500">Rien à venir.</p>}
       </section>
     </div>);
 }
@@ -674,11 +688,13 @@ class Garde extends Component {
 /* PROPOSER UNE AMÉLIORATION ET ANNULER MES GESTES (3.5.224, Charles : ce qui manquait à l'espace) : les deux outils de la barre
    du haut de Lucie, au même endroit que la loupe. Les écrans de Lucie, par le relais : même registre des idées, mêmes gestes. */
 const CLASSE_OUTIL = 'w-9 h-9 grid place-items-center rounded-carte border border-slate-200 bg-white hover:shadow-pose';
+// Un outil nommé à l'écran quand la barre a la place (grand écran) ; sur téléphone et tablette, l'icône et son nom pour les lecteurs.
+const CLASSE_OUTIL_NOMME = 'h-9 min-w-9 px-2 lg:px-3 inline-flex items-center justify-center gap-1.5 rounded-carte border border-slate-200 bg-white hover:shadow-pose text-sm whitespace-nowrap';
 function OutilsEspace({ ecran }) {
   const [idees, setIdees] = useState(false);
   return (<>
     <button type="button" onClick={() => setIdees(true)} aria-label="Proposer une amélioration" title="Proposer une amélioration"
-      className={CLASSE_OUTIL} style={{ color: 'var(--menu-icone)' }}><IconBulb size={17} stroke={1.8} /></button>
+      className={CLASSE_OUTIL_NOMME} style={{ color: 'var(--menu-icone)' }}><IconBulb size={17} stroke={1.8} /><span className="hidden lg:inline text-iip-texte">Une idée</span></button>
     <AnnulerGestes classeBouton={CLASSE_OUTIL} taille={17} style={{ color: 'var(--menu-icone)' }} />
     {idees && <Suspense fallback={null}><AmeliorationsLucie ecran={`Espace enseignant — ${ecran}`} onClose={() => setIdees(false)} /></Suspense>}
   </>);
@@ -725,7 +741,7 @@ function RechercheEspace({ faces, onFace, onCours, onAide }) {
   return (
     <>
       <button type="button" onClick={() => setOuvert(true)} aria-label="Rechercher" title="Où aller ? (⌘K)"
-        className="w-9 h-9 grid place-items-center rounded-carte border border-slate-200 bg-white hover:shadow-pose" style={{ color: 'var(--menu-icone)' }}><IconSearch size={17} stroke={1.8} /></button>
+        className={CLASSE_OUTIL_NOMME} style={{ color: 'var(--menu-icone)' }}><IconSearch size={17} stroke={1.8} /><span className="hidden lg:inline text-iip-texte">Rechercher</span></button>
       {ouvert && (
         <div className="fixed inset-0 z-[80] bg-slate-900/30 backdrop-blur-[2px]" onMouseDown={() => setOuvert(false)}>
           <div className="mx-auto mt-[12vh] w-[min(640px,92vw)] bg-white rounded-fenetre shadow-dessus overflow-hidden" onMouseDown={e => e.stopPropagation()}>
@@ -783,9 +799,7 @@ function MesAmenagements() {
       {!blocs.length && <Encadre etat="neutre" titre="Aucun aménagement">Aucun étudiant de vos cours n’a d’aménagement raisonnable accordé cette année.</Encadre>}
       {blocs.map(({ u, c, lignes }) => (
         <section key={`${u.ue_num}-${c.code}`} className="carte overflow-hidden break-inside-avoid">
-          <div className="px-4 py-3 border-b border-slate-100 font-semibold text-iip-texte">
-            {c.nom} <span className="font-normal text-slate-500">· UE {u.ue_num} — {u.ue_nom}{u.section ? ` · ${u.section}` : ''}</span>
-          </div>
+          <EnteteCarte titre={c.nom} sous={`UE ${u.ue_num} — ${u.ue_nom}${u.section ? ` · ${u.section}` : ''}`} />
           <Tableau dense className="!border-0 !rounded-none">
             <TableauEntete><Th>Étudiant</Th><Th>Mesures accordées</Th></TableauEntete>
             <tbody>
@@ -889,8 +903,8 @@ export default function EspaceEnseignant() {
   if (!token) return <>{erreur && <div className="bloc-etat px-3 py-2 text-sm m-4" data-etat="corriger">{erreur}</div>}<Entree onEntre={entrer} /></>;
   if (definir) {
     return (
-      <div className="min-h-screen grid place-items-center px-4" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
-        <div className="w-full max-w-md bg-white border border-slate-200 rounded-carte p-6 space-y-4">
+      <div className="min-h-screen grid place-items-center px-4" style={{ background: 'var(--page-fond)' }}>
+        <div className="w-full max-w-md carte p-6 space-y-4">
           <div className="flex items-center gap-3"><Logo /><div className="font-semibold text-lg text-iip-texte">Choisissez votre mot de passe</div></div>
           <p className="m-0 text-sm text-slate-600">Il ne sert qu’à cet espace : votre mot de passe de Lucie ne change pas.</p>
           <ChoisirMotDePasse onFait={entrer} />
@@ -908,7 +922,7 @@ export default function EspaceEnseignant() {
     onAide={q => { setQuestionAide(q); aller('aide'); }} />;
   const outils = <OutilsEspace ecran={[...FACES, ...FACES_BAS].find(f => f.k === face)?.l || face} />;
   return (
-    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
+    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
       <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto flex items-center gap-2"><BoutonContact />{chercher}{outils}</span></div>
       {/* UN RAIL ÉTROIT QUAND ON TRAVAILLE (3.5.166, Charles : « gagnons de la place ; réduis le menu à un rail étroit une fois
@@ -967,7 +981,7 @@ export default function EspaceEnseignant() {
             orange ») : l'entrée reste visible, l'écran dit qu'il arrive. */}
         {FACE[face]?.bientot ? (
           <div className="space-y-3">
-            <h1 className="titre-ecran flex items-center gap-2">{FACE[face].l} <span className="pastille-etat" style={{ background: 'var(--c-attente)', color: '#fff' }}>bientôt disponible</span></h1>
+            <h1 className="titre-ecran flex items-center gap-2">{FACE[face].l} <PastilleEtat etat="surveiller">bientôt disponible</PastilleEtat></h1>
             <Encadre etat="surveiller">Cet écran arrive bientôt dans votre espace. En attendant, adressez-vous au secrétariat ou à votre coordination.</Encadre>
           </div>)
         : !seance && (face === 'etudiants' ? <MesUE />

@@ -3356,6 +3356,13 @@ code « a » ajournée et « z » refusée de l'année avant « i », `.gelule [
 plein, refusée = contour fraise). **Une nouvelle représentation d'une UE du parcours reprend ces cinq couleurs.** 3.5.329 : « Mes unités et leurs cours » de l'espace
 étudiant prend son liseré du nœud du schéma (ajournée orange, refusée ou échouée deux fois fraise).
 
+**AUDIT DE DESIGN DES DEUX ESPACES** (3.5.331, Charles, 11 novembre 2026 : « il faut vraiment que cela soit parfait »). `LigneEtat`
+(ui.jsx) : le titre se coupe (« … »), ne passe plus à la ligne — partout dans Lucie. Espace étudiant : Mes unités, Messages en
+`ListeEtats`/`LigneEtat` ; frais et versements en carte + `EnteteCarte` + `Tableau` ; boutons `.bouton-confirmer` / `.bouton-signaler`
+(index.css) ; frise VA en `PastilleEtat` ; `text-xs` → `text-second` ; faveur = état « faveur » (`resultatsPublies`, « Réussi par faveur »).
+Espace enseignant : `.carte` + `EnteteCarte`, listes de dates et d'appareils en `LigneEtat`, pastilles de type de date en `PastilleEtat`,
+libellés visibles (Liste, Rechercher, Une idée). **Restent** : les listes du PAE en ligne et la demande de VA (liseré autour de cartes).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais

@@ -1007,7 +1007,9 @@ export function LigneEtat({ etat = 'neutre', icone: Ic = null, couleurIcone = nu
     <>
       {Ic && <Ic size={20} className="flex-none text-slate-500" style={couleurIcone ? { color: couleurIcone } : undefined} />}
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 flex-wrap"><b className="text-sm text-iip-texte">{titre}</b>{meta}</span>
+        {/* UNE LIGNE, UNE HAUTEUR (3.5.331, Charles : « pas de lignes plus hautes que d'autres ») : le titre se coupe (« … »), il ne
+            passe plus à la ligne ; le détail se lit en ouvrant la ligne. */}
+        <span className="flex items-center gap-2 min-w-0"><b className="text-sm text-iip-texte truncate min-w-0">{titre}</b>{meta && <span className="flex-none flex items-center gap-1">{meta}</span>}</span>
         {sous && <span className="block text-second text-slate-500 truncate">{sous}</span>}
       </span>
       {droite}

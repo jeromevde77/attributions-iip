@@ -958,6 +958,9 @@ select[multiple], select[size]:not([size="1"]) {
 .bouton-sortir:hover:not(:disabled)   { background: color-mix(in srgb, var(--c-bouton_sortir, var(--c-principal)) 8%, var(--c-fond_champ, #fff)); }
 .bouton-detruire { background: var(--c-bouton_detruire, var(--c-refuse)); color: #fff; border-color: transparent; }
 .bouton-detruire:hover:not(:disabled) { background: var(--c-bouton_detruire, var(--c-refuse)); }
+/* LES DEUX BOUTONS D'UNE DÉCISION DE L'ÉTUDIANT (3.5.279, puis classes en 3.5.331) : « le bouton vert, le bouton fraise ». */
+.bouton-confirmer { background: var(--c-reussi); color: #fff; border-color: transparent; }
+.bouton-signaler { background: var(--c-refuse); color: #fff; border-color: transparent; }
 
 /* ═══ LES TABLEAUX — deux tons, pas cinq ══════════════════════════════════
  *

@@ -40,8 +40,8 @@ export default function MesAbsences({ appel, jeton, onErreur }) {
   if (!p) return <ChargementLucie />;
   return (
     <div className="space-y-4">
-      <div className="carte p-4 space-y-3">
-        <h2 className="text-base font-semibold text-iip-texte m-0">Déposer un certificat médical</h2>
+      <div className="carte px-4 py-3 space-y-3">
+        <h2 className="titre-carte m-0">Déposer un certificat médical</h2>
         <p className="text-sm text-slate-600 m-0">
           Remettez votre certificat au plus tard <b>{p.delai} jours ouvrables</b> après le premier jour de votre absence : vos absences de
           la période seront alors justifiées. Après ce délai, la direction décide.
@@ -68,8 +68,8 @@ export default function MesAbsences({ appel, jeton, onErreur }) {
                   {etat === 'recu' ? <IconCheck size={18} /> : etat === 'refus' ? <IconAlertTriangle size={18} /> : <IconClock size={18} />}</span>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold">Absence du {jourFr(c.du)} au {jourFr(c.au)}</div>
-                  <div className="text-xs text-slate-500">déposé le {jourFr(c.cree_le)} · {c.nom}</div>
-                  <div className="text-xs mt-0.5">{etat === 'attente' ? 'En route vers l’école…' : c.erreur || c.resultat || 'Reçu par l’école.'}</div>
+                  <div className="text-second text-slate-500">déposé le {jourFr(c.cree_le)} · {c.nom}</div>
+                  <div className="text-second mt-0.5">{etat === 'attente' ? 'En route vers l’école…' : c.erreur || c.resultat || 'Reçu par l’école.'}</div>
                 </div>
               </div>);
           })}

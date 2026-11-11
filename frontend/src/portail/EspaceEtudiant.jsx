@@ -8,8 +8,8 @@ import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
-import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent } from '@tabler/icons-react';
+import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -120,7 +120,7 @@ function MesAppareils({ onErreur, onOublieCourant }) {
           <IconDevices size={18} className="text-slate-400 flex-none" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-iip-texte">{a.nom || 'Appareil'}{a.courant ? ' — celui-ci' : ''}</div>
-            <div className="text-xs text-slate-500">reconnu le {jourFr(a.cree_le)}{a.vu_le ? ` · dernière visite le ${jourFr(a.vu_le)}` : ''}</div>
+            <div className="text-second text-slate-500">reconnu le {jourFr(a.cree_le)}{a.vu_le ? ` · dernière visite le ${jourFr(a.vu_le)}` : ''}</div>
           </div>
           <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => oublier(a)}><IconTrash size={15} /> Oublier</button>
         </div>)) : <p className="text-sm text-slate-500">Aucun appareil reconnu : chaque entrée demande un code reçu à votre adresse de l’institut.</p>}
@@ -139,11 +139,11 @@ function Verification({ reference }) {
     <span className="text-second text-slate-500">{l}</span><span className="text-sm text-iip-texte">{v}</span></div> : null;
   return (
     <div className="min-h-screen px-4 py-8" style={{ background: 'var(--page-fond)' }}>
-      <div className="max-w-[560px] mx-auto space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center gap-3"><LogoLucie hauteur={30} className="" /><div className="text-second text-slate-500">Vérification d’une pièce · Institut Ilya Prigogine</div></div>
         {!r ? <p className="text-sm text-slate-500">Vérification…</p> : r.trouve ? (
           <div className="bloc-etat px-5 py-4 space-y-3" data-etat="reussi">
-            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldCheck size={22} style={{ color: 'var(--c-reussi, #3E7D5E)' }} /> Pièce authentique</h1>
+            <h1 className="titre-ecran flex items-center gap-2"><IconShieldCheck size={22} style={{ color: 'var(--c-reussi)' }} /> Pièce authentique</h1>
             <p className="text-sm text-slate-600">L’Institut Ilya Prigogine a bien émis une pièce sous cette référence. Comparez-la au document que vous avez en main :
               une pièce modifiée ne correspond plus.</p>
             <div>
@@ -158,7 +158,7 @@ function Verification({ reference }) {
           </div>
         ) : (
           <div className="bloc-etat px-5 py-4 space-y-2" data-etat="corriger">
-            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldX size={22} style={{ color: 'var(--c-refuse, #9D4A38)' }} /> Référence inconnue</h1>
+            <h1 className="titre-ecran flex items-center gap-2"><IconShieldX size={22} style={{ color: 'var(--c-refuse)' }} /> Référence inconnue</h1>
             <p className="text-sm text-slate-600">{r.erreur ? 'La vérification n’a pas pu se faire. Réessayez dans un instant.'
               : <>L’Institut Ilya Prigogine n’a émis aucune pièce sous la référence <b>{r.reference || reference}</b>. Vérifiez la saisie ;
                 si elle est exacte, ce document n’est pas une pièce de l’Institut. En cas de doute, contactez le secrétariat.</>}</p>
@@ -195,10 +195,10 @@ function ValiderPAE({ annee, onFait }) {
     <FenetreEspace titre={`Votre programme ${annee || ''}`} sous="À valider avant d’entrer dans votre espace" large
       pied={desaccord
         ? <><button type="button" className="bouton" onClick={() => setDesaccord(false)}>Retour</button>
-            <button type="button" className="bouton" style={{ background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' }} disabled={envoi || mot.trim().length < 5} onClick={signaler}>Envoyer à ma coordination</button></>
-        : <><button type="button" className="bouton inline-flex items-center gap-1.5" style={{ background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' }}
+            <button type="button" className="bouton bouton-signaler" disabled={envoi || mot.trim().length < 5} onClick={signaler}>Envoyer à ma coordination</button></>
+        : <><button type="button" className="bouton bouton-signaler inline-flex items-center gap-1.5"
               onClick={() => setDesaccord(true)}><IconAlertTriangle size={15} /> Mon PAE n’est pas juste, j’en informe la coordination</button>
-            <button type="button" className="bouton inline-flex items-center gap-1.5" style={{ background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }}
+            <button type="button" className="bouton bouton-confirmer inline-flex items-center gap-1.5"
               disabled={envoi || !lu || !o} onClick={valider}><IconCheck size={15} /> Je confirme mon PAE</button></>}>
       <div className="space-y-3 text-sm">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
@@ -259,16 +259,15 @@ function VoletResultat({ u }) {
     return (
       <div key={cle} className="border-t border-slate-100">
         <button type="button" onClick={() => setOuverte(ouv ? null : cle)}
-          className={`w-full flex items-stretch text-left text-sm ${H_LIGNE} hover:bg-slate-50`}>
+          className={`w-full flex items-stretch text-left text-sm ${ouv ? 'min-h-10' : H_LIGNE} hover:bg-slate-50`}>
           <span className={`flex-1 min-w-0 flex items-center gap-2 ${retrait ? 'pl-8' : 'pl-4'} pr-3`}>
-            <span className={`truncate ${fort ? 'font-semibold text-iip-texte' : 'text-slate-600'}`}>{texte}</span>
+            <span className={`${ouv ? 'py-2' : 'truncate'} ${fort ? 'font-semibold text-iip-texte' : 'text-slate-600'}`}>{texte}</span>
             {detail?.motif && !ouv && <span className="flex-none text-mention text-iip-blue">pourquoi ?</span>}
           </span>
           {finDeLigne(note, { faveur: d.faveur, representer, refuse })}
         </button>
-        {ouv && (
+        {ouv && (detail?.motif || detail?.suite) && (
           <div className={`${retrait ? 'pl-8' : 'pl-4'} pr-24 pb-2 text-second text-slate-600 space-y-1`}>
-            {texte.length > 90 && <div>{texte}</div>}
             {detail?.motif && <div className="pl-3 border-l-2 whitespace-pre-line" style={{ borderColor: refuse ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
               <span className="text-mention text-slate-500">Motivation du Conseil des études — </span>{detail.motif}</div>}
             {detail?.suite && <div className="text-slate-500">{detail.suite}</div>}
@@ -289,7 +288,7 @@ function VoletResultat({ u }) {
               representer: rep && (!rep.length || rep.includes(a.code)), detail: { motif: a.motif } }))}
           </div>);
       })}
-      {d.faveur && <p className="text-xs text-slate-500 px-4 py-2 m-0 border-t border-slate-100">L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.</p>}
+      {d.faveur && <p className="text-second text-slate-500 px-4 py-2 m-0 border-t border-slate-100">L’unité vous a été accordée par le Conseil des études : chaque note vaut 10.</p>}
     </div>);
 }
 /** Les examens à repasser : tous les cours à représenter de l'année, par date. */
@@ -352,22 +351,22 @@ function Etapes({ faits }) {
       {noms.map((n, i) => {
         const fait = faits[i], actif = i === courant;
         return (
-          <div key={n} className="flex-1 text-center relative text-xs" style={{ color: actif ? 'var(--c-principal)' : 'rgb(var(--gris-500))', fontWeight: actif ? 600 : 400 }}>
+          <div key={n} className="flex-1 text-center relative text-second" style={{ color: actif ? 'var(--c-principal)' : 'rgb(var(--gris-500))', fontWeight: actif ? 600 : 400 }}>
             {i > 0 && <span className="absolute top-[13px] right-1/2 w-full h-0.5" style={{ background: fait || actif ? 'var(--c-reussi)' : 'rgb(var(--gris-200))' }} />}
             <span className="relative z-10 mx-auto mb-1 w-7 h-7 rounded-full grid place-items-center font-bold border-2"
-              style={fait ? { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }
-                : actif ? { background: 'var(--c-principal, #16406A)', borderColor: 'var(--c-principal, #16406A)', color: '#fff' }
-                  : { background: 'var(--c-fond_tuile, #fff)', borderColor: 'rgb(var(--gris-300))' }}>{fait ? <IconCheck size={15} /> : i + 1}</span>
+              style={fait ? { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: 'var(--blanc, #fff)' }
+                : actif ? { background: 'var(--c-principal)', borderColor: 'var(--c-principal)', color: 'var(--blanc, #fff)' }
+                  : { background: 'var(--c-fond_tuile)', borderColor: 'rgb(var(--gris-300))' }}>{fait ? <IconCheck size={15} /> : i + 1}</span>
             {n}
           </div>);
       })}
     </div>);
 }
 const Zone = ({ n, titre, children, pale }) => (
-  <section className={`carte p-4 space-y-2 ${pale ? 'opacity-60' : ''}`}>
-    <h3 className="text-sm font-semibold text-iip-texte flex items-center gap-2">
-      <span className="w-6 h-6 rounded-full grid place-items-center text-xs text-white flex-none" style={{ background: 'var(--c-principal, #16406A)' }}>{n}</span>{titre}</h3>
-    {children}
+  <section className={`carte overflow-hidden ${pale ? 'opacity-60' : ''}`}>
+    <EnteteCarte titre={<span className="inline-flex items-center gap-2">
+      <span className="w-6 h-6 rounded-full grid place-items-center text-mention flex-none" style={{ background: 'var(--c-principal)', color: 'var(--blanc, #fff)' }}>{n}</span>{titre}</span>} />
+    <div className="px-4 py-3 space-y-2">{children}</div>
   </section>);
 const Plus = ({ titre, children }) => (
   <details className="text-sm py-1.5 border-b border-slate-100 last:border-b-0">
@@ -387,7 +386,7 @@ function CarteAdmission({ adm }) {
           <summary className="cursor-pointer font-semibold text-iip-blue">Ce que l’épreuve vérifie{adm.section ? ` en ${adm.section}` : ''}</summary>
           {adm.capacites.map((c, i) => (
             <div key={i} className="mt-1.5 space-y-0.5">
-              {adm.capacites.length > 1 && <div className="text-xs text-slate-500">UE {c.ues.join(', ')}</div>}
+              {adm.capacites.length > 1 && <div className="text-second text-slate-500">UE {c.ues.join(', ')}</div>}
               {c.lignes.map((l, j) => entete(l) ? <div key={j} className="font-semibold text-slate-700 pt-1">{l}</div>
                 : <div key={j} className="pl-3 text-slate-700">· {l}</div>)}
             </div>))}
@@ -541,8 +540,8 @@ function MesValorisations({ onErreur }) {
               {!d.attente && d.en_ligne && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
                 onClick={() => geste('/va/retirer', { ue_num: d.ue_num })}>Retirer cette demande</button>}
             </div>
-            {d.attente && <p className="text-xs text-slate-500">Envoyée à l’école : enregistrée dans quelques secondes.</p>}
-            {enAttente(d.ue_num, 'retirer').length > 0 && <p className="text-xs text-slate-500">Retrait de la demande en cours…</p>}
+            {d.attente && <p className="text-second text-slate-500">Envoyée à l’école : enregistrée dans quelques secondes.</p>}
+            {enAttente(d.ue_num, 'retirer').length > 0 && <p className="text-second text-slate-500">Retrait de la demande en cours…</p>}
 
             <Zone n="2" titre="Mes documents probants">
               <p className="text-second text-slate-500">Tout ce qui prouve que vous maîtrisez les acquis de l’unité. Une pièce à la fois : dites ce que c’est,
@@ -551,7 +550,7 @@ function MesValorisations({ onErreur }) {
               <div className="space-y-1">
                 {d.pieces.map(pc => (
                   <div key={pc.id} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="text-xs font-semibold text-slate-500 w-9">n° {pc.numero}</span>
+                    <span className="text-second font-semibold text-slate-500 w-9">n° {pc.numero}</span>
                     <IconFileText size={15} className="text-slate-400" /><span className="flex-1 min-w-0 break-all">{pc.nom}</span>
                     {pc.a_moi && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
                       onClick={() => geste('/va/retirer-piece', { ue_num: d.ue_num, fichier_id: pc.id })}>retirer</button>}
@@ -572,7 +571,7 @@ function MesValorisations({ onErreur }) {
                     <IconUpload size={15} /> Choisir le fichier
                     <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.heic,.tif,.tiff,.doc,.docx,.odt,image/*" onChange={ev => ajouter(d.ue_num, ev)} /></label>
                 </div>)}
-              {d.porte === 'va' && <p className="text-xs text-slate-500">Les originaux de vos diplômes seront à présenter au secrétariat.</p>}
+              {d.porte === 'va' && <p className="text-second text-slate-500">Les originaux de vos diplômes seront à présenter au secrétariat.</p>}
             </Zone>
 
             <Zone n="3" titre="Motivation de ma demande" pale={!d.pieces.length}>
@@ -606,13 +605,11 @@ function MesValorisations({ onErreur }) {
 
             {!d.attente && d.frise.length > 0 && (
               <div className="space-y-1">
-                <div className="text-xs text-slate-500">Ensuite, ce que fait l’école :</div>
+                <div className="text-second text-slate-500">Ensuite, ce que fait l’école :</div>
                 <div className="flex flex-wrap gap-1">
                   {d.frise.map(e => (
-                    <span key={e.cle} className="text-xs px-2 py-0.5 rounded-full border"
-                      style={e.refus ? { background: 'var(--c-refuse, #9D4A38)', color: '#fff', borderColor: 'transparent' }
-                        : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: 'rgb(var(--gris-500))' }}>
-                      {e.fait ? '✓ ' : ''}{e.libelle}{e.le && e.fait ? ` · ${jourFr(e.le)}` : ''}</span>))}
+                    <PastilleEtat key={e.cle} etat={e.refus ? 'corriger' : e.fait ? 'reussi' : 'indisponible'}>
+                      {e.fait && <IconCheck size={11} stroke={3} />}{e.libelle}{e.le && e.fait ? ` · ${jourFr(e.le)}` : ''}</PastilleEtat>))}
                 </div>
               </div>)}
             {d.motif_irrecevabilite && <p className="text-sm text-slate-700">Motif : {d.motif_irrecevabilite}</p>}
@@ -629,12 +626,11 @@ function MesValorisations({ onErreur }) {
               Je certifie que toutes les informations renseignées dans ma demande de valorisation sont exactes.</label>
             {/* LE DERNIER GESTE SE VOIT (Charles, 31 octobre 2026 : « en vert avec un petit V, sinon ils ne verront pas »). */}
             {/* Sur téléphone, le libellé passe à la ligne : `.bouton` ne le permet pas (3.5.022). */}
-            <button type="button" className="bouton w-full inline-flex items-center justify-center gap-2 font-semibold disabled:opacity-50 !whitespace-normal !h-auto py-2 text-center leading-snug"
+            <button type="button" className="bouton bouton-confirmer w-full inline-flex items-center justify-center gap-2 font-semibold disabled:opacity-50 !whitespace-normal !h-auto py-2 text-center leading-snug"
               disabled={enCours || attend || !certifie || incomplets.length > 0}
-              style={{ background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' }}
               onClick={() => geste('/va/terminer', null, () => { setCertifie(false); setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute. Il reste dans vos documents.'); })}>
               <IconCheck size={17} /> J’ai terminé — envoyer et recevoir l’accusé de réception</button>
-            <p className="text-xs text-slate-500">Vous pouvez encore compléter tant que le secrétariat n’a pas examiné la demande.</p>
+            <p className="text-second text-slate-500">Vous pouvez encore compléter tant que le secrétariat n’a pas examiné la demande.</p>
           </Zone>)}
       </section>
     </div>
@@ -661,7 +657,7 @@ function SchemaParcours({ schema, onNoeud = null }) {
   }
   return (
     <section className="carte p-3">
-      <p className="sm:hidden text-xs text-slate-500 mb-1">Faites glisser le schéma de côté ; « + » l’agrandit.</p>
+      <p className="sm:hidden text-second text-slate-500 mb-1">Faites glisser le schéma de côté ; « + » l’agrandit.</p>
       <SchemaCapitalisation data={schema} mode="etudiant" titre="Mon schéma de capitalisation" onNoeud={onNoeud} />
     </section>
   );
@@ -742,7 +738,7 @@ function MonParcours({ onErreur }) {
       <div className="bloc-etat px-4 py-3 space-y-2" data-etat="reussi">
         {x.ects_total > 0 ? <>
           <div className="text-sm"><b>{x.ects_acquis}</b> crédits acquis sur <b>{x.ects_total}</b> — {x.sections.join(', ')} · {x.annee}</div>
-          <div className="h-2 rounded-full bg-slate-200 overflow-hidden"><div className="h-full" style={{ width: `${pc}%`, background: 'var(--c-reussi, #3E7D5E)' }} /></div>
+          <div className="h-2 rounded-full bg-slate-200 overflow-hidden"><div className="h-full" style={{ width: `${pc}%`, background: 'var(--c-reussi)' }} /></div>
         </> : <div className="text-sm"><b>{x.unites.filter(u => u.etat === 'acquise').length}</b> unité(s) acquise(s) sur {x.unites.length} — {x.sections.join(', ')} · {x.annee}</div>}
       </div>
       {x.schema && <SchemaParcours schema={x.schema} onNoeud={n => { setOuverte(n); setTimeout(() => document.getElementById(`ue-${n}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); }} />}
@@ -750,7 +746,7 @@ function MonParcours({ onErreur }) {
           la DUE et le dossier pédagogique de chaque UE ») : une seule liste, liseré de l'état à gauche ; une unité se déplie sur
           ses cours ; la DUE (validée) et le dossier pédagogique s'ouvrent dans une fenêtre. Toucher une UE du schéma l'ouvre ici. */}
       <h2 className="intertitre pt-1">Mes unités et leurs cours</h2>
-      <div className="pile-etats">
+      <ListeEtats>
         {blocs.flatMap(b => x.unites.filter(u => u.bloc === b)).map(u => {
           /* LE MÊME CODE QUE LE SCHÉMA (3.5.329, Charles : « si c'est raté ou ajourné, le bord dans Mes unités doit aussi être orange
              ou rouge ») : la décision de l'année, lue sur le nœud du schéma, l'emporte sur « au programme ». */
@@ -760,54 +756,51 @@ function MonParcours({ onErreur }) {
           const lib = decision ? decision[1] : (PARCOURS_ETAT[u.etat] || PARCOURS_ETAT.pas_encore)[2];
           const etat = decision ? decision[0] : ({ acquise: 'reussi', programme: 'disponible', accessible: 'neutre', attente: 'surveiller', pas_encore: 'indisponible' }[u.etat] || 'neutre');
           const ouv = ouverte === u.ue_num;
+          const faveur = nd.statut === 'acquise' && nd.reussite?.faveur;
+          const nouveaux = supports.filter(sp => Number(sp.ue_num) === Number(u.ue_num) && recent(sp)).length;
+          /* UNE LIGNE, UNE HAUTEUR (3.5.331, audit) : la ligne standard (`LigneEtat`), titre coupé, une seule ligne grise ;
+             le reste (cours, supports, DUE, dossier) se lit en ouvrant. Faveur en violet. */
           return (
-            <div key={u.ue_num} id={`ue-${u.ue_num}`} className="bloc-etat px-4 py-2.5" data-etat={etat}>
-              <button type="button" className="w-full text-left flex items-center gap-3" onClick={() => setOuverte(ouv ? null : u.ue_num)}>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 flex-wrap">
-                    <b className="text-sm text-iip-texte">UE {u.ue_num}{u.epreuve ? ' ★' : ''}</b>
-                    <span className="text-sm text-iip-texte">{u.ue_nom}</span>
-                  </span>
-                  <span className="block text-second text-slate-500">{[u.bloc !== '—' ? u.bloc : null, u.ects ? `${u.ects} ECTS` : null, lib,
-                    u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison].filter(Boolean).join(' · ')}{u.cours?.length ? ` · ${u.cours.length} cours` : ''}
-                    {(() => { const n = supports.filter(sp => Number(sp.ue_num) === Number(u.ue_num) && recent(sp)).length; return n ? <b style={{ color: 'var(--c-disponible)' }}> · {n} nouveau{n > 1 ? 'x' : ''} support{n > 1 ? 's' : ''}</b> : null; })()}</span>
-                </span>
-                <span className="text-slate-400 text-sm flex-none">{ouv ? '▴' : '▾'}</span>
-              </button>
+            <LigneEtat key={u.ue_num} id={`ue-${u.ue_num}`} etat={faveur ? 'faveur' : etat}
+              titre={<>UE {u.ue_num} {u.epreuve && <IconStar size={12} className="inline align-[-1px]" />} <span className="font-normal">{u.ue_nom}</span></>}
+              sous={[u.bloc !== '—' ? u.bloc : null, u.ects ? `${u.ects} ECTS` : null, faveur ? 'acquise par faveur' : lib,
+                u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison, u.cours?.length ? `${u.cours.length} cours` : null].filter(Boolean).join(' · ')}
+              meta={nouveaux ? <PastilleEtat etat="disponible">{nouveaux} nouveau{nouveaux > 1 ? 'x' : ''}</PastilleEtat> : null}
+              onClick={() => setOuverte(ouv ? null : u.ue_num)} ouverte={ouv}>
               {ouv && (
-                <div className="mt-2 space-y-2">
+                <div className="space-y-2">
                   {u.cours?.length > 0 && (
-                    <ul className="text-sm divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100">
                       {u.cours.map(k => (
-                        <li key={k.code} className="py-1">
-                          <div className="flex items-baseline gap-2">
+                        <div key={k.code} className="py-1.5">
+                          <div className="flex items-center gap-2 text-sm">
                             <span className="tabular-nums text-slate-500 w-14 flex-none">{k.code}</span>
-                            <span className="min-w-0 flex-1 text-iip-texte">{k.nom}</span>
+                            <span className="min-w-0 flex-1 truncate text-iip-texte">{k.nom}</span>
                             <span className="text-second text-slate-500 flex-none">{k.autonomie ? 'travail personnel' : k.per ? `${k.per} p.` : ''}</span>
                           </div>
                           {supports.filter(sp => sp.cours_code === k.code).map(sp => (
                             <button key={sp.id} type="button" className="ml-16 mt-1 flex items-center gap-1.5 text-left text-second hover:underline" onClick={() => ouvrirSupport(sp)}>
                               <IconFileText size={14} className="text-slate-500 flex-none" /><span className="text-iip-texte">{sp.titre}</span>
                               <span className="text-slate-500">· {jourFr(sp.depose_le)}</span>
-                              {recent(sp) && <span className="pastille-etat" data-etat="disponible">nouveau</span>}
+                              {recent(sp) && <PastilleEtat etat="disponible">nouveau</PastilleEtat>}
                             </button>))}
-                        </li>))}
-                    </ul>)}
+                        </div>))}
+                    </div>)}
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => ouvrirDoc(u, 'due')}><IconFileText size={15} /> La DUE</button>
                     <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => ouvrirDoc(u, 'dp')}><IconBook size={15} /> Le dossier pédagogique</button>
                   </div>
                 </div>)}
-            </div>);
+            </LigneEtat>);
         })}
-      </div>
+      </ListeEtats>
       {doc && (
         <FenetreEspace titre={`${doc.quoi === 'due' ? 'DUE' : 'Dossier pédagogique'} — UE ${doc.u.ue_num}`} sous={doc.u.ue_nom} onFermer={() => setDoc(null)}>
           {doc.erreur ? <p className="text-sm text-slate-600">{doc.erreur}</p>
             : !doc.html ? <ChargementLucie />
               : <iframe title={doc.quoi} srcDoc={doc.html} sandbox="" className="w-full bg-white border-0" style={{ height: '70vh' }} />}
         </FenetreEspace>)}
-      <p className="text-xs text-slate-500">★ épreuve intégrée. Ce schéma suit les règles de votre programme ; ce qui fait foi reste la décision du Conseil des études et votre PAE.</p>
+      <p className="text-second text-slate-500"><IconStar size={12} className="inline align-[-1px]" /> épreuve intégrée. Ce schéma suit les règles de votre programme ; ce qui fait foi reste la décision du Conseil des études et votre PAE.</p>
     </div>
   );
 }
@@ -836,10 +829,11 @@ function MesFrais({ onErreur }) {
       <div className="text-sm text-slate-600">{f.acompte_verse ? <>Acompte de {eur(f.acompte)} versé.</> : <>Acompte de <b>{eur(f.acompte)}</b> à verser dès l’inscription.</>}
         {f.restant > 0 && f.echeance_solde && <> Le solde est à payer avant le <b>{jourFr(f.echeance_solde)}</b>.</>}</div>
       {f.virement && (
-        <section className="carte p-4 space-y-3">
-          <h2 className="titre-carte">Payer par virement</h2>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Payer par virement" />
+          <div className="px-4 py-3 space-y-3">
           <div className="flex flex-wrap gap-4 items-start">
-            {f.virement.qr && <img alt="QR de paiement" className="w-40 h-40 border border-slate-200 rounded-champ"
+            {f.virement.qr && <img alt="QR de paiement" className="w-40 h-40"
               src={`data:image/svg+xml;utf8,${encodeURIComponent(f.virement.qr)}`} />}
             <div className="text-sm space-y-1 min-w-0 flex-1">
               <div><span className="text-slate-500">Bénéficiaire :</span> {f.virement.beneficiaire}</div>
@@ -850,19 +844,26 @@ function MesFrais({ onErreur }) {
                   <IconCopy size={13} />{copie ? 'copiée' : 'copier'}</button></div>
             </div>
           </div>
-          <p className="text-xs text-slate-500">Scannez le QR avec l’application de votre banque : bénéficiaire, montant et communication s’y remplissent seuls.
+          <p className="text-second text-slate-500">Scannez le QR avec l’application de votre banque : bénéficiaire, montant et communication s’y remplissent seuls.
             Gardez la communication telle quelle : c’est elle qui rattache votre paiement à votre dossier.</p>
+          </div>
         </section>)}
-      <section className="carte divide-y divide-slate-100">
-        {f.lignes.map(l => <div key={l.libelle} className="px-4 py-2 text-sm flex gap-2"><span className="flex-1">{l.libelle}</span>
-          <span className="tabular-nums">{l.note || eur(l.montant)}</span></div>)}
-        <div className="px-4 py-2 text-sm flex gap-2 font-semibold"><span className="flex-1">Total {f.annee}</span><span className="tabular-nums">{eur(f.total)}</span></div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre={`Mes frais ${f.annee}`} />
+        <Tableau dense className="!border-0 !rounded-none">
+          <tbody>
+            <TrTotal><Td>Total {f.annee}</Td><Td align="droite" className="tabular-nums">{eur(f.total)}</Td></TrTotal>
+            {f.lignes.map(l => <Tr key={l.libelle}><Td>{l.libelle}</Td><Td align="droite" className="tabular-nums">{l.note || eur(l.montant)}</Td></Tr>)}
+          </tbody>
+        </Tableau>
       </section>
-      {f.sans_frais && <p className="text-xs text-slate-500">Votre section ne perçoit pas de frais administratifs : seuls les droits ci-dessus sont dus.</p>}
-      {f.paiements.length > 0 && <section className="space-y-1">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">Mes versements</h2>
-        {f.paiements.map((v, i) => <div key={i} className="text-sm flex gap-2"><span className="w-24 text-slate-500 tabular-nums">{jourFr(v.date)}</span>
-          <span className="flex-1">{v.nature || ''}{v.moyen ? ` · ${v.moyen}` : ''}</span><span className="tabular-nums">{eur(v.montant)}</span></div>)}
+      {f.sans_frais && <p className="text-second text-slate-500">Votre section ne perçoit pas de frais administratifs : seuls les droits ci-dessus sont dus.</p>}
+      {f.paiements.length > 0 && <section className="carte overflow-hidden">
+        <EnteteCarte titre="Mes versements" />
+        <Tableau dense className="!border-0 !rounded-none">
+          <tbody>{f.paiements.map((v, i) => <Tr key={i}><Td className="tabular-nums whitespace-nowrap">{jourFr(v.date)}</Td>
+            <Td>{v.nature || ''}{v.moyen ? ` · ${v.moyen}` : ''}</Td><Td align="droite" className="tabular-nums">{eur(v.montant)}</Td></Tr>)}</tbody>
+        </Tableau>
       </section>}
     </div>
   );
@@ -899,7 +900,7 @@ function AideRegles({ onRevoir }) {
       <section className="space-y-2">
         <h2 className="intertitre">Lire vos résultats</h2>
         <ListeEtats>{GRILLE.map(([t, x]) => <LigneEtat key={t} titre={t}><div className="text-sm text-slate-600 -mt-1">{x}</div></LigneEtat>)}</ListeEtats>
-        <p className="text-xs text-slate-500">Pas de compensation entre acquis : une unité s'acquiert quand tous ses acquis sont maîtrisés. Ce qui fait foi reste la pièce que l'école vous remet. Les règlements de l'école sont dans « Mes documents ».</p>
+        <p className="text-second text-slate-500">Pas de compensation entre acquis : une unité s'acquiert quand tous ses acquis sont maîtrisés. Ce qui fait foi reste la pièce que l'école vous remet. Les règlements de l'école sont dans « Mes documents ».</p>
       </section>
     </div>
   );
@@ -926,28 +927,27 @@ function MesMessages({ onErreur, onLus }) {
     setEnCours(true);
     try { await appel('POST', `/messages/${m.id}/repondre`, { corps: texte }); setTexte(''); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
   };
+  /* LA LISTE STANDARD (3.5.331, audit) : une ligne par message (`LigneEtat`), comme les textes et documents de l'enseignant ; non lu
+     = liseré bleu ; le message et son fil se déplient sous la ligne. */
   return (
-    <div className="space-y-2">
+    <ListeEtats>
       {l.map(m => (
-        <section key={m.id} className="bloc-etat px-4 py-3 space-y-2" data-etat={m.lu ? 'neutre' : 'disponible'}>
-          <button type="button" className="w-full text-left flex items-start gap-2" onClick={() => ouvrir(m)}>
-            {!m.lu && <span className="mt-1.5 w-2 h-2 rounded-full flex-none" style={{ background: 'var(--c-disponible, #2F6FB0)' }} aria-label="non lu" />}
-            <span className="flex-1 min-w-0">
-              <span className={`block text-sm text-iip-texte ${m.lu ? '' : 'font-semibold'}`}>{m.objet}</span>
-              <span className="block text-xs text-slate-500">{m.auteur} · {jourFr(m.envoye_le)}{m.fil.length ? ` · ${m.fil.length} réponse${m.fil.length > 1 ? 's' : ''}` : ''}</span>
-            </span>
-          </button>
+        <LigneEtat key={m.id} etat={m.lu ? 'neutre' : 'disponible'} icone={IconMessages} titre={m.objet}
+          meta={!m.lu ? <PastilleEtat etat="disponible">non lu</PastilleEtat> : null}
+          sous={`${m.auteur} · ${jourFr(m.envoye_le)}${m.fil.length ? ` · ${m.fil.length} réponse${m.fil.length > 1 ? 's' : ''}` : ''}`}
+          onClick={() => ouvrir(m)} ouverte={ouvert === m.id}>
           {ouvert === m.id && <div className="space-y-2">
             <div className="text-sm text-slate-700 whitespace-pre-line break-words">{m.corps}</div>
             {m.fil.map((f, i) => (
-              <div key={i} className={`text-sm rounded-carte px-3 py-2 whitespace-pre-line break-words ${f.de === 'etudiant' ? 'border border-slate-200 ml-6' : 'bloc-etat mr-6'}`}>
-                <div className="text-xs text-slate-500 mb-0.5">{f.de === 'etudiant' ? 'Vous' : f.auteur} · {jourFr(f.le)}{f.en_cours ? ' · envoi en cours…' : ''}</div>{f.corps}
+              <div key={i} className={`text-sm pl-3 border-l-2 whitespace-pre-line break-words ${f.de === 'etudiant' ? 'ml-6' : ''}`}
+                style={{ borderColor: f.de === 'etudiant' ? 'rgb(var(--gris-300))' : 'var(--c-disponible)' }}>
+                <div className="text-second text-slate-500 mb-0.5">{f.de === 'etudiant' ? 'Vous' : f.auteur} · {jourFr(f.le)}{f.en_cours ? ' · envoi en cours…' : ''}</div>{f.corps}
               </div>))}
             <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3} placeholder={`Répondre à ${m.auteur}…`} className="controle w-full !h-auto py-2" />
             <button type="button" className="bouton bouton-fort" disabled={!texte.trim() || enCours} onClick={() => envoyer(m)}>Répondre</button>
           </div>}
-        </section>))}
-    </div>
+        </LigneEtat>))}
+    </ListeEtats>
   );
 }
 
@@ -991,7 +991,7 @@ function FraisEstimes({ tarif, ues }) {
       <div className="flex justify-between gap-3 text-slate-600 border-t border-slate-100 pt-1.5">
         <span>dont acompte à l’inscription</span><span className="tabular-nums">{eur(f.acompte)}</span>
       </div>
-      <p className="text-xs text-slate-500">Une estimation, selon les unités cochées : ce qui fait foi est la note de frais que l’école vous remettra.
+      <p className="text-second text-slate-500">Une estimation, selon les unités cochées : ce qui fait foi est la note de frais que l’école vous remettra.
         {tarif.tiers ? ` Vos droits sont perçus par ${tarif.tiers}.` : ''} Une demande de valorisation a ses propres frais d’analyse.</p>
     </div>
   );
@@ -1099,13 +1099,13 @@ function MonPAE({ onErreur, email }) {
               onChange={e => setChoix(c => { const x = new Set(c); e.target.checked ? x.add(u.ue_num) : x.delete(u.ue_num); return x; })} />
             <span className="flex-1 min-w-0">
               <span className="text-slate-500 tabular-nums mr-2">UE {u.ue_num}</span>{u.ue_nom}
-              {u.ue_niv && <span className="text-xs text-slate-400 ml-1">· {u.ue_niv}</span>}
-              {u.raison && <span className="block text-xs text-slate-500">{u.verrouillee ? `au programme, posée par l’école (${u.raison})` : u.raison}</span>}
-              {u.avertissement && <span className="block text-xs" style={{ color: 'var(--c-attente, #B45309)' }}>{u.avertissement}</span>}
+              {u.ue_niv && <span className="text-second text-slate-400 ml-1">· {u.ue_niv}</span>}
+              {u.raison && <span className="block text-second text-slate-500">{u.verrouillee ? `au programme, posée par l’école (${u.raison})` : u.raison}</span>}
+              {u.avertissement && <span className="block text-second" style={{ color: 'var(--c-attente, #B45309)' }}>{u.avertissement}</span>}
             </span>
           </label>))}
       </div>
-      <p className="text-xs text-slate-500">Une unité grisée ne se choisit pas en ligne : si vous pensez qu’elle devrait l’être, parlez-en à votre coordination.</p>
+      <p className="text-second text-slate-500">Une unité grisée ne se choisit pas en ligne : si vous pensez qu’elle devrait l’être, parlez-en à votre coordination.</p>
       <FraisEstimes tarif={o.tarif} ues={[...(choix || []), ...(o.unites || []).filter(u => u.verrouillee).map(u => u.ue_num)]} />
       {o.ouvert && <button type="button" className="bouton bouton-fort w-full" disabled={!n || enCours || attend}
         onClick={() => geste('/pae/proposer', { ues: [...choix] })}>Envoyer ma proposition — {n + verrouillees} unité{n + verrouillees > 1 ? 's' : ''}</button>}
@@ -1122,8 +1122,6 @@ function DecisionPAE({ programme, onFait, onErreur }) {
   const [mot, setMot] = useState('');
   const [envoi, setEnvoi] = useState(false);
   const [parti, setParti] = useState(false);
-  const vert = { background: 'var(--c-reussi)', borderColor: 'var(--c-reussi)', color: '#fff' };
-  const fraise = { background: 'var(--c-refuse)', borderColor: 'var(--c-refuse)', color: '#fff' };
   const confirmer = async () => {
     setEnvoi(true);
     try { await appel('POST', '/pae/valider', { accepte: true, programme }); try { sessionStorage.setItem(PAE_REMIS, '1'); } catch { /* */ } await onFait?.(); }
@@ -1138,18 +1136,18 @@ function DecisionPAE({ programme, onFait, onErreur }) {
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
-        <button type="button" className="bouton justify-center min-h-11" style={vert} disabled={envoi} onClick={confirmer}>
+        <button type="button" className="bouton bouton-confirmer justify-center min-h-11" disabled={envoi} onClick={confirmer}>
           <IconCheck size={16} /> Je confirme mon PAE</button>
-        <button type="button" className="bouton justify-center min-h-11" style={fraise} disabled={envoi} onClick={() => setOuvert(true)}>
+        <button type="button" className="bouton bouton-signaler justify-center min-h-11" disabled={envoi} onClick={() => setOuvert(true)}>
           <IconAlertTriangle size={16} /> Mon PAE n’est pas juste, j’en informe la coordination</button>
       </div>
       {ouvert && (
-        <div className="carte p-4 space-y-2 text-sm">
+        <div className="carte px-4 py-3 space-y-2 text-sm">
           <p className="m-0">Dites ce qui ne va pas : une unité qui manque, une unité en trop… Votre coordination reçoit votre message sur son tableau de bord et vous répond.</p>
           <textarea className="controle w-full !h-auto py-2" rows={3} value={mot} onChange={e => setMot(e.target.value)} placeholder="Par exemple : l’UE 250 manque à mon programme." />
           <div className="flex justify-end gap-2">
             <button type="button" className="bouton" onClick={() => setOuvert(false)}>Annuler</button>
-            <button type="button" className="bouton" style={fraise} disabled={envoi || mot.trim().length < 5} onClick={envoyer}>Envoyer à ma coordination</button>
+            <button type="button" className="bouton bouton-signaler" disabled={envoi || mot.trim().length < 5} onClick={envoyer}>Envoyer à ma coordination</button>
           </div>
         </div>)}
     </div>);
@@ -1183,7 +1181,7 @@ function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
         autoComplete="current-password" className="controle w-full" />}
       <input type="password" value={mdp} onChange={e => setMdp(e.target.value)} placeholder="Nouveau mot de passe" autoComplete="new-password" className="controle w-full" />
       <input type="password" value={mdp2} onChange={e => setMdp2(e.target.value)} placeholder="Le même, une seconde fois" autoComplete="new-password" className="controle w-full" />
-      {mdp2 && !pareil && <p className="text-xs text-red-700">Les deux ne sont pas identiques.</p>}
+      {mdp2 && !pareil && <p className="text-second text-red-700">Les deux ne sont pas identiques.</p>}
       <button type="submit" className="bouton bouton-fort w-full" disabled={!pareil || mdp.length < 10 || (avecActuel && !actuel)}>Enregistrer mon mot de passe</button>
     </form>
   );
@@ -1390,7 +1388,7 @@ function Espace() {
             <input value={codeAcces} onChange={e => setCodeAcces(e.target.value.toUpperCase())} placeholder="Code d’accès : XXXXX-XXXXX" autoComplete="one-time-code"
               className="controle w-full tracking-widest" />
             <button type="submit" className="bouton bouton-fort w-full" disabled={!ident.trim() || codeAcces.replace(/[^A-Z0-9]/g, '').length < 10}>Entrer</button>
-            <p className="text-xs text-slate-500">Code perdu ou échu ? Le secrétariat peut vous en envoyer un nouveau.</p>
+            <p className="text-second text-slate-500">Code perdu ou échu ? Le secrétariat peut vous en envoyer un nouveau.</p>
             <button type="button" className="text-second text-iip-blue underline" onClick={() => { setModeCandidat(false); setErreur(null); }}>J’ai mon adresse de l’institut</button>
           </form>
         ) : !modeLien ? (
@@ -1520,14 +1518,14 @@ function Espace() {
                   <Tr className={u.detail ? 'cursor-pointer' : ''} onClick={u.detail ? () => setDetailUE(ouvert ? null : cle) : undefined}
                     title={u.detail ? (ouvert ? 'Replier le détail' : 'Voir le détail par cours et par acquis') : undefined}>
                     <Td className="tabular-nums whitespace-nowrap">UE {u.ue_num}</Td><Td>{u.ue_nom}</Td>
-                    <Td><PastilleEtat etat={u.etat === 'reussi' ? 'reussi' : u.etat === 'surveiller' ? 'surveiller' : u.etat === 'corriger' ? 'corriger' : 'neutre'}>{u.decision}</PastilleEtat></Td>
-                    <Td align="droite" className="font-semibold tabular-nums whitespace-nowrap">{u.note}{typeof u.note === 'number' ? ' /20' : ''}{u.detail && <span className="ml-2 text-slate-400">{ouvert ? '▾' : '›'}</span>}</Td>
+                    <Td><PastilleEtat etat={['reussi', 'faveur', 'surveiller', 'corriger'].includes(u.etat) ? u.etat : 'neutre'}>{u.decision}</PastilleEtat></Td>
+                    <Td align="droite" className="font-semibold tabular-nums whitespace-nowrap">{u.note}{typeof u.note === 'number' ? ' /20' : ''}{u.detail && <IconChevronRight size={14} className={`inline ml-2 text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}</Td>
                   </Tr>
                   {ouvert && <tr><td colSpan={4} className="p-0"><VoletResultat u={u} /></td></tr>}
                 </Fragment>); })}</tbody>
               </Tableau>
             </section>))}
-          <p className="text-xs text-slate-500">« NA » : non acquis. Touchez une unité pour voir ses cours et ses acquis. Seuls les résultats des délibérations closes paraissent ici ; ce qui fait foi reste la pièce que l’école vous remet.</p>
+          <p className="text-second text-slate-500">« NA » : non acquis. Touchez une unité pour voir ses cours et ses acquis. Seuls les résultats des délibérations closes paraissent ici ; ce qui fait foi reste la pièce que l’école vous remet.</p>
         </>) : <p className="text-sm text-slate-500">Aucun résultat délibéré pour l’instant. Un résultat paraît ici quand la délibération de l’unité est close.</p>)}
         {face === 'parcours' && sousActif === 'pae' && <MonPAE onErreur={echec} email={d?.etudiant?.email} />}
 
@@ -1579,7 +1577,7 @@ function Espace() {
             pied={texte.source_url ? <a href={texte.source_url} target="_blank" rel="noreferrer" className="text-second text-iip-blue underline">Le texte officiel</a> : null}>
             {/* Le texte, mis en page par Lucie, dans son cadre (3.5.203) : ses styles ne débordent pas sur l'espace. */}
             <iframe title={texte.titre} sandbox="" className="w-full border-0" style={{ height: '70vh' }}
-              srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${texte.contenu || ''}`} />
+              srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#16406A;margin:0;padding:4px}</style>${texte.contenu || ''}`} />
           </FenetreEspace>)}
       </div>
       </main>
@@ -1598,7 +1596,7 @@ function ChoixAppareil({ appareils, onChoisir, onAucun }) {
     {appareils.map(a => (
       <button key={a.id} type="button" className="bouton w-full justify-between" onClick={() => onChoisir(a.id)}>
         <span>{a.nom || 'Appareil'}</span>
-        <span className="text-xs text-slate-500">{a.vu_le ? `dernière visite le ${jourFr(a.vu_le)}` : `reconnu le ${jourFr(a.cree_le)}`}</span>
+        <span className="text-second text-slate-500">{a.vu_le ? `dernière visite le ${jourFr(a.vu_le)}` : `reconnu le ${jourFr(a.cree_le)}`}</span>
       </button>))}
     <button type="button" className="text-second text-iip-blue underline" onClick={onAucun}>Ne rien remplacer — juste cette fois</button>
   </>;
