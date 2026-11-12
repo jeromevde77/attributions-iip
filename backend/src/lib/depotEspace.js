@@ -19,9 +19,6 @@
  * reprises. Une pièce ne se dépose qu'une fois (`portail_depot`).
  */
 import db from '../db/index.js';
-import { assemblerDocumentsUE } from '../routes/acquis.js';
-import { envelopper } from '../routes/attestations.js';
-import { deposerDansLEspace } from '../routes/envois.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -65,45 +62,22 @@ export async function deposerDOffice(visibles, urlPortail) {
     VALUES (?,?,?,?,?,?)`);
   const noterEnvoye = db.prepare(`INSERT OR IGNORE INTO portail_depot (etudiant_id, annee_scolaire, ue_num, session, nature, envoi_id, avise_le)
     VALUES (?,?,?,?,?,?, datetime('now'))`);
-  const nomUE = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1');
-  const slug = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  /* ON NE PRODUIT PLUS, ON PRÉVIENT (3.5.401, Charles : « je veux que l'on informe les étudiants que des documents sont
+     disponibles ; on ne les produit pas, mais ils sont disponibles »). À la clôture, chaque délibéré est noté (`portail_depot`,
+     sans envoi) puis avisé : la pièce se compose quand il la demande, dans « Obtenir un document » (centre de documents). */
   let deposes = 0;
   for (const s of seances) {
-    if (deposes >= 200) break;   // un passage borné ; le suivant reprend
-    // Les délibérés de cette séance, connus du portail, dont la pièce n'est pas encore déposée.
+    if (deposes >= 500) break;   // un passage borné ; le suivant reprend
     const decides = db.prepare(`SELECT etudiant_id, resultat FROM deliberation_resultat
       WHERE annee_scolaire = ? AND ue_num = ? AND session = ? AND resultat IN ('reussi','ajourne','refuse')`)
       .all(s.annee_scolaire, s.ue_num, s.session)
-      .filter(d => parId.has(Number(d.etudiant_id)))
-      .filter(d => !deja.get(d.etudiant_id, s.annee_scolaire, s.ue_num, s.session,
-        { reussi: 'reussite', ajourne: 'ajournement', refuse: 'refus' }[d.resultat]));
-    // Ceux qui l'ont déjà reçue : notés (sans avis : ils ont eu le courriel), pas recomposés.
-    const aComposer = [];
+      .filter(d => parId.has(Number(d.etudiant_id)));
     for (const d of decides) {
       const nat = { reussi: 'reussite', ajourne: 'ajournement', refuse: 'refus' }[d.resultat];
+      if (deja.get(d.etudiant_id, s.annee_scolaire, s.ue_num, s.session, nat)) continue;
       const m = dejaEnvoyee.get(Number(d.etudiant_id), `%${s.annee_scolaire}%`, s.le || s.annee_scolaire.slice(0, 4) + '-09-01');
       if (m) { noterEnvoye.run(d.etudiant_id, s.annee_scolaire, s.ue_num, s.session, nat, m.id); continue; }
-      aComposer.push(d);
-    }
-    decides.length = 0; decides.push(...aComposer);
-    if (!decides.length) continue;
-    let a;
-    try {
-      a = assemblerDocumentsUE(s.ue_num, s.annee_scolaire, { reussite: true, ajournement: true, refus: true },
-        { etudiants: decides.map(d => Number(d.etudiant_id)), org: s.org || null, session: s.session });
-    } catch (e) { console.error(`[espace] UE ${s.ue_num} ${s.annee_scolaire} S${s.session} :`, e.message); continue; }
-    const styles = [...new Set(a.styles || [])].join('');
-    const ueNom = nomUE.get(s.ue_num, s.annee_scolaire)?.ue_nom || '';
-    for (const p of a.pages || []) {
-      if (!p.etudiant || !NATURE[p.t]) continue;
-      const e = parId.get(Number(p.etudiant.id));
-      if (!e || deja.get(e.id, s.annee_scolaire, s.ue_num, s.session, p.t)) continue;
-      const sujet = `${NATURE[p.t]} — UE ${s.ue_num}${ueNom ? ` ${ueNom}` : ''} (${s.annee_scolaire}${s.session === 2 ? ', 2e session' : ''})`;
-      const html = envelopper(styles + p.h, `${e.nom} ${e.prenom || ''} — ${NATURE[p.t]} — UE ${s.ue_num}`);
-      const { id } = deposerDansLEspace({ etudiant: e, sujet, html, type_doc: `espace_${p.t}`,
-        nom_fichier: `${slug(NATURE[p.t])}_UE${s.ue_num}_${String(s.annee_scolaire).replace(/\W/g, '')}_S${s.session}`,
-        contenu: `Session ${s.session} — UE ${s.ue_num} : ${NATURE[p.t].toLowerCase()}` });
-      noter.run(e.id, s.annee_scolaire, s.ue_num, s.session, p.t, id);
+      noter.run(d.etudiant_id, s.annee_scolaire, s.ue_num, s.session, nat, null);
       deposes++;
     }
   }
@@ -115,11 +89,11 @@ export async function deposerDOffice(visibles, urlPortail) {
     const e = parId.get(Number(x.etudiant_id));
     if (!e) continue;
     const html = templateNotif({ titre: 'Votre espace étudiant', corps: `<p>Bonjour ${esc(e.prenom || '')},</p>
-      <p>${x.n > 1 ? `${x.n} nouveaux documents vous attendent` : 'Un nouveau document vous attend'} dans votre espace personnel à
-      l'Institut Ilya Prigogine. Vous pouvez le consulter, l'imprimer et en accuser réception.</p>
-      <p><a href="${esc(urlPortail)}" style="display:inline-block;background:#16406A;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Ouvrir mon espace</a></p>
-      <p style="color:#64748b;font-size:12px">Le document se télécharge librement pendant 90 jours ; ensuite, un code vous sera demandé.</p>` });
-    const r = await envoyerEmail({ to: e.email_ecole, subject: 'Institut Ilya Prigogine — un nouveau document dans votre espace', html })
+      <p>${x.n > 1 ? `De nouveaux documents sont disponibles (${x.n} décisions du Conseil des études)` : 'Un nouveau document est disponible (une décision du Conseil des études)'}
+      dans votre espace personnel à l'Institut Ilya Prigogine : rendez-vous dans <b>Mes documents → Obtenir un document</b>. Lucie compose la pièce
+      au moment où vous la demandez, signée et avec son code QR d'authenticité.</p>
+      <p><a href="${esc(urlPortail)}" style="display:inline-block;background:#16406A;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Ouvrir mon espace</a></p>` });
+    const r = await envoyerEmail({ to: e.email_ecole, subject: 'Institut Ilya Prigogine — des documents sont disponibles dans votre espace', html })
       .catch(err => ({ ok: false, erreur: err.message }));
     if (!r?.ok) { console.error('[espace] avis non parti :', r?.erreur); continue; }
     db.prepare("UPDATE portail_depot SET avise_le = datetime('now') WHERE etudiant_id = ? AND avise_le IS NULL").run(e.id);

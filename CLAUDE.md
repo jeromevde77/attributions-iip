@@ -3489,6 +3489,9 @@ porte du PAE plutôt qu'un statut que 64 lecteurs ignoreraient), fiche « sortie
 En ligne : fonction `espace.desinscription` (née éteinte), routes du portail `/api/portail/desinscription` relayées comme le centre
 de documents (`desins_etat`, `desins_demande`).
 
+**3.5.401** — LE DÉPÔT D'OFFICE DEVIENT UN AVIS (Charles : « on ne les produit pas, mais ils sont disponibles ») : `deposerDOffice`
+(lib/depotEspace.js) note chaque délibéré dans `portail_depot` sans envoi et envoie l'avis « documents disponibles » ; la fonction
+`espace.depot_office` s'appelle « L'avis à la clôture ». Plus aucune copie composée à la clôture.
 **3.5.400** — le diviseur des 17 heures = les semaines OCCUPÉES (au moins une séance, ou un stage encodé), congés retirés (Charles :
 « sinon les étudiants sont défavorisés »).
 **3.5.399** — les 17 heures comptent les heures PRÉVUES des stages encodés de l'année (`stage.heures_prevues`, dates élargissant la
