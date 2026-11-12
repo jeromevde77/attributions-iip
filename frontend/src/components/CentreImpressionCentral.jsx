@@ -1,3 +1,4 @@
+import AttenteDocuments, { MessageAttente } from './AttenteDocuments.jsx';
 import PiecesEtudiant from './PiecesEtudiant.jsx';
 import { demanderDixSept, avecDixSept } from './DixSeptHeures.jsx';
 import { selectionEtudiants } from '../lib/selectionEtudiants.js';
@@ -532,6 +533,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="bouton bouton-fort" disabled={enCours || !coches.size || !Object.values(choix).some(Boolean)}
           onClick={produire}>{enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}</button>
+        <AttenteDocuments actif={!!enCours} />
         {/* Aperçu, imprimer, envoyer : dans la barre bleue de la fenêtre (portail), ici seulement hors fenêtre. */}
         {produits?.length > 0 && (placeOutils ? createPortal(<>
           <IconeBarre Icone={IconEye} titre="Aperçu, un par un" onClick={() => apercu(0)} />
@@ -1313,9 +1315,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = 
             </p>
           )}
           {choisi && !apercu && !erreur && (
-            <p className="p-6 text-sm text-slate-400">
-              {enCours ? 'Composition de la pièce…' : '—'}
-            </p>
+            enCours ? <div className="p-6"><MessageAttente /></div> : <p className="p-6 text-sm text-slate-400">—</p>
           )}
           {apercu?.html && (
             /* La page telle qu'elle sortira. Le cadre est isolé : les styles
@@ -2652,6 +2652,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
                 if (j.html) ouvrirApercu({ html: j.html, titre: 'Codes des pièces étudiantes', nomFichier: j.nom, envoiPossible: false }); }}>
               Liste des codes</button>
             {enCours && <span className="text-second text-slate-500">Production…</span>}
+            <AttenteDocuments actif={!!enCours} />
             {placeOutils && createPortal(<>
               <IconeBarre Icone={IconZoomIn} titre="Aperçu — voir les pièces avant de les produire" onClick={() => produire(true)}
                 disabled={enCours || !coches.size || !nbPieces} />

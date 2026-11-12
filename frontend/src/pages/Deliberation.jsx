@@ -1,3 +1,4 @@
+import SeancesADater from '../components/SeancesADater.jsx';
 import { useTransfertsFermes } from '../lib/transferts.js';
 import { lazy, useEffect, useState } from 'react';
 import OutilsAFaces from '../components/OutilsAFaces.jsx';
@@ -255,6 +256,7 @@ export default function Deliberation() {
           faces={[
             { cle: 'notes-doubles', label: 'Notes en double', rendu: <NotesDoubles /> },
             { cle: 'controle-decisions', label: 'Contrôle des notes de décision', rendu: <ControleDecisions /> },
+            { cle: 'seances-a-dater', label: 'Séances sans date', rendu: <SeancesADater /> },
             ...(transfertsFermes.cloture_reprise ? [] : [{ cle: 'reprise', label: 'Clôturer une année reprise', rendu: <ClotureReprise /> }]),
           ]} />
       )}

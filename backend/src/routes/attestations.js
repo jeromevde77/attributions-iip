@@ -810,6 +810,16 @@ export function dateDeDecision(etudId, ueNum, annee, session = null) {
     return l?.date_seance || null;
   } catch { return null; }
 }
+/* SANS SÉANCE DATÉE (3.5.386, tranché) : la fermeture de l'UE — son organisation, sinon la plus tardive. La liste des séances à dater
+   est dans Délibération → Contrôles. */
+export function finDeLUE(etudId, ueNum, annee) {
+  try {
+    const org = db.prepare(`SELECT COALESCE(num_organisation, 0) o FROM etudiant_inscription WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?`)
+      .get(Number(etudId), Number(ueNum), annee)?.o ?? 0;
+    return db.prepare(`SELECT date_fin FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ? AND date_fin IS NOT NULL AND date_fin <> ''
+      ORDER BY (num_organisation = ?) DESC, date_fin DESC LIMIT 1`).get(Number(ueNum), annee, org)?.date_fin || null;
+  } catch { return null; }
+}
 function sessionDeReussite(etudId, ueNum, annee) {
   try {
     const l = db.prepare(`
@@ -820,6 +830,9 @@ function sessionDeReussite(etudId, ueNum, annee) {
   } catch { return null; }
 }
 
+/* LA DATE DE LA SIGNATURE EST CELLE DE LA DÉLIBÉRATION (3.5.386, Charles : « tu mets la date du jour — non, date de délibération ! ») :
+   la séance close qui a délibéré l'étudiant (`dateDeDecision`) ; la date du jour seulement quand aucune séance datée n'existe (années
+   reprises sans séance). Une date demandée explicitement (`date_document`) garde la main. */
 export function pageAttestation(e, u, annee, etab, dateDoc = null,
                                 ident = identiteEtablissement(), session = null) {
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
@@ -928,7 +941,7 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
-      le ${frDate(dateDoc || new Date().toISOString())}</div>
+      le ${frDate(dateDoc || dateDeDecision(e.id, u.ue_num, annee, session) || finDeLUE(e.id, u.ue_num, annee) || new Date().toISOString())}</div>
     <div class="legende">
       <div class="qualite">Pour ${u.epreuve_integree
         ? "le Jury d'épreuve intégrée" : 'le Conseil des études'},<br>le Directeur</div>
