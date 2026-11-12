@@ -18,8 +18,8 @@ export const ETATS = ['eteinte', 'essai', 'allumee'];
 export const CATALOGUE = [
   { cle: 'espace.documents', famille: 'espace', titre: 'Mes documents',
     quoi: "Les pièces que l'école envoie à l'étudiant se retrouvent dans son espace, avec l'accusé de réception à signer." },
-  { cle: 'espace.depot_office', famille: 'espace', titre: "Le dépôt d'office à la clôture",
-    quoi: "À chaque séance close et publiée, l'attestation de réussite ou la motivation d'échec est déposée dans l'espace, puis un courriel prévient l'étudiant. Demande aussi « Mes documents »." },
+  { cle: 'espace.depot_office', famille: 'espace', titre: "L'avis à la clôture",
+    quoi: "À chaque séance close, un courriel prévient chaque délibéré que ses documents sont disponibles dans son espace (« Obtenir un document ») ; rien n'est composé ni stocké d'avance (3.5.401). Demande aussi « Mes documents »." },
   { cle: 'espace.resultats', famille: 'espace', titre: 'Mes résultats',
     quoi: 'Les résultats délibérés et publiés, unité par unité (NA sous 10).' },
   { cle: 'espace.reglements', famille: 'espace', titre: 'Les règlements',
