@@ -67,7 +67,21 @@ function catalogue(id, annee) {
     l.push({ cle: 'amenagement_formulaire', chemin: `/api/amenagements/dossier/${ar.id}/piece/formulaire`, nom: 'Aménagement raisonnable — ma demande' });
     if (ar.notifie_le) l.push({ cle: 'amenagement_notification', chemin: `/api/amenagements/dossier/${ar.id}/piece/notification`, nom: 'Aménagement raisonnable — notification de la décision' });
   }
-  return l.map(x => { const p = PIECES_CODEES.find(y => y.cle === x.cle) || {}; return { ...x, code: p.code, nom: x.nom || p.nom, usage: p.usage || '' }; })
+  /* LES MOTIVATIONS D'AJOURNEMENT ET DE REFUS (3.5.398, Charles : « ne devrait plus y être ; on génère ! ») : une par unité et
+     par session, dès que la séance de son organisation (ou de toute l'unité) est close. */
+  const decisions = essai(() => db.prepare(`SELECT r.ue_num, r.session, r.resultat, (SELECT ue_nom FROM ue WHERE ue_num = r.ue_num ORDER BY (annee_scolaire = ?) DESC LIMIT 1) AS ue_nom
+      FROM deliberation_resultat r JOIN etudiant_inscription i ON i.etudiant_id = r.etudiant_id AND i.ue_num = r.ue_num AND i.annee_scolaire = r.annee_scolaire
+      WHERE r.etudiant_id = ? AND r.annee_scolaire = ? AND r.resultat IN ('ajourne', 'refuse')
+        AND EXISTS (SELECT 1 FROM deliberation_seance s WHERE s.ue_num = r.ue_num AND s.annee_scolaire = r.annee_scolaire AND s.session = r.session
+          AND s.cloturee = 1 AND COALESCE(s.num_organisation, 0) IN (0, COALESCE(i.num_organisation, 0)))
+      ORDER BY r.ue_num, r.session`).all(annee, id, annee), []);
+  for (const x of decisions) {
+    const cle = x.resultat === 'refuse' ? 'motivation_refus' : 'motivation_ajournement';
+    const base = PIECES_CODEES.find(y => y.cle === cle) || {};
+    l.push({ cle, code: `${base.code}-${x.ue_num}-S${x.session}`, chemin: `/api/acquis/motivation/${id}/${x.ue_num}/document?annee=${a}&session=${x.session}`,
+      nom: `${x.resultat === 'refuse' ? 'Motivation du refus' : 'Motivation de l’ajournement'} — UE ${x.ue_num}${x.ue_nom ? ` ${x.ue_nom}` : ''} (session ${x.session})` });
+  }
+  return l.map(x => { const p = PIECES_CODEES.find(y => y.cle === x.cle) || {}; return { ...x, code: x.code || p.code, nom: x.nom || p.nom, usage: p.usage || '' }; })
     .filter(x => x.code);
 }
 

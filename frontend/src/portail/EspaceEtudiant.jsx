@@ -1552,7 +1552,7 @@ function Espace() {
   // L'OUVERTURE SE VOIT (3.5.208) : connecté, en attendant ses données, le logo et les étoiles plutôt qu'une page vide.
   if (!d && !erreur) return <ChargementLucie pleine texte="Ouverture de votre espace…" />;
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
-  const docsASigner = d ? d.documents.filter(x => !x.signe_le) : [];
+  const docsASigner = [];   // 3.5.398 : plus de pièces déposées à signer — elles se génèrent.
   const reglASigner = d ? d.reglements.filter(x => !x.signe_le) : [];
   const aSigner = docsASigner.length + reglASigner.length;
   /* LA STRUCTURE DE L'ESPACE ENSEIGNANT (3.5.201, Charles, 7 novembre 2026 : « comme l'enseignant » ; dix entrées qui se
@@ -1672,19 +1672,8 @@ function Espace() {
 
         {/* MES DOCUMENTS : les pièces de l'école, puis les règlements — tout ce qui se signe au même endroit. */}
         {d && face === 'documents' && (<>
-          {a_('documents') && (d.documents.length ? (
-            <ListeEtats>
-              {d.documents.map(doc => (
-                <LigneEtat key={doc.id} etat={doc.signe_le ? 'reussi' : 'disponible'} icone={IconFileText} titre={doc.sujet}
-                  sous={`mis à disposition le ${jourFr(doc.envoye_le)}${doc.reference ? ` · réf. ${doc.reference}` : ''}${doc.libre && doc.libre_jusqu_au ? ` · libre jusqu’au ${jourFr(doc.libre_jusqu_au)}` : ''}${!doc.libre ? ' · plus de 90 jours : un code est demandé' : ''}`}
-                  droite={doc.libre ? <button type="button" className="bouton flex-none" onClick={() => ouvrir(doc)}>Ouvrir</button>
-                    : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}>
-                  <Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} />
-                </LigneEtat>))}
-            </ListeEtats>) : <p className="text-sm text-slate-500 flex items-start gap-2">
-              {/* UNE PETITE ICÔNE QUI TOURNE (3.5.380, Charles) : l'école peut déposer à tout moment ; la phrase ne promet rien de plus. */}
-              <IconLoader2 size={16} className="animate-spin flex-none mt-0.5 text-slate-400" aria-hidden="true" />
-              <span>Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération ; l’école les y dépose au fil de l’eau.</span></p>)}
+          {/* PLUS DE PIÈCES DÉPOSÉES ICI (3.5.398, Charles : « ne devrait plus y être ; on génère ! ») : l'étudiant obtient chaque
+              pièce, à jour, dans le centre de documents ; les dépôts restent au registre des envois de l'école. */}
           {a_('documents') && <CentreDocuments onErreur={echec} />}
           {d.reglements.length > 0 && (<>
             <h2 className="intertitre pt-2">Les règlements</h2>
