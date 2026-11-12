@@ -3207,6 +3207,12 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
       // délibérer une session dont l'examen n'a pas eu lieu ; il dit quand elle aura lieu.
       s2_a_venir: ses.session === 2 ? premiereDateS2(u.ue_num, annee) : null,
       s2_bloque: ses.session === 2 ? secondeSessionPasEncore(u.ue_num, annee) : null,
+      /* L'UNITÉ CLÔTURÉE (3.5.365, Charles : « une fois que c'est délibéré, je propose de mettre UE clôturée ») : les séances de
+         seconde session sont toutes closes. Tout décidé mais séance ouverte : « Clôturer S2 ». */
+      s2_decides: ses.s2?.decides || 0,
+      s1_close_complete: ses.session !== 2 && !!ses.s1?.cloturee && !(ses.s1?.ajournes > 0),
+      s2_close: ses.session === 2 && (() => { try { const r = db.prepare(`SELECT COUNT(*) n, SUM(COALESCE(cloturee, 0)) c FROM deliberation_seance
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = 2`).get(u.ue_num, annee); return r.n > 0 && r.c === r.n; } catch { return false; } })(),
       s1_complete: ses.s1.complete,
       s1_ajournes: ses.s1.ajournes,
       // LA CLÔTURE SE VOIT DEPUIS LA LISTE. Sans elle, on lit « complet,

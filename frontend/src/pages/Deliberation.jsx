@@ -450,7 +450,11 @@ export default function Deliberation() {
                         elle ; dès qu'elle l'est et qu'elle laisse des ajournés,
                         la seconde s'ouvre d'elle-même. */}
                     <button onClick={() => setUeNum(u.ue_num)}
-                      title={u.session === 2 && u.s2_bloque
+                      title={(u.session === 2 && u.s2_close) || u.s1_close_complete
+                        ? (u.s1_close_complete ? 'Unité clôturée : séance de première session close, aucun ajourné. Cliquer pour consulter la feuille.' : 'Unité clôturée : la seconde session est close. Cliquer pour consulter la feuille.')
+                        : u.session === 2 && u.s1_ajournes > 0 && u.s2_decides >= u.s1_ajournes && !u.s2_bloque
+                        ? 'Toutes les décisions de seconde session sont prises : ouvrez la feuille et clôturez la séance.'
+                        : u.session === 2 && u.s2_bloque
                         ? `${u.s2_bloque} ${u.s1_ajournes} ajourné(s) en première.`
                         : u.session === 2
                         ? `Seconde session — ${u.s1_ajournes} ajourné(s) en première`
@@ -460,12 +464,16 @@ export default function Deliberation() {
                             + `séance pour ouvrir la seconde session`
                           : 'Première session'}
                       className={`px-2 py-1 text-second rounded-lg border font-semibold flex-none
-                        ${u.session === 2 && u.s2_bloque ? 'border-slate-300 text-slate-500'
+                        ${(u.session === 2 && u.s2_close) || u.s1_close_complete ? 'border-emerald-600 text-emerald-700'
+    : u.session === 2 && u.s2_bloque ? 'border-slate-300 text-slate-500'
     : u.session === 2
     ? 'border-amber-500 text-white bg-amber-500'
     : 'border-iip-blue text-iip-blue'}`}>
                       {/* SECONDE SESSION À VENIR (3.5.363) : pas de « Délibérer S2 » orange avant l'examen — la date, en gris. */}
-                      {u.session === 2 && u.s2_bloque ? (u.s2_a_venir ? `S2 le ${u.s2_a_venir.split('-').reverse().join('/')}` : 'S2 : date à poser') : `Délibérer ${u.session === 2 ? 'S2' : 'S1'}`}
+                      {(u.session === 2 && u.s2_close) || u.s1_close_complete ? 'UE clôturée'
+                        : u.session === 2 && u.s2_bloque ? (u.s2_a_venir ? `S2 le ${u.s2_a_venir.split('-').reverse().join('/')}` : 'S2 : date à poser')
+                          : u.session === 2 && u.s1_ajournes > 0 && u.s2_decides >= u.s1_ajournes ? 'Clôturer S2'
+                            : `Délibérer ${u.session === 2 ? 'S2' : 'S1'}`}
                     </button>
                     {/* ANNULER LA DÉLIBÉRATION À CÔTÉ DE « DÉLIBÉRER » (3.5.097, Charles : « cela n'a rien à faire dans Notes »). */}
                     {u.decides > 0 && (
