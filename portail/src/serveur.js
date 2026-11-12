@@ -164,6 +164,7 @@ try { db.exec('ALTER TABLE espace_lot ADD COLUMN sante TEXT'); } catch { /* déj
 db.exec(`CREATE TABLE IF NOT EXISTS centre_requete (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, apercu INTEGER NOT NULL DEFAULT 0,
   action TEXT NOT NULL, code TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), prise_le TEXT, fini_le TEXT, statut INTEGER, rep_type TEXT,
   rep_nom TEXT, rep_corps BLOB)`);
+try { db.exec('ALTER TABLE centre_requete ADD COLUMN donnees TEXT'); } catch { /* déjà là */ }
 
 /* LA MOTIVATION PAR ACQUIS (3.5.006) : un type de geste de plus et sa colonne. Une contrainte CHECK ne se
    modifie pas en SQLite : la table se reconstruit, ses lignes recopiées. */
@@ -435,7 +436,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'desinscription'];
 const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
 const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
@@ -465,9 +466,9 @@ function connecte(req, res, next) {
 }
 
 /* LE CENTRE DE DOCUMENTS : la demande attend sa réponse (20 s pour la liste, 50 s pour une pièce). */
-async function demanderCentre(req, res, action, code, delai) {
-  const id = Number(db.prepare('INSERT INTO centre_requete (etudiant_id, apercu, action, code) VALUES (?,?,?,?)')
-    .run(req.etudiant.id, req.apercu ? 1 : 0, action, code ? String(code).slice(0, 20) : null).lastInsertRowid);
+async function demanderCentre(req, res, action, code, delai, donnees = null) {
+  const id = Number(db.prepare('INSERT INTO centre_requete (etudiant_id, apercu, action, code, donnees) VALUES (?,?,?,?,?)')
+    .run(req.etudiant.id, req.apercu ? 1 : 0, action, code ? String(code).slice(0, 20) : null, donnees ? JSON.stringify(donnees).slice(0, 4000) : null).lastInsertRowid);
   const fin = Date.now() + delai;
   while (Date.now() < fin) {
     const r = db.prepare('SELECT statut, rep_type, rep_nom, rep_corps FROM centre_requete WHERE id = ? AND fini_le IS NOT NULL').get(id);
@@ -484,6 +485,15 @@ async function demanderCentre(req, res, action, code, delai) {
 }
 pub.get('/api/portail/centre', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'liste', null, 20000));
 pub.get('/api/portail/centre/piece/:code', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'piece', req.params.code, 50000));
+// LA DÉSINSCRIPTION DEMANDÉE EN LIGNE (3.5.392) : Lucie calcule (RDE art. 19) puis enregistre la demande, datée ; le secrétariat confirme.
+const unitesDe = v => (Array.isArray(v) ? v : String(v || '').split(',')).map(Number).filter(Boolean).slice(0, 40);
+pub.get('/api/portail/desinscription', connecte, exige('desinscription'), (req, res) =>
+  demanderCentre(req, res, 'desins_etat', null, 25000, { ues: unitesDe(req.query.ues) }));
+pub.post('/api/portail/desinscription', connecte, exige('desinscription'), json50, (req, res) => {
+  if (req.apercu) return res.status(403).json({ error: 'Aperçu : rien ne s’enregistre.' });
+  if (req.body?.confirme !== true) return res.status(400).json({ error: 'Confirmez votre demande.' });
+  return demanderCentre(req, res, 'desins_demande', null, 25000, { ues: unitesDe(req.body?.ues), motif: String(req.body?.motif || '').slice(0, 1000) });
+});
 
 /** Choisir (après le lien) ou changer (avec l'actuel) son mot de passe. */
 pub.post('/api/portail/mot-de-passe', connecte, (req, res) => {
@@ -1101,11 +1111,11 @@ int.post('/interne/va', (req, res) => {
 });
 int.get('/interne/centre/requetes', (req, res) => {
   db.prepare("DELETE FROM centre_requete WHERE cree_le < datetime('now', '-5 minutes')").run();
-  const l = db.prepare(`SELECT id, etudiant_id, apercu, action, code FROM centre_requete WHERE fini_le IS NULL
+  const l = db.prepare(`SELECT id, etudiant_id, apercu, action, code, donnees FROM centre_requete WHERE fini_le IS NULL
     AND (prise_le IS NULL OR prise_le < datetime('now', '-60 seconds')) ORDER BY id LIMIT 20`).all();
   const prendre = db.prepare("UPDATE centre_requete SET prise_le = datetime('now') WHERE id = ?");
   for (const x of l) prendre.run(x.id);
-  res.json({ requetes: l.map(x => ({ ...x, apercu: !!x.apercu })) });
+  res.json({ requetes: l.map(x => ({ ...x, apercu: !!x.apercu, donnees: x.donnees ? JSON.parse(x.donnees) : null })) });
 });
 int.post('/interne/centre/reponses', (req, res) => {
   const up = db.prepare("UPDATE centre_requete SET statut = ?, rep_type = ?, rep_nom = ?, rep_corps = ?, fini_le = datetime('now') WHERE id = ?");

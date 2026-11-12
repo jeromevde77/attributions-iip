@@ -1032,7 +1032,7 @@ export function piecesHistoriques(etudId, anneeActive) {
     if (u.manques?.length) { manques.push(`VA UE ${ueNum} (${annee}) : ${u.manques.join(', ')}`); continue; }
     const page = pageAttestationValorisation(v, { ...u, superieur }, annee, etab, v, null, ident);
     corps.push(page);
-    pieces.push({ nature: 'hist_va', annee, ue_num: ueNum,
+    pieces.push({ nature: 'hist_va', annee, ue_num: ueNum, page,
       sujet: `Attestation de réussite — valorisation — UE ${ueNum}${nomUE(ueNum, annee) ? ` ${nomUE(ueNum, annee)}` : ''} (${annee})`,
       nom_fichier: `Attestation_VA_UE${ueNum}_${String(annee).replace(/\W/g, '')}`,
       html: envelopper(page, `Attestation — valorisation — UE ${ueNum}`) });
@@ -1088,6 +1088,18 @@ r.get('/etudiant/:id/pdfs', authRequired, async (req, res) => {
   }
 });
 
+/* LES ATTESTATIONS DE RÉUSSITE PAR VALORISATION, TOUTES ANNÉES (3.5.396, Charles : « il manque les demandes de VA » dans le centre de
+   documents de l'étudiant) : chaque VA complète retenue, une page chacune, en un document. */
+r.get('/etudiant/:id/valorisations/document', authRequired, (req, res) => {
+  const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(Number(req.params.id));
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+  const { pieces, manques } = piecesHistoriques(Number(req.params.id), '9999-9999');
+  const vas = pieces.filter(p => p.nature === 'hist_va');
+  if (!vas.length) return res.status(409).json({ error: manques.find(m => m.startsWith('VA')) || 'Aucune valorisation complète retenue.' });
+  const corps = vas.map(p => p.page);
+  res.json({ html: envelopper(corps.join('<div class="saut"></div>'), `Attestations — valorisation — ${e.nom} ${e.prenom || ''}`.trim()),
+    nom: `Attestations_VA_${String(e.nom || '').replace(/\W+/g, '_')}` });
+});
 r.get('/etudiant/:id/document', authRequired, (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });

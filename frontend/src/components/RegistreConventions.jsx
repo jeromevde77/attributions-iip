@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconFileText, IconSignature, IconTrash, IconHistory, IconUpload, IconFileCertificate,
@@ -52,7 +53,7 @@ const anneesAutour = a => {
 
 /** Ouvre un HTML composé dans un onglet — ouvert AVANT l'attente, sinon bloqué. */
 async function ouvrirApercu(corps) {
-  const w = window.open('', '_blank');
+  const w = ouvrirOngletAttente();
   const rep = await fetch('/api/conventions/apercu', { method: 'POST', headers: jsonHeaders(), body: JSON.stringify(corps) });
   const j = await rep.json().catch(() => ({}));
   if (!rep.ok) { if (w) w.close(); return j.error || 'Aperçu refusé.'; }

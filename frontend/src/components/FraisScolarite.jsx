@@ -97,7 +97,7 @@ export default function FraisScolarite({ etudId, annee }) {
   const b = f.bareme || {};
   const soldeRegle = f.verse >= f.total;
 
-  return (
+  return (<>
     <section className="carte overflow-hidden">
       <EnteteCarte titre="Calcul des frais" sous={`RDE art. 16 à 20 · ${annee}${b.defaut ? ' · barème par défaut' : ''}`} />
 
@@ -300,5 +300,5 @@ export default function FraisScolarite({ etudId, annee }) {
         </div>
       </div>
     </section>
-  );
+  </>);
 }

@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { useEffect, useState } from 'react';
 import { IconSpeakerphone, IconChevronRight, IconCheck, IconChecks, IconPaperclip } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
@@ -45,7 +46,7 @@ export function PiecesJointes({ message }) {
   const l = message?.pieces || [];
   if (!l.length) return null;
   async function ouvrir(p) {
-    const fen = window.open('', '_blank');
+    const fen = ouvrirOngletAttente();
     const r = await fetch(`/api/communication/${message.id}/piece/${p.id}`, { headers: authHeaders() });
     if (!r.ok) { fen?.close(); return; }
     const url = URL.createObjectURL(new Blob([await r.blob()], { type: p.mime }));

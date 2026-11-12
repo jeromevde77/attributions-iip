@@ -3473,6 +3473,32 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**LES AR AU TABLEAU DE BORD DES COORDINATIONS** (3.5.393, Charles : « je ne vois pas les demandes d'AR sur les tableaux de bord des
+coordinations concernées »). Le module est sur octroi nominatif : rien ne parvenait à la coordination. `GET /api/a-signer/amenagements`
+(coordination de la section de rattachement, direction) : nom, à faire, unités, mesures accordées — jamais la nature, la pièce, la
+motivation. Bloc `AmenagementsSections` d'Accueil.jsx ; une demande en ligne notifie aussi la coordination (`section` posée).
+
+**LA DÉSINSCRIPTION** (3.5.392, Charles : « un bouton désinscrire ; il vérifie si l'étudiant peut être désinscrit et quels frais sont
+remboursés ; l'étudiant peut faire la demande depuis Lucie » ; tranché : l'école garde l'acompte du RDE + les droits de VA et
+d'admission ; toute l'année ou des unités ; le secrétariat confirme). RDE 2026-2027 art. 19 (lu dans la Documentation) : §1 avant le
+1er dixième de la première UE du PAE, remboursé sauf l'acompte (art. 16 §3 : DI + 150 € fixes) ; §2 après, tout est dû ; §3 la date
+de la demande fait foi. Une unité retirée avant SON 1er dixième : baisse de la part variable (art. 16 §4). `lib/desinscription.js`
+(`apercu`, `demander`, `confirmer`, `refuser`), table `desinscription`, routes `/api/desinscription` (admin, éditeur), geste dans la LISTE DES ÉTUDIANTS (3.5.395, Charles : « à côté de son petit train d'UE ;
+geste simple ») : icône par ligne → `FenetreDesinscrire` (`components/Desinscription.jsx`), qui montre aussi la demande en ligne en attente. Confirmer : `ecrireProgramme` retire (origine « desinscription » — choix de la
+porte du PAE plutôt qu'un statut que 64 lecteurs ignoreraient), fiche « sortie » pour l'année, `ajustement` relu par `calculerFrais`.
+En ligne : fonction `espace.desinscription` (née éteinte), routes du portail `/api/portail/desinscription` relayées comme le centre
+de documents (`desins_etat`, `desins_demande`).
+
+**3.5.400** — le diviseur des 17 heures = les semaines OCCUPÉES (au moins une séance, ou un stage encodé), congés retirés (Charles :
+« sinon les étudiants sont défavorisés »).
+**3.5.399** — les 17 heures comptent les heures PRÉVUES des stages encodés de l'année (`stage.heures_prevues`, dates élargissant la
+période ; Charles : « oui, le stage compte ») ; un stage au programme non encodé est signalé.
+**3.5.390** — (1) Les 17 heures (`calculDixSept`) se divisent par les semaines de cours ENTRE la première et la dernière séance de
+l'étudiant (horaire) ou entre l'ouverture et la fermeture de ses unités (PAE), congés retirés. (2) Note de frais (`fraisScolarite.js`)
+dans `envelopperDocument` avec `entete` (un seul en-tête : ne jamais appeler `enteteDocument` dans un corps passé à l'enveloppe).
+(3) `lib/ongletAttente.js` (`ouvrirOngletAttente`) : tout onglet ouvert avant la composition porte les étoiles et le message ;
+**on n'écrit plus `window.open('', '_blank')`**. (4) `offrePAE` marque `va` (VA complète retenue de l'année) : vert + « VA · réussie ».
+
 **LA VALIDATION DES VA TRAVERSE LES UNITÉS** (3.5.389, Charles : « déjà validé par les coordinations ; en tant que directeur je signe ;
 cela doit être possible »). `POST /valorisations/lot/validation` n'appelle plus `memeSeance` ; l'écran ne borne plus le geste
 « validation » (`melangeSeance`). La DÉCISION reste bornée à une section et une date de séance.
@@ -3512,7 +3538,9 @@ registre sans copie, deux demandes par pièce et par année). Portail : `centre_
 `composerCentre`, `relayerCentre` dans la boucle `relayerVite`, un tour sur deux) appelle ses propres routes de pièces sur 127.0.0.1
 avec `signServiceToken` (middleware/auth.js, 2 min), rend le PDF par `rendrePdf` ; `centre_delivrance` compte (pas l'aperçu) ;
 `envoi_mail` mode `centre`, statut `delivre`. Écran : `CentreDocuments` (EspaceEtudiant.jsx). **Une pièce nouvelle qu'un étudiant
-peut obtenir seul s'ajoute à `catalogue()`.** Les motivations et notifications restent la copie envoyée.
+peut obtenir seul s'ajoute à `catalogue()`.** Depuis 3.5.396 : V-01 (VA notifiée de l'année), V-02 (attestations par valorisation,
+`GET /api/attestations/etudiant/:id/valorisations/document`), M-01 (sa demande d'AR), M-03 (décision d'AR notifiée). Depuis 3.5.398 : R-02 / R-03 par unité et session (`R-02-256-S1`), dès la
+séance close ; « Mes documents » ne liste plus les pièces déposées (Charles : « on génère ! »). Les motivations et notifications restent la copie envoyée.
 **Une réunion qui ne s'enregistre pas le dit** (3.5.382) : `enregistrer` de `DetailReunion` (SuiviEquipe.jsx) affichait rien sur un
 refus ; l'heure est un champ texte (`heureNette`), le `type="time"` de Safari montrait l'heure courante en gris sans rien garder.
 

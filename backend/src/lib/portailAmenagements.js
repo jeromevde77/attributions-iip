@@ -120,6 +120,12 @@ export function demandeEnLigne(e, annee, x, fichier) {
     return dossierId;
   })();
   prevenir(ref, `Demande d'aménagement raisonnable en ligne — ${nomE}`, `Unités ${choisies.join(', ')} ; ${mesures.length + (autres ? 1 : 0)} aménagement(s) demandé(s) ; pièce jointe.`, par);
+  /* LA COORDINATION DE SA SECTION EST PRÉVENUE (3.5.393) — sans la nature de la difficulté (secret professionnel, art. 5). */
+  try {
+    const section = db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(e.id)?.s || null;
+    db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, section, cree_par) VALUES ('amenagement_en_ligne', ?, ?, '/', 'coordination', ?, ?)`)
+      .run(`Demande d'aménagement raisonnable — ${nomE}`, `Unités ${choisies.join(', ')} : la personne de référence instruit la demande.`, section, par);
+  } catch { /* la notification ne bloque pas */ }
   return { ok: true, id, resultat: `Demande reçue le ${jour.split('-').reverse().join('/')}. ${ref.nom} la prend en charge et vous adresse l'accusé de réception.` };
 }
 

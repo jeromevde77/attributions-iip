@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
@@ -59,7 +60,7 @@ function CentreDocuments({ onErreur }) {
   useEffect(() => { charger(); }, [charger]);
   const obtenir = async p => {
     setMsg(null); setEnCours(p.code);
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await appel('GET', `/centre/piece/${encodeURIComponent(p.code)}`, null, true);
       const url = URL.createObjectURL(await r.blob());
@@ -91,6 +92,75 @@ function CentreDocuments({ onErreur }) {
               droite={<button type="button" className="bouton flex-none" disabled={p.restant <= 0 || !!enCours} onClick={() => obtenir(p)}>Obtenir</button>} />))}
         </ListeEtats>) : <p className="text-sm text-slate-500">Aucune pièce à composer pour votre situation cette année.</p>)}
     </section>);
+}
+
+/**
+ * ME DÉSINSCRIRE (3.5.392) : l'étudiant voit ce que dit le RDE pour sa situation (art. 19 : avant le premier dixième, les frais sont
+ * remboursés sauf l'acompte et les droits de VA ; après, tout reste dû), choisit toute l'année ou des unités, et envoie sa demande.
+ * La date de la demande fait foi ; le secrétariat confirme.
+ */
+function MaDesinscription() {
+  const [x, setX] = useState(null);
+  const [toute, setToute] = useState(true);
+  const [choix, setChoix] = useState(() => new Set());
+  const [motif, setMotif] = useState('');
+  const [sur, setSur] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  const eur = n => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
+  const ues = toute ? [] : [...choix];
+  const charger = useCallback(() => {
+    setX(v => (v ? { ...v, calcul: true } : null));
+    appel('GET', `/desinscription${ues.length ? `?ues=${ues.join(',')}` : ''}`).then(setX).catch(e => setX({ erreur: e.message }));
+  }, [toute, choix]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (toute || choix.size) charger(); }, [charger, toute, choix]);
+  if (!x) return <ChargementLucie texte="Lucie lit votre situation…" />;
+  const enCours = (x.demandes || []).find(d => d.statut === 'demandee');
+  const envoyer = async () => {
+    setEnvoi(true); setMsg(null);
+    try { const r = await appel('POST', '/desinscription', { ues: toute ? [] : ues, motif, confirme: true }); setMsg({ ok: true, t: `Votre demande est enregistrée à la date du ${jourFr(r.demande_le)}. Le secrétariat la confirme et vous répond dans votre espace.` }); setSur(false); charger(); }
+    catch (e) { setMsg({ ok: false, t: e.message }); } finally { setEnvoi(false); }
+  };
+  const a = x.apercu;
+  return (
+    <div className="space-y-4">
+      <Encadre etat="disponible" titre="Ce que dit le règlement des études (art. 19)">
+        Avant le premier dixième de votre première unité, vos frais sont remboursés, sauf l’acompte (droit d’inscription et 150 € de frais fixes) et les droits de valorisation ou d’admission. Après, vous restez redevable de l’intégralité des frais. La date de votre demande fait foi.
+      </Encadre>
+      {(x.demandes || []).map(d => (
+        <Encadre key={d.id} etat={d.statut === 'demandee' ? 'surveiller' : d.statut === 'confirmee' ? 'reussi' : 'corriger'}
+          titre={`${d.portee === 'annee' ? 'Toute l’année' : `UE ${d.ues.join(', ')}`} — demande du ${jourFr(d.demande_le)}`}>
+          {d.statut === 'demandee' ? 'En attente de la confirmation du secrétariat.' : d.statut === 'confirmee'
+            ? `Désinscription confirmée.${d.rembourse > 0 ? ` À vous rembourser : ${eur(d.rembourse)}.` : ''}${d.reste_du > 0 ? ` Reste à payer : ${eur(d.reste_du)}.` : ''}` : `Refusée : ${d.refus_motif || ''}`}
+        </Encadre>))}
+      {msg && <Encadre etat={msg.ok ? 'reussi' : 'corriger'} titre={msg.t} />}
+      {!enCours && (x.programme || []).length > 0 && (<>
+        <div className="segments">
+          <button type="button" className={toute ? 'actif' : ''} aria-pressed={toute} onClick={() => setToute(true)}>Toute l’année</button>
+          <button type="button" className={!toute ? 'actif' : ''} aria-pressed={!toute} onClick={() => setToute(false)}>Certaines unités</button>
+        </div>
+        {!toute && <div className="flex flex-col gap-1">{x.programme.map(u => (
+          <label key={u.ue_num} className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={choix.has(u.ue_num)}
+            onChange={() => setChoix(c => { const n = new Set(c); n.has(u.ue_num) ? n.delete(u.ue_num) : n.add(u.ue_num); return n; })} />
+            UE {u.ue_num} {u.ue_nom} <span className="text-second text-slate-500">· 1er dixième : {jourFr(u.dixieme) || '—'}</span></label>))}</div>}
+        {x.erreur && <Encadre etat="corriger" titre={x.erreur} />}
+        {a && (toute || choix.size > 0) && (
+          <div className="carte p-4 space-y-2 text-sm">
+            <p className="m-0">{a.regle}</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <span>Restent dus : <b>{eur(a.frais.du)}</b></span><span>Déjà versé : <b>{eur(a.frais.verse)}</b></span>
+              <span>À vous rembourser : <b>{eur(a.frais.rembourse)}</b></span>{a.frais.reste_du > 0 && <span>Reste à payer : <b>{eur(a.frais.reste_du)}</b></span>}
+            </div>
+            <p className="text-second text-slate-500 m-0">Calcul à la date d’aujourd’hui ; le secrétariat le vérifie en confirmant.</p>
+          </div>)}
+        <label className="block text-sm"><span className="text-slate-600">Un mot pour le secrétariat (facultatif)</span>
+          <textarea className="controle w-full !h-auto py-2 mt-1" rows={2} value={motif} onChange={e => setMotif(e.target.value)} data-reponses="non" /></label>
+        <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={sur} onChange={e => setSur(e.target.checked)} />
+          Je demande ma désinscription {toute ? 'de toute l’année' : 'des unités cochées'}.</label>
+        <div><button type="button" className="bouton bouton-signaler" disabled={!sur || envoi || (!toute && !choix.size)} onClick={envoyer}>
+          {envoi ? 'Envoi…' : 'Envoyer ma demande de désinscription'}</button></div>
+      </>)}
+    </div>);
 }
 
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
@@ -260,7 +330,7 @@ function ValiderPAE({ annee, onFait }) {
             <Tableau dense className="!border-0 !rounded-none">
               <TableauEntete><Th>Unité</Th><Th align="droite">ECTS</Th></TableauEntete>
               <tbody>
-                {ues.length ? ues.map(u => <Tr key={u.ue_num}><Td>UE {u.ue_num} — {u.ue_nom}</Td><Td align="droite">{u.ects ?? ''}</Td></Tr>)
+                {ues.length ? ues.map(u => <Tr key={u.ue_num}><Td>UE {u.ue_num} — {u.ue_nom}{u.va && <> <PastilleEtat etat="reussi">VA · réussie</PastilleEtat></>}</Td><Td align="droite">{u.ects ?? ''}</Td></Tr>)
                   : (o.programme || []).map(n => <Tr key={n}><Td>UE {n}</Td><Td /></Tr>)}
               </tbody>
             </Tableau>
@@ -771,7 +841,7 @@ function MonParcours({ onErreur }) {
   useEffect(() => { appel('GET', '/supports').then(j => setSupports(j.supports || [])).catch(() => setSupports([])); }, []);
   const recent = s => s.depose_le && (Date.now() - new Date(String(s.depose_le).replace(' ', 'T') + 'Z').getTime()) < 7 * 86400000;
   const ouvrirSupport = async s => {
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await appel('GET', `/supports/${s.id}`, null, true);
       const url = URL.createObjectURL(await r.blob());
@@ -1074,6 +1144,10 @@ function MonPAE({ onErreur, email }) {
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre PAE… quelques secondes.</p>;
   if (!o?.annee) return <p className="text-sm text-slate-500">Votre PAE n’est pas encore disponible.</p>;
   const nomUE = n => o.unites?.find(u => u.ue_num === n)?.ue_nom || '';
+  /* UNE UNITÉ VALORISÉE EST RÉUSSIE (3.5.390, Charles : « si réussi, vert et badge VA »). */
+  const ligneUE = n => { const va = !!o.unites?.find(u => Number(u.ue_num) === Number(n))?.va;
+    return <LigneEtat key={n} etat={va ? 'reussi' : 'disponible'} titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>}
+      droite={va ? <PastilleEtat etat="reussi">VA · réussie</PastilleEtat> : null} />; };
   const geste = async (chemin, corps, ok) => {
     setEnCours(true);
     try { await appel('POST', chemin, corps); ok?.(); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
@@ -1102,7 +1176,7 @@ function MonPAE({ onErreur, email }) {
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
             : <div>Relisez-le : s’il est juste, confirmez-le ; sinon, dites-le à votre coordination.</div>}
         </div>
-        <ListeEtats>{(o.programme || []).map(n => <LigneEtat key={n} etat="disponible" titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>} />)}</ListeEtats>
+        <ListeEtats>{(o.programme || []).map(ligneUE)}</ListeEtats>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
         {!signe && !attend && <DecisionPAE programme={o.programme || []} onFait={charger} onErreur={onErreur} />}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
@@ -1120,7 +1194,7 @@ function MonPAE({ onErreur, email }) {
           <div className="text-slate-600">Pas encore confirmé par l’école. Pour le modifier, adressez-vous à votre coordination
             {o.du && o.au && o.du > new Date().toISOString().slice(0, 10) ? `, ou proposez vos unités en ligne du ${jourFr(o.du)} au ${jourFr(o.au)}` : ''}.</div>
         </div>
-        {prog.length ? <ListeEtats>{prog.map(n => <LigneEtat key={n} etat="disponible" titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>} />)}</ListeEtats> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
+        {prog.length ? <ListeEtats>{prog.map(ligneUE)}</ListeEtats> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
         {prog.length > 0 && (o.signature?.a_jour
           ? <Encadre etat="reussi">Vous avez confirmé ce programme le {jourFr(o.signature.signe_le)}.</Encadre>
@@ -1373,7 +1447,7 @@ function Espace() {
 
   // UN DOCUMENT S'OUVRE DANS UN ONGLET : l'onglet s'ouvre AU CLIC (sinon l'iPad le bloque), la pièce y arrive ensuite.
   const ouvrir = async doc => {
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await appel('GET', `/documents/${doc.id}`, null, true);
       const url = URL.createObjectURL(await r.blob());
@@ -1478,7 +1552,7 @@ function Espace() {
   // L'OUVERTURE SE VOIT (3.5.208) : connecté, en attendant ses données, le logo et les étoiles plutôt qu'une page vide.
   if (!d && !erreur) return <ChargementLucie pleine texte="Ouverture de votre espace…" />;
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
-  const docsASigner = d ? d.documents.filter(x => !x.signe_le) : [];
+  const docsASigner = [];   // 3.5.398 : plus de pièces déposées à signer — elles se génèrent.
   const reglASigner = d ? d.reglements.filter(x => !x.signe_le) : [];
   const aSigner = docsASigner.length + reglASigner.length;
   /* LA STRUCTURE DE L'ESPACE ENSEIGNANT (3.5.201, Charles, 7 novembre 2026 : « comme l'enseignant » ; dix entrées qui se
@@ -1489,7 +1563,7 @@ function Espace() {
   const a_ = k => ouvertes.includes(k);
   const SOUS = {
     parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
-    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
   };
   const FACES = [
     ['aujourdhui', 'Aujourd’hui', IconHome],
@@ -1513,12 +1587,18 @@ function Espace() {
   return (
     /* LE MÊME DESSIN QUE L'ESPACE ENSEIGNANT : le rail étroit à gauche (icônes, bulle au survol), une bande sur téléphone. */
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond)' }}>
-      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}</span></div>
+      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}{d?.etudiant?.matricule ? ` · ${d.etudiant.matricule}` : ''}</span></div>
       <nav aria-label="Mon espace" className="md:z-30 md:w-14 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:px-1.5 md:py-4 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen">
         <div className="hidden md:flex justify-center pb-4"><LogoLucie hauteur={26} sansTexte className="" /></div>
         {FACES.filter(([k]) => !['aide', 'compte'].includes(k)).map(([k, l, I]) => (
           <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (k === 'messages' ? l : COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
-        <div className="hidden md:block flex-1" />
+        {/* QUI EST CONNECTÉ (3.5.391, Charles : « dans la barre de gauche nom, prénom et matricule — en vertical au-dessus du (?) ») :
+            l'espace se partage parfois (ordinateur de l'école, aperçu de la direction) ; on lit d'un coup d'œil de qui il s'agit. */}
+        <div className="hidden md:flex flex-1 min-h-0 items-end justify-center pb-3 overflow-hidden">
+          {d?.etudiant && <div className="text-second text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis max-h-full"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }} title={`${nom}${d.etudiant.matricule ? ` · ${d.etudiant.matricule}` : ''}`}>
+            <b className="text-slate-700">{nom}</b>{d.etudiant.matricule ? ` · ${d.etudiant.matricule}` : ''}</div>}
+        </div>
         {FACES.filter(([k]) => ['aide', 'compte'].includes(k)).map(([k, l, I]) => (
           <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
         <div className="md:border-t border-slate-200 md:pt-3 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
@@ -1592,19 +1672,8 @@ function Espace() {
 
         {/* MES DOCUMENTS : les pièces de l'école, puis les règlements — tout ce qui se signe au même endroit. */}
         {d && face === 'documents' && (<>
-          {a_('documents') && (d.documents.length ? (
-            <ListeEtats>
-              {d.documents.map(doc => (
-                <LigneEtat key={doc.id} etat={doc.signe_le ? 'reussi' : 'disponible'} icone={IconFileText} titre={doc.sujet}
-                  sous={`mis à disposition le ${jourFr(doc.envoye_le)}${doc.reference ? ` · réf. ${doc.reference}` : ''}${doc.libre && doc.libre_jusqu_au ? ` · libre jusqu’au ${jourFr(doc.libre_jusqu_au)}` : ''}${!doc.libre ? ' · plus de 90 jours : un code est demandé' : ''}`}
-                  droite={doc.libre ? <button type="button" className="bouton flex-none" onClick={() => ouvrir(doc)}>Ouvrir</button>
-                    : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}>
-                  <Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} />
-                </LigneEtat>))}
-            </ListeEtats>) : <p className="text-sm text-slate-500 flex items-start gap-2">
-              {/* UNE PETITE ICÔNE QUI TOURNE (3.5.380, Charles) : l'école peut déposer à tout moment ; la phrase ne promet rien de plus. */}
-              <IconLoader2 size={16} className="animate-spin flex-none mt-0.5 text-slate-400" aria-hidden="true" />
-              <span>Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération ; l’école les y dépose au fil de l’eau.</span></p>)}
+          {/* PLUS DE PIÈCES DÉPOSÉES ICI (3.5.398, Charles : « ne devrait plus y être ; on génère ! ») : l'étudiant obtient chaque
+              pièce, à jour, dans le centre de documents ; les dépôts restent au registre des envois de l'école. */}
           {a_('documents') && <CentreDocuments onErreur={echec} />}
           {d.reglements.length > 0 && (<>
             <h2 className="intertitre pt-2">Les règlements</h2>
@@ -1628,6 +1697,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'sante' && <MaSante onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'desinscription' && <MaDesinscription />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
         {d && face === 'aide' && <AideRegles onRevoir={() => { setVisiteDepart(0); setVisite(true); }} />}

@@ -368,6 +368,39 @@ function MesTaches({ signal = 0 }) {
  * file de travail se présente là où l'on arrive, et seulement à qui tranche.
  */
 const Demandes = lazy(() => import('./Demandes.jsx'));
+/* LES AMÉNAGEMENTS RAISONNABLES DE MES SECTIONS (3.5.393, Charles : « je ne vois pas les demandes d'AR sur les tableaux de bord des
+   coordinations concernées »). Coordination (ses sections) et direction : le nom, ce qui reste à faire, les unités et les mesures
+   accordées — jamais la nature de la difficulté (secret professionnel). */
+function AmenagementsSections() {
+  const [l, setL] = useState([]);
+  const [ouvert, setOuvert] = useState(null);
+  useEffect(() => {
+    fetch('/api/a-signer/amenagements', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(j => setL(j?.lignes || [])).catch(() => {});
+  }, []);
+  if (!l.length) return null;
+  const enCours = l.filter(x => x.a_faire).length;
+  return (
+    <section className="carte overflow-hidden mb-5">
+      <EnteteCarte titre="Aménagements raisonnables" sous={`${l.length} étudiant${l.length > 1 ? 's' : ''} de vos sections${enCours ? ` · ${enCours} en cours` : ''} — les mesures seules, jamais la nature de la difficulté`} />
+      <ListeEtats className="!border-0 !rounded-none !py-0">
+        {l.map(x => (
+          <LigneEtat key={x.id} etat={x.a_faire ? 'surveiller' : 'reussi'} icone={IconWriting}
+            titre={`${String(x.nom || '').toUpperCase()} ${x.prenom || ''}${x.section ? ` · ${x.section}` : ''}${x.ues?.length ? ` · UE ${x.ues.join(', ')}` : ''}`}
+            sous={`${x.a_faire || 'décidé'}${x.date_demande ? ` · demande du ${String(x.date_demande).slice(0, 10).split('-').reverse().join('/')}` : ''}`}
+            onClick={() => setOuvert(o => (o === x.id ? null : x.id))} ouverte={ouvert === x.id}
+            droite={<span className="text-second text-slate-500">{(x.demandees || []).length} demandé{(x.demandees || []).length > 1 ? 's' : ''}</span>}>
+            {/* LES DEMANDES, PAS LES PIÈCES (3.5.394) : ce que l'étudiant demande ; décidé, ce qui est accordé. */}
+            {ouvert === x.id && (x.demandees || []).length > 0 && (
+              <ul className="m-0 mt-1 pl-4 text-second space-y-0.5">
+                {x.demandees.map((m, i) => <li key={i}>{m.libelle}{m.precisions ? ` — ${m.precisions}` : ''}
+                  {m.accorde === true && <span style={{ color: 'var(--c-reussi)' }}> · accordé</span>}
+                  {m.accorde === false && <span className="text-slate-500"> · non accordé</span>}</li>)}
+              </ul>)}
+          </LigneEtat>))}
+      </ListeEtats>
+    </section>);
+}
+
 /* À VALIDER PAR LA DIRECTION (3.5.383, Charles, 12 novembre 2026 : « je ne vois pas les demandes de VA ou d'AR que je devrais signer
    comme directeur »). Les VA décidées qui attendent la validation, par année, et les AR dont le rapport est validé et qui attendent
    la décision. Chaque ligne ouvre l'écran où le geste se pose. */
@@ -666,6 +699,7 @@ export default function Accueil({ apresEntete = null }) {
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
           { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
           { cle: 'a-signer', titre: 'À valider par la direction', rendu: <ASignerDirection /> },
+          { cle: 'ar-sections', titre: 'Aménagements raisonnables', rendu: <AmenagementsSections /> },
           { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },
           { cle: 'propositions', titre: 'Mes propositions', rendu: <MesPropositions /> },
           { cle: 'taches', titre: 'Mes tâches', rendu: <MesTaches signal={rafraichirTaches} /> },

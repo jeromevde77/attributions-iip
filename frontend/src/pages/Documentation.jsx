@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { nomDuCompte } from '../lib/nom.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -430,7 +431,7 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
         document.body.appendChild(lien); lien.click(); lien.remove();
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       } else {
-        const w = window.open('', '_blank');
+        const w = ouvrirOngletAttente();
         if (!w) throw new Error('Le navigateur a bloqué la fenêtre d’impression.');
         w.document.write(j.html); w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
       }

@@ -55,7 +55,33 @@ function catalogue(id, annee) {
     const prec = inscrit(avant(annee)) ? avant(annee) : annee;
     l.push({ cle: 'annexe2', methode: 'POST', chemin: '/api/annexe2/document', corps: { etudiant_id: id, annee: prec }, annee_piece: prec });
   }
-  return l.map(x => { const p = PIECES_CODEES.find(y => y.cle === x.cle) || {}; return { ...x, code: p.code, nom: x.nom || p.nom, usage: p.usage || '' }; })
+  /* LES VALORISATIONS ET LES AMÉNAGEMENTS (3.5.396, Charles : « il manque les demandes de VA. AR aussi ? ») : ce qui a été
+     décidé et notifié — jamais une décision avant sa notification. */
+  const vaNotifiee = essai(() => db.prepare('SELECT 1 FROM etudiant_valorisation WHERE etudiant_id = ? AND annee_scolaire = ? AND notifie_le IS NOT NULL LIMIT 1').get(id, annee), null);
+  if (vaNotifiee) l.push({ cle: 'valorisation_notification', chemin: `/api/etudiants/${id}/valorisations/notification?annee=${a}`, nom: 'Notification des décisions de valorisation' });
+  const vaRetenue = essai(() => db.prepare(`SELECT 1 FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND ue_num > 0 AND archive_le IS NULL
+    AND decision_le IS NOT NULL AND COALESCE(decision, 'accordee') <> 'refusee' LIMIT 1`).get(id), null);
+  if (vaRetenue) l.push({ cle: 'valorisation_ue', chemin: `/api/attestations/etudiant/${id}/valorisations/document`, nom: 'Attestations de réussite par valorisation — toutes les années' });
+  const ar = essai(() => db.prepare('SELECT id, notifie_le FROM amenagement_dossier WHERE etudiant_id = ? AND annee_scolaire = ? ORDER BY id DESC LIMIT 1').get(id, annee), null);
+  if (ar) {
+    l.push({ cle: 'amenagement_formulaire', chemin: `/api/amenagements/dossier/${ar.id}/piece/formulaire`, nom: 'Aménagement raisonnable — ma demande' });
+    if (ar.notifie_le) l.push({ cle: 'amenagement_notification', chemin: `/api/amenagements/dossier/${ar.id}/piece/notification`, nom: 'Aménagement raisonnable — notification de la décision' });
+  }
+  /* LES MOTIVATIONS D'AJOURNEMENT ET DE REFUS (3.5.398, Charles : « ne devrait plus y être ; on génère ! ») : une par unité et
+     par session, dès que la séance de son organisation (ou de toute l'unité) est close. */
+  const decisions = essai(() => db.prepare(`SELECT r.ue_num, r.session, r.resultat, (SELECT ue_nom FROM ue WHERE ue_num = r.ue_num ORDER BY (annee_scolaire = ?) DESC LIMIT 1) AS ue_nom
+      FROM deliberation_resultat r JOIN etudiant_inscription i ON i.etudiant_id = r.etudiant_id AND i.ue_num = r.ue_num AND i.annee_scolaire = r.annee_scolaire
+      WHERE r.etudiant_id = ? AND r.annee_scolaire = ? AND r.resultat IN ('ajourne', 'refuse')
+        AND EXISTS (SELECT 1 FROM deliberation_seance s WHERE s.ue_num = r.ue_num AND s.annee_scolaire = r.annee_scolaire AND s.session = r.session
+          AND s.cloturee = 1 AND COALESCE(s.num_organisation, 0) IN (0, COALESCE(i.num_organisation, 0)))
+      ORDER BY r.ue_num, r.session`).all(annee, id, annee), []);
+  for (const x of decisions) {
+    const cle = x.resultat === 'refuse' ? 'motivation_refus' : 'motivation_ajournement';
+    const base = PIECES_CODEES.find(y => y.cle === cle) || {};
+    l.push({ cle, code: `${base.code}-${x.ue_num}-S${x.session}`, chemin: `/api/acquis/motivation/${id}/${x.ue_num}/document?annee=${a}&session=${x.session}`,
+      nom: `${x.resultat === 'refuse' ? 'Motivation du refus' : 'Motivation de l’ajournement'} — UE ${x.ue_num}${x.ue_nom ? ` ${x.ue_nom}` : ''} (session ${x.session})` });
+  }
+  return l.map(x => { const p = PIECES_CODEES.find(y => y.cle === x.cle) || {}; return { ...x, code: x.code || p.code, nom: x.nom || p.nom, usage: p.usage || '' }; })
     .filter(x => x.code);
 }
 
@@ -111,6 +137,26 @@ export async function composerCentre(id, code, { apercu = false } = {}) {
   return { pdf, nom };
 }
 
+/* LA DÉSINSCRIPTION EN LIGNE (3.5.392) : l'état (le programme, le calcul du RDE, les demandes) ou la demande elle-même, datée par Lucie. */
+async function desinscriptionEnLigne(q, json) {
+  const { apercu, demander, desinscriptionsDe } = await import('./desinscription.js');
+  const { fonctionPour } = await import('./fonctions.js');
+  const id = Number(q.etudiant_id), annee = anneeActive();
+  if (!q.apercu && !fonctionPour('espace.desinscription', { etudiantId: id })) return json(q.id, 404, { error: 'La demande en ligne n’est pas ouverte : adressez-vous au secrétariat.' });
+  const ues = q.donnees?.ues?.length ? q.donnees.ues : null;
+  const demandes = desinscriptionsDe(id).filter(d => d.annee_scolaire === annee)
+    .map(d => ({ id: d.id, portee: d.portee, ues: d.ues, demande_le: d.demande_le, statut: d.statut, rembourse: d.rembourse, reste_du: d.reste_du, refus_motif: d.refus_motif }));
+  if (q.action === 'desins_etat') {
+    const tout = apercu(id, annee);
+    const choix = ues ? apercu(id, annee, { ues }) : tout;
+    return json(q.id, 200, { annee, programme: tout.unites || [], apercu: choix.erreur ? null : choix, erreur: choix.erreur || null, demandes });
+  }
+  const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
+  const x = demander(id, annee, { ues, motif: q.donnees?.motif || null, source: 'en_ligne',
+    par: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} (étudiant, en ligne)` });
+  return x.erreur ? json(q.id, x.code || 409, { error: x.erreur }) : json(q.id, 200, { ok: true, demande_le: x.apercu.date });
+}
+
 /** La boucle : les demandes du portail (liste ou pièce), jugées et rendues. */
 export async function relayerCentre(appel) {
   const r = await appel('GET', '/interne/centre/requetes');
@@ -121,6 +167,7 @@ export async function relayerCentre(appel) {
   for (const q of l) {
     try {
       if (q.action === 'liste') reponses.push(json(q.id, 200, offreCentre(Number(q.etudiant_id))));
+      else if (q.action === 'desins_etat' || q.action === 'desins_demande') reponses.push(await desinscriptionEnLigne(q, json));
       else {
         const c = await composerCentre(Number(q.etudiant_id), String(q.code || ''), { apercu: !!q.apercu });
         reponses.push(c.pdf ? { id: q.id, statut: 200, type: 'application/pdf', nom: c.nom, corps: Buffer.from(c.pdf).toString('base64') }

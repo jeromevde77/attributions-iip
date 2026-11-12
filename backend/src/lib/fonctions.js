@@ -42,6 +42,8 @@ export const CATALOGUE = [
     quoi: "Les fichiers que les professeurs déposent pour un cours (Mes cours → le cours → Supports) ; les inscrits les trouvent dans Mon parcours, sous le cours, avec la marque « nouveau » pendant une semaine." },
   { cle: 'espace.certificats', famille: 'espace', titre: 'Mes absences — certificat médical',
     quoi: "L'étudiant dépose son certificat médical (PDF ou photo) et les dates de son absence ; remis dans les 3 jours ouvrables, ses absences de la période sont justifiées ; professeurs et secrétariat sont prévenus." },
+  { cle: 'espace.desinscription', famille: 'espace', titre: 'Demander sa désinscription',
+    quoi: "L'étudiant voit ce que dit le RDE (art. 19) pour sa situation — remboursement avant le premier dixième, frais dus après — et demande sa désinscription, de toute l'année ou d'unités ; la date de la demande fait foi. Le secrétariat confirme dans la fiche → Finances." },
   { cle: 'espace.amenagements', famille: 'espace', titre: 'Aménagement raisonnable — la demande en ligne',
     quoi: "L'étudiant remplit la demande (cadre A : unités, aménagements demandés, difficultés, pièce jointe) au moins 10 jours ouvrables avant l'ouverture de l'unité ; au-delà, il est renvoyé vers la personne de référence, à qui il écrit depuis son espace. La personne de référence est prévenue et reprend le dossier." },
   { cle: 'espace.sante', famille: 'espace', titre: 'Ma santé — la visite médicale',
