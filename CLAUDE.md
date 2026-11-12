@@ -3431,6 +3431,12 @@ commission) : ces lignes ne se versent JAMAIS (déjà encodées au guichet) ; Lu
 bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servant une fois → `guichet` (retrouvé) ou `carte` (à
 retrouver) ; total des commissions dans le résumé.
 
+**LE CADRE DES CARACTÉRISTIQUES D'UNE UNITÉ, UNE SEULE STRUCTURE** (3.5.356, Charles : « il manque le numéro interne de l'UE ;
+respecte toujours la même structure »). `caracUnite(u, { extra })` (`routes/attestations.js`, sur `decrireUnite`) : à gauche Section ·
+Code approuvé · Périodes, à droite Type d'enseignement · Code interne (UE n) · ECTS, puis pleine largeur le domaine et les `extra`.
+Attestations de réussite et de valorisation, motivation, PV de délibération et de valorisation. **Une pièce d'unité nouvelle prend
+`caracUnite`, jamais un cadre écrit à la main.**
+
 **L'ATTESTATION D'INSCRIPTION** (3.5.352, Charles, 12 novembre 2026 : « je veux ce document dans Éditions avec la nouvelle
 mise en page » — la « Lettre 1 » Word du secrétariat). `lib/attestationInscription.js` (`chargerAttestationInscription`,
 `composerAttestationInscription`), route `GET /api/etudiants/:id/attestation-inscription?annee=` (admin, éditeur ≈ direction et

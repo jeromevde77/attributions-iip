@@ -34,7 +34,7 @@ import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces
 // Les trois pièces de la délibération — attestation de réussite, motivation
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
-import { envelopper, unitesReussies, pageAttestation, frDate, dateDeDecision } from './attestations.js';
+import { envelopper, unitesReussies, pageAttestation, frDate, dateDeDecision, caracUnite, decrireUnite } from './attestations.js';
 import { marqueDecision, marqueNote } from '../lib/authentique.js';
 import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
@@ -2017,18 +2017,7 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       ville: esc2(ident.ville || 'Anderlecht'),
     },
     blocs: {
-      caracteristiques: `
-  <div class="carac">
-    <div class="large">Code approuvé par le Gouvernement :
-      ${ue.ue_code_fwb ? `<b>${esc2(ue.ue_code_fwb)}</b>`
-                       : '<span class="manque">à compléter au référentiel</span>'}</div>
-    <div>${ue.ue_per_etudiants
-      ? `<b>${ue.ue_per_etudiants}</b> périodes`
-      : '<span class="manque">périodes à compléter</span>'}</div>
-    <div>Unité n<sup>o</sup> <b>${ueNum}</b></div>
-  </div>
-
-`,
+      caracteristiques: caracUnite(decrireUnite(ueNum, annee, {}, { etudiant_id: etudId })),
       identite: `
   <div class="etudiant">
     <div class="nom">${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</div>
@@ -8709,21 +8698,10 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
       annee: esc(String(annee).replace('-', '/')), date_seance: esc(jour(seance.date_seance) || '……………'),
       ville: esc(ident.ville || 'Anderlecht') },
     blocs: {
-      caracteristiques: `
-  <div class="carac">
-    <div class="large">Code approuvé par le Gouvernement :
-      ${ue.ue_code_fwb ? `<b>${esc(ue.ue_code_fwb)}</b>`
-                       : '<span class="manque">à compléter au référentiel</span>'}</div>
-    <div>${ue.ue_per_etudiants ? `<b>${ue.ue_per_etudiants}</b> périodes`
-                               : '<span class="manque">périodes à compléter</span>'}</div>
-    <div>${session}<sup>${session === 1 ? 're' : 'e'}</sup> session ·
-      délibérée le <b>${esc(jour(seance.date_seance) || '……………')}</b>${
-      seance.heure_seance ? ` à ${esc(seance.heure_seance)}` : ''}</div>
-    ${integree ? `<div class="large">Section : ${esc(sec?.libelle || ue.section || '')}
-      ${sec?.code_fwb ? `· code ${esc(sec.code_fwb)}` : ''}</div>` : ''}
-  </div>
-
-`,
+      caracteristiques: caracUnite(decrireUnite(ueNum, annee), { extra: [
+        `${session}<sup>${session === 1 ? 're' : 'e'}</sup> session · délibérée le <b>${esc(jour(seance.date_seance) || '……………')}</b>${
+          seance.heure_seance ? ` à ${esc(seance.heure_seance)}` : ''}`,
+        integree && sec?.code_fwb ? `Section : code ${esc(sec.code_fwb)}` : null] }),
       tableau: `
   <table class="doc">
     <thead><tr>${anonyme ? `
