@@ -1232,8 +1232,9 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
                        ${largeurs[large] || largeurs.moyenne}`}>
         <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0"
           style={{ background: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-fenetre_bandeau, var(--c-principal))', color: 'var(--c-fenetre_titre, #fff)' }}>
-          {Ic && <Ic size={18} className="flex-shrink-0"
-            style={{ color: ton === 'alerte' ? 'var(--c-texte)' : 'var(--c-accent)' }} />}
+          {/* L'ICÔNE DU BANDEAU EST BLANCHE (3.5.375, Charles : « sur un fond coloré, le logo ne doit pas être coloré aussi ») : la couleur
+              du titre, partout — bandeau principal comme bandeau d'alerte. */}
+          {Ic && <Ic size={18} className="flex-shrink-0" style={{ color: 'currentColor' }} />}
           <div className="min-w-0 flex-1">
             <div className="text-base font-semibold truncate">{titre}</div>
             {sous && <div className="text-second text-white/70 truncate">{sous}</div>}
