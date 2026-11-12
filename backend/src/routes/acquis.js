@@ -1339,6 +1339,15 @@ r.put('/feuille/note', authRequired,
    posés le 11 novembre, examens les 8 et 9 janvier, aucune note — le résultat final de 45 étudiants était devenu « refusé »). Rend la
    phrase du refus, ou null. Avant la PREMIÈRE date d'examen S2 du calendrier (deliberation_session2, passages compris), rien ne se
    décide ; sans date connue, il faut au moins une note de seconde session encodée pour l'unité. Effacer une décision reste permis. */
+/** La première date d'examen de seconde session encore à venir, ou null (passée, ou aucune date). */
+export function premiereDateS2(ueNum, annee) {
+  const auj = new Date().toISOString().slice(0, 10);
+  let dates = [];
+  try { dates = db.prepare(`SELECT s2_date d FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ? AND s2_date IS NOT NULL AND s2_date <> ''`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
+  try { dates.push(...db.prepare(`SELECT date d FROM epreuve_passage WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND date IS NOT NULL`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10))); } catch { /* */ }
+  const d = dates.filter(Boolean).sort()[0];
+  return d && d > auj ? d : null;
+}
 export function secondeSessionPasEncore(ueNum, annee) {
   const auj = new Date().toISOString().slice(0, 10);
   let dates = [];
@@ -3194,6 +3203,10 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
       // L'épreuve intégrée se range à part dans la liste, au liseré doré.
       epreuve_integree: estEpreuveIntegree(u.ue_num, annee),
       session: ses.session,
+      // LA SECONDE SESSION À VENIR (3.5.363, Charles : « on n'a pas fait de seconde session ») : le bouton ne propose pas de
+      // délibérer une session dont l'examen n'a pas eu lieu ; il dit quand elle aura lieu.
+      s2_a_venir: ses.session === 2 ? premiereDateS2(u.ue_num, annee) : null,
+      s2_bloque: ses.session === 2 ? secondeSessionPasEncore(u.ue_num, annee) : null,
       s1_complete: ses.s1.complete,
       s1_ajournes: ses.s1.ajournes,
       // LA CLÔTURE SE VOIT DEPUIS LA LISTE. Sans elle, on lit « complet,
