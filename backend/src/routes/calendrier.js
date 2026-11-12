@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { repartir, enregistrer as enregistrerPassages, choixDeGroupes, tousLesPassages } from '../lib/passages.js';
+import { comparerHoraireExamens } from '../lib/comparerExamens.js';
 
 const r = express.Router();
 
@@ -310,6 +311,18 @@ const POSE_PASSAGES = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'se
 const gardePassages = (req, res, next) => (POSE_PASSAGES.includes(req.user?.role) ? next() : res.status(403).json({ error: 'Accès refusé.' }));
 const sectionDeLUE = (ue, annee) => db.prepare(`SELECT section FROM ue WHERE ue_num = ?
   ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(Number(ue), annee)?.section;
+/* COMPARER UN HORAIRE D'EXAMENS EXCEL (3.5.361, lib/comparerExamens.js) : lecture seule, rien ne s'écrit. Le classeur arrive en
+   base64 (data URL acceptée). */
+r.post('/comparer-excel', authRequired, async (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const b64 = String(req.body?.fichier || '').replace(/^data:[^,]*,/, '');
+  if (!b64) return res.status(400).json({ error: 'Déposez le classeur Excel de l’horaire d’examens.' });
+  let buf; try { buf = Buffer.from(b64, 'base64'); } catch { buf = null; }
+  if (!buf || buf.length < 100 || buf[0] !== 0x50 || buf[1] !== 0x4b) return res.status(400).json({ error: 'Ce fichier n’est pas un classeur Excel (.xlsx).' });
+  try { res.json(await comparerHoraireExamens(buf, annee)); }
+  catch (e) { res.status(400).json({ error: `Le classeur ne se lit pas : ${e.message}` }); }
+});
+
 r.get('/passages', authRequired, gardePassages, async (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const ue = Number(req.query.ue), session = Number(req.query.session) === 2 ? 2 : 1, cours = String(req.query.cours || '');

@@ -3431,6 +3431,12 @@ commission) : ces lignes ne se versent JAMAIS (déjà encodées au guichet) ; Lu
 bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servant une fois → `guichet` (retrouvé) ou `carte` (à
 retrouver) ; total des commissions dans le résumé.
 
+**COMPARER L'HORAIRE D'EXAMENS EXCEL** (3.5.361, Charles : « envoyer ça dans Lucie afin de comparer ») : `lib/comparerExamens.js`
+(colonnes reconnues à l'intitulé ; sections par `ALIAS` ; COURS/FORMATION/RÉUNION écartés ; groupes d'un même atelier fusionnés ;
+rattachement code de cours → « UE n » → intitulé ≥ 50 % de mots communs) contre `epreuve_session1`, `POST /api/calendrier/comparer-excel`
+(base64, 20 Mo), fenêtre `ComparerHoraireExamens.jsx` depuis le calendrier des sessions. Lecture seule. **À venir** si demandé : reprendre
+une ligne dans Lucie.
+
 **LES CHAPEAUX DE LA DUE À L'ÉTAPE 1** (3.5.359, Charles, 12 novembre 2026 ; tranché : étape 1 et DUE imprimée ; entre deux acquis,
 entre deux points d'un cours, au-dessus d'un cours). Acquis : la phrase de l'unité (`ue_acquis_intro`) et `aa.chapeau`, les mêmes que
 la fiche de l'UE, écrits aussi par ceux qui rédigent l'unité (`PUT /api/due/:ue/chapeaux-acquis`, droitsSurLUE.ecrire). Programme :

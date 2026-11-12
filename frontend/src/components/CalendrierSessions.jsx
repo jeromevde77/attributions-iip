@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconChevronRight, IconChevronDown, IconAlertTriangle,
-  IconLock, IconWand, IconSearch, IconLayoutRows, IconCalendarEvent, IconGavel, IconWriting, IconEye,
+  IconLock, IconWand, IconSearch, IconLayoutRows, IconCalendarEvent, IconGavel, IconWriting, IconEye, IconFileSpreadsheet,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { PageHeader, Fenetre, Chevron, PastilleEtat, OuvrirEditions } from './ui.jsx';
 import PassagesExamen from './PassagesExamen.jsx';
+import ComparerHoraireExamens from './ComparerHoraireExamens.jsx';
 
 /**
  * LE CALENDRIER DES SESSIONS — une section, une page, les deux sessions.
@@ -309,6 +310,7 @@ function VueFrise({ ues, onOuvrir }) {
 }
 
 export default function CalendrierSessions({ sansTitre = false } = {}) {
+  const [comparer, setComparer] = useState(false);
   const annee = getAnnee();
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState(null);
@@ -465,7 +467,11 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
             className="bouton controle px-3">
             {coches.size ? 'Tout décocher' : 'Tout cocher'}
           </button></>}
-          <div className="segments flex ml-auto" role="group" aria-label="Vue">
+          <button type="button" onClick={() => setComparer(true)} className="bouton controle px-3 inline-flex items-center gap-1.5 ml-auto"
+            title="Déposer l’horaire d’examens Excel du campus et le comparer au calendrier de Lucie (lecture seule)">
+            <IconFileSpreadsheet size={14} /> Comparer à un horaire Excel</button>
+          {comparer && <ComparerHoraireExamens onFermer={() => setComparer(false)} />}
+          <div className="segments flex" role="group" aria-label="Vue">
             <button type="button" onClick={() => choisirVue('unite')} className={dispo === 'unite' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}><IconLayoutRows size={14} className="inline mr-1" />Par unité</button>
             <button type="button" onClick={() => choisirVue('date')} className={dispo === 'date' ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}><IconCalendarEvent size={14} className="inline mr-1" />Par date</button>
           </div>
