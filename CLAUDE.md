@@ -3438,6 +3438,8 @@ en session 2. Effacer reste permis. La liste de la délibération (3.5.363) mont
 « Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
 — décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
 l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
+**« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
+ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
 **COMPARER L'HORAIRE D'EXAMENS EXCEL** (3.5.361, Charles : « envoyer ça dans Lucie afin de comparer ») : `lib/comparerExamens.js`
 (colonnes reconnues à l'intitulé ; sections par `ALIAS` ; COURS/FORMATION/RÉUNION écartés ; groupes d'un même atelier fusionnés ;
