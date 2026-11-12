@@ -66,7 +66,9 @@ const DECISIONS = [
 ];
 
 export default function Valorisations() {
-  const [annee, setAnnee] = useState(getAnnee());
+  /* DEPUIS LE TABLEAU DE BORD (3.5.383) : « ?va=valider&annee=… » ouvre « Instruire en série » sur la validation de la direction. */
+  const depuisAccueil = (() => { try { const q = new URLSearchParams(window.location.search); return q.get('va') === 'valider' ? (q.get('annee') || null) : null; } catch { return null; } })();
+  const [annee, setAnnee] = useState(depuisAccueil || getAnnee());
   const [lignes, setLignes] = useState(null);
   const [seancesLot, setSeancesLot] = useState(false);
   const [synthese, setSynthese] = useState(false);
@@ -75,7 +77,7 @@ export default function Valorisations() {
   const [serie, setSerie] = useState(false);
   const [dossier, setDossier] = useState(null);   // vid du dossier ouvert
   const [matrice, setMatrice] = useState(false);
-  const [analyse, setAnalyse] = useState(false);
+  const [analyse, setAnalyse] = useState(() => (depuisAccueil ? 'validation' : false));
   const [deciderEtudiant, setDeciderEtudiant] = useState(false);
   const [ajoutUE, setAjoutUE] = useState(null);      // { etudiant_id, nom, prenom }
   const [documents, setDocuments] = useState(null);
@@ -375,7 +377,7 @@ export default function Valorisations() {
 
       {analyse && (
         <AnalyserEnSerie annee={annee} onClose={() => setAnalyse(false)}
-          onChange={charger} />
+          gesteInitial={analyse === 'validation' ? 'validation' : undefined} onChange={charger} />
       )}
 
       {deciderEtudiant && (
@@ -2674,7 +2676,7 @@ const ETAPES_INSTRUIRE = ETAPES.filter(e => ['demande', 'recevabilite', 'avis'].
 
 
 
-function AnalyserEnSerie({ annee, onClose, onChange }) {
+function AnalyserEnSerie({ annee, onClose, onChange, gesteInitial }) {
   const [donnees, setDonnees] = useState(null);
   const [bases, setBases] = useState([]);
   const [coches, setCoches] = useState(() => new Set());
@@ -2686,10 +2688,10 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   const [q, setQ] = useState('');
   const [fSection, setFSection] = useState('');
   const [fUe, setFUe] = useState('');
-  const [fEtat, setFEtat] = useState('');
+  const [fEtat, setFEtat] = useState(gesteInitial === 'validation' ? 'decidee' : '');
 
   // Le geste qu'on s'apprête à poser.
-  const [geste, setGeste] = useState('recevabilite');   // recevabilite | decision | validation
+  const [geste, setGeste] = useState(gesteInitial || 'recevabilite');   // recevabilite | decision | validation
   const [recevable, setRecevable] = useState(true);
   const [motifForme, setMotifForme] = useState('');
   // `branche` a remplacé le couple decision+portee : une seule question.

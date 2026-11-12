@@ -3473,6 +3473,12 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**CE QUI ATTEND LA DIRECTION, AU TABLEAU DE BORD** (3.5.383, Charles : « je ne vois pas les demandes de VA ou d'AR que je devrais
+signer comme directeur » — 38 VA décidées non validées en 2026-2027, 52 en 2025-2026, 21 AR à décider). `GET /api/a-signer`
+(routes/aSigner.js, `PEUT_VALIDER`) ; bloc `ASignerDirection` d'Accueil.jsx ; `/etudiants?onglet=valorisation&va=valider&annee=`
+ouvre `AnalyserEnSerie` (prop `gesteInitial`) sur la validation, filtre « décidée ». **Un geste réservé à la direction qui attend se
+porte à ce bloc.**
+
 **LE CENTRE DE DOCUMENTS DE L'ÉTUDIANT** (3.5.382, Charles, 12 novembre 2026 : « une liste de documents en fonction de la situation
 de l'étudiant ; il clique ; Lucie génère avec signature et QR » ; tranché : toutes les pièces qu'il peut obtenir seul, une ligne au
 registre sans copie, deux demandes par pièce et par année). Portail : `centre_requete`, `GET /api/portail/centre` et
