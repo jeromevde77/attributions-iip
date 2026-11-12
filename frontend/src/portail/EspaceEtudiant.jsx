@@ -59,7 +59,7 @@ function CentreDocuments({ onErreur }) {
   // Le temps qui passe se dit (3.5.403) : au-delà de 20 s, la fenêtre précise que Lucie compose toujours.
   const [secondes, setSecondes] = useState(0);
   useEffect(() => { if (!enCours) { setSecondes(0); return undefined; } const t = setInterval(() => setSecondes(x => x + 1), 1000); return () => clearInterval(t); }, [enCours]);
-  const charger = useCallback(() => appel('GET', '/centre').then(setC).catch(e => { setC({ pieces: [], erreur: e.message }); }), []);
+  const charger = useCallback(() => appel('GET', '/centre?liste=1')   /* 3.5.405 : autre adresse — les navigateurs gardaient le renvoi 301 de la 3.5.403 */.then(setC).catch(e => { setC({ pieces: [], erreur: e.message }); }), []);
   useEffect(() => { charger(); }, [charger]);
   const obtenir = async p => {
     setMsg(null); setEnCours(p.code);
