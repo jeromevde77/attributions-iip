@@ -297,6 +297,18 @@ export default function SuiviEquipe() {
 
 // ─── UNE RÉUNION ────────────────────────────────────────────────────────────
 
+/** « 12h30 », « 1230 », « 9:5 » → « 12:30 », « 09:05 » ; vide reste vide ; ce qui ne se lit pas reste tel quel. */
+function heureNette(t) {
+  const x = String(t || '').trim();
+  if (!x) return '';
+  const y = x.replace(/\s+/g, '');
+  const m = /^\d{3,4}$/.test(y) ? [null, y.slice(0, -2), y.slice(-2)] : /^(\d{1,2})[:hH.]?(\d{0,2})$/.exec(y);
+  if (!m) return x;
+  const h = Number(m[1]), mi = Number(m[2] || 0);
+  if (h > 23 || mi > 59) return x;
+  return `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
+}
+
 function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
                         api, onRetour, onRecharger, onImprimer, peutSupprimer = false }) {
   /* LA SÉANCE, EN UNE PAGE QUI SE LIT (Jérôme, 24 septembre 2026 : « c'est
@@ -323,6 +335,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
   const [participants, setParticipants] = useState(reunion.participants || []);
   const [points, setPoints] = useState(reunion.points || []);
   const [enregistre, setEnregistre] = useState(false);
+  const [refus, setRefus] = useState(null);
   const [plus, setPlus] = useState(false);
 
   const poser = (k, v) => { setChamps(c => ({ ...c, [k]: v })); setEnregistre(false); };
@@ -338,11 +351,16 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
     nom: p.nom,
   })).filter(p => p.cle);
 
+  /* UN REFUS SE DIT (3.5.383, Charles, 12 novembre 2026 : « il ne veut pas enregistrer ») : l'échec de l'enregistrement était avalé
+     — rien à l'écran. Il s'affiche désormais à côté du bouton, et « Enregistré » ne paraît qu'après la réponse du serveur. */
   async function enregistrer(listePoints = points, listeParticipants = participants) {
-    await api(`/${reunion.id}`, { method: 'PUT',
-      body: JSON.stringify({ ...champs, participants: listeParticipants, ues, points: listePoints }) });
-    setEnregistre(true);
-    onRecharger();
+    setRefus(null);
+    try {
+      await api(`/${reunion.id}`, { method: 'PUT',
+        body: JSON.stringify({ ...champs, heure_seance: heureNette(champs.heure_seance), participants: listeParticipants, ues, points: listePoints }) });
+      setEnregistre(true);
+      onRecharger();
+    } catch (e) { setEnregistre(false); setRefus(`Non enregistré : ${e.message || 'le serveur a refusé'}.`); }
   }
 
   // UN POINT NAÎT ENREGISTRÉ. Il doit porter un identifiant avant qu'on puisse
@@ -396,7 +414,8 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           <IconChevronLeft size={16} /> Réunions
         </button>
         <div className="flex-1" />
-        <span className="text-xs text-slate-400">{enregistre ? 'Enregistré' : ''}</span>
+        {refus ? <span className="text-xs" style={{ color: 'var(--c-refuse)' }}>{refus}</span>
+          : <span className="text-xs text-slate-400">{enregistre ? 'Enregistré' : ''}</span>}
         <button onClick={() => enregistrer()} className="bouton-fort controle px-3">Enregistrer</button>
         {/* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026), la pièce de cet écran en tête. */}
         <OuvrirEditions titre="Imprimer ou envoyer le procès-verbal — centre d'édition"
@@ -446,8 +465,12 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           <input type="date" value={champs.date_seance} title="Date"
             onChange={e => poser('date_seance', e.target.value)} onBlur={() => enregistrer()} className={champ} /></label>
           <label><Etiquette>Heure</Etiquette>
-          <input type="time" value={champs.heure_seance} title="Heure"
-            onChange={e => poser('heure_seance', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-[6.5rem]`} /></label>
+          {/* L'HEURE SE TAPE (3.5.383) : le champ « heure » de Safari affiche en gris l'heure qu'il est, comme si elle était posée,
+              et ne garde rien tant que chaque case n'est pas remplie. « 12h30 », « 1230 » ou « 12:30 » donnent 12:30. */}
+          <input value={champs.heure_seance} title="Heure" placeholder="hh:mm" inputMode="numeric"
+            onChange={e => poser('heure_seance', e.target.value)}
+            onBlur={() => { const h = heureNette(champs.heure_seance); if (h !== champs.heure_seance) poser('heure_seance', h); enregistrer(); }}
+            className={`${champ} w-[6.5rem]`} /></label>
           <label className="flex-1 min-w-[12rem] max-w-[24rem]"><Etiquette>Lieu</Etiquette>
           <input value={champs.lieu} placeholder="Lieu" title="Lieu"
             onChange={e => poser('lieu', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-full`} /></label>

@@ -629,9 +629,15 @@ let relaisEnCours = false, relaisTours = 0;
 async function relayerVite() {
   if (relaisEnCours) return;
   relaisEnCours = true;
-  try { await relayerEnseignants(appel); }
-  catch (e) { if (relaisTours % 300 === 0) console.error('[relais enseignant]', e.message); }
-  finally { relaisTours++; relaisEnCours = false; }
+  try {
+    try { await relayerEnseignants(appel); }
+    catch (e) { if (relaisTours % 300 === 0) console.error('[relais enseignant]', e.message); }
+    // Le centre de documents de l'étudiant (3.5.382) : la même boucle, un tour sur deux.
+    if (relaisTours % 2 === 0) {
+      try { const { relayerCentre } = await import('./centreDocuments.js'); await relayerCentre(appel); }
+      catch (e) { if (relaisTours % 300 === 0) console.error('[centre de documents]', e.message); }
+    }
+  } finally { relaisTours++; relaisEnCours = false; }
 }
 
 /* LE RELEVÉ RAPIDE DE L'ESPACE ENSEIGNANT (3.5.135, Charles, 6 novembre 2026 : « les enseignants encoderont dans leur espace »).

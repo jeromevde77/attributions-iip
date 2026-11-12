@@ -3473,6 +3473,17 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**LE CENTRE DE DOCUMENTS DE L'ÉTUDIANT** (3.5.382, Charles, 12 novembre 2026 : « une liste de documents en fonction de la situation
+de l'étudiant ; il clique ; Lucie génère avec signature et QR » ; tranché : toutes les pièces qu'il peut obtenir seul, une ligne au
+registre sans copie, deux demandes par pièce et par année). Portail : `centre_requete`, `GET /api/portail/centre` et
+`/centre/piece/:code` (fonction `documents`), `/interne/centre/requetes|reponses`. Lucie : `lib/centreDocuments.js` (`offreCentre`,
+`composerCentre`, `relayerCentre` dans la boucle `relayerVite`, un tour sur deux) appelle ses propres routes de pièces sur 127.0.0.1
+avec `signServiceToken` (middleware/auth.js, 2 min), rend le PDF par `rendrePdf` ; `centre_delivrance` compte (pas l'aperçu) ;
+`envoi_mail` mode `centre`, statut `delivre`. Écran : `CentreDocuments` (EspaceEtudiant.jsx). **Une pièce nouvelle qu'un étudiant
+peut obtenir seul s'ajoute à `catalogue()`.** Les motivations et notifications restent la copie envoyée.
+**Une réunion qui ne s'enregistre pas le dit** (3.5.382) : `enregistrer` de `DetailReunion` (SuiviEquipe.jsx) affichait rien sur un
+refus ; l'heure est un champ texte (`heureNette`), le `type="time"` de Safari montrait l'heure courante en gris sans rien garder.
+
 **COMPARER L'HORAIRE D'EXAMENS EXCEL** (3.5.361, Charles : « envoyer ça dans Lucie afin de comparer ») : `lib/comparerExamens.js`
 (colonnes reconnues à l'intitulé ; sections par `ALIAS` ; COURS/FORMATION/RÉUNION écartés ; groupes d'un même atelier fusionnés ;
 rattachement code de cours → « UE n » → intitulé ≥ 50 % de mots communs) contre `epreuve_session1`, `POST /api/calendrier/comparer-excel`
