@@ -107,6 +107,17 @@ export const DOCUMENTS = [
     roles: null,
   },
   {
+    cle: 'attestation_inscription',
+    libelle: "Attestation d'inscription",
+    description: "Section, dates de l'année, congés, bloc et crédits du programme ; signée et cachetée. Pour les allocations familiales, la mutuelle, le CPAS…",
+    portee: 'etudiant', lot: true, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/etudiants/:id/attestation-inscription' },
+    parametres: ['annee'],
+    nomFichier: 'Attestation-inscription_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
     cle: 'frais_scolarite',
     libelle: 'Frais de scolarité',
     description: "Document distinct de la fiche : l'administration n'en connaît pas.",

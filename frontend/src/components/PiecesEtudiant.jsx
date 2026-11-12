@@ -128,6 +128,8 @@ export default function PiecesEtudiant({ etud, annee }) {
     ['Inscription', [
       { cle: 'fiche', icone: IconFileText, titre: "Fiche d'inscription / reçu", sous: annee,
         clic: () => apercu('fiche', `/api/etudiants/${id}/fiche-inscription?annee=${a}`, "Fiche d'inscription / reçu", 'fiche_inscription') },
+      { cle: 'att-ins', icone: IconFileText, titre: "Attestation d'inscription", sous: `${annee} — allocations familiales, mutuelle, CPAS…`,
+        clic: () => apercu('att-ins', `/api/etudiants/${id}/attestation-inscription?annee=${a}`, "Attestation d'inscription", 'attestation_inscription') },
       { cle: 'frais', icone: IconFileText, titre: 'Frais de scolarité', sous: annee,
         clic: () => apercu('frais', `/api/frais-scolarite/etudiant/${id}/document?annee=${a}`, 'Frais de scolarité', 'frais_scolarite') },
     ]],
