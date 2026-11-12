@@ -78,7 +78,8 @@ function CentreDocuments({ onErreur }) {
           quand tu crées le document ») : une fenêtre sans croix, le temps que la pièce soit composée et signée. */}
       {enCours && (
         <FenetreEspace titre="Lucie compose votre document" sous={c?.pieces?.find(p => p.code === enCours)?.nom || ''}>
-          <ChargementLucie texte="Composition, signature et code QR d’authenticité… quelques secondes." />
+          <ChargementLucie texte="" />
+          <p className="text-sm text-center max-w-md mx-auto -mt-6 px-4">Vos documents sont en chargement. Ceci peut prendre quelques secondes ou plusieurs minutes selon les demandes. Ne quittez pas cette fenêtre.</p>
         </FenetreEspace>)}
       {c?.erreur && <p className="text-sm text-slate-500">{c.erreur}</p>}
       {msg && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{msg}</p>}

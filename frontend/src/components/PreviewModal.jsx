@@ -1,3 +1,4 @@
+import { MessageAttente } from './AttenteDocuments.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { informer } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
@@ -301,8 +302,8 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
         {feuille && <PagesPdf url={feuille} titre={nomFichier || titre} />}
         {composition && !feuille && (
           <div className="flex-1 bg-gray-100 grid place-items-start justify-center pt-6">
-            <div className="bg-white shadow-pose w-[min(900px,calc(100vw-96px))] aspect-[210/297] grid place-items-center text-sm text-slate-400">
-              Mise en page A4…</div>
+            <div className="bg-white shadow-pose w-[min(900px,calc(100vw-96px))] aspect-[210/297] grid place-items-center">
+              <MessageAttente /></div>
           </div>)}
         <iframe
           ref={iframeRef}

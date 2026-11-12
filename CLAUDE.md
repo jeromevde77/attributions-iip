@@ -3473,6 +3473,11 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**UNE SEULE ATTENTE POUR LES DOCUMENTS** (3.5.387, Charles : « Vos documents sont en chargement… Ne quittez pas cette fenêtre » et un
+logo de chargement). `components/AttenteDocuments.jsx` : `MessageAttente` (ChargementLucie + `MESSAGE_ATTENTE`) et `AttenteDocuments`
+(fenêtre sans croix). Posée dans PreviewModal (composition du PDF), Éditions (aperçu d'un rapport, « Produire »), et l'espace de
+l'étudiant. **Toute composition de pièces qui fait attendre prend cette attente.**
+
 **L'ATTESTATION DE RÉUSSITE SIGNE À LA DATE DE LA DÉLIBÉRATION** (3.5.386, Charles : « tu mets la date du jour. Non. Date de
 délibération ! »). `pageAttestation` : `date_document` demandée, sinon `dateDeDecision` (séance close de la session et de l'organisation),
 sinon `finDeLUE` (organisation_ue.date_fin — tranché), la date du jour en dernier recours. Délibération → Contrôles → « Séances sans
