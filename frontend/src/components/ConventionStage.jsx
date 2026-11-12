@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { useEffect, useRef, useState } from 'react';
 import { IconUpload, IconFileText, IconSignature, IconTrash } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
@@ -15,7 +16,7 @@ export const nomEcran = (nom, prenom) => [String(nom || '').toUpperCase(), preno
 /** Ouvre le PDF dans un onglet. L'onglet s'ouvre AVANT la requête : ouvert
     après un `await`, le navigateur le bloque comme une fenêtre surgissante. */
 export async function ouvrirConvention(id, version = 'original') {
-  const w = window.open('', '_blank');
+  const w = ouvrirOngletAttente();
   const rep = await fetch(`/api/conventions/${id}/fichier?version=${version}`, { headers: authHeaders() });
   if (!rep.ok) {
     const j = await rep.json().catch(() => ({}));

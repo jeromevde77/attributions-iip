@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 /* LE SUIVI DE SANTÉ DANS LA FICHE (3.5.283, Charles, 10 novembre 2026, d'après la note du secrétariat : « organisme CESI, date de
  * l'examen du formulaire de santé ; pas de visite médicale, pas de stage et pas de réussite »). Onglet « Santé » : l'état de la
  * visite (valable jusqu'au…, échue, aucune), encoder une visite (organisme CESI par défaut, date du formulaire, formulaire du CESI
@@ -64,7 +65,7 @@ export default function SuiviSante({ etudId }) {
     if (!r.ok) setErreur(j.error || `Erreur ${r.status}`); else { setMessage(`Une visite vaut désormais ${j.validite_mois} mois, pour tous les étudiants.`); charger(); }
   }
   const ouvrir = v => {
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     fetch(`/api/sante/${v.id}/formulaire`, { headers: authHeaders() })
       .then(r => (r.ok ? r.blob() : Promise.reject(new Error('Formulaire introuvable.'))))
       .then(b => { const u = URL.createObjectURL(b); if (w) w.location = u; else window.open(u, '_blank'); })

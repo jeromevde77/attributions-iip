@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { MessageAttente } from './AttenteDocuments.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { informer } from '../lib/dialogue.jsx';
@@ -184,8 +185,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
      PDF y arrive dès qu'il est composé. */
   const paysage = pdf?.orientation === 'paysage' || /size:\s*A4\s+landscape/.test(htmlAffiche || '');
   async function imprimerPdf() {
-    const w = window.open('', '_blank');
-    try { if (w) w.document.write('<p style="font:14px system-ui;padding:24px;color:#16406A">Composition du PDF en A4 paysage…</p>'); } catch { /* */ }
+    const w = ouvrirOngletAttente();
     try {
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ html: htmlAffiche, nom: nomFichier || titre, orientation: 'paysage',
@@ -213,7 +213,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     // cadre alimenté par srcDoc : on obtenait une capture de l'écran, fenêtre
     // d'aperçu comprise. Une fenêtre dédiée porte le document seul, et
     // l'impression y est fidèle sur tous les navigateurs.
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     if (!w) {
       // Fenêtre bloquée : on retombe sur le cadre, imparfait mais fonctionnel
       // sur les navigateurs qui le gèrent.

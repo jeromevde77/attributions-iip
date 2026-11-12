@@ -18,7 +18,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
+import { envelopperDocument } from '../lib/document.js';
 import db from '../db/index.js';
 import { piedDocument, getParam } from './parametres.js';
 import { sectionRattachement } from './etudiants.js';
@@ -311,45 +311,12 @@ r.get('/etudiant/:id/document', authRequired, async (req, res) => {
         <td>${esc(p.moyen || '')}</td>
         <td style="text-align:right">${eur(p.montant)}</td></tr>`).join('');
 
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Frais de scolarité — ${esc(e.nom)} ${esc(e.prenom)}</title>
-<style>
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1B2B4B; margin: 24px; }
-  h1 { font-size: 17px; margin: 0 0 2px; }
-  h2 { font-size: 13px; margin: 18px 0 6px; color: #1B2B4B;
-       border-bottom: 2px solid #C9A84C; padding-bottom: 3px; }
-  .meta { color: #64748b; font-size: 11.5px; margin-bottom: 4px; }
-  table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
-  th, td { border: 1px solid #cbd5e1; padding: 4px 7px; }
-  th { background: #f1f5f9; text-align: left; font-size: 10.5px;
-       text-transform: uppercase; letter-spacing: .3px; }
-  tr.dispensee td { color: #94a3b8; font-style: italic; }
-  tr.tot td { background: #f8fafc; font-weight: 600; }
-  .encadre { border: 2px solid #1B2B4B; border-radius: 6px; padding: 10px 12px; margin-top: 12px; }
-  .grand { font-size: 20px; font-weight: 700; }
-  .note { font-size: 10.5px; color: #64748b; margin-top: 4px; }
-  .sig { margin-top: 30px; display: flex; gap: 60px; }
-  .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 4px; font-size: 10.5px; color: #64748b; }
-
-  /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
-     dessous en fin de page. */
-  ${reglesDePage({ haut: 14, cote: 14 })}
-
-  /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
-     Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
-     d'une dernière page à moitié vide. */
-  ${piedStyles()}
-</style></head><body>
-
-<h1>${esc(etab.etab_nom || 'Institut Ilya Prigogine')} — Frais de scolarité</h1>
-<div class="meta">Année académique ${esc(annee)}</div>
-<div class="meta">
-  ${esc(e.titre || '')} <b>${esc(e.nom)} ${esc(e.prenom)}</b>
-  ${e.id_ecampus ? ' · ' + esc(e.id_ecampus) : ''}
-</div>
-
-<h2>Programme retenu</h2>
+  /* AU STANDARD DES PIÈCES (3.5.390, Charles : « mise en page pas conforme aux nouveaux standards ») : l'enveloppe commune — logo,
+     bandeau, cadre de titre, pied —, le corps de la note inchangé. */
+  const entete = ({ titre: 'Frais de scolarité', nature: 'Inscription',
+    sous: `${e.titre || ''} ${String(e.nom || '').toUpperCase()} ${e.prenom || ''}${e.id_ecampus ? ' · ' + e.id_ecampus : ''}`.trim(),
+    ligne: `Année académique ${String(annee).replace('-', '/')}` });
+  const corps = `<h2>Programme retenu</h2>
 <table>
   <thead><tr><th>UE</th><th>Intitulé</th><th style="text-align:right">Périodes</th>
     <th style="text-align:right">Part variable</th></tr></thead>
@@ -436,8 +403,18 @@ ${f.paiements.length ? `
   ${new Date().toLocaleDateString('fr-BE')}
 </div>
 
-${piedBalisage(logoCourant())}
-</body></html>`;
+`;
+  const html = envelopperDocument({ html: corps, titre: `Frais de scolarité — ${e.nom} ${e.prenom}`, entete, styles: `
+  table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+  th, td { border-bottom: 1px solid #D8DCE4; padding: 4px 7px; text-align: left; }
+  th { background: #EEF2F7; font-size: 8pt; text-transform: uppercase; letter-spacing: .3px; }
+  tr.dispensee td { color: #94a3b8; font-style: italic; }
+  tr.tot td { background: #F5F7FA; font-weight: 600; }
+  .encadre { border: 1px solid #D8DCE4; border-left: 1mm solid #16406A; border-radius: 0 2.6mm 2.6mm 0; padding: 8px 12px; margin-top: 12px; page-break-inside: avoid; }
+  .grand { font-size: 15pt; font-weight: 700; }
+  .note { font-size: 8.5pt; color: #64748b; margin-top: 4px; }
+  .sig { margin-top: 26px; display: flex; gap: 60px; page-break-inside: avoid; }
+  .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 4px; font-size: 8.5pt; color: #64748b; }` });
 
   res.json({ html, titre: `Frais de scolarité — ${e.nom} ${e.prenom}` });
 });

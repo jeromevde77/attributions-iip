@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { useCallback, useEffect, useState } from 'react';
 import { IconWorld, IconKey, IconEye } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
@@ -23,7 +24,7 @@ export default function SuiviEspace({ id }) {
   const [erreurApercu, setErreurApercu] = useState(null);
   const voirComme = async () => {
     setErreurApercu(null);
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await fetch(`/api/portail-suivi/${id}/apercu`, { method: 'POST', headers: authHeaders() });
       const j = await r.json().catch(() => ({}));

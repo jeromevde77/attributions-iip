@@ -112,21 +112,47 @@ export function periodesDuPAE(etudId, annee) {
 
 /** LA QUESTION DES 17 HEURES : l'horaire de l'étudiant d'abord ; sans horaire, les périodes du PAE (une période = 50 min).
  *  Les deux se divisent par les semaines de cours, congés retirés. */
+/* LES SEMAINES OÙ L'ÉTUDIANT A COURS (3.5.390, Charles : « ton calcul n'est pas correct ; cette formation TIM est de plus de 20 h par
+   semaine »). Le total se divisait par les 35 semaines de l'année : une BA1 de TIM dont les unités tombent de septembre à décembre
+   (13 semaines, 20 à 40 h) sortait à 8,2 h. On divise désormais par les semaines de cours ENTRE sa première et sa dernière séance
+   (horaire), ou entre l'ouverture et la fermeture de ses unités (PAE), congés retirés — jamais plus que l'année. */
 export function calculDixSept(etudId, annee, { debut, fin, conges }) {
-  const semaines = semainesDeCours(annee, debut, fin, conges);
-  let min = 0;
-  for (const u of essai(() => unitesInscrites(etudId, annee), [])) {
+  const semainesAnnee = semainesDeCours(annee, debut, fin, conges);
+  let min = 0, premier = null, dernier = null;
+  const ues = essai(() => unitesInscrites(etudId, annee), []);
+  for (const u of ues) {
     if (u.epreuve_integree) continue;
     const { seances } = essai(() => seancesEtudiant(etudId, u.ue_num, annee), { seances: [] });
-    for (const x of seances) if (!x.annule && !x.dispense) min += Number(x.min) || 0;
+    for (const x of seances) {
+      if (x.annule || x.dispense) continue;
+      min += Number(x.min) || 0;
+      if (x.date) { if (!premier || x.date < premier) premier = x.date; if (!dernier || x.date > dernier) dernier = x.date; }
+    }
   }
+  // Les dates des unités (organisation), pour le calcul par le PAE.
+  let ouv = null, ferm = null;
+  for (const u of ues) {
+    if (u.epreuve_integree) continue;
+    const o = essai(() => db.prepare(`SELECT MIN(date_debut) d, MAX(date_fin) f FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ?
+      AND date_debut IS NOT NULL AND date_debut <> ''`).get(u.ue_num, annee), null);
+    if (o?.d && (!ouv || o.d < ouv)) ouv = o.d;
+    if (o?.f && (!ferm || o.f > ferm)) ferm = o.f;
+  }
+  const borne = (a, b) => {
+    const n = a && b ? semainesDeCours(annee, a < debut ? debut : a, b > fin ? fin : b, conges) : 0;
+    return n > 0 ? Math.min(n, semainesAnnee || n) : semainesAnnee;
+  };
+  const semH = borne(premier, dernier);
+  const semP = borne(ouv, ferm);
   const periodes = periodesDuPAE(etudId, annee);
   const arrondi = v => Math.round(v * 10) / 10;
-  const parHoraire = semaines && min ? arrondi(min / 60 / semaines) : null;
-  const parPAE = semaines && periodes ? arrondi((periodes * 50) / 60 / semaines) : null;
+  const parHoraire = semH && min ? arrondi(min / 60 / semH) : null;
+  const parPAE = semP && periodes ? arrondi((periodes * 50) / 60 / semP) : null;
   const heures = parHoraire ?? parPAE;
-  return { semaines, heures_horaire: min ? arrondi(min / 60) : 0, periodes, par_horaire: parHoraire, par_pae: parPAE,
-    heures, source: parHoraire != null ? 'horaire' : parPAE != null ? 'pae' : null, oui: heures != null ? heures >= 17 : null };
+  const source = parHoraire != null ? 'horaire' : parPAE != null ? 'pae' : null;
+  return { semaines: source === 'pae' ? semP : semH, semaines_annee: semainesAnnee, du: source === 'pae' ? ouv : premier, au: source === 'pae' ? ferm : dernier,
+    heures_horaire: min ? arrondi(min / 60) : 0, periodes, par_horaire: parHoraire, par_pae: parPAE,
+    heures, source, oui: heures != null ? heures >= 17 : null };
 }
 
 /** Tout ce que la pièce lit, ou l'erreur qui l'arrête. */
@@ -174,8 +200,8 @@ export function composerAttestationInscription(d, variante = 'inscription') {
   const h = x.heures, oui = x.force ? x.force === 'oui' : x.oui;
   const virgule = v => String(v).replace('.', ',');
   const heuresTxt = x.force ? 'Réponse confirmée par l’établissement.'
-    : x.source === 'horaire' ? `Moyenne de ${virgule(h)} h de cours par semaine, d’après l’horaire de l’établissement, sur ${x.semaines} semaines de cours (congés exclus ; hors stages et épreuve intégrée).`
-    : x.source === 'pae' ? `Moyenne de ${virgule(h)} h de cours par semaine : ${x.periodes} périodes de 50 min au programme, sur ${x.semaines} semaines de cours (congés exclus ; hors stages et épreuve intégrée).`
+    : x.source === 'horaire' ? `Moyenne de ${virgule(h)} h de cours par semaine, d’après l’horaire de l’établissement, sur les ${x.semaines} semaines où l’étudiant a cours${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''} — congés exclus ; hors stages et épreuve intégrée.`
+    : x.source === 'pae' ? `Moyenne de ${virgule(h)} h de cours par semaine : ${x.periodes} périodes de 50 min au programme, sur les ${x.semaines} semaines de ses unités${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''} — congés exclus ; hors stages et épreuve intégrée.`
     : 'À cocher par l’établissement.';
   const coche = oui != null;
   /* RIEN NE SE COUPE (Charles, 12 novembre 2026 : « je ne veux pas que ma signature ou une partie d'un texte se trouve coupé et

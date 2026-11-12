@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
@@ -59,7 +60,7 @@ function CentreDocuments({ onErreur }) {
   useEffect(() => { charger(); }, [charger]);
   const obtenir = async p => {
     setMsg(null); setEnCours(p.code);
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await appel('GET', `/centre/piece/${encodeURIComponent(p.code)}`, null, true);
       const url = URL.createObjectURL(await r.blob());
@@ -260,7 +261,7 @@ function ValiderPAE({ annee, onFait }) {
             <Tableau dense className="!border-0 !rounded-none">
               <TableauEntete><Th>Unité</Th><Th align="droite">ECTS</Th></TableauEntete>
               <tbody>
-                {ues.length ? ues.map(u => <Tr key={u.ue_num}><Td>UE {u.ue_num} — {u.ue_nom}</Td><Td align="droite">{u.ects ?? ''}</Td></Tr>)
+                {ues.length ? ues.map(u => <Tr key={u.ue_num}><Td>UE {u.ue_num} — {u.ue_nom}{u.va && <> <PastilleEtat etat="reussi">VA · réussie</PastilleEtat></>}</Td><Td align="droite">{u.ects ?? ''}</Td></Tr>)
                   : (o.programme || []).map(n => <Tr key={n}><Td>UE {n}</Td><Td /></Tr>)}
               </tbody>
             </Tableau>
@@ -771,7 +772,7 @@ function MonParcours({ onErreur }) {
   useEffect(() => { appel('GET', '/supports').then(j => setSupports(j.supports || [])).catch(() => setSupports([])); }, []);
   const recent = s => s.depose_le && (Date.now() - new Date(String(s.depose_le).replace(' ', 'T') + 'Z').getTime()) < 7 * 86400000;
   const ouvrirSupport = async s => {
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await appel('GET', `/supports/${s.id}`, null, true);
       const url = URL.createObjectURL(await r.blob());
@@ -1074,6 +1075,10 @@ function MonPAE({ onErreur, email }) {
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre PAE… quelques secondes.</p>;
   if (!o?.annee) return <p className="text-sm text-slate-500">Votre PAE n’est pas encore disponible.</p>;
   const nomUE = n => o.unites?.find(u => u.ue_num === n)?.ue_nom || '';
+  /* UNE UNITÉ VALORISÉE EST RÉUSSIE (3.5.390, Charles : « si réussi, vert et badge VA »). */
+  const ligneUE = n => { const va = !!o.unites?.find(u => Number(u.ue_num) === Number(n))?.va;
+    return <LigneEtat key={n} etat={va ? 'reussi' : 'disponible'} titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>}
+      droite={va ? <PastilleEtat etat="reussi">VA · réussie</PastilleEtat> : null} />; };
   const geste = async (chemin, corps, ok) => {
     setEnCours(true);
     try { await appel('POST', chemin, corps); ok?.(); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
@@ -1102,7 +1107,7 @@ function MonPAE({ onErreur, email }) {
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
             : <div>Relisez-le : s’il est juste, confirmez-le ; sinon, dites-le à votre coordination.</div>}
         </div>
-        <ListeEtats>{(o.programme || []).map(n => <LigneEtat key={n} etat="disponible" titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>} />)}</ListeEtats>
+        <ListeEtats>{(o.programme || []).map(ligneUE)}</ListeEtats>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
         {!signe && !attend && <DecisionPAE programme={o.programme || []} onFait={charger} onErreur={onErreur} />}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
@@ -1120,7 +1125,7 @@ function MonPAE({ onErreur, email }) {
           <div className="text-slate-600">Pas encore confirmé par l’école. Pour le modifier, adressez-vous à votre coordination
             {o.du && o.au && o.du > new Date().toISOString().slice(0, 10) ? `, ou proposez vos unités en ligne du ${jourFr(o.du)} au ${jourFr(o.au)}` : ''}.</div>
         </div>
-        {prog.length ? <ListeEtats>{prog.map(n => <LigneEtat key={n} etat="disponible" titre={<>UE {n} <span className="font-normal">{nomUE(n)}</span></>} />)}</ListeEtats> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
+        {prog.length ? <ListeEtats>{prog.map(ligneUE)}</ListeEtats> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
         {prog.length > 0 && (o.signature?.a_jour
           ? <Encadre etat="reussi">Vous avez confirmé ce programme le {jourFr(o.signature.signe_le)}.</Encadre>
@@ -1373,7 +1378,7 @@ function Espace() {
 
   // UN DOCUMENT S'OUVRE DANS UN ONGLET : l'onglet s'ouvre AU CLIC (sinon l'iPad le bloque), la pièce y arrive ensuite.
   const ouvrir = async doc => {
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await appel('GET', `/documents/${doc.id}`, null, true);
       const url = URL.createObjectURL(await r.blob());

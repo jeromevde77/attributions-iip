@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 /**
  * LE REGISTRE DES ENVOIS (Charles, 30 septembre 2026 : « il faut assurer une
  * traçabilité de tout cela : savoir ce qui a été envoyé, quand et par qui.
@@ -76,7 +77,7 @@ export default function RegistreEnvois() {
 
   const ouvrirCopie = async l => {
     setCopieEnCours(l.id); setErreur(null);
-    const fen = window.open('', '_blank');
+    const fen = ouvrirOngletAttente();
     try {
       const r = await fetch(`/api/envois/${l.id}/copie`, { headers: authHeaders() });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }

@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconSearch, IconX, IconHelpCircle, IconFileTypePdf, IconMapPin, IconArrowRight, IconArrowLeft,
@@ -236,7 +237,7 @@ const ATTENTE = `<!doctype html><meta charset="utf-8"><title>Lucie — mode d'em
 <div style="text-align:center;max-width:30rem;padding:2rem"><div style="font-size:28px;font-weight:700;margin-bottom:12px">Lucie — mode d'emploi</div>
 <div style="opacity:.85;line-height:1.5">Composition du document, chapitre par chapitre, avec ses captures.<br>La première fois, cela prend une à deux minutes ; ensuite, il s'ouvre aussitôt.</div></div></body>`;
 async function ouvrirModeEmploiPdf(setErreur, voir) {
-  const onglet = window.open('', '_blank');
+  const onglet = ouvrirOngletAttente();
   try { onglet?.document.write(ATTENTE); onglet?.document.close(); } catch { /* onglet bloqué */ }
   const q = voir && voir !== 'tous' ? `?voir=${voir}` : '';
   try {

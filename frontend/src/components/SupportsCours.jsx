@@ -1,3 +1,4 @@
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { useEffect, useRef, useState } from 'react';
 import { IconUpload, IconFileText, IconTrash, IconDownload } from '@tabler/icons-react';
 import { ListeEtats, LigneEtat, Encadre } from './ui.jsx';
@@ -41,7 +42,7 @@ export default function SupportsCours({ coursCode, annee }) {
     } catch (e) { informer(e.message); } finally { setEnvoi(false); }
   };
   const ouvrir = async s => {
-    const w = window.open('', '_blank');
+    const w = ouvrirOngletAttente();
     try {
       const r = await fetch(`${base}/fichier/${s.id}`, { headers: authHeaders() });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Fichier introuvable.');

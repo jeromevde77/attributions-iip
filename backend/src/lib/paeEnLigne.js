@@ -14,6 +14,7 @@ import db from '../db/index.js';
 import { composerPAE, ecrireProgramme } from '../routes/etudiants.js';
 import { tarifPAE } from './fraisEstimes.js';
 import { fonctionPour } from './fonctions.js';
+import { uesValorisees } from './valorisation.js';
 
 export function migrerPaeEnLigne(dbx = db) {
   dbx.exec(`
@@ -81,11 +82,14 @@ export function offrePAE(e, anneeVoulue = null) {
   let c;
   try { c = composerPAE(e.id, annee); } catch (x) { console.error('[pae en ligne]', e.id, x.message); return { ...base, unites: [], confirme_le: null }; }
   if (c.erreur) return { ...base, unites: [], confirme_le: null };
+  // UNE UNITÉ VALORISÉE EST RÉUSSIE (3.5.390, Charles : « si réussi, vert et badge VA ») : la VA complète retenue de l'année.
+  let vas = new Set();
+  try { vas = uesValorisees(e.id).parAnnee; } catch { /* */ }
   const unites = (c.pae || []).map(u => {
     const raison = raisonDe(u);
     return { ue_num: u.ue_num, ue_nom: u.ue_nom, ue_niv: u.ue_niv, ects: u.ects ?? null, cochable: !raison, raison,
       avertissement: (u.avertissements || []).length ? `prérequis conseillé : UE ${u.avertissements.map(a => a.ue_num).join(', ')}` : null,
-      propose: !!u.propose, inscrite: programme.includes(Number(u.ue_num)),
+      propose: !!u.propose, inscrite: programme.includes(Number(u.ue_num)), va: vas.has(`${annee}|${u.ue_num}`),
       // POSÉE PAR L'ÉCOLE ET HORS DE SA MAIN : elle reste au programme ; l'étudiant ne l'ajoute ni ne la retire.
       verrouillee: !raison ? false : programme.includes(Number(u.ue_num)) };
   });

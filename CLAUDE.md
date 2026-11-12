@@ -3473,6 +3473,12 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**3.5.390** — (1) Les 17 heures (`calculDixSept`) se divisent par les semaines de cours ENTRE la première et la dernière séance de
+l'étudiant (horaire) ou entre l'ouverture et la fermeture de ses unités (PAE), congés retirés. (2) Note de frais (`fraisScolarite.js`)
+dans `envelopperDocument` avec `entete` (un seul en-tête : ne jamais appeler `enteteDocument` dans un corps passé à l'enveloppe).
+(3) `lib/ongletAttente.js` (`ouvrirOngletAttente`) : tout onglet ouvert avant la composition porte les étoiles et le message ;
+**on n'écrit plus `window.open('', '_blank')`**. (4) `offrePAE` marque `va` (VA complète retenue de l'année) : vert + « VA · réussie ».
+
 **LA VALIDATION DES VA TRAVERSE LES UNITÉS** (3.5.389, Charles : « déjà validé par les coordinations ; en tant que directeur je signe ;
 cela doit être possible »). `POST /valorisations/lot/validation` n'appelle plus `memeSeance` ; l'écran ne borne plus le geste
 « validation » (`melangeSeance`). La DÉCISION reste bornée à une section et une date de séance.
