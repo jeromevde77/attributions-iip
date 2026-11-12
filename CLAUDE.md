@@ -3437,7 +3437,8 @@ mise en page » — la « Lettre 1 » Word du secrétariat). `lib/attestationIns
 secrétariat), catalogue `attestation_inscription`, Éditions (`PIECES_DOSSIER`, colonne Inscription) et fiche → Imprimer ou envoyer.
 Directeur = `identiteEtablissement`, section = `donneesSectionDiplome().intitule_section`, année = semaines du calendrier hors
 vacances, congés = fermetures de l'agenda (à défaut le calendrier), l'été du lendemain de la fin à la veille de la rentrée suivante,
-bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » reste à cocher (Lucie ne le tranche pas).
+bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » se calcule (Charles : « Lucie calcule ») : `heuresParSemaine` — séances de `seancesEtudiant` (hors stages,
+EI, dispenses, annulées), en moyenne sur les semaines de cours du calendrier ; sans horaire, cases vides.
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

@@ -7,7 +7,9 @@
 // Rien ne se tape : le directeur vient de l'identité de l'établissement ; l'étudiant de sa fiche ; la section de son
 // rattachement ; les dates de l'année du calendrier des cours ; les congés des FERMETURES DE L'AGENDA DE L'ÉCOLE (elles font
 // foi depuis 3.5.145), à défaut du calendrier ; le bloc de `niveauEtudiant` ; les crédits du programme de l'année.
-// La question des 17 heures reste à cocher : elle dépend de l'organisme qui la pose, Lucie ne la tranche pas.
+// LES 17 HEURES SE CALCULENT (Charles, 12 novembre 2026 : « Lucie calcule ») : les séances de l'horaire qui concernent
+// l'étudiant (`seancesEtudiant`, la règle du congé-éducation : hors stages, épreuve intégrée, dispenses, séances annulées),
+// en moyenne sur les semaines de cours du calendrier. Sans horaire encodé, les cases restent vides.
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
 import { envelopper, frDate } from '../routes/attestations.js';
@@ -15,7 +17,7 @@ import { enteteDocument } from './document.js';
 import { identiteEtablissement } from '../routes/config.js';
 import { sectionRattachement, niveauEtudiant } from '../routes/etudiants.js';
 import { fermetures } from './agendaEcole.js';
-import { congesDe } from './cep.js';
+import { congesDe, seancesEtudiant } from './cep.js';
 import { donneesSectionDiplome } from '../routes/diplomes.js';
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -78,6 +80,24 @@ function intituleSection(code) {
   return { libelle, type: `${d.type_enseignement || ''} ${niv}` };
 }
 
+/** La moyenne des heures de cours par semaine, d'après l'horaire ; null sans séance. */
+export function heuresParSemaine(etudId, ueNums, annee) {
+  let min = 0; const semaines = new Set();
+  for (const u of ueNums) {
+    const { seances } = essai(() => seancesEtudiant(etudId, u, annee), { seances: [] });
+    for (const x of seances) {
+      if (x.annule || x.dispense) continue;
+      min += Number(x.min) || 0;
+      const d = new Date(`${x.date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+      semaines.add(d.toISOString().slice(0, 10));
+    }
+  }
+  if (!min) return null;
+  const cours = essai(() => db.prepare(`SELECT COUNT(*) n FROM annee_calendrier WHERE annee_scolaire = ? AND type <> 'vacances'`).get(annee).n, 0);
+  const n = cours || semaines.size;
+  return n ? Math.round((min / 60 / n) * 10) / 10 : null;
+}
+
 /** Tout ce que la pièce lit, ou l'erreur qui l'arrête. */
 export function chargerAttestationInscription(etudId, annee) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
@@ -97,7 +117,7 @@ export function chargerAttestationInscription(etudId, annee) {
   const tardif = !!(inscritLe && debut && inscritLe > debut);
   const superieur = !/secondaire|CESS|CQ/i.test(sec?.type || '');
   return { etudiant: e, annee, section, section_libelle: sec?.libelle || null, bloc, ects, debut, fin,
-    inscrit_le: tardif ? inscritLe : null, superieur, conges: congesDeLAnnee(annee, debut, fin) };
+    inscrit_le: tardif ? inscritLe : null, superieur, heures: heuresParSemaine(e.id, ins.map(i => i.ue_num), annee), conges: congesDeLAnnee(annee, debut, fin) };
 }
 
 /** Compose la pièce. Rend { html, nom } ou { code, erreur }. */
@@ -109,7 +129,10 @@ export function composerAttestationInscription(d) {
     .filter(Boolean).join(' ');
   const qui = f ? 'L’étudiante' : 'L’étudiant';
   const conges = d.conges.map(c => `<li>${esc(c.intitule)} : du ${jour(c.du)} au ${jour(c.au)}</li>`).join('');
-  const caseVide = '<span style="display:inline-block;width:3.2mm;height:3.2mm;border:0.3mm solid #0E2A4F;border-radius:0.6mm;vertical-align:-0.4mm;margin:0 1mm 0 3mm"></span>';
+  const boite = coche => `<span style="display:inline-block;width:3.2mm;height:3.2mm;border:0.3mm solid #0E2A4F;border-radius:0.6mm;vertical-align:-0.4mm;margin:0 1mm 0 3mm;text-align:center;line-height:3.2mm;font-size:8pt;font-weight:700;color:#0E2A4F">${coche ? '✓' : ''}</span>`;
+  const h = d.heures, oui = h != null && h >= 17;
+  const heuresTxt = h == null ? 'Horaire non encodé : à cocher.'
+    : `Moyenne de ${String(h).replace('.', ',')} h de cours par semaine, d’après l’horaire de l’établissement (hors stages et épreuve intégrée).`;
   const corps = `<div class="attestation piece">
   ${enteteDocument({ titre: 'Attestation d’inscription', nature: 'Inscription',
     sous: d.section_libelle || null, ligne: `Année scolaire ${esc(d.annee)}${ident.matricule ? ` · N° ECOT ${esc(ident.matricule)}` : ''}` })}
@@ -122,7 +145,8 @@ export function composerAttestationInscription(d) {
   ${conges ? `<p class="corps">Les périodes de vacances sont fixées comme suit :</p><ul>${conges}</ul>` : ''}
   <div style="background:#F1F6FB;border-radius:1.8mm;padding:2.2mm 3.5mm;margin:2mm 0 3mm">
     <div style="font-weight:700;color:#0E2A4F;margin-bottom:1mm">${d.superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'} pour adultes</div>
-    <div>Le jeune suit-il au moins 17 heures de cours par semaine ?${caseVide}Oui${caseVide}Non</div>
+    <div>Le jeune suit-il au moins 17 heures de cours par semaine ?${boite(h != null && oui)}Oui${boite(h != null && !oui)}Non</div>
+    <div style="font-size:7.5pt;color:#5B6B82;margin-top:0.8mm">${heuresTxt}</div>
   </div>
   <p class="corps">${qui} suit les cours ${d.inscrit_le ? `depuis le ${jour(d.inscrit_le)}` : 'depuis le début de l’année scolaire'}.
     ${f ? 'Elle' : 'Il'} est ${f ? 'inscrite' : 'inscrit'}${d.bloc ? ` en ${esc(d.bloc)}` : ''} et suit un programme de
