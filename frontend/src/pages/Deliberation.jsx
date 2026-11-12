@@ -5,7 +5,7 @@ const ControleDecisions = lazy(() => import('../components/ControleDecisions.jsx
 const NotesDoubles = lazy(() => import('../components/NotesDoubles.jsx'));
 const ClotureReprise = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.ClotureReprise })));
 import GroupesParBloc from '../components/GroupesParBloc.jsx';
-import { IconChevronRight, IconArrowLeft, IconAlertTriangle,
+import { IconChevronRight, IconArrowLeft, IconAlertTriangle, IconUsersGroup,
   IconRotate, IconPrinter, IconFileSpreadsheet, IconPencil, IconTable, IconList,
   IconUpload, IconEdit, IconAdjustments, IconChecks, IconScale, IconZoomQuestion } from '@tabler/icons-react';
 import MenuActions from '../components/MenuActions.jsx';
@@ -461,13 +461,16 @@ export default function Deliberation() {
                     {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS : la
                         répartition des étudiants se prépare d'ici, avant
                         d'ouvrir la feuille. */}
-                    {u.nb_organisations > 1 && (
-                      <button onClick={() => setRepartirUE(u)}
-                        title={`${u.nb_organisations} organisations — répartir les étudiants entre elles avant de délibérer`}
-                        className="bouton bouton-compact flex-none">
-                        Répartir ({u.nb_organisations} org.)
-                      </button>
-                    )}
+                    {/* TOUJOURS ALIGNÉ (3.5.374, Charles) : une icône à la taille de l'avion, et sa place gardée sur chaque ligne. */}
+                    <span className="w-8 h-8 flex-none">
+                      {u.nb_organisations > 1 && (
+                        <button onClick={() => setRepartirUE(u)} aria-label={`Répartir entre ${u.nb_organisations} organisations`}
+                          title={`${u.nb_organisations} organisations — répartir les étudiants entre elles avant de délibérer`}
+                          className="relative w-8 h-8 rounded-champ border border-slate-300 bg-white text-iip-blue grid place-items-center hover:border-iip-blue">
+                          <IconUsersGroup size={16} />
+                          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-iip-blue text-white text-[10px] leading-4 text-center">{u.nb_organisations}</span>
+                        </button>)}
+                    </span>
                     {/* UNE LIGNE, TROIS GESTES. Neuf boutons s'alignaient sur
                         chaque unité (Jérôme : « ça commence à devenir peu
                         clair ») : on ne voyait plus lequel était le geste du
