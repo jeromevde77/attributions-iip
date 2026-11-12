@@ -119,6 +119,10 @@ export function periodesDuPAE(etudId, annee) {
 export function calculDixSept(etudId, annee, { debut, fin, conges }) {
   const semainesAnnee = semainesDeCours(annee, debut, fin, conges);
   let min = 0, premier = null, dernier = null;
+  /* LES SEMAINES RÉELLEMENT OCCUPÉES (3.5.400, Charles : « si le stage ne compte pas, le compte se fait sur les semaines de COURS ;
+     sinon les étudiants sont défavorisés ») : le diviseur est le nombre de semaines où l'étudiant a au moins une séance — ou un stage
+     encodé, dont les heures comptent alors —, congés retirés. Une semaine de stage non encodé, sans cours, n'entre pas au diviseur. */
+  const semainesOccupees = new Set();
   const ues = essai(() => unitesInscrites(etudId, annee), []);
   for (const u of ues) {
     if (u.epreuve_integree) continue;
@@ -126,7 +130,7 @@ export function calculDixSept(etudId, annee, { debut, fin, conges }) {
     for (const x of seances) {
       if (x.annule || x.dispense) continue;
       min += Number(x.min) || 0;
-      if (x.date) { if (!premier || x.date < premier) premier = x.date; if (!dernier || x.date > dernier) dernier = x.date; }
+      if (x.date) { semainesOccupees.add(lundiDe(x.date)); if (!premier || x.date < premier) premier = x.date; if (!dernier || x.date > dernier) dernier = x.date; }
     }
   }
   /* LE STAGE COMPTE (3.5.399, Charles : « oui, le stage compte » — une dernière année de TIM a 6 h de cours et le reste en stage) :
@@ -137,6 +141,7 @@ export function calculDixSept(etudId, annee, { debut, fin, conges }) {
     AND COALESCE(statut, '') NOT IN ('annule', 'abandonne')`).all(Number(etudId), annee), []);
   for (const st of stages) {
     minStage += (Number(st.heures_prevues) || 0) * 60;
+    if (st.date_debut && st.date_fin && Number(st.heures_prevues) > 0) for (let l = lundiDe(st.date_debut); l <= st.date_fin; l = plus(l, 7)) semainesOccupees.add(l);
     if (st.date_debut && (!premier || st.date_debut < premier)) premier = st.date_debut;
     if (st.date_fin && (!dernier || st.date_fin > dernier)) dernier = st.date_fin;
   }
@@ -155,7 +160,9 @@ export function calculDixSept(etudId, annee, { debut, fin, conges }) {
     const n = a && b ? semainesDeCours(annee, a < debut ? debut : a, b > fin ? fin : b, conges) : 0;
     return n > 0 ? Math.min(n, semainesAnnee || n) : semainesAnnee;
   };
-  const semH = borne(premier, dernier);
+  const enConge = l => conges.some(c => c.du <= plus(l, 4) && c.au >= l);
+  const occupees = [...semainesOccupees].filter(l => !enConge(l)).length;
+  const semH = occupees > 0 ? Math.min(occupees, semainesAnnee || occupees) : borne(premier, dernier);
   const semP = borne(ouv, ferm);
   const periodes = periodesDuPAE(etudId, annee);
   const arrondi = v => Math.round(v * 10) / 10;
@@ -213,7 +220,7 @@ export function composerAttestationInscription(d, variante = 'inscription') {
   const h = x.heures, oui = x.force ? x.force === 'oui' : x.oui;
   const virgule = v => String(v).replace('.', ',');
   const heuresTxt = x.force ? 'Réponse confirmée par l’établissement.'
-    : x.source === 'horaire' ? `Moyenne de ${virgule(h)} h de cours par semaine, d’après l’horaire de l’établissement, sur les ${x.semaines} semaines où l’étudiant a cours${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''}${x.stage_heures ? `, dont ${virgule(x.stage_heures)} h de stage` : ''} — congés exclus ; hors épreuve intégrée.${x.stage_manquant ? ' Stage au programme non encodé : ses heures ne sont pas comptées.' : ''}`
+    : x.source === 'horaire' ? `Moyenne de ${virgule(h)} h de cours par semaine, d’après l’horaire de l’établissement, sur les ${x.semaines} semaines où l’étudiant a cours${x.stage_heures ? ' ou stage' : ''}${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''}${x.stage_heures ? `, dont ${virgule(x.stage_heures)} h de stage` : ''} — congés exclus ; hors épreuve intégrée.${x.stage_manquant ? ' Stage au programme non encodé : ses heures ne sont pas comptées.' : ''}`
     : x.source === 'pae' ? `Moyenne de ${virgule(h)} h de cours par semaine : ${x.periodes} périodes de 50 min au programme${x.stage_heures ? ` et ${virgule(x.stage_heures)} h de stage` : ''}, sur les ${x.semaines} semaines de ses unités${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''} — congés exclus ; hors épreuve intégrée.${x.stage_manquant ? ' Stage au programme non encodé : ses heures ne sont pas comptées.' : ''}`
     : 'À cocher par l’établissement.';
   const coche = oui != null;
