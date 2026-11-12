@@ -3438,6 +3438,9 @@ en session 2. Effacer reste permis. La liste de la délibération (3.5.363) mont
 « Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
 — décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
 l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
+**LES RÉSULTATS DE L'ÉTUDIANT EN DEUX SESSIONS** (3.5.370, Charles) : `resultatsPublies` dépose `detail.sessions` [{ n, decision, note, etat }]
+(sessions closes de son organisation) ; `detailResultat` ajoute `note_s1` aux cours et acquis quand la S2 est close. Espace étudiant :
+colonnes « 1re session » / « 2e session », volet à deux notes. Aucune colonne nouvelle au portail (tout est dans `detail`).
 **LES BOUTONS S1 / S2 DE LA DÉLIBÉRATION** (3.5.368, Charles, maquette validée). `boutonsSessions()` (`routes/acquis.js`) : gris (examens à
 venir) · attente (examens passés, délibération > J-3 ou non datée) · pret (≤ J-3) · fait (séances closes) ; S2 « — » sans ajourné.
 `components/BoutonsSessions.jsx` (boutons, flèche de coin, `FenetreSessionClose` : rouvrir `toutes: true` ou annuler `DELETE ?session=n&motif=`,
