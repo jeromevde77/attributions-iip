@@ -7,6 +7,7 @@ import { useTransfertsFermes } from '../lib/transferts.js';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { poserSelectionEtudiants } from '../lib/selectionEtudiants.js';
 import { useDroits, passeRole, peutGeste, ecritModule } from '../lib/droits.js';
+import { FenetreDesinscrire } from '../components/Desinscription.jsx';
 import OngletCep from '../components/OngletCep.jsx';
 import OngletSLE from '../components/OngletSLE.jsx';
 import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,6 +24,7 @@ import {
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
+  IconUserMinus,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -3311,6 +3313,9 @@ export default function Etudiants() {
   useEffect(() => { charger(); /* eslint-disable-next-line */ },
     [annee, section, anneeCohorte, ueCohorte, statut]);
   const [frises, setFrises] = useState(null);
+  // LA DÉSINSCRIPTION DEPUIS LA LISTE (3.5.395).
+  const [desinscrire, setDesinscrire] = useState(null);
+  const peutDesinscrire = passeRole(['admin', 'editeur']);
   useEffect(() => {
     if (!annee) return;
     let vivant = true;
@@ -4018,6 +4023,7 @@ export default function Etudiants() {
                 <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-28">Niveau</ThTri>
                 <Th>Parcours <span className="font-normal text-slate-400 normal-case">— dans l'ordre du cursus</span></Th>
                 <Th largeur="w-8"></Th>
+                <Th largeur="w-8"></Th>
             </TableauEntete>
             <tbody>
               {parSection.map(([sec, liste]) => {
@@ -4063,7 +4069,7 @@ export default function Etudiants() {
                                 return n; })} />;
                           })()}
                         </td>
-                        <td colSpan={5} className="px-1 py-2">
+                        <td colSpan={6} className="px-1 py-2">
                           <button onClick={basculer}
                             className="flex items-center gap-1.5 text-sm font-semibold">
                             <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
@@ -4150,6 +4156,12 @@ export default function Etudiants() {
                       ? <FriseParcours ues={frises?.sections?.[e._second]} codes={frises?.secondaires?.[e.id]?.[e._second]?.c} ects={frises?.secondaires?.[e.id]?.[e._second]?.ects ?? null} />
                       : <FriseParcours ues={frises?.sections?.[frises?.etats?.[e.id]?.s]} codes={frises?.etats?.[e.id]?.c} ects={frises?.etats?.[e.id]?.ects ?? null} />}
                   </td>
+                  {/* DÉSINSCRIRE, À CÔTÉ DU TRAIN D'UE (3.5.395, Charles : « geste simple ») — secrétariat et direction. */}
+                  <td className="px-1 py-1 w-8">
+                    {peutDesinscrire && <button type="button" aria-label={`Désinscrire ${e.nom} ${e.prenom || ''}`} title="Désinscrire (RDE art. 19)"
+                      className="p-1 rounded text-slate-300 hover:text-[color:var(--c-refuse)]"
+                      onClick={ev => { ev.stopPropagation(); setDesinscrire(e); }}><IconUserMinus size={16} /></button>}
+                  </td>
                   <td className="px-2 py-1 text-slate-300"><IconChevronRight size={16} /></td>
                 </tr>
                     ))}
@@ -4159,6 +4171,8 @@ export default function Etudiants() {
             </tbody>
         </Tableau>
       )}
+      {desinscrire && <FenetreDesinscrire etudId={desinscrire.id} annee={annee} nom={`${String(desinscrire.nom || '').toUpperCase()} ${desinscrire.prenom || ''}`}
+        onFermer={() => setDesinscrire(null)} onFait={() => { setDesinscrire(null); charger(); }} />}
 
       {controles && (
         <OutilsAFaces icone={IconListSearch} titre="Contrôler les dossiers"

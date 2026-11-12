@@ -109,7 +109,7 @@ export function demander(etudId, annee, { ues = null, motif = null, source = 'ec
     db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par) VALUES ('desinscription', ?, ?, ?, 'secretariat', ?)`)
       .run(`Demande de désinscription — ${String(a.etudiant.nom || '').toUpperCase()} ${a.etudiant.prenom || ''}`,
         `${a.portee === 'annee' ? 'Toute l’année' : `UE ${a.unites.map(u => u.ue_num).join(', ')}`} · demandée le ${fr(a.date)}${source === 'en_ligne' ? ' (en ligne)' : ''}`,
-        `/etudiants/${a.etudiant.id}?onglet=finances`, par || 'Lucie');
+        '/etudiants', par || 'Lucie');
   } catch { /* notifications absentes */ }
   return { ok: true, id: Number(r.lastInsertRowid), apercu: a };
 }

@@ -38,7 +38,20 @@ function Calcul({ a }) {
     </div>);
 }
 
-function FenetreDesinscrire({ etudId, annee, ues, onFermer, onFait }) {
+export function FenetreDesinscrire({ etudId, annee, nom = '', ues: uesDonnees = null, onFermer, onFait }) {
+  /* LE GESTE DEPUIS LA LISTE (3.5.395, Charles : « directement sur la liste des étudiants, à côté de son petit train d'UE ; geste
+     simple ») : la fenêtre se suffit — elle lit le programme, et une demande en attente (faite en ligne) se confirme ici. */
+  const [ues, setUes] = useState(uesDonnees || []);
+  const [attente, setAttente] = useState(null);
+  useEffect(() => {
+    if (!uesDonnees) api(`/etudiant/${etudId}/apercu`, { annee }).then(x => setUes((x.unites || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom })))).catch(() => {});
+    api(`/etudiant/${etudId}`).then(j => {
+      const d = (j.demandes || []).find(x => x.statut === 'demandee');
+      if (!d) return;
+      setAttente(d);
+      api(`/etudiant/${etudId}/apercu`, { annee: d.annee_scolaire, ues: d.portee === 'annee' ? null : d.ues, date: d.demande_le }).then(a => setAttente(v => ({ ...v, a }))).catch(e => setAttente(v => ({ ...v, erreur: e.message })));
+    }).catch(() => {});
+  }, [etudId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [toute, setToute] = useState(true);
   const [choix, setChoix] = useState(() => new Set());
   const [date, setDate] = useState(aujourdHui());
@@ -61,8 +74,24 @@ function FenetreDesinscrire({ etudId, annee, ues, onFermer, onFait }) {
       onFait();
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
+  if (attente) return (
+    <Fenetre icone={IconUserMinus} titre={`Demande de désinscription${nom ? ` — ${nom}` : ''}`} sous={`demandée le ${fr(attente.demande_le)}${attente.source === 'en_ligne' ? ' (en ligne)' : ''}`}
+      large="moyenne" ton="alerte" onFermer={onFermer}
+      pied={<div className="flex items-center gap-2 w-full justify-end">
+        <button type="button" className="bouton" onClick={async () => {
+          const motif = await saisir({ titre: 'Refuser la demande de désinscription', obligatoire: true, message: 'Pourquoi ?' });
+          if (!String(motif || '').trim()) return;
+          try { await api(`/${attente.id}/refuser`, { motif }); onFait(); } catch (e) { setAttente(v => ({ ...v, erreur: e.message })); }
+        }}><IconX size={14} /> Refuser</button>
+        <button type="button" className="bouton bouton-detruire" disabled={!attente.a}
+          onClick={async () => { try { await api(`/${attente.id}/confirmer`, {}); onFait(); } catch (e) { setAttente(v => ({ ...v, erreur: e.message })); } }}>
+          <IconCheck size={14} /> Confirmer la désinscription</button></div>}>
+      {attente.motif && <p className="text-sm m-0 mb-2">« {attente.motif} »</p>}
+      {attente.erreur && <Encadre etat="corriger" titre={attente.erreur} />}
+      {attente.a ? <Calcul a={attente.a} /> : !attente.erreur && <p className="text-sm text-slate-500">Calcul…</p>}
+    </Fenetre>);
   return (
-    <Fenetre icone={IconUserMinus} titre="Désinscrire" sous={`Année ${annee} · RDE art. 19`} large="moyenne" ton="alerte" onFermer={onFermer}
+    <Fenetre icone={IconUserMinus} titre={`Désinscrire${nom ? ` — ${nom}` : ''}`} sous={`Année ${annee} · RDE art. 19`} large="moyenne" ton="alerte" onFermer={onFermer}
       pied={<div className="flex items-center gap-2 w-full">
         <span className="text-second text-slate-500 flex-1 min-w-0">{!a ? 'Choisissez ce qui est désinscrit.' : 'Les unités quittent le programme ; les frais suivent le calcul ci-dessus.'}</span>
         <button type="button" className="bouton" onClick={onFermer}>Annuler</button>
@@ -75,7 +104,7 @@ function FenetreDesinscrire({ etudId, annee, ues, onFermer, onFait }) {
         </div>
         {!toute && <div className="flex flex-wrap gap-x-4 gap-y-1">{ues.map(u => (
           <label key={u.ue_num} className="inline-flex items-center gap-1.5"><input type="checkbox" checked={choix.has(u.ue_num)}
-            onChange={() => setChoix(c => { const n = new Set(c); n.has(u.ue_num) ? n.delete(u.ue_num) : n.add(u.ue_num); return n; })} />UE {u.ue_num}</label>))}</div>}
+            onChange={() => setChoix(c => { const n = new Set(c); n.has(u.ue_num) ? n.delete(u.ue_num) : n.add(u.ue_num); return n; })} />UE {u.ue_num}{u.ue_nom ? ` ${u.ue_nom}` : ''}</label>))}</div>}
         <label className="flex items-center gap-2"><span className="text-slate-600">Date de la demande (reçue au secrétariat)</span>
           <input type="date" className="controle" value={date} onChange={e => setDate(e.target.value)} /></label>
         <label className="block"><span className="text-slate-600">Motif (facultatif)</span>

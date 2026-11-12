@@ -3483,8 +3483,8 @@ remboursés ; l'étudiant peut faire la demande depuis Lucie » ; tranché : l'�
 d'admission ; toute l'année ou des unités ; le secrétariat confirme). RDE 2026-2027 art. 19 (lu dans la Documentation) : §1 avant le
 1er dixième de la première UE du PAE, remboursé sauf l'acompte (art. 16 §3 : DI + 150 € fixes) ; §2 après, tout est dû ; §3 la date
 de la demande fait foi. Une unité retirée avant SON 1er dixième : baisse de la part variable (art. 16 §4). `lib/desinscription.js`
-(`apercu`, `demander`, `confirmer`, `refuser`), table `desinscription`, routes `/api/desinscription` (admin, éditeur), carte
-`components/Desinscription.jsx` dans Finances. Confirmer : `ecrireProgramme` retire (origine « desinscription » — choix de la
+(`apercu`, `demander`, `confirmer`, `refuser`), table `desinscription`, routes `/api/desinscription` (admin, éditeur), geste dans la LISTE DES ÉTUDIANTS (3.5.395, Charles : « à côté de son petit train d'UE ;
+geste simple ») : icône par ligne → `FenetreDesinscrire` (`components/Desinscription.jsx`), qui montre aussi la demande en ligne en attente. Confirmer : `ecrireProgramme` retire (origine « desinscription » — choix de la
 porte du PAE plutôt qu'un statut que 64 lecteurs ignoreraient), fiche « sortie » pour l'année, `ajustement` relu par `calculerFrais`.
 En ligne : fonction `espace.desinscription` (née éteinte), routes du portail `/api/portail/desinscription` relayées comme le centre
 de documents (`desins_etat`, `desins_demande`).
