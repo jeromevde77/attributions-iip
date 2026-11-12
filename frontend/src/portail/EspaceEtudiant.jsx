@@ -1518,12 +1518,18 @@ function Espace() {
   return (
     /* LE MÊME DESSIN QUE L'ESPACE ENSEIGNANT : le rail étroit à gauche (icônes, bulle au survol), une bande sur téléphone. */
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond)' }}>
-      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}</span></div>
+      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}{d?.etudiant?.matricule ? ` · ${d.etudiant.matricule}` : ''}</span></div>
       <nav aria-label="Mon espace" className="md:z-30 md:w-14 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:px-1.5 md:py-4 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible md:sticky md:top-0 md:h-screen">
         <div className="hidden md:flex justify-center pb-4"><LogoLucie hauteur={26} sansTexte className="" /></div>
         {FACES.filter(([k]) => !['aide', 'compte'].includes(k)).map(([k, l, I]) => (
           <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (k === 'messages' ? l : COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
-        <div className="hidden md:block flex-1" />
+        {/* QUI EST CONNECTÉ (3.5.391, Charles : « dans la barre de gauche nom, prénom et matricule — en vertical au-dessus du (?) ») :
+            l'espace se partage parfois (ordinateur de l'école, aperçu de la direction) ; on lit d'un coup d'œil de qui il s'agit. */}
+        <div className="hidden md:flex flex-1 min-h-0 items-end justify-center pb-3 overflow-hidden">
+          {d?.etudiant && <div className="text-second text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis max-h-full"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }} title={`${nom}${d.etudiant.matricule ? ` · ${d.etudiant.matricule}` : ''}`}>
+            <b className="text-slate-700">{nom}</b>{d.etudiant.matricule ? ` · ${d.etudiant.matricule}` : ''}</div>}
+        </div>
         {FACES.filter(([k]) => ['aide', 'compte'].includes(k)).map(([k, l, I]) => (
           <BoutonRail key={k} etroit f={{ k, l: window.innerWidth < 768 ? (COURT[k] || l) : l, I }} actif={face === k} onClick={() => setFace(k)} />))}
         <div className="md:border-t border-slate-200 md:pt-3 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
