@@ -1339,13 +1339,15 @@ r.put('/feuille/note', authRequired,
    posés le 11 novembre, examens les 8 et 9 janvier, aucune note — le résultat final de 45 étudiants était devenu « refusé »). Rend la
    phrase du refus, ou null. Avant la PREMIÈRE date d'examen S2 du calendrier (deliberation_session2, passages compris), rien ne se
    décide ; sans date connue, il faut au moins une note de seconde session encodée pour l'unité. Effacer une décision reste permis. */
-/** La première date d'examen de seconde session encore à venir, ou null (passée, ou aucune date). */
+/** La dernière date d'examen de seconde session, si elle est encore à venir ; null sinon (passée, ou aucune date). */
 export function premiereDateS2(ueNum, annee) {
   const auj = new Date().toISOString().slice(0, 10);
   let dates = [];
   try { dates = db.prepare(`SELECT s2_date d FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ? AND s2_date IS NOT NULL AND s2_date <> ''`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
   try { dates.push(...db.prepare(`SELECT date d FROM epreuve_passage WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND date IS NOT NULL`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10))); } catch { /* */ }
-  const d = dates.filter(Boolean).sort()[0];
+  // LA DERNIÈRE DATE (3.5.366, Charles, UE 256 : un examen le 12/11, deux en février) : une unité se délibère quand TOUS ses
+  // examens de seconde session ont eu lieu.
+  const d = dates.filter(Boolean).sort().pop();
   return d && d > auj ? d : null;
 }
 export function secondeSessionPasEncore(ueNum, annee) {
@@ -1355,8 +1357,10 @@ export function secondeSessionPasEncore(ueNum, annee) {
   try { dates.push(...db.prepare(`SELECT date d FROM epreuve_passage WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND date IS NOT NULL`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10))); } catch { /* */ }
   dates = dates.filter(Boolean).sort();
   const fr = d => d.split('-').reverse().join('/');
-  if (dates.length) return dates[0] > auj
-    ? `La seconde session de l’UE ${ueNum} n’a pas encore eu lieu (premier examen le ${fr(dates[0])}) : aucune décision de seconde session ne se pose avant.` : null;
+  // LA DERNIÈRE DATE (3.5.366) : on délibère quand tous les examens de seconde session ont eu lieu.
+  const derniere = dates[dates.length - 1];
+  if (dates.length) return derniere > auj
+    ? `La seconde session de l’UE ${ueNum} n’est pas terminée (dernier examen le ${fr(derniere)}) : aucune décision de seconde session ne se pose avant.` : null;
   let notes = 0;
   try { notes = db.prepare(`SELECT COUNT(*) n FROM etudiant_note_detail WHERE ue_num = ? AND annee_scolaire = ? AND code LIKE 's2|%'`).get(Number(ueNum), annee).n; } catch { notes = 1; }
   return notes ? null : `Aucune date d’examen de seconde session n’est posée pour l’UE ${ueNum} et aucune note de seconde session n’est encodée : posez la date dans le calendrier des sessions, ou encodez les notes, avant de décider.`;
