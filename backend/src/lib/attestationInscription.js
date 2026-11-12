@@ -129,6 +129,19 @@ export function calculDixSept(etudId, annee, { debut, fin, conges }) {
       if (x.date) { if (!premier || x.date < premier) premier = x.date; if (!dernier || x.date > dernier) dernier = x.date; }
     }
   }
+  /* LE STAGE COMPTE (3.5.399, Charles : « oui, le stage compte » — une dernière année de TIM a 6 h de cours et le reste en stage) :
+     les heures PRÉVUES des stages encodés de l'année (Organisation → Stages), leurs dates élargissant la période ; un stage au programme
+     sans stage encodé se signale (le secrétariat force la case). */
+  let minStage = 0, stageManquant = false;
+  const stages = essai(() => db.prepare(`SELECT date_debut, date_fin, heures_prevues FROM stage WHERE etudiant_id = ? AND annee_scolaire = ?
+    AND COALESCE(statut, '') NOT IN ('annule', 'abandonne')`).all(Number(etudId), annee), []);
+  for (const st of stages) {
+    minStage += (Number(st.heures_prevues) || 0) * 60;
+    if (st.date_debut && (!premier || st.date_debut < premier)) premier = st.date_debut;
+    if (st.date_fin && (!dernier || st.date_fin > dernier)) dernier = st.date_fin;
+  }
+  if (!minStage) stageManquant = ues.some(u => !u.epreuve_integree && essai(() => db.prepare(`SELECT 1 FROM cours WHERE ue_num = ? AND COALESCE(is_stage, 0) = 1 LIMIT 1`).get(u.ue_num), null));
+  min += minStage;
   // Les dates des unités (organisation), pour le calcul par le PAE.
   let ouv = null, ferm = null;
   for (const u of ues) {
@@ -147,10 +160,10 @@ export function calculDixSept(etudId, annee, { debut, fin, conges }) {
   const periodes = periodesDuPAE(etudId, annee);
   const arrondi = v => Math.round(v * 10) / 10;
   const parHoraire = semH && min ? arrondi(min / 60 / semH) : null;
-  const parPAE = semP && periodes ? arrondi((periodes * 50) / 60 / semP) : null;
+  const parPAE = semP && (periodes || minStage) ? arrondi((periodes * 50 + minStage) / 60 / semP) : null;
   const heures = parHoraire ?? parPAE;
   const source = parHoraire != null ? 'horaire' : parPAE != null ? 'pae' : null;
-  return { semaines: source === 'pae' ? semP : semH, semaines_annee: semainesAnnee, du: source === 'pae' ? ouv : premier, au: source === 'pae' ? ferm : dernier,
+  return { stage_heures: minStage ? arrondi(minStage / 60) : 0, stage_manquant: stageManquant, semaines: source === 'pae' ? semP : semH, semaines_annee: semainesAnnee, du: source === 'pae' ? ouv : premier, au: source === 'pae' ? ferm : dernier,
     heures_horaire: min ? arrondi(min / 60) : 0, periodes, par_horaire: parHoraire, par_pae: parPAE,
     heures, source, oui: heures != null ? heures >= 17 : null };
 }
@@ -200,8 +213,8 @@ export function composerAttestationInscription(d, variante = 'inscription') {
   const h = x.heures, oui = x.force ? x.force === 'oui' : x.oui;
   const virgule = v => String(v).replace('.', ',');
   const heuresTxt = x.force ? 'Réponse confirmée par l’établissement.'
-    : x.source === 'horaire' ? `Moyenne de ${virgule(h)} h de cours par semaine, d’après l’horaire de l’établissement, sur les ${x.semaines} semaines où l’étudiant a cours${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''} — congés exclus ; hors stages et épreuve intégrée.`
-    : x.source === 'pae' ? `Moyenne de ${virgule(h)} h de cours par semaine : ${x.periodes} périodes de 50 min au programme, sur les ${x.semaines} semaines de ses unités${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''} — congés exclus ; hors stages et épreuve intégrée.`
+    : x.source === 'horaire' ? `Moyenne de ${virgule(h)} h de cours par semaine, d’après l’horaire de l’établissement, sur les ${x.semaines} semaines où l’étudiant a cours${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''}${x.stage_heures ? `, dont ${virgule(x.stage_heures)} h de stage` : ''} — congés exclus ; hors épreuve intégrée.${x.stage_manquant ? ' Stage au programme non encodé : ses heures ne sont pas comptées.' : ''}`
+    : x.source === 'pae' ? `Moyenne de ${virgule(h)} h de cours par semaine : ${x.periodes} périodes de 50 min au programme${x.stage_heures ? ` et ${virgule(x.stage_heures)} h de stage` : ''}, sur les ${x.semaines} semaines de ses unités${x.du && x.au ? ` (du ${jour(x.du)} au ${jour(x.au)})` : ''} — congés exclus ; hors épreuve intégrée.${x.stage_manquant ? ' Stage au programme non encodé : ses heures ne sont pas comptées.' : ''}`
     : 'À cocher par l’établissement.';
   const coche = oui != null;
   /* RIEN NE SE COUPE (Charles, 12 novembre 2026 : « je ne veux pas que ma signature ou une partie d'un texte se trouve coupé et

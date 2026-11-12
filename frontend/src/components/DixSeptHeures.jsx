@@ -46,8 +46,9 @@ function FenetreDixSept({ annee, ids, fin }) {
       {erreur && <Encadre etat="corriger" titre={erreur} />}
       {!lignes && !erreur && <p className="text-second text-slate-500">Calcul…</p>}
       {lignes && <>
-        <p className="text-second text-slate-500 mb-2">Le calcul : les heures de l’horaire de l’étudiant ; sans horaire, les périodes de cours
-          du programme (50 min), hors stages et épreuve intégrée — divisées par les semaines de cours, congés retirés.</p>
+        <p className="text-second text-slate-500 mb-2">Le calcul : les heures de l’horaire de l’étudiant (sans horaire, les périodes de cours
+          du programme, 50 min) et les heures prévues de ses stages encodés, hors épreuve intégrée — divisées par les semaines où il a cours
+          ou stage, congés retirés. Un stage au programme non encodé n’est pas compté : forcez la case.</p>
         <div className="flex items-center gap-2 mb-2">
           <button type="button" className="bouton" onClick={() => tous('oui')}>Tous « Oui »</button>
           <button type="button" className="bouton" onClick={() => tous('non')}>Tous « Non »</button>
