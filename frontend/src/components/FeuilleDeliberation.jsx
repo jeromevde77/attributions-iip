@@ -70,7 +70,7 @@ function aJustifier(acquis = [], cours = [], decision = null) {
    feuille remplace la liste des unités dans l'écran de délibération, au lieu
    de s'ouvrir par-dessus ; la page défile, et la bande de décision reste
    collée au bas. Sans lui (saisie rapide), elle reste une fenêtre. */
-export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = false }) {
+export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = false, sessionInitiale = null }) {
   // La correction administrative d'une séance close, distincte de sa
   // réouverture : on répare une mention, on ne rejuge personne.
   const [correction, setCorrection] = useState(false);
@@ -99,7 +99,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
   const [reprise, setReprise] = useState(null);     // la délibération venue du classeur
-  const [choixSession, setChoixSession] = useState(null); // null = celle que déduit le serveur
+  const [choixSession, setChoixSession] = useState(sessionInitiale); // null = celle que déduit le serveur ; le bouton S1 / S2 la choisit (3.5.368)
 
   // LA SESSION DÉLIBÉRÉE. Le serveur la déduit — première tant qu'elle n'est
   // pas décidée pour tout le monde, seconde dès qu'elle laisse des ajournés —

@@ -3438,6 +3438,12 @@ en session 2. Effacer reste permis. La liste de la délibération (3.5.363) mont
 « Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
 — décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
 l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
+**LES BOUTONS S1 / S2 DE LA DÉLIBÉRATION** (3.5.368, Charles, maquette validée). `boutonsSessions()` (`routes/acquis.js`) : gris (examens à
+venir) · attente (examens passés, délibération > J-3 ou non datée) · pret (≤ J-3) · fait (séances closes) ; S2 « — » sans ajourné.
+`components/BoutonsSessions.jsx` (boutons, flèche de coin, `FenetreSessionClose` : rouvrir `toutes: true` ou annuler `DELETE ?session=n&motif=`,
+motif obligatoire). Geste `deliberation.rouvrir` ouvert à l'éditeur (secrétariat). Annuler S1 refusé si des décisions S2 existent.
+`FeuilleDeliberation` prend `sessionInitiale`. La flèche paraît aussi sur une session non close qui porte des décisions
+(3.5.369, `decides` ; la fenêtre ne propose alors que l'annulation).
 **Pas de seconde session pour un cours** (3.5.367, Charles, UE 256) : `deliberation_session2.s2_aucune` ; case de la clôture, cochée d'office
 quand `aRepresenterParCours` ne voit personne (la clôture proposait une date à TOUS les cours) ; cochée, dates vidées ; les dates S2 de ces
 cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous cochés = rien n'attend.

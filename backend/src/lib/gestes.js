@@ -179,7 +179,8 @@ export const GESTES = [
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur'], mode: 'garde',
     source: 'routes/acquis.js PUT /deliberation/ajustement' },
   { module: 'deliberation', verrou: true, cle: 'rouvrir', label: 'Rouvrir une séance close (motif écrit)',
-    roles: ['admin', 'directeur', 'directeur_adjoint'], mode: 'garde',
+    // LE SECRÉTARIAT AUSSI (3.5.368, Charles : « direction et secrétariat », la flèche des boutons S1 / S2).
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur'], mode: 'garde',
     source: 'routes/acquis.js POST /deliberation/ue/:ueNum/rouvrir' },
   { module: 'deliberation', verrou: true, cle: 'regles', label: 'Régler la délibération (base de seconde session…)',
     roles: ['admin', 'directeur', 'directeur_adjoint'], mode: 'garde',

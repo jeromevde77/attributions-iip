@@ -13,6 +13,8 @@ import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { estDirection } from '../lib/modules.js';
 import { passeRole } from '../lib/droits.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
+import { BoutonsSessions, FenetreSessionClose } from '../components/BoutonsSessions.jsx';
+import { useDroits } from '../lib/droits.js';
 import RepartitionOrganisation from '../components/RepartitionOrganisation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
 import EncodageUE from '../components/EncodageUE.jsx';
@@ -131,6 +133,9 @@ export default function Deliberation() {
   const [parametrer, setParametrer] = useState(null);  // ue_num en paramétrage
   const [docs, setDocs] = useState(null);           // l'unité dont on imprime les pièces
   const [annuler, setAnnuler] = useState(null);     // ue en cours d'annulation
+  const [sessionVoulue, setSessionVoulue] = useState(null);   // la session du bouton cliqué (3.5.368)
+  const [gesteSession, setGesteSession] = useState(null);     // { u, session } : rouvrir ou annuler
+  const { peut } = useDroits();
   const [enCours, setEnCours] = useState(false);
   /* LA CLÔTURE FORCÉE — pour une année sans attributions.
      `forcage` porte les unités cochées et les sessions visées ; null quand le
@@ -236,8 +241,8 @@ export default function Deliberation() {
   if (ueNum) {
     return (
       <div className="px-4 pt-1 pb-2">
-        <FeuilleDeliberation enPage ueNum={ueNum} annee={annee}
-          onClose={() => { setUeNum(null); charger(); }} />
+        <FeuilleDeliberation enPage ueNum={ueNum} annee={annee} sessionInitiale={sessionVoulue}
+          onClose={() => { setUeNum(null); setSessionVoulue(null); charger(); }} />
       </div>
     );
   }
@@ -449,39 +454,10 @@ export default function Deliberation() {
                         première n'est pas décidée pour tout le monde, c'est
                         elle ; dès qu'elle l'est et qu'elle laisse des ajournés,
                         la seconde s'ouvre d'elle-même. */}
-                    <button onClick={() => setUeNum(u.ue_num)}
-                      title={(u.session === 2 && u.s2_close) || u.s1_close_complete
-                        ? (u.s1_close_complete ? 'Unité clôturée : séance de première session close, aucun ajourné. Cliquer pour consulter la feuille.' : 'Unité clôturée : la seconde session est close. Cliquer pour consulter la feuille.')
-                        : u.session === 2 && u.s1_ajournes > 0 && u.s2_decides >= u.s1_ajournes && !u.s2_bloque
-                        ? 'Toutes les décisions de seconde session sont prises : ouvrez la feuille et clôturez la séance.'
-                        : u.session === 2 && u.s2_bloque
-                        ? `${u.s2_bloque} ${u.s1_ajournes} ajourné(s) en première.`
-                        : u.session === 2
-                        ? `Seconde session — ${u.s1_ajournes} ajourné(s) en première`
-                        : u.seconde_attend
-                          ? `Première session — toutes les décisions sont prises et `
-                            + `${u.s1_ajournes} étudiant(s) sont ajournés : clôturez la `
-                            + `séance pour ouvrir la seconde session`
-                          : 'Première session'}
-                      className={`px-2 py-1 text-second rounded-lg border font-semibold flex-none
-                        ${(u.session === 2 && u.s2_close) || u.s1_close_complete ? 'border-emerald-600 text-emerald-700'
-    : u.session === 2 && u.s2_bloque ? 'border-slate-300 text-slate-500'
-    : u.session === 2
-    ? 'border-amber-500 text-white bg-amber-500'
-    : 'border-iip-blue text-iip-blue'}`}>
-                      {/* SECONDE SESSION À VENIR (3.5.363) : pas de « Délibérer S2 » orange avant l'examen — la date, en gris. */}
-                      {(u.session === 2 && u.s2_close) || u.s1_close_complete ? 'UE clôturée'
-                        : u.session === 2 && u.s2_bloque ? (u.s2_a_venir ? `S2 le ${u.s2_a_venir.split('-').reverse().join('/')}` : 'S2 : date à poser')
-                          : u.session === 2 && u.s1_ajournes > 0 && u.s2_decides >= u.s1_ajournes ? 'Clôturer S2'
-                            : `Délibérer ${u.session === 2 ? 'S2' : 'S1'}`}
-                    </button>
-                    {/* ANNULER LA DÉLIBÉRATION À CÔTÉ DE « DÉLIBÉRER » (3.5.097, Charles : « cela n'a rien à faire dans Notes »). */}
-                    {u.decides > 0 && (
-                      <button onClick={() => setAnnuler(u)} title="Annuler la délibération — les notes encodées sont conservées"
-                        aria-label="Annuler la délibération" className="bouton bouton-compact flex-none text-red-700">
-                        <IconRotate size={15} />
-                      </button>
-                    )}
+                    {/* LES DEUX BOUTONS S1 / S2 (3.5.368, Charles) — remplacent « Délibérer S1 / S2 » et le bouton d'annulation. */}
+                    <BoutonsSessions u={u} peutGerer={peut('deliberation.rouvrir')}
+                      onOuvrir={(x, n) => { setSessionVoulue(n); setUeNum(x.ue_num); }}
+                      onGeste={(x, n, close) => setGesteSession({ u: x, session: n, close })} />
                     {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS : la
                         répartition des étudiants se prépare d'ici, avant
                         d'ouvrir la feuille. */}
@@ -675,6 +651,10 @@ export default function Deliberation() {
           </div>
         </Fenetre>
       )}
+
+      {gesteSession && (
+        <FenetreSessionClose u={gesteSession.u} session={gesteSession.session} close={gesteSession.close} annee={annee}
+          onFermer={() => setGesteSession(null)} onFait={() => { setGesteSession(null); charger(); }} />)}
 
       {docs && (
         <CentreImpressionCentral ongletInitial="etudiants"

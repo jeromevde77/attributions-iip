@@ -1339,6 +1339,37 @@ r.put('/feuille/note', authRequired,
    posés le 11 novembre, examens les 8 et 9 janvier, aucune note — le résultat final de 45 étudiants était devenu « refusé »). Rend la
    phrase du refus, ou null. Avant la PREMIÈRE date d'examen S2 du calendrier (deliberation_session2, passages compris), rien ne se
    décide ; sans date connue, il faut au moins une note de seconde session encodée pour l'unité. Effacer une décision reste permis. */
+/** L'état des boutons S1 / S2 d'une unité (3.5.368). */
+export function boutonsSessions(ueNum, annee, ses) {
+  const auj = new Date().toISOString().slice(0, 10);
+  const jours = d => Math.round((new Date(`${d}T12:00:00Z`) - new Date(`${auj}T12:00:00Z`)) / 86400000);
+  const seances = n => { try { return db.prepare(`SELECT date_seance, cloturee FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).all(Number(ueNum), annee, n); } catch { return []; } };
+  const dernierExamenS1 = (() => {
+    let d = [];
+    try { d = db.prepare(`SELECT s1_date d FROM epreuve_session1 WHERE ue_num = ? AND annee_scolaire = ? AND s1_date IS NOT NULL AND s1_date <> ''`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
+    try { d.push(...db.prepare(`SELECT date d FROM epreuve_passage WHERE ue_num = ? AND annee_scolaire = ? AND session = 1 AND date IS NOT NULL`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10))); } catch { /* */ }
+    return d.filter(Boolean).sort().pop() || null;
+  })();
+  const etat = ({ close, futur, date }) => (close ? 'fait' : futur ? 'gris' : date && jours(date) <= 3 ? 'pret' : 'attente');
+  const s1s = seances(1), s2s = seances(2);
+  const dateS1 = s1s.map(x => x.date_seance).filter(Boolean).sort()[0] || null;
+  const dateS2 = s2s.map(x => x.date_seance).filter(Boolean).sort()[0] || null;
+  const s1Close = !!ses.s1?.cloturee;
+  const s1 = { etat: etat({ close: s1Close, futur: !!(dernierExamenS1 && dernierExamenS1 > auj), date: dateS1 }), date: dateS1, examen: dernierExamenS1 };
+  // La seconde session n'existe qu'après une première close avec des ajournés.
+  const s2Ouverte = s1Close && (ses.s1?.ajournes > 0 || s2s.length > 0);
+  const s2Close = s2s.length > 0 && s2s.every(x => x.cloturee);
+  const exS2 = premiereDateS2(ueNum, annee);
+  const s2 = !s2Ouverte ? { etat: 'gris', date: null, sans_objet: s1Close } : {
+    etat: s2Close ? 'fait' : (exS2 || secondeSessionPasEncore(ueNum, annee)) ? 'gris' : etat({ close: false, futur: false, date: dateS2 }),
+    date: s2Close ? dateS2 : (exS2 || dateS2), examen: exS2,
+  };
+  // LES DÉCISIONS POSÉES (3.5.369, Charles, UE 251) : une session qui porte des décisions sans être close garde sa flèche, pour les annuler.
+  const nb = n => { try { return db.prepare('SELECT COUNT(*) n FROM deliberation_resultat WHERE ue_num = ? AND annee_scolaire = ? AND session = ?').get(Number(ueNum), annee, n).n; } catch { return 0; } };
+  s1.decides = nb(1); s2.decides = nb(2);
+  return { bouton_s1: s1, bouton_s2: s2 };
+}
+
 /** La dernière date d'examen de seconde session, si elle est encore à venir ; null sinon (passée, ou aucune date). */
 export function premiereDateS2(ueNum, annee) {
   const auj = new Date().toISOString().slice(0, 10);
@@ -3221,6 +3252,9 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
          seconde session sont toutes closes. Tout décidé mais séance ouverte : « Clôturer S2 ». */
       s2_decides: ses.s2?.decides || 0,
       s1_close_complete: ses.session !== 2 && !!ses.s1?.cloturee && !(ses.s1?.ajournes > 0),
+      /* LES DEUX BOUTONS S1 / S2 (3.5.368, Charles) : gris (pas encore accessible), attente (examens passés, délibération à plus
+         de trois jours ou non datée), pret (examens passés, délibération à J-3 ou moins), fait (séance close). */
+      ...boutonsSessions(u.ue_num, annee, ses),
       s2_close: ses.session === 2 && (() => { try { const r = db.prepare(`SELECT COUNT(*) n, SUM(COALESCE(cloturee, 0)) c FROM deliberation_seance
         WHERE ue_num = ? AND annee_scolaire = ? AND session = 2`).get(u.ue_num, annee); return r.n > 0 && r.c === r.n; } catch { return false; } })(),
       s1_complete: ses.s1.complete,
@@ -8474,10 +8508,13 @@ r.post('/deliberation/ue/:ueNum/rouvrir', authRequired,
   // On rouvre LA séance de l'organisation demandée (0 = unité entière), pas
   // toutes les séances de la session.
   const orgR = Math.max(0, Number(req.body?.org) || 0);
-  const seance = db.prepare(`SELECT id, cloturee FROM deliberation_seance
+  /* TOUTES LES SÉANCES CLOSES DE LA SESSION (3.5.368, la flèche des boutons S1 / S2 de la liste) : `toutes: true`. */
+  const closes = req.body?.toutes ? db.prepare(`SELECT id, cloturee FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND cloturee = 1`).all(ueNum, annee, session) : null;
+  const seance = closes ? (closes[0] || null) : db.prepare(`SELECT id, cloturee FROM deliberation_seance
     WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
     .get(ueNum, annee, session, orgR);
-  if (!seance) return res.status(404).json({ error: 'aucune séance pour cette unité' });
+  if (!seance) return res.status(closes ? 200 : 404).json(closes ? { ok: true, deja_ouverte: true } : { error: 'aucune séance pour cette unité' });
   if (!seance.cloturee) return res.json({ ok: true, deja_ouverte: true });
 
   // LE MOTIF EST EXIGÉ. Rouvrir un acte signé sans dire pourquoi, c'est
@@ -8503,9 +8540,9 @@ r.post('/deliberation/ue/:ueNum/rouvrir', authRequired,
     db.prepare(`INSERT INTO deliberation_reouverture
       (ue_num, annee_scolaire, session, motif, par) VALUES (?,?,?,?,?)`)
       .run(ueNum, annee, session, motif, req.user?.email || null);
-    db.prepare(`UPDATE deliberation_seance SET cloturee = 0,
+    for (const x of closes || [seance]) db.prepare(`UPDATE deliberation_seance SET cloturee = 0,
       maj_le = datetime('now'), maj_par = ? WHERE id = ?`)
-      .run(req.user?.email || null, seance.id);
+      .run(req.user?.email || null, x.id);
   })();
 
   res.json({ ok: true, ue_num: ueNum, annee, session, motif });
@@ -8545,6 +8582,20 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
      `?session=2`, seules les décisions de seconde session tombent ; chaque étudiant retrouve sa décision de première session, la
      séance de seconde session se rouvre, et la première reste telle qu'elle a été close et notifiée (décisions, ajournements,
      motivations, clôture). */
+  /* LE MOTIF D'UNE ANNULATION (3.5.368) : la fenêtre unique le demande ; il rejoint le registre des réouvertures. */
+  const motifA = String(req.query.motif || '').trim();
+  if (motifA) {
+    try {
+      db.exec(`CREATE TABLE IF NOT EXISTS deliberation_reouverture (id INTEGER PRIMARY KEY AUTOINCREMENT, ue_num INTEGER NOT NULL,
+        annee_scolaire TEXT NOT NULL, session INTEGER NOT NULL DEFAULT 1, motif TEXT, le TEXT DEFAULT CURRENT_TIMESTAMP, par TEXT)`);
+      db.prepare('INSERT INTO deliberation_reouverture (ue_num, annee_scolaire, session, motif, par) VALUES (?,?,?,?,?)')
+        .run(ueNum, annee, Number(req.query.session) === 2 ? 2 : 1, `Annulation de la délibération : ${motifA}`.slice(0, 500), req.user?.email || null);
+    } catch { /* */ }
+  }
+  // LA PREMIÈRE SESSION NE S'ANNULE PAS SOUS UNE SECONDE DÉJÀ DÉCIDÉE (3.5.368) : on annule d'abord la seconde.
+  if (Number(req.query.session) === 1 && !etudId && db.prepare(`SELECT 1 FROM deliberation_resultat WHERE annee_scolaire = ? AND ue_num = ? AND session = 2 LIMIT 1`).get(annee, ueNum)) {
+    return res.status(409).json({ error: 'Des décisions de seconde session existent : annulez d’abord la seconde session, puis la première.' });
+  }
   if (Number(req.query.session) === 2) {
     let n = 0;
     db.transaction(() => {
