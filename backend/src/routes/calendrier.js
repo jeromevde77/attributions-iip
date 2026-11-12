@@ -82,6 +82,9 @@ const r = express.Router();
     for (const [t, c] of [['epreuve_session1', 's1_visite_rdv'], ['deliberation_session2', 's2_visite_rdv']]) {
       try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} INTEGER DEFAULT 0`); } catch { /* déjà là */ }
     }
+    // PAS DE SECONDE SESSION POUR CE COURS (3.5.367, Charles : « il n'y a pas de S2 dans ce cours car tout le monde a réussi ») :
+    // cochée, aucune date n'est demandée et le cours ne retient plus la délibération de seconde session.
+    try { db.exec('ALTER TABLE deliberation_session2 ADD COLUMN s2_aucune INTEGER DEFAULT 0'); } catch { /* déjà là */ }
   } catch (e) { console.error('[migration] calendrier :', e.message); }
 })();
 

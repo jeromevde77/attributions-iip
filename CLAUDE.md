@@ -3432,12 +3432,15 @@ bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servan
 retrouver) ; total des commissions dans le résumé.
 
 **PAS DE DÉCISION DE SECONDE SESSION AVANT L'EXAMEN** (3.5.362, Charles, UE 251 : 45 refus S2 posés le 11/11, examens les 8-9/01, aucune
-note). `secondeSessionPasEncore(ue, annee)` (`routes/acquis.js`) : avant la première date S2 (`deliberation_session2`, passages S2), 409 ;
+note). `secondeSessionPasEncore(ue, annee)` (`routes/acquis.js`) : avant la DERNIÈRE date S2 (3.5.366 : UE 256, un examen le 12/11 et deux en février ; `deliberation_session2`, passages S2), 409 ;
 sans date, il faut une note `s2|` de l'unité. Posé sur `PUT /decision` (session 2, résultat non vide), `plein-droit` et `ajourner-lot`
 en session 2. Effacer reste permis. La liste de la délibération (3.5.363) montre « S2 le jj/mm/aaaa » ou « S2 : date à poser » en gris au lieu de
 « Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
 — décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
 l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
+**Pas de seconde session pour un cours** (3.5.367, Charles, UE 256) : `deliberation_session2.s2_aucune` ; case de la clôture, cochée d'office
+quand `aRepresenterParCours` ne voit personne (la clôture proposait une date à TOUS les cours) ; cochée, dates vidées ; les dates S2 de ces
+cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous cochés = rien n'attend.
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 

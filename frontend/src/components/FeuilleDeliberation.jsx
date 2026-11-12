@@ -2026,15 +2026,18 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
   // LA SECONDE SESSION SE TIENT COURS PAR COURS : deux professeurs ne
   // repassent pas leurs épreuves le même jour. Une date unique pour l'unité
   // obligeait le secrétariat à corriger chaque notification à la main.
+  /* PAS DE SECONDE SESSION POUR UN COURS (3.5.367, Charles : « il n'y a pas de S2 dans ce cours car tout le monde a réussi ») :
+     cochée d'office quand Lucie ne voit personne à représenter dans le cours ; cochée, aucune date n'est proposée ni gardée. */
+  const sansS2 = c => !!c.aucune || c.a_representer === 0;
   const [s2, setS2] = useState(() => (coursSession2 || []).map(c => ({
-    cours_code: c.cours_code, cours_nom: c.cours_nom,
-    date: c.date || '', heure: c.heure || '', local: c.local || '',
+    cours_code: c.cours_code, cours_nom: c.cours_nom, aucune: sansS2(c), a_representer: c.a_representer,
+    date: sansS2(c) ? '' : (c.date || ''), heure: sansS2(c) ? '' : (c.heure || ''), local: sansS2(c) ? '' : (c.local || ''),
   })));
   const majS2 = (i, champ, v) =>
     setS2(l => l.map((c, k) => k === i ? { ...c, [champ]: v } : c));
   // Le confort qui évite dix saisies quand la date est la même partout.
-  const reporterPartout = () => setS2(l => l.length ? l.map(c => ({
-    ...c, date: l[0].date, heure: l[0].heure, local: l[0].local })) : l);
+  const reporterPartout = () => setS2(l => { const r = l.find(c => !c.aucune); return r ? l.map(c => (c.aucune ? c : {
+    ...c, date: r.date, heure: r.heure, local: r.local })) : l; });
   const [close, setClose] = useState(!!seance?.cloturee);
   // LA VISITE PAR COURS (3.5.314) : du calendrier des sessions ; à défaut, la visite de l'unité (ancienne forme) ou du calendrier.
   const versLigne = c => ({ cours_code: c.cours_code, cours_nom: c.cours_nom, rdv: !!c.rdv,
@@ -2092,7 +2095,7 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
       if (!local.trim()) setLocal(p.visite_local);
       setCv(l => l.map(c => (c.rdv ? c : { ...c, date: c.date || p.visite_date, heure: c.heure || p.visite_heure, local: c.local || p.visite_local })));
     }
-    setS2(l => l.map(c => ({
+    setS2(l => l.map(c => (c.aucune ? c : {
       ...c,
       date: c.date || p.session2_date,
       heure: c.heure || p.session2_heure,
@@ -2119,8 +2122,10 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
       const par = new Map(l.map(c => [c.cours_code, c]));
       return (coursSession2 || []).map(c => {
         const a = par.get(c.cours_code) || {};
+        const aucune = a.aucune ?? sansS2(c);
+        if (aucune) return { cours_code: c.cours_code, cours_nom: c.cours_nom, aucune: true, a_representer: c.a_representer, date: '', heure: '', local: '' };
         return {
-          cours_code: c.cours_code, cours_nom: c.cours_nom,
+          cours_code: c.cours_code, cours_nom: c.cours_nom, aucune: false, a_representer: c.a_representer,
           date: a.date || c.date || p.session2_date,
           heure: a.heure || c.heure || p.session2_heure,
           local: a.local || c.local || p.session2_local,
@@ -2250,9 +2255,16 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
                       </div>
                     </td>
                     {avecS2 && <td className="px-3 py-1.5">
-                      {(() => { const av = avertissementsDates({ delib: dateS, visite: c.date, ev2: e2 >= 0 ? s2[e2].date : null, rdv: c.rdv }, delais);
+                      {e2 >= 0 && !s2[e2].aucune && (() => { const av = avertissementsDates({ delib: dateS, visite: c.date, ev2: e2 >= 0 ? s2[e2].date : null, rdv: c.rdv }, delais);
                         return av.length ? <div className="mb-1">{av.map(x => <PastilleEtat key={x} etat="surveiller">{x}</PastilleEtat>)}</div> : null; })()}
-                      {e2 >= 0 ? (
+                      {e2 >= 0 && (
+                        <label className="flex items-center gap-1.5 mb-1 whitespace-nowrap">
+                          <input type="checkbox" checked={!!s2[e2].aucune} onChange={ev => setS2(l => l.map((x, k) => (k === e2
+                            ? { ...x, aucune: ev.target.checked, ...(ev.target.checked ? { date: '', heure: '', local: '' } : {}) } : x)))} />
+                          Pas de seconde session, tous les étudiants ont réussi
+                          {s2[e2].a_representer > 0 && <span className="text-mention" style={{ color: 'var(--c-attente)' }}>· {s2[e2].a_representer} à représenter</span>}
+                        </label>)}
+                      {e2 >= 0 && s2[e2].aucune ? null : e2 >= 0 ? (
                         <div className="flex flex-wrap items-center gap-2">
                           <input type="date" value={s2[e2].date} onChange={ev => majS2(e2, 'date', ev.target.value)} className="controle w-36" />
                           <input type="time" value={s2[e2].heure} onChange={ev => majS2(e2, 'heure', ev.target.value)} className="controle w-24" />
@@ -2295,9 +2307,9 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
               cours_visite: cv,
               session2_cours: s2,
               // La première date sert de repli pour ce qui n'est pas fixé.
-              session2_date: s2[0]?.date || null,
-              session2_heure: s2[0]?.heure || null,
-              session2_local: s2[0]?.local || null })
+              session2_date: s2.find(c => !c.aucune && c.date)?.date || null,
+              session2_heure: s2.find(c => !c.aucune && c.date)?.heure || null,
+              session2_local: s2.find(c => !c.aucune && c.date)?.local || null })
               .then(ok => ok && setClose(true))}
             title={complet ? '' : 'La date de délibération est requise, ainsi que, pour chaque cours, '
               + 'la date et l’heure de visite des copies — ou « sur rendez-vous »'}
