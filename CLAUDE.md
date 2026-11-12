@@ -3459,7 +3459,8 @@ principal comme bandeau d'alerte. Jamais une icône colorée sur un fond coloré
 carte par bloc (bordure + liseré dans une bordure) mais des pastilles de filtre et une bande de titre par bloc. Délibération l'utilise.
 **LES RÉSULTATS DE L'ÉTUDIANT EN DEUX SESSIONS** (3.5.370, Charles) : `resultatsPublies` dépose `detail.sessions` [{ n, decision, note, etat }]
 (sessions closes de son organisation) ; `detailResultat` ajoute `note_s1` aux cours et acquis quand la S2 est close. Espace étudiant :
-colonnes « 1re session » / « 2e session », volet à deux notes. Aucune colonne nouvelle au portail (tout est dans `detail`).
+colonnes « 1re session » / « 2e session », volet à deux notes. La 2e session ne paraît qu'après un « Ajourné » de 1re (3.5.381 : les années
+reprises portent parfois deux décisions pour une unité réussie) ; sans note de session, la note finale de l'inscription. Aucune colonne nouvelle au portail (tout est dans `detail`).
 **LES BOUTONS S1 / S2 DE LA DÉLIBÉRATION** (3.5.368, Charles, maquette validée). `boutonsSessions()` (`routes/acquis.js`) : gris (examens à
 venir) · attente (examens passés, délibération > J-3 ou non datée) · pret (≤ J-3) · fait (séances closes) ; S2 « — » sans ajourné.
 `components/BoutonsSessions.jsx` (boutons, flèche de coin, `FenetreSessionClose` : rouvrir `toutes: true` ou annuler `DELETE ?session=n&motif=`,

@@ -203,6 +203,11 @@ export function resultatsPublies(ids) {
       const r = db.prepare('SELECT resultat, points FROM deliberation_resultat WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND session = ?')
         .get(l.etudiant_id, l.ue_num, l.annee_scolaire, n);
       if (!r?.resultat || !(close || l.annee_scolaire < annee)) continue;
+      // LA SECONDE SESSION N'EXISTE QUE POUR UN AJOURNÉ DE PREMIÈRE (3.5.380, Charles : « pas logique » — les années reprises portent
+      // parfois une décision dans les deux sessions pour une unité réussie dès la première).
+      if (n === 2 && sessions.find(x => x.n === 1)?.decision !== 'Ajourné') continue;
+      // Sans note sur la décision de la session, la note finale de l'unité (l'inscription) quand c'est elle qui fait foi.
+      if (r.points == null && r.resultat === l.resultat && l.points != null) r.points = l.points;
       const fav = r.resultat === 'reussi' && faveur && n === (detail?.session || 1);
       sessions.push({ n, decision: fav ? 'Réussi par faveur' : ({ reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé' }[r.resultat] || r.resultat),
         note: fav ? '10' : r.resultat === 'reussi' ? (r.points != null ? String(Math.max(10, Math.round(Number(r.points)))) : '—') : 'NA',
