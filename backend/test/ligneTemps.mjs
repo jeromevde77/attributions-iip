@@ -84,11 +84,9 @@ let mod = L.proposer(1, A, { recup: ['2027-01-15'] }, U[1], 'Personne 1');
 t('la personne propose', mod.statut === 'proposee' && mod.changements.length > 1, mod.statut);
 const avant = T.anneeDe(1, A).find(x => x.lundi === '2027-01-11').jours;
 t('rien n’est appliqué avant l’accord', !avant[4].recup);
-refus = ''; try { L.valider(mod.id, 'direction', U[4], 'Personne 4'); } catch (e) { refus = e.message; }
-t('la direction attend le contrôle de l’adjoint', /adjointe contrôle/.test(refus), refus);
-refus = ''; try { L.valider(mod.id, 'adjoint', U[1], 'Personne 1'); } catch (e) { refus = e.message; }
+// 3.5.304 : la direction accepte d'un seul geste (plus de contrôle préalable de l'adjointe).
+refus = ''; try { L.valider(mod.id, 'direction', U[1], 'Personne 1'); } catch (e) { refus = e.message; }
 t('on ne valide pas sa propre modulation', /propre/.test(refus), refus);
-L.valider(mod.id, 'adjoint', U[3], 'Personne 3');
 mod = L.valider(mod.id, 'direction', U[4], 'Personne 4');
 t('acceptée, appliquée', mod.statut === 'acceptee' && T.anneeDe(1, A).find(x => x.lundi === '2027-01-11').jours[4].recup);
 t('l’année compte toujours 1 404 h', T.anneeDe(1, A).reduce((s, x) => s + x.jours.reduce((a, j) => a + (j?.recup ? 0 : T.dureeJour(j)), 0), 0) === 1404 * 60);

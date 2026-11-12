@@ -3,8 +3,8 @@ import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lucie-reg-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
 const db = (await import('../src/db/index.js')).default;
-for (const s of ['CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, id_ecampus TEXT, actif INTEGER DEFAULT 1)',
-  'CREATE TABLE IF NOT EXISTS etudiant_inscription (etudiant_id INTEGER, annee_scolaire TEXT, ue_num INTEGER, date_inscription TEXT, statut TEXT, num_organisation INTEGER)',
+for (const s of ['CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, id_ecampus TEXT, actif INTEGER DEFAULT 1, section_rattachement TEXT)',
+  'CREATE TABLE IF NOT EXISTS etudiant_inscription (etudiant_id INTEGER, annee_scolaire TEXT, ue_num INTEGER, date_inscription TEXT, statut TEXT, num_organisation INTEGER, sortie_le TEXT)',
   'CREATE TABLE IF NOT EXISTS etudiant_piece (etudiant_id INTEGER, type_piece TEXT, statut TEXT)',
   'CREATE TABLE IF NOT EXISTS ue (ue_num INTEGER, annee_scolaire TEXT, ue_nom TEXT, ue_code_fwb TEXT, section TEXT)',
   'CREATE TABLE IF NOT EXISTS cours (cours_code TEXT, annee_scolaire TEXT, cours_nom TEXT, ue_num INTEGER)',

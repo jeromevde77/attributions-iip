@@ -2047,8 +2047,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   }, [recherche, etudiants.length, seul, choisirEtudiant, pourQui]);
 
   /** Les pièces du dossier (bulletin, annexes) des étudiants cochés. */
-  async function piecesDossier() {
-    const toutes = PIECES_DOSSIER.filter(p => choix[p.cle]);
+  async function piecesDossier(seulement = null) {
+    const toutes = PIECES_DOSSIER.filter(p => choix[p.cle] && (!seulement || seulement.includes(p.cle)));
     if (!toutes.length) return { documents: [], avis: [] };
     // Les pièces à route propre : une requête par étudiant, en série courte.
     const avecRoute = toutes.filter(p => p.route);
@@ -2201,7 +2201,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
           tout.push(...lot.map(d => ({ html: d.html, nom: sessionsLot.length > 1 ? `S${sess}_${d.nom}` : d.nom, pagination: 'si-plusieurs' })));
         }
       }
-      const dossier = plusieursAnnees || seance ? { avis: [], documents: [] } : await piecesDossier();
+      const dossier = seance ? { avis: [], documents: [] } : await piecesDossier(plusieursAnnees ? SUR_TOUT_LE_PARCOURS : null);
       avis.push(...dossier.avis);
       tout.push(...dossier.documents.map(d => ({ html: d.html, nom: d.nom, pagination: d.pagination, pied: d.pied, etudiant: d.etudiant })));
       if (avis.length) setErreur(avis.join(' · '));
@@ -2303,7 +2303,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         }
       }
       // Les pièces du dossier vont à l'étudiant qu'elles nomment, une par courriel.
-      const dossier = plusieursAnnees || seance ? { avis: [], documents: [] } : await piecesDossier();
+      const dossier = seance ? { avis: [], documents: [] } : await piecesDossier(plusieursAnnees ? SUR_TOUT_LE_PARCOURS : null);
       avis.push(...dossier.avis);
       pieces.push(...dossier.documents.map(d => ({
         html: d.html, nom_fichier: d.nom, contenu: d.contenu,
@@ -2336,7 +2336,10 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   const parcours = !seance && anneesDispo.length > 1 && anneesDispo.every(a => anneesSel.has(a));
   const plusieursAnnees = !seance && portee.length !== 1;
   // Les pièces d'inscription portent UNE année : celle choisie.
-  const anneeDossier = portee.length === 1 ? portee[0] : annee;
+  const anneeDossier = portee.length === 1 ? portee[0] : (portee.length ? [...portee].sort().slice(-1)[0] : annee);
+  /* LE BULLETIN COUVRE TOUT LE PARCOURS (3.5.402, Charles : « pourquoi pas possible sur tout le parcours ? ») : il reste
+     disponible quand plusieurs années sont cochées ; il se compose à la plus récente, qui le dessine en entier. */
+  const SUR_TOUT_LE_PARCOURS = ['bulletin', 'parcours'];
   const decisionsPortee = cle => {
     const res = { reussite: 'reussi', ajournement: 'ajourne', refus: 'refuse' }[cle];
     return [...coches].flatMap(id => (parc[id]?.decisions || []).filter(d => d.resultat === res
@@ -2444,7 +2447,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     // Hors séance, réussites, ajournements et refus se comptent sur les années choisies.
     if (!seance && ['reussite', 'ajournement', 'refus'].includes(p.cle)) return decisionsPortee(p.cle).length > 0;
     if (seul && !etudiants.length) return false;   // pas inscrit l'année choisie : rien de l'année à produire
-    if (plusieursAnnees || !portee.length) return false;
+    if (!portee.length) return false;
+    if (plusieursAnnees && !SUR_TOUT_LE_PARCOURS.includes(p.cle)) return false;
     if (modePublic && !PIECES_DOSSIER.includes(p)) return false;
     if (p.cle === 'reussite') return etudiants.some(e => e.reussites > 0);
     // UN REFUS PEUT SE PRONONCER EN JUIN (PP) : chaque pièce s'ouvre dès qu'un
@@ -2723,7 +2727,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
               <p className="text-second text-slate-500 mt-0 mb-1 pl-3">{portee.length === 1 ? `année ${portee[0]}` : `${portee.length} années`} — une pièce par unité et par étudiant</p>
               <div className="pl-3 pt-1 text-sm font-semibold text-iip-texte">Attestations</div>
               <div className="pl-4">{famillePieces.filter(p => ['reussite', 'ajournement', 'refus'].includes(p.cle)).map(p => lignePiece(p))}</div>
-              {famillePieces.filter(p => p.cle === 'bulletin' && !plusieursAnnees).map(p => lignePiece(p))}
+              {famillePieces.filter(p => p.cle === 'bulletin').map(p => lignePiece(p))}
             </div>
             <div className={plusieursAnnees ? 'hidden' : 'mt-5'}>
               <div className="intertitre pl-3 mb-0">Inscription</div>
