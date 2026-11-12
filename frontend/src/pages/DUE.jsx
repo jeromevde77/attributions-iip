@@ -40,7 +40,8 @@ const METHODES = [
 ];
 /* TRAVAIL INDIVIDUEL OU DE GROUPE (Charles, 8 octobre 2026) : deux colonnes. L'ancienne
    case « Travail » se lit comme un travail individuel. */
-const EPREUVES = [['ecrit', 'Écrit'], ['oral', 'Oral'], ['pratique', 'Pratique'],
+// « ORAL DEVANT JURY » (3.5.378, réunion du 12/11 : préciser la présence d'un jury à l'oral).
+const EPREUVES = [['ecrit', 'Écrit'], ['oral', 'Oral'], ['oral_jury', 'Oral devant jury'], ['pratique', 'Pratique'],
   ['travail', 'Travail individuel'], ['travail_groupe', 'Travail de groupe'], ['continue', 'Év. continue']];
 
 // ── Briques d'écriture ───────────────────────────────────────────────────────

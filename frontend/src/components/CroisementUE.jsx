@@ -120,6 +120,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
      plusieurs AA ou cours »). Ceux du programme vivent dans la DUE de l'année (`contenu.chapeaux` : intro, cours, points) et partent
      avec le croisement ; ceux des acquis sont ceux de l'unité (phrase générale, chapeau d'un groupe d'acquis), écrits aussitôt. */
   const [chapeaux, setChapeaux] = useState({});
+  const [dernierEnreg, setDernierEnreg] = useState(null);
   const [aaChap, setAaChap] = useState(null);       // { intro, parCode }
 
   async function charger() {
@@ -289,7 +290,12 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
       for (const [co, m] of Object.entries(renommes)) for (const [ancien, neuf] of Object.entries(m)) for (const lignes of Object.values(grille))
         for (const l of lignes || []) if (l && l.src_point === ancien && (!l.src_cours || l.src_cours === co)) { if (norm(l.point) === ancien) l.point = neuf; l.src_point = neuf; }
       const points_croisement = Object.fromEntries(Object.entries(liste).filter(([, v]) => Array.isArray(v)));
-      const rep = await api.dueEnregistrer(ueNum, { ...c, croisement, grille_criteres: grille, points_croisement, chapeaux,
+      // LA DATE DES CROIX, COURS PAR COURS (3.5.378) : l'étape 2 sait ainsi qu'une pondération enregistrée avant elles est une reprise.
+      const avant = c.croisement || {};
+      const maintenant = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const croisement_le = { ...(c.croisement_le || {}) };
+      for (const co of Object.keys(croisement)) if (JSON.stringify(croisement[co] || {}) !== JSON.stringify(avant[co] || {})) croisement_le[co] = maintenant;
+      const rep = await api.dueEnregistrer(ueNum, { ...c, croisement, croisement_le, grille_criteres: grille, points_croisement, chapeaux,
         ...(programme_blocs ? { programme_blocs } : {}) });
       const apresN = reprises(rep?.contenu?.grille_criteres);
       const ajoutees = Math.max(0, apresN - avantN); const retirees = Math.max(0, avantN - apresN);
@@ -313,6 +319,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
           ponderes += 1;
         }
       }
+      setDernierEnreg(new Date().toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' }));
       // La direction a fixé (ou confirmé) les pondérations : l'étape de la DUE est franchie.
       await charger();
       onEnregistre?.();
@@ -337,10 +344,11 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
           Pour chaque cours, cochez les acquis que sert chaque point de son programme. L’enregistrement
           en tire la pondération (étape 2) et le tableau des critères du descriptif (étape 3).
         </p>
-        {!lecture && (
-          <button className="bouton bouton-fort disabled:opacity-40" onClick={enregistrer} disabled={enCours || !sale}>
-            <IconDeviceFloppy size={14} /> Enregistrer
-          </button>)}
+        {/* PLUS DE BOUTON GRIS QUI FAIT CROIRE À UNE PANNE (3.5.378, réunion du 12/11 : « le bouton Enregistrer du haut n'est pas
+            cliquable ») : l'étape s'enregistre seule ; on dit où on en est, et le bouton ne paraît que s'il reste quelque chose à envoyer. */}
+        {!lecture && (enCours ? <span className="text-second text-slate-500">Enregistrement…</span>
+          : sale ? <button className="bouton bouton-fort" onClick={enregistrer}><IconDeviceFloppy size={14} /> Enregistrer maintenant</button>
+            : <span className="text-second text-slate-500 inline-flex items-center gap-1"><IconCheck size={14} /> Enregistré automatiquement{dernierEnreg ? ` à ${dernierEnreg}` : ''}</span>)}
       </div>
       {lecture && <p className="text-second text-slate-500 m-0">Lecture seule{d.statut === 'validee' ? ' : le descriptif est validé' : ''}.</p>}
       {erreur && <p className="text-second flex items-start gap-1.5 m-0" style={{ color: 'var(--c-refuse)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</p>}

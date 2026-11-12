@@ -178,6 +178,21 @@ export default function PonderationsUE({ ueFixe = null }) {
     }
     return m;
   }, [due, cours, acquis]);
+  /* D'OÙ VIENT LA PONDÉRATION (3.5.378, réunion d'Amélie du 12/11 : « les pondérations de la phase 2 ne reflètent pas les croix ») :
+     à la création de 2026-2027, Lucie a repris les points des acquis des années précédentes. Une pondération enregistrée AVANT le
+     dernier croisement (ou sans aucune croix) est une reprise : l'écran le dit, avec sa date, et propose la pondération des croix. */
+  const dateCroix = due?.contenu?.croisement_le || {};
+  const majDe = code => (liens?.liens || []).filter(l => l.cours_code === code && l.maj_le).map(l => l.maj_le).sort().pop() || null;
+  const origine = code => {
+    const m = majDe(code);
+    if (!m) return null;
+    const croisLe = dateCroix[code] || (propose[code] ? due?.maj_le : null);
+    const jour = String(m).slice(0, 10).split('-').reverse().join('/');
+    if (!propose[code]) return { reprise: true, texte: `Aucune croix à l’étape 1 pour ce cours : la pondération affichée est celle enregistrée le ${jour} (reprise des années précédentes).` };
+    if (croisLe && String(m) < String(croisLe)) return { reprise: true, texte: `Pondération enregistrée le ${jour}, AVANT vos croix de l’étape 1 (reprise des années précédentes) : elle ne suit pas encore le croisement.` };
+    return null;
+  };
+  const reprendreTout = () => { setMessage(null); setBrouillon(b => { const n = { ...b }; for (const c of cours) if (propose[c.cours_code] && origine(c.cours_code)?.reprise) n[c.cours_code] = Object.fromEntries(acquis.map(a => [a.aa_code, propose[c.cours_code]?.[a.aa_code] || 0])); return n; }); };
   const suitProposition = code => !!propose[code] && acquis.every(a => (Number(brouillon[code]?.[a.aa_code]) || 0) === (propose[code][a.aa_code] || 0));
   const reprendreProposition = code => { setMessage(null); setBrouillon(b => ({ ...b, [code]: Object.fromEntries(acquis.map(a => [a.aa_code, propose[code]?.[a.aa_code] || 0])) })); };
   const poser = (code, aa, v) => {
@@ -266,6 +281,11 @@ export default function PonderationsUE({ ueFixe = null }) {
       )}
       {erreur && <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur} />}
       {message && <div className="text-second text-iip-texte flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
+      {(() => { const n = cours.filter(c => propose[c.cours_code] && origine(c.cours_code)?.reprise && !suitProposition(c.cours_code)).length;
+        return n > 0 && (
+          <Encadre etat="surveiller" titre={`${n} cours portent une pondération reprise des années précédentes, qui ne suit pas vos croix de l’étape 1.`}>
+            {peutRegler && <button type="button" className="bouton mt-1" onClick={reprendreTout}>Reprendre la proposition des croix pour ces {n} cours</button>}
+          </Encadre>); })()}
 
       {!ueFixe && !ues.length && section && <p className="text-sm text-slate-400">Aucune unité pour {section} en {annee}.</p>}
       {ue && structure && liens && (
@@ -469,6 +489,8 @@ export default function PonderationsUE({ ueFixe = null }) {
                         </div>
                       );
                     })}
+                    {origine(coursC.cours_code) && !suitProposition(coursC.cours_code) && (
+                      <Encadre etat="surveiller" titre={origine(coursC.cours_code).texte} />)}
                     {propose[coursC.cours_code] && (
                       <div className="flex items-center gap-2 flex-wrap text-second text-slate-500 pt-1">
                         <span>Proposé par le croisement (étape 1) : {acquis.filter(a => propose[coursC.cours_code][a.aa_code]).map(a => `${a.aa_code} ${fr(propose[coursC.cours_code][a.aa_code])}`).join(' · ')}</span>
