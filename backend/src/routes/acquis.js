@@ -1343,7 +1343,7 @@ r.put('/feuille/note', authRequired,
 export function premiereDateS2(ueNum, annee) {
   const auj = new Date().toISOString().slice(0, 10);
   let dates = [];
-  try { dates = db.prepare(`SELECT s2_date d FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ? AND s2_date IS NOT NULL AND s2_date <> ''`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
+  try { dates = db.prepare(`SELECT s2_date d FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ? AND s2_date IS NOT NULL AND s2_date <> '' AND COALESCE(s2_aucune, 0) = 0`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
   try { dates.push(...db.prepare(`SELECT date d FROM epreuve_passage WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND date IS NOT NULL`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10))); } catch { /* */ }
   // LA DERNIÈRE DATE (3.5.366, Charles, UE 256 : un examen le 12/11, deux en février) : une unité se délibère quand TOUS ses
   // examens de seconde session ont eu lieu.
@@ -1353,7 +1353,7 @@ export function premiereDateS2(ueNum, annee) {
 export function secondeSessionPasEncore(ueNum, annee) {
   const auj = new Date().toISOString().slice(0, 10);
   let dates = [];
-  try { dates = db.prepare(`SELECT s2_date d FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ? AND s2_date IS NOT NULL AND s2_date <> ''`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
+  try { dates = db.prepare(`SELECT s2_date d FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ? AND s2_date IS NOT NULL AND s2_date <> '' AND COALESCE(s2_aucune, 0) = 0`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
   try { dates.push(...db.prepare(`SELECT date d FROM epreuve_passage WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND date IS NOT NULL`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10))); } catch { /* */ }
   dates = dates.filter(Boolean).sort();
   const fr = d => d.split('-').reverse().join('/');
@@ -1361,6 +1361,12 @@ export function secondeSessionPasEncore(ueNum, annee) {
   const derniere = dates[dates.length - 1];
   if (dates.length) return derniere > auj
     ? `La seconde session de l’UE ${ueNum} n’est pas terminée (dernier examen le ${fr(derniere)}) : aucune décision de seconde session ne se pose avant.` : null;
+  // Tous les cours cochés « pas de seconde session » : rien n'attend.
+  try {
+    const r = db.prepare(`SELECT COUNT(*) n, SUM(COALESCE(s2_aucune, 0)) a FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?`).get(Number(ueNum), annee);
+    const nc = db.prepare(`SELECT COUNT(DISTINCT cours_code) n FROM cours WHERE ue_num = ? AND annee_scolaire = ?`).get(Number(ueNum), annee).n;
+    if (r.a && r.a >= Math.max(1, nc)) return null;
+  } catch { /* */ }
   let notes = 0;
   try { notes = db.prepare(`SELECT COUNT(*) n FROM etudiant_note_detail WHERE ue_num = ? AND annee_scolaire = ? AND code LIKE 's2|%'`).get(Number(ueNum), annee).n; } catch { notes = 1; }
   return notes ? null : `Aucune date d’examen de seconde session n’est posée pour l’UE ${ueNum} et aucune note de seconde session n’est encodée : posez la date dans le calendrier des sessions, ou encodez les notes, avant de décider.`;
@@ -6699,12 +6705,15 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
     SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?
   `).all(ueNum, annee).map(l => [l.cours_code, l]));
 
+  let aRep = {};
+  try { aRep = aRepresenterParCours(ueNum, annee, 1) || {}; } catch { aRep = {}; }
   const session2 = structureUE(ueNum, annee).map(c => {
     const l = parCours[c.cours_code] || {};
     return {
       cours_code: c.cours_code, cours_nom: c.cours_nom,
       date: l.s2_date || null, heure: l.s2_heure || null,
       local: l.s2_local || null, adresse: l.s2_adresse || null,
+      aucune: !!l.s2_aucune, a_representer: (aRep[c.cours_code] || []).length,
     };
   });
 
@@ -7165,15 +7174,16 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     if (Array.isArray(session2_cours)) {
       const up = db.prepare(`
         INSERT INTO deliberation_session2
-          (ue_num, annee_scolaire, cours_code, s2_date, s2_heure, s2_local, s2_adresse)
-        VALUES (?,?,?,?,?,?,?)
+          (ue_num, annee_scolaire, cours_code, s2_date, s2_heure, s2_local, s2_adresse, s2_aucune)
+        VALUES (?,?,?,?,?,?,?,?)
         ON CONFLICT(ue_num, annee_scolaire, cours_code) DO UPDATE SET
           s2_date = excluded.s2_date, s2_heure = excluded.s2_heure,
-          s2_local = excluded.s2_local, s2_adresse = excluded.s2_adresse`);
+          s2_local = excluded.s2_local, s2_adresse = excluded.s2_adresse, s2_aucune = excluded.s2_aucune`);
       for (const c of session2_cours) {
         if (!c?.cours_code) continue;
-        up.run(ueNum, annee, c.cours_code, c.date || null, c.heure || null,
-               c.local || null, c.adresse || null);
+        const aucune = c.aucune ? 1 : 0;
+        up.run(ueNum, annee, c.cours_code, aucune ? null : (c.date || null), aucune ? null : (c.heure || null),
+               aucune ? null : (c.local || null), aucune ? null : (c.adresse || null), aucune);
       }
     }
 

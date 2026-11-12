@@ -3438,6 +3438,9 @@ en session 2. Effacer reste permis. La liste de la délibération (3.5.363) mont
 « Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
 — décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
 l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
+**Pas de seconde session pour un cours** (3.5.367, Charles, UE 256) : `deliberation_session2.s2_aucune` ; case de la clôture, cochée d'office
+quand `aRepresenterParCours` ne voit personne (la clôture proposait une date à TOUS les cours) ; cochée, dates vidées ; les dates S2 de ces
+cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous cochés = rien n'attend.
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
