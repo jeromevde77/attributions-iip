@@ -3431,6 +3431,13 @@ commission) : ces lignes ne se versent JAMAIS (déjà encodées au guichet) ; Lu
 bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servant une fois → `guichet` (retrouvé) ou `carte` (à
 retrouver) ; total des commissions dans le résumé.
 
+**LES CHAPEAUX DE LA DUE À L'ÉTAPE 1** (3.5.359, Charles, 12 novembre 2026 ; tranché : étape 1 et DUE imprimée ; entre deux acquis,
+entre deux points d'un cours, au-dessus d'un cours). Acquis : la phrase de l'unité (`ue_acquis_intro`) et `aa.chapeau`, les mêmes que
+la fiche de l'UE, écrits aussi par ceux qui rédigent l'unité (`PUT /api/due/:ue/chapeaux-acquis`, droitsSurLUE.ecrire). Programme :
+`contenu.chapeaux` de la DUE de l'année { intro, cours: {code}, points: {code: {point}} }, enregistré avec le croisement ; `programmeHtml`
+les imprime (un chapeau de point dont le point a disparu se pose en tête du cours). Étape 0 : « Proposer à la direction » dit pourquoi
+il est gris (la phrase pour la direction est obligatoire).
+
 **LE CADRE DES CARACTÉRISTIQUES D'UNE UNITÉ, UNE SEULE STRUCTURE** (3.5.356, Charles : « il manque le numéro interne de l'UE ;
 respecte toujours la même structure »). `caracUnite(u, { extra })` (`routes/attestations.js`, sur `decrireUnite`) : à gauche Section ·
 Code approuvé · Périodes, à droite Type d'enseignement · Code interne (UE n) · ECTS, puis pleine largeur le domaine et les `extra`.
