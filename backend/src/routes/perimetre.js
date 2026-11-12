@@ -105,7 +105,7 @@ r.get('/arborescence', authRequired, (req, res) => {
  * connaissance de cause plutôt qu'à l'aveugle.
  */
 r.post('/etudiants', authRequired, (req, res) => {
-  const annee = req.body?.annee || anneeDeTravail(req);
+  let annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
   const sections = Array.isArray(req.body?.sections) ? req.body.sections : [];
   const ueNums = Array.isArray(req.body?.ue_nums) ? req.body.ue_nums.map(Number) : [];
@@ -114,6 +114,11 @@ r.post('/etudiants', authRequired, (req, res) => {
   /* UN ÉTUDIANT CHOISI EST LE PÉRIMÈTRE (Charles, 30 octobre 2026 : « si je choisis l'étudiant, je ne dois plus
      choisir sa section ») : ses unités de l'année, quelle que soit leur section. */
   const seulId = Number(req.body?.etudiant_id) || null;
+  /* SANS INSCRIPTION CETTE ANNÉE, SA DERNIÈRE ANNÉE (3.5.358, Charles : annexes 1 et 2 d'une étudiante diplômée en 2025-2026) :
+     sinon l'étudiante choisie n'aurait aucune unité, et ses pièces resteraient grisées. */
+  if (seulId && !db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? LIMIT 1').get(seulId, annee)) {
+    annee = db.prepare('SELECT MAX(annee_scolaire) a FROM etudiant_inscription WHERE etudiant_id = ?').get(seulId)?.a || annee;
+  }
 
   // Les unités du périmètre : celles nommées, celles des sections nommées, et
   // celles auxquelles appartiennent les cours nommés.
