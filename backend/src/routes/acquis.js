@@ -1334,6 +1334,25 @@ r.put('/feuille/note', authRequired,
  * la connaître pour la seconde session, pour un recours, pour la délibération.
  * Ce que la circulaire écarte, c'est sa communication, pas son existence.
  */
+
+/* PAS DE DÉCISION DE SECONDE SESSION AVANT L'EXAMEN (3.5.362, Charles, 12 novembre 2026, UE 251 : 45 « refusé » de seconde session
+   posés le 11 novembre, examens les 8 et 9 janvier, aucune note — le résultat final de 45 étudiants était devenu « refusé »). Rend la
+   phrase du refus, ou null. Avant la PREMIÈRE date d'examen S2 du calendrier (deliberation_session2, passages compris), rien ne se
+   décide ; sans date connue, il faut au moins une note de seconde session encodée pour l'unité. Effacer une décision reste permis. */
+export function secondeSessionPasEncore(ueNum, annee) {
+  const auj = new Date().toISOString().slice(0, 10);
+  let dates = [];
+  try { dates = db.prepare(`SELECT s2_date d FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ? AND s2_date IS NOT NULL AND s2_date <> ''`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10)); } catch { /* */ }
+  try { dates.push(...db.prepare(`SELECT date d FROM epreuve_passage WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND date IS NOT NULL`).all(Number(ueNum), annee).map(x => String(x.d).slice(0, 10))); } catch { /* */ }
+  dates = dates.filter(Boolean).sort();
+  const fr = d => d.split('-').reverse().join('/');
+  if (dates.length) return dates[0] > auj
+    ? `La seconde session de l’UE ${ueNum} n’a pas encore eu lieu (premier examen le ${fr(dates[0])}) : aucune décision de seconde session ne se pose avant.` : null;
+  let notes = 0;
+  try { notes = db.prepare(`SELECT COUNT(*) n FROM etudiant_note_detail WHERE ue_num = ? AND annee_scolaire = ? AND code LIKE 's2|%'`).get(Number(ueNum), annee).n; } catch { notes = 1; }
+  return notes ? null : `Aucune date d’examen de seconde session n’est posée pour l’UE ${ueNum} et aucune note de seconde session n’est encodée : posez la date dans le calendrier des sessions, ou encodez les notes, avant de décider.`;
+}
+
 r.put('/decision', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, resultat, points, mention } = req.body || {};
@@ -1373,6 +1392,10 @@ r.put('/decision', authRequired,
     } catch { /* le calcul a échoué : on n'empêche pas sur une erreur de lecture */ }
   }
 
+  if (resultat && (req.body?.session === 2 || req.body?.session === '2')) {
+    const pas = secondeSessionPasEncore(ue_num, annee_scolaire);
+    if (pas) return res.status(409).json({ error: pas });
+  }
   const n = points == null || points === '' ? null
     : Number(String(points).replace(',', '.'));
   let note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
@@ -8879,6 +8902,7 @@ r.post('/deliberation/ue/:ueNum/plein-droit', authRequired,
       resultat = 'reussi', points = excluded.points,
       decide_le = CURRENT_TIMESTAMP, decide_par = excluded.decide_par`);
   const ses = Number(req.body?.session) === 2 ? 2 : 1;
+  if (ses === 2) { const pas = secondeSessionPasEncore(ueNum, annee); if (pas) return res.status(409).json({ error: pas }); }
   const faits = [];
   db.transaction(() => {
     for (const i of inscrits) {
@@ -9346,6 +9370,7 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const ses = Number(req.body?.session) === 2 ? 2 : 1;
+  if (ses === 2) { const pas = secondeSessionPasEncore(ueNum, annee); if (pas) return res.status(409).json({ error: pas }); }
   // En S2, seul l'ajourné de S1 se délibère (3.5.193).
   const ids = (Array.isArray(req.body?.etudiants) ? req.body.etudiants.map(Number) : [])
     .filter(id => ses !== 2 || db.prepare(`SELECT resultat FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ?

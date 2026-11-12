@@ -3431,6 +3431,11 @@ commission) : ces lignes ne se versent JAMAIS (déjà encodées au guichet) ; Lu
 bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servant une fois → `guichet` (retrouvé) ou `carte` (à
 retrouver) ; total des commissions dans le résumé.
 
+**PAS DE DÉCISION DE SECONDE SESSION AVANT L'EXAMEN** (3.5.362, Charles, UE 251 : 45 refus S2 posés le 11/11, examens les 8-9/01, aucune
+note). `secondeSessionPasEncore(ue, annee)` (`routes/acquis.js`) : avant la première date S2 (`deliberation_session2`, passages S2), 409 ;
+sans date, il faut une note `s2|` de l'unité. Posé sur `PUT /decision` (session 2, résultat non vide), `plein-droit` et `ajourner-lot`
+en session 2. Effacer reste permis.
+
 **COMPARER L'HORAIRE D'EXAMENS EXCEL** (3.5.361, Charles : « envoyer ça dans Lucie afin de comparer ») : `lib/comparerExamens.js`
 (colonnes reconnues à l'intitulé ; sections par `ALIAS` ; COURS/FORMATION/RÉUNION écartés ; groupes d'un même atelier fusionnés ;
 rattachement code de cours → « UE n » → intitulé ≥ 50 % de mots communs) contre `epreuve_session1`, `POST /api/calendrier/comparer-excel`
