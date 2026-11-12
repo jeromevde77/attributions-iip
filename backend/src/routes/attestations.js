@@ -227,6 +227,33 @@ export function unitesReussies(etudId, annee, surcharge = null) {
  *
  * @param {object} resultat  { points } sur 20, ou { pourcentage } déjà en %.
  */
+/* LE CADRE DES CARACTÉRISTIQUES, UNE SEULE STRUCTURE POUR TOUTES LES PIÈCES (3.5.356, Charles, 12 novembre 2026 : « il manque le
+   numéro interne de l'UE ; respecte toujours la même structure pour que ce soit facile à décoder »). Trois lignes, deux colonnes :
+     à gauche  — Section · Code approuvé par le Gouvernement · Périodes
+     à droite  — Type d'enseignement · Code interne (UE n) · E.C.T.S.
+   puis, pleine largeur, le domaine (supérieur)
+   Une case vide garde sa place : la grille ne bouge jamais. `extra` : lignes pleine largeur sous la grille (session, séance…). */
+export function caracUnite(u, { extra = [] } = {}) {
+  const manque = t => `<span class="manque">${t}</span>`;
+  const section = u.section_libelle || u.section
+    ? `Section : <b>${esc(u.section_libelle || u.section)}</b>${u.section_libelle && u.section && u.section_libelle !== u.section ? ` <span class="detail">(${esc(u.section)})</span>` : ''}`
+    : `Section : ${manque('à compléter')}`;
+  const enseignement = esc(u.type_enseignement || (u.superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'));
+  const domaine = u.superieur ? `Domaine : ${u.domaine ? esc(u.domaine) : manque('à compléter')}` : null;
+  const code = `Code approuvé par le Gouvernement : ${u.code_fwb ? `<b>${esc(u.code_fwb)}</b>` : manque('à compléter au référentiel')}`;
+  const interne = `Code interne : <b>UE ${esc(u.ue_num)}</b>`;
+  const periodes = u.periodes
+    ? `<b>${u.periodes}</b> périodes${u.autonomie ? ` <span class="detail">(${u.periodes_cours} + ${u.autonomie} aut.)</span>` : ''}`
+    : manque('périodes à compléter');
+  const ects = u.superieur ? (u.ects ? `<b>${u.ects}</b> E.C.T.S.` : manque('ECTS à compléter')) : '';
+  return `<div class="carac">
+    <div>${section}</div><div>${enseignement}</div>
+    <div>${code}</div><div>${interne}</div>
+    <div>${periodes}</div><div>${ects}</div>
+    ${[domaine, ...extra].filter(Boolean).map(x => `<div class="large">${x}</div>`).join('')}
+  </div>`;
+}
+
 export function decrireUnite(ueNum, anneeRef, resultat = {}, { etudiant_id = null } = {}) {
   const i = { ue_num: ueNum, annee_scolaire: anneeRef,
               points: resultat.points ?? null };
@@ -733,14 +760,7 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
       date_doc: dateSig, ville: esc(ident.ville || 'Anderlecht'), directeur: esc(ident.directeur || 'Charles SOHET'),
     },
     blocs: {
-      caracteristiques: `<div class="carac">
-    <div>${esc(u.type_enseignement)}</div>
-    ${u.superieur ? `<div>${u.domaine ? 'Domaine : ' + esc(u.domaine) : ''}</div>` : ''}
-    <div class="large">Code approuvé par le Gouvernement :
-      ${u.code_fwb ? `<b>${esc(u.code_fwb)}</b>`
-                   : '<span class="manque">à compléter au référentiel</span>'}</div>
-    ${u.superieur && u.ects ? `<div>Elle comprend <b>${u.ects}</b> E.C.T.S.</div>` : ''}
-  </div>`,
+      caracteristiques: caracUnite(u),
       identite: `<div class="etudiant">
     <div class="nom">${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
     <div class="naissance">
@@ -849,39 +869,7 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
       directeur: esc(ident.directeur || 'Charles SOHET'),
     },
     blocs: {
-      caracteristiques: `
-  <div class="carac">
-    <!-- LA SECTION, EN TÊTE DES CARACTÉRISTIQUES.
-         Elle figurait dans les données depuis toujours, et n'était imprimée
-         nulle part. Or une attestation vaut pour UNE unité d'une section
-         donnée : sans elle, la pièce dit ce que l'étudiant a réussi, mais pas
-         dans quelle formation — et c'est la première chose que cherche celui
-         qui la lit, avant même le nombre d'ECTS. -->
-    <div class="large">Section :
-      ${u.section_libelle || u.section
-        ? `<b>${esc(u.section_libelle || u.section)}</b>`
-          + (u.section_libelle && u.section
-              ? ` <span class="detail">(${esc(u.section)})</span>` : '')
-        : '<span class="manque">section à compléter</span>'}</div>
-    <div>${esc(u.type_enseignement)}</div>
-    ${u.superieur
-      ? `<div>${u.domaine ? 'Domaine : ' + esc(u.domaine)
-                          : '<span class="manque">Domaine à compléter</span>'}</div>`
-      : ''}
-    <div class="large">Code approuvé par le Gouvernement :
-      ${u.code_fwb ? `<b>${esc(u.code_fwb)}</b>`
-                   : '<span class="manque">à compléter au référentiel</span>'}</div>
-    ${u.superieur
-      ? `<div>${u.ects ? `<b>${u.ects}</b> E.C.T.S.`
-                       : '<span class="manque">ECTS à compléter</span>'}</div>`
-      : ''}
-    <div>${u.periodes
-      ? `<b>${u.periodes}</b> périodes`
-        + (u.autonomie ? ` <span class="detail">(${u.periodes_cours} + ${u.autonomie} aut.)</span>` : '')
-      : '<span class="manque">périodes à compléter</span>'}</div>
-  </div>
-
-`,
+      caracteristiques: caracUnite(u),
       identite: `
   <div class="etudiant">
     <div class="nom">${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
@@ -1992,22 +1980,8 @@ async function documentsValorisationUE(req, res) {
     champs: { ue_num: esc(ueNum), ue_nom: esc(ue.ue_nom || ''), annee: esc(String(annee).replace('-', '/')),
       date_seance: esc(frDate(seance.date_seance)), ville: esc(ident.ville || 'Anderlecht') },
     blocs: {
-      caracteristiques: `
-  <div class="carac">
-    <div class="large">Intitulé de l'unité d'enseignement :
-      <b>${esc(ue.ue_nom || `UE ${ueNum}`)}</b></div>
-    <div>Numéro de code approuvé par le Gouvernement :
-      <b>${esc(ue.ue_code_fwb || '')}</b></div>
-    <div>Total des périodes : <b>${perTotal}</b>${
-      autonomie ? ` <span class="detail">(dont ${autonomie} d'autonomie)</span>` : ''}</div>
-    ${superieur && ue.ects ? `<div>Nombre d'E.C.T.S. : <b>${ue.ects}</b></div>` : ''}
-    <div>Section : <b>${esc(sectionUE?.libelle || ue.section || '')}</b></div>
-    ${superieur && (ue.domaine || sectionUE?.domaine)
-      ? `<div class="large">Domaine d'études :
-          <b>${esc(ue.domaine || sectionUE.domaine)}</b></div>` : ''}
-  </div>
-
-`,
+      caracteristiques: caracUnite(decrireUnite(ueNum, annee), { extra: [
+        `Intitulé de l'unité d'enseignement : <b>${esc(ue.ue_nom || `UE ${ueNum}`)}</b>`] }),
       repartition: `
   <table class="doc">
     <thead><tr>

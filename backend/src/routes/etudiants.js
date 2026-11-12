@@ -10664,10 +10664,22 @@ r.put('/:id/pieces/:type', authRequired, roleRequired('admin', 'editeur'), (req,
 });
 
 // ── Attestation d'inscription (3.5.352 — lib/attestationInscription.js) ─────
+/* LA FENÊTRE DES 17 HEURES (3.5.357) : pour chaque étudiant, le calcul de Lucie, avant l'impression. */
+r.post('/attestation-inscription/heures', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = String(req.body?.annee || '');
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean).slice(0, 800);
+  if (!annee || !ids.length) return res.status(400).json({ error: 'annee et étudiants requis' });
+  const lignes = ids.map(id => {
+    const d = chargerAttestationInscription(id, annee);
+    const e = d.etudiant || db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
+    return { id, nom: e.nom || '', prenom: e.prenom || '', erreur: d.erreur || null, ...(d.dixsept || {}) };
+  });
+  res.json({ lignes });
+});
 r.get('/:id/attestation-inscription', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
-  const d = chargerAttestationInscription(Number(req.params.id), String(annee));
+  const d = chargerAttestationInscription(Number(req.params.id), String(annee), { force: req.query.dixsept || null });
   if (d.erreur) return res.status(d.code || 409).json({ error: d.erreur });
   const { html, nom } = composerAttestationInscription(d, req.query.variante === 'allocations' ? 'allocations' : 'inscription');
   res.json({ html, nom });

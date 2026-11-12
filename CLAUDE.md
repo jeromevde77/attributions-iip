@@ -3431,13 +3431,21 @@ commission) : ces lignes ne se versent JAMAIS (déjà encodées au guichet) ; Lu
 bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servant une fois → `guichet` (retrouvé) ou `carte` (à
 retrouver) ; total des commissions dans le résumé.
 
+**LE CADRE DES CARACTÉRISTIQUES D'UNE UNITÉ, UNE SEULE STRUCTURE** (3.5.356, Charles : « il manque le numéro interne de l'UE ;
+respecte toujours la même structure »). `caracUnite(u, { extra })` (`routes/attestations.js`, sur `decrireUnite`) : à gauche Section ·
+Code approuvé · Périodes, à droite Type d'enseignement · Code interne (UE n) · ECTS, puis pleine largeur le domaine et les `extra`.
+Attestations de réussite et de valorisation, motivation, PV de délibération et de valorisation. **Une pièce d'unité nouvelle prend
+`caracUnite`, jamais un cadre écrit à la main.**
+
 **L'ATTESTATION D'INSCRIPTION** (3.5.352, Charles, 12 novembre 2026 : « je veux ce document dans Éditions avec la nouvelle
 mise en page » — la « Lettre 1 » Word du secrétariat). `lib/attestationInscription.js` (`chargerAttestationInscription`,
 `composerAttestationInscription`), route `GET /api/etudiants/:id/attestation-inscription?annee=` (admin, éditeur ≈ direction et
 secrétariat), catalogue `attestation_inscription`, Éditions (`PIECES_DOSSIER`, colonne Inscription) et fiche → Imprimer ou envoyer.
 Directeur = `identiteEtablissement`, section = `donneesSectionDiplome().intitule_section`, année = semaines du calendrier hors
 vacances, congés = fermetures de l'agenda (à défaut le calendrier), l'été du lendemain de la fin à la veille de la rentrée suivante,
-bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » se calcule (Charles : « Lucie calcule ») : `heuresParSemaine` — séances de `seancesEtudiant` (hors stages,
+bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » (3.5.357 : `calculDixSept` — l'horaire, sinon les périodes de cours du PAE à 50 min, hors stages et EI, divisés
+par `semainesDeCours` CONGÉS RETIRÉS ; fenêtre `demanderDixSept` (`components/DixSeptHeures.jsx`) avant l'impression, réponse forcée
+par `?dixsept=oui|non`, `POST /api/etudiants/attestation-inscription/heures`) — à l'origine : `heuresParSemaine` — séances de `seancesEtudiant` (hors stages,
 EI, dispenses, annulées), en moyenne sur les semaines de cours du calendrier ; sans horaire, cases vides.
 Variante `?variante=allocations` (3.5.354, la « lettre 1 » des allocations familiales) : titre propre, sans bloc ni ECTS ; catalogue
 `attestation_allocations`. Rien ne se coupe : paragraphes, liste, encadré et bloc de signature (avec la dernière phrase du texte,
