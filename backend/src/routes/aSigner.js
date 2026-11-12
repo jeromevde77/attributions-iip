@@ -44,12 +44,16 @@ r.get('/amenagements', authRequired, (req, res) => {
     try { section = sectionRattachement(d.etudiant_id, annee).section || null; } catch { /* */ }
     if (perim && (!section || !perim.includes(section))) continue;
     const decide = DEC.includes(d.statut) || !!d.cde_date;
-    const accordees = essai(() => db.prepare('SELECT libelle FROM amenagement_mesure WHERE dossier_id = ? AND accorde = 1 ORDER BY libelle').all(d.id).map(x => x.libelle), []);
+    // LES DEMANDES, PAS LES PIÈCES (3.5.394, Charles) : les aménagements demandés se lisent dès la demande ; décidés, on dit lesquels
+    // sont accordés. La pièce, la nature de la difficulté et la motivation restent hors de vue.
+    const mesuresD = essai(() => db.prepare('SELECT libelle, precisions, accorde FROM amenagement_mesure WHERE dossier_id = ? ORDER BY libelle').all(d.id), []);
+    const accordees = mesuresD.filter(m => Number(m.accorde) === 1).map(m => m.libelle);
     const a_faire = !d.valide_a_le ? 'demande à instruire' : !d.valide_b_le ? 'rapport à établir' : !decide ? 'décision du Conseil à rendre'
       : !d.notifie_le ? 'décision à notifier' : ['accepte', 'partiel'].includes(d.statut) && !d.communique_le ? 'mesures à communiquer aux chargés de cours' : null;
-    if (!a_faire && !accordees.length) continue;
+    if (!a_faire && !accordees.length && !mesuresD.length) continue;
     lignes.push({ id: d.id, etudiant_id: d.etudiant_id, nom: d.nom, prenom: d.prenom, section, date_demande: d.date_demande, a_faire,
       decide, mesures: decide ? accordees : [],
+      demandees: mesuresD.map(m => ({ libelle: m.libelle, precisions: m.precisions || null, accorde: decide ? Number(m.accorde) === 1 : null })),
       ues: essai(() => db.prepare('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ? ORDER BY ue_num').all(d.id).map(x => x.ue_num), []) });
   }
   res.json({ annee, lignes });

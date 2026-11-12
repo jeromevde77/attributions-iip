@@ -373,6 +373,7 @@ const Demandes = lazy(() => import('./Demandes.jsx'));
    accordées — jamais la nature de la difficulté (secret professionnel). */
 function AmenagementsSections() {
   const [l, setL] = useState([]);
+  const [ouvert, setOuvert] = useState(null);
   useEffect(() => {
     fetch('/api/a-signer/amenagements', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(j => setL(j?.lignes || [])).catch(() => {});
   }, []);
@@ -385,8 +386,17 @@ function AmenagementsSections() {
         {l.map(x => (
           <LigneEtat key={x.id} etat={x.a_faire ? 'surveiller' : 'reussi'} icone={IconWriting}
             titre={`${String(x.nom || '').toUpperCase()} ${x.prenom || ''}${x.section ? ` · ${x.section}` : ''}${x.ues?.length ? ` · UE ${x.ues.join(', ')}` : ''}`}
-            sous={x.a_faire ? `${x.a_faire}${x.date_demande ? ` · demande du ${String(x.date_demande).slice(0, 10).split('-').reverse().join('/')}` : ''}`
-              : `Mesures accordées : ${x.mesures.join(' ; ')}`} />))}
+            sous={`${x.a_faire || 'décidé'}${x.date_demande ? ` · demande du ${String(x.date_demande).slice(0, 10).split('-').reverse().join('/')}` : ''}`}
+            onClick={() => setOuvert(o => (o === x.id ? null : x.id))} ouverte={ouvert === x.id}
+            droite={<span className="text-second text-slate-500">{(x.demandees || []).length} demandé{(x.demandees || []).length > 1 ? 's' : ''}</span>}>
+            {/* LES DEMANDES, PAS LES PIÈCES (3.5.394) : ce que l'étudiant demande ; décidé, ce qui est accordé. */}
+            {ouvert === x.id && (x.demandees || []).length > 0 && (
+              <ul className="m-0 mt-1 pl-4 text-second space-y-0.5">
+                {x.demandees.map((m, i) => <li key={i}>{m.libelle}{m.precisions ? ` — ${m.precisions}` : ''}
+                  {m.accorde === true && <span style={{ color: 'var(--c-reussi)' }}> · accordé</span>}
+                  {m.accorde === false && <span className="text-slate-500"> · non accordé</span>}</li>)}
+              </ul>)}
+          </LigneEtat>))}
       </ListeEtats>
     </section>);
 }
