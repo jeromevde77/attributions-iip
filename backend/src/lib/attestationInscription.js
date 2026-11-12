@@ -121,7 +121,13 @@ export function chargerAttestationInscription(etudId, annee) {
 }
 
 /** Compose la pièce. Rend { html, nom } ou { code, erreur }. */
-export function composerAttestationInscription(d) {
+export const VARIANTES = {
+  inscription: { titre: 'Attestation d’inscription', fichier: 'Attestation-inscription', programme: true },
+  // La « lettre 1 » des allocations familiales : même pièce, titrée pour la caisse, sans le bloc ni les crédits.
+  allocations: { titre: 'Attestation d’inscription — allocations familiales', fichier: 'Attestation-allocations-familiales', programme: false },
+};
+export function composerAttestationInscription(d, variante = 'inscription') {
+  const v = VARIANTES[variante] || VARIANTES.inscription;
   const ident = identiteEtablissement() || {};
   const e = d.etudiant, f = feminin(e);
   const nomEtud = `${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}`;
@@ -133,8 +139,14 @@ export function composerAttestationInscription(d) {
   const h = d.heures, oui = h != null && h >= 17;
   const heuresTxt = h == null ? 'Horaire non encodé : à cocher.'
     : `Moyenne de ${String(h).replace('.', ',')} h de cours par semaine, d’après l’horaire de l’établissement (hors stages et épreuve intégrée).`;
-  const corps = `<div class="attestation piece">
-  ${enteteDocument({ titre: 'Attestation d’inscription', nature: 'Inscription',
+  /* RIEN NE SE COUPE (Charles, 12 novembre 2026 : « je ne veux pas que ma signature ou une partie d'un texte se trouve coupé et
+     placé sur la page suivante ») : chaque paragraphe, la liste des congés, l'encadré et le bloc de signature (avec la ligne
+     d'authenticité que le filigrane pose juste au-dessus) se tiennent d'un bloc. */
+  const tenue = `<style>.att-ins p, .att-ins ul, .att-ins .encadre-ins, .att-ins .tenir { break-inside: avoid; page-break-inside: avoid; }
+    .att-ins .tenir { margin-top: 6mm; } .att-ins .tenir .cloture { margin-top: 4mm; }
+    .att-ins p.intro-conges { break-after: avoid; page-break-after: avoid; }</style>`;
+  const corps = `${tenue}<div class="attestation piece att-ins">
+  ${enteteDocument({ titre: v.titre, nature: 'Inscription',
     sous: d.section_libelle || null, ligne: `Année scolaire ${esc(d.annee)}${ident.matricule ? ` · N° ECOT ${esc(ident.matricule)}` : ''}` })}
   <p class="corps">Je soussigné, ${esc(ident.directeur || '……………')}, directeur de l’${esc(ident.nom || 'Institut Ilya Prigogine')},
     certifie que <b>${f ? 'Madame' : 'Monsieur'} ${nomEtud}</b>,
@@ -142,15 +154,16 @@ export function composerAttestationInscription(d) {
   <p class="corps">est ${f ? 'inscrite' : 'inscrit'} dans notre établissement d’enseignement pour suivre les cours
     ${d.section_libelle ? `de la section <b>${esc(d.section_libelle)}</b>` : 'de notre établissement'}
     pour l’année scolaire ou académique ${esc(d.annee)}, qui a commencé le ${jour(d.debut)} et se termine le ${jour(d.fin)}.</p>
-  ${conges ? `<p class="corps">Les périodes de vacances sont fixées comme suit :</p><ul>${conges}</ul>` : ''}
-  <div style="background:#F1F6FB;border-radius:1.8mm;padding:2.2mm 3.5mm;margin:2mm 0 3mm">
+  ${conges ? `<p class="corps intro-conges">Les périodes de vacances sont fixées comme suit :</p><ul>${conges}</ul>` : ''}
+  <div class="encadre-ins" style="background:#F1F6FB;border-radius:1.8mm;padding:2.2mm 3.5mm;margin:2mm 0 3mm">
     <div style="font-weight:700;color:#0E2A4F;margin-bottom:1mm">${d.superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'} pour adultes</div>
     <div>Le jeune suit-il au moins 17 heures de cours par semaine ?${boite(h != null && oui)}Oui${boite(h != null && !oui)}Non</div>
     <div style="font-size:7.5pt;color:#5B6B82;margin-top:0.8mm">${heuresTxt}</div>
   </div>
-  <p class="corps">${qui} suit les cours ${d.inscrit_le ? `depuis le ${jour(d.inscrit_le)}` : 'depuis le début de l’année scolaire'}.
+  <p class="corps">${qui} suit les cours ${d.inscrit_le ? `depuis le ${jour(d.inscrit_le)}` : 'depuis le début de l’année scolaire'}.${v.programme ? `
     ${f ? 'Elle' : 'Il'} est ${f ? 'inscrite' : 'inscrit'}${d.bloc ? ` en ${esc(d.bloc)}` : ''} et suit un programme de
-    <b>${d.ects} ECTS</b> pour l’année académique ${esc(d.annee)}.</p>
+    <b>${d.ects} ECTS</b> pour l’année académique ${esc(d.annee)}.` : ''}</p>
+  <div class="tenir">
   <p class="corps">Je déclare avoir rempli correctement la présente déclaration.</p>
   <div class="cloture">
     <div class="sceau"></div><div class="paraphe"></div>
@@ -158,7 +171,8 @@ export function composerAttestationInscription(d) {
     <div class="legende"><div class="qualite">Le chef d’établissement</div>
       <div class="nom">${esc(ident.directeur || '……………')}</div></div>
   </div>
+  </div>
 </div>`;
-  const nom = `Attestation-inscription_${String(e.nom || '').toUpperCase()}_${e.prenom || ''}_${d.annee}`.replace(/[^A-Za-z0-9_-]+/g, '-');
-  return { html: envelopper(corps, 'Attestation d’inscription'), nom };
+  const nom = `${v.fichier}_${String(e.nom || '').toUpperCase()}_${e.prenom || ''}_${d.annee}`.replace(/[^A-Za-z0-9_-]+/g, '-');
+  return { html: envelopper(corps, v.titre), nom };
 }

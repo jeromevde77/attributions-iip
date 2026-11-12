@@ -10669,7 +10669,7 @@ r.get('/:id/attestation-inscription', authRequired, roleRequired('admin', 'edite
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const d = chargerAttestationInscription(Number(req.params.id), String(annee));
   if (d.erreur) return res.status(d.code || 409).json({ error: d.erreur });
-  const { html, nom } = composerAttestationInscription(d);
+  const { html, nom } = composerAttestationInscription(d, req.query.variante === 'allocations' ? 'allocations' : 'inscription');
   res.json({ html, nom });
 });
 

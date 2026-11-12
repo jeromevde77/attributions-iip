@@ -118,6 +118,17 @@ export const DOCUMENTS = [
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
   {
+    cle: 'attestation_allocations',
+    libelle: "Attestation d'inscription — allocations familiales",
+    description: "La même attestation, titrée pour la caisse d'allocations familiales, sans le bloc ni les crédits.",
+    portee: 'etudiant', lot: true, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/etudiants/:id/attestation-inscription?variante=allocations' },
+    parametres: ['annee'],
+    nomFichier: 'Attestation-allocations-familiales_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
     cle: 'frais_scolarite',
     libelle: 'Frais de scolarité',
     description: "Document distinct de la fiche : l'administration n'en connaît pas.",
