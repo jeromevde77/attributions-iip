@@ -3443,7 +3443,9 @@ mise en page » — la « Lettre 1 » Word du secrétariat). `lib/attestationIns
 secrétariat), catalogue `attestation_inscription`, Éditions (`PIECES_DOSSIER`, colonne Inscription) et fiche → Imprimer ou envoyer.
 Directeur = `identiteEtablissement`, section = `donneesSectionDiplome().intitule_section`, année = semaines du calendrier hors
 vacances, congés = fermetures de l'agenda (à défaut le calendrier), l'été du lendemain de la fin à la veille de la rentrée suivante,
-bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » se calcule (Charles : « Lucie calcule ») : `heuresParSemaine` — séances de `seancesEtudiant` (hors stages,
+bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » (3.5.357 : `calculDixSept` — l'horaire, sinon les périodes de cours du PAE à 50 min, hors stages et EI, divisés
+par `semainesDeCours` CONGÉS RETIRÉS ; fenêtre `demanderDixSept` (`components/DixSeptHeures.jsx`) avant l'impression, réponse forcée
+par `?dixsept=oui|non`, `POST /api/etudiants/attestation-inscription/heures`) — à l'origine : `heuresParSemaine` — séances de `seancesEtudiant` (hors stages,
 EI, dispenses, annulées), en moyenne sur les semaines de cours du calendrier ; sans horaire, cases vides.
 Variante `?variante=allocations` (3.5.354, la « lettre 1 » des allocations familiales) : titre propre, sans bloc ni ECTS ; catalogue
 `attestation_allocations`. Rien ne se coupe : paragraphes, liste, encadré et bloc de signature (avec la dernière phrase du texte,

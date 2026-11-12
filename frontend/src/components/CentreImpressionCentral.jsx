@@ -1,4 +1,5 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
+import { demanderDixSept, avecDixSept } from './DixSeptHeures.jsx';
 import { selectionEtudiants } from '../lib/selectionEtudiants.js';
 import OngletSLE from './OngletSLE.jsx';
 import { useDroits, peutGeste } from '../lib/droits.js';
@@ -151,8 +152,8 @@ const PIECES_DOSSIER = [
   { cle: 'fiche', label: "Fiche d'inscription / reçu", route: (id, a) => `/api/etudiants/${id}/fiche-inscription?annee=${a}` },
   { cle: 'frais', label: 'Frais de scolarité', route: (id, a) => `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` },
   // L'ATTESTATION D'INSCRIPTION (3.5.352) : la « Lettre 1 » du secrétariat — allocations familiales, mutuelle, CPAS…
-  { cle: 'att_inscription', label: 'Attestation d’inscription', route: (id, a) => `/api/etudiants/${id}/attestation-inscription?annee=${a}` },
-  { cle: 'att_allocations', label: 'Attestation d’inscription (allocations familiales)', route: (id, a) => `/api/etudiants/${id}/attestation-inscription?variante=allocations&annee=${a}` },
+  { cle: 'att_inscription', label: 'Attestation d’inscription', dixSept: true, route: (id, a) => `/api/etudiants/${id}/attestation-inscription?annee=${a}` },
+  { cle: 'att_allocations', label: 'Attestation d’inscription (allocations familiales)', dixSept: true, route: (id, a) => `/api/etudiants/${id}/attestation-inscription?variante=allocations&annee=${a}` },
   { cle: 'annexe1', label: 'Annexe 1 — visa ou titre de séjour', sle: true },
   { cle: 'annexe2', label: 'Annexe 2 — progrès des études', sle: true },
   /* LE CONGÉ-ÉDUCATION PAYÉ (3 octobre 2026) : même logique que les SLE —
@@ -2059,6 +2060,12 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       if (!r.ok) throw new Error(j.error || 'PAE non produits.');
       for (const x of j.documents || []) docsPAE.push({ ...x, pagination: 'si-plusieurs', pied: true, contenu: `Programme annuel — ${anneeDossier}` });
     }
+    // LA QUESTION DES 17 HEURES (3.5.357) : la fenêtre avant l'impression des attestations d'inscription.
+    let dixSept = null;
+    if (avecRoute.some(p => p.dixSept) && coches.size) {
+      dixSept = await demanderDixSept({ annee: anneeDossier, ids: [...coches] });
+      if (!dixSept) throw new Error('Impression annulée.');
+    }
     const docsRoute = [], avisRoute = [];
     const nomDe = id => { const e = etudiants.find(x => x.id === id); return e ? `${e.nom} ${e.prenom || ''}`.trim() : `#${id}`; };
     /* QUATRE À LA FOIS, PAS UNE PAR UNE (2 octobre 2026) : une fiche par
@@ -2069,7 +2076,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       while (suivante < taches.length) {
         const [p, id] = taches[suivante++];
         try {
-          const r = await fetch(p.route(id, encodeURIComponent(anneeDossier)), { headers: authHeaders() });
+          const r = await fetch(p.dixSept ? avecDixSept(p.route(id, encodeURIComponent(anneeDossier)), dixSept, id) : p.route(id, encodeURIComponent(anneeDossier)), { headers: authHeaders() });
           const j = await r.json().catch(() => ({}));
           if (!r.ok || !j.html) { avisRoute.push(`${nomDe(id)} — ${p.label.toLowerCase()} : ${j.error || 'non produite'}`); continue; }
           docsRoute.push({ etudiant_id: id, etudiant: nomDe(id), html: j.html, pagination: 'si-plusieurs', pied: true,

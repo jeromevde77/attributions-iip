@@ -14,6 +14,7 @@
  * pas de congé-éducation cette année) ne s'affichent pas : une porte qui mène
  * à un refus n'aide personne.
  */
+import { demanderDixSept, avecDixSept } from './DixSeptHeures.jsx';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IconSend, IconFileText, IconFileZip, IconCertificate, IconWorld, IconBriefcase, IconAccessible } from '@tabler/icons-react';
@@ -66,6 +67,12 @@ export default function PiecesEtudiant({ etud, annee }) {
   const apercu = async (cle, url, titre, typeDoc, { orientation = 'portrait' } = {}) => {
     setEnCours(cle); setErreur(null);
     try {
+      // LA QUESTION DES 17 HEURES (3.5.357) : la fenêtre avant l'attestation d'inscription.
+      if (url.includes('/attestation-inscription')) {
+        const ch = await demanderDixSept({ annee, ids: [id] });
+        if (!ch) return;
+        url = avecDixSept(url, ch, id);
+      }
       const r = await fetch(url, { headers: authHeaders() });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);

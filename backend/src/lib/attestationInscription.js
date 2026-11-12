@@ -7,9 +7,9 @@
 // Rien ne se tape : le directeur vient de l'identité de l'établissement ; l'étudiant de sa fiche ; la section de son
 // rattachement ; les dates de l'année du calendrier des cours ; les congés des FERMETURES DE L'AGENDA DE L'ÉCOLE (elles font
 // foi depuis 3.5.145), à défaut du calendrier ; le bloc de `niveauEtudiant` ; les crédits du programme de l'année.
-// LES 17 HEURES SE CALCULENT (Charles, 12 novembre 2026 : « Lucie calcule ») : les séances de l'horaire qui concernent
-// l'étudiant (`seancesEtudiant`, la règle du congé-éducation : hors stages, épreuve intégrée, dispenses, séances annulées),
-// en moyenne sur les semaines de cours du calendrier. Sans horaire encodé, les cases restent vides.
+// LES 17 HEURES SE CALCULENT (Charles, 12 novembre 2026) : les séances de l'horaire qui concernent l'étudiant (`seancesEtudiant` :
+// hors stages, épreuve intégrée, dispenses, séances annulées) ; sans horaire, les périodes de cours du PAE (50 min). Divisées par
+// les semaines de cours, CONGÉS RETIRÉS. La réponse peut être forcée à l'impression (fenêtre de l'écran, `?dixsept=oui|non`).
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
 import { envelopper, frDate } from '../routes/attestations.js';
@@ -17,7 +17,7 @@ import { enteteDocument } from './document.js';
 import { identiteEtablissement } from '../routes/config.js';
 import { sectionRattachement, niveauEtudiant } from '../routes/etudiants.js';
 import { fermetures } from './agendaEcole.js';
-import { congesDe, seancesEtudiant } from './cep.js';
+import { congesDe, seancesEtudiant, unitesInscrites, dispenses } from './cep.js';
 import { donneesSectionDiplome } from '../routes/diplomes.js';
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -80,26 +80,57 @@ function intituleSection(code) {
   return { libelle, type: `${d.type_enseignement || ''} ${niv}` };
 }
 
-/** La moyenne des heures de cours par semaine, d'après l'horaire ; null sans séance. */
-export function heuresParSemaine(etudId, ueNums, annee) {
-  let min = 0; const semaines = new Set();
-  for (const u of ueNums) {
-    const { seances } = essai(() => seancesEtudiant(etudId, u, annee), { seances: [] });
-    for (const x of seances) {
-      if (x.annule || x.dispense) continue;
-      min += Number(x.min) || 0;
-      const d = new Date(`${x.date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-      semaines.add(d.toISOString().slice(0, 10));
+const lundiDe = d => { const x = new Date(`${String(d).slice(0, 10)}T12:00:00Z`); x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
+const HORS_COURS = /\bstages?\b|épreuve intégrée|epreuve integree|développement professionnel|developpement professionnel/i;
+
+/** Les semaines de cours de l'année : de la rentrée à la fin, MOINS LES SEMAINES DE CONGÉ (Charles, 12 novembre 2026). */
+export function semainesDeCours(annee, debut, fin, conges) {
+  if (!debut || !fin) return 0;
+  const enConge = l => conges.some(c => c.du <= plus(l, 4) && c.au >= l);   // une semaine dont un jour ouvrable est en congé
+  let n = 0;
+  for (let l = lundiDe(debut); l <= fin; l = plus(l, 7)) if (!enConge(l)) n++;
+  return n;
+}
+
+/** Les périodes de cours du programme : unités inscrites hors épreuve intégrée, cours hors stage, hors dispenses. */
+export function periodesDuPAE(etudId, annee) {
+  let total = 0;
+  for (const u of essai(() => unitesInscrites(etudId, annee), [])) {
+    if (u.epreuve_integree) continue;
+    const disp = essai(() => dispenses(etudId, u.ue_num, annee), { complete: false, cours: new Set() });
+    if (disp.complete) continue;
+    const vus = new Set();
+    for (const c of essai(() => db.prepare(`SELECT cours_code, cours_nom, COALESCE(cours_per, 0) per, COALESCE(is_stage, 0) stage FROM cours
+        WHERE ue_num = ? AND cours_code IS NOT NULL ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC`).all(u.ue_num, annee), [])) {
+      if (vus.has(c.cours_code)) continue; vus.add(c.cours_code);
+      if (c.stage || HORS_COURS.test(c.cours_nom || '') || disp.cours.has(c.cours_code)) continue;
+      total += Number(c.per) || 0;
     }
   }
-  if (!min) return null;
-  const cours = essai(() => db.prepare(`SELECT COUNT(*) n FROM annee_calendrier WHERE annee_scolaire = ? AND type <> 'vacances'`).get(annee).n, 0);
-  const n = cours || semaines.size;
-  return n ? Math.round((min / 60 / n) * 10) / 10 : null;
+  return total;
+}
+
+/** LA QUESTION DES 17 HEURES : l'horaire de l'étudiant d'abord ; sans horaire, les périodes du PAE (une période = 50 min).
+ *  Les deux se divisent par les semaines de cours, congés retirés. */
+export function calculDixSept(etudId, annee, { debut, fin, conges }) {
+  const semaines = semainesDeCours(annee, debut, fin, conges);
+  let min = 0;
+  for (const u of essai(() => unitesInscrites(etudId, annee), [])) {
+    if (u.epreuve_integree) continue;
+    const { seances } = essai(() => seancesEtudiant(etudId, u.ue_num, annee), { seances: [] });
+    for (const x of seances) if (!x.annule && !x.dispense) min += Number(x.min) || 0;
+  }
+  const periodes = periodesDuPAE(etudId, annee);
+  const arrondi = v => Math.round(v * 10) / 10;
+  const parHoraire = semaines && min ? arrondi(min / 60 / semaines) : null;
+  const parPAE = semaines && periodes ? arrondi((periodes * 50) / 60 / semaines) : null;
+  const heures = parHoraire ?? parPAE;
+  return { semaines, heures_horaire: min ? arrondi(min / 60) : 0, periodes, par_horaire: parHoraire, par_pae: parPAE,
+    heures, source: parHoraire != null ? 'horaire' : parPAE != null ? 'pae' : null, oui: heures != null ? heures >= 17 : null };
 }
 
 /** Tout ce que la pièce lit, ou l'erreur qui l'arrête. */
-export function chargerAttestationInscription(etudId, annee) {
+export function chargerAttestationInscription(etudId, annee, { force = null } = {}) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
   if (!e) return { code: 404, erreur: 'étudiant introuvable' };
   const ins = db.prepare(`SELECT i.ue_num, i.date_inscription,
@@ -116,8 +147,11 @@ export function chargerAttestationInscription(etudId, annee) {
   const inscritLe = ins.map(i => String(i.date_inscription || '').slice(0, 10)).filter(Boolean).sort()[0] || null;
   const tardif = !!(inscritLe && debut && inscritLe > debut);
   const superieur = !/secondaire|CESS|CQ/i.test(sec?.type || '');
-  return { etudiant: e, annee, section, section_libelle: sec?.libelle || null, bloc, ects, debut, fin,
-    inscrit_le: tardif ? inscritLe : null, superieur, heures: heuresParSemaine(e.id, ins.map(i => i.ue_num), annee), conges: congesDeLAnnee(annee, debut, fin) };
+  const conges = congesDeLAnnee(annee, debut, fin);
+  const dixsept = calculDixSept(e.id, annee, { debut, fin, conges });
+  if (force === 'oui' || force === 'non') dixsept.force = force;
+  return { dixsept, etudiant: e, annee, section, section_libelle: sec?.libelle || null, bloc, ects, debut, fin,
+    inscrit_le: tardif ? inscritLe : null, superieur, conges };
 }
 
 /** Compose la pièce. Rend { html, nom } ou { code, erreur }. */
@@ -136,9 +170,14 @@ export function composerAttestationInscription(d, variante = 'inscription') {
   const qui = f ? 'L’étudiante' : 'L’étudiant';
   const conges = d.conges.map(c => `<li>${esc(c.intitule)} : du ${jour(c.du)} au ${jour(c.au)}</li>`).join('');
   const boite = coche => `<span style="display:inline-block;width:3.2mm;height:3.2mm;border:0.3mm solid #0E2A4F;border-radius:0.6mm;vertical-align:-0.4mm;margin:0 1mm 0 3mm;text-align:center;line-height:3.2mm;font-size:8pt;font-weight:700;color:#0E2A4F">${coche ? '✓' : ''}</span>`;
-  const h = d.heures, oui = h != null && h >= 17;
-  const heuresTxt = h == null ? 'Horaire non encodé : à cocher.'
-    : `Moyenne de ${String(h).replace('.', ',')} h de cours par semaine, d’après l’horaire de l’établissement (hors stages et épreuve intégrée).`;
+  const x = d.dixsept || {};
+  const h = x.heures, oui = x.force ? x.force === 'oui' : x.oui;
+  const virgule = v => String(v).replace('.', ',');
+  const heuresTxt = x.force ? 'Réponse confirmée par l’établissement.'
+    : x.source === 'horaire' ? `Moyenne de ${virgule(h)} h de cours par semaine, d’après l’horaire de l’établissement, sur ${x.semaines} semaines de cours (congés exclus ; hors stages et épreuve intégrée).`
+    : x.source === 'pae' ? `Moyenne de ${virgule(h)} h de cours par semaine : ${x.periodes} périodes de 50 min au programme, sur ${x.semaines} semaines de cours (congés exclus ; hors stages et épreuve intégrée).`
+    : 'À cocher par l’établissement.';
+  const coche = oui != null;
   /* RIEN NE SE COUPE (Charles, 12 novembre 2026 : « je ne veux pas que ma signature ou une partie d'un texte se trouve coupé et
      placé sur la page suivante ») : chaque paragraphe, la liste des congés, l'encadré et le bloc de signature (avec la ligne
      d'authenticité que le filigrane pose juste au-dessus) se tiennent d'un bloc. */
@@ -157,7 +196,7 @@ export function composerAttestationInscription(d, variante = 'inscription') {
   ${conges ? `<p class="corps intro-conges">Les périodes de vacances sont fixées comme suit :</p><ul>${conges}</ul>` : ''}
   <div class="encadre-ins" style="background:#F1F6FB;border-radius:1.8mm;padding:2.2mm 3.5mm;margin:2mm 0 3mm">
     <div style="font-weight:700;color:#0E2A4F;margin-bottom:1mm">${d.superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'} pour adultes</div>
-    <div>Le jeune suit-il au moins 17 heures de cours par semaine ?${boite(h != null && oui)}Oui${boite(h != null && !oui)}Non</div>
+    <div>Le jeune suit-il au moins 17 heures de cours par semaine ?${boite(coche && oui)}Oui${boite(coche && !oui)}Non</div>
     <div style="font-size:7.5pt;color:#5B6B82;margin-top:0.8mm">${heuresTxt}</div>
   </div>
   <div class="tenir">
