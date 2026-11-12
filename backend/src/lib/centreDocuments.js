@@ -164,7 +164,19 @@ export async function relayerCentre(appel) {
   if (!l.length) return 0;
   const json = (id, statut, corps) => ({ id, statut, type: 'application/json; charset=utf-8', corps: Buffer.from(JSON.stringify(corps)).toString('base64') });
   const reponses = [];
+  // LA TRACE (3.5.403, Charles : « il est bloqué sur un document ») : chaque demande note sa durée et son issue dans `portail_etape`
+  // (étape « centre:<action> »), lisible sans les journaux du serveur.
+  const tracer = (q, t0, erreur) => { try {
+    db.exec('CREATE TABLE IF NOT EXISTS portail_etape (etape TEXT PRIMARY KEY, ok_le TEXT, erreur TEXT, erreur_le TEXT, duree_ms INTEGER, n INTEGER)');
+    const etape = `centre:${q.action}${q.code ? `:${q.code}` : ''}`;
+    if (erreur) db.prepare(`INSERT INTO portail_etape (etape, erreur, erreur_le, duree_ms) VALUES (?,?,datetime('now'),?)
+      ON CONFLICT(etape) DO UPDATE SET erreur = excluded.erreur, erreur_le = excluded.erreur_le, duree_ms = excluded.duree_ms`).run(etape, String(erreur).slice(0, 500), Date.now() - t0);
+    else db.prepare(`INSERT INTO portail_etape (etape, ok_le, duree_ms) VALUES (?,datetime('now'),?)
+      ON CONFLICT(etape) DO UPDATE SET ok_le = excluded.ok_le, duree_ms = excluded.duree_ms`).run(etape, Date.now() - t0);
+  } catch { /* la trace ne bloque rien */ } };
   for (const q of l) {
+    const t0 = Date.now();
+    const avant = reponses.length;
     try {
       if (q.action === 'liste') reponses.push(json(q.id, 200, offreCentre(Number(q.etudiant_id))));
       else if (q.action === 'desins_etat' || q.action === 'desins_demande') reponses.push(await desinscriptionEnLigne(q, json));
@@ -174,7 +186,11 @@ export async function relayerCentre(appel) {
           : json(q.id, c.statut || 409, { error: c.erreur }));
       }
     } catch (e) { reponses.push(json(q.id, 502, { error: 'Lucie n’a pas pu composer la pièce : ' + e.message })); }
+    const r = reponses[avant];
+    tracer(q, t0, r && r.statut >= 400 ? `${r.statut} ${Buffer.from(r.corps || '', 'base64').toString('utf8').slice(0, 300)}` : null);
+    // Chaque réponse part aussitôt : une pièce longue ne fait pas attendre la suivante (ni dépasser l'attente du portail).
+    await appel('POST', '/interne/centre/reponses', { reponses: [r] }).catch(x => tracer(q, t0, `envoi de la réponse : ${x.message}`));
   }
-  await appel('POST', '/interne/centre/reponses', { reponses });
   return reponses.length;
 }
+

@@ -484,7 +484,7 @@ async function demanderCentre(req, res, action, code, delai, donnees = null) {
   res.status(504).json({ error: 'Lucie ne répond pas pour l’instant. Réessayez dans un moment.' });
 }
 pub.get('/api/portail/centre', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'liste', null, 20000));
-pub.get('/api/portail/centre/piece/:code', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'piece', req.params.code, 50000));
+pub.get('/api/portail/centre/piece/:code', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'piece', req.params.code, 110000));
 // LA DÉSINSCRIPTION DEMANDÉE EN LIGNE (3.5.392) : Lucie calcule (RDE art. 19) puis enregistre la demande, datée ; le secrétariat confirme.
 const unitesDe = v => (Array.isArray(v) ? v : String(v || '').split(',')).map(Number).filter(Boolean).slice(0, 40);
 pub.get('/api/portail/desinscription', connecte, exige('desinscription'), (req, res) =>

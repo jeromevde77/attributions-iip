@@ -56,6 +56,9 @@ function CentreDocuments({ onErreur }) {
   const [c, setC] = useState(null);
   const [enCours, setEnCours] = useState(null);
   const [msg, setMsg] = useState(null);
+  // Le temps qui passe se dit (3.5.403) : au-delà de 20 s, la fenêtre précise que Lucie compose toujours.
+  const [secondes, setSecondes] = useState(0);
+  useEffect(() => { if (!enCours) { setSecondes(0); return undefined; } const t = setInterval(() => setSecondes(x => x + 1), 1000); return () => clearInterval(t); }, [enCours]);
   const charger = useCallback(() => appel('GET', '/centre').then(setC).catch(e => { setC({ pieces: [], erreur: e.message }); }), []);
   useEffect(() => { charger(); }, [charger]);
   const obtenir = async p => {
@@ -81,6 +84,7 @@ function CentreDocuments({ onErreur }) {
         <FenetreEspace titre="Lucie compose votre document" sous={c?.pieces?.find(p => p.code === enCours)?.nom || ''}>
           <ChargementLucie texte="" />
           <p className="text-sm text-center max-w-md mx-auto -mt-6 px-4">Vos documents sont en chargement. Ceci peut prendre quelques secondes ou plusieurs minutes selon les demandes. Ne quittez pas cette fenêtre.</p>
+          {secondes >= 20 && <p className="text-second text-center text-slate-500 mt-2">Lucie compose toujours votre pièce ({secondes} s)… Elle s’ouvrira dans un nouvel onglet.</p>}
         </FenetreEspace>)}
       {c?.erreur && <p className="text-sm text-slate-500">{c.erreur}</p>}
       {msg && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{msg}</p>}
