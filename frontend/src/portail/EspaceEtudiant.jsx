@@ -9,7 +9,7 @@ import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
 import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
+import { IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -1554,7 +1554,10 @@ function Espace() {
                     : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}>
                   <Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} />
                 </LigneEtat>))}
-            </ListeEtats>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.<br />Le chargement des documents peut prendre plusieurs minutes, selon la durée de votre parcours : revenez plus tard si vous attendez une attestation.</p>)}
+            </ListeEtats>) : <p className="text-sm text-slate-500 flex items-start gap-2">
+              {/* UNE PETITE ICÔNE QUI TOURNE (3.5.380, Charles) : l'école peut déposer à tout moment ; la phrase ne promet rien de plus. */}
+              <IconLoader2 size={16} className="animate-spin flex-none mt-0.5 text-slate-400" aria-hidden="true" />
+              <span>Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération ; l’école les y dépose au fil de l’eau.</span></p>)}
           {d.reglements.length > 0 && (<>
             <h2 className="intertitre pt-2">Les règlements</h2>
             <ListeEtats>
