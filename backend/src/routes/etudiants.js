@@ -10844,6 +10844,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     const annees = [...new Set(tout.map(x => x.annee))]
       .sort((a, b) => String(b).localeCompare(String(a)));
 
+    /* LA NOTE D'UNITÉ S'ARRONDIT À L'UNITÉ (3.5.385, Charles : « pas de virgules » — la fiche imprimait 12.76 / 20). */
     return annees.map(an => {
       const lignes = tout.filter(x => x.annee === an)
         .sort((a, b) => a.ue_num - b.ue_num);
@@ -10859,7 +10860,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${esc(x.ue_nom || '')}</td>
       <td>${x.mode}</td>
       <td style="text-align:right;white-space:nowrap">${
-        x.va ? `${vaPourcent(x.points)} %` : x.points != null ? x.points + ' / 20' : '—'}</td>
+        x.va ? `${vaPourcent(x.points)} %` : x.points != null ? Math.round(Number(x.points)) + ' / 20' : '—'}</td>
     </tr>`).join('');
     }).join('');
   })();
