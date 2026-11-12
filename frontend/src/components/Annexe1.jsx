@@ -17,7 +17,10 @@ import { Fenetre, Encadre, OutilFenetre } from './ui.jsx';
  */
 const aujourdHui = () => new Date().toISOString().slice(0, 10);
 
-export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
+export default function Annexe1({ etudId, annee: anneeInitiale, annees = [], onClose, enPdf = true }) {
+  /* L'ANNÉE SE CHOISIT (3.5.358, Charles : « c'est pour 25-26 ! ») : une étudiante diplômée en 2025-2026 n'a pas d'inscription
+     dans l'année de travail ; la fenêtre s'ouvre sur l'année reçue et propose toutes celles de son parcours. */
+  const [annee, setAnnee] = useState(anneeInitiale);
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -77,6 +80,11 @@ export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
         <button type="button" className="bouton" onClick={onClose}>Fermer</button>
       </div>}>
       <div className="space-y-3 text-sm">
+        {annees.length > 1 && (
+          <label className="flex items-center gap-2 text-second text-slate-600">Année
+            <select className="controle" value={annee} onChange={e => setAnnee(e.target.value)}>
+              {annees.map(a => <option key={a} value={a}>{a}</option>)}
+            </select></label>)}
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {d?.manques?.length > 0 && (
           <Encadre etat="surveiller" titre="À compléter avant envoi">

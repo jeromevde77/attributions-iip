@@ -38,6 +38,14 @@ export default function PiecesEtudiant({ etud, annee }) {
   const [enCours, setEnCours] = useState(null);
   const [envoi, setEnvoi] = useState(null);       // la pièce à envoyer : attestations, une par unité
 
+  // Les années de son parcours, pour les annexes de l'Office des Étrangers (3.5.358) : la dernière où il est inscrit par défaut.
+  const [annees, setAnnees] = useState([]);
+  useEffect(() => {
+    if (!id) return;
+    fetch('/api/perimetre/parcours', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ids: [id] }) })
+      .then(r => (r.ok ? r.json() : null)).then(j => setAnnees(j?.parcours?.[id]?.annees || [])).catch(() => setAnnees([]));
+  }, [id]);
+  const anneeAnnexe = annees.includes(annee) || !annees.length ? annee : annees[annees.length - 1];
   useEffect(() => {
     if (!id) return;
     setCep(null); setDossierAR(null);
@@ -143,9 +151,9 @@ export default function PiecesEtudiant({ etud, annee }) {
         clic: () => apercu('frais', `/api/frais-scolarite/etudiant/${id}/document?annee=${a}`, 'Frais de scolarité', 'frais_scolarite') },
     ]],
     ['Office des Étrangers', [
-      { cle: 'annexe1', icone: IconWorld, titre: 'Visa ou titre de séjour étudiant (annexe 1)', sous: "Ressortissant d'un pays tiers",
+      { cle: 'annexe1', icone: IconWorld, titre: 'Visa ou titre de séjour étudiant (annexe 1)', sous: `Ressortissant d'un pays tiers · ${anneeAnnexe}`,
         clic: () => setModale('annexe1') },
-      { cle: 'annexe2', icone: IconWorld, titre: 'Progrès des études (annexe 2)', sous: 'Réclame la nationalité',
+      { cle: 'annexe2', icone: IconWorld, titre: 'Progrès des études (annexe 2)', sous: `Réclame la nationalité · ${anneeAnnexe}`,
         clic: () => setModale('annexe2') },
     ]],
     ...(cep && cep.region !== 'flandre' ? [['Congé-éducation payé', [
@@ -203,8 +211,8 @@ export default function PiecesEtudiant({ etud, annee }) {
         document.body)}
       {modale && createPortal(
         modale === 'motivation' ? <MotivationDecision etudId={id} annee={annee} onClose={() => setModale(null)} />
-          : modale === 'annexe1' ? <Annexe1 etudId={id} annee={annee} enPdf={sortie === 'pdf'} onClose={() => setModale(null)} />
-            : <Annexe2 etudId={id} annee={annee} onClose={() => setModale(null)} />,
+          : modale === 'annexe1' ? <Annexe1 etudId={id} annee={anneeAnnexe} annees={annees} enPdf={sortie === 'pdf'} onClose={() => setModale(null)} />
+            : <Annexe2 etudId={id} annee={anneeAnnexe} annees={annees} onClose={() => setModale(null)} />,
         document.body)}
     </div>
   );

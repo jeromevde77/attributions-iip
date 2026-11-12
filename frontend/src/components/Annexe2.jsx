@@ -14,7 +14,10 @@ import { ouvrirApercu } from '../lib/apercu.js';
  * ignore, et laisse le motif à la main de la direction — c'est une
  * appréciation, non une donnée.
  */
-export default function Annexe2({ etudId, annee, onClose }) {
+export default function Annexe2({ etudId, annee: anneeInitiale, annees = [], onClose }) {
+  /* L'ANNÉE SE CHOISIT (3.5.358, Charles : « c'est pour 25-26 ! ») : une étudiante diplômée en 2025-2026 n'a pas d'inscription
+     dans l'année de travail ; la fenêtre s'ouvre sur l'année reçue et propose toutes celles de son parcours. */
+  const [annee, setAnnee] = useState(anneeInitiale);
   const [donnees, setDonnees] = useState(null);
   const [motif, setMotif] = useState('');
   const [avis, setAvis] = useState('Néant');
@@ -97,6 +100,11 @@ export default function Annexe2({ etudId, annee, onClose }) {
         </span>
       </>}>
         <div className="space-y-4">
+        {annees.length > 1 && (
+          <label className="flex items-center gap-2 text-second text-slate-600">Année
+            <select className="controle" value={annee} onChange={e => setAnnee(e.target.value)}>
+              {annees.map(a => <option key={a} value={a}>{a}</option>)}
+            </select></label>)}
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                           text-sm text-red-800">{erreur}</div>
