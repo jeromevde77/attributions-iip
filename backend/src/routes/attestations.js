@@ -304,13 +304,14 @@ export function decrireUnite(ueNum, anneeRef, resultat = {}, { etudiant_id = nul
       ).all(i.ue_num);
     } catch { /* table absente ou colonnes différentes : on le signalera */ }
 
-    // Les périodes de COURS, telles que le dossier pédagogique les liste.
-    const periodesCours = ue.ue_per_etudiants
-      || activites.reduce((s, c) => s + (Number(c.cours_per) || 0), 0);
-    // L'AUTONOMIE s'y ajoute : le dossier pédagogique la donne à part, et la
-    // somme des deux fait le total de l'unité pour l'étudiant.
+    /* LE TOTAL NE COMPTE PAS L'AUTONOMIE DEUX FOIS (3.5.388, Charles : « le total me semble étrange » — UE 75 : 3 × 40 + 30
+       d'autonomie imprimait 180). `ue_per_etudiants` porte presque toujours le total de l'étudiant, autonomie COMPRISE (65 UE sur 90 en
+       2026-2027) ; y ajouter `ue_aut` la doublait. La règle de la mention (`POIDS_DETERMINANTE`, diplomes.js) : le plus grand de
+       « périodes étudiant » et « périodes de cours + autonomie ». Les périodes de cours sont la somme des activités listées. */
     const autonomie = Number(ue.ue_aut) || 0;
-    const totalPeriodes = (Number(periodesCours) || 0) + autonomie;
+    const sommeCours = activites.reduce((s, c) => s + (Number(c.cours_per) || 0), 0);
+    const periodesCours = sommeCours || (Number(ue.ue_per_etudiants) || 0) - autonomie || null;
+    const totalPeriodes = Math.max(Number(ue.ue_per_etudiants) || 0, (Number(periodesCours) || 0) + autonomie);
 
     /**
      * SECONDAIRE ET SUPÉRIEUR N'ONT PAS LE MÊME MODÈLE.

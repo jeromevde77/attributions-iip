@@ -3473,6 +3473,10 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**LE TOTAL DES PÉRIODES D'UNE UNITÉ** (3.5.388, Charles : « le total me semble étrange » — UE 75 imprimait 180 pour 120 + 30) :
+`ue_per_etudiants` comprend presque toujours l'autonomie ; `decrireUnite` (attestations.js) prend le plus grand de `ue_per_etudiants` et
+« somme des cours + `ue_aut` » (règle de `POIDS_DETERMINANTE`). **Ne jamais additionner `ue_aut` à `ue_per_etudiants`.**
+
 **UNE SEULE ATTENTE POUR LES DOCUMENTS** (3.5.387, Charles : « Vos documents sont en chargement… Ne quittez pas cette fenêtre » et un
 logo de chargement). `components/AttenteDocuments.jsx` : `MessageAttente` (ChargementLucie + `MESSAGE_ATTENTE`) et `AttenteDocuments`
 (fenêtre sans croix). Posée dans PreviewModal (composition du PDF), Éditions (aperçu d'un rapport, « Produire »), et l'espace de
