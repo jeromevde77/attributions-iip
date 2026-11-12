@@ -501,7 +501,6 @@ export default function Deliberation() {
                         trois piles d'ici, non dossier par dossier. */}
                     <BoutonEditions taille="moyen" onClick={() => setDocs(u)}
                       titre="Attestations, notifications d'ajournement et de refus — centre d'édition" />
-                    <IconChevronRight size={16} className="text-slate-300 flex-none" />
                   </div>
 
                   {deplie === u.ue_num && (
