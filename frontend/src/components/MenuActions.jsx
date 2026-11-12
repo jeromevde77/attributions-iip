@@ -65,7 +65,7 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
     <div className="relative" ref={ref}>
       <button onClick={basculer} title={titre}
         className={`flex items-center border rounded-lg font-medium ${compact
-          ? 'gap-1 px-2 py-1 text-second' : 'gap-2 px-3 py-2 text-sm'} ${tons[ton] || tons.neutre}`}>
+          ? 'gap-1 px-2 h-8 text-second' : 'gap-2 px-3 py-2 text-sm'} ${tons[ton] || tons.neutre}`}>
         {Icone && <Icone size={compact ? 13 : 15} />} {libelle}
         <IconChevronDown size={13} className={`transition-transform ${ouvert ? 'rotate-180' : ''}`} />
       </button>
