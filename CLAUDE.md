@@ -3437,6 +3437,9 @@ la fiche de l'UE, écrits aussi par ceux qui rédigent l'unité (`PUT /api/due/:
 `contenu.chapeaux` de la DUE de l'année { intro, cours: {code}, points: {code: {point}} }, enregistré avec le croisement ; `programmeHtml`
 les imprime (un chapeau de point dont le point a disparu se pose en tête du cours). Étape 0 : « Proposer à la direction » dit pourquoi
 il est gris (la phrase pour la direction est obligatoire).
+**Les faux acquis-sous-points** (3.5.360, UE 337) : `retirerSousPointsDoublons()` (`routes/aa.js`, au démarrage) retire un acquis dont le
+texte est exactement une ligne « – … » d'un autre acquis de la même unité, s'il ne porte aucune trace (`inventaireAA`). L'étape 1 affiche
+les sous-points (`whitespace-pre-line`).
 
 **LE CADRE DES CARACTÉRISTIQUES D'UNE UNITÉ, UNE SEULE STRUCTURE** (3.5.356, Charles : « il manque le numéro interne de l'UE ;
 respecte toujours la même structure »). `caracUnite(u, { extra })` (`routes/attestations.js`, sur `decrireUnite`) : à gauche Section ·

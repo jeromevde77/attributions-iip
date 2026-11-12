@@ -110,7 +110,7 @@ import sequenceRoutes      from './routes/sequence.js';
 import dcppRoutes          from './routes/dcpp.js';
 import dossiersRoutes      from './routes/dossiers.js';
 import recrutementRoutes   from './routes/recrutement.js';
-import aaRoutes            from './routes/aa.js';
+import aaRoutes, { retirerSousPointsDoublons } from './routes/aa.js';
 import { logoCourant } from './lib/identite.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -3400,6 +3400,7 @@ try { (await import('./lib/gardeNotes.js')).poserGardeNotes(db); } catch (e) { c
 try { (await import('./lib/etudiantUnique.js')).poserNormalisationRN(db); } catch (e) { console.error('[migration] rn_norm :', e.message); }
 // Les intitulés d'UE abîmés par l'import du dossier pédagogique, rétablis une fois (3.5.261).
 try { reparerNomsAbimes(); } catch (e) { console.error('[ue] intitulés :', e.message); }
+try { retirerSousPointsDoublons(); } catch (e) { console.error('[acquis] sous-points :', e.message); }
 // Les images de l'établissement (logo, logo blanc, signature, cachet) remplacent les fichiers d'origine (3.1.253).
 import('./routes/etablissement.js').then(m => m.migrerEtablissements())   // une base neuve crée la table après l'import des routes
   .then(() => import('./lib/identite.js')).then(m => m.appliquerIdentite()).catch(e => console.error('[identité]', e.message))
