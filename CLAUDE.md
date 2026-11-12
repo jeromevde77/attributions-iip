@@ -3442,7 +3442,8 @@ l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TO
 venir) · attente (examens passés, délibération > J-3 ou non datée) · pret (≤ J-3) · fait (séances closes) ; S2 « — » sans ajourné.
 `components/BoutonsSessions.jsx` (boutons, flèche de coin, `FenetreSessionClose` : rouvrir `toutes: true` ou annuler `DELETE ?session=n&motif=`,
 motif obligatoire). Geste `deliberation.rouvrir` ouvert à l'éditeur (secrétariat). Annuler S1 refusé si des décisions S2 existent.
-`FeuilleDeliberation` prend `sessionInitiale`.
+`FeuilleDeliberation` prend `sessionInitiale`. La flèche paraît aussi sur une session non close qui porte des décisions
+(3.5.369, `decides` ; la fenêtre ne propose alors que l'annulation).
 **Pas de seconde session pour un cours** (3.5.367, Charles, UE 256) : `deliberation_session2.s2_aucune` ; case de la clôture, cochée d'office
 quand `aRepresenterParCours` ne voit personne (la clôture proposait une date à TOUS les cours) ; cochée, dates vidées ; les dates S2 de ces
 cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous cochés = rien n'attend.

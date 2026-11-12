@@ -457,7 +457,7 @@ export default function Deliberation() {
                     {/* LES DEUX BOUTONS S1 / S2 (3.5.368, Charles) — remplacent « Délibérer S1 / S2 » et le bouton d'annulation. */}
                     <BoutonsSessions u={u} peutGerer={peut('deliberation.rouvrir')}
                       onOuvrir={(x, n) => { setSessionVoulue(n); setUeNum(x.ue_num); }}
-                      onGeste={(x, n) => setGesteSession({ u: x, session: n })} />
+                      onGeste={(x, n, close) => setGesteSession({ u: x, session: n, close })} />
                     {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS : la
                         répartition des étudiants se prépare d'ici, avant
                         d'ouvrir la feuille. */}
@@ -653,7 +653,7 @@ export default function Deliberation() {
       )}
 
       {gesteSession && (
-        <FenetreSessionClose u={gesteSession.u} session={gesteSession.session} annee={annee}
+        <FenetreSessionClose u={gesteSession.u} session={gesteSession.session} close={gesteSession.close} annee={annee}
           onFermer={() => setGesteSession(null)} onFait={() => { setGesteSession(null); charger(); }} />)}
 
       {docs && (

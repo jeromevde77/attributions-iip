@@ -39,8 +39,8 @@ export function BoutonsSessions({ u, onOuvrir, onGeste, peutGerer }) {
               style={STYLE[e]}>
               S{n}<span className="text-mention font-normal">{n === 2 && b?.sans_objet ? '—' : jj(date)}</span>
             </button>
-            {e === 'fait' && peutGerer && (
-              <button type="button" onClick={() => onGeste(u, n)} aria-label={`Rouvrir ou annuler la session ${n}`}
+            {(e === 'fait' || b?.decides > 0) && peutGerer && (
+              <button type="button" onClick={() => onGeste(u, n, e === 'fait')} aria-label={`Rouvrir ou annuler la session ${n}`}
                 title="Rouvrir ou annuler la délibération de cette session"
                 className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white border border-slate-300 grid place-items-center text-slate-600 hover:text-iip-blue">
                 <IconRotateClockwise size={12} />
@@ -51,8 +51,9 @@ export function BoutonsSessions({ u, onOuvrir, onGeste, peutGerer }) {
 }
 
 /** La fenêtre unique : rouvrir la séance (les décisions restent) ou annuler la délibération de CETTE session. Motif obligatoire. */
-export function FenetreSessionClose({ u, session, annee, onFermer, onFait }) {
-  const [choix, setChoix] = useState('rouvrir');
+export function FenetreSessionClose({ u, session, annee, close = true, onFermer, onFait }) {
+  // Une session ouverte qui porte des décisions (3.5.369) : seule l'annulation a un sens.
+  const [choix, setChoix] = useState(close ? 'rouvrir' : 'annuler');
   const [motif, setMotif] = useState('');
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
@@ -85,8 +86,9 @@ export function FenetreSessionClose({ u, session, annee, onFermer, onFait }) {
           {choix === 'rouvrir' ? 'Rouvrir' : 'Annuler la délibération'}</button>
       </div>}>
       <div className="space-y-2.5">
-        {carte('rouvrir', 'Rouvrir la délibération',
-          'Les décisions restent ; la séance se rouvre pour corriger, puis se clôt à nouveau.')}
+        {close ? carte('rouvrir', 'Rouvrir la délibération',
+          'Les décisions restent ; la séance se rouvre pour corriger, puis se clôt à nouveau.')
+          : <p className="text-second text-slate-600 m-0">La séance n’est pas close, mais des décisions y sont déjà posées.</p>}
         {carte('annuler', `Annuler la délibération de la ${session === 2 ? 'seconde' : 'première'} session`,
           session === 2
             ? 'Les décisions de seconde session tombent ; chaque étudiant retrouve sa décision de première session. La première reste close.'

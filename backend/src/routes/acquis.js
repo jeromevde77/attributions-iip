@@ -1364,6 +1364,9 @@ export function boutonsSessions(ueNum, annee, ses) {
     etat: s2Close ? 'fait' : (exS2 || secondeSessionPasEncore(ueNum, annee)) ? 'gris' : etat({ close: false, futur: false, date: dateS2 }),
     date: s2Close ? dateS2 : (exS2 || dateS2), examen: exS2,
   };
+  // LES DÉCISIONS POSÉES (3.5.369, Charles, UE 251) : une session qui porte des décisions sans être close garde sa flèche, pour les annuler.
+  const nb = n => { try { return db.prepare('SELECT COUNT(*) n FROM deliberation_resultat WHERE ue_num = ? AND annee_scolaire = ? AND session = ?').get(Number(ueNum), annee, n).n; } catch { return 0; } };
+  s1.decides = nb(1); s2.decides = nb(2);
   return { bouton_s1: s1, bouton_s2: s2 };
 }
 
