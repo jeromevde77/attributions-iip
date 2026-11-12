@@ -3404,6 +3404,7 @@ try { (await import('./lib/etudiantUnique.js')).poserNormalisationRN(db); } catc
 // Les intitulés d'UE abîmés par l'import du dossier pédagogique, rétablis une fois (3.5.261).
 try { reparerNomsAbimes(); } catch (e) { console.error('[ue] intitulés :', e.message); }
 try { retirerSousPointsDoublons(); } catch (e) { console.error('[acquis] sous-points :', e.message); }
+try { (await import('./lib/purgeHistorique.js')).purgerDepotHistorique(); } catch (e) { console.error('[purge années passées]', e.message); }
 // Les images de l'établissement (logo, logo blanc, signature, cachet) remplacent les fichiers d'origine (3.1.253).
 import('./routes/etablissement.js').then(m => m.migrerEtablissements())   // une base neuve crée la table après l'import des routes
   .then(() => import('./lib/identite.js')).then(m => m.appliquerIdentite()).catch(e => console.error('[identité]', e.message))

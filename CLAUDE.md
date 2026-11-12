@@ -3473,6 +3473,13 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**LES ANNÉES PASSÉES QUITTENT LES ESPACES** (3.5.384, Charles : « cette partie ne doit plus être disponible, on va gagner de l'espace » ;
+tranché : tout supprimer). `lib/purgeHistorique.js` (`purgerDepotHistorique`, au démarrage, une fois : `lucie_config`
+« purge_hist_depot ») efface les dépôts `hist_*` jamais ouverts — copies, `envoi_mail`, `portail_depot`, références lues dans les copies
+(`piece_authentique`) — puis `VACUUM`. Le portail les retire au passage suivant (plus de copie). Routes `/api/fonctions/historique` et carte
+« Les années passées dans les espaces » retirées ; `lib/depotHistorique.js` n'est plus appelé. Le centre de documents compose à la demande,
+avec `ChargementLucie` dans une fenêtre sans croix pendant la composition.
+
 **CE QUI ATTEND LA DIRECTION, AU TABLEAU DE BORD** (3.5.383, Charles : « je ne vois pas les demandes de VA ou d'AR que je devrais
 signer comme directeur » — 38 VA décidées non validées en 2026-2027, 52 en 2025-2026, 21 AR à décider). `GET /api/a-signer`
 (routes/aSigner.js, `PEUT_VALIDER`) ; bloc `ASignerDirection` d'Accueil.jsx ; `/etudiants?onglet=valorisation&va=valider&annee=`
