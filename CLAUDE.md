@@ -3489,6 +3489,8 @@ porte du PAE plutôt qu'un statut que 64 lecteurs ignoreraient), fiche « sortie
 En ligne : fonction `espace.desinscription` (née éteinte), routes du portail `/api/portail/desinscription` relayées comme le centre
 de documents (`desins_etat`, `desins_demande`).
 
+**3.5.404** — nginx du portail : `location /api/portail/centre` SANS barre finale. Avec la barre, nginx renvoyait « /centre » vers
+« /centre/ » (301) et le navigateur répondait « Failed to fetch » : une `location` à barre finale redirige l'adresse sans barre.
 **3.5.401** — LE DÉPÔT D'OFFICE DEVIENT UN AVIS (Charles : « on ne les produit pas, mais ils sont disponibles ») : `deposerDOffice`
 (lib/depotEspace.js) note chaque délibéré dans `portail_depot` sans envoi et envoie l'avis « documents disponibles » ; la fonction
 `espace.depot_office` s'appelle « L'avis à la clôture ». Plus aucune copie composée à la clôture.
