@@ -2410,8 +2410,9 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       style={{ background: REPERE_PIECE[p.cle] || 'transparent' }} />
     <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
       className="w-3.5 h-3.5 accent-iip-blue" />
-    {/* LE CODE DE LA PIÈCE (3.5.376) : R-01, I-02… sur le filet de sa famille. */}
-    <CodePiece cle={p.cle} />
+    {/* LE CODE DE LA PIÈCE (3.5.376), SANS COULEUR ICI (3.5.377, Charles : « on garde juste vert, orange et rouge, sinon on ne s'en sort
+        pas ») : le filet de gauche dit déjà le sens (réussite, ajournement, refus). */}
+    <CodePiece cle={p.cle} neutre />
     {!seance && LIBELLE_HORS_SEANCE[p.cle] || p.label}
     {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1 whitespace-nowrap">SLE · {etudiants.filter(e => e.sle).length}</span>}
     {/* LES CHAMPS DES ANNEXES SE COMPLÈTENT ENCORE (5 octobre 2026,

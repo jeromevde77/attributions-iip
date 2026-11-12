@@ -1325,13 +1325,13 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
  * son ton, et il est alors le seul de la liste à le faire.
  */
 /* LE CODE D'UNE PIÈCE ÉTUDIANTE (3.5.376, lib/codesPieces.js) : « R-01 » sur la pastille discrète de sa famille. */
-export function CodePiece({ cle, code: c0 = null }) {
+export function CodePiece({ cle, code: c0 = null, neutre = false }) {
   const p = c0 ? { code: c0 } : pieceDe(cle);
   const f = p && familleDe(p.code);
   if (!p || !f) return null;
   return (
     <span title={`${f.nom} — pièce ${p.code}`} className="flex-none inline-flex items-center h-5 pl-1.5 pr-1.5 text-mention font-semibold tabular-nums text-slate-600 bg-white"
-      style={{ borderLeft: `3px solid ${f.couleur}`, borderTop: '1px solid rgb(var(--gris-200))', borderRight: '1px solid rgb(var(--gris-200))', borderBottom: '1px solid rgb(var(--gris-200))', borderRadius: '0 4px 4px 0' }}>{p.code}</span>);
+      style={{ borderLeft: neutre ? '1px solid rgb(var(--gris-200))' : `3px solid ${f.couleur}`, borderTop: '1px solid rgb(var(--gris-200))', borderRight: '1px solid rgb(var(--gris-200))', borderBottom: '1px solid rgb(var(--gris-200))', borderRadius: neutre ? '4px' : '0 4px 4px 0' }}>{p.code}</span>);
 }
 
 export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre', code = null,
