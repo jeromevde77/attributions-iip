@@ -450,7 +450,9 @@ export default function Deliberation() {
                         elle ; dès qu'elle l'est et qu'elle laisse des ajournés,
                         la seconde s'ouvre d'elle-même. */}
                     <button onClick={() => setUeNum(u.ue_num)}
-                      title={u.session === 2
+                      title={u.session === 2 && u.s2_bloque
+                        ? `${u.s2_bloque} ${u.s1_ajournes} ajourné(s) en première.`
+                        : u.session === 2
                         ? `Seconde session — ${u.s1_ajournes} ajourné(s) en première`
                         : u.seconde_attend
                           ? `Première session — toutes les décisions sont prises et `
@@ -458,10 +460,12 @@ export default function Deliberation() {
                             + `séance pour ouvrir la seconde session`
                           : 'Première session'}
                       className={`px-2 py-1 text-second rounded-lg border font-semibold flex-none
-                        ${u.session === 2
+                        ${u.session === 2 && u.s2_bloque ? 'border-slate-300 text-slate-500'
+    : u.session === 2
     ? 'border-amber-500 text-white bg-amber-500'
     : 'border-iip-blue text-iip-blue'}`}>
-                      Délibérer {u.session === 2 ? 'S2' : 'S1'}
+                      {/* SECONDE SESSION À VENIR (3.5.363) : pas de « Délibérer S2 » orange avant l'examen — la date, en gris. */}
+                      {u.session === 2 && u.s2_bloque ? (u.s2_a_venir ? `S2 le ${u.s2_a_venir.split('-').reverse().join('/')}` : 'S2 : date à poser') : `Délibérer ${u.session === 2 ? 'S2' : 'S1'}`}
                     </button>
                     {/* ANNULER LA DÉLIBÉRATION À CÔTÉ DE « DÉLIBÉRER » (3.5.097, Charles : « cela n'a rien à faire dans Notes »). */}
                     {u.decides > 0 && (
