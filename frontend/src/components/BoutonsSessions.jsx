@@ -35,7 +35,9 @@ export function BoutonsSessions({ u, onOuvrir, onGeste, peutGerer }) {
           <span key={n} className="relative">
             <button type="button" onClick={() => onOuvrir(u, n)}
               title={n === 2 && b?.sans_objet ? 'Pas de seconde session : aucun ajourné.' : TITRE[e]}
-              className="w-[52px] h-[44px] rounded-[10px] flex flex-col items-center justify-center leading-tight font-semibold text-sm"
+              /* RECTANGLE, À LA HAUTEUR DES AUTRES BOUTONS (3.5.371, Charles : « un peu plus rectangle, que tous les boutons aient la
+                 même taille, et réduire la hauteur de la ligne ») : la hauteur d'un contrôle, S et date sur une ligne. */
+              className="h-8 w-[84px] px-2 rounded-champ inline-flex items-center justify-center gap-1.5 font-semibold text-sm whitespace-nowrap"
               style={STYLE[e]}>
               S{n}<span className="text-mention font-normal">{n === 2 && b?.sans_objet ? '—' : jj(date)}</span>
             </button>

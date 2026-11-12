@@ -255,7 +255,8 @@ function VoletResultat({ u }) {
   const d = u.detail;
   const [ouverte, setOuverte] = useState(null);   // la ligne dépliée (texte entier, motivation)
   const refuse = u.etat === 'corriger';
-  const ligne = ({ cle, texte, note, fort, retrait, representer, detail }) => {
+  const deux = (d.cours || []).some(c => c.note_s1 != null);
+  const ligne = ({ cle, texte, note, note1, fort, retrait, representer, detail }) => {
     const ouv = ouverte === cle;
     return (
       <div key={cle} className="border-t border-slate-100">
@@ -265,6 +266,7 @@ function VoletResultat({ u }) {
             <span className={`${ouv ? 'py-2' : 'truncate'} ${fort ? 'font-semibold text-iip-texte' : 'text-slate-600'}`}>{texte}</span>
             {detail?.motif && !ouv && <span className="flex-none text-mention text-iip-blue">pourquoi ?</span>}
           </span>
+          {deux && <span className="flex-none w-20 self-stretch flex items-center justify-center border-l border-white">{finDeLigne(note1 ?? '—', { faveur: false, representer: true, refuse: false })}</span>}
           {finDeLigne(note, { faveur: d.faveur, representer, refuse })}
         </button>
         {ouv && (detail?.motif || detail?.suite) && (
@@ -278,14 +280,15 @@ function VoletResultat({ u }) {
   // `w-0 min-w-full` : le volet ne pousse jamais la largeur du tableau (sinon « … » ne coupe rien et la note sort de l'écran).
   return (
     <div className="bg-white w-0 min-w-full">
+      {deux && <div className="flex justify-end text-mention text-slate-500 border-t border-slate-100"><span className="w-20 text-center py-1">1re session</span><span className="w-20 text-center py-1">2e session</span></div>}
       {d.cours.map(c => {
         const rep = c.a_representer;
         const suite = [rep ? `À représenter : ${rep.length ? rep.join(', ') : 'tout le cours'}${c.examen ? ` — examen le ${dateFr(c.examen.date)}${c.examen.heure ? ` à ${c.examen.heure}` : ''}${c.examen.local ? `, local ${c.examen.local}` : ''}` : ' — date d’examen à venir'}` : null,
           c.visite ? `Visite des copies : ${c.visite.rdv ? 'sur rendez-vous, contactez le professeur' : `${dateFr(c.visite.date)}${c.visite.heure ? ` à ${c.visite.heure}` : ''}${c.visite.local ? `, local ${c.visite.local}` : ''}`}` : null].filter(Boolean).join(' · ');
         return (
           <div key={c.code}>
-            {ligne({ cle: c.code, texte: `${c.code} ${c.nom}${rep ? ' — à représenter' : ''}`, note: c.note, fort: true, representer: !!rep, detail: { suite } })}
-            {c.acquis.map(a => ligne({ cle: `${c.code}|${a.code}`, texte: `${a.code} ${a.libelle}`, note: a.note, retrait: true,
+            {ligne({ cle: c.code, texte: `${c.code} ${c.nom}${rep ? ' — à représenter' : ''}`, note: c.note, note1: c.note_s1, fort: true, representer: !!rep, detail: { suite } })}
+            {c.acquis.map(a => ligne({ cle: `${c.code}|${a.code}`, texte: `${a.code} ${a.libelle}`, note: a.note, note1: a.note_s1, retrait: true,
               representer: rep && (!rep.length || rep.includes(a.code)), detail: { motif: a.motif } }))}
           </div>);
       })}
@@ -1516,15 +1519,23 @@ function Espace() {
             <section key={a.annee} className="carte overflow-hidden">
               <EnteteCarte titre={a.annee.replace('-', ' – ')} />
               <Tableau className="!border-0 !rounded-none">
-                <TableauEntete><Th>Unité</Th><Th>Intitulé</Th><Th>Décision</Th><Th align="droite">Note</Th></TableauEntete>
-                <tbody>{a.ues.map(u => { const cle = `${a.annee}|${u.ue_num}|${u.decision}`; const ouvert = detailUE === cle; return (<Fragment key={cle}>
-                  <Tr className={u.detail ? 'cursor-pointer' : ''} onClick={u.detail ? () => setDetailUE(ouvert ? null : cle) : undefined}
-                    title={u.detail ? (ouvert ? 'Replier le détail' : 'Voir le détail par cours et par acquis') : undefined}>
+                {/* UNE COLONNE PAR SESSION (3.5.370, Charles : « une colonne S1, une colonne S2, avec le détail ») : décision et note de
+                    chaque session close ; « — » quand il n'y a pas (encore) de seconde session. */}
+                <TableauEntete><Th>Unité</Th><Th>Intitulé</Th><Th>1re session</Th><Th>2e session</Th><Th /></TableauEntete>
+                <tbody>{a.ues.map(u => { const cle = `${a.annee}|${u.ue_num}|${u.decision}`; const ouvert = detailUE === cle; const avecDetail = !!u.detail?.cours;
+                  const ses = u.detail?.sessions?.length ? u.detail.sessions : [{ n: 1, decision: u.decision, note: u.note, etat: u.etat }];
+                  const cellule = n => { const x = ses.find(y => y.n === n); return x
+                    ? <span className="inline-flex items-center gap-2 whitespace-nowrap"><PastilleEtat etat={['reussi', 'faveur', 'surveiller', 'corriger'].includes(x.etat) ? x.etat : 'neutre'}>{x.decision}</PastilleEtat>
+                      <b className="tabular-nums">{x.note}{/^\d+$/.test(String(x.note)) ? ' /20' : ''}</b></span>
+                    : <span className="text-slate-400">—</span>; };
+                  return (<Fragment key={cle}>
+                  <Tr className={avecDetail ? 'cursor-pointer' : ''} onClick={avecDetail ? () => setDetailUE(ouvert ? null : cle) : undefined}
+                    title={avecDetail ? (ouvert ? 'Replier le détail' : 'Voir le détail par cours et par acquis') : undefined}>
                     <Td className="tabular-nums whitespace-nowrap">UE {u.ue_num}</Td><Td>{u.ue_nom}</Td>
-                    <Td><PastilleEtat etat={['reussi', 'faveur', 'surveiller', 'corriger'].includes(u.etat) ? u.etat : 'neutre'}>{u.decision}</PastilleEtat></Td>
-                    <Td align="droite" className="font-semibold tabular-nums whitespace-nowrap">{u.note}{typeof u.note === 'number' ? ' /20' : ''}{u.detail && <IconChevronRight size={14} className={`inline ml-2 text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}</Td>
+                    <Td>{cellule(1)}</Td><Td>{cellule(2)}</Td>
+                    <Td align="droite">{avecDetail && <IconChevronRight size={14} className={`inline text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}</Td>
                   </Tr>
-                  {ouvert && <tr><td colSpan={4} className="p-0"><VoletResultat u={u} /></td></tr>}
+                  {ouvert && <tr><td colSpan={5} className="p-0"><VoletResultat u={u} /></td></tr>}
                 </Fragment>); })}</tbody>
               </Tableau>
             </section>))}

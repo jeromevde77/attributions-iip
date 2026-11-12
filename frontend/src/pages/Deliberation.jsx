@@ -387,14 +387,14 @@ export default function Deliberation() {
               </div>
             )}
             {/* PAR BLOC — BA1, BA2, BA3, puis l'épreuve intégrée (GroupesParBloc). */}
-            <div className="p-2.5">
-            <GroupesParBloc items={sec.ues}>{liste => (
+            <div>
+            <GroupesParBloc aplat items={sec.ues}>{liste => (
             <div className="divide-y divide-slate-100">
               {liste.map(u => {
                 const reste = u.inscrits - u.decides;
                 return (
                   <div key={u.ue_num}>
-                  <div className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-3">
+                  <div className="w-full px-3 py-1 hover:bg-slate-50 flex items-center gap-3">
                     {forcage && (
                       <input type="checkbox" className="flex-none"
                         checked={forcage.ues.has(u.ue_num)}
@@ -499,7 +499,7 @@ export default function Deliberation() {
                     </div>
                     {/* Les documents de la séance : le secrétariat sort les
                         trois piles d'ici, non dossier par dossier. */}
-                    <BoutonEditions taille="petit" onClick={() => setDocs(u)}
+                    <BoutonEditions taille="moyen" onClick={() => setDocs(u)}
                       titre="Attestations, notifications d'ajournement et de refus — centre d'édition" />
                     <IconChevronRight size={16} className="text-slate-300 flex-none" />
                   </div>

@@ -133,6 +133,14 @@ function detailResultat(etudId, ueNum, annee, resultat) {
     const d = delibererUE(etudId, ueNum, annee, session);
     const faveur = !!(d.ue?.faveur || d.ue?.faveur_ue);
     const cote = (n, na) => (faveur ? '10' : na ? 'NA' : n == null ? '—' : coteEtudiant(n));
+    /* LES DEUX SESSIONS CÔTE À CÔTE (3.5.370, Charles : « une colonne S1, une colonne S2, avec le détail ») : quand la seconde est
+       close, chaque cours et chaque acquis portent aussi leur note de première session (`note_s1`). */
+    const d1 = session === 2 ? delibererUE(etudId, ueNum, annee, 1) : null;
+    const fav1 = !!(d1?.ue?.faveur || d1?.ue?.faveur_ue);
+    const cote1 = (n, na) => (fav1 ? '10' : na ? 'NA' : n == null ? '—' : coteEtudiant(n));
+    const c1 = code => (d1?.cours || []).find(x => x.cours_code === code);
+    const aa1 = (aaCode, code) => (d1?.acquis || []).find(a => a.aa_code === aaCode)?.evaluations?.find(y => y.cours_code === code);
+    const ajA1 = aaCode => !!(d1?.acquis || []).find(a => a.aa_code === aaCode)?.ajourne_directement;
     const s2 = Object.fromEntries(db.prepare('SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee).map(l => [l.cours_code, l]));
     const visites = visitesParCours(ueNum, annee, session);
     const representer = new Map((resultat === 'ajourne' ? (d.ue?.a_representer_detail || []) : []).map(x => [x.cours_code, x.aas || []]));
@@ -148,10 +156,13 @@ function detailResultat(etudId, ueNum, annee, resultat) {
         const l2 = s2[c.cours_code];
         return {
           code: c.cours_code, nom: c.cours_nom || '', note: cote(c.note, c.na || (c.mention && !faveur)),
+          note_s1: d1 ? (() => { const x = c1(c.cours_code); return x ? cote1(x.note, x.na || (x.mention && !fav1)) : '—'; })() : null,
           acquis: (d.acquis || []).filter(a => (a.evaluations || []).some(x => x.cours_code === c.cours_code)).map(a => {
             const x = a.evaluations.find(y => y.cours_code === c.cours_code);
             const note = cote(x.note, !!x.ajourne || !!a.ajourne_directement || !!x.mention);
-            return { code: a.aa_code, libelle: a.description || '', note, motif: note === 'NA' ? (motifs[a.aa_code] || null) : null };
+            const x1 = d1 ? aa1(a.aa_code, c.cours_code) : null;
+            return { code: a.aa_code, libelle: a.description || '', note, motif: note === 'NA' ? (motifs[a.aa_code] || null) : null,
+              note_s1: d1 ? (x1 ? cote1(x1.note, !!x1.ajourne || ajA1(a.aa_code) || !!x1.mention) : '—') : null };
           }),
           a_representer: representer.get(c.cours_code) || null,
           examen: representer.has(c.cours_code) && l2?.s2_date ? { date: l2.s2_date, heure: l2.s2_heure || null, local: l2.s2_local || null } : null,
@@ -183,12 +194,26 @@ export function resultatsPublies(ids) {
     const detail = l.annee_scolaire === annee && l.close ? detailResultat(l.etudiant_id, l.ue_num, l.annee_scolaire, l.resultat) : null;
     // LA FAVEUR EN VIOLET (3.5.331, audit) : une unité accordée par le Conseil se dit « Réussi par faveur », état « faveur ».
     const faveur = reussi && !!detail?.faveur;
+    // LES SESSIONS CLOSES DE L'UNITÉ, pour les colonnes S1 / S2 (3.5.370) : décision et note de chacune.
+    const sessions = [];
+    for (const n of [1, 2]) {
+      const close = db.prepare(`SELECT 1 FROM deliberation_seance s JOIN etudiant_inscription i ON i.etudiant_id = ? AND i.ue_num = s.ue_num
+        AND i.annee_scolaire = s.annee_scolaire WHERE s.ue_num = ? AND s.annee_scolaire = ? AND s.session = ? AND s.cloturee = 1 ${orgSql} LIMIT 1`)
+        .get(l.etudiant_id, l.ue_num, l.annee_scolaire, n);
+      const r = db.prepare('SELECT resultat, points FROM deliberation_resultat WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND session = ?')
+        .get(l.etudiant_id, l.ue_num, l.annee_scolaire, n);
+      if (!r?.resultat || !(close || l.annee_scolaire < annee)) continue;
+      const fav = r.resultat === 'reussi' && faveur && n === (detail?.session || 1);
+      sessions.push({ n, decision: fav ? 'Réussi par faveur' : ({ reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé' }[r.resultat] || r.resultat),
+        note: fav ? '10' : r.resultat === 'reussi' ? (r.points != null ? String(Math.max(10, Math.round(Number(r.points)))) : '—') : 'NA',
+        etat: fav ? 'faveur' : r.resultat === 'reussi' ? 'reussi' : r.resultat === 'ajourne' ? 'surveiller' : 'corriger' });
+    }
     out.push({ etudiant_id: l.etudiant_id, annee: l.annee_scolaire, ue_num: l.ue_num, ue_nom: l.ue_nom,
       decision: faveur ? 'Réussi par faveur' : ({ reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé' }[l.resultat] || l.resultat),
       // NA sous 10 (circulaire Sanction des études) ; une faveur vaut 10.
       note: faveur ? '10' : reussi ? (l.points != null ? String(Math.max(10, Math.round(Number(l.points)))) : '—') : 'NA',
       etat: faveur ? 'faveur' : reussi ? 'reussi' : l.resultat === 'ajourne' ? 'surveiller' : 'corriger',
-      detail });
+      detail: detail || sessions.length ? { ...(detail || {}), sessions } : null });
   }
   try {
     for (const v of db.prepare(`SELECT etudiant_id, annee_scolaire, ue_num,

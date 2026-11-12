@@ -21,7 +21,9 @@ import { EnteteCarte } from './ui.jsx';
  * @param estEpreuve   (u) => booléen ; par défaut u.epreuve_integree
  * @param children     (liste, groupe) => le contenu d'un sous-tableau
  */
-export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children, libelle = 'unité(s)' }) {
+export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children, libelle = 'unité(s)', aplat = false }) {
+  /* À PLAT (3.5.372, Charles : « supprimer la double ligne, revoir un peu le design ») : posé DANS une carte, un bloc n'est pas une
+     seconde carte (bordure + liseré dans une bordure) ; c'est une bande de titre avec la pastille de sa couleur, puis ses lignes. */
   const [filtre, setFiltre] = useState('');
   const bloc = blocDeItem || (u => u.ue_niv);
   const ei = estEpreuve || (u => !!u.epreuve_integree);
@@ -56,6 +58,28 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
       <div className="text-second text-slate-600 truncate">{titre}</div>
     </button>
   );
+
+  if (aplat) return (
+    <div>
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-slate-100">
+        {[['', (items || []).length, 'Toutes', null], ...groupes.map(g => [g.cle, g.liste.length, g.titre, g.couleur])].map(([cle, n, titre, couleur]) => (
+          <button key={cle || 'tout'} type="button" onClick={() => setFiltre(cle)} aria-pressed={filtre === cle}
+            className={`h-7 px-2.5 rounded-full text-second inline-flex items-center gap-1.5 border transition-colors
+              ${filtre === cle ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
+            {couleur && <span className="w-2 h-2 rounded-full flex-none" style={{ background: couleur }} />}
+            {titre}<span className={`tabular-nums ${filtre === cle ? 'text-white/80' : 'text-slate-400'}`}>{n}</span>
+          </button>))}
+      </div>
+      {visibles.map(g => (
+        <section key={g.cle}>
+          <div className="flex items-center gap-2 px-3 py-1.5 tab-repere border-b border-slate-100">
+            <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: g.couleur }} />
+            <span className="text-second font-semibold text-iip-texte">{g.titre}</span>
+            <span className="text-mention text-slate-500">{g.liste.length} {libelle}</span>
+          </div>
+          {children(g.liste, g)}
+        </section>))}
+    </div>);
 
   return (
     <div className="space-y-3">
