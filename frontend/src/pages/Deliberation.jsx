@@ -387,8 +387,8 @@ export default function Deliberation() {
               </div>
             )}
             {/* PAR BLOC — BA1, BA2, BA3, puis l'épreuve intégrée (GroupesParBloc). */}
-            <div className="p-2.5">
-            <GroupesParBloc items={sec.ues}>{liste => (
+            <div>
+            <GroupesParBloc aplat items={sec.ues}>{liste => (
             <div className="divide-y divide-slate-100">
               {liste.map(u => {
                 const reste = u.inscrits - u.decides;
