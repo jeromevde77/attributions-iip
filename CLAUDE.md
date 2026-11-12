@@ -3534,7 +3534,8 @@ registre sans copie, deux demandes par pièce et par année). Portail : `centre_
 `composerCentre`, `relayerCentre` dans la boucle `relayerVite`, un tour sur deux) appelle ses propres routes de pièces sur 127.0.0.1
 avec `signServiceToken` (middleware/auth.js, 2 min), rend le PDF par `rendrePdf` ; `centre_delivrance` compte (pas l'aperçu) ;
 `envoi_mail` mode `centre`, statut `delivre`. Écran : `CentreDocuments` (EspaceEtudiant.jsx). **Une pièce nouvelle qu'un étudiant
-peut obtenir seul s'ajoute à `catalogue()`.** Les motivations et notifications restent la copie envoyée.
+peut obtenir seul s'ajoute à `catalogue()`.** Depuis 3.5.396 : V-01 (VA notifiée de l'année), V-02 (attestations par valorisation,
+`GET /api/attestations/etudiant/:id/valorisations/document`), M-01 (sa demande d'AR), M-03 (décision d'AR notifiée). Les motivations et notifications restent la copie envoyée.
 **Une réunion qui ne s'enregistre pas le dit** (3.5.382) : `enregistrer` de `DetailReunion` (SuiviEquipe.jsx) affichait rien sur un
 refus ; l'heure est un champ texte (`heureNette`), le `type="time"` de Safari montrait l'heure courante en gris sans rien garder.
 
