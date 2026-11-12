@@ -1,4 +1,5 @@
 import { requeteCourante } from '../lib/contexteRequete.js';
+import { chargerAttestationInscription, composerAttestationInscription } from '../lib/attestationInscription.js';
 import { dixiemeUE } from '../lib/datesReelles.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
@@ -10660,6 +10661,16 @@ r.put('/:id/pieces/:type', authRequired, roleRequired('admin', 'editeur'), (req,
       statut = excluded.statut, commentaire = excluded.commentaire, maj_le = datetime('now')
   `).run(Number(req.params.id), req.params.type, statut, commentaire || null);
   res.json({ ok: true });
+});
+
+// ── Attestation d'inscription (3.5.352 — lib/attestationInscription.js) ─────
+r.get('/:id/attestation-inscription', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const d = chargerAttestationInscription(Number(req.params.id), String(annee));
+  if (d.erreur) return res.status(d.code || 409).json({ error: d.erreur });
+  const { html, nom } = composerAttestationInscription(d, req.query.variante === 'allocations' ? 'allocations' : 'inscription');
+  res.json({ html, nom });
 });
 
 // ── Fiche d'inscription / reçu (HTML imprimable, contenu circulaire 9764) ────

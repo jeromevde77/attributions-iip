@@ -150,6 +150,9 @@ const PIECES_DOSSIER = [
   // Pièces d'inscription, tirées une par étudiant depuis leur route propre.
   { cle: 'fiche', label: "Fiche d'inscription / reçu", route: (id, a) => `/api/etudiants/${id}/fiche-inscription?annee=${a}` },
   { cle: 'frais', label: 'Frais de scolarité', route: (id, a) => `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` },
+  // L'ATTESTATION D'INSCRIPTION (3.5.352) : la « Lettre 1 » du secrétariat — allocations familiales, mutuelle, CPAS…
+  { cle: 'att_inscription', label: 'Attestation d’inscription', route: (id, a) => `/api/etudiants/${id}/attestation-inscription?annee=${a}` },
+  { cle: 'att_allocations', label: 'Attestation d’inscription (allocations familiales)', route: (id, a) => `/api/etudiants/${id}/attestation-inscription?variante=allocations&annee=${a}` },
   { cle: 'annexe1', label: 'Annexe 1 — visa ou titre de séjour', sle: true },
   { cle: 'annexe2', label: 'Annexe 2 — progrès des études', sle: true },
   /* LE CONGÉ-ÉDUCATION PAYÉ (3 octobre 2026) : même logique que les SLE —
@@ -2708,7 +2711,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             </div>
             <div className={plusieursAnnees ? 'hidden' : 'mt-5'}>
               <div className="intertitre pl-3 mb-0">Inscription</div>
-              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">PAE, fiche, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</p>
+              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">PAE, fiche, attestation d’inscription, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</p>
               {famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle)).map(p => lignePiece(p))}
             </div>
             </>}

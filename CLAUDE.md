@@ -3431,6 +3431,18 @@ commission) : ces lignes ne se versent JAMAIS (déjà encodées au guichet) ; Lu
 bancontact / autre / non précisé, même montant brut, ±3 jours, chacun servant une fois → `guichet` (retrouvé) ou `carte` (à
 retrouver) ; total des commissions dans le résumé.
 
+**L'ATTESTATION D'INSCRIPTION** (3.5.352, Charles, 12 novembre 2026 : « je veux ce document dans Éditions avec la nouvelle
+mise en page » — la « Lettre 1 » Word du secrétariat). `lib/attestationInscription.js` (`chargerAttestationInscription`,
+`composerAttestationInscription`), route `GET /api/etudiants/:id/attestation-inscription?annee=` (admin, éditeur ≈ direction et
+secrétariat), catalogue `attestation_inscription`, Éditions (`PIECES_DOSSIER`, colonne Inscription) et fiche → Imprimer ou envoyer.
+Directeur = `identiteEtablissement`, section = `donneesSectionDiplome().intitule_section`, année = semaines du calendrier hors
+vacances, congés = fermetures de l'agenda (à défaut le calendrier), l'été du lendemain de la fin à la veille de la rentrée suivante,
+bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » se calcule (Charles : « Lucie calcule ») : `heuresParSemaine` — séances de `seancesEtudiant` (hors stages,
+EI, dispenses, annulées), en moyenne sur les semaines de cours du calendrier ; sans horaire, cases vides.
+Variante `?variante=allocations` (3.5.354, la « lettre 1 » des allocations familiales) : titre propre, sans bloc ni ECTS ; catalogue
+`attestation_allocations`. Rien ne se coupe : paragraphes, liste, encadré et bloc de signature (avec la dernière phrase du texte,
+« Je déclare… » et la ligne d'authenticité) en `break-inside: avoid` — la signature ne passe jamais seule à la page suivante (3.5.355).
+
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
 Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
