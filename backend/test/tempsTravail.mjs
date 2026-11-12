@@ -99,11 +99,11 @@ const essai = f => { try { f(); return null; } catch (e) { return e.message; } }
 t('la direction ne signe pas avant la personne', /attendue/.test(essai(() => T.signer(1, 'releve', '2026-11', 'direction', dir_, 'D', A)) || ''));
 t('une autre personne ne signe pas à sa place', /Seule/.test(essai(() => T.signer(1, 'releve', '2026-11', 'personne', { id: 2, role: 'secretariat' }, 'X', A)) || ''));
 t('la personne signe', essai(() => T.signer(1, 'releve', '2026-11', 'personne', p1, 'P1', A)) === null);
-t('l’adjoint contrôle', essai(() => T.signer(1, 'releve', '2026-11', 'adjoint', adj, 'Nicolas', A)) === null);
+// 3.5.304 : une seule approbation — la direction (ou la direction adjointe) signe après la personne.
 t('la direction donne son accord', essai(() => T.signer(1, 'releve', '2026-11', 'direction', dir_, 'Charles', A)) === null);
 t('mois signé : verrouillé', /signé/.test(essai(() => T.ecrireEcart(1, '2026-11-06', { type: 'absence', motif: 'maladie' }, 'banc')) || ''));
 t('une signature ne s’efface pas', /efface/.test(essai(() => db.prepare('DELETE FROM tt_signature').run()) || ''));
-t('fiche de congés : l’adjoint d’abord', essai(() => T.signer(1, 'conges', A, 'adjoint', adj, 'Nicolas', A)) === null);
+t('fiche de congés : la direction adjointe peut signer pour la direction', essai(() => T.signer(1, 'conges', A, 'direction', adj, 'Nicolas', A)) === null);
 t('fiche de congés : 5 périodes', T.ficheConges(1, A).periodes.length === 5, T.ficheConges(1, A).periodes);
 
 console.log('\nL’année et la semaine de l’équipe');
