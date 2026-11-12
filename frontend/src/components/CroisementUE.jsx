@@ -23,9 +23,9 @@
  * par point) : elles suivent ses droits et son gel à la validation. Un point
  * ajouté ici s'ajoute au programme du descriptif : une seule liste de points.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useEnregistrementAuto } from '../lib/enregistrementAuto.js';
-import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, IconTrash, IconHeading } from '@tabler/icons-react';
 import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
@@ -74,6 +74,19 @@ function structureDuBloc(html) {
   return m;
 }
 
+/** Le texte brut d'un bloc HTML (pour l'introduction du dossier). */
+function texteDe(html) {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+  return [...doc.body.querySelectorAll('p, li')].map(x => x.textContent.trim()).filter(Boolean).join('\n') || doc.body.textContent.trim();
+}
+function BoutonChapeau({ titre, onClick, discret = false }) {
+  return (
+    <button type="button" title={titre} aria-label={titre} onClick={onClick}
+      className={`flex-none inline-flex items-center gap-1 text-mention not-italic text-slate-500 hover:text-iip-blue ${discret ? 'opacity-40 group-hover/aa:opacity-100 focus:opacity-100' : ''}`}>
+      <IconHeading size={14} />{discret ? null : 'Chapeau'}</button>);
+}
+
 /** Dix points répartis au prorata des croix, par pas de 0,5, somme exacte. */
 export function proposer(comptes) {
   const total = Object.values(comptes).reduce((s, n) => s + n, 0);
@@ -103,12 +116,19 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
      renommé, et la ligne de critère qui en vient aussi (`renommes`). */
   const [liste, setListe] = useState({});
   const [renommes, setRenommes] = useState({});
+  /* LES CHAPEAUX (3.5.359, Charles, 12 novembre 2026 : « il manque la partie chapeau général ; pouvoir ajouter un chapeau entre
+     plusieurs AA ou cours »). Ceux du programme vivent dans la DUE de l'année (`contenu.chapeaux` : intro, cours, points) et partent
+     avec le croisement ; ceux des acquis sont ceux de l'unité (phrase générale, chapeau d'un groupe d'acquis), écrits aussitôt. */
+  const [chapeaux, setChapeaux] = useState({});
+  const [aaChap, setAaChap] = useState(null);       // { intro, parCode }
 
   async function charger() {
     try {
       const j = await api.dueLire(ueNum);
       setD(j); setCroix(j.contenu?.croisement || {}); setAjouts({}); setSale(false);
       setListe(j.contenu?.points_croisement || {}); setRenommes({});
+      setChapeaux(j.contenu?.chapeaux || {});
+      setAaChap({ intro: j.introduction_acquis || '', parCode: Object.fromEntries((j.acquis || []).map(a => [a.aa_code, a.chapeau || ''])) });
     } catch (e) { setErreur(e.message); }
     // La pondération actuelle : lue si l'on y a accès, sinon simplement tue.
     fetch(`/api/acquis/ue/${ueNum}/liens?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -174,6 +194,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
     setListe(l => ({ ...l, [co]: points(co).map(x => (x === pt ? t : x)) }));
     setCroix(x => { const m = { ...(x[co] || {}) }; if (m[pt]) { m[t] = m[pt]; delete m[pt]; } return { ...x, [co]: m }; });
     setRenommes(r => { const m = { ...(r[co] || {}) }; const origine = Object.keys(m).find(k => m[k] === pt) || pt; m[origine] = t; return { ...r, [co]: m }; });
+    setChapeaux(ch => { const pts = { ...(ch.points?.[co] || {}) }; if (pts[pt] != null) { pts[t] = pts[pt]; delete pts[pt]; } return { ...ch, points: { ...(ch.points || {}), [co]: pts } }; });
     setSale(true); setMessage(null);
   };
   const supprimerPoint = async (co, pt) => {
@@ -181,7 +202,33 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
     if (!(await demander({ titre: 'Supprimer ce point ?', message: `« ${pt.slice(0, 120)} »${n ? ` porte ${n} croix : elles partent avec lui.` : ''} Le dossier pédagogique n'est pas modifié.`, confirmer: 'Supprimer' }))) return;
     setListe(l => ({ ...l, [co]: points(co).filter(x => x !== pt) }));
     setCroix(x => { const m = { ...(x[co] || {}) }; delete m[pt]; return { ...x, [co]: m }; });
+    setChapeaux(ch => { const pts = { ...(ch.points?.[co] || {}) }; delete pts[pt]; return { ...ch, points: { ...(ch.points || {}), [co]: pts } }; });
     setSale(true); setMessage(null);
+  };
+  /* Écrire un chapeau : une phrase, vide pour le retirer. */
+  const demanderChapeau = async (titre, valeur) => {
+    const t = await saisir({ titre, message: 'La phrase qui introduit ce qui suit (vide pour retirer le chapeau) :', valeur: valeur || '', confirmer: 'Poser', multiligne: true });
+    return t == null ? null : String(t).trim();
+  };
+  const chapeauProgramme = async (zone, co, pt) => {
+    const actuelT = zone === 'intro' ? (chapeaux.intro ?? texteDe(blocsDP._intro)) : zone === 'cours' ? chapeaux.cours?.[co] : chapeaux.points?.[co]?.[pt];
+    const t = await demanderChapeau(zone === 'intro' ? 'Introduction commune du programme' : zone === 'cours' ? `Chapeau au-dessus du cours ${co}` : 'Chapeau avant ce point', actuelT);
+    if (t == null) return;
+    setChapeaux(ch => zone === 'intro' ? { ...ch, intro: t }
+      : zone === 'cours' ? { ...ch, cours: { ...(ch.cours || {}), [co]: t } }
+        : { ...ch, points: { ...(ch.points || {}), [co]: { ...(ch.points?.[co] || {}), [pt]: t } } });
+    setSale(true); setMessage(null);
+  };
+  const chapeauAcquis = async (code) => {
+    const t = await demanderChapeau(code ? `Chapeau avant ${code}` : 'Phrase qui introduit tous les acquis', code ? aaChap?.parCode?.[code] : aaChap?.intro);
+    if (t == null) return;
+    try {
+      const r = await fetch(`/api/due/${ueNum}/chapeaux-acquis`, { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify(code ? { chapeaux: { [code]: t } } : { introduction: t }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Chapeau refusé.');
+      setAaChap({ intro: j.introduction?.texte || '', parCode: Object.fromEntries((j.acquis || []).map(a => [a.aa_code, a.chapeau || ''])) });
+    } catch (e) { setErreur(e.message); }
   };
 
   const actuel = useMemo(() => {
@@ -242,7 +289,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
       for (const [co, m] of Object.entries(renommes)) for (const [ancien, neuf] of Object.entries(m)) for (const lignes of Object.values(grille))
         for (const l of lignes || []) if (l && l.src_point === ancien && (!l.src_cours || l.src_cours === co)) { if (norm(l.point) === ancien) l.point = neuf; l.src_point = neuf; }
       const points_croisement = Object.fromEntries(Object.entries(liste).filter(([, v]) => Array.isArray(v)));
-      const rep = await api.dueEnregistrer(ueNum, { ...c, croisement, grille_criteres: grille, points_croisement,
+      const rep = await api.dueEnregistrer(ueNum, { ...c, croisement, grille_criteres: grille, points_croisement, chapeaux,
         ...(programme_blocs ? { programme_blocs } : {}) });
       const apresN = reprises(rep?.contenu?.grille_criteres);
       const ajoutees = Math.max(0, apresN - avantN); const retirees = Math.max(0, avantN - apresN);
@@ -277,7 +324,8 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   }
 
   // AU CLIC (3.5.298) : une pause d'une seconde et demie après la dernière croix, et le croisement part seul.
-  useEnregistrementAuto(croix, { pret: sale && !!d && !lecture && !enCours, delai: 1500, enregistrer: () => enregistrer() });
+  const traceAuto = useMemo(() => ({ croix, chapeaux }), [croix, chapeaux]);
+  useEnregistrementAuto(traceAuto, { pret: sale && !!d && !lecture && !enCours, delai: 1500, enregistrer: () => enregistrer() });
 
   if (erreur && !d) return <p className="text-sm text-red-700">{erreur}</p>;
   if (!d) return <p className="text-sm text-slate-400">Chargement…</p>;
@@ -306,15 +354,31 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
       {acquis.length > 0 && (
         <section className="carte overflow-hidden">
           <EnteteCarte titre="Acquis d’apprentissage de l’unité" />
+          <div className="px-3 pt-2 text-second italic text-slate-700 flex items-start gap-2">
+            <span className="flex-1 min-w-0">{aaChap?.intro || '—'}</span>
+            {!lecture && <BoutonChapeau titre="Modifier la phrase qui introduit tous les acquis" onClick={() => chapeauAcquis(null)} />}
+          </div>
           <dl className="m-0 px-3 py-2 grid gap-x-4 gap-y-1 text-second" style={{ gridTemplateColumns: 'max-content 1fr' }}>
             {acquis.map(a => (
               <div key={a.aa_code} className="contents">
+                {aaChap?.parCode?.[a.aa_code] && <dd className="m-0 col-span-2 italic text-slate-700 pt-1">{aaChap.parCode[a.aa_code]}</dd>}
                 <dt className="font-semibold text-iip-blue">{a.aa_code}</dt>
-                <dd className="m-0 text-slate-700">{a.description || '—'}</dd>
+                <dd className="m-0 text-slate-700 flex items-start gap-2 group/aa">
+                  <span className="flex-1 min-w-0">{a.description || '—'}</span>
+                  {!lecture && <BoutonChapeau titre={`Chapeau avant ${a.aa_code}`} discret onClick={() => chapeauAcquis(a.aa_code)} />}
+                </dd>
               </div>))}
           </dl>
         </section>)}
 
+      {cours.length > 0 && (chapeaux.intro || texteDe(blocsDP._intro) || !lecture) && (
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Programme — introduction commune à tous les cours" />
+          <div className="px-3 py-2 text-second italic text-slate-700 flex items-start gap-2">
+            <span className="flex-1 min-w-0 whitespace-pre-line">{(chapeaux.intro ?? texteDe(blocsDP._intro)) || 'Aucune introduction.'}</span>
+            {!lecture && <BoutonChapeau titre="Modifier l’introduction commune" onClick={() => chapeauProgramme('intro')} />}
+          </div>
+        </section>)}
       {cours.map(x => {
         const co = x.cours_code;
         const pts = points(co);
@@ -327,6 +391,11 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         return (
           <section key={co} className="carte overflow-hidden">
             <EnteteCarte titre={`${co} — ${String(x.cours_nom || '').replace(/^\d+(\.\d+)+\.?\s*/, '')}`} sous={`${pts.length} point(s) du programme · ${total} croix`} />
+            {(chapeaux.cours?.[co] || !lecture) && (
+              <div className="px-3 py-1.5 text-second italic text-slate-700 flex items-start gap-2 border-b border-slate-200">
+                <span className="flex-1 min-w-0 whitespace-pre-line">{chapeaux.cours?.[co] || <span className="not-italic text-slate-400">Pas de chapeau au-dessus de ce cours.</span>}</span>
+                {!lecture && <BoutonChapeau titre="Chapeau au-dessus de ce cours" onClick={() => chapeauProgramme('cours', co)} />}
+              </div>)}
             <Tableau dense className="!border-0 !rounded-none">
                 <thead><tr className="tab-entete">
                   <Th align="droite" className="w-10 !px-2">N°</Th>
@@ -343,12 +412,15 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                     </TableauVide>)}
                   {/* NUMÉROTÉS, ET UNE MAJUSCULE À CHAQUE POINT (3.5.165, Charles : « il faut que cela soit clair, numéroté ») : le
                       numéro est celui du point dans le cours (250.1 · 3) ; le texte du dossier n'est pas modifié, seul l'affichage. */}
-                  {pts.map((pt, ip) => (
-                    <Tr key={pt} className="align-top">
+                  {pts.map((pt, ip) => (<Fragment key={pt}>
+                    {chapeaux.points?.[co]?.[pt] && (
+                      <tr><td /><td colSpan={acquis.length + 1} className="px-3 pt-2 pb-0.5 text-second italic text-slate-700 whitespace-pre-line">{chapeaux.points[co][pt]}</td></tr>)}
+                    <Tr className="align-top">
                       <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">{ip + 1}</td>
                       <td className="px-3 py-1.5 text-slate-800 group/pt">
                         {!lecture && (
                           <span className="float-right ml-2 inline-flex gap-1.5 opacity-40 group-hover/pt:opacity-100 focus-within:opacity-100">
+                            <button type="button" className="text-slate-500 hover:text-iip-blue" title="Chapeau avant ce point" aria-label="Chapeau avant ce point" onClick={() => chapeauProgramme('point', co, pt)}><IconHeading size={14} /></button>
                             <button type="button" className="text-slate-500 hover:text-iip-blue" title="Modifier ce point" aria-label="Modifier ce point" onClick={() => modifierPoint(co, pt)}><IconPencil size={14} /></button>
                             <button type="button" className="text-slate-500 hover:text-red-700" title="Supprimer ce point" aria-label="Supprimer ce point" onClick={() => supprimerPoint(co, pt)}><IconTrash size={14} /></button>
                           </span>)}
@@ -376,7 +448,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                             </button>
                           </td>);
                       })}
-                    </Tr>))}
+                    </Tr></Fragment>))}
                   {!lecture && (
                     <tr>
                       <td />

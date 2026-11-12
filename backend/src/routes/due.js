@@ -635,6 +635,33 @@ r.get('/:ueNum', authRequired, (req, res) => {
   });
 });
 
+/* LES CHAPEAUX DES ACQUIS DEPUIS L'ÉTAPE 1 (3.5.359, Charles, 12 novembre 2026 : « il manque le chapeau général ; pouvoir ajouter
+   un chapeau entre plusieurs AA »). La phrase de l'unité (`ue_acquis_intro`) et le chapeau qui ouvre un groupe d'acquis (`aa.chapeau`)
+   existaient — réglés par la direction dans la fiche de l'UE (PUT /api/aa/ue/:n/presentation), et la DUE imprimée les lit déjà.
+   Ceux qui rédigent l'unité (droitsSurLUE.ecrire) les écrivent aussi d'ici ; l'ordre et les codes des acquis ne changent pas. */
+r.put('/:ueNum/chapeaux-acquis', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  if (!droitsSurLUE(req.user, ueNum, annee).ecrire) return res.status(403).json({ error: 'Les chapeaux s’écrivent par ceux qui rédigent l’unité.' });
+  const qui = req.user?.nom || req.user?.email || null;
+  const { introduction, chapeaux } = req.body || {};
+  const codes = new Set(db.prepare('SELECT aa_code FROM aa WHERE ue_num = ?').all(ueNum).map(a => a.aa_code));
+  db.transaction(() => {
+    if (typeof introduction === 'string') {
+      const t = introduction.trim();
+      if (t) db.prepare(`INSERT INTO ue_acquis_intro (ue_num, texte, maj_le, maj_par) VALUES (?,?,datetime('now'),?)
+        ON CONFLICT(ue_num) DO UPDATE SET texte = excluded.texte, maj_le = excluded.maj_le, maj_par = excluded.maj_par`).run(ueNum, t.slice(0, 600), qui);
+      else db.prepare('DELETE FROM ue_acquis_intro WHERE ue_num = ?').run(ueNum);
+    }
+    if (chapeaux && typeof chapeaux === 'object') {
+      const maj = db.prepare('UPDATE aa SET chapeau = ? WHERE aa_code = ? AND ue_num = ?');
+      for (const [code, t] of Object.entries(chapeaux)) if (codes.has(code)) maj.run(String(t ?? '').trim().slice(0, 600) || null, code, ueNum);
+    }
+  })();
+  res.json({ ok: true, introduction: introductionAcquis(ueNum),
+    acquis: db.prepare('SELECT aa_code, aa_num, description, chapeau FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code').all(ueNum) });
+});
+
 r.put('/:ueNum', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const ueNum = Number(req.params.ueNum);
@@ -1039,10 +1066,28 @@ function programmeHtml(c, texte, auto) {
   // sous son intitulé, mis en page comme à l'écran.
   const B = c.programme_blocs;
   const plein = h => String(h || '').replace(/<[^>]+>/g, '').trim();
+  /* LES CHAPEAUX DU PROGRAMME (3.5.359) : posés à l'étape 1 (`contenu.chapeaux`) — l'introduction commune, une phrase au-dessus
+     d'un cours, une phrase avant un point. Un chapeau de point s'insère avant le point qu'il introduit ; s'il ne le trouve plus
+     (point reformulé), il se pose en tête du cours plutôt que de disparaître. */
+  const CH = c.chapeaux && typeof c.chapeaux === 'object' ? c.chapeaux : {};
+  const chap = t => (String(t || '').trim() ? `<p class="chapeau">${esc(String(t).trim()).replace(/\n/g, '<br>')}</p>` : '');
+  const avecChapeauxDePoints = (html, code) => {
+    let h = String(html || ''); let perdus = '';
+    for (const [pt, t] of Object.entries(CH.points?.[code] || {})) {
+      if (!String(t || '').trim()) continue;
+      const cle = esc(String(pt).slice(0, 60)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const m = new RegExp(cle).exec(h);
+      const li = m ? h.lastIndexOf('<li', m.index) : -1;
+      if (li < 0) { perdus += chap(t); continue; }
+      h = `${h.slice(0, li)}</ul>${chap(t)}<ul class="serre">${h.slice(li)}`;
+    }
+    return perdus + h.replace(/<ul class="serre"><\/ul>/g, '').replace(/<ul[^>]*>\s*<\/ul>/g, '');
+  };
+  const introProg = CH.intro != null && String(CH.intro).trim() ? chap(CH.intro) : null;
   if (B && typeof B === 'object' && Object.values(B).some(plein)) {
-    return (plein(B._intro) ? riche(B._intro) : '')
+    return (introProg ?? (plein(B._intro) ? riche(B._intro) : ''))
       + (auto.cours || []).filter(x => plein(B[x.cours_code]))
-        .map(x => `<div class="sous-t">${esc(`${x.cours_code} — ${x.cours_nom || ''}`)}</div>${riche(B[x.cours_code])}`).join('');
+        .map(x => `<div class="sous-t">${esc(`${x.cours_code} — ${x.cours_nom || ''}`)}</div>${chap(CH.cours?.[x.cours_code])}${avecChapeauxDePoints(riche(B[x.cours_code]), x.cours_code)}`).join('');
   }
   const pts = (Array.isArray(c.points) ? c.points : []).filter(p => String(p.texte || '').trim());
   if (!pts.length) return riche(texte);
@@ -1054,17 +1099,18 @@ function programmeHtml(c, texte, auto) {
   const corps = groupes.map(g => {
     const items = pts.filter(p => p.type !== 'intro' && (g.cle ? premier(p) === g.cle : !(auto.cours || []).some(x => x.cours_code === premier(p))));
     if (!items.length) return '';
-    let html = g.titre ? `<div class="sous-t">${esc(g.titre)}</div>` : '';
+    let html = (g.titre ? `<div class="sous-t">${esc(g.titre)}</div>` : '') + chap(CH.cours?.[g.cle]);
     let liste = [];
     const vider = () => { if (liste.length) { html += `<ul class="serre">${liste.join('')}</ul>`; liste = []; } };
     for (const p of items) {
       if (p.type === 'chapeau') { vider(); html += `<p class="chapeau">${esc(p.texte)}</p>`; }
+      else if (String(CH.points?.[g.cle]?.[p.texte] || '').trim()) { vider(); html += chap(CH.points[g.cle][p.texte]); liste.push(`<li>${esc(p.texte)}</li>`); }
       else liste.push(`<li>${esc(p.texte)}${(p.cours || []).slice(1).map(k => ` <span class="puce">${esc(k)}</span>`).join('')}</li>`);
     }
     vider();
     return html;
   }).join('');
-  return `${texte && estHtml(texte) ? riche(texte) : ''}${intro}${corps}`;
+  return `${texte && estHtml(texte) ? riche(texte) : ''}${introProg ?? intro}${corps}`;
 }
 
 export function documentDUE(ueNum, annee) {

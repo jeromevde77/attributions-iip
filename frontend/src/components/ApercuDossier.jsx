@@ -116,11 +116,15 @@ export default function ApercuDossier({ ueNum, onSuivante }) {
       {P.cours.map(c => <EditeurRubrique key={`${m}-${c.nom}`} titre={c.nom} texte={c.texte} lecture={!edition} onChange={v => poserProgramme(c.nom, v)} />)}
       {edition ? (
         <div className="carte p-3 space-y-2 sticky bottom-2 bg-white">
-          {!direct && <label className="block text-sm"><span className="text-slate-600">Ce que corrige votre proposition (pour la direction)</span>
+          {/* LE BOUTON GRIS DIT POURQUOI (3.5.359, Charles : « Amélie ne sait pas cliquer ») : la phrase pour la direction est
+              obligatoire ; sans elle, « Proposer à la direction » restait gris sans un mot. */}
+          {!direct && <label className="block text-sm"><span className="text-slate-600 font-semibold">1. Ce que corrige votre proposition (pour la direction) — obligatoire</span>
             <input className="controle w-full mt-1" data-reponses="non" value={motif} onChange={e => setMotif(e.target.value)}
+              style={(nb || nbNoms) && !motif.trim() ? { borderColor: 'var(--c-refuse)' } : undefined}
               placeholder="ex. le programme du cours 2 était coupé à l’import" /></label>}
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className="text-second text-slate-500 mr-auto">{nb || nbNoms ? [nb ? `${nb} rubrique(s) modifiée(s)` : null, nbNoms ? `${nbNoms} nom(s) de cours` : null].filter(Boolean).join(' · ') : 'Rien de modifié'}</span>
+            <span className="text-second text-slate-500 mr-auto">{nb || nbNoms ? [nb ? `${nb} rubrique(s) modifiée(s)` : null, nbNoms ? `${nbNoms} nom(s) de cours` : null].filter(Boolean).join(' · ') : 'Rien de modifié : corrigez d’abord une rubrique ou un nom de cours.'}
+              {!direct && (nb || nbNoms) && !motif.trim() ? <span style={{ color: 'var(--c-refuse)' }}> — écrivez ci-dessus ce que corrige votre proposition : le bouton s’active ensuite.</span> : null}</span>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setEdition(false)}><IconX size={15} /> Annuler</button>
             <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={envoi || (!nb && !nbNoms) || (!direct && !motif.trim())} onClick={envoyer}>
               {direct ? <><IconDeviceFloppy size={15} /> Enregistrer au référentiel</> : <><IconSend size={15} /> Proposer à la direction</>}</button>
