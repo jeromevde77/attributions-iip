@@ -3435,7 +3435,9 @@ retrouver) ; total des commissions dans le résumé.
 note). `secondeSessionPasEncore(ue, annee)` (`routes/acquis.js`) : avant la première date S2 (`deliberation_session2`, passages S2), 409 ;
 sans date, il faut une note `s2|` de l'unité. Posé sur `PUT /decision` (session 2, résultat non vide), `plein-droit` et `ajourner-lot`
 en session 2. Effacer reste permis. La liste de la délibération (3.5.363) montre « S2 le jj/mm/aaaa » ou « S2 : date à poser » en gris au lieu de
-« Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`).
+« Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
+— décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
+l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
 
 **COMPARER L'HORAIRE D'EXAMENS EXCEL** (3.5.361, Charles : « envoyer ça dans Lucie afin de comparer ») : `lib/comparerExamens.js`
 (colonnes reconnues à l'intitulé ; sections par `ALIAS` ; COURS/FORMATION/RÉUNION écartés ; groupes d'un même atelier fusionnés ;

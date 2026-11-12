@@ -8521,6 +8521,30 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
     return res.status(403).json({ error: 'unité hors de votre périmètre' });
   }
 
+  /* LA SECONDE SESSION SEULE (3.5.364, Charles, UE 251 : « mais je dois donc annuler la délibération de S1 ? » — non). Avec
+     `?session=2`, seules les décisions de seconde session tombent ; chaque étudiant retrouve sa décision de première session, la
+     séance de seconde session se rouvre, et la première reste telle qu'elle a été close et notifiée (décisions, ajournements,
+     motivations, clôture). */
+  if (Number(req.query.session) === 2) {
+    let n = 0;
+    db.transaction(() => {
+      const cond = etudId ? ' AND etudiant_id = ?' : '';
+      const args = etudId ? [annee, ueNum, etudId] : [annee, ueNum];
+      const touches = db.prepare(`SELECT etudiant_id FROM deliberation_resultat WHERE annee_scolaire = ? AND ue_num = ? AND session = 2${cond}`).all(...args);
+      n = db.prepare(`DELETE FROM deliberation_resultat WHERE annee_scolaire = ? AND ue_num = ? AND session = 2${cond}`).run(...args).changes;
+      try { db.prepare(`DELETE FROM deliberation_ajourne_aa WHERE annee_scolaire = ? AND ue_num = ? AND session = 2${cond}`).run(...args); } catch { /* */ }
+      const s1 = db.prepare('SELECT resultat, points, mention FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1');
+      const remettre = db.prepare('UPDATE etudiant_inscription SET resultat = ?, points = ?, mention = ? WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+      for (const t of touches) {
+        const d = s1.get(t.etudiant_id, annee, ueNum) || {};
+        remettre.run(d.resultat ?? null, d.points ?? null, d.mention ?? null, t.etudiant_id, annee, ueNum);
+      }
+      if (!etudId) db.prepare(`UPDATE deliberation_seance SET cloturee = 0, maj_le = datetime('now'), maj_par = ?
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = 2`).run(req.user?.email || null, ueNum, annee);
+    })();
+    return res.json({ ok: true, ue_num: ueNum, annee, session: 2, decisions_effacees: n, ajustements_effaces: 0 });
+  }
+
   let decisions = 0, ajustements = 0;
   db.transaction(() => {
     const cond = etudId ? ' AND etudiant_id = ?' : '';

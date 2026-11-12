@@ -181,7 +181,7 @@ export default function Deliberation() {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(
-        `/api/acquis/deliberation/ue/${annuler.ue_num}?annee=${encodeURIComponent(annee)}`,
+        `/api/acquis/deliberation/ue/${annuler.ue_num}?annee=${encodeURIComponent(annee)}${annuler.session === 2 ? '&session=2' : ''}`,
         { method: 'DELETE', headers: authHeaders() });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
@@ -623,7 +623,7 @@ export default function Deliberation() {
       )}
 
       {annuler && (
-        <Fenetre titre={`Annuler la délibération de l'UE ${annuler.ue_num}`}
+        <Fenetre titre={annuler.session === 2 ? `Annuler la seconde session de l'UE ${annuler.ue_num}` : `Annuler la délibération de l'UE ${annuler.ue_num}`}
           sous={`${annuler.ue_nom || ''} · ${annuler.decides} décision(s) enregistrée(s)`}
           large="petite" ton="alerte" onFermer={() => setAnnuler(null)}
           pied={<>
@@ -636,14 +636,20 @@ export default function Deliberation() {
             </button>
           </>}>
           <div className="space-y-3">
-            <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">
+            {annuler.session === 2 && (
+              <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">
+                <div className="font-semibold">Seconde session seulement</div>
+                Les décisions de seconde session tombent et chaque étudiant retrouve sa décision de première session. La première
+                session reste telle qu’elle a été close et envoyée : décisions, ajournements, motivations, clôture.
+              </div>)}
+            {annuler.session !== 2 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">
               <div className="font-semibold">Seront effacés</div>
               <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                 <li>les décisions du Conseil : résultat, cote, mention ;</li>
                 <li>les faveurs et les ajournements ;</li>
                 <li>la clôture de la séance et la date de visite des copies.</li>
               </ul>
-            </div>
+            </div>}
 
             <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">
               <div className="font-semibold">Seront conservés</div>
