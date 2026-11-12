@@ -9406,7 +9406,7 @@ r.post('/valorisations/lot/validation', authRequired, (req, res) => {
       error: `${bloquants.length} dossier(s) ne peuvent pas être validés : rien n'a `
         + 'été enregistré.', bloquants });
   }
-  if (memeSeance(dossiers, res)) return;
+  // La validation de la direction traverse les unités et les séances (3.5.389) : chaque dossier est déjà décidé, à sa date.
 
   const maj = db.prepare(`UPDATE etudiant_valorisation
     SET valide_le = datetime('now'), valide_par = ?, valide_par_id = ?, valide_role = ?

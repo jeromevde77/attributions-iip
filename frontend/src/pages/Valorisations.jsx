@@ -2832,7 +2832,10 @@ function AnalyserEnSerie({ annee, onClose, onChange, gesteInitial }) {
      unités sur la décision et la validation ; le dire ici évite de composer un
      lot entier pour apprendre ensuite qu'il ne passe pas. */
   const unitesRetenues = [...new Set(retenus.map(d => d.ue_num))];
-  const melangeSeance = geste !== 'recevabilite' && unitesRetenues.length > 1;
+  /* LA VALIDATION TRAVERSE LES UNITÉS (3.5.389, Charles : « si cela a déjà été validé par les coordinations, en tant que directeur
+     je signe ; cela doit être possible ») : valider n'est pas une séance du Conseil mais la signature de la direction sur des
+     dossiers déjà décidés. Seule la décision reste bornée à une séance. */
+  const melangeSeance = !['recevabilite', 'validation'].includes(geste) && unitesRetenues.length > 1;
 
   /* L'UNITÉ DU LOT — connue dès que les dossiers cochés n'en portent qu'une,
      ce que le bornage garantit. C'est elle qui donne les cours et les acquis
