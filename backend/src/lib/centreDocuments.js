@@ -111,6 +111,26 @@ export async function composerCentre(id, code, { apercu = false } = {}) {
   return { pdf, nom };
 }
 
+/* LA DÉSINSCRIPTION EN LIGNE (3.5.392) : l'état (le programme, le calcul du RDE, les demandes) ou la demande elle-même, datée par Lucie. */
+async function desinscriptionEnLigne(q, json) {
+  const { apercu, demander, desinscriptionsDe } = await import('./desinscription.js');
+  const { fonctionPour } = await import('./fonctions.js');
+  const id = Number(q.etudiant_id), annee = anneeActive();
+  if (!q.apercu && !fonctionPour('espace.desinscription', { etudiantId: id })) return json(q.id, 404, { error: 'La demande en ligne n’est pas ouverte : adressez-vous au secrétariat.' });
+  const ues = q.donnees?.ues?.length ? q.donnees.ues : null;
+  const demandes = desinscriptionsDe(id).filter(d => d.annee_scolaire === annee)
+    .map(d => ({ id: d.id, portee: d.portee, ues: d.ues, demande_le: d.demande_le, statut: d.statut, rembourse: d.rembourse, reste_du: d.reste_du, refus_motif: d.refus_motif }));
+  if (q.action === 'desins_etat') {
+    const tout = apercu(id, annee);
+    const choix = ues ? apercu(id, annee, { ues }) : tout;
+    return json(q.id, 200, { annee, programme: tout.unites || [], apercu: choix.erreur ? null : choix, erreur: choix.erreur || null, demandes });
+  }
+  const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
+  const x = demander(id, annee, { ues, motif: q.donnees?.motif || null, source: 'en_ligne',
+    par: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} (étudiant, en ligne)` });
+  return x.erreur ? json(q.id, x.code || 409, { error: x.erreur }) : json(q.id, 200, { ok: true, demande_le: x.apercu.date });
+}
+
 /** La boucle : les demandes du portail (liste ou pièce), jugées et rendues. */
 export async function relayerCentre(appel) {
   const r = await appel('GET', '/interne/centre/requetes');
@@ -121,6 +141,7 @@ export async function relayerCentre(appel) {
   for (const q of l) {
     try {
       if (q.action === 'liste') reponses.push(json(q.id, 200, offreCentre(Number(q.etudiant_id))));
+      else if (q.action === 'desins_etat' || q.action === 'desins_demande') reponses.push(await desinscriptionEnLigne(q, json));
       else {
         const c = await composerCentre(Number(q.etudiant_id), String(q.code || ''), { apercu: !!q.apercu });
         reponses.push(c.pdf ? { id: q.id, statut: 200, type: 'application/pdf', nom: c.nom, corps: Buffer.from(c.pdf).toString('base64') }

@@ -163,8 +163,17 @@ export function calculerFrais(etudId, annee) {
     (di.exonere ? 0 : (d.dispensee ? (d.periodes_brutes || 0) * (d.tarif || 0) : (d.total || 0)))
     + (sansFrais ? 0 : (d.periodes_etudiant_brutes ?? d.periodes_etudiant ?? 0) * b.par_periode))]));
   const va = forfaitVA(etudId, annee, { fiParUE });
-  const totalAvecVA = arrondi(total + va.du);
+  /* LA DÉSINSCRIPTION (3.5.392, RDE art. 19) : ce qu'elle a arrêté reste dû, quoi que fasse ensuite le retrait des unités
+     (le droit d'inscription se recalculerait). L'écart est gardé à la confirmation (lib/desinscription.js). */
+  let ajustDesins = 0, desinscriptions = [];
+  try {
+    desinscriptions = db.prepare(`SELECT id, portee, demande_le, avant_dixieme, du, ajustement, confirme_le FROM desinscription
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND statut = 'confirmee' ORDER BY id`).all(etudId, annee);
+    ajustDesins = desinscriptions.reduce((t, x) => t + (Number(x.ajustement) || 0), 0);
+  } catch { /* table pas encore créée */ }
+  const totalAvecVA = arrondi(total + va.du + ajustDesins);
   return {
+    desinscriptions,
     annee, bareme: b,
     forfait_va: va,
     fi_par_ue: Object.fromEntries(fiParUE),   // frais d'inscription de chaque unité : le prix d'une VA s'en déduit

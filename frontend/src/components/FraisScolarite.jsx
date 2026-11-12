@@ -4,6 +4,7 @@ import { EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { saisir, informer } from '../lib/dialogue.jsx';
+import Desinscription from './Desinscription.jsx';
 
 /**
  * Frais de scolarité — RDE, titre V, art. 16 à 20.
@@ -97,7 +98,7 @@ export default function FraisScolarite({ etudId, annee }) {
   const b = f.bareme || {};
   const soldeRegle = f.verse >= f.total;
 
-  return (
+  return (<>
     <section className="carte overflow-hidden">
       <EnteteCarte titre="Calcul des frais" sous={`RDE art. 16 à 20 · ${annee}${b.defaut ? ' · barème par défaut' : ''}`} />
 
@@ -300,5 +301,8 @@ export default function FraisScolarite({ etudId, annee }) {
         </div>
       </div>
     </section>
-  );
+    {/* LA DÉSINSCRIPTION (3.5.392) : secrétariat et direction. */}
+    {peutEncaisser && <div className="mt-4"><Desinscription etudId={etudId} annee={annee}
+      ues={(f.detail_ue || []).filter(d => !d.dispensee).map(d => ({ ue_num: d.ue_num }))} onChange={() => setRecharge(x => x + 1)} /></div>}
+  </>);
 }

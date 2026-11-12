@@ -3473,6 +3473,17 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**LA DÉSINSCRIPTION** (3.5.392, Charles : « un bouton désinscrire ; il vérifie si l'étudiant peut être désinscrit et quels frais sont
+remboursés ; l'étudiant peut faire la demande depuis Lucie » ; tranché : l'école garde l'acompte du RDE + les droits de VA et
+d'admission ; toute l'année ou des unités ; le secrétariat confirme). RDE 2026-2027 art. 19 (lu dans la Documentation) : §1 avant le
+1er dixième de la première UE du PAE, remboursé sauf l'acompte (art. 16 §3 : DI + 150 € fixes) ; §2 après, tout est dû ; §3 la date
+de la demande fait foi. Une unité retirée avant SON 1er dixième : baisse de la part variable (art. 16 §4). `lib/desinscription.js`
+(`apercu`, `demander`, `confirmer`, `refuser`), table `desinscription`, routes `/api/desinscription` (admin, éditeur), carte
+`components/Desinscription.jsx` dans Finances. Confirmer : `ecrireProgramme` retire (origine « desinscription » — choix de la
+porte du PAE plutôt qu'un statut que 64 lecteurs ignoreraient), fiche « sortie » pour l'année, `ajustement` relu par `calculerFrais`.
+En ligne : fonction `espace.desinscription` (née éteinte), routes du portail `/api/portail/desinscription` relayées comme le centre
+de documents (`desins_etat`, `desins_demande`).
+
 **3.5.390** — (1) Les 17 heures (`calculDixSept`) se divisent par les semaines de cours ENTRE la première et la dernière séance de
 l'étudiant (horaire) ou entre l'ouverture et la fermeture de ses unités (PAE), congés retirés. (2) Note de frais (`fraisScolarite.js`)
 dans `envelopperDocument` avec `entete` (un seul en-tête : ne jamais appeler `enteteDocument` dans un corps passé à l'enveloppe).

@@ -94,6 +94,75 @@ function CentreDocuments({ onErreur }) {
     </section>);
 }
 
+/**
+ * ME DÉSINSCRIRE (3.5.392) : l'étudiant voit ce que dit le RDE pour sa situation (art. 19 : avant le premier dixième, les frais sont
+ * remboursés sauf l'acompte et les droits de VA ; après, tout reste dû), choisit toute l'année ou des unités, et envoie sa demande.
+ * La date de la demande fait foi ; le secrétariat confirme.
+ */
+function MaDesinscription() {
+  const [x, setX] = useState(null);
+  const [toute, setToute] = useState(true);
+  const [choix, setChoix] = useState(() => new Set());
+  const [motif, setMotif] = useState('');
+  const [sur, setSur] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  const eur = n => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
+  const ues = toute ? [] : [...choix];
+  const charger = useCallback(() => {
+    setX(v => (v ? { ...v, calcul: true } : null));
+    appel('GET', `/desinscription${ues.length ? `?ues=${ues.join(',')}` : ''}`).then(setX).catch(e => setX({ erreur: e.message }));
+  }, [toute, choix]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (toute || choix.size) charger(); }, [charger, toute, choix]);
+  if (!x) return <ChargementLucie texte="Lucie lit votre situation…" />;
+  const enCours = (x.demandes || []).find(d => d.statut === 'demandee');
+  const envoyer = async () => {
+    setEnvoi(true); setMsg(null);
+    try { const r = await appel('POST', '/desinscription', { ues: toute ? [] : ues, motif, confirme: true }); setMsg({ ok: true, t: `Votre demande est enregistrée à la date du ${jourFr(r.demande_le)}. Le secrétariat la confirme et vous répond dans votre espace.` }); setSur(false); charger(); }
+    catch (e) { setMsg({ ok: false, t: e.message }); } finally { setEnvoi(false); }
+  };
+  const a = x.apercu;
+  return (
+    <div className="space-y-4">
+      <Encadre etat="disponible" titre="Ce que dit le règlement des études (art. 19)">
+        Avant le premier dixième de votre première unité, vos frais sont remboursés, sauf l’acompte (droit d’inscription et 150 € de frais fixes) et les droits de valorisation ou d’admission. Après, vous restez redevable de l’intégralité des frais. La date de votre demande fait foi.
+      </Encadre>
+      {(x.demandes || []).map(d => (
+        <Encadre key={d.id} etat={d.statut === 'demandee' ? 'surveiller' : d.statut === 'confirmee' ? 'reussi' : 'corriger'}
+          titre={`${d.portee === 'annee' ? 'Toute l’année' : `UE ${d.ues.join(', ')}`} — demande du ${jourFr(d.demande_le)}`}>
+          {d.statut === 'demandee' ? 'En attente de la confirmation du secrétariat.' : d.statut === 'confirmee'
+            ? `Désinscription confirmée.${d.rembourse > 0 ? ` À vous rembourser : ${eur(d.rembourse)}.` : ''}${d.reste_du > 0 ? ` Reste à payer : ${eur(d.reste_du)}.` : ''}` : `Refusée : ${d.refus_motif || ''}`}
+        </Encadre>))}
+      {msg && <Encadre etat={msg.ok ? 'reussi' : 'corriger'} titre={msg.t} />}
+      {!enCours && (x.programme || []).length > 0 && (<>
+        <div className="segments">
+          <button type="button" className={toute ? 'actif' : ''} aria-pressed={toute} onClick={() => setToute(true)}>Toute l’année</button>
+          <button type="button" className={!toute ? 'actif' : ''} aria-pressed={!toute} onClick={() => setToute(false)}>Certaines unités</button>
+        </div>
+        {!toute && <div className="flex flex-col gap-1">{x.programme.map(u => (
+          <label key={u.ue_num} className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={choix.has(u.ue_num)}
+            onChange={() => setChoix(c => { const n = new Set(c); n.has(u.ue_num) ? n.delete(u.ue_num) : n.add(u.ue_num); return n; })} />
+            UE {u.ue_num} {u.ue_nom} <span className="text-second text-slate-500">· 1er dixième : {jourFr(u.dixieme) || '—'}</span></label>))}</div>}
+        {x.erreur && <Encadre etat="corriger" titre={x.erreur} />}
+        {a && (toute || choix.size > 0) && (
+          <div className="carte p-4 space-y-2 text-sm">
+            <p className="m-0">{a.regle}</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <span>Restent dus : <b>{eur(a.frais.du)}</b></span><span>Déjà versé : <b>{eur(a.frais.verse)}</b></span>
+              <span>À vous rembourser : <b>{eur(a.frais.rembourse)}</b></span>{a.frais.reste_du > 0 && <span>Reste à payer : <b>{eur(a.frais.reste_du)}</b></span>}
+            </div>
+            <p className="text-second text-slate-500 m-0">Calcul à la date d’aujourd’hui ; le secrétariat le vérifie en confirmant.</p>
+          </div>)}
+        <label className="block text-sm"><span className="text-slate-600">Un mot pour le secrétariat (facultatif)</span>
+          <textarea className="controle w-full !h-auto py-2 mt-1" rows={2} value={motif} onChange={e => setMotif(e.target.value)} data-reponses="non" /></label>
+        <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={sur} onChange={e => setSur(e.target.checked)} />
+          Je demande ma désinscription {toute ? 'de toute l’année' : 'des unités cochées'}.</label>
+        <div><button type="button" className="bouton bouton-signaler" disabled={!sur || envoi || (!toute && !choix.size)} onClick={envoyer}>
+          {envoi ? 'Envoi…' : 'Envoyer ma demande de désinscription'}</button></div>
+      </>)}
+    </div>);
+}
+
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
 function Accuse({ type, id, presente, signe, onFait, onErreur }) {
   const [etape, setEtape] = useState(null);   // null | 'code'
@@ -1494,7 +1563,7 @@ function Espace() {
   const a_ = k => ouvertes.includes(k);
   const SOUS = {
     parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
-    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
   };
   const FACES = [
     ['aujourdhui', 'Aujourd’hui', IconHome],
@@ -1639,6 +1708,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'sante' && <MaSante onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'desinscription' && <MaDesinscription />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
         {d && face === 'aide' && <AideRegles onRevoir={() => { setVisiteDepart(0); setVisite(true); }} />}
