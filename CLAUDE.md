@@ -3473,6 +3473,11 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**LES AR AU TABLEAU DE BORD DES COORDINATIONS** (3.5.393, Charles : « je ne vois pas les demandes d'AR sur les tableaux de bord des
+coordinations concernées »). Le module est sur octroi nominatif : rien ne parvenait à la coordination. `GET /api/a-signer/amenagements`
+(coordination de la section de rattachement, direction) : nom, à faire, unités, mesures accordées — jamais la nature, la pièce, la
+motivation. Bloc `AmenagementsSections` d'Accueil.jsx ; une demande en ligne notifie aussi la coordination (`section` posée).
+
 **LA DÉSINSCRIPTION** (3.5.392, Charles : « un bouton désinscrire ; il vérifie si l'étudiant peut être désinscrit et quels frais sont
 remboursés ; l'étudiant peut faire la demande depuis Lucie » ; tranché : l'école garde l'acompte du RDE + les droits de VA et
 d'admission ; toute l'année ou des unités ; le secrétariat confirme). RDE 2026-2027 art. 19 (lu dans la Documentation) : §1 avant le

@@ -6,6 +6,9 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { PEUT_VALIDER } from '../lib/valorisation.js';
+import { getUserSections } from '../middleware/auth.js';
+import { sectionRattachement } from './etudiants.js';
+import { anneeDeTravail } from '../helpers/annee.js';
 
 const r = Router();
 const essai = (f, d) => { try { return f(); } catch { return d; } };
@@ -20,6 +23,36 @@ r.get('/', authRequired, (req, res) => {
   const ar = essai(() => db.prepare(`SELECT COUNT(*) n FROM amenagement_dossier WHERE valide_b_le IS NOT NULL AND cde_date IS NULL
     AND COALESCE(statut, '') NOT IN (${DECIDE.map(() => '?').join(',')})`).get(...DECIDE).n, 0);
   res.json({ direction: true, va, ar });
+});
+
+/* LES AMÉNAGEMENTS RAISONNABLES DE MES SECTIONS (3.5.393, Charles : « je ne vois pas les demandes d'AR sur les tableaux de bord des
+   coordinations concernées »). Le module est sur octroi nominatif (secret professionnel) : la coordination n'y entrait pas, et rien ne
+   lui parvenait. Ici, pour la coordination de la section de l'étudiant (et la direction) : le nom, ce qui reste à faire, les unités et
+   les MESURES ACCORDÉES — jamais la nature de la difficulté, ni la pièce, ni la motivation (art. 5). Lecture seule. */
+r.get('/amenagements', authRequired, (req, res) => {
+  const role = req.user.role;
+  if (!['coordination', ...PEUT_VALIDER].includes(role)) return res.json({ lignes: [] });
+  const annee = anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+  const DEC = ['accepte', 'partiel', 'refuse', 'recours'];
+  const lignes = [];
+  const dossiers = essai(() => db.prepare(`SELECT d.id, d.etudiant_id, d.statut, d.date_demande, d.notifie_le, d.communique_le, d.cde_date,
+      d.valide_a_le, d.valide_b_le, e.nom, e.prenom FROM amenagement_dossier d JOIN etudiant e ON e.id = d.etudiant_id
+      WHERE d.annee_scolaire = ? ORDER BY e.nom, e.prenom`).all(annee), []);
+  for (const d of dossiers) {
+    let section = null;
+    try { section = sectionRattachement(d.etudiant_id, annee).section || null; } catch { /* */ }
+    if (perim && (!section || !perim.includes(section))) continue;
+    const decide = DEC.includes(d.statut) || !!d.cde_date;
+    const accordees = essai(() => db.prepare('SELECT libelle FROM amenagement_mesure WHERE dossier_id = ? AND accorde = 1 ORDER BY libelle').all(d.id).map(x => x.libelle), []);
+    const a_faire = !d.valide_a_le ? 'demande à instruire' : !d.valide_b_le ? 'rapport à établir' : !decide ? 'décision du Conseil à rendre'
+      : !d.notifie_le ? 'décision à notifier' : ['accepte', 'partiel'].includes(d.statut) && !d.communique_le ? 'mesures à communiquer aux chargés de cours' : null;
+    if (!a_faire && !accordees.length) continue;
+    lignes.push({ id: d.id, etudiant_id: d.etudiant_id, nom: d.nom, prenom: d.prenom, section, date_demande: d.date_demande, a_faire,
+      decide, mesures: decide ? accordees : [],
+      ues: essai(() => db.prepare('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ? ORDER BY ue_num').all(d.id).map(x => x.ue_num), []) });
+  }
+  res.json({ annee, lignes });
 });
 
 export default r;
