@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import ImportReunion from '../components/ImportReunion.jsx';
 import { ecritModule } from '../lib/droits.js';
-import {
+import { IconFileImport,
   IconCalendarEvent, IconChecklist, IconPlus, IconPrinter, IconTimeline,
   IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
   IconClipboardPlus, IconEye, IconSearch, IconLock, IconReport,
@@ -80,6 +81,7 @@ export default function SuiviEquipe() {
   const [apercu, setApercu] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState('ouvertes');
   const [confier, setConfier] = useState(false);
+  const [importer, setImporter] = useState(false);   // importer un compte rendu (3.5.379)
   /* LE RAPPORT DU MOIS (24 septembre 2026) : la direction le reçoit par
      courriel le 1er ; ici, elle le produit quand elle veut, pour le mois
      qu'elle veut. Au début du mois, c'est le mois écoulé qu'on cherche. */
@@ -163,6 +165,8 @@ export default function SuiviEquipe() {
               onClick: () => setConfier(true) },
             { key: 'nouvelle', label: 'Nouvelle réunion', icon: IconPlus,
               onClick: () => nouvelleReunion() },
+            { key: 'importer-cr', label: 'Importer un compte rendu', icon: IconFileImport,
+              onClick: () => setImporter(true) },
             ] : []),
 
             ...(direction ? [{ key: 'rapport-mois', label: 'Rapport du mois', icon: IconReport,
@@ -276,6 +280,9 @@ export default function SuiviEquipe() {
         </Fenetre>
       )}
 
+      {importer && (
+        <ImportReunion types={types} personnes={personnes} onFermer={() => setImporter(false)}
+          onCree={id => { setImporter(false); setVue('reunions'); chargerReunions(); chargerTaches(); ouvrir(id); }} />)}
       {confier && (
         <ConfierTache onClose={() => setConfier(false)} onCree={() => chargerTaches()} />
       )}

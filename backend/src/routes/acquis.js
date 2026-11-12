@@ -2657,7 +2657,7 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
   `).all(ueNum);
 
   const tousLiens = db.prepare(
-    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee);
+    'SELECT cours_code, aa_code, poids, maj_le FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee);
   const liens = tousLiens.filter(l => l.cours_code !== CODE_EPREUVE_UE);
   const poids_epreuve = Object.fromEntries(tousLiens
     .filter(l => l.cours_code === CODE_EPREUVE_UE).map(l => [l.aa_code, Number(l.poids)]));

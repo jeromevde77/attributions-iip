@@ -12,6 +12,7 @@
 // elle vient. Rouvrir une réunion, c'est retrouver ce qui reste ouvert.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { proposerReunion } from '../lib/importReunion.js';
 import { optionsPdfPiece } from '../lib/document.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -718,6 +719,15 @@ r.get('/:id', authRequired, (req, res) => {
   `).all(reunion.annee_scolaire, reunion.id, ...resteP.p);
   attacherResponsables(reste);
   res.json({ ...reunion, participants, taches, reste });
+});
+
+/* IMPORTER UN COMPTE RENDU (3.5.379, lib/importReunion.js) : Word, PDF ou texte, en base64 ; Lucie PROPOSE la réunion (fiche, ordre du
+   jour, points, tâches), rien ne s'écrit — l'écran la fait relire puis la crée par les deux routes habituelles. */
+r.post('/importer', authRequired, async (req, res) => {
+  const b64 = String(req.body?.fichier || '').replace(/^data:[^,]*,/, '');
+  if (!b64) return res.status(400).json({ error: 'Déposez le compte rendu (Word, PDF ou texte).' });
+  try { res.json(await proposerReunion(Buffer.from(b64, 'base64'), String(req.body?.nom || ''))); }
+  catch (e) { res.status(e.status || 400).json({ error: e.message || 'Le fichier ne se lit pas.' }); }
 });
 
 r.post('/', authRequired, (req, res) => {
