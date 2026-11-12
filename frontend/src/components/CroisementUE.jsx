@@ -355,16 +355,17 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         <section className="carte overflow-hidden">
           <EnteteCarte titre="Acquis d’apprentissage de l’unité" />
           <div className="px-3 pt-2 text-second italic text-slate-700 flex items-start gap-2">
-            <span className="flex-1 min-w-0">{aaChap?.intro || '—'}</span>
+            <span className="flex-1 min-w-0 whitespace-pre-line">{aaChap?.intro || '—'}</span>
             {!lecture && <BoutonChapeau titre="Modifier la phrase qui introduit tous les acquis" onClick={() => chapeauAcquis(null)} />}
           </div>
           <dl className="m-0 px-3 py-2 grid gap-x-4 gap-y-1 text-second" style={{ gridTemplateColumns: 'max-content 1fr' }}>
             {acquis.map(a => (
               <div key={a.aa_code} className="contents">
-                {aaChap?.parCode?.[a.aa_code] && <dd className="m-0 col-span-2 italic text-slate-700 pt-1">{aaChap.parCode[a.aa_code]}</dd>}
+                {aaChap?.parCode?.[a.aa_code] && <dd className="m-0 col-span-2 italic text-slate-700 pt-1 whitespace-pre-line">{aaChap.parCode[a.aa_code]}</dd>}
                 <dt className="font-semibold text-iip-blue">{a.aa_code}</dt>
                 <dd className="m-0 text-slate-700 flex items-start gap-2 group/aa">
-                  <span className="flex-1 min-w-0">{a.description || '—'}</span>
+                  {/* LES SOUS-POINTS SUR LEURS LIGNES (3.5.360) : ils vivent dans la description, une ligne « – … » chacun. */}
+                  <span className="flex-1 min-w-0 whitespace-pre-line">{a.description || '—'}</span>
                   {!lecture && <BoutonChapeau titre={`Chapeau avant ${a.aa_code}`} discret onClick={() => chapeauAcquis(a.aa_code)} />}
                 </dd>
               </div>))}

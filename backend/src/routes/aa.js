@@ -111,6 +111,35 @@ export function introductionAcquis(ueNum) {
   return { texte: introductionDuDP(Number(ueNum)) || PHRASE_USAGE_ACQUIS, proposee: true };
 }
 
+/* LES FAUX ACQUIS QUI NE SONT QU'UN SOUS-POINT (3.5.360, Charles, 12 novembre 2026, UE 337 : « tu le décodes bien dans les sous-points,
+   mais à l'étape 1 cela disparaît ; on ne sait pas pondérer »). La réparation des sous-points (3.5.094) a rangé les lignes « – … » dans
+   la description de leur acquis, mais deux copies restaient acquis à part entière (AA337.8, AA337.9) : deux colonnes de trop à l'étape 1,
+   une pondération faussée. Au démarrage, un acquis dont le texte est exactement un sous-point d'un AUTRE acquis de la même unité, et
+   qui ne porte AUCUNE trace (inventaireAA), est retiré ; un acquis noté ou pondéré n'est jamais touché. */
+export function retirerSousPointsDoublons() {
+  const norm = t => String(t || '').toLowerCase().replace(/^[\s–—\-•]+/, '').replace(/[\s;,.:]+$/, '').replace(/\s+/g, ' ').trim();
+  const retires = [];
+  for (const { ue_num } of db.prepare('SELECT DISTINCT ue_num FROM aa').all()) {
+    const liste = db.prepare('SELECT aa_code, description FROM aa WHERE ue_num = ?').all(ue_num);
+    for (const a of liste) {
+      const t = norm(a.description);
+      if (!t || t.length < 8) continue;
+      const parent = liste.find(b => b.aa_code !== a.aa_code && String(b.description || '').split('\n').slice(1)
+        .some(l => /^\s*[–—\-•]/.test(l) && norm(l) === t));
+      if (!parent) continue;
+      const total = Object.values(inventaireAA(a.aa_code)).reduce((x, y) => x + y, 0);
+      if (total > 0) continue;
+      db.transaction(() => {
+        for (const tb of tablesAvecAA()) db.prepare(`DELETE FROM ${tb} WHERE aa_code = ?`).run(a.aa_code);
+        db.prepare('DELETE FROM aa WHERE aa_code = ?').run(a.aa_code);
+      })();
+      retires.push(`${a.aa_code} (sous-point de ${parent.aa_code})`);
+    }
+  }
+  if (retires.length) console.log(`[acquis] faux acquis retirés : ${retires.join(', ')}`);
+  return retires;
+}
+
 // ── Liste des AA d'une UE ────────────────────────────────────────────────────
 // GET /api/aa?ue_num=246
 r.get('/', (req, res) => {
