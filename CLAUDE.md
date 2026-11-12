@@ -3440,8 +3440,8 @@ vacances, congés = fermetures de l'agenda (à défaut le calendrier), l'été d
 bloc = `niveauEtudiant`, ECTS = somme du programme. « 17 heures par semaine » se calcule (Charles : « Lucie calcule ») : `heuresParSemaine` — séances de `seancesEtudiant` (hors stages,
 EI, dispenses, annulées), en moyenne sur les semaines de cours du calendrier ; sans horaire, cases vides.
 Variante `?variante=allocations` (3.5.354, la « lettre 1 » des allocations familiales) : titre propre, sans bloc ni ECTS ; catalogue
-`attestation_allocations`. Rien ne se coupe : paragraphes, liste, encadré et bloc de signature (avec « Je déclare… » et la ligne
-d'authenticité) en `break-inside: avoid`.
+`attestation_allocations`. Rien ne se coupe : paragraphes, liste, encadré et bloc de signature (avec la dernière phrase du texte,
+« Je déclare… » et la ligne d'authenticité) en `break-inside: avoid` — la signature ne passe jamais seule à la page suivante (3.5.355).
 
 **L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
 à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut

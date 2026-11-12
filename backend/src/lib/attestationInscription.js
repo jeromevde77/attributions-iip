@@ -143,7 +143,7 @@ export function composerAttestationInscription(d, variante = 'inscription') {
      placé sur la page suivante ») : chaque paragraphe, la liste des congés, l'encadré et le bloc de signature (avec la ligne
      d'authenticité que le filigrane pose juste au-dessus) se tiennent d'un bloc. */
   const tenue = `<style>.att-ins p, .att-ins ul, .att-ins .encadre-ins, .att-ins .tenir { break-inside: avoid; page-break-inside: avoid; }
-    .att-ins .tenir { margin-top: 6mm; } .att-ins .tenir .cloture { margin-top: 4mm; }
+    .att-ins .tenir { margin-top: 0; } .att-ins .tenir .cloture { margin-top: 4mm; }
     .att-ins p.intro-conges { break-after: avoid; page-break-after: avoid; }</style>`;
   const corps = `${tenue}<div class="attestation piece att-ins">
   ${enteteDocument({ titre: v.titre, nature: 'Inscription',
@@ -160,10 +160,10 @@ export function composerAttestationInscription(d, variante = 'inscription') {
     <div>Le jeune suit-il au moins 17 heures de cours par semaine ?${boite(h != null && oui)}Oui${boite(h != null && !oui)}Non</div>
     <div style="font-size:7.5pt;color:#5B6B82;margin-top:0.8mm">${heuresTxt}</div>
   </div>
+  <div class="tenir">
   <p class="corps">${qui} suit les cours ${d.inscrit_le ? `depuis le ${jour(d.inscrit_le)}` : 'depuis le début de l’année scolaire'}.${v.programme ? `
     ${f ? 'Elle' : 'Il'} est ${f ? 'inscrite' : 'inscrit'}${d.bloc ? ` en ${esc(d.bloc)}` : ''} et suit un programme de
     <b>${d.ects} ECTS</b> pour l’année académique ${esc(d.annee)}.` : ''}</p>
-  <div class="tenir">
   <p class="corps">Je déclare avoir rempli correctement la présente déclaration.</p>
   <div class="cloture">
     <div class="sceau"></div><div class="paraphe"></div>
