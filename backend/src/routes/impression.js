@@ -15,7 +15,8 @@ import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { documentsPour, documentParCle, valeursParametre } from '../lib/documents.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
-import { piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
+import { piedGabaritPdf, BANDE_PIED_MM, envelopperDocument, enteteDocument } from '../lib/document.js';
+import { FAMILLES, PIECES as PIECES_CODEES } from '../lib/codesPieces.js';
 import { piedDocument } from './parametres.js';
 import { protegerSignature } from '../lib/protectionSignature.js';
 import { logoCourant } from '../lib/identite.js';
@@ -214,6 +215,22 @@ r.post('/proteger', authRequired, async (req, res) => {
   if (!html) return res.status(400).json({ error: 'document requis' });
   const { htmlSigne, reference } = await protegerSignature(html, { piece: piece || 'Document', destinataire: destinataire_nom || null });
   res.json({ html: htmlSigne, reference });
+});
+
+/* LA LISTE DE RÉFÉRENCE DES PIÈCES ÉTUDIANTES (3.5.376, Charles : « numéroter les types de documents ») : famille, code, nom, usage —
+   à afficher au secrétariat. Une pièce par famille, filet de sa couleur. */
+r.get('/codes-pieces/document', authRequired, (req, res) => {
+  const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const corps = `${enteteDocument({ titre: 'Les pièces remises aux étudiants', sous: 'Codes de référence', ligne: 'Chaque pièce porte son code en bas à droite de ses pages' })}
+  ${FAMILLES.map(f => {
+    const l = PIECES_CODEES.filter(p => p.code[0] === f.k);
+    if (!l.length) return '';
+    return `<h3 style="margin:5mm 0 1.5mm;padding-left:2.5mm;border-left:1mm solid ${f.couleur};font-size:10.5pt;color:#0E2A4F">${esc(f.nom)} <span style="color:#64748b;font-weight:400">— ${f.k}</span></h3>
+    <table class="doc" style="width:100%"><thead><tr><th style="width:16mm">Code</th><th style="width:72mm">Pièce</th><th>Usage</th></tr></thead>
+    <tbody>${l.map(p => `<tr><td style="font-weight:700;white-space:nowrap">${p.code}</td><td>${esc(p.nom)}</td><td style="color:#475569">${esc(p.usage)}</td></tr>`).join('')}</tbody></table>`;
+  }).join('')}
+  <p style="font-size:7.5pt;color:#64748b;margin-top:5mm">Un code ne se réattribue jamais : une pièce retirée garde le sien, une pièce nouvelle prend le suivant de sa famille.</p>`;
+  res.json({ html: envelopperDocument({ html: corps, titre: 'Codes des pièces étudiantes' }), nom: 'Codes_des_pieces_etudiantes' });
 });
 
 r.post('/pdf', authRequired, async (req, res) => {

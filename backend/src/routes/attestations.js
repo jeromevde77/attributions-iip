@@ -13,6 +13,7 @@
 // produire une pièce incomplète en silence : il signale ce qui manque.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { marqueCode, codeDuTitre } from '../lib/codesPieces.js';
 import { filigraner } from '../lib/filigraneDocument.js';
 import { Router } from 'express';
 import { manquesDossier, uniteValorisable, vaRetenue, vaPourcent } from '../lib/valorisation.js';
@@ -647,6 +648,7 @@ ${STYLE_MODELE}
   }
 </style></head><body>
 ${ponctuerListes(corps)}
+${marqueCode(codeDuTitre(titre))}
 ${piedBalisage(logoCourant())}
 </body></html>`;
 }

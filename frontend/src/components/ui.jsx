@@ -2,6 +2,7 @@ import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useRef,
 
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
+import { pieceDe, familleDe } from '../lib/codesPieces.js';
 import { createPortal } from 'react-dom';
 import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX, IconGift, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal, IconLayoutSidebarLeftCollapse } from '@tabler/icons-react';
 import { demander } from '../lib/dialogue.jsx';
@@ -1323,7 +1324,17 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
  * l'icône en gris, ce qu'on emporte à droite. Ce qui doit alerter le dit par
  * son ton, et il est alors le seul de la liste à le faire.
  */
-export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
+/* LE CODE D'UNE PIÈCE ÉTUDIANTE (3.5.376, lib/codesPieces.js) : « R-01 » sur la pastille discrète de sa famille. */
+export function CodePiece({ cle, code: c0 = null }) {
+  const p = c0 ? { code: c0 } : pieceDe(cle);
+  const f = p && familleDe(p.code);
+  if (!p || !f) return null;
+  return (
+    <span title={`${f.nom} — pièce ${p.code}`} className="flex-none inline-flex items-center h-5 pl-1.5 pr-1.5 text-mention font-semibold tabular-nums text-slate-600 bg-white"
+      style={{ borderLeft: `3px solid ${f.couleur}`, borderTop: '1px solid rgb(var(--gris-200))', borderRight: '1px solid rgb(var(--gris-200))', borderBottom: '1px solid rgb(var(--gris-200))', borderRadius: '0 4px 4px 0' }}>{p.code}</span>);
+}
+
+export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre', code = null,
                                actif = false, desactive = false, onClick }) {
   const teinte = ton === 'alerte' ? 'var(--c-refuse)' : ton === 'neuf' ? 'var(--c-accent)' : null;
   const Balise = onClick ? 'button' : 'div';
@@ -1336,6 +1347,7 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
       style={{ borderColor: actif || teinte ? `rgb(var(--gris-200))` : 'rgb(var(--gris-200))' }}>
       {Ic && <Ic size={17} className="flex-shrink-0"
         style={{ color: teinte || 'var(--c-texte)' }} />}
+      {code && <CodePiece cle={code} />}
       <span className="min-w-0 flex-1">
         <span className="block text-sm text-slate-700">{titre}</span>
         {sous && <span className="block text-second text-slate-400">{sous}</span>}
