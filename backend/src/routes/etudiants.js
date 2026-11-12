@@ -3761,7 +3761,10 @@ export function documentParcours(etudId, annee) {
   const graphe = donneesCapitalisation(etudId, annee, section);
   const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  const schema = schemaSvg(graphe);
+  /* À SA TAILLE, PAS À LA LARGEUR DE LA PAGE (3.5.397, Charles : « beaucoup trop grand ») : un schéma de trois colonnes s'étirait
+     sur 27 cm. La même échelle que le bulletin (0,42 mm par unité de dessin), sans dépasser la page. */
+  const schema = schemaSvg(graphe).replace(/^<svg viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/,
+    (m, w, h) => `${m} style="width:min(100%, ${Math.min(270, Math.round(Number(w) * 0.42))}mm)"`);
 
   const reussies = [...acquis.entries()]
     .map(([ue, a]) => ({ ue, ...a,
@@ -3783,14 +3786,6 @@ export function documentParcours(etudId, annee) {
 
   const corps = `
 <div class="fp">
-  <div class="entete">
-    <div>
-      <div class="nom-etud">${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</div>
-      <div class="sous">${esc2(section)} · année ${esc2(annee)}${
-        e.id_ecampus ? ` · matricule ${esc2(e.id_ecampus)}` : ''}</div>
-    </div>
-    <div class="titre">Parcours de formation</div>
-  </div>
 
   <div class="legende">${legendeSchemaHtml()}</div>
 
@@ -3834,8 +3829,13 @@ export function documentParcours(etudId, annee) {
   </div>
 </div>`;
 
+  /* L'EN-TÊTE STANDARD, PAS UN TITRE VIDE (3.5.397, Charles : « c'est quoi le "." en première ligne ? » — le trait d'un cadre de
+     titre sans texte) : la pièce porte son titre, ce qui lui donne aussi son code (R-05). */
   const html = envelopperDocument({
-    html: corps, titre: '', orientation: 'paysage',
+    html: corps, titre: 'Parcours de formation', orientation: 'paysage',
+    entete: { titre: 'Parcours de formation', nature: 'Parcours', compact: true,
+      sous: `${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
+      ligne: [section, `année ${annee}`, e.id_ecampus ? `matricule ${e.id_ecampus}` : null].filter(Boolean).join(' · ') },
     margeHaut: 10, margeCote: 10, logo: logoCourant(),
     styles: `
 .fp{font-size:8pt;color:#1B2B4B}
@@ -3848,7 +3848,7 @@ export function documentParcours(etudId, annee) {
 .legende{font-size:7pt;color:#475569;margin-bottom:2mm;line-height:1.8}
 
 /* Le schéma est un SVG : il porte ses propres couleurs. */
-.schema{width:100%;height:auto;max-height:105mm;display:block;margin:1mm 0 2mm}
+.schema{height:auto;max-height:105mm;display:block;margin:1mm auto 2mm}
 
 .bas{margin-top:3mm;border-top:.5pt solid #cbd5e1;padding-top:1.5mm}
 .bas-titre{font-size:8.5pt;font-weight:700;margin-bottom:1mm}
