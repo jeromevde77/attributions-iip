@@ -3354,6 +3354,7 @@ app.use('/api/temps-travail', (await import('./routes/tempsTravail.js')).default
 app.use('/api/agenda-ecole', (await import('./routes/agendaEcole.js')).default);
 app.use('/api/qui-fait-quoi', (await import('./routes/quiFaitQuoi.js')).default);
 app.use('/api/a-signer', (await import('./routes/aSigner.js')).default);
+app.use('/api/seances-a-dater', (await import('./routes/seancesADater.js')).default);
 app.use('/api/visites-stage', (await import('./routes/visitesStage.js')).default);
 // Le registre des pièces authentiques : créé, et débarrassé des spécimens inscrits par erreur (3.5.047), au démarrage.
 try { (await import('./lib/authentique.js')).migrerAuthentique(); } catch (e) { console.error('[authentique]', e.message); }

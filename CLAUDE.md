@@ -3473,6 +3473,12 @@ cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous coch�
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
 
+**L'ATTESTATION DE RÉUSSITE SIGNE À LA DATE DE LA DÉLIBÉRATION** (3.5.386, Charles : « tu mets la date du jour. Non. Date de
+délibération ! »). `pageAttestation` : `date_document` demandée, sinon `dateDeDecision` (séance close de la session et de l'organisation),
+sinon `finDeLUE` (organisation_ue.date_fin — tranché), la date du jour en dernier recours. Délibération → Contrôles → « Séances sans
+date » (`components/SeancesADater.jsx`, `routes/seancesADater.js`, admin/éditeur) pose la date d'une séance close qui n'en a pas.
+Les motivations signaient déjà à la date de la séance. **Une pièce qui constate une décision signe à la date de la décision.**
+
 **LES ANNÉES PASSÉES QUITTENT LES ESPACES** (3.5.384, Charles : « cette partie ne doit plus être disponible, on va gagner de l'espace » ;
 tranché : tout supprimer). `lib/purgeHistorique.js` (`purgerDepotHistorique`, au démarrage, une fois : `lucie_config`
 « purge_hist_depot ») efface les dépôts `hist_*` jamais ouverts — copies, `envoi_mail`, `portail_depot`, références lues dans les copies
