@@ -73,7 +73,13 @@ function CentreDocuments({ onErreur }) {
       <h2 className="intertitre">Obtenir un document</h2>
       <p className="text-second text-slate-500 m-0">Lucie compose la pièce au moment où vous la demandez : signée, avec son code QR d’authenticité.
         {c?.max ? ` Chaque pièce peut être obtenue ${c.max} fois par année ; au-delà, adressez-vous au secrétariat.` : ''}</p>
-      {!c && <p className="text-sm text-slate-500 flex items-center gap-2"><IconLoader2 size={16} className="animate-spin text-slate-400" aria-hidden="true" /> Lucie prépare la liste…</p>}
+      {!c && <ChargementLucie texte="Lucie prépare la liste de vos documents…" />}
+      {/* LES ÉTOILES DE LUCIE PENDANT LA COMPOSITION (3.5.384, Charles : « un logo de chargement avec les étoiles de Lucie qui s'animent
+          quand tu crées le document ») : une fenêtre sans croix, le temps que la pièce soit composée et signée. */}
+      {enCours && (
+        <FenetreEspace titre="Lucie compose votre document" sous={c?.pieces?.find(p => p.code === enCours)?.nom || ''}>
+          <ChargementLucie texte="Composition, signature et code QR d’authenticité… quelques secondes." />
+        </FenetreEspace>)}
       {c?.erreur && <p className="text-sm text-slate-500">{c.erreur}</p>}
       {msg && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{msg}</p>}
       {c && !c.erreur && (c.pieces?.length ? (
@@ -81,9 +87,7 @@ function CentreDocuments({ onErreur }) {
           {c.pieces.map(p => (
             <LigneEtat key={p.code} etat={p.restant > 0 ? 'disponible' : 'indisponible'} icone={IconFileText} titre={`${p.code} · ${p.nom}`}
               sous={`${p.usage}${p.usage ? ' · ' : ''}${p.restant > 0 ? `encore ${p.restant} fois cette année` : 'déjà obtenue deux fois cette année'}`}
-              droite={enCours === p.code
-                ? <span className="text-second text-slate-500 flex items-center gap-1.5 flex-none"><IconLoader2 size={16} className="animate-spin" aria-hidden="true" /> Lucie compose…</span>
-                : <button type="button" className="bouton flex-none" disabled={p.restant <= 0 || !!enCours} onClick={() => obtenir(p)}>Obtenir</button>} />))}
+              droite={<button type="button" className="bouton flex-none" disabled={p.restant <= 0 || !!enCours} onClick={() => obtenir(p)}>Obtenir</button>} />))}
         </ListeEtats>) : <p className="text-sm text-slate-500">Aucune pièce à composer pour votre situation cette année.</p>)}
     </section>);
 }

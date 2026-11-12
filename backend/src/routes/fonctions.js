@@ -6,7 +6,6 @@ import { litLaConfiguration } from '../middleware/permissions.js';
 import { reglagesFonctions, reglerFonctions, fonctionPour, CATALOGUE } from '../lib/fonctions.js';
 import { deposerBientot, portailActif } from '../lib/portailSync.js';
 import db from '../db/index.js';
-import { deposerHistorique } from '../lib/depotHistorique.js';
 
 const r = Router();
 const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
@@ -34,17 +33,7 @@ r.put('/', authRequired, direction, (req, res) => {
   deposerBientot();   // l'espace suit dans les dix secondes
   res.json(n);
 });
-// LES ANNÉES PASSÉES DANS LES ESPACES (3.5.027) : compter d'abord, puis déposer. Aucun courriel.
-r.get('/historique', authRequired, direction, (req, res) => {
-  try { res.json(deposerHistorique({ ecrire: false })); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-r.post('/historique', authRequired, direction, (req, res) => {
-  try {
-    const b = deposerHistorique({ ecrire: true, par: `${req.user?.nom_complet || 'Direction'} (années passées)` });
-    deposerBientot();
-    res.json(b);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// LES ANNÉES PASSÉES DANS LES ESPACES (3.5.027) : retirées en 3.5.384 — le centre de documents compose à la demande.
 // LA BASCULE DES PROFESSEURS (3.5.212) : la date à partir de laquelle le rôle « professeur » n'entre plus dans Lucie.
 r.get('/bascule', authRequired, direction, (req, res) => {
   const etat = reglagesFonctions().etats?.['enseignant.espace'] || 'eteinte';

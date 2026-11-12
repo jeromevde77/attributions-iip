@@ -53,68 +53,6 @@ function BasculeProfesseurs() {
     </section>);
 }
 
-function AnneesPassees() {
-  const [b, setB] = useState(null);
-  const [encours, setEncours] = useState(false);
-  const [fait, setFait] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  const appel = async (methode) => {
-    setEncours(true); setErreur(null);
-    try {
-      const r = await fetch('/api/fonctions/historique', { method: methode, headers: authHeaders() });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'refus du serveur');
-      return j;
-    } catch (e) { setErreur(e.message); return null; } finally { setEncours(false); }
-  };
-  const simuler = async () => { setFait(null); setB(await appel('GET')); };
-  const deposer = async () => {
-    if (!(await demander(`Déposer ${b.pieces} pièce(s) dans les espaces de ${b.etudiants} étudiant(s) ? Aucun courriel ne part.`))) return;
-    // Par lots de cinquante étudiants, jusqu'au bout ; les totaux s'additionnent.
-    const total = { ...b, etudiants: 0, pieces: 0, deja: b.deja, par_annee: {}, par_nature: {}, par_section: {}, manques: [] };
-    const ajouter = (o, x) => Object.entries(x).forEach(([k, n]) => { o[k] = (o[k] || 0) + n; });
-    setB(null);
-    for (;;) {
-      const r = await appel('POST');
-      if (!r) break;
-      total.etudiants += r.etudiants; total.pieces += r.pieces;
-      ajouter(total.par_annee, r.par_annee); ajouter(total.par_nature, r.par_nature); ajouter(total.par_section, r.par_section);
-      setFait({ ...total, encours: r.reste });
-      if (!r.reste) break;
-    }
-  };
-  return (
-    <section className="carte overflow-hidden">
-      <EnteteCarte icone={IconCertificate} titre="Les années passées dans les espaces" />
-      <div className="px-4 py-3 space-y-3">
-      <p className="text-second text-slate-500">Pour chaque étudiant, archivés compris : une attestation de réussite par unité déjà réussie —
-        années passées et délibérations déjà closes de l’année en cours —, une attestation par valorisation complète, et un document qui les réunit toutes. Ce sont les pièces d’Éditions. Elles
-        entrent au registre des envois et paraissent dans « Mes documents » dès que l’espace est ouvert à l’étudiant. <b>Aucun courriel ne part</b> ;
-        une pièce déjà déposée ne l’est pas deux fois.</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="bouton" disabled={encours} onClick={simuler}>{encours && !b ? 'Calcul…' : 'Compter ce qui serait déposé'}</button>
-        {b && b.pieces > 0 && <button type="button" className="bouton bouton-fort" disabled={encours} onClick={deposer}>{encours ? 'Dépôt…' : `Déposer ${b.pieces} pièce(s)`}</button>}
-      </div>
-      {erreur && <p className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</p>}
-      {(b || fait) && (() => {
-        const x = b || fait;
-        return (
-          <div className="text-second text-slate-700 space-y-1.5">
-            <p className="m-0"><b>{x.pieces}</b> pièce(s) {fait ? (fait.encours ? 'déposée(s) — dépôt en cours…' : 'déposée(s)') : 'à déposer'} pour <b>{x.etudiants}</b> étudiant(s) (jusqu’aux délibérations déjà closes)
-              {x.deja ? ` · ${x.deja} déjà déposée(s)` : ''}.</p>
-            {Object.keys(x.par_nature).length > 0 && <p className="m-0">{Object.entries(x.par_nature).map(([k, n]) => `${n} ${NATURES_HIST[k] || k}`).join(' · ')}</p>}
-            {Object.keys(x.par_annee).length > 0 && <p className="m-0 text-slate-500">Par année : {Object.entries(x.par_annee).sort().map(([k, n]) => `${k === 'toutes' ? 'toutes années' : k} ${n}`).join(' · ')}</p>}
-            {Object.keys(x.par_section).length > 0 && <p className="m-0 text-slate-500">Par section : {Object.entries(x.par_section).sort().map(([k, n]) => `${k} ${n}`).join(' · ')}</p>}
-            {x.manques?.length > 0 && (
-              <details className="mt-1"><summary className="cursor-pointer text-amber-800">{x.manques.length} pièce(s) non composée(s) : il leur manque une mention</summary>
-                <ul className="mt-1 pl-4 list-disc max-h-60 overflow-auto">{x.manques.map((m, i) => <li key={i}>{m}</li>)}</ul></details>)}
-          </div>);
-      })()}
-      </div>
-    </section>
-  );
-}
-
 function Personnes({ titre, icone: Ic, aide, l, nom, onRetirer, chercher, onAjouter }) {
   const [q, setQ] = useState('');
   const [res, setRes] = useState([]);
@@ -195,7 +133,6 @@ export default function MiseEnService() {
       {groupe('espace', 'L’espace des étudiants')}
       {groupe('personnel', 'Le personnel')}
       <BasculeProfesseurs />
-      <AnneesPassees />
       <section className="carte px-4 py-3 space-y-5">
         <Personnes titre="Étudiants d’essai" icone={IconSchool} l={r.etudiants} nom={nomEtudiant}
           aide="Ils voient les fonctions en essai de l’espace des étudiants. Un dossier fictif, ou des volontaires."
