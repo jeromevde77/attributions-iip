@@ -70,8 +70,9 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
             {titre}<span className={`tabular-nums ${filtre === cle ? 'text-white/80' : 'text-slate-400'}`}>{n}</span>
           </button>))}
       </div>
+      {/* LE FILET DE COULEUR À GAUCHE (3.5.373, Charles : « j'aimais bien le filet de couleur, même léger ») : 3 px, sans cadre. */}
       {visibles.map(g => (
-        <section key={g.cle}>
+        <section key={g.cle} style={{ borderLeft: `3px solid ${g.couleur}` }}>
           <div className="flex items-center gap-2 px-3 py-1.5 tab-repere border-b border-slate-100">
             <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: g.couleur }} />
             <span className="text-second font-semibold text-iip-texte">{g.titre}</span>
