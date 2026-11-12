@@ -3438,6 +3438,10 @@ en session 2. Effacer reste permis. La liste de la délibération (3.5.363) mont
 « Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
 — décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
 l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
+**IMPORTER UN COMPTE RENDU** (3.5.379, Charles : Word, PDF et texte, avec relecture) : `lib/importReunion.js` (`proposerReunion` :
+champs « Clé : valeur », sections Ordre du jour / Points / Tâches, sinon chaque grande partie = un point ; tâches d'un tableau Quoi · Qui ·
+Pour quand ou de la liste à puces), `POST /api/reunions/importer` (base64, 30 Mo, ne fait que proposer) ; `components/ImportReunion.jsx`
+(Suivi d'équipe → rail), qui crée par `POST /api/reunions` puis `POST /api/reunions/taches` (personne choisie, jamais un nom tapé).
 **RÉUNION DUE DU 12/11 (Amélie)** (3.5.378) : l'étape 1 s'enregistre seule (plus de bouton gris) et date ses croix par cours
 (`contenu.croisement_le`) ; l'étape 2 signale une pondération enregistrée AVANT les croix ou sans croix (reprise des années
 précédentes : la création de 2026-2027 a recopié les points des acquis) et propose « Reprendre la proposition des croix » — rien n'est
