@@ -15,6 +15,7 @@
 // texte passerait dessous.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { marqueCode, codeDuTitre } from './codesPieces.js';
 import { piedDocument } from '../routes/parametres.js';
 import { identiteEtablissement } from '../routes/config.js';
 import db from '../db/index.js';
@@ -460,6 +461,8 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 
   const marque = logo === undefined ? logoCourant() : logo;
   const piedHtml = avecPied && pied ? piedBalisage(marque || null) : '';
+  // LE CODE DE LA PIÈCE (3.5.376, lib/codesPieces.js) : reconnu au titre, en bas à droite de chaque page.
+  const codeHtml = marqueCode(codeDuTitre(titre));
   // `entete` porte ce que la pièce veut annoncer ; passé à `false`, on n'en
   // met pas — le diplôme et le corps de courriel restent hors standard.
   const enteteHtml = entete === false ? ''
@@ -557,7 +560,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   }
 
 ${styles}
-</style></head><body>
+</style></head><body>${codeHtml}
 <table class="feuille">
 ${/* LA LIGNE D'IDENTITÉ RÉPÉTÉE EST SUPPRIMÉE, ET CE N'EST PAS UN OUBLI.
       Elle existait pour qu'une page 2 détachée d'une pile dise encore d'où

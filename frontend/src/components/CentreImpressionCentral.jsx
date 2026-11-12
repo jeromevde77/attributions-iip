@@ -27,7 +27,7 @@ import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre, GroupeFenetre, PieceFenetre, Chevron, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat } from './ui.jsx';
+import { CodePiece, Fenetre, GroupeFenetre, PieceFenetre, Chevron, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
 import InscritsPrevus from './InscritsPrevus.jsx';
 import { svgImprimable } from '../lib/svgImprimable.js';
@@ -2410,6 +2410,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       style={{ background: REPERE_PIECE[p.cle] || 'transparent' }} />
     <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
       className="w-3.5 h-3.5 accent-iip-blue" />
+    {/* LE CODE DE LA PIÈCE (3.5.376) : R-01, I-02… sur le filet de sa famille. */}
+    <CodePiece cle={p.cle} />
     {!seance && LIBELLE_HORS_SEANCE[p.cle] || p.label}
     {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1 whitespace-nowrap">SLE · {etudiants.filter(e => e.sle).length}</span>}
     {/* LES CHAMPS DES ANNEXES SE COMPLÈTENT ENCORE (5 octobre 2026,
@@ -2643,6 +2645,11 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             <Etape n={3} titre="Quoi ?" fait={nbPieces > 0} attend={!etape3}>
               {nbPieces > 0 && <span className="font-normal text-slate-500">· {nbPieces} pièce{nbPieces > 1 ? 's' : ''}</span>}</Etape>
             <span className="flex-1" />
+            {/* LA LISTE DES CODES (3.5.376) : à imprimer pour le secrétariat. */}
+            <button type="button" className="text-second underline text-iip-blue whitespace-nowrap"
+              onClick={async () => { const r = await fetch('/api/impression/codes-pieces/document', { headers: authHeaders() }); const j = await r.json().catch(() => ({}));
+                if (j.html) ouvrirApercu({ html: j.html, titre: 'Codes des pièces étudiantes', nomFichier: j.nom, envoiPossible: false }); }}>
+              Liste des codes</button>
             {enCours && <span className="text-second text-slate-500">Production…</span>}
             {placeOutils && createPortal(<>
               <IconeBarre Icone={IconZoomIn} titre="Aperçu — voir les pièces avant de les produire" onClick={() => produire(true)}

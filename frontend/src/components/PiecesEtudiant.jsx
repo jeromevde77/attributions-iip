@@ -196,7 +196,7 @@ export default function PiecesEtudiant({ etud, annee }) {
         <GroupeFenetre key={titre} titre={titre}>
           <div className="grid gap-1.5 md:grid-cols-2">
             {pieces.map(p => (
-              <PieceFenetre key={p.cle} icone={p.icone} titre={p.titre}
+              <PieceFenetre key={p.cle} icone={p.icone} titre={p.titre} code={p.cle}
                 sous={enCours === p.cle ? 'Production…' : p.sous} desactive={!!enCours} onClick={p.clic} />
             ))}
           </div>

@@ -3438,6 +3438,11 @@ en session 2. Effacer reste permis. La liste de la délibération (3.5.363) mont
 « Délibérer S2 » orange (`s2_a_venir`, `s2_bloque`, `premiereDateS2`). **Annuler la seconde session seule** (3.5.364) : `DELETE /deliberation/ue/:ue?session=2`
 — décisions S2 et `deliberation_ajourne_aa` S2 retirées, l'inscription reprend la décision S1, seule la séance S2 se rouvre ; l'écran
 l'envoie quand l'unité est en S2. Sans `session=2`, la route efface toujours TOUT (les deux sessions).
+**LES CODES DES PIÈCES ÉTUDIANTES** (3.5.376, Charles) : `lib/codesPieces.js` (serveur) et `frontend/src/lib/codesPieces.js` (écrans), DEUX
+COPIES D'UNE MÊME TABLE — familles R, I, A, C, V, M, couleur de repère (jamais d'état), codes jamais réattribués. `CodePiece` (ui.jsx) devant
+chaque pièce d'Éditions et de la fiche ; `marqueCode(codeDuTitre(titre))` posé par les deux enveloppes (bas à droite de chaque page) ; liste
+de référence `GET /api/impression/codes-pieces/document`. **Une pièce étudiante nouvelle prend le code suivant de sa famille, dans les deux
+copies, et `PAR_TITRE` si son titre doit être reconnu.**
 **L'icône d'un bandeau coloré est blanche** (3.5.375, Charles) : `Fenetre` peint son icône `currentColor` (le blanc du titre), bandeau
 principal comme bandeau d'alerte. Jamais une icône colorée sur un fond coloré.
 **`GroupesParBloc aplat`** (3.5.372, Charles : « supprimer la double ligne ») : posé DANS une carte, le rangement par bloc ne dessine plus de
