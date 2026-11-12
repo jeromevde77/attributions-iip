@@ -158,6 +158,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS ar_geste (id INTEGER PRIMARY KEY AUTOINCREME
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
 try { db.exec('ALTER TABLE espace_lot ADD COLUMN ar TEXT'); } catch { /* déjà là */ }
 try { db.exec('ALTER TABLE espace_lot ADD COLUMN sante TEXT'); } catch { /* déjà là */ }
+/* LE CENTRE DE DOCUMENTS (3.5.382, Charles : « un centre de documents : l'étudiant clique sur ce dont il a besoin, Lucie génère avec
+   signature et QR »). Le portail ne compose rien et ne garde rien : il note la demande (la liste, ou une pièce), Lucie la relève en moins
+   d'une seconde, juge la situation et la limite, compose, et rend la réponse — effacée dès qu'elle est servie. */
+db.exec(`CREATE TABLE IF NOT EXISTS centre_requete (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, apercu INTEGER NOT NULL DEFAULT 0,
+  action TEXT NOT NULL, code TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), prise_le TEXT, fini_le TEXT, statut INTEGER, rep_type TEXT,
+  rep_nom TEXT, rep_corps BLOB)`);
 
 /* LA MOTIVATION PAR ACQUIS (3.5.006) : un type de geste de plus et sa colonne. Une contrainte CHECK ne se
    modifie pas en SQLite : la table se reconstruit, ses lignes recopiées. */
@@ -457,6 +463,27 @@ function connecte(req, res, next) {
     req.etudiant = e; req.peutDefinir = !!p.definir; req.candidat = !!p.candidat; next();
   } catch { res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' }); }
 }
+
+/* LE CENTRE DE DOCUMENTS : la demande attend sa réponse (20 s pour la liste, 50 s pour une pièce). */
+async function demanderCentre(req, res, action, code, delai) {
+  const id = Number(db.prepare('INSERT INTO centre_requete (etudiant_id, apercu, action, code) VALUES (?,?,?,?)')
+    .run(req.etudiant.id, req.apercu ? 1 : 0, action, code ? String(code).slice(0, 20) : null).lastInsertRowid);
+  const fin = Date.now() + delai;
+  while (Date.now() < fin) {
+    const r = db.prepare('SELECT statut, rep_type, rep_nom, rep_corps FROM centre_requete WHERE id = ? AND fini_le IS NOT NULL').get(id);
+    if (r) {
+      db.prepare('DELETE FROM centre_requete WHERE id = ?').run(id);
+      if (r.rep_type) res.set('Content-Type', r.rep_type);
+      if (r.rep_nom) res.set('Content-Disposition', `inline; filename="${String(r.rep_nom).replace(/[^A-Za-z0-9_.-]/g, '_')}"`);
+      return res.status(r.statut || 502).send(r.rep_corps || Buffer.alloc(0));
+    }
+    await new Promise(x => setTimeout(x, 200));
+  }
+  db.prepare('DELETE FROM centre_requete WHERE id = ? AND prise_le IS NULL').run(id);
+  res.status(504).json({ error: 'Lucie ne répond pas pour l’instant. Réessayez dans un moment.' });
+}
+pub.get('/api/portail/centre', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'liste', null, 20000));
+pub.get('/api/portail/centre/piece/:code', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'piece', req.params.code, 50000));
 
 /** Choisir (après le lien) ou changer (avec l'actuel) son mot de passe. */
 pub.post('/api/portail/mot-de-passe', connecte, (req, res) => {
@@ -1071,6 +1098,22 @@ int.post('/interne/va', (req, res) => {
     if (x.sante !== undefined) isa.run(Number(x.etudiant_id), JSON.stringify(x.sante ?? null));
   } })();
   res.json({ ok: true, n: l.length });
+});
+int.get('/interne/centre/requetes', (req, res) => {
+  db.prepare("DELETE FROM centre_requete WHERE cree_le < datetime('now', '-5 minutes')").run();
+  const l = db.prepare(`SELECT id, etudiant_id, apercu, action, code FROM centre_requete WHERE fini_le IS NULL
+    AND (prise_le IS NULL OR prise_le < datetime('now', '-60 seconds')) ORDER BY id LIMIT 20`).all();
+  const prendre = db.prepare("UPDATE centre_requete SET prise_le = datetime('now') WHERE id = ?");
+  for (const x of l) prendre.run(x.id);
+  res.json({ requetes: l.map(x => ({ ...x, apercu: !!x.apercu })) });
+});
+int.post('/interne/centre/reponses', (req, res) => {
+  const up = db.prepare("UPDATE centre_requete SET statut = ?, rep_type = ?, rep_nom = ?, rep_corps = ?, fini_le = datetime('now') WHERE id = ?");
+  for (const r of Array.isArray(req.body?.reponses) ? req.body.reponses : []) {
+    up.run(Number(r.statut) || 502, r.type ? String(r.type).slice(0, 200) : null, r.nom ? String(r.nom).slice(0, 200) : null,
+      r.corps ? Buffer.from(String(r.corps), 'base64') : null, Number(r.id));
+  }
+  res.json({ ok: true });
 });
 int.get('/interne/va/piece/:id', (req, res) => {
   const g = db.prepare(`SELECT contenu FROM va_geste WHERE id = ? AND type = 'piece' AND releve_le IS NULL`).get(Number(req.params.id));

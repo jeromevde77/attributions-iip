@@ -372,6 +372,12 @@ export function verifyPendingToken(token) {
   } catch { return null; }
 }
 
+/* LE JETON DU CENTRE DE DOCUMENTS (3.5.382, lib/centreDocuments.js) : Lucie compose pour l'espace de l'étudiant en appelant ses propres
+   routes de pièces, sur 127.0.0.1, avec ce jeton de deux minutes — jamais remis hors du serveur. */
+export function signServiceToken(nom = 'Centre de documents (espace étudiant)') {
+  return jwt.sign({ id: null, email: null, role: 'admin', nom, service: true }, JWT_SECRET, { expiresIn: '2m' });
+}
+
 /** LE JETON DU RELAIS DE L'ESPACE ENSEIGNANT (3.5.137) : les droits du compte, deux minutes, marqué `relais`. Lucie le signe pour
     elle-même, le temps d'exécuter une requête relevée de l'espace ; il ne quitte jamais le serveur. */
 export function signRelaisToken(user) {

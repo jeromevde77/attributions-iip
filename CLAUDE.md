@@ -3459,7 +3459,8 @@ principal comme bandeau d'alerte. Jamais une icône colorée sur un fond coloré
 carte par bloc (bordure + liseré dans une bordure) mais des pastilles de filtre et une bande de titre par bloc. Délibération l'utilise.
 **LES RÉSULTATS DE L'ÉTUDIANT EN DEUX SESSIONS** (3.5.370, Charles) : `resultatsPublies` dépose `detail.sessions` [{ n, decision, note, etat }]
 (sessions closes de son organisation) ; `detailResultat` ajoute `note_s1` aux cours et acquis quand la S2 est close. Espace étudiant :
-colonnes « 1re session » / « 2e session », volet à deux notes. Aucune colonne nouvelle au portail (tout est dans `detail`).
+colonnes « 1re session » / « 2e session », volet à deux notes. La 2e session ne paraît qu'après un « Ajourné » de 1re (3.5.381 : les années
+reprises portent parfois deux décisions pour une unité réussie) ; sans note de session, la note finale de l'inscription. Aucune colonne nouvelle au portail (tout est dans `detail`).
 **LES BOUTONS S1 / S2 DE LA DÉLIBÉRATION** (3.5.368, Charles, maquette validée). `boutonsSessions()` (`routes/acquis.js`) : gris (examens à
 venir) · attente (examens passés, délibération > J-3 ou non datée) · pret (≤ J-3) · fait (séances closes) ; S2 « — » sans ajourné.
 `components/BoutonsSessions.jsx` (boutons, flèche de coin, `FenetreSessionClose` : rouvrir `toutes: true` ou annuler `DELETE ?session=n&motif=`,
@@ -3471,6 +3472,23 @@ quand `aRepresenterParCours` ne voit personne (la clôture proposait une date à
 cours ne comptent pas (`premiereDateS2`, `secondeSessionPasEncore`) ; tous cochés = rien n'attend.
 **« UE clôturée »** (3.5.365, Charles) : liste de la délibération — `s2_close` (toutes les séances S2 closes) ou `s1_close_complete` (S1 close sans
 ajourné) → « UE clôturée » vert ; S2 toute décidée mais ouverte → « Clôturer S2 ».
+
+**CE QUI ATTEND LA DIRECTION, AU TABLEAU DE BORD** (3.5.383, Charles : « je ne vois pas les demandes de VA ou d'AR que je devrais
+signer comme directeur » — 38 VA décidées non validées en 2026-2027, 52 en 2025-2026, 21 AR à décider). `GET /api/a-signer`
+(routes/aSigner.js, `PEUT_VALIDER`) ; bloc `ASignerDirection` d'Accueil.jsx ; `/etudiants?onglet=valorisation&va=valider&annee=`
+ouvre `AnalyserEnSerie` (prop `gesteInitial`) sur la validation, filtre « décidée ». **Un geste réservé à la direction qui attend se
+porte à ce bloc.**
+
+**LE CENTRE DE DOCUMENTS DE L'ÉTUDIANT** (3.5.382, Charles, 12 novembre 2026 : « une liste de documents en fonction de la situation
+de l'étudiant ; il clique ; Lucie génère avec signature et QR » ; tranché : toutes les pièces qu'il peut obtenir seul, une ligne au
+registre sans copie, deux demandes par pièce et par année). Portail : `centre_requete`, `GET /api/portail/centre` et
+`/centre/piece/:code` (fonction `documents`), `/interne/centre/requetes|reponses`. Lucie : `lib/centreDocuments.js` (`offreCentre`,
+`composerCentre`, `relayerCentre` dans la boucle `relayerVite`, un tour sur deux) appelle ses propres routes de pièces sur 127.0.0.1
+avec `signServiceToken` (middleware/auth.js, 2 min), rend le PDF par `rendrePdf` ; `centre_delivrance` compte (pas l'aperçu) ;
+`envoi_mail` mode `centre`, statut `delivre`. Écran : `CentreDocuments` (EspaceEtudiant.jsx). **Une pièce nouvelle qu'un étudiant
+peut obtenir seul s'ajoute à `catalogue()`.** Les motivations et notifications restent la copie envoyée.
+**Une réunion qui ne s'enregistre pas le dit** (3.5.382) : `enregistrer` de `DetailReunion` (SuiviEquipe.jsx) affichait rien sur un
+refus ; l'heure est un champ texte (`heureNette`), le `type="time"` de Safari montrait l'heure courante en gris sans rien garder.
 
 **COMPARER L'HORAIRE D'EXAMENS EXCEL** (3.5.361, Charles : « envoyer ça dans Lucie afin de comparer ») : `lib/comparerExamens.js`
 (colonnes reconnues à l'intitulé ; sections par `ALIAS` ; COURS/FORMATION/RÉUNION écartés ; groupes d'un même atelier fusionnés ;

@@ -1,0 +1,133 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// LE CENTRE DE DOCUMENTS DE L'ÉTUDIANT (3.5.382, Charles, 12 novembre 2026 : « un centre de documents : une liste en fonction de la
+// situation de l'étudiant ; il clique sur ce dont il a besoin ; Lucie génère avec signature et QR » ; tranché : tout ce qu'un étudiant
+// peut obtenir seul — réussites, inscription, allocations, bulletin, parcours, CEP, SLE… ; deux demandes par pièce et par année ; une
+// ligne au registre, sans copie gardée).
+// Le portail note la demande ; Lucie la relève (boucle de 0,7 s, portailSync), JUGE (situation, limite), COMPOSE par ses propres routes
+// de pièces (appel interne, jeton de service), rend le PDF. Les décisions notifiées (motivations, notifications) n'y sont pas : elles
+// restent la copie envoyée, dans « Mes documents ».
+// ─────────────────────────────────────────────────────────────────────────────
+import db from '../db/index.js';
+import { rendrePdf } from '../services/pdf.js';
+import { optionsPdfPiece } from './document.js';
+import { PIECES as PIECES_CODEES } from './codesPieces.js';
+import { cepDe } from './cep.js';
+
+const MAX = 2;
+const essai = (f, d) => { try { return f(); } catch { return d; } };
+export function migrerCentre(dbx = db) {
+  dbx.exec(`CREATE TABLE IF NOT EXISTS centre_delivrance (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, code TEXT NOT NULL,
+    annee_scolaire TEXT NOT NULL, reference TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);
+  dbx.exec('CREATE INDEX IF NOT EXISTS idx_centre_delivrance ON centre_delivrance (etudiant_id, code, annee_scolaire)');
+}
+const anneeActive = () => essai(() => db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code, null)
+  || essai(() => db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get()?.code, '');
+const avant = a => { const [x] = String(a).split('-').map(Number); return `${x - 1}-${x}`; };
+
+/** Ce que l'étudiant peut composer, selon sa situation : [{ code, cle, nom, usage, chemin, methode, corps, orientation }]. */
+function catalogue(id, annee) {
+  const e = db.prepare('SELECT id, sejour_limite_etudes FROM etudiant WHERE id = ?').get(id);
+  if (!e) return [];
+  const a = encodeURIComponent(annee);
+  const inscrit = an => !!essai(() => db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? LIMIT 1').get(id, an), null);
+  const reussites = essai(() => db.prepare("SELECT COUNT(*) n FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").get(id).n, 0);
+  const parcours = !!essai(() => db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? LIMIT 1').get(id), null);
+  const cep = essai(() => cepDe(id, annee), null);
+  const l = [];
+  if (reussites) l.push({ cle: 'attestation_reussite', chemin: `/api/attestations/etudiant/${id}/document?annee=toutes`, nom: 'Attestations de réussite — toutes mes années' });
+  if (inscrit(annee)) {
+    l.push({ cle: 'attestation_inscription', chemin: `/api/etudiants/${id}/attestation-inscription?annee=${a}` });
+    l.push({ cle: 'attestation_allocations', chemin: `/api/etudiants/${id}/attestation-inscription?annee=${a}&variante=allocations` });
+    l.push({ cle: 'fiche_inscription', chemin: `/api/etudiants/${id}/fiche-inscription?annee=${a}` });
+    l.push({ cle: 'frais_scolarite', chemin: `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` });
+  }
+  if (parcours) {
+    l.push({ cle: 'bulletin', chemin: `/api/etudiants/${id}/bulletin/document?annee=${a}` });
+    l.push({ cle: 'parcours', chemin: `/api/etudiants/${id}/fiche-parcours/document?annee=${a}`, orientation: 'paysage' });
+  }
+  if (cep && cep.region !== 'flandre' && inscrit(annee)) {
+    l.push({ cle: 'cep_inscription', chemin: `/api/cep/etudiant/${id}/piece/inscription?annee=${a}` });
+    l.push({ cle: 'cep_assiduite', chemin: `/api/cep/etudiant/${id}/piece/assiduite?annee=${a}` });
+    l.push({ cle: 'cep_seconde_session', chemin: `/api/cep/etudiant/${id}/piece/seconde_session?annee=${a}` });
+  }
+  if (Number(e.sejour_limite_etudes)) {
+    if (inscrit(annee)) l.push({ cle: 'annexe1', methode: 'POST', chemin: '/api/annexe1/document', corps: { etudiant_id: id, annee } });
+    const prec = inscrit(avant(annee)) ? avant(annee) : annee;
+    l.push({ cle: 'annexe2', methode: 'POST', chemin: '/api/annexe2/document', corps: { etudiant_id: id, annee: prec }, annee_piece: prec });
+  }
+  return l.map(x => { const p = PIECES_CODEES.find(y => y.cle === x.cle) || {}; return { ...x, code: p.code, nom: x.nom || p.nom, usage: p.usage || '' }; })
+    .filter(x => x.code);
+}
+
+const delivrees = (id, code, annee) => essai(() => db.prepare('SELECT COUNT(*) n FROM centre_delivrance WHERE etudiant_id = ? AND code = ? AND annee_scolaire = ?').get(id, code, annee).n, 0);
+
+/** La liste montrée à l'étudiant. */
+export function offreCentre(id) {
+  migrerCentre();
+  const annee = anneeActive();
+  return { annee, max: MAX, pieces: catalogue(id, annee).map(x => ({ code: x.code, nom: x.nom, usage: x.usage, restant: Math.max(0, MAX - delivrees(id, x.code, annee)) })) };
+}
+
+/** Compose une pièce. Rend { pdf, nom } ou { statut, erreur }. `apercu` : la direction regarde, rien ne compte ni ne s'inscrit. */
+export async function composerCentre(id, code, { apercu = false } = {}) {
+  migrerCentre();
+  const annee = anneeActive();
+  const x = catalogue(id, annee).find(p => p.code === code);
+  if (!x) return { statut: 404, erreur: 'Cette pièce n’est pas disponible pour votre situation.' };
+  if (!apercu && delivrees(id, code, annee) >= MAX) {
+    return { statut: 429, erreur: `Vous avez déjà obtenu cette pièce ${MAX} fois cette année. Pour un nouvel exemplaire, adressez-vous au secrétariat.` };
+  }
+  const { signServiceToken } = await import('../middleware/auth.js');
+  const port = process.env.PORT || 3001;
+  const h = { Authorization: `Bearer ${signServiceToken()}` };
+  if (x.methode === 'POST') h['Content-Type'] = 'application/json';
+  const rep = await fetch(`http://127.0.0.1:${port}${x.chemin}`, { method: x.methode || 'GET', headers: h,
+    body: x.methode === 'POST' ? JSON.stringify(x.corps) : undefined, signal: AbortSignal.timeout(40000) });
+  const type = rep.headers.get('content-type') || '';
+  let html = '';
+  if (type.includes('json')) {
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok || !j.html) return { statut: rep.ok ? 409 : rep.status, erreur: j.error || j.erreur || 'La pièce n’a pas pu être composée. Adressez-vous au secrétariat.' };
+    html = j.html;
+  } else {
+    html = await rep.text();
+    if (!rep.ok) return { statut: rep.status, erreur: 'La pièce n’a pas pu être composée. Adressez-vous au secrétariat.' };
+  }
+  const pdf = await rendrePdf(html, optionsPdfPiece(html, x.orientation ? { orientation: x.orientation } : {}));
+  const reference = (/réf\.\s*<b>([^<]+)<\/b>/.exec(html) || /(IIP-[A-Z0-9]{4}-[A-Z0-9]{4})/.exec(html) || [])[1] || null;
+  const nom = `${code}_${x.nom}`.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').slice(0, 90) + '.pdf';
+  if (!apercu) {
+    db.prepare('INSERT INTO centre_delivrance (etudiant_id, code, annee_scolaire, reference) VALUES (?,?,?,?)').run(id, code, annee, reference);
+    // UNE LIGNE AU REGISTRE DES ENVOIS, SANS COPIE (tranché par Charles) : qui, quoi, quand, la référence du QR.
+    essai(() => {
+      const e = db.prepare('SELECT nom, prenom, email_ecole FROM etudiant WHERE id = ?').get(id) || {};
+      const qui = `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
+      db.prepare(`INSERT INTO envoi_mail (lot, type_doc, destinataire_type, destinataire_id, destinataire_nom, email, sujet, nom_fichier, taille,
+        statut, envoye_par, envoye_le, reference, contenu, mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),?,?,?)`)
+        .run(`centre-${Date.now().toString(36)}`, x.cle, 'etudiant', id, qui, e.email_ecole || null, `${code} — ${x.nom}`, nom, pdf.length,
+          'delivre', `${qui} (étudiant, centre de documents)`, reference, `Composée à la demande de l’étudiant dans son espace (${code})`, 'centre');
+    }, null);
+  }
+  return { pdf, nom };
+}
+
+/** La boucle : les demandes du portail (liste ou pièce), jugées et rendues. */
+export async function relayerCentre(appel) {
+  const r = await appel('GET', '/interne/centre/requetes');
+  const l = r?.requetes || [];
+  if (!l.length) return 0;
+  const json = (id, statut, corps) => ({ id, statut, type: 'application/json; charset=utf-8', corps: Buffer.from(JSON.stringify(corps)).toString('base64') });
+  const reponses = [];
+  for (const q of l) {
+    try {
+      if (q.action === 'liste') reponses.push(json(q.id, 200, offreCentre(Number(q.etudiant_id))));
+      else {
+        const c = await composerCentre(Number(q.etudiant_id), String(q.code || ''), { apercu: !!q.apercu });
+        reponses.push(c.pdf ? { id: q.id, statut: 200, type: 'application/pdf', nom: c.nom, corps: Buffer.from(c.pdf).toString('base64') }
+          : json(q.id, c.statut || 409, { error: c.erreur }));
+      }
+    } catch (e) { reponses.push(json(q.id, 502, { error: 'Lucie n’a pas pu composer la pièce : ' + e.message })); }
+  }
+  await appel('POST', '/interne/centre/reponses', { reponses });
+  return reponses.length;
+}

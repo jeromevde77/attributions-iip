@@ -14,7 +14,7 @@ import {
   // Les trois icônes de calendrier ont disparu avec les trois entrées de
   // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake, IconSpeakerphone,
-  IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck, IconWriting } from '@tabler/icons-react';
+  IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck, IconWriting, IconSignature } from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre, EnteteCarte, Encadre, PastilleEtat, ListeEtats, LigneEtat,
   Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
@@ -368,6 +368,36 @@ function MesTaches({ signal = 0 }) {
  * file de travail se présente là où l'on arrive, et seulement à qui tranche.
  */
 const Demandes = lazy(() => import('./Demandes.jsx'));
+/* À VALIDER PAR LA DIRECTION (3.5.383, Charles, 12 novembre 2026 : « je ne vois pas les demandes de VA ou d'AR que je devrais signer
+   comme directeur »). Les VA décidées qui attendent la validation, par année, et les AR dont le rapport est validé et qui attendent
+   la décision. Chaque ligne ouvre l'écran où le geste se pose. */
+function ASignerDirection() {
+  const [d, setD] = useState(null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    fetch('/api/a-signer', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setD).catch(() => {});
+  }, []);
+  if (!d?.direction || (!d.va.length && !d.ar)) return null;
+  return (
+    <section className="carte overflow-hidden mb-5">
+      <EnteteCarte titre="À valider par la direction" sous="valorisations décidées et aménagements raisonnables à décider" />
+      <ListeEtats className="!border-0 !rounded-none !py-0">
+        {d.va.map(v => (
+          <LigneEtat key={v.annee} etat="surveiller" icone={IconSignature}
+            titre={`${v.n} valorisation${v.n > 1 ? 's' : ''} décidée${v.n > 1 ? 's' : ''} à valider — ${v.annee}`}
+            sous="Instruire en série → validation : les dossiers décidés sont déjà filtrés"
+            onClick={() => navigate(`/etudiants?onglet=valorisation&va=valider&annee=${encodeURIComponent(v.annee)}`)}
+            droite={<span className="text-second text-iip-blue font-semibold">Ouvrir</span>} />))}
+        {d.ar > 0 && (
+          <LigneEtat etat="surveiller" icone={IconSignature}
+            titre={`${d.ar} aménagement${d.ar > 1 ? 's' : ''} raisonnable${d.ar > 1 ? 's' : ''} à décider`}
+            sous="le rapport (volet B) est validé : la décision du Conseil est attendue"
+            onClick={() => navigate('/etudiants?onglet=amenagements')}
+            droite={<span className="text-second text-iip-blue font-semibold">Ouvrir</span>} />)}
+      </ListeEtats>
+    </section>);
+}
+
 function DemandesAValider() {
   const [n, setN] = useState(0);
   const [ouvert, setOuvert] = useState(false);
@@ -635,6 +665,7 @@ export default function Accueil({ apresEntete = null }) {
         <BlocsPage page="accueil" blocs={[
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
           { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
+          { cle: 'a-signer', titre: 'À valider par la direction', rendu: <ASignerDirection /> },
           { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },
           { cle: 'propositions', titre: 'Mes propositions', rendu: <MesPropositions /> },
           { cle: 'taches', titre: 'Mes tâches', rendu: <MesTaches signal={rafraichirTaches} /> },

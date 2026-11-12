@@ -9,7 +9,7 @@ import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
 import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
+import { IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -45,6 +45,48 @@ async function appel(methode, chemin, corps, brut = false) {
 
 // Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
 const COURT = { aujourdhui: 'Aujourd’hui', messages: 'Messages', parcours: 'Parcours', documents: 'Documents', demarches: 'Démarches', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
+
+/**
+ * LE CENTRE DE DOCUMENTS (3.5.382, Charles, 12 novembre 2026 : « une liste de documents en fonction de la situation de l'étudiant ;
+ * il clique sur ce dont il a besoin ; Lucie génère avec signature et QR » ; deux demandes par pièce et par année). La liste vient de
+ * Lucie (derrière le mur) ; une pièce se compose à la demande — l'icône qui tourne dit que Lucie travaille.
+ */
+function CentreDocuments({ onErreur }) {
+  const [c, setC] = useState(null);
+  const [enCours, setEnCours] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const charger = useCallback(() => appel('GET', '/centre').then(setC).catch(e => { setC({ pieces: [], erreur: e.message }); }), []);
+  useEffect(() => { charger(); }, [charger]);
+  const obtenir = async p => {
+    setMsg(null); setEnCours(p.code);
+    const w = window.open('', '_blank');
+    try {
+      const r = await appel('GET', `/centre/piece/${encodeURIComponent(p.code)}`, null, true);
+      const url = URL.createObjectURL(await r.blob());
+      if (w) w.location = url; else window.location.href = url;
+      charger();
+    } catch (e) { if (w) w.close(); if (e.session) onErreur(e); else setMsg(e.message); }
+    finally { setEnCours(null); }
+  };
+  return (
+    <section className="space-y-2">
+      <h2 className="intertitre">Obtenir un document</h2>
+      <p className="text-second text-slate-500 m-0">Lucie compose la pièce au moment où vous la demandez : signée, avec son code QR d’authenticité.
+        {c?.max ? ` Chaque pièce peut être obtenue ${c.max} fois par année ; au-delà, adressez-vous au secrétariat.` : ''}</p>
+      {!c && <p className="text-sm text-slate-500 flex items-center gap-2"><IconLoader2 size={16} className="animate-spin text-slate-400" aria-hidden="true" /> Lucie prépare la liste…</p>}
+      {c?.erreur && <p className="text-sm text-slate-500">{c.erreur}</p>}
+      {msg && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{msg}</p>}
+      {c && !c.erreur && (c.pieces?.length ? (
+        <ListeEtats>
+          {c.pieces.map(p => (
+            <LigneEtat key={p.code} etat={p.restant > 0 ? 'disponible' : 'indisponible'} icone={IconFileText} titre={`${p.code} · ${p.nom}`}
+              sous={`${p.usage}${p.usage ? ' · ' : ''}${p.restant > 0 ? `encore ${p.restant} fois cette année` : 'déjà obtenue deux fois cette année'}`}
+              droite={enCours === p.code
+                ? <span className="text-second text-slate-500 flex items-center gap-1.5 flex-none"><IconLoader2 size={16} className="animate-spin" aria-hidden="true" /> Lucie compose…</span>
+                : <button type="button" className="bouton flex-none" disabled={p.restant <= 0 || !!enCours} onClick={() => obtenir(p)}>Obtenir</button>} />))}
+        </ListeEtats>) : <p className="text-sm text-slate-500">Aucune pièce à composer pour votre situation cette année.</p>)}
+    </section>);
+}
 
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
 function Accuse({ type, id, presente, signe, onFait, onErreur }) {
@@ -1554,7 +1596,11 @@ function Espace() {
                     : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}>
                   <Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} />
                 </LigneEtat>))}
-            </ListeEtats>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.<br />Le chargement des documents peut prendre plusieurs minutes, selon la durée de votre parcours : revenez plus tard si vous attendez une attestation.</p>)}
+            </ListeEtats>) : <p className="text-sm text-slate-500 flex items-start gap-2">
+              {/* UNE PETITE ICÔNE QUI TOURNE (3.5.380, Charles) : l'école peut déposer à tout moment ; la phrase ne promet rien de plus. */}
+              <IconLoader2 size={16} className="animate-spin flex-none mt-0.5 text-slate-400" aria-hidden="true" />
+              <span>Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération ; l’école les y dépose au fil de l’eau.</span></p>)}
+          {a_('documents') && <CentreDocuments onErreur={echec} />}
           {d.reglements.length > 0 && (<>
             <h2 className="intertitre pt-2">Les règlements</h2>
             <ListeEtats>
