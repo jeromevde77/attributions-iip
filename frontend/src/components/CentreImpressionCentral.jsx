@@ -739,7 +739,7 @@ const FAMILLES_RAPPORTS = {
     ['Les lieux', ['organisation-locaux']],
   ],
   gestion: [
-    ['La charge et la dotation', ['dotation-felsi', 'etp']],
+    ['La charge et la dotation', ['dotation-felsi', 'etp', 'iip-helb-annees']],
     ['Les chiffres', ['chiffres-cles', 'cout-formations']],
   ],
 };
@@ -802,6 +802,8 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = 
      de toute l'application, faire la pièce, puis penser à la remettre. */
   const [annee, setAnnee] = useState(getAnnee());
   const [annees, setAnnees] = useState([]);
+  // PLUSIEURS ANNÉES (3.5.428) : pour un rapport qui compare ; par défaut l'année et les trois qui la précèdent.
+  const [anneesSel, setAnneesSel] = useState(null);
   const [catalogue, setCatalogue] = useState(null);
   const [choisi, setChoisi] = useState(null);
   const [session, setSession] = useState(1);
@@ -998,6 +1000,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = 
       ? { portee: { ...portee, section: section || null } } : {}),
     ...(r.params.includes('etudiants') && etudiants ? { etudiants: Number(etudiants) } : {}),
     ...(r.params.includes('periode') ? { du: du || null, au: au || null } : {}),
+    ...(r.params.includes('annees') ? { annees: anneesSel || [...annees].sort().filter(a => a <= annee).slice(-4) } : {}),
   });
 
   /*
@@ -1109,12 +1112,22 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = 
         <div className={zones ? 'rounded-carte p-3 space-y-2' : 'px-3 py-2 border-b border-slate-200'} style={zones ? ZONE : undefined}>
         {zones && <Etape n={zones.debut + 1} titre="Pour quoi ?" fait={!!apercu} attend={!choisi} />}
         <div className="flex flex-wrap items-center gap-2">
+          {choisi?.params?.includes('annees') ? (() => {
+            const sel = anneesSel || [...annees].sort().filter(a => a <= annee).slice(-4);
+            return (
+              <div className="segments" role="group" aria-label="Années comparées">
+                {[...annees].sort().map(a => (
+                  <button key={a} type="button" aria-pressed={sel.includes(a)}
+                    onClick={() => { setAnneesSel(sel.includes(a) ? sel.filter(x => x !== a) : [...sel, a]); setApercu(null); }}
+                    className={sel.includes(a) ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{a.slice(2, 4)}-{a.slice(7, 9)}</button>))}
+              </div>);
+          })() : (
           <select value={annee} onChange={e => setAnnee(e.target.value)}
             className="px-2 py-1 text-second border border-slate-300 rounded"
             title="Année sur laquelle porte la pièce">
             {(annees.length ? annees : [annee]).map(a =>
               <option key={a} value={a}>{a}</option>)}
-          </select>
+          </select>)}
 
           {choisi?.portees?.length > 1 && (
             <>
