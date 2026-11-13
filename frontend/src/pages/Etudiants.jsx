@@ -4159,7 +4159,7 @@ export default function Etudiants() {
                   {/* DÉSINSCRIRE, À CÔTÉ DU TRAIN D'UE (3.5.395, Charles : « geste simple ») — secrétariat et direction. */}
                   <td className="px-1 py-1 w-8">
                     {peutDesinscrire && <button type="button" aria-label={`Désinscrire ${e.nom} ${e.prenom || ''}`} title="Désinscrire (RDE art. 19)"
-                      className="p-1 rounded text-slate-300 hover:text-[color:var(--c-refuse)]"
+                      className="p-1 rounded text-slate-500 hover:text-[color:var(--c-refuse)]"
                       onClick={ev => { ev.stopPropagation(); setDesinscrire(e); }}><IconUserMinus size={16} /></button>}
                   </td>
                   <td className="px-2 py-1 text-slate-300"><IconChevronRight size={16} /></td>

@@ -4,6 +4,7 @@ import { EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { saisir, informer } from '../lib/dialogue.jsx';
+import { FenetreDesinscrire } from './Desinscription.jsx';
 
 /**
  * Frais de scolarité — RDE, titre V, art. 16 à 20.
@@ -26,6 +27,7 @@ export default function FraisScolarite({ etudId, annee }) {
   const [detailOuvert, setDetailOuvert] = useState(false);
 
   const [recharge, setRecharge] = useState(0);
+  const [desinscrire, setDesinscrire] = useState(false);
   const [qrPaiement, setQrPaiement] = useState(null);
   // LES REMBOURSEMENTS À FAIRE (3.5.029) : unités retirées après un refus en seconde session ; la ligne s'efface quand le
   // remboursement est encodé (un versement négatif, nature « remboursement »).
@@ -98,8 +100,13 @@ export default function FraisScolarite({ etudId, annee }) {
   const soldeRegle = f.verse >= f.total;
 
   return (<>
+    {desinscrire && <FenetreDesinscrire etudId={etudId} annee={annee} onFermer={() => setDesinscrire(false)} onFait={() => { setDesinscrire(false); setRecharge(x => x + 1); }} />}
     <section className="carte overflow-hidden">
-      <EnteteCarte titre="Calcul des frais" sous={`RDE art. 16 à 20 · ${annee}${b.defaut ? ' · barème par défaut' : ''}`} />
+      <EnteteCarte titre="Calcul des frais" sous={`RDE art. 16 à 20 · ${annee}${b.defaut ? ' · barème par défaut' : ''}`}>
+        {/* DÉSINSCRIRE AUSSI D'ICI (3.5.419, Charles : « je ne trouve pas l'outil pour désinscrire et calculer la somme à
+            rendre ») : la même fenêtre que l'icône de la liste — aperçu du remboursement (RDE art. 19), puis confirmation. */}
+        {peutEncaisser && <button type="button" className="bouton" onClick={() => setDesinscrire(true)}>Désinscrire et calculer le remboursement</button>}
+      </EnteteCarte>
 
       <div className="p-4 space-y-3">
         {/* La formule est écrite en toutes lettres : c'est elle qu'on vient
