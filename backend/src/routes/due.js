@@ -648,7 +648,7 @@ r.post('/:ueNum/croisement/proposer', authRequired, async (req, res) => {
   const ueNum = Number(req.params.ueNum);
   if (!droitsSurLUE(req.user, ueNum, annee).ecrire) return res.status(403).json({ error: 'Réservé à ceux qui rédigent l’unité.' });
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'L’aide de l’IA n’est pas configurée sur ce serveur (clé manquante) : demandez-la à Jérôme.' });
+  if (!apiKey) return res.status(503).json({ error: 'L’aide de l’IA n’est pas configurée sur ce serveur (clé manquante) : contactez la direction.' });
   const acquis = (Array.isArray(req.body?.acquis) ? req.body.acquis : []).slice(0, 40)
     .map(a => ({ code: String(a.code || '').slice(0, 20), texte: String(a.texte || '').slice(0, 600) })).filter(a => a.code && a.texte);
   const cours = (Array.isArray(req.body?.cours) ? req.body.cours : []).slice(0, 20)
