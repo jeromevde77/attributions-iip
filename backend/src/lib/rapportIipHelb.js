@@ -11,6 +11,7 @@
  */
 import db from '../db/index.js';
 import { donneesCout, tarifs, niveauDeSection } from './coutFormation.js';
+import { getParamNum } from '../routes/parametres.js';
 
 const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -252,6 +253,40 @@ export function documentIipHelb(p) {
       comme le rapport « Coûts des formations ». Coordinations : chaque fonction de coordination de la section compte, part IIP et part HELB,
       en ETP × 800 × la période CT du niveau — sauf si elle figure déjà dans les attributions de la personne. Cadre administratif (direction,
       secrétariat) : emplois de l'établissement, partagés entre les sections au prorata de leurs inscrits ; il est porté par l'IIP.</p>
+
+    ${(() => {
+      /* LE COÛT D'UN ÉTUDIANT, DEUX MÉTHODES (3.5.430, Charles : « un coût étudiant sur base des données financières — comparaison HE et
+         IIP » ; tranché : les deux méthodes côte à côte, dans ce rapport). Coût convention : le barème de la circulaire des conventions
+         (CT, PP, cours spéciaux, par niveau), celui de tout le rapport. Coût moyen brut : la lecture de la Haute École — chaque période
+         (cours, et coordinations à 800 périodes par ETP) au même montant (Configuration → Coût des périodes). Le cadre administratif,
+         qui n'est pas fait de périodes, s'ajoute à part, au coût convention. */
+      const niv = niveauDeSection(section);
+      const taux = getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0);
+      const parEt = (v, y) => (y.inscrits ? eur(v / y.inscrits) : '—');
+      const L = Y.map(y => {
+        const cmbI = taux ? (y.per_iip + y.cetp_iip * 800) * taux : null, cmbH = taux ? (y.per_helb + y.cetp_helb * 800) * taux : null;
+        return { y, convI: y.cout_iip + y.coord_iip, convH: y.cout_helb + y.coord_helb, cmbI, cmbH, admin: y.admin.part };
+      });
+      const graphe = colonnesEmpilees(L.filter(l => l.y.inscrits).map(l => ({ annee: l.y.annee,
+        et_iip: (l.convI + l.admin) / l.y.inscrits, et_helb: l.convH / l.y.inscrits })), 'et', v => `${n0(v)} €`,
+        'Le coût d’un étudiant, au coût convention (cadre administratif compris)');
+      return `<h2 class="saut">Le coût d’un étudiant — l’IIP et la HELB, deux méthodes</h2>
+      ${graphe}
+      <table class="annees"><thead>
+        <tr><th rowspan="2">Année</th><th class="n" rowspan="2">Inscrits</th><th class="n" colspan="3">Coût convention, par étudiant</th>
+          <th class="n" colspan="3">Coût moyen brut${taux ? ` (${n2(taux)} € / période)` : ''}, par étudiant</th><th class="n" rowspan="2">Cadre admin. (IIP)</th></tr>
+        <tr><th class="n">IIP</th><th class="n">HELB</th><th class="n">Total</th><th class="n">IIP</th><th class="n">HELB</th><th class="n">Total</th></tr></thead>
+        <tbody>${L.map(l => `<tr><td>${esc(l.y.annee)}</td><td class="n">${n0(l.y.inscrits)}</td>
+          <td class="n">${parEt(l.convI, l.y)}</td><td class="n">${parEt(l.convH, l.y)}</td><td class="n g">${parEt(l.convI + l.convH, l.y)}</td>
+          <td class="n">${taux ? parEt(l.cmbI, l.y) : '—'}</td><td class="n">${taux ? parEt(l.cmbH, l.y) : '—'}</td><td class="n g">${taux ? parEt(l.cmbI + l.cmbH, l.y) : '—'}</td>
+          <td class="n">${l.admin ? parEt(l.admin, l.y) : '—'}</td></tr>`).join('')}</tbody></table>
+      <p class="fin">Par étudiant : le coût de l'enseignement et des coordinations de la section, divisé par ses inscrits de l'année.
+        <b>Coût convention</b> : le montant d'une période selon son type et son niveau (circulaire des conventions) — la méthode de tout ce rapport.
+        <b>Coût moyen brut</b> : la méthode de la Haute École, un montant unique par période du ${niv === 'SUP' ? 'supérieur' : niv}, appliqué aux
+        périodes de cours et aux coordinations (800 périodes par ETP)${taux ? '' : ' — montant non réglé : Configuration → Coût des périodes'}.
+        Le cadre administratif (direction, secrétariat), qui n'est pas payé en périodes, se lit dans la dernière colonne : à ajouter à la
+        part de l'IIP, quelle que soit la méthode.</p>`;
+    })()}
 
     <h2>Ce que la section rapporte, par étudiant</h2>
     <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Droits et frais (IIP)</th><th class="n">Par étudiant</th>
