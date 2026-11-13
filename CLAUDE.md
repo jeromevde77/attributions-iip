@@ -3492,7 +3492,11 @@ de documents (`desins_etat`, `desins_demande`).
 **3.5.408** — LA FAVEUR SUR UN COURS (Charles : « ne pas ajourner un cours ; une faveur juste sur un cours ») : `delibererUE`
 force au seuil un acquis dont toutes les évaluations en échec viennent de cours en faveur (`coursFaveur`) — avant, seule la note du
 cours montait et `incoherencesAjournement` bloquait la clôture. Bouton « faveur ? » sous chaque cours de la feuille ; une faveur
-remplace l'ajournement du cours (liste partielle remise à zéro). **3.5.413** : LA SÉANCE EN ÉTAPES (Charles : « repenser la structure, pas la feuille »). `FriseSeance` (Préparer = presences ·
+remplace l'ajournement du cours (liste partielle remise à zéro). **3.5.415** : L'AIDE DE L'IA AU CROISEMENT (Charles : « au niveau matière, nous ne savons pas quoi cocher »). `POST
+/api/due/:ue/croisement/proposer` (routes/due.js, `droitsSurLUE.ecrire`, `ANTHROPIC_API_KEY`, modèle claude-sonnet-5-5) : propositions
+{liens, manques}, jamais écrites ; l'écran (`CroisementUE.jsx`) les montre en pointillé, « Cocher toutes les propositions »,
+« Ajouter ce point ». Seuls les textes pédagogiques partent (aucune donnée personnelle).
+**3.5.413** : LA SÉANCE EN ÉTAPES (Charles : « repenser la structure, pas la feuille »). `FriseSeance` (Préparer = presences ·
 Délibérer = auto/mentions/fiche · Synthèse et clôture = cloture) et `SyntheseSeance` (tuiles, vérifications, listes, pièces) au-dessus
 de `Cloture`. **À faire** : déplacer les dates (visite, S2) de `Cloture` vers Préparer, comme tranché (« fondue dans les étapes »).
 **3.5.412** : décision en « petit train » de carrés (`Decision`, FeuilleDeliberation.jsx) ; prévisualisation : groupe « Faveurs »
