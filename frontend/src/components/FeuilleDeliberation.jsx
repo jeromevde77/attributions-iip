@@ -1,10 +1,11 @@
 import { choisir, demander, informer } from '../lib/dialogue.jsx';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ouvrirApercu } from '../lib/apercu.js';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconSearch, IconAlertTriangle, IconRotateClockwise, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
-  IconRotate, IconBan, IconTable, IconLock, IconEye,
+  IconRotate, IconBan, IconTable, IconLock, IconEye, IconPrinter, IconCircleCheck, IconCircleX, IconUserOff, IconRefresh,
 } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 
@@ -15,7 +16,7 @@ import { authHeaders, getUser } from '../lib/api.js';
    'editeur'), où le secrétariat passe aussi. Les autres LISENT la feuille. */
 const PEUT_DELIBERER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
 const lectureSeule = () => !PEUT_DELIBERER.includes(getUser()?.role);
-import { Fenetre, EnteteCarte, Encadre, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, OutilFenetre } from './ui.jsx';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
@@ -1172,12 +1173,25 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
  */
 function classerApercu(e) {
   const u = e.ue || {};
+  // LES FAVEURS (3.5.412, Charles : « une ligne pour les Faveurs ») : déjà accordées (unité, cours ou acquis), ou à la portée
+  // d'une faveur selon le barème de l'aide à la décision.
+  const accordee = !!(u.faveur || u.faveur_ue || (e.cours || []).some(c => c.faveur_directe) || (e.acquis || []).some(a => a.faveur_directe));
+  if (accordee) return 'faveur';
   if (u.de_plein_droit) return 'reussite';
   const echec = u.decision_proposee === 'ajourne' || u.decision_proposee === 'refuse';
   const mention = (u.mentions || []).length > 0;
   if (echec && (mention || (Number(u.faveur_cout) > 0 && !u.faveur_eligible))) return 'echec';
+  if (echec && !mention && Number(u.faveur_cout) > 0 && u.faveur_eligible) return 'faveur';
   return 'deliberer';
 }
+const faveurTexte = e => {
+  const u = e.ue || {};
+  const cours = (e.cours || []).filter(c => c.faveur_directe).map(c => c.cours_code);
+  if (u.faveur || u.faveur_ue) return 'accordée sur l’unité';
+  if (cours.length) return `accordée sur ${cours.join(', ')}`;
+  if ((e.acquis || []).some(a => a.faveur_directe)) return 'accordée sur des acquis';
+  return Number(u.faveur_cout) > 0 ? (u.faveur_eligible ? `possible · manque ${String(u.faveur_cout).replace('.', ',')} pt` : (u.faveur_motif || 'non')) : '—';
+};
 const parNote = (a, b) => {
   const na = a.ue?.note ?? -1, nb = b.ue?.note ?? -1;
   return nb - na || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
@@ -1185,7 +1199,7 @@ const parNote = (a, b) => {
 const virgule = v => String(v).replace('.', ',');
 
 function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onOuvrir }) {
-  const groupes = { reussite: [], echec: [], deliberer: [] };
+  const groupes = { reussite: [], faveur: [], echec: [], deliberer: [] };
   for (const e of etudiants) groupes[classerApercu(e)].push(e);
   for (const k of Object.keys(groupes)) groupes[k].sort(parNote);
   const echecMot = Number(session) >= 2 ? 'refus' : 'ajournement';
@@ -1224,14 +1238,7 @@ function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onO
                           {u.na ? 'NA' : u.note == null ? '—' : `${virgule(u.note)} / 20`}
                         </Td>
                         <Td className="text-second">{[...mentions, ...aa].join(' · ') || '—'}</Td>
-                        {avecFaveur && (
-                          <Td className="text-second whitespace-nowrap">
-                            {!(Number(u.faveur_cout) > 0) ? '—'
-                              : u.faveur_eligible
-                                ? <span>possible · manque {virgule(u.faveur_cout)} pt</span>
-                                : <span className="text-slate-500">non · {u.faveur_motif || `manque ${virgule(u.faveur_cout)} pt`}</span>}
-                          </Td>
-                        )}
+                        {avecFaveur && <Td className="text-second whitespace-nowrap">{faveurTexte(e)}</Td>}
                       </Tr>
                     );
                   })}
@@ -1243,9 +1250,36 @@ function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onO
     );
   };
 
+  const BLOCS = [
+    ['reussite', "Réussites d'office", "Tous les acquis et tous les cours au seuil : le Conseil n'a rien à apprécier.", 'reussi', false],
+    ['faveur', 'Faveurs', 'Faveur déjà accordée (unité, cours ou acquis), ou échec à la portée d’une faveur selon le barème.', 'faveur', true],
+    ['deliberer', 'À délibérer', "Note manquante, ou cas que Lucie ne tranche pas.", 'surveiller', true],
+    ['echec', "Échecs d'office proposés", `${echecMot[0].toUpperCase()}${echecMot.slice(1)} proposé que la faveur ne peut pas rattraper (au-delà de 2 points ou de 2 cours), ou épreuve non présentée (PP, NP, CM).`, 'corriger', false],
+  ];
+  /* LA SORTIR (3.5.412) : la même synthèse, dans l'enveloppe des pièces, par l'aperçu commun (imprimer, PDF, envoyer). */
+  const [sortie, setSortie] = useState(false);
+  const sortir = async () => {
+    setSortie(true);
+    try {
+      const r = await fetch('/api/impression/tableaux', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+        titre: `Prévisualisation de la délibération — UE ${data.ue_num}`, sous: data.ue_nom || '', ligne: `${portee} · ${etudiants.length} étudiant(s)`,
+        nom: `Previsualisation_UE${data.ue_num}_S${Number(session) >= 2 ? 2 : 1}`, paysage: true,
+        sections: BLOCS.map(([cle, titre, sous, , avecFav]) => ({ titre, sous,
+          colonnes: ['Étudiant', 'Matricule', "Note de l'unité", 'Acquis en échec', ...(avecFav ? ['Faveur'] : [])], droite: [2],
+          lignes: groupes[cle].map(e => { const u = e.ue || {};
+            return [nomPropre(e.nom, e.prenom), e.id_ecampus || '—', u.na ? 'NA' : u.note == null ? '—' : `${virgule(u.note)} / 20`,
+              [...(u.mentions || []).map(m => `${m.mention} (${m.cours_code})`), ...(u.acquis_en_defaut || [])].join(' · ') || '—',
+              ...(avecFav ? [faveurTexte(e)] : [])]; }) })),
+      }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'refusé');
+      ouvrirApercu({ html: j.html, titre: `Prévisualisation — UE ${data.ue_num}`, nomFichier: j.nom, envoiPossible: false });
+    } catch (x) { informer(`❌ ${x.message}`); } finally { setSortie(false); }
+  };
   return (
     <Fenetre titre={`Prévisualiser la délibération · UE ${data.ue_num}`}
       sous={`${data.ue_nom} · ${portee} · ${etudiants.length} étudiant(s)`}
+      outils={<OutilFenetre Icone={IconPrinter} titre={sortie ? 'Composition…' : 'Sortir la prévisualisation (imprimer, PDF)'} onClick={sortir} disabled={sortie} />}
       large="grande" onFermer={onFermer}
       pied={<button type="button" className="bouton" onClick={onFermer}>Fermer</button>}>
       <div className="space-y-4">
@@ -1253,12 +1287,7 @@ function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onO
           Ce que Lucie propose, avant la séance : rien n'est décidé ici. Chaque liste est rangée par note
           d'unité, de la plus haute à la plus basse ; un clic ouvre le tableau de bord de l'étudiant.
         </p>
-        {bloc('reussite', "Réussites d'office",
-          "Tous les acquis et tous les cours au seuil : le Conseil n'a rien à apprécier.", 'reussi', false)}
-        {bloc('echec', "Échecs d'office proposés",
-          `${echecMot[0].toUpperCase()}${echecMot.slice(1)} proposé que la faveur ne peut pas rattraper (au-delà de 2 points ou de 2 cours), ou épreuve non présentée (PP, NP, CM).`, 'corriger', false)}
-        {bloc('deliberer', 'À délibérer',
-          "Échec à la portée d'une faveur, note manquante, ou cas que Lucie ne tranche pas.", 'surveiller', true)}
+        {BLOCS.map(([cle, titre, sous, etat, avecFav]) => <Fragment key={cle}>{bloc(cle, titre, sous, etat, avecFav)}</Fragment>)}
       </div>
     </Fenetre>
   );
@@ -3484,70 +3513,45 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
 
       <div className={boutons && details ? 'p-3 space-y-2' : compact ? '' : 'space-y-1.5'}>
         {(boutons || statut) && (<>
-        {boutons && <div className={`flex items-center gap-2 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}>
-          {/* LA FAVEUR EST UNE DÉCISION DE L'UNITÉ, pas une retouche de note.
-              Le Conseil accorde l'unité malgré un acquis manquant : la cote
-              monte au seuil, jamais au-delà (RGE art. 77 §1 et 78 §2). Elle vit
-              donc avec les autres décisions, et non plus dans chaque case. */}
-          {onFaveurUE && (
-            <button disabled={enCours} onClick={onFaveurUE}
-              title={ue.faveur_ue
-                ? 'Retirer la faveur accordée à l’unité'
-                : 'Accorder l’unité en faveur — la cote monte au seuil, jamais au-delà'}
-              className="bouton inline-flex items-center"
-              style={ue.faveur_ue ? { background: 'var(--c-faveur)', borderColor: 'var(--c-faveur)', color: '#fff' }
-                : { borderColor: 'var(--c-faveur)' }}>
-              {/* UN CADEAU, NON UN PINCEAU — et violet, non orange. La faveur
-                  est un octroi : le Conseil donne l'unité. Le pinceau disait
-                  « repeindre », ce qui n'est ni le geste ni son sens. Et
-                  l'orange servait déjà aux cotes tout justes : deux choses
-                  différentes portaient la même couleur au même endroit. */}
-              <IconGift size={13} className="inline align-[-2px] mr-1" />
-              {ue.faveur_ue ? 'Faveur accordée' : 'Faveur'}
-            </button>
-          )}
-          {/* EN SECONDE SESSION, « AJOURNÉ » N'EXISTE PAS : il n'y a plus rien
-              à représenter, et « l'étudiant qui échoue en seconde session est
-              refusé » (RGE art. 69 §2). Le bouton disparaît plutôt que de rester
-              cliquable — une troisième session ne se propose pas. */}
-          {DECISIONS.filter(d => !(session >= 2 && d.cle === 'ajourne')).map(d => {
+        {boutons && (() => {
+          /* LE PETIT TRAIN (3.5.412, Charles : projet C « avec les couleurs ; les icônes proches collées en un petit train »).
+             Faveur · Réussi · Ajourné · Refusé · Absent en carrés accolés : l'icône porte la couleur de la décision, la décision
+             retenue est pleine, celle que propose le calcul est en pointillé. « Reprendre ce dossier » reste à part (il détruit).
+             Le nom se lit au survol et à l'appui long. Mêmes gestes qu'avant. */
+          const ICONE = { reussi: IconCircleCheck, ajourne: IconRotateClockwise, refuse: IconCircleX, absent: IconUserOff };
+          const carre = (cle, Icone, ton, actif, titre, onClick, propose_ = false, premier = false) => (
+            <button key={cle} type="button" disabled={enCours} onClick={onClick} title={titre} aria-label={titre} aria-pressed={actif}
+              className="w-9 h-9 inline-flex items-center justify-center"
+              style={{ marginLeft: premier ? 0 : -1, borderRadius: 0, position: 'relative', zIndex: actif || propose_ ? 1 : 0,
+                background: actif ? ton : '#fff', color: actif ? '#fff' : ton,
+                border: propose_ && !actif ? `1.5px dashed ${ton}` : `1px solid ${actif ? ton : 'rgb(var(--gris-300))'}` }}>
+              <Icone size={18} stroke={1.8} />
+            </button>);
+          const items = [];
+          if (onFaveurUE) items.push(carre('faveur', IconGift, 'var(--c-faveur)', !!ue.faveur_ue,
+            ue.faveur_ue ? 'Faveur accordée à l’unité — cliquer pour la retirer' : 'Faveur : accorder l’unité (la cote monte au seuil, jamais au-delà)',
+            onFaveurUE, false, true));
+          for (const d of DECISIONS.filter(x => !(session >= 2 && x.cle === 'ajourne'))) {
             const actif = decision === d.cle;
-            /* RÉUSSI SUR UNE UNITÉ NON ACQUISE, C'EST UNE FAVEUR (Charles, 30
-               septembre 2026) : le Conseil accorde l'unité malgré l'échec — Lucie
-               pose la faveur d'office, tracée comme toute faveur, et le bouton
-               passe au violet. */
             const nonAcquise = ue.na || (ue.note != null && ue.note < 10) || propose !== 'reussi';
             const enFaveur = d.cle === 'reussi' && actif && ue.faveur_ue;
-            return (
-              <button key={d.cle} disabled={enCours}
-                onClick={() => {
-                  if (d.cle === 'reussi' && nonAcquise && !ue.faveur_ue && onFaveurUE) onFaveurUE();
-                  onDecision(d.cle);
-                }}
-                title={d.cle === 'reussi' && nonAcquise && !ue.faveur_ue ? "L'unité n'est pas acquise : la réussir, c'est accorder une faveur — elle sera tracée" : undefined}
-                className="bouton inline-flex items-center"
-                style={enFaveur ? { background: 'var(--c-faveur)', borderColor: 'var(--c-faveur)', color: '#fff' }
-                  : actif ? { background: d.ton, borderColor: d.ton, color: '#fff' } : undefined}>
-                {enFaveur && <IconGift size={13} className="mr-1" />}
-                {d.libelle}
-                {d.cle === propose && (
-                  <span className={`ml-1.5 text-mention font-normal
-                    ${actif ? 'opacity-80' : 'text-slate-400'}`}>proposé</span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* Reprendre ce dossier à zéro : décision et ajustements effacés,
-              notes conservées. */}
-          {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
-            <button onClick={onAnnuler} disabled={enCours}
-              title="Effacer la décision et les ajustements de cet étudiant — ses notes sont conservées"
-              className={`${compact ? "" : "ml-auto "}bouton bouton-detruire flex items-center gap-1`}>
-              <IconRotate size={13} /> Reprendre ce dossier
-            </button>
-          )}
-        </div>}
+            items.push(carre(d.cle, enFaveur ? IconGift : ICONE[d.cle], enFaveur ? 'var(--c-faveur)' : d.ton, actif,
+              `${d.libelle}${d.cle === propose ? ' — proposé par le calcul' : ''}${d.cle === 'reussi' && nonAcquise && !ue.faveur_ue ? " · l'unité n'est pas acquise : la réussir, c'est accorder une faveur (tracée)" : ''}`,
+              () => { if (d.cle === 'reussi' && nonAcquise && !ue.faveur_ue && onFaveurUE) onFaveurUE(); onDecision(d.cle); },
+              d.cle === propose, !items.length));
+          }
+          return (
+            <div className={`flex items-center gap-2 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}>
+              <span className="inline-flex rounded-champ overflow-hidden" role="group" aria-label="Décision du Conseil">{items}</span>
+              {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
+                <button type="button" onClick={onAnnuler} disabled={enCours} aria-label="Reprendre ce dossier"
+                  title="Reprendre ce dossier : décision et ajustements effacés — ses notes sont conservées"
+                  className={`${compact ? '' : 'ml-auto '}w-9 h-9 inline-flex items-center justify-center rounded-champ`}
+                  style={{ background: '#fff', color: 'var(--c-refuse)', border: '1px solid var(--c-refuse)' }}>
+                  <IconRefresh size={18} stroke={1.8} />
+                </button>)}
+            </div>);
+        })()}
 
         {(statut || !compact) && <div className="flex items-center gap-2 flex-wrap text-second">
           <span className="text-slate-500">

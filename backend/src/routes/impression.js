@@ -233,6 +233,33 @@ r.get('/codes-pieces/document', authRequired, (req, res) => {
   res.json({ html: envelopperDocument({ html: corps, titre: 'Codes des pièces étudiantes' }), nom: 'Codes_des_pieces_etudiantes' });
 });
 
+/* DES TABLEAUX DANS L'ENVELOPPE COMMUNE (3.5.412, Charles : la prévisualisation de la délibération « que l'on puisse la sortir »).
+   L'écran envoie ce qu'il montre — sections, colonnes, lignes, en texte — ; le serveur l'habille comme toute pièce (logo, cadre de
+   titre, pied « produit par »). Rien n'est calculé ici : c'est une mise en page. */
+r.post('/tableaux', authRequired, express.json({ limit: '2mb' }), (req, res) => {
+  const b = req.body || {};
+  const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const sections = Array.isArray(b.sections) ? b.sections.slice(0, 20) : [];
+  if (!b.titre || !sections.length) return res.status(400).json({ error: 'Titre et sections requis.' });
+  const corps = sections.map(sx => {
+    const cols = Array.isArray(sx.colonnes) ? sx.colonnes : [];
+    const droite = new Set(Array.isArray(sx.droite) ? sx.droite.map(Number) : []);
+    const lignes = Array.isArray(sx.lignes) ? sx.lignes.slice(0, 2000) : [];
+    return `<h2>${esc(sx.titre)}${lignes.length ? ` <span class="cpt">${lignes.length}</span>` : ''}</h2>
+${sx.sous ? `<p class="sous">${esc(sx.sous)}</p>` : ''}
+${lignes.length ? `<table><thead><tr><th class="n">#</th>${cols.map((c, i) => `<th${droite.has(i) ? ' class="d"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
+<tbody>${lignes.map((l, k) => `<tr><td class="n">${k + 1}</td>${(Array.isArray(l) ? l : []).map((v, i) => `<td${droite.has(i) ? ' class="d"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+  : '<p class="vide">Personne.</p>'}`;
+  }).join('');
+  const html = envelopperDocument({ html: corps, titre: String(b.titre), orientation: b.paysage ? 'paysage' : 'portrait',
+    entete: { titre: String(b.titre), sous: b.sous ? String(b.sous) : null, ligne: b.ligne ? String(b.ligne) : null },
+    styles: `h2{font-size:11pt;margin:12px 0 3px}h2 .cpt{font-size:8pt;background:#16406A;color:#fff;border-radius:2mm;padding:.2mm 1.6mm;margin-left:1.5mm}
+.sous{font-size:8.5pt;color:#64748b;margin:0 0 4px}table{width:100%;border-collapse:collapse;font-size:8.5pt;page-break-inside:auto}
+th{background:#EEF2F7;text-align:left;font-size:7.5pt;text-transform:uppercase;letter-spacing:.3px;padding:3px 6px}td{padding:3px 6px;border-bottom:1px solid #E2E8F0}
+tr{page-break-inside:avoid}.d{text-align:right;white-space:nowrap}.n{width:6mm;color:#94a3b8;text-align:right}.vide{font-size:8.5pt;color:#94a3b8;font-style:italic}` });
+  res.json({ html, nom: String(b.nom || b.titre).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').slice(0, 80) });
+});
+
 r.post('/pdf', authRequired, async (req, res) => {
   const cap = await capacitePdf();
   if (!cap.disponible) {
