@@ -1,5 +1,5 @@
 import ChoixRecherche from '../components/ChoixRecherche.jsx';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { IconPlus, IconTrash, IconUpload, IconCopy, IconAlertTriangle, IconCash, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th, Fenetre } from '../components/ui.jsx';
@@ -62,7 +62,9 @@ export default function Budget() {
     }
     if (!section) return;
     setData(null);
-    const rep = await fetch(`/api/budget?annee=${annee}&section=${encodeURIComponent(section)}`,
+    // TOUTES LES LIGNES (3.5.422, Charles : « une version où on voit toutes les lignes des finances ») : sans section, le serveur
+    // rend toutes celles du périmètre.
+    const rep = await fetch(`/api/budget?annee=${annee}${section === TOUTES ? '' : `&section=${encodeURIComponent(section)}`}`,
       { headers: authHeaders() });
     setData(rep.ok ? await rep.json() : { lignes: [], totaux: {} });
   }
@@ -70,7 +72,8 @@ export default function Budget() {
 
   async function enregistrerLigne() {
     // La section de la FICHE : on peut corriger celle d'une ligne mal rangée (3.1.274).
-    const corps = { ...form, annee_civile: annee, section: form.section || section };
+    const corps = { ...form, annee_civile: annee, section: form.section || (section === TOUTES ? '' : section) };
+    if (!corps.section) { setMessage({ type: 'err', texte: 'Choisissez la section de la prévision.' }); return; }
     const url = form.id ? `/api/budget/ligne/${form.id}` : '/api/budget/ligne';
     const rep = await fetch(url, {
       method: form.id ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify(corps),
@@ -264,12 +267,13 @@ export default function Budget() {
           <>
             <select value={section} onChange={e => setSection(e.target.value)}
               className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+              <option value={TOUTES}>Toutes les sections</option>
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <button onClick={reprendre}
+            {section !== TOUTES && <button onClick={reprendre}
               className="bouton flex items-center gap-1.5">
               <IconCopy size={14} /> Reprendre {annee - 1}
-            </button>
+            </button>}
           </>
         )}
       </div>
@@ -311,14 +315,14 @@ export default function Budget() {
           )}
 
           {form && (
-            <LigneForm form={form} setForm={setForm} comptes={comptes} sections={sections} sectionCourante={section}
+            <LigneForm form={form} setForm={setForm} comptes={comptes} sections={sections} sectionCourante={section === TOUTES ? '' : section}
               categories={categories} seuil={data.seuil ?? 500}
               onEnregistrer={enregistrerLigne} onAnnuler={() => setForm(null)} />
           )}
 
           {!data.lignes.length ? (
             <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
-              Aucune prévision pour {section} en {annee}.
+              Aucune prévision pour {section === TOUTES ? 'aucune section' : section} en {annee}.
             </div>
           ) : (
             <Tableau>
@@ -334,13 +338,25 @@ export default function Budget() {
                   <Th largeur="w-20" />
                 </TableauEntete>
                 <tbody>
-                  {data.lignes.map(l => (
-                    <LigneBudget key={l.id} l={l} depenses={data.depenses.filter(d => d.ligne_id === l.id)}
-                      peutEcrire={data.peut_ecrire}
-                      onEditer={() => setForm({ ...l })}
-                      onSupprimer={() => supprimerLigne(l.id)}
-                      onDepense={() => setDepenseFor(l)}
-                      onSupprimerDepense={supprimerDepense} />
+                  {(section === TOUTES ? parSection(data.lignes) : [[null, data.lignes]]).map(([sec, ls]) => (
+                    <Fragment key={sec || '-'}>
+                      {sec && (
+                        <tr className="tab-repere">
+                          <td colSpan={5} className="px-3 py-1.5 text-sm font-semibold text-iip-blue">{sec} <span className="font-normal text-slate-500">· {ls.length} ligne{ls.length > 1 ? 's' : ''}</span></td>
+                          <td className="px-2 py-1.5 text-right text-sm font-semibold text-iip-blue">{eur(ls.reduce((t, l) => t + (l.total_htva || 0), 0))}</td>
+                          <td className="px-2 py-1.5 text-right text-second">{eur(ls.reduce((t, l) => t + (l.engage || 0), 0))}</td>
+                          <td className="px-2 py-1.5 text-right text-sm font-semibold">{eur(ls.reduce((t, l) => t + (l.solde || 0), 0))}</td>
+                          <td />
+                        </tr>)}
+                      {ls.map(l => (
+                        <LigneBudget key={l.id} l={l} depenses={data.depenses.filter(d => d.ligne_id === l.id)}
+                          peutEcrire={data.peut_ecrire}
+                          onEditer={() => setForm({ ...l })}
+                          onSupprimer={() => supprimerLigne(l.id)}
+                          onDepense={() => setDepenseFor(l)}
+                          onSupprimerDepense={supprimerDepense} />
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
             </Tableau>
@@ -374,6 +390,14 @@ export default function Budget() {
       )}
     </div>
   );
+}
+
+const TOUTES = '__toutes';
+/** Les lignes rangées par section, dans l'ordre alphabétique des sections. */
+function parSection(lignes) {
+  const m = new Map();
+  for (const l of lignes) { if (!m.has(l.section)) m.set(l.section, []); m.get(l.section).push(l); }
+  return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
 }
 
 // ── Une ligne de prévision, dépliable sur ses dépenses ─────────────────────
