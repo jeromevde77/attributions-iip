@@ -48,7 +48,7 @@ export function semerCoutsFonctions(dbx = db) {
 }
 
 /** Le niveau de tarif d'une section : SUP, DS ou DI, d'après son niveau déclaré. */
-function niveauDeSection(code) {
+export function niveauDeSection(code) {
   const n = String(db.prepare('SELECT niveau FROM section WHERE code = ?').get(code)?.niveau || '').toLowerCase();
   if (/secondaire inf|\bdi\b/.test(n)) return 'DI';
   if (/secondaire|\bds\b/.test(n)) return 'DS';
