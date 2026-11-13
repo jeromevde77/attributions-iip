@@ -8393,7 +8393,7 @@ r.post('/deliberation/documents-lot', authRequired, async (req, res) => {
         total: !!req.body?.total,
         date_document: req.body?.date_document || null,
       });
-    } catch (e) { manques.push(`UE ${ueNum} : ${e.message}`); continue; }
+    } catch (e) { console.error('[documents-lot]', ueNum, e); manques.push(`UE ${ueNum} : ${e.message}`); continue; }
 
     for (const m of a.manques) manques.push(`UE ${ueNum} — ${m}`);
     for (const st of a.styles) if (st && !styles.includes(st)) styles.push(st);
@@ -8409,8 +8409,9 @@ r.post('/deliberation/documents-lot', authRequired, async (req, res) => {
 
   if (!pages.length) {
     return res.status(400).json({
-      error: 'Aucune pièce à produire pour les unités choisies : les décisions ne '
-           + 'sont pas enregistrées, ou aucune ne correspond aux pièces demandées.',
+      // LA CAUSE SE DIT (3.5.409) : une erreur de composition restait dans `manques`, que l'écran n'affiche pas.
+      error: (manques.length ? `Aucune pièce produite — ${manques.slice(0, 3).join(' · ')}` : 'Aucune pièce à produire pour les unités choisies : les décisions ne '
+           + 'sont pas enregistrées, ou aucune ne correspond aux pièces demandées.'),
       manques,
     });
   }
