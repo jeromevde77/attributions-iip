@@ -221,6 +221,30 @@ r.get('/section-detail', authRequired, (req, res) => {
   `).all({ ...params, ...perim.params }));
 });
 
+/* L'ETP SUR PLUSIEURS ANNÉES (3.5.427, Charles, 13 novembre 2026 : « un bilan comparatif des ETP par section sur plusieurs années à
+   cocher — pour TIM, la répartition des charges sur les trois dernières années et celle-ci, avec la HELB »). Les attributions
+   regroupées par année, section, bloc, contrat (IIP / HELB), CT/PP, nature et professeur ; l'écran fait les sommes. Même barème que
+   le reste du Pilotage : CT/800 + PP/1000 (un type absent compte en CT). Périmètre de section posé. */
+r.get('/etp-annees', authRequired, (req, res) => {
+  const annees = String(req.query.annees || '').split(',').map(a => a.trim()).filter(a => /^\d{4}-\d{4}$/.test(a)).slice(0, 12);
+  if (!annees.length) return res.status(400).json({ error: 'annees requises (ex. 2025-2026,2026-2027)' });
+  const perim = perimetreSection(req);
+  const params = { ...perim.params };
+  annees.forEach((a, i) => { params['a' + i] = a; });
+  let filtreSection = '';
+  if (req.query.section) { filtreSection = ' AND section = @section'; params.section = String(req.query.section); }
+  const lignes = db.prepare(`
+    SELECT annee_scolaire AS annee, section, COALESCE(bloc, '—') AS bloc, COALESCE(contrat_mdp, 'IIP') AS contrat,
+      CASE WHEN UPPER(COALESCE(type_cours, 'CT')) = 'PP' THEN 'PP' ELSE 'CT' END AS type,
+      COALESCE(NULLIF(coordination_encadrement, ''), 'Cours') AS nature, professeur_id, professeur,
+      SUM(total_attribue_professeur) AS periodes, COUNT(*) AS n
+    FROM v_attribution_complete
+    WHERE annee_scolaire IN (${annees.map((_, i) => '@a' + i).join(',')})${filtreSection}${perim.clause}
+    GROUP BY 1,2,3,4,5,6,7,8
+  `).all(params);
+  res.json({ annees, lignes: lignes.map(l => ({ ...l, etp: (l.periodes || 0) / (l.type === 'PP' ? 1000 : 800) })) });
+});
+
 r.get('/totaux', authRequired, (req, res) => {
   const { where, params } = anneeFilter(req);
   const k = db.prepare(`

@@ -12,6 +12,7 @@ import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import PilotagePresences from '../components/PilotagePresences.jsx';
 import QuiFaitQuoi from '../components/QuiFaitQuoi.jsx';
+import EtpPlusieursAnnees from '../components/EtpPlusieursAnnees.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
@@ -1506,7 +1507,7 @@ export default function Pilotage({ vue = 'tout' }) {
     { key: 'g-resultats', label: 'Résultats', icon: IconSchool, faces: [
       ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
     { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
-      lit('dotation') && ['synthese', 'Dotation'], ['etp', 'ETP'], ['dotation', 'Comparaison'],
+      lit('dotation') && ['synthese', 'Dotation'], ['etp', 'ETP'], ['etp-annees', 'ETP sur plusieurs années'], ['dotation', 'Comparaison'],
       !coord && lit('repartition') && ['repartition', 'Répartition des périodes'],
       lit('dotation') && ['config', 'Configuration']] },
     /* LA DÉMARCHE QUALITÉ (3.1.442) : le plan d'action AEQES, tenu dans Lucie dès 2026-2027 —
@@ -1544,7 +1545,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
@@ -1907,6 +1908,7 @@ thead { display: table-header-group; }
           <>
             {tab === 'synthese' && renderSynthese()}
             {tab === 'etp'      && renderETP()}
+            {tab === 'etp-annees' && <EtpPlusieursAnnees />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
             {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} />}
             {tab === 'config'   && renderConfig()}
