@@ -31,6 +31,7 @@ import { dixiemeUE } from '../lib/datesReelles.js';
 import { epreuves as epreuvesDeLAnnee } from '../lib/examens.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
 import { financesFormations, donneesCout, syntheseCout } from '../lib/coutFormation.js';
+import { documentIipHelb, lignesIipHelb } from '../lib/rapportIipHelb.js';
 import { getParamNum } from './parametres.js';
 import { TITRES_ACCES, DIPLOMES_MAX, SITUATIONS_PRO } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
@@ -2322,6 +2323,18 @@ export const RAPPORTS = [
     },
   },
   {
+    /* L'IIP ET LA HELB SUR PLUSIEURS ANNÉES (3.5.428, lib/rapportIipHelb.js) : la pièce que demande la Haute École — la charge,
+       le coût, les coordinations et le cadre administratif d'une section, année par année, en graphiques. */
+    id: 'iip-helb-annees', domaine: 'gestion', params: ['annees', 'section'],
+    roles: ['admin', 'directeur', 'directeur_adjoint'],
+    libelle: 'IIP et HELB sur plusieurs années — une section',
+    aide: "Pour une section partagée avec la HELB : la charge (périodes, ETP), le coût des cours, des coordinations et du cadre administratif, les inscrits — année par année, l'IIP et la HELB côte à côte, en graphiques.",
+    colonnes: COLS([['annee', 'Année', 14], ['section', 'Section'], ['etp_iip', 'ETP IIP'], ['etp_helb', 'ETP HELB'], ['per_iip', 'Pér. IIP'],
+      ['per_helb', 'Pér. HELB'], ['cout_iip', 'Coût IIP (€)'], ['cout_helb', 'Coût HELB (€)'], ['inscrits', 'Inscrits']]),
+    lignes: (p) => lignesIipHelb(p),
+    document: (p) => documentIipHelb(p),
+  },
+  {
     id: 'dotation-felsi', domaine: 'gestion', params: ['annee'],
     libelle: 'Dotation organique — tableau de la FELSI',
     aide: "La dotation de l'année civile, la banque de 1 %, l'utilisé de janvier à juin, les prévisions de septembre à décembre et le disponible : le tableau que demande la FELSI, mis en page.",
@@ -3638,6 +3651,9 @@ function parametres(req, def) {
   const p = {};
   if (def.params.includes('annee')) p.annee = req.body?.annee || anneeDeTravail(req);
   if (def.params.includes('session')) p.session = Number(req.body?.session) === 2 ? 2 : 1;
+  // PLUSIEURS ANNÉES (3.5.428) : une liste de codes « 2024-2025 », vérifiés un à un.
+  if (def.params.includes('annees')) p.annees = (Array.isArray(req.body?.annees) ? req.body.annees : [])
+    .map(String).filter(a => /^\d{4}-\d{4}$/.test(a)).slice(0, 10);
   // LA SECTION EST UN FILTRE, PAS UNE OBLIGATION. Vide, le rapport porte sur
   // tout l'établissement — c'est le cas du Conseil et de la dotation ; choisie,
   // il ne parle que d'un cursus — c'est le cas d'une coordination.
