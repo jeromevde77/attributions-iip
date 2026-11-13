@@ -428,7 +428,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       if (!rep.ok) { setErreur(j.error); return; }
       setData(d => ({ ...d,
         etudiants: d.etudiants.map(x => x.id === etud.id ? { ...x, ...j } : x) }));
-      if (action === 'ajourne' || action == null) await enregistrerDecision(j);
+      if (action === 'ajourne' || action == null || (portee === 'cours' && action === 'faveur')) await enregistrerDecision(j);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -2585,6 +2585,16 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                         {c.poids_cours_affiche != null && <span className="text-slate-400"> · {c.poids_cours_affiche} %</span>}</div>
                       {c.cours_nom && <div className="text-mention text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
                       {c.professeurs && <div className="text-mention text-slate-400 italic truncate">{c.professeurs}</div>}
+                      {/* LA FAVEUR SUR UN COURS (3.5.408, Charles : « pouvoir ne pas ajourner un cours ; une faveur juste sur un
+                          cours ») : le cours et ses acquis en échec valent le seuil, rien n'est à représenter pour lui. */}
+                      {peutCliquerNote && !c.horsEtudiant && (
+                        <button type="button" disabled={enCours}
+                          onClick={ev => { ev.stopPropagation(); onAjuster('cours', c.cours_code, c.faveur_directe ? null : 'faveur'); }}
+                          title={c.faveur_directe ? 'Retirer la faveur du Conseil sur ce cours' : 'Faveur du Conseil sur ce cours : le cours et ses acquis valent le seuil, sans ajournement'}
+                          className="mt-0.5 inline-flex items-center gap-1 h-[20px] px-1.5 rounded-pastille border text-mention font-semibold"
+                          style={c.faveur_directe ? { background: 'var(--c-faveur)', borderColor: 'var(--c-faveur)', color: '#fff' }
+                            : { background: '#fff', borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-500))' }}>
+                          <IconGift size={11} />{c.faveur_directe ? 'faveur' : 'faveur ?'}</button>)}
                     </th>
                   ))}
                   <th className="w-[84px] px-2 py-1 text-center font-semibold text-slate-700" style={{ borderLeft: '3px solid var(--c-principal)' }}

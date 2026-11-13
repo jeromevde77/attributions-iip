@@ -3489,6 +3489,10 @@ porte du PAE plutôt qu'un statut que 64 lecteurs ignoreraient), fiche « sortie
 En ligne : fonction `espace.desinscription` (née éteinte), routes du portail `/api/portail/desinscription` relayées comme le centre
 de documents (`desins_etat`, `desins_demande`).
 
+**3.5.408** — LA FAVEUR SUR UN COURS (Charles : « ne pas ajourner un cours ; une faveur juste sur un cours ») : `delibererUE`
+force au seuil un acquis dont toutes les évaluations en échec viennent de cours en faveur (`coursFaveur`) — avant, seule la note du
+cours montait et `incoherencesAjournement` bloquait la clôture. Bouton « faveur ? » sous chaque cours de la feuille ; une faveur
+remplace l'ajournement du cours (liste partielle remise à zéro).
 **3.5.407** — une VA complète retenue de l'ANNÉE compte dans « ECTS réussis » de la fiche (`annee_scolaire <= ?`, c'était `<`)
 et sort des ECTS de la ligne de la liste (`vaAnnee` de `/frises`) — Charles, HURET Sophie (TIM).
 **3.5.404** — nginx du portail : `location /api/portail/centre` SANS barre finale. Avec la barre, nginx renvoyait « /centre » vers
