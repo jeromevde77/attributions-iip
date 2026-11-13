@@ -3492,7 +3492,12 @@ de documents (`desins_etat`, `desins_demande`).
 **3.5.408** — LA FAVEUR SUR UN COURS (Charles : « ne pas ajourner un cours ; une faveur juste sur un cours ») : `delibererUE`
 force au seuil un acquis dont toutes les évaluations en échec viennent de cours en faveur (`coursFaveur`) — avant, seule la note du
 cours montait et `incoherencesAjournement` bloquait la clôture. Bouton « faveur ? » sous chaque cours de la feuille ; une faveur
-remplace l'ajournement du cours (liste partielle remise à zéro). **3.5.411** : les faveurs de COURS et d'ACQUIS de la session 1
+remplace l'ajournement du cours (liste partielle remise à zéro). **3.5.413** : LA SÉANCE EN ÉTAPES (Charles : « repenser la structure, pas la feuille »). `FriseSeance` (Préparer = presences ·
+Délibérer = auto/mentions/fiche · Synthèse et clôture = cloture) et `SyntheseSeance` (tuiles, vérifications, listes, pièces) au-dessus
+de `Cloture`. **À faire** : déplacer les dates (visite, S2) de `Cloture` vers Préparer, comme tranché (« fondue dans les étapes »).
+**3.5.412** : décision en « petit train » de carrés (`Decision`, FeuilleDeliberation.jsx) ; prévisualisation : groupe « Faveurs »
+et sortie par `POST /api/impression/tableaux` (des tableaux dans l'enveloppe commune, réutilisable) ; motivation : recours, visite
+et signature dans un bloc insécable (`tenir-fin`). **3.5.411** : les faveurs de COURS et d'ACQUIS de la session 1
 valent en session 2 (`delibererUE` les lit d'abord) — sinon le cours non représenté retombait en échec ; l'espace étudiant affiche 10
 pour les acquis d'un cours en faveur.
 **3.5.407** — une VA complète retenue de l'ANNÉE compte dans « ECTS réussis » de la fiche (`annee_scolaire <= ?`, c'était `<`)

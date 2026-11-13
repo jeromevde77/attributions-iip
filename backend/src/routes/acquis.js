@@ -2205,7 +2205,7 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
        Les épreuves se tiennent à
        ${esc2(seanceS1.session2_adresse || ident.adresse || '……………')}.</p>`}
   `,
-      recours: estRefus ? `
+      recours: '<!--tenir-debut-->' + (estRefus ? `
   <!-- LES VOIES DE RECOURS, avec leurs fondements. Le décret ouvre le recours
        contre les seules décisions de REFUS (art. 123ter, § 1er) ; le règlement
        des études en fixe les modalités (art. 87 à 91). Les délais sont ceux du
@@ -2252,7 +2252,7 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       les recours interne et externe.</div>
     <div class="ligne" style="color:#475569">
       Règlement des études, art. 87, § 2.</div>
-  </div>`,
+  </div>`),
       visite: `
   <div class="info">
     <div class="titre">Consultation de la copie</div>
@@ -2293,15 +2293,22 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
            <div class="nom">${esc2(identiteEtablissement()?.directeur || '……………………')}</div>`}
     </div>
   </div>
-`,
+<!--tenir-fin-->`,
     },
   })}
 </div>`;
 
-  const html = envelopper(corps,
+  /* LA FIN DE LA PIÈCE SE TIENT (3.5.412, Charles : « si une attestation dépasse une page, tout ce qui suit les voies de recours
+     sur la seconde page ; par blocs ; ma signature seule, cela ne va pas »). Voies de recours, consultation de la copie, ligne
+     d'authenticité et signature forment un bloc insécable : s'il ne tient pas en bas de page, il passe entier à la suivante. */
+  const a0 = corps.indexOf('<!--tenir-debut-->'), b0 = corps.indexOf('<!--tenir-fin-->');
+  const corpsTenu = a0 >= 0 && b0 > a0
+    ? corps.replace('<!--tenir-debut-->', '<div class="tenir-fin" style="break-inside:avoid;page-break-inside:avoid">').replace('<!--tenir-fin-->', '</div>')
+    : corps.replace('<!--tenir-debut-->', '').replace('<!--tenir-fin-->', '');
+  const html = envelopper(corpsTenu,
     `Motivation ${estRefus ? 'de refus' : "d'ajournement"} — UE ${ueNum}`);
 
-  return { html, corps,
+  return { html, corps: corpsTenu,
            nom: `Motivation_${estRefus ? 'refus' : 'ajournement'}_UE${ueNum}`,
            estRefus };
 }

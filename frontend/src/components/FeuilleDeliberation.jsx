@@ -1,10 +1,11 @@
 import { choisir, demander, informer } from '../lib/dialogue.jsx';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ouvrirApercu } from '../lib/apercu.js';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconSearch, IconAlertTriangle, IconRotateClockwise, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
-  IconRotate, IconBan, IconTable, IconLock, IconEye,
+  IconRotate, IconBan, IconTable, IconLock, IconEye, IconPrinter, IconCircleCheck, IconCircleX, IconUserOff, IconRefresh,
 } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 
@@ -15,7 +16,7 @@ import { authHeaders, getUser } from '../lib/api.js';
    'editeur'), où le secrétariat passe aussi. Les autres LISENT la feuille. */
 const PEUT_DELIBERER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
 const lectureSeule = () => !PEUT_DELIBERER.includes(getUser()?.role);
-import { Fenetre, EnteteCarte, Encadre, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
+import { Fenetre, EnteteCarte, Encadre, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, OutilFenetre } from './ui.jsx';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
@@ -939,6 +940,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             </div>
           )}
 
+          {etape !== 'reprise' && (
+            <FriseSeance etape={etape} faits={{
+              preparer: !!(seance?.seance?.date_seance && seance?.quorum?.atteint !== false),
+              deliberer: (data?.etudiants || []).length > 0 && (data?.etudiants || []).every(e => e.resultat),
+              synthese: !!seance?.seance?.cloturee }}
+              aller={k => { setLot(false); setTableau(false); setEtape(k === 'preparer' ? 'presences' : k === 'synthese' ? 'cloture' : 'fiche'); }} />)}
           {etape === 'reprise' ? (
             <Reprise reprise={reprise} session={session} enCours={enCours}
               onAppliquer={() => appliquerReprise(false)}
@@ -971,7 +978,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onFini={async decides => {
                 if (decides?.length) { const frais = await charger(); if (frais) figerOrdre(frais); }
                 setIdx(0); setEtape('fiche'); }} />
-          ) : etape === 'cloture' ? (
+          ) : etape === 'cloture' ? (<>
+            <SyntheseSeance data={data} seance={seance} session={session} enCours={enCours} onPieces={() => setDocuments(true)}
+              onOuvrir={e => { const k = liste.indexOf(e); if (k >= 0) setIdx(k); else revoir(x => x.id === e.id); setEtape('fiche'); }} />
+            <div className="intertitre mt-4">Clore la séance</div>
             <Cloture seance={seance?.seance} visiteCalendrier={seance?.visite_calendrier || null} enCours={enCours} nb={liste.length}
               quorum={seance?.quorum} erreur={erreur}
               onPresences={() => setEtape('presences')}
@@ -980,7 +990,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               coursSession2={seance?.session2 || []} coursVisite={seance?.cours_visite || []} delais={seance?.delais || null}
               onReprendre={() => setCorrection(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
-          ) : !liste.length ? (
+          </>) : !liste.length ? (
             <div className="py-10 text-center text-sm text-slate-400 carte">
               {(data?.etudiants || []).length
                 ? <span className="inline-flex flex-col items-center gap-3">
@@ -996,7 +1006,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                             Revoir les {session === 2 ? 'refusés' : 'ajournés'} ({n})</button>); })()}
                       <button type="button" className="bouton" onClick={() => revoir(() => true)}>
                         Revoir toute l'unité ({(data?.etudiants || []).length})</button>
-                      <button type="button" className="bouton bouton-fort" onClick={() => setEtape('cloture')}>Passer à la clôture</button>
+                      <button type="button" className="bouton bouton-fort" onClick={() => setEtape('cloture')}>Voir la synthèse et clore</button>
                     </span>
                     <span className="text-second">ou cherchez un nom pour revenir sur une décision</span>
                   </span>
@@ -1172,20 +1182,127 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
  */
 function classerApercu(e) {
   const u = e.ue || {};
+  // LES FAVEURS (3.5.412, Charles : « une ligne pour les Faveurs ») : déjà accordées (unité, cours ou acquis), ou à la portée
+  // d'une faveur selon le barème de l'aide à la décision.
+  const accordee = !!(u.faveur || u.faveur_ue || (e.cours || []).some(c => c.faveur_directe) || (e.acquis || []).some(a => a.faveur_directe));
+  if (accordee) return 'faveur';
   if (u.de_plein_droit) return 'reussite';
   const echec = u.decision_proposee === 'ajourne' || u.decision_proposee === 'refuse';
   const mention = (u.mentions || []).length > 0;
   if (echec && (mention || (Number(u.faveur_cout) > 0 && !u.faveur_eligible))) return 'echec';
+  if (echec && !mention && Number(u.faveur_cout) > 0 && u.faveur_eligible) return 'faveur';
   return 'deliberer';
 }
+const faveurTexte = e => {
+  const u = e.ue || {};
+  const cours = (e.cours || []).filter(c => c.faveur_directe).map(c => c.cours_code);
+  if (u.faveur || u.faveur_ue) return 'accordée sur l’unité';
+  if (cours.length) return `accordée sur ${cours.join(', ')}`;
+  if ((e.acquis || []).some(a => a.faveur_directe)) return 'accordée sur des acquis';
+  return Number(u.faveur_cout) > 0 ? (u.faveur_eligible ? `possible · manque ${String(u.faveur_cout).replace('.', ',')} pt` : (u.faveur_motif || 'non')) : '—';
+};
 const parNote = (a, b) => {
   const na = a.ue?.note ?? -1, nb = b.ue?.note ?? -1;
   return nb - na || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
 };
 const virgule = v => String(v).replace('.', ',');
 
+/* ═══ LA SÉANCE EN ÉTAPES ET SA SYNTHÈSE (3.5.413) ══════════════════════════
+ *
+ * Charles, 13 novembre 2026 : « après la délibération, cette page de synthèse — les ajournements, etc. — sous forme d'un écran ;
+ * la page de clôture est moche ; repenser la structure » ; tranché : une frise en tête de la séance, une synthèse qui porte les
+ * tuiles par décision, les vérifications, les listes et les pièces à sortir ; la clôture fondue dans les étapes.
+ */
+function FriseSeance({ etape, aller, faits }) {
+  const ETAPES = [['preparer', 'Préparer', 'présences, séance'], ['deliberer', 'Délibérer', 'étudiant par étudiant'], ['synthese', 'Synthèse et clôture', 'le résultat de la séance']];
+  const active = etape === 'presences' ? 'preparer' : etape === 'cloture' ? 'synthese' : 'deliberer';
+  return (
+    <div className="flex mb-3" role="navigation" aria-label="Étapes de la séance">
+      {ETAPES.map(([k, l, s], i) => {
+        const on = active === k, ok = faits[k];
+        return (
+          <button key={k} type="button" onClick={() => aller(k)} aria-current={on ? 'step' : undefined}
+            className={`flex-1 text-left px-3 py-1.5 border ${i ? '-ml-px' : ''} ${i === 0 ? 'rounded-l-champ' : ''} ${i === ETAPES.length - 1 ? 'rounded-r-champ' : ''}`}
+            style={on ? { background: 'var(--c-principal)', borderColor: 'var(--c-principal)', color: '#fff', position: 'relative', zIndex: 1 }
+              : { background: '#fff', borderColor: ok ? 'var(--c-reussi)' : 'rgb(var(--gris-300))', color: ok ? 'var(--c-reussi)' : 'rgb(var(--gris-600))' }}>
+            <span className="flex items-center gap-1.5 font-semibold text-sm">
+              {ok && !on ? <IconCircleCheck size={15} /> : <span className="tabular-nums">{i + 1} ·</span>}{l}</span>
+            <span className={`block text-mention ${on ? 'opacity-80' : 'text-slate-500'}`}>{s}</span>
+          </button>);
+      })}
+    </div>);
+}
+
+function SyntheseSeance({ data, seance, session, onOuvrir, onPieces, enCours }) {
+  const tous = data?.etudiants || [];
+  const faveurDe = e => !!(e.ue?.faveur || e.ue?.faveur_ue || (e.cours || []).some(c => c.faveur_directe) || (e.acquis || []).some(a => a.faveur_directe));
+  const groupes = [
+    ['reussi', 'Réussis', 'reussi', tous.filter(e => e.resultat === 'reussi' && !faveurDe(e))],
+    ['faveur', 'Faveurs', 'faveur', tous.filter(e => faveurDe(e))],
+    ...(session >= 2 ? [] : [['ajourne', 'Ajournés', 'surveiller', tous.filter(e => e.resultat === 'ajourne' && !faveurDe(e))]]),
+    ['refuse', 'Refusés', 'corriger', tous.filter(e => e.resultat === 'refuse')],
+    ['absent', 'Absents', 'neutre', tous.filter(e => e.resultat === 'absent')],
+    ['sans', 'Sans décision', 'surveiller', tous.filter(e => !e.resultat)],
+  ].filter(g => g[0] !== 'sans' || g[3].length);
+  const [ouvert, setOuvert] = useState(session >= 2 ? 'refuse' : 'ajourne');
+  const q = seance?.quorum;
+  const s = seance?.seance || {};
+  const visites = seance?.cours_visite || [];
+  const s2 = seance?.session2 || [];
+  const sansVisite = visites.filter(c => !c.rdv && !c.date);
+  const s2Manquant = s2.filter(c => !c.aucune && c.a_representer !== 0 && !c.date);
+  const sansDecision = tous.filter(e => !e.resultat).length;
+  const verifs = [
+    [q?.atteint !== false, q ? `Quorum : ${q.presents} présent(s) sur ${q.membres}${q.atteint === false ? ` — il en faut ${q.requis}` : ''}` : 'Présences : à prendre (étape 1)'],
+    [!!s.date_seance, s.date_seance ? `Séance du ${String(s.date_seance).split('-').reverse().join('/')}` : 'Date de la séance : à poser'],
+    [!sansDecision, sansDecision ? `${sansDecision} étudiant(s) sans décision` : `Toutes les décisions posées (${tous.length})`],
+    [!sansVisite.length, sansVisite.length ? `Consultation des copies : ${sansVisite.map(c => c.cours_code).join(', ')} sans date ni rendez-vous` : 'Consultation des copies : chaque cours a sa date ou son rendez-vous'],
+    ...(session >= 2 ? [] : [[!s2Manquant.length, s2Manquant.length ? `Seconde session : ${s2Manquant.map(c => c.cours_code).join(', ')} sans date` : 'Seconde session : dates posées (ou sans objet)']]),
+  ];
+  const detail = (cle, e) => cle === 'faveur'
+    ? ((e.ue?.faveur || e.ue?.faveur_ue) ? 'sur l’unité' : (e.cours || []).filter(c => c.faveur_directe).map(c => c.cours_code).join(', ') || 'sur des acquis')
+      + (e.resultat === 'ajourne' ? ` · ajourné : ${(e.ue?.a_representer || []).join(', ')}` : '')
+    : cle === 'ajourne' ? `à représenter : ${(e.ue?.a_representer || []).join(', ') || '—'}`
+    : cle === 'refuse' || cle === 'absent' ? ((e.ue?.mentions || []).map(m => `${m.mention} (${m.cours_code})`).join(' · ') || '')
+    : e.ue?.na ? '' : e.ue?.note != null ? `${String(e.ue.note).replace('.', ',')} / 20` : '';
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${groupes.length}, minmax(0, 1fr))` }}>
+        {groupes.map(([cle, l, etat, liste]) => (
+          <TuileEtat key={cle} etat={etat} valeur={liste.length} libelle={l} taille="compacte" onClick={() => setOuvert(cle)} actif={ouvert === cle} />))}
+      </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Vérifications avant de clore" />
+        <div className="px-4 py-2 space-y-1">
+          {verifs.map(([ok, t], i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              {ok ? <IconCircleCheck size={16} style={{ color: 'var(--c-reussi)' }} /> : <IconAlertTriangle size={16} style={{ color: 'var(--c-attente)' }} />}{t}
+            </div>))}
+        </div>
+      </section>
+      {groupes.filter(g => g[0] === ouvert).map(([cle, l, etat, liste]) => (
+        <section key={cle} className="carte overflow-hidden">
+          <EnteteCarte titre={<span className="inline-flex items-center gap-2"><PastilleEtat etat={etat}>{liste.length}</PastilleEtat>{l}</span>} />
+          {!liste.length ? <p className="text-sm text-slate-500 px-4 py-3 m-0">Personne.</p> : (
+            <Tableau dense className="!border-0 !rounded-none">
+              <TableauEntete><Th>Étudiant</Th><Th>Matricule</Th><Th>{cle === 'ajourne' ? 'Cours à représenter' : cle === 'faveur' ? 'Faveur' : 'Détail'}</Th></TableauEntete>
+              <tbody>{liste.map(e => (
+                <Tr key={e.id} className="cursor-pointer" onClick={() => onOuvrir(e)} title="Revenir sur cet étudiant">
+                  <Td className="font-medium whitespace-nowrap">{nomPropre(e.nom, e.prenom)}</Td>
+                  <Td className="tabular-nums text-slate-500">{e.id_ecampus || '—'}</Td>
+                  <Td className="text-second">{detail(cle, e)}</Td>
+                </Tr>))}</tbody>
+            </Tableau>)}
+        </section>))}
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Les pièces de la séance" sous="PV, ajournés par cours, motivations, attestations — dans le centre d’impression, réglé sur cette séance" />
+        <div className="px-4 py-3"><button type="button" className="bouton" disabled={enCours} onClick={onPieces}><IconPrinter size={15} /> Sortir les pièces de la séance</button></div>
+      </section>
+    </div>);
+}
+
 function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onOuvrir }) {
-  const groupes = { reussite: [], echec: [], deliberer: [] };
+  const groupes = { reussite: [], faveur: [], echec: [], deliberer: [] };
   for (const e of etudiants) groupes[classerApercu(e)].push(e);
   for (const k of Object.keys(groupes)) groupes[k].sort(parNote);
   const echecMot = Number(session) >= 2 ? 'refus' : 'ajournement';
@@ -1224,14 +1341,7 @@ function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onO
                           {u.na ? 'NA' : u.note == null ? '—' : `${virgule(u.note)} / 20`}
                         </Td>
                         <Td className="text-second">{[...mentions, ...aa].join(' · ') || '—'}</Td>
-                        {avecFaveur && (
-                          <Td className="text-second whitespace-nowrap">
-                            {!(Number(u.faveur_cout) > 0) ? '—'
-                              : u.faveur_eligible
-                                ? <span>possible · manque {virgule(u.faveur_cout)} pt</span>
-                                : <span className="text-slate-500">non · {u.faveur_motif || `manque ${virgule(u.faveur_cout)} pt`}</span>}
-                          </Td>
-                        )}
+                        {avecFaveur && <Td className="text-second whitespace-nowrap">{faveurTexte(e)}</Td>}
                       </Tr>
                     );
                   })}
@@ -1243,9 +1353,36 @@ function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onO
     );
   };
 
+  const BLOCS = [
+    ['reussite', "Réussites d'office", "Tous les acquis et tous les cours au seuil : le Conseil n'a rien à apprécier.", 'reussi', false],
+    ['faveur', 'Faveurs', 'Faveur déjà accordée (unité, cours ou acquis), ou échec à la portée d’une faveur selon le barème.', 'faveur', true],
+    ['deliberer', 'À délibérer', "Note manquante, ou cas que Lucie ne tranche pas.", 'surveiller', true],
+    ['echec', "Échecs d'office proposés", `${echecMot[0].toUpperCase()}${echecMot.slice(1)} proposé que la faveur ne peut pas rattraper (au-delà de 2 points ou de 2 cours), ou épreuve non présentée (PP, NP, CM).`, 'corriger', false],
+  ];
+  /* LA SORTIR (3.5.412) : la même synthèse, dans l'enveloppe des pièces, par l'aperçu commun (imprimer, PDF, envoyer). */
+  const [sortie, setSortie] = useState(false);
+  const sortir = async () => {
+    setSortie(true);
+    try {
+      const r = await fetch('/api/impression/tableaux', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+        titre: `Prévisualisation de la délibération — UE ${data.ue_num}`, sous: data.ue_nom || '', ligne: `${portee} · ${etudiants.length} étudiant(s)`,
+        nom: `Previsualisation_UE${data.ue_num}_S${Number(session) >= 2 ? 2 : 1}`, paysage: true,
+        sections: BLOCS.map(([cle, titre, sous, , avecFav]) => ({ titre, sous,
+          colonnes: ['Étudiant', 'Matricule', "Note de l'unité", 'Acquis en échec', ...(avecFav ? ['Faveur'] : [])], droite: [2],
+          lignes: groupes[cle].map(e => { const u = e.ue || {};
+            return [nomPropre(e.nom, e.prenom), e.id_ecampus || '—', u.na ? 'NA' : u.note == null ? '—' : `${virgule(u.note)} / 20`,
+              [...(u.mentions || []).map(m => `${m.mention} (${m.cours_code})`), ...(u.acquis_en_defaut || [])].join(' · ') || '—',
+              ...(avecFav ? [faveurTexte(e)] : [])]; }) })),
+      }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'refusé');
+      ouvrirApercu({ html: j.html, titre: `Prévisualisation — UE ${data.ue_num}`, nomFichier: j.nom, envoiPossible: false });
+    } catch (x) { informer(`❌ ${x.message}`); } finally { setSortie(false); }
+  };
   return (
     <Fenetre titre={`Prévisualiser la délibération · UE ${data.ue_num}`}
       sous={`${data.ue_nom} · ${portee} · ${etudiants.length} étudiant(s)`}
+      outils={<OutilFenetre Icone={IconPrinter} titre={sortie ? 'Composition…' : 'Sortir la prévisualisation (imprimer, PDF)'} onClick={sortir} disabled={sortie} />}
       large="grande" onFermer={onFermer}
       pied={<button type="button" className="bouton" onClick={onFermer}>Fermer</button>}>
       <div className="space-y-4">
@@ -1253,12 +1390,7 @@ function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onO
           Ce que Lucie propose, avant la séance : rien n'est décidé ici. Chaque liste est rangée par note
           d'unité, de la plus haute à la plus basse ; un clic ouvre le tableau de bord de l'étudiant.
         </p>
-        {bloc('reussite', "Réussites d'office",
-          "Tous les acquis et tous les cours au seuil : le Conseil n'a rien à apprécier.", 'reussi', false)}
-        {bloc('echec', "Échecs d'office proposés",
-          `${echecMot[0].toUpperCase()}${echecMot.slice(1)} proposé que la faveur ne peut pas rattraper (au-delà de 2 points ou de 2 cours), ou épreuve non présentée (PP, NP, CM).`, 'corriger', false)}
-        {bloc('deliberer', 'À délibérer',
-          "Échec à la portée d'une faveur, note manquante, ou cas que Lucie ne tranche pas.", 'surveiller', true)}
+        {BLOCS.map(([cle, titre, sous, etat, avecFav]) => <Fragment key={cle}>{bloc(cle, titre, sous, etat, avecFav)}</Fragment>)}
       </div>
     </Fenetre>
   );
@@ -3484,70 +3616,45 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
 
       <div className={boutons && details ? 'p-3 space-y-2' : compact ? '' : 'space-y-1.5'}>
         {(boutons || statut) && (<>
-        {boutons && <div className={`flex items-center gap-2 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}>
-          {/* LA FAVEUR EST UNE DÉCISION DE L'UNITÉ, pas une retouche de note.
-              Le Conseil accorde l'unité malgré un acquis manquant : la cote
-              monte au seuil, jamais au-delà (RGE art. 77 §1 et 78 §2). Elle vit
-              donc avec les autres décisions, et non plus dans chaque case. */}
-          {onFaveurUE && (
-            <button disabled={enCours} onClick={onFaveurUE}
-              title={ue.faveur_ue
-                ? 'Retirer la faveur accordée à l’unité'
-                : 'Accorder l’unité en faveur — la cote monte au seuil, jamais au-delà'}
-              className="bouton inline-flex items-center"
-              style={ue.faveur_ue ? { background: 'var(--c-faveur)', borderColor: 'var(--c-faveur)', color: '#fff' }
-                : { borderColor: 'var(--c-faveur)' }}>
-              {/* UN CADEAU, NON UN PINCEAU — et violet, non orange. La faveur
-                  est un octroi : le Conseil donne l'unité. Le pinceau disait
-                  « repeindre », ce qui n'est ni le geste ni son sens. Et
-                  l'orange servait déjà aux cotes tout justes : deux choses
-                  différentes portaient la même couleur au même endroit. */}
-              <IconGift size={13} className="inline align-[-2px] mr-1" />
-              {ue.faveur_ue ? 'Faveur accordée' : 'Faveur'}
-            </button>
-          )}
-          {/* EN SECONDE SESSION, « AJOURNÉ » N'EXISTE PAS : il n'y a plus rien
-              à représenter, et « l'étudiant qui échoue en seconde session est
-              refusé » (RGE art. 69 §2). Le bouton disparaît plutôt que de rester
-              cliquable — une troisième session ne se propose pas. */}
-          {DECISIONS.filter(d => !(session >= 2 && d.cle === 'ajourne')).map(d => {
+        {boutons && (() => {
+          /* LE PETIT TRAIN (3.5.412, Charles : projet C « avec les couleurs ; les icônes proches collées en un petit train »).
+             Faveur · Réussi · Ajourné · Refusé · Absent en carrés accolés : l'icône porte la couleur de la décision, la décision
+             retenue est pleine, celle que propose le calcul est en pointillé. « Reprendre ce dossier » reste à part (il détruit).
+             Le nom se lit au survol et à l'appui long. Mêmes gestes qu'avant. */
+          const ICONE = { reussi: IconCircleCheck, ajourne: IconRotateClockwise, refuse: IconCircleX, absent: IconUserOff };
+          const carre = (cle, Icone, ton, actif, titre, onClick, propose_ = false, premier = false) => (
+            <button key={cle} type="button" disabled={enCours} onClick={onClick} title={titre} aria-label={titre} aria-pressed={actif}
+              className="w-9 h-9 inline-flex items-center justify-center"
+              style={{ marginLeft: premier ? 0 : -1, borderRadius: 0, position: 'relative', zIndex: actif || propose_ ? 1 : 0,
+                background: actif ? ton : '#fff', color: actif ? '#fff' : ton,
+                border: propose_ && !actif ? `1.5px dashed ${ton}` : `1px solid ${actif ? ton : 'rgb(var(--gris-300))'}` }}>
+              <Icone size={18} stroke={1.8} />
+            </button>);
+          const items = [];
+          if (onFaveurUE) items.push(carre('faveur', IconGift, 'var(--c-faveur)', !!ue.faveur_ue,
+            ue.faveur_ue ? 'Faveur accordée à l’unité — cliquer pour la retirer' : 'Faveur : accorder l’unité (la cote monte au seuil, jamais au-delà)',
+            onFaveurUE, false, true));
+          for (const d of DECISIONS.filter(x => !(session >= 2 && x.cle === 'ajourne'))) {
             const actif = decision === d.cle;
-            /* RÉUSSI SUR UNE UNITÉ NON ACQUISE, C'EST UNE FAVEUR (Charles, 30
-               septembre 2026) : le Conseil accorde l'unité malgré l'échec — Lucie
-               pose la faveur d'office, tracée comme toute faveur, et le bouton
-               passe au violet. */
             const nonAcquise = ue.na || (ue.note != null && ue.note < 10) || propose !== 'reussi';
             const enFaveur = d.cle === 'reussi' && actif && ue.faveur_ue;
-            return (
-              <button key={d.cle} disabled={enCours}
-                onClick={() => {
-                  if (d.cle === 'reussi' && nonAcquise && !ue.faveur_ue && onFaveurUE) onFaveurUE();
-                  onDecision(d.cle);
-                }}
-                title={d.cle === 'reussi' && nonAcquise && !ue.faveur_ue ? "L'unité n'est pas acquise : la réussir, c'est accorder une faveur — elle sera tracée" : undefined}
-                className="bouton inline-flex items-center"
-                style={enFaveur ? { background: 'var(--c-faveur)', borderColor: 'var(--c-faveur)', color: '#fff' }
-                  : actif ? { background: d.ton, borderColor: d.ton, color: '#fff' } : undefined}>
-                {enFaveur && <IconGift size={13} className="mr-1" />}
-                {d.libelle}
-                {d.cle === propose && (
-                  <span className={`ml-1.5 text-mention font-normal
-                    ${actif ? 'opacity-80' : 'text-slate-400'}`}>proposé</span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* Reprendre ce dossier à zéro : décision et ajustements effacés,
-              notes conservées. */}
-          {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
-            <button onClick={onAnnuler} disabled={enCours}
-              title="Effacer la décision et les ajustements de cet étudiant — ses notes sont conservées"
-              className={`${compact ? "" : "ml-auto "}bouton bouton-detruire flex items-center gap-1`}>
-              <IconRotate size={13} /> Reprendre ce dossier
-            </button>
-          )}
-        </div>}
+            items.push(carre(d.cle, enFaveur ? IconGift : ICONE[d.cle], enFaveur ? 'var(--c-faveur)' : d.ton, actif,
+              `${d.libelle}${d.cle === propose ? ' — proposé par le calcul' : ''}${d.cle === 'reussi' && nonAcquise && !ue.faveur_ue ? " · l'unité n'est pas acquise : la réussir, c'est accorder une faveur (tracée)" : ''}`,
+              () => { if (d.cle === 'reussi' && nonAcquise && !ue.faveur_ue && onFaveurUE) onFaveurUE(); onDecision(d.cle); },
+              d.cle === propose, !items.length));
+          }
+          return (
+            <div className={`flex items-center gap-2 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}>
+              <span className="inline-flex rounded-champ overflow-hidden" role="group" aria-label="Décision du Conseil">{items}</span>
+              {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
+                <button type="button" onClick={onAnnuler} disabled={enCours} aria-label="Reprendre ce dossier"
+                  title="Reprendre ce dossier : décision et ajustements effacés — ses notes sont conservées"
+                  className={`${compact ? '' : 'ml-auto '}w-9 h-9 inline-flex items-center justify-center rounded-champ`}
+                  style={{ background: '#fff', color: 'var(--c-refuse)', border: '1px solid var(--c-refuse)' }}>
+                  <IconRefresh size={18} stroke={1.8} />
+                </button>)}
+            </div>);
+        })()}
 
         {(statut || !compact) && <div className="flex items-center gap-2 flex-wrap text-second">
           <span className="text-slate-500">
