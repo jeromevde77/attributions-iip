@@ -2330,7 +2330,7 @@ export const RAPPORTS = [
     libelle: 'IIP et HELB sur plusieurs années — une section',
     aide: "Pour une section partagée avec la HELB : la charge (périodes, ETP), le coût des cours, des coordinations et du cadre administratif, les inscrits — année par année, l'IIP et la HELB côte à côte, en graphiques.",
     colonnes: COLS([['annee', 'Année', 14], ['section', 'Section'], ['etp_iip', 'ETP IIP'], ['etp_helb', 'ETP HELB'], ['per_iip', 'Pér. IIP'],
-      ['per_helb', 'Pér. HELB'], ['cout_iip', 'Coût IIP (€)'], ['cout_helb', 'Coût HELB (€)'], ['inscrits', 'Inscrits']]),
+      ['per_helb', 'Pér. HELB'], ['cout_iip', 'Coût IIP (€)'], ['cout_helb', 'Coût HELB (€)'], ['inscrits', 'Inscrits'], ['recettes', 'Droits et frais (€)'], ['par_etudiant', 'Par étudiant (€)']]),
     lignes: (p) => lignesIipHelb(p),
     document: (p) => documentIipHelb(p),
   },

@@ -10,7 +10,7 @@
  * fonction, part HELB comprise. Une année sans fonction encodée le dit.
  */
 import db from '../db/index.js';
-import { donneesCout } from './coutFormation.js';
+import { donneesCout, tarifs, niveauDeSection } from './coutFormation.js';
 
 const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -48,11 +48,23 @@ function annee(section, a) {
   const inscrits = S?.inscrits || 0;
   const base = d?.base_inscrits || 0;
   const partAdmin = base ? coutPncc * inscrits / base : 0;
-  const coord = missions.filter(m => !m.pncc && m.section_code === section).map(m => ({
-    fonction: m.fonction, personne: `${String(m.nom || '').toUpperCase()} ${m.prenom || ''}`.trim(),
-    etp: Number(m.etp) || 0, etp_helb: Number(m.etp_helb) || 0, cout: m.cout || 0, cout_periodes: m.cout_periodes || 0, mode: m.mode,
-    cout_helb: m.mode === 'etp800' ? (m.etp_helb_compte || 0) * 800 * (m.tarif_ct || 0) : 0,
-  }));
+  /* LES COORDINATIONS COMPTENT (3.5.429, Charles : « on doit compter les coordinations ») : chaque fonction de coordination de la
+     section, part IIP et part HELB, en ETP × 800 × la période CT du niveau de la section — même quand la personne a des périodes de
+     cours. Seule exception : sa coordination figure déjà en lignes d'attribution (codes CO…) — elle est alors dans la charge. */
+  const tCT = tarifs()[niveauDeSection(section)]?.CT || 0;
+  const coordEnAttribution = new Set(L.filter(l => /^CO/i.test(String(l.nature || ''))).map(l => l.professeur_id));
+  const coord = missions.filter(m => !m.pncc && m.section_code === section).map(m => {
+    const etpHelb = Number(m.etp_helb) || 0;
+    const etpTot = Math.max(Number(m.etp) || 0, etpHelb);
+    const etpIip = coordEnAttribution.has(m.professeur_id) ? 0 : Math.max(0, etpTot - etpHelb);
+    return { fonction: m.fonction, personne: `${String(m.nom || '').toUpperCase()} ${m.prenom || ''}`.trim(),
+      etp: etpTot, etp_helb: etpHelb, etp_iip: etpIip, deja: coordEnAttribution.has(m.professeur_id),
+      cout_iip: etpIip * 800 * tCT, cout_helb: etpHelb * 800 * tCT };
+  });
+  /* CE QUE LA SECTION RAPPORTE (3.5.429, Charles : « le revenu par étudiant sur base des inscrits et de nos formules ») : le droit
+     d'inscription et les frais, unité par unité, plus les forfaits — le calcul théorique de « Coûts des formations » (ni plafond, ni
+     exonération). Une section dont un tiers perçoit les droits ne rapporte rien à l'IIP. */
+  const recettes = S ? (S.droits_ues || []).reduce((t, u) => t + (u.droits?.recette || 0), 0) + (S.forfaits?.montant || 0) : 0;
   return {
     annee: a, lignes: L,
     per_iip: som(l => l.periodes, l => !l.helb), per_helb: som(l => l.periodes, l => l.helb),
@@ -61,9 +73,11 @@ function annee(section, a) {
     profs_helb: new Set(L.filter(l => l.helb && l.professeur_id).map(l => l.professeur_id)).size,
     cout_iip: S?.cout_iip || 0, cout_helb: S?.cout_helb || 0, inscrits,
     admin: { fonctions: pncc.map(m => ({ fonction: m.fonction, etp: Number(m.etp) || 0, cout: m.cout || 0 })), cout: coutPncc, part: partAdmin, base },
-    coord,
+    coord, recettes, tiers: S?.tiers || null,
     coord_helb: coord.reduce((t, c) => t + c.cout_helb, 0),
-    coord_iip: coord.reduce((t, c) => t + (c.cout - c.cout_helb), 0),
+    coord_iip: coord.reduce((t, c) => t + c.cout_iip, 0),
+    cetp_iip: coord.reduce((t, c) => t + c.etp_iip, 0),
+    cetp_helb: coord.reduce((t, c) => t + c.etp_helb, 0),
   };
 }
 
@@ -113,6 +127,9 @@ export function documentIipHelb(p) {
   }
   const Y = annees.map(a => annee(section, a));
   for (const y of Y) {
+    // Enseignement seul (ens_*), puis la charge complète : enseignement + coordinations (3.5.429).
+    y.ens_iip = y.etp_iip; y.ens_helb = y.etp_helb;
+    y.etp_iip = y.ens_iip + y.cetp_iip; y.etp_helb = y.ens_helb + y.cetp_helb;
     y.etp = y.etp_iip + y.etp_helb; y.per = y.per_iip + y.per_helb;
     // Le coût de la section pour chacun : ses cours, ses coordinations (part HELB à la HELB), et pour l'IIP sa part du cadre administratif.
     y.tout_iip = y.cout_iip + y.coord_iip + y.admin.part; y.tout_helb = y.cout_helb + y.coord_helb;
@@ -126,10 +143,12 @@ export function documentIipHelb(p) {
     `Sur ${Y.length} année${Y.length > 1 ? 's' : ''} (${esc(annees[0])} à ${esc(annees[annees.length - 1])}), la section ${esc(section)} a coûté
       <b>${eur(totIip)}</b> à l'IIP et <b>${eur(totHelb)}</b> à la HELB, cadre administratif et coordinations compris : la HELB en porte
       <b>${pc(totHelb, totIip + totHelb)}</b>.`,
-    `En ${esc(aN.annee)}, la charge d'enseignement est de <b>${n2(aN.etp)} ETP</b> : <b>${n2(aN.etp_iip)}</b> à l'IIP (${pc(aN.etp_iip, aN.etp)})
+    `En ${esc(aN.annee)}, la charge — enseignement et coordinations — est de <b>${n2(aN.etp)} ETP</b> : <b>${n2(aN.etp_iip)}</b> à l'IIP (${pc(aN.etp_iip, aN.etp)})
       et <b>${n2(aN.etp_helb)}</b> à la HELB (${pc(aN.etp_helb, aN.etp)}).`,
     Y.length > 1 ? `De ${esc(a0.annee)} à ${esc(aN.annee)}, l'ETP de l'IIP évolue de ${evol('etp_iip')} et celui de la HELB de ${evol('etp_helb')} ;
       les inscrits passent de ${n0(a0.inscrits)} à ${n0(aN.inscrits)}.` : '',
+    aN.inscrits && !aN.tiers ? `En ${esc(aN.annee)}, un étudiant de ${esc(section)} rapporte <b>${eur(aN.recettes / aN.inscrits)}</b> à l'IIP (droit
+      d'inscription et frais, au barème) et lui coûte <b>${eur(aN.tout_iip / aN.inscrits)}</b>.` : '',
     premiere && annees.includes(premiere) ? `${esc(premiere)} est la première année de la section dans Lucie : une section qui ouvre ne compte que ses premiers blocs.` : '',
     Y.some(y => !y.admin.fonctions.length) ? `Le cadre administratif et les coordinations ne sont encodés que pour ${Y.filter(y => y.admin.fonctions.length).map(y => esc(y.annee)).join(', ') || 'aucune année'} :
       les autres années ne portent que le coût des cours.` : '',
@@ -137,11 +156,13 @@ export function documentIipHelb(p) {
 
   const ligneAnnee = (y) => `<tr><td>${esc(y.annee)}</td>
     <td class="n">${n0(y.per_iip)}</td><td class="n">${n0(y.per_helb)}</td>
-    <td class="n">${n2(y.etp_iip)}</td><td class="n">${n2(y.etp_helb)}</td><td class="n g">${n2(y.etp)}</td>
+    <td class="n">${n2(y.ens_iip)}</td><td class="n">${n2(y.ens_helb)}</td>
+    <td class="n">${y.coord.length ? n2(y.cetp_iip) : '—'}</td><td class="n">${y.coord.length ? n2(y.cetp_helb) : '—'}</td>
+    <td class="n g">${n2(y.etp)}</td>
     <td class="n">${pc(y.etp_helb, y.etp)}</td><td class="n">${y.profs_iip} / ${y.profs_helb}</td>
     <td class="n">${n0(y.inscrits)}</td><td class="n">${y.inscrits ? n2(y.etp / y.inscrits * 100) : '—'}</td></tr>`;
 
-  const tableCouts = `<table><thead><tr><th>Année</th><th class="n">Cours IIP</th><th class="n">Cours HELB</th><th class="n">Coord. IIP</th>
+  const tableCouts = `<table class="annees"><thead><tr><th>Année</th><th class="n">Cours IIP</th><th class="n">Cours HELB</th><th class="n">Coord. IIP</th>
     <th class="n">Coord. HELB</th><th class="n">Cadre admin. (IIP)</th><th class="n">Total IIP</th><th class="n">Total HELB</th><th class="n">Part HELB</th>
     <th class="n">Par étudiant</th></tr></thead><tbody>
     <tr class="repere"><td>Ensemble</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_helb, 0))}</td>
@@ -169,7 +190,7 @@ export function documentIipHelb(p) {
     ? '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>'
     : `<table><thead><tr><th>Fonction</th><th>Personne</th><th class="n">ETP</th><th class="n">dont HELB</th><th class="n">Coût IIP</th><th class="n">Coût HELB</th></tr></thead><tbody>
       ${y.coord.map(c => `<tr><td>${esc(c.fonction)}</td><td>${esc(c.personne)}</td><td class="n">${c.etp ? n2(c.etp) : '—'}</td><td class="n">${c.etp_helb ? n2(c.etp_helb) : '—'}</td>
-        <td class="n">${c.mode === 'periodes' ? `<i>${eur(c.cout_periodes)}</i> *` : c.cout - c.cout_helb ? eur(c.cout - c.cout_helb) : '—'}</td>
+        <td class="n">${c.deja ? '<span class="fin">dans ses attributions</span>' : c.cout_iip ? eur(c.cout_iip) : '—'}</td>
         <td class="n">${c.cout_helb ? eur(c.cout_helb) : '—'}</td></tr>`).join('')}
       ${y.admin.fonctions.length ? `<tr class="repere"><td colspan="2">Cadre administratif de l'établissement (${y.admin.fonctions.map(f => esc(f.fonction)).filter((v, i, t) => t.indexOf(v) === i).join(', ')})</td>
         <td class="n">${n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0))}</td><td class="n">—</td>
@@ -189,7 +210,8 @@ export function documentIipHelb(p) {
   const tableProfs = `<table><thead><tr><th>Professeur</th><th>Contrat</th>${Y.map(y => `<th class="n">${esc(court(y.annee))}</th>`).join('')}</tr></thead><tbody>
     ${rangProfs.map(([k, v]) => { const [nom, c] = k.split('|'); return `<tr><td>${esc(nom)}</td>
       <td><span class="marque" style="background:${c === 'HELB' ? HELB : IIP}">${c}</span></td>
-      ${Y.map(y => `<td class="n">${v[y.annee] ? n2(v[y.annee]) : '—'}</td>`).join('')}</tr>`; }).join('')}</tbody></table>`;
+      ${Y.map(y => `<td class="n">${v[y.annee] ? n2(v[y.annee]) : '—'}</td>`).join('')}</tr>`; }).join('')}</tbody></table>
+    <p class="fin">Charge d'enseignement seule ; les coordinations sont détaillées à la page précédente.</p>`;
 
   const corps = `
     <style>
@@ -197,7 +219,8 @@ export function documentIipHelb(p) {
       .saut { break-before: page; }
       .en-bref ul { margin:1mm 0 0 4mm; padding:0; } .en-bref li { margin:0 0 1.5mm; font-size:9.5pt; line-height:1.4; }
       td.g { font-weight:700; }
-      tbody td:first-child { white-space:nowrap; }
+      table.annees tbody td:first-child, table.annees td.n { white-space:nowrap; }
+      table.annees th, table.annees td { padding-left:1.2mm; padding-right:1.2mm; }
       .fin { color:#64748b; font-size:8pt; }
     </style>
     <table class="tuiles"><tr>
@@ -212,12 +235,12 @@ export function documentIipHelb(p) {
     </tr></table>
     <div class="en-bref"><h3>En bref</h3><ul>${bref.filter(Boolean).map(x => `<li>${x}</li>`).join('')}</ul></div>
 
-    ${colonnesEmpilees(Y, 'etp', n2, 'La charge d’enseignement, en ETP')}
-    ${partsParAnnee(Y, 'etp', 'Qui porte la charge d’enseignement')}
+    ${colonnesEmpilees(Y, 'etp', n2, 'La charge en ETP — enseignement et coordinations')}
+    ${partsParAnnee(Y, 'etp', 'Qui porte la charge')}
 
     <h2 class="saut">La charge, année par année</h2>
-    <table><thead><tr><th>Année</th><th class="n">Pér. IIP</th><th class="n">Pér. HELB</th><th class="n">ETP IIP</th><th class="n">ETP HELB</th>
-      <th class="n">ETP total</th><th class="n">Part HELB</th><th class="n">Ens. IIP / HELB</th><th class="n">Inscrits</th><th class="n">ETP / 100 ét.</th></tr></thead>
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Pér. IIP</th><th class="n">Pér. HELB</th><th class="n">Ens. IIP</th><th class="n">Ens. HELB</th>
+      <th class="n">Coord. IIP</th><th class="n">Coord. HELB</th><th class="n">ETP total</th><th class="n">Part HELB</th><th class="n">Ens. IIP / HELB</th><th class="n">Inscrits</th><th class="n">ETP / 100 ét.</th></tr></thead>
       <tbody>${Y.map(ligneAnnee).join('')}</tbody></table>
 
     ${colonnesEmpilees(Y.map(y => ({ annee: y.annee, cout_iip: y.tout_iip, cout_helb: y.tout_helb })), 'cout', v => `${n0(v / 1000)} k€`, 'Le coût de la section, cadre administratif et coordinations compris')}
@@ -226,12 +249,23 @@ export function documentIipHelb(p) {
     <h2 class="saut">Les coûts, poste par poste</h2>
     ${tableCouts}
     <p class="fin">Coût des cours : les périodes attribuées au barème de la circulaire des conventions (CT, PP, cours spéciaux, par niveau),
-      comme le rapport « Coûts des formations ». Coordinations : la part HELB d'une fonction compte toujours ; une coordination tenue par
-      un enseignant qui a des périodes est déjà payée par elles (* montant indicatif, non ajouté). Cadre administratif (direction,
+      comme le rapport « Coûts des formations ». Coordinations : chaque fonction de coordination de la section compte, part IIP et part HELB,
+      en ETP × 800 × la période CT du niveau — sauf si elle figure déjà dans les attributions de la personne. Cadre administratif (direction,
       secrétariat) : emplois de l'établissement, partagés entre les sections au prorata de leurs inscrits ; il est porté par l'IIP.</p>
 
-    ${croise(l => l.bloc, 'Bloc', 'La charge par bloc d’études (ETP)')}
-    ${croise(l => l.nature, 'Nature', 'La charge par nature (ETP)')}
+    <h2>Ce que la section rapporte, par étudiant</h2>
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Droits et frais (IIP)</th><th class="n">Par étudiant</th>
+      <th class="n">Coût IIP par étudiant</th><th class="n">Coût HELB par étudiant</th><th class="n">Coût total par étudiant</th></tr></thead><tbody>
+      ${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td>
+        <td class="n">${y.tiers ? `<span class="fin">perçus par ${esc(y.tiers)}</span>` : eur(y.recettes)}</td>
+        <td class="n g">${y.inscrits && !y.tiers ? eur(y.recettes / y.inscrits) : '—'}</td>
+        <td class="n">${y.inscrits ? eur(y.tout_iip / y.inscrits) : '—'}</td><td class="n">${y.inscrits ? eur(y.tout_helb / y.inscrits) : '—'}</td>
+        <td class="n">${y.inscrits ? eur((y.tout_iip + y.tout_helb) / y.inscrits) : '—'}</td></tr>`).join('')}</tbody></table>
+    <p class="fin">Droits et frais au barème de l'année (Configuration → droit d'inscription et frais), unité par unité pour les inscrits de la
+      section, plus les forfaits : le calcul de « Coûts des formations », sans plafond ni exonération — le perçu réel se lit dans les fiches.</p>
+
+    ${croise(l => l.bloc, 'Bloc', 'L’enseignement par bloc d’études (ETP)')}
+    ${croise(l => l.nature, 'Nature', 'L’enseignement par nature (ETP)')}
 
     <h2 class="saut">Les coordinations et le cadre administratif</h2>
     ${fonctions}
@@ -259,8 +293,9 @@ export function lignesIipHelb(p) {
   const annees = (p.annees?.length ? p.annees : []).sort();
   return annees.map(a => {
     const y = annee(section, a);
-    return { annee: a, section, etp_iip: Math.round(y.etp_iip * 100) / 100, etp_helb: Math.round(y.etp_helb * 100) / 100,
+    return { annee: a, section, etp_iip: Math.round((y.etp_iip + y.cetp_iip) * 100) / 100, etp_helb: Math.round((y.etp_helb + y.cetp_helb) * 100) / 100,
       per_iip: Math.round(y.per_iip), per_helb: Math.round(y.per_helb), cout_iip: Math.round(y.cout_iip + y.coord_iip + y.admin.part),
-      cout_helb: Math.round(y.cout_helb + y.coord_helb), inscrits: y.inscrits };
+      cout_helb: Math.round(y.cout_helb + y.coord_helb), inscrits: y.inscrits,
+      recettes: Math.round(y.recettes), par_etudiant: y.inscrits ? Math.round(y.recettes / y.inscrits) : null };
   });
 }
