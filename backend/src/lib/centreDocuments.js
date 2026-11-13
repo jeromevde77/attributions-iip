@@ -160,6 +160,12 @@ async function desinscriptionEnLigne(q, json) {
 /** La boucle : les demandes du portail (liste ou pièce), jugées et rendues. */
 export async function relayerCentre(appel) {
   const r = await appel('GET', '/interne/centre/requetes');
+  // Le dernier retour vu par le portail (3.5.406), lisible dans portail_etape « centre:portail ».
+  if (r?.traces?.length) { try {
+    db.exec('CREATE TABLE IF NOT EXISTS portail_etape (etape TEXT PRIMARY KEY, ok_le TEXT, erreur TEXT, erreur_le TEXT, duree_ms INTEGER, n INTEGER)');
+    db.prepare(`INSERT INTO portail_etape (etape, erreur, erreur_le) VALUES ('centre:portail', ?, datetime('now'))
+      ON CONFLICT(etape) DO UPDATE SET erreur = excluded.erreur, erreur_le = excluded.erreur_le`).run(r.traces.map(t => `${t.le} ${t.texte}`).join('\n').slice(0, 4000));
+  } catch { /* */ } }
   const l = r?.requetes || [];
   if (!l.length) return 0;
   const json = (id, statut, corps) => ({ id, statut, type: 'application/json; charset=utf-8', corps: Buffer.from(JSON.stringify(corps)).toString('base64') });

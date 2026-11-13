@@ -4451,7 +4451,15 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       }
       note = den ? arrondir(num / den) : null;
     }
-    const forcee = aaFaveur(code) || (ueFaveur && !na && note != null && note < SEUIL_AA);
+    /* LA FAVEUR D'UN COURS COUVRE SES ACQUIS (3.5.408, Charles : « les professeurs demandent de pouvoir ne pas ajourner un
+       cours en première session — Glawdis, un AA en échec dans le cours de Wael ; si je ne l'ajourne pas, tu bloques la
+       délibération »). La faveur posée sur le cours levait la note du COURS, pas celle de l'acquis : l'acquis restait en échec
+       et la clôture le comptait comme « oublié ». Désormais un acquis dont toutes les évaluations en échec viennent de cours
+       en faveur vaut le seuil, comme les autres faveurs. */
+    const KO_F = ['PP', 'NP', 'CM'];
+    const enEchec = evals.filter(e => !e.ajourne && ((e.note != null && e.note < SEUIL_AA) || KO_F.includes(e.mention)));
+    const parCours = !na && enEchec.length > 0 && enEchec.every(e => coursFaveur(e.cours_code));
+    const forcee = aaFaveur(code) || parCours || (ueFaveur && !na && note != null && note < SEUIL_AA);
     const affichee = na ? null : (forcee ? SEUIL_AA : note);
     /* LA NOTE SOUS LE NA (Charles, 9 octobre 2026 : « tu ne me donnes pas la
        note de l'AA, je ne sais pas dire si l'échec est profond »). Un acquis
@@ -9787,6 +9795,8 @@ r.put('/deliberation/ajustement', authRequired,
     `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code, action,
            req.user?.email || null);
     if (avant) poserPortee(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, code, mode, avant, req.user?.email || null);
+    // Une faveur remplace l'ajournement du cours : la liste partielle d'acquis à représenter tombe avec lui (3.5.408).
+    if (portee === 'cours' && action === 'faveur') poserPortee(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, code, 'tous', null, null);
   }
   // On renvoie l'étudiant recalculé AVEC son aide à la décision : sans elle,
   // poser un ajustement faisait disparaître de l'écran le coût de la faveur et
