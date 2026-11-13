@@ -639,6 +639,64 @@ r.get('/:ueNum', authRequired, (req, res) => {
    un chapeau entre plusieurs AA »). La phrase de l'unité (`ue_acquis_intro`) et le chapeau qui ouvre un groupe d'acquis (`aa.chapeau`)
    existaient — réglés par la direction dans la fiche de l'UE (PUT /api/aa/ue/:n/presentation), et la DUE imprimée les lit déjà.
    Ceux qui rédigent l'unité (droitsSurLUE.ecrire) les écrivent aussi d'ici ; l'ordre et les codes des acquis ne changent pas. */
+/* L'AIDE DE L'IA AU CROISEMENT (3.5.415, Charles : « nous ne savons pas, au niveau matière, quoi cocher ici »). L'écran envoie
+   les acquis et les points du programme de chaque cours — un texte pédagogique, rien de personnel — ; Claude propose, pour
+   chaque point, les acquis qu'il travaille, avec une raison courte. RIEN NE S'ÉCRIT ICI : l'écran montre les propositions,
+   l'équipe coche. Réservé à ceux qui rédigent l'unité. */
+r.post('/:ueNum/croisement/proposer', authRequired, async (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  if (!droitsSurLUE(req.user, ueNum, annee).ecrire) return res.status(403).json({ error: 'Réservé à ceux qui rédigent l’unité.' });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'L’aide de l’IA n’est pas configurée sur ce serveur (clé manquante) : demandez-la à Jérôme.' });
+  const acquis = (Array.isArray(req.body?.acquis) ? req.body.acquis : []).slice(0, 40)
+    .map(a => ({ code: String(a.code || '').slice(0, 20), texte: String(a.texte || '').slice(0, 600) })).filter(a => a.code && a.texte);
+  const cours = (Array.isArray(req.body?.cours) ? req.body.cours : []).slice(0, 20)
+    .map(c => ({ code: String(c.code || '').slice(0, 20), nom: String(c.nom || '').slice(0, 200),
+      points: (Array.isArray(c.points) ? c.points : []).slice(0, 80).map(p => String(p).slice(0, 600)) })).filter(c => c.code && c.points.length);
+  if (!acquis.length || !cours.length) return res.status(400).json({ error: 'Il faut des acquis et des points du programme.' });
+  const ue = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(ueNum, annee) || {};
+  const consigne = `Tu aides une équipe d'enseignants d'une école d'enseignement supérieur pour adultes (Belgique, FWB) à rédiger le
+descriptif d'une unité d'enseignement (UE ${ueNum} — ${ue.ue_nom || ''}). Pour chaque point du programme de chaque cours, indique quels
+acquis d'apprentissage de l'unité ce point permet de travailler ou d'évaluer. Sois prudent : ne relie un point à un acquis que si le
+lien est réel au niveau de la matière ; un point peut ne servir aucun acquis, ou plusieurs. Veille aussi à ce que chaque acquis soit porté
+par au moins un point quand c'est défendable ; si un acquis n'est porté par aucun point, dis-le dans « manques », avec le cours où il
+devrait s'enseigner et un point de programme à ajouter (une phrase courte, au style du programme).
+
+ACQUIS :
+${acquis.map(a => `${a.code} : ${a.texte}`).join('\n')}
+
+COURS ET POINTS (numérotés par cours) :
+${cours.map(c => `${c.code} — ${c.nom}\n${c.points.map((p, i) => `  ${i + 1}. ${p}`).join('\n')}`).join('\n\n')}
+
+Réponds UNIQUEMENT par un objet JSON, sans texte autour, de la forme :
+{"liens":[{"cours":"298.1","point":1,"acquis":["AA298.2"],"raison":"phrase courte"}],
+ "manques":[{"acquis":"AA298.4","cours":"298.1","point_propose":"…","raison":"…"}]}`;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-5-5', max_tokens: 4000, messages: [{ role: 'user', content: consigne }] }),
+      signal: AbortSignal.timeout(90000),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(502).json({ error: `L’IA n’a pas répondu (${j?.error?.message || r.status}).` });
+    const texte = (j.content || []).map(x => x.text || '').join('');
+    const m = /\{[\s\S]*\}/.exec(texte);
+    let out;
+    try { out = JSON.parse(m ? m[0] : texte); } catch { return res.status(502).json({ error: 'La réponse de l’IA ne se lit pas : réessayez.' }); }
+    const codesAA = new Set(acquis.map(a => a.code));
+    const liens = (out.liens || []).map(l => {
+      const c = cours.find(x => x.code === String(l.cours));
+      const point = c ? c.points[Number(l.point) - 1] : null;
+      return c && point ? { cours: c.code, point, acquis: (l.acquis || []).map(String).filter(x => codesAA.has(x)), raison: String(l.raison || '').slice(0, 300) } : null;
+    }).filter(l => l && l.acquis.length);
+    const manques = (out.manques || []).filter(x => codesAA.has(String(x.acquis))).map(x => ({ acquis: String(x.acquis), cours: String(x.cours || ''),
+      point_propose: String(x.point_propose || '').slice(0, 400), raison: String(x.raison || '').slice(0, 300) }));
+    res.json({ liens, manques });
+  } catch (e) { res.status(502).json({ error: `L’IA n’a pas répondu à temps : ${e.message}` }); }
+});
+
 r.put('/:ueNum/chapeaux-acquis', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const ueNum = Number(req.params.ueNum);

@@ -29,7 +29,7 @@ import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, I
 import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
-import { EnteteCarte, Tableau, Th, Tr, TrTotal, TableauVide } from './ui.jsx';
+import { EnteteCarte, Tableau, Th, Tr, TrTotal, TableauVide, Encadre } from './ui.jsx';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
 import { decouperProgramme, memeCours, texteVersHtml } from '../lib/texteDossier.js';
 const majuscule = t => String(t ?? '').replace(/^([«"“(\s]*)(\p{Ll})/u, (m, a, b) => a + b.toUpperCase());
@@ -248,6 +248,37 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
       return { ...x, [co]: { ...(x[co] || {}), [pt]: n } };
     });
   };
+  /* L'AIDE DE L'IA (3.5.415) : des propositions, jamais des croix. Elles se lisent en pointillé, avec leur raison au survol ;
+     l'équipe les coche une à une, ou toutes d'un geste. */
+  const [ia, setIa] = useState(null);          // { liens, manques } | null
+  const [iaEnCours, setIaEnCours] = useState(false);
+  const proposeIA = (co, pt, aa) => (ia?.liens || []).find(l => l.cours === co && l.point === pt && l.acquis.includes(aa)) || null;
+  const demanderIA = async () => {
+    setIaEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/due/${ueNum}/croisement/proposer`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+        acquis: acquis.map(a => ({ code: a.aa_code, texte: a.description || '' })),
+        cours: cours.map(x => ({ code: x.cours_code, nom: x.cours_nom || '', points: points(x.cours_code) })) }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'L’IA n’a pas répondu.');
+      setIa(j);
+    } catch (e) { setErreur(e.message); } finally { setIaEnCours(false); }
+  };
+  const toutCocherIA = () => {
+    if (!ia || lecture) return;
+    setMessage(null); setSale(true);
+    setCroix(x => {
+      const n = { ...x };
+      for (const l of ia.liens) { const cur = n[l.cours]?.[l.point] || []; n[l.cours] = { ...(n[l.cours] || {}), [l.point]: [...new Set([...cur, ...l.acquis])] }; }
+      return n;
+    });
+  };
+  const ajouterTexte = (co, texte) => {
+    const t = norm(texte);
+    if (t.length < 4 || points(co).includes(t)) return;
+    if (Array.isArray(liste[co])) setListe(l => ({ ...l, [co]: [...l[co], t] }));
+    setAjouts(a => ({ ...a, [co]: [...(a[co] || []), t] })); setSale(true); setMessage(null);
+  };
   const ajouterPoint = co => {
     const t = norm(saisie[co]);
     if (t.length < 4 || points(co).includes(t)) return;
@@ -359,6 +390,38 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
       {/* LA LÉGENDE DES ACQUIS (Charles, 8 octobre 2026 : « il faut la légende des AA…
           c'est important »). Les colonnes ne portent que le code : sans le texte, on
           coche au jugé. */}
+      {!lecture && acquis.length > 0 && cours.length > 0 && (
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="L’aide de l’IA" sous="Elle lit les acquis et les points du programme, et propose des croix — en pointillé, à relire : rien n’est coché sans vous.">
+            <button type="button" className="bouton" disabled={iaEnCours} onClick={demanderIA}>
+              {iaEnCours ? 'L’IA lit l’unité…' : ia ? 'Redemander' : 'Proposer avec l’IA'}</button>
+            {ia?.liens?.length > 0 && <button type="button" className="bouton" onClick={toutCocherIA}>Cocher toutes les propositions ({ia.liens.reduce((t, l) => t + l.acquis.length, 0)})</button>}
+            {ia && <button type="button" className="bouton" onClick={() => setIa(null)}>Effacer</button>}
+          </EnteteCarte>
+          {ia && (
+            <div className="px-4 py-2 space-y-1 text-second">
+              <p className="m-0 text-slate-500">{ia.liens.length ? `${ia.liens.length} point(s) relié(s) : les cases proposées sont en pointillé bleu, la raison s’affiche au survol.` : 'Aucune proposition.'}</p>
+              {(ia.manques || []).map((m, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="flex-1 min-w-0"><b>{m.acquis}</b> n’est porté par aucun point{m.cours ? ` — à ajouter au cours ${m.cours}` : ''} : « {m.point_propose} »{m.raison ? <span className="text-slate-500"> · {m.raison}</span> : null}</span>
+                  {m.cours && m.point_propose && cours.some(x => x.cours_code === m.cours) && (
+                    <button type="button" className="bouton flex-none" onClick={() => ajouterTexte(m.cours, m.point_propose)}>Ajouter ce point à {m.cours}</button>)}
+                </div>))}
+            </div>)}
+        </section>)}
+      {/* UN ACQUIS QU'AUCUN POINT NE PORTE SE SIGNALE (3.5.414, Charles, UE 298 : « AA298.4 — nous devons compléter ce tableau ») :
+          sans croix, il n'a aucun poids à l'étape 2 et ne s'évalue nulle part. Le remède est dans le cours où il s'enseigne :
+          « Ajouter un point du programme à ce cours… », puis la croix. */}
+      {acquis.length > 0 && cours.length > 0 && (() => {
+        const porte = new Set();
+        for (const x of cours) for (const pt of points(x.cours_code)) for (const aa of croix[x.cours_code]?.[pt] || []) porte.add(aa);
+        const seuls = acquis.filter(a => !porte.has(a.aa_code));
+        return seuls.length ? (
+          <Encadre etat="surveiller" titre={`${seuls.map(a => a.aa_code).join(', ')} : porté${seuls.length > 1 ? 's' : ''} par aucun point du programme`}>
+            Sans croix, un acquis n’a aucun poids à l’étape 2 et ne s’évalue dans aucun cours. Dans le cours où il s’enseigne, ajoutez le
+            point qui le porte (« Ajouter un point du programme à ce cours… », au bas de son tableau), puis cochez sa colonne.
+          </Encadre>) : null;
+      })()}
       {acquis.length > 0 && (
         <section className="carte overflow-hidden">
           <EnteteCarte titre="Acquis d’apprentissage de l’unité" />
@@ -447,12 +510,14 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                       </td>
                       {acquis.map(a => {
                         const on = coche(co, pt, a.aa_code);
+                        const pIA = !on ? proposeIA(co, pt, a.aa_code) : null;
                         return (
                           <td key={a.aa_code} className="text-center py-1">
                             <button type="button" disabled={lecture} onClick={() => basculer(co, pt, a.aa_code)}
                               aria-label={`${a.aa_code} — ${pt}`} aria-pressed={on}
-                              className={`w-6 h-6 rounded-md border inline-grid place-items-center ${on ? 'text-white border-transparent' : 'border-slate-300 text-transparent'} ${lecture ? '' : 'hover:border-iip-blue'}`}
-                              style={on ? { background: 'var(--c-principal)' } : undefined}>
+                              title={pIA ? `Proposé par l’IA : ${pIA.raison}` : undefined}
+                              className={`w-6 h-6 rounded-md border inline-grid place-items-center ${on ? 'text-white border-transparent' : pIA ? 'text-transparent' : 'border-slate-300 text-transparent'} ${lecture ? '' : 'hover:border-iip-blue'}`}
+                              style={on ? { background: 'var(--c-principal)' } : pIA ? { border: '2px dashed var(--c-accent, #05B7E6)' } : undefined}>
                               <IconCheck size={14} />
                             </button>
                           </td>);
