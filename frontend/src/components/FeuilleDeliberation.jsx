@@ -940,6 +940,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             </div>
           )}
 
+          {etape !== 'reprise' && (
+            <FriseSeance etape={etape} faits={{
+              preparer: !!(seance?.seance?.date_seance && seance?.quorum?.atteint !== false),
+              deliberer: (data?.etudiants || []).length > 0 && (data?.etudiants || []).every(e => e.resultat),
+              synthese: !!seance?.seance?.cloturee }}
+              aller={k => { setLot(false); setTableau(false); setEtape(k === 'preparer' ? 'presences' : k === 'synthese' ? 'cloture' : 'fiche'); }} />)}
           {etape === 'reprise' ? (
             <Reprise reprise={reprise} session={session} enCours={enCours}
               onAppliquer={() => appliquerReprise(false)}
@@ -972,7 +978,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onFini={async decides => {
                 if (decides?.length) { const frais = await charger(); if (frais) figerOrdre(frais); }
                 setIdx(0); setEtape('fiche'); }} />
-          ) : etape === 'cloture' ? (
+          ) : etape === 'cloture' ? (<>
+            <SyntheseSeance data={data} seance={seance} session={session} enCours={enCours} onPieces={() => setDocuments(true)}
+              onOuvrir={e => { const k = liste.indexOf(e); if (k >= 0) setIdx(k); else revoir(x => x.id === e.id); setEtape('fiche'); }} />
+            <div className="intertitre mt-4">Clore la séance</div>
             <Cloture seance={seance?.seance} visiteCalendrier={seance?.visite_calendrier || null} enCours={enCours} nb={liste.length}
               quorum={seance?.quorum} erreur={erreur}
               onPresences={() => setEtape('presences')}
@@ -981,7 +990,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               coursSession2={seance?.session2 || []} coursVisite={seance?.cours_visite || []} delais={seance?.delais || null}
               onReprendre={() => setCorrection(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
-          ) : !liste.length ? (
+          </>) : !liste.length ? (
             <div className="py-10 text-center text-sm text-slate-400 carte">
               {(data?.etudiants || []).length
                 ? <span className="inline-flex flex-col items-center gap-3">
@@ -997,7 +1006,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                             Revoir les {session === 2 ? 'refusés' : 'ajournés'} ({n})</button>); })()}
                       <button type="button" className="bouton" onClick={() => revoir(() => true)}>
                         Revoir toute l'unité ({(data?.etudiants || []).length})</button>
-                      <button type="button" className="bouton bouton-fort" onClick={() => setEtape('cloture')}>Passer à la clôture</button>
+                      <button type="button" className="bouton bouton-fort" onClick={() => setEtape('cloture')}>Voir la synthèse et clore</button>
                     </span>
                     <span className="text-second">ou cherchez un nom pour revenir sur une décision</span>
                   </span>
@@ -1197,6 +1206,100 @@ const parNote = (a, b) => {
   return nb - na || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
 };
 const virgule = v => String(v).replace('.', ',');
+
+/* ═══ LA SÉANCE EN ÉTAPES ET SA SYNTHÈSE (3.5.413) ══════════════════════════
+ *
+ * Charles, 13 novembre 2026 : « après la délibération, cette page de synthèse — les ajournements, etc. — sous forme d'un écran ;
+ * la page de clôture est moche ; repenser la structure » ; tranché : une frise en tête de la séance, une synthèse qui porte les
+ * tuiles par décision, les vérifications, les listes et les pièces à sortir ; la clôture fondue dans les étapes.
+ */
+function FriseSeance({ etape, aller, faits }) {
+  const ETAPES = [['preparer', 'Préparer', 'présences, séance'], ['deliberer', 'Délibérer', 'étudiant par étudiant'], ['synthese', 'Synthèse et clôture', 'le résultat de la séance']];
+  const active = etape === 'presences' ? 'preparer' : etape === 'cloture' ? 'synthese' : 'deliberer';
+  return (
+    <div className="flex mb-3" role="navigation" aria-label="Étapes de la séance">
+      {ETAPES.map(([k, l, s], i) => {
+        const on = active === k, ok = faits[k];
+        return (
+          <button key={k} type="button" onClick={() => aller(k)} aria-current={on ? 'step' : undefined}
+            className={`flex-1 text-left px-3 py-1.5 border ${i ? '-ml-px' : ''} ${i === 0 ? 'rounded-l-champ' : ''} ${i === ETAPES.length - 1 ? 'rounded-r-champ' : ''}`}
+            style={on ? { background: 'var(--c-principal)', borderColor: 'var(--c-principal)', color: '#fff', position: 'relative', zIndex: 1 }
+              : { background: '#fff', borderColor: ok ? 'var(--c-reussi)' : 'rgb(var(--gris-300))', color: ok ? 'var(--c-reussi)' : 'rgb(var(--gris-600))' }}>
+            <span className="flex items-center gap-1.5 font-semibold text-sm">
+              {ok && !on ? <IconCircleCheck size={15} /> : <span className="tabular-nums">{i + 1} ·</span>}{l}</span>
+            <span className={`block text-mention ${on ? 'opacity-80' : 'text-slate-500'}`}>{s}</span>
+          </button>);
+      })}
+    </div>);
+}
+
+function SyntheseSeance({ data, seance, session, onOuvrir, onPieces, enCours }) {
+  const tous = data?.etudiants || [];
+  const faveurDe = e => !!(e.ue?.faveur || e.ue?.faveur_ue || (e.cours || []).some(c => c.faveur_directe) || (e.acquis || []).some(a => a.faveur_directe));
+  const groupes = [
+    ['reussi', 'Réussis', 'reussi', tous.filter(e => e.resultat === 'reussi' && !faveurDe(e))],
+    ['faveur', 'Faveurs', 'faveur', tous.filter(e => faveurDe(e))],
+    ...(session >= 2 ? [] : [['ajourne', 'Ajournés', 'surveiller', tous.filter(e => e.resultat === 'ajourne' && !faveurDe(e))]]),
+    ['refuse', 'Refusés', 'corriger', tous.filter(e => e.resultat === 'refuse')],
+    ['absent', 'Absents', 'neutre', tous.filter(e => e.resultat === 'absent')],
+    ['sans', 'Sans décision', 'surveiller', tous.filter(e => !e.resultat)],
+  ].filter(g => g[0] !== 'sans' || g[3].length);
+  const [ouvert, setOuvert] = useState(session >= 2 ? 'refuse' : 'ajourne');
+  const q = seance?.quorum;
+  const s = seance?.seance || {};
+  const visites = seance?.cours_visite || [];
+  const s2 = seance?.session2 || [];
+  const sansVisite = visites.filter(c => !c.rdv && !c.date);
+  const s2Manquant = s2.filter(c => !c.aucune && c.a_representer !== 0 && !c.date);
+  const sansDecision = tous.filter(e => !e.resultat).length;
+  const verifs = [
+    [q?.atteint !== false, q ? `Quorum : ${q.presents} présent(s) sur ${q.membres}${q.atteint === false ? ` — il en faut ${q.requis}` : ''}` : 'Présences : à prendre (étape 1)'],
+    [!!s.date_seance, s.date_seance ? `Séance du ${String(s.date_seance).split('-').reverse().join('/')}` : 'Date de la séance : à poser'],
+    [!sansDecision, sansDecision ? `${sansDecision} étudiant(s) sans décision` : `Toutes les décisions posées (${tous.length})`],
+    [!sansVisite.length, sansVisite.length ? `Consultation des copies : ${sansVisite.map(c => c.cours_code).join(', ')} sans date ni rendez-vous` : 'Consultation des copies : chaque cours a sa date ou son rendez-vous'],
+    ...(session >= 2 ? [] : [[!s2Manquant.length, s2Manquant.length ? `Seconde session : ${s2Manquant.map(c => c.cours_code).join(', ')} sans date` : 'Seconde session : dates posées (ou sans objet)']]),
+  ];
+  const detail = (cle, e) => cle === 'faveur'
+    ? ((e.ue?.faveur || e.ue?.faveur_ue) ? 'sur l’unité' : (e.cours || []).filter(c => c.faveur_directe).map(c => c.cours_code).join(', ') || 'sur des acquis')
+      + (e.resultat === 'ajourne' ? ` · ajourné : ${(e.ue?.a_representer || []).join(', ')}` : '')
+    : cle === 'ajourne' ? `à représenter : ${(e.ue?.a_representer || []).join(', ') || '—'}`
+    : cle === 'refuse' || cle === 'absent' ? ((e.ue?.mentions || []).map(m => `${m.mention} (${m.cours_code})`).join(' · ') || '')
+    : e.ue?.na ? '' : e.ue?.note != null ? `${String(e.ue.note).replace('.', ',')} / 20` : '';
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${groupes.length}, minmax(0, 1fr))` }}>
+        {groupes.map(([cle, l, etat, liste]) => (
+          <TuileEtat key={cle} etat={etat} valeur={liste.length} libelle={l} taille="compacte" onClick={() => setOuvert(cle)} actif={ouvert === cle} />))}
+      </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Vérifications avant de clore" />
+        <div className="px-4 py-2 space-y-1">
+          {verifs.map(([ok, t], i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              {ok ? <IconCircleCheck size={16} style={{ color: 'var(--c-reussi)' }} /> : <IconAlertTriangle size={16} style={{ color: 'var(--c-attente)' }} />}{t}
+            </div>))}
+        </div>
+      </section>
+      {groupes.filter(g => g[0] === ouvert).map(([cle, l, etat, liste]) => (
+        <section key={cle} className="carte overflow-hidden">
+          <EnteteCarte titre={<span className="inline-flex items-center gap-2"><PastilleEtat etat={etat}>{liste.length}</PastilleEtat>{l}</span>} />
+          {!liste.length ? <p className="text-sm text-slate-500 px-4 py-3 m-0">Personne.</p> : (
+            <Tableau dense className="!border-0 !rounded-none">
+              <TableauEntete><Th>Étudiant</Th><Th>Matricule</Th><Th>{cle === 'ajourne' ? 'Cours à représenter' : cle === 'faveur' ? 'Faveur' : 'Détail'}</Th></TableauEntete>
+              <tbody>{liste.map(e => (
+                <Tr key={e.id} className="cursor-pointer" onClick={() => onOuvrir(e)} title="Revenir sur cet étudiant">
+                  <Td className="font-medium whitespace-nowrap">{nomPropre(e.nom, e.prenom)}</Td>
+                  <Td className="tabular-nums text-slate-500">{e.id_ecampus || '—'}</Td>
+                  <Td className="text-second">{detail(cle, e)}</Td>
+                </Tr>))}</tbody>
+            </Tableau>)}
+        </section>))}
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Les pièces de la séance" sous="PV, ajournés par cours, motivations, attestations — dans le centre d’impression, réglé sur cette séance" />
+        <div className="px-4 py-3"><button type="button" className="bouton" disabled={enCours} onClick={onPieces}><IconPrinter size={15} /> Sortir les pièces de la séance</button></div>
+      </section>
+    </div>);
+}
 
 function Previsualisation({ data, session, org, groupe, etudiants, onFermer, onOuvrir }) {
   const groupes = { reussite: [], faveur: [], echec: [], deliberer: [] };
