@@ -4379,6 +4379,14 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   // cause. Les ajournements de première session restent lus à part, pour
   // savoir quels cours sont à représenter.
   const ajust = {};
+  /* UNE FAVEUR DE PREMIÈRE SESSION TIENT EN SECONDE (3.5.411, Charles : « avons-nous pensé à tout ? »). Le cours ou l'acquis
+     levé en juin n'est pas représenté : en seconde session il garderait ses notes de juin, en échec, et l'étudiant serait
+     refusé. Les faveurs de cours et d'acquis de la session 1 valent donc en session 2, sauf ce que la session 2 décide
+     elle-même ; la faveur d'UNITÉ, elle, reste propre à sa séance. */
+  if (session === 2) for (const a of db.prepare(`
+    SELECT portee, code, action FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1 AND action = 'faveur' AND portee IN ('cours', 'aa')
+  `).all(etudId, annee, ueNum)) ajust[`${a.portee}|${a.code}`] = a.action;
   for (const a of db.prepare(`
     SELECT portee, code, action FROM deliberation_ajustement
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?

@@ -159,7 +159,8 @@ function detailResultat(etudId, ueNum, annee, resultat) {
           note_s1: d1 ? (() => { const x = c1(c.cours_code); return x ? cote1(x.note, x.na || (x.mention && !fav1)) : '—'; })() : null,
           acquis: (d.acquis || []).filter(a => (a.evaluations || []).some(x => x.cours_code === c.cours_code)).map(a => {
             const x = a.evaluations.find(y => y.cours_code === c.cours_code);
-            const note = cote(x.note, !!x.ajourne || !!a.ajourne_directement || !!x.mention);
+            // Un cours en faveur du Conseil vaut 10 pour chacun de ses acquis (3.5.411) — comme dans la grille.
+            const note = c.faveur_directe && !x.ajourne ? '10' : cote(x.note, !!x.ajourne || !!a.ajourne_directement || !!x.mention);
             const x1 = d1 ? aa1(a.aa_code, c.cours_code) : null;
             return { code: a.aa_code, libelle: a.description || '', note, motif: note === 'NA' ? (motifs[a.aa_code] || null) : null,
               note_s1: d1 ? (x1 ? cote1(x1.note, !!x1.ajourne || ajA1(a.aa_code) || !!x1.mention) : '—') : null };

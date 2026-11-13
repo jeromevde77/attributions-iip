@@ -3492,7 +3492,9 @@ de documents (`desins_etat`, `desins_demande`).
 **3.5.408** — LA FAVEUR SUR UN COURS (Charles : « ne pas ajourner un cours ; une faveur juste sur un cours ») : `delibererUE`
 force au seuil un acquis dont toutes les évaluations en échec viennent de cours en faveur (`coursFaveur`) — avant, seule la note du
 cours montait et `incoherencesAjournement` bloquait la clôture. Bouton « faveur ? » sous chaque cours de la feuille ; une faveur
-remplace l'ajournement du cours (liste partielle remise à zéro).
+remplace l'ajournement du cours (liste partielle remise à zéro). **3.5.411** : les faveurs de COURS et d'ACQUIS de la session 1
+valent en session 2 (`delibererUE` les lit d'abord) — sinon le cours non représenté retombait en échec ; l'espace étudiant affiche 10
+pour les acquis d'un cours en faveur.
 **3.5.407** — une VA complète retenue de l'ANNÉE compte dans « ECTS réussis » de la fiche (`annee_scolaire <= ?`, c'était `<`)
 et sort des ECTS de la ligne de la liste (`vaAnnee` de `/frises`) — Charles, HURET Sophie (TIM).
 **3.5.404** — nginx du portail : `location /api/portail/centre` SANS barre finale. Avec la barre, nginx renvoyait « /centre » vers
