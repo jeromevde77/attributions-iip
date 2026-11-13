@@ -133,8 +133,15 @@ export function importerAttributions(texte, { ecrire = false, parId = null } = {
     const deja = db.prepare('SELECT COUNT(*) n FROM attribution WHERE annee_scolaire = ? AND section = ?').get(annee, section).n;
     const connue = !!db.prepare('SELECT 1 FROM annee_scolaire WHERE code = ?').get(annee);
     const passee = active && annee < active;
+    // Une section inconnue de Lucie ne s'écrit pas (la base la refuserait, et tout l'import tomberait) : on la nomme (3.5.426).
+    const sectionConnue = !!db.prepare('SELECT 1 FROM section WHERE code = ?').get(section);
     return { annee, section, lignes: lignes.filter(l => l.annee === annee && l.section === section).length, deja, connue, passee,
-      bloque: !passee ? `${annee} n'est pas une année passée` : !connue ? `l'année ${annee} n'existe pas dans Lucie` : deja ? `${deja} attribution(s) existent déjà pour ${section} en ${annee}` : null };
+      // Charles (13 novembre 2026, « Aides-soignants » : « pas grave, le principal c'est TIM ») : une section inconnue est LAISSÉE
+      // DE CÔTÉ, nommée, sans bloquer les autres.
+      ignoree: !sectionConnue ? `section « ${section} » inconnue de Lucie : lignes laissées de côté` : null,
+      bloque: !passee ? `${annee} n'est pas une année passée` : !connue ? `l'année ${annee} n'existe pas dans Lucie`
+        : !sectionConnue ? null
+        : deja ? `${deja} attribution(s) existent déjà pour ${section} en ${annee}` : null };
   });
   const totaux = { lignes: lignes.length, sans_professeur: lignes.filter(l => !l.professeur_id).length, a_verifier: lignes.filter(l => l.alerte).length,
     periodes: lignes.reduce((s, l) => s + l.periodes, 0), autonomie: lignes.reduce((s, l) => s + l.autonomie, 0) };
@@ -143,15 +150,18 @@ export function importerAttributions(texte, { ecrire = false, parId = null } = {
 
   const ins = db.prepare(`INSERT INTO attribution (section, etablissement_referent, contrat_mdp, annee_scolaire, ue_num, num_organisation,
       quadrimestre_attribue, code_cours, type_cours, code, nb_groupes, professeur_id, cours_ept_ad, coordination_encadrement, commentaire,
-      periodes_attribuees, autonomie_attribuee, total_attribue_professeur, statut_exception, valide, valide_par, valide_le, created_by)
-    VALUES (?,?,?,?,?,1,?,?,?,?,1,?,?,?,?,?,?,?,?,1,?,datetime('now'),?)`);
+      periodes_attribuees, autonomie_attribuee, statut_exception, valide, valide_par, valide_le, created_by)
+    VALUES (?,?,?,?,?,1,?,?,?,?,1,?,?,?,?,?,?,?,1,?,datetime('now'),?)`);
+  // Le total attribué au professeur est une colonne CALCULÉE par la base (périodes + autonomie) : on ne l'écrit pas (3.5.426).
+  const ignorees = new Set(paires.filter(x => x.ignoree).map(x => `${x.annee}|${x.section}`));
+  const aEcrire = lignes.filter(l => !ignorees.has(`${l.annee}|${l.section}`));
   db.transaction(() => {
-    for (const l of lignes) {
+    for (const l of aEcrire) {
       ins.run(l.section, l.contrat_mdp || 'IIP', l.contrat_mdp || 'IIP', l.annee, l.ue_num, l.quadrimestre, l.code_cours, l.type_cours, l.code,
         l.professeur_id, l.cours_ept_ad, l.coordination_encadrement,
         [`Import ${l.annee} (${l.nom_source || 'sans professeur'})`, l.code_cours ? null : l.activite, l.commentaire].filter(Boolean).join(' — '),
-        l.periodes, l.autonomie, l.total ?? (l.periodes + l.autonomie), l.statut_exception, parId, parId);
+        l.periodes, l.autonomie, l.statut_exception, parId, parId);
     }
   })();
-  return { ecrit: lignes.length, paires, totaux };
+  return { ecrit: aEcrire.length, paires, totaux };
 }
