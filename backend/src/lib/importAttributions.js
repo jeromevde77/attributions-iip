@@ -33,7 +33,18 @@ const COLONNES = {
 };
 
 function lireCsv(texte) {
-  const lignes = String(texte || '').replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+  /* UN RETOUR À LA LIGNE DANS UNE CASE ENTRE GUILLEMETS NE COUPE PAS LA LIGNE (3.5.425 : l'intitulé « EPREUVE INTEGREE ⏎ DE LA
+     SECTION : AMBULANCIER… » de l'UE 224 bloquait tout 2023-2024) : on découpe en lignes en tenant compte des guillemets, et le
+     retour à la ligne d'une case devient une espace. */
+  const lignes = [];
+  { let cur = '', q = false; const t = String(texte || '').replace(/^﻿/, '');
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (c === '"') q = !q;
+      if ((c === '\n' || c === '\r') && !q) { if (c === '\r' && t[i + 1] === '\n') i++; if (cur.trim()) lignes.push(cur); cur = ''; continue; }
+      cur += (c === '\n' || c === '\r') ? ' ' : c;
+    }
+    if (cur.trim()) lignes.push(cur); }
   if (!lignes.length) return { entetes: [], rangs: [] };
   const sep = (lignes[0].match(/;/g) || []).length >= (lignes[0].match(/,/g) || []).length ? ';' : ',';
   const couper = l => {
