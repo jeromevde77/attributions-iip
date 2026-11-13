@@ -2636,7 +2636,10 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                               réussi, restait peinte en échec. Elle ne tombe qu'avec son cours,
                               ou quand l'acquis lui-même est ajourné — et seulement là où ce
                               cours l'évalue : une case vide reste vide. */}
-                          {peutCliquerNote && !faveurUE && !a.faveur && caseDe(a, c.cours_code) ? (
+                          {/* UN COURS EN FAVEUR VAUT 10 DANS SA COLONNE (3.5.410, Charles, Gwladis, 251.2) : même quand l'acquis reste
+                              à représenter par un AUTRE cours ajourné (251.1), la case de ce cours-ci dit ce que le Conseil a accordé. */}
+                          {c.faveur_directe && caseDe(a, c.cours_code) ? dix(caseDe(a, c.cours_code), 'Faveur du Conseil sur ce cours')
+                          : peutCliquerNote && !faveurUE && !a.faveur && caseDe(a, c.cours_code) ? (
                             <button type="button" disabled={enCours} className="block w-full hover:opacity-80"
                               title={aaTombeDans(a, c) ? `Retirer ${a.aa_code} de l'ajournement du cours ${c.cours_code}` : `Ajourner ${a.aa_code} dans le cours ${c.cours_code}`}
                               onClick={() => onAACours(c.cours_code, a.aa_code, !aaTombeDans(a, c))}>

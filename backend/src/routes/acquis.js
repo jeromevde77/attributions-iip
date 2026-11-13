@@ -4379,6 +4379,14 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   // cause. Les ajournements de première session restent lus à part, pour
   // savoir quels cours sont à représenter.
   const ajust = {};
+  /* UNE FAVEUR DE PREMIÈRE SESSION TIENT EN SECONDE (3.5.411, Charles : « avons-nous pensé à tout ? »). Le cours ou l'acquis
+     levé en juin n'est pas représenté : en seconde session il garderait ses notes de juin, en échec, et l'étudiant serait
+     refusé. Les faveurs de cours et d'acquis de la session 1 valent donc en session 2, sauf ce que la session 2 décide
+     elle-même ; la faveur d'UNITÉ, elle, reste propre à sa séance. */
+  if (session === 2) for (const a of db.prepare(`
+    SELECT portee, code, action FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1 AND action = 'faveur' AND portee IN ('cours', 'aa')
+  `).all(etudId, annee, ueNum)) ajust[`${a.portee}|${a.code}`] = a.action;
   for (const a of db.prepare(`
     SELECT portee, code, action FROM deliberation_ajustement
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
@@ -8393,7 +8401,7 @@ r.post('/deliberation/documents-lot', authRequired, async (req, res) => {
         total: !!req.body?.total,
         date_document: req.body?.date_document || null,
       });
-    } catch (e) { manques.push(`UE ${ueNum} : ${e.message}`); continue; }
+    } catch (e) { console.error('[documents-lot]', ueNum, e); manques.push(`UE ${ueNum} : ${e.message}`); continue; }
 
     for (const m of a.manques) manques.push(`UE ${ueNum} — ${m}`);
     for (const st of a.styles) if (st && !styles.includes(st)) styles.push(st);
@@ -8409,8 +8417,9 @@ r.post('/deliberation/documents-lot', authRequired, async (req, res) => {
 
   if (!pages.length) {
     return res.status(400).json({
-      error: 'Aucune pièce à produire pour les unités choisies : les décisions ne '
-           + 'sont pas enregistrées, ou aucune ne correspond aux pièces demandées.',
+      // LA CAUSE SE DIT (3.5.409) : une erreur de composition restait dans `manques`, que l'écran n'affiche pas.
+      error: (manques.length ? `Aucune pièce produite — ${manques.slice(0, 3).join(' · ')}` : 'Aucune pièce à produire pour les unités choisies : les décisions ne '
+           + 'sont pas enregistrées, ou aucune ne correspond aux pièces demandées.'),
       manques,
     });
   }
