@@ -489,10 +489,17 @@ function lireDUE(ueNum, annee) {
   };
 }
 
+/** LE CROISEMENT EST-IL RÉALISÉ ? Au moins une croix dans l'UE (3.5.420, Charles, 13 novembre 2026 : « si le croisement
+ * n'est pas réalisé, la DUE n'affiche pas la partie critères mais juste les modalités d'évaluation » ; tranché : aucune croix
+ * dans l'unité). Lu par les étapes, l'écran de la DUE et la DUE imprimée. */
+export function croisementFait(c) {
+  return !!(c?.croisement && Object.values(c.croisement).some(pts => Object.values(pts || {}).some(aa => Array.isArray(aa) && aa.length)));
+}
+
 /** Les trois étapes, lues des traces : fait, courant, à venir. */
 export function etapesDUE(d) {
   const valide = d.statut === 'validee';
-  const croise = !!(d.contenu?.croisement && Object.values(d.contenu.croisement).some(pts => Object.keys(pts || {}).length));
+  const croise = croisementFait(d.contenu);
   const redac = !!d.soumis_le || valide;
   const pond = !!d.ponderation_fixee_le;
   const date = v => (v ? String(v).slice(0, 10).split('-').reverse().join('/') : '');
@@ -626,6 +633,7 @@ r.get('/:ueNum', authRequired, (req, res) => {
       : pointsDuProgramme(String(d.contenu?.programme || auto.dp?.programme || '').replace(/<[^>]+>/g, '\n')),
     grille_precedente,
     bilan_criteres: bilanGrille(d.contenu?.grille_criteres),
+    croise: croisementFait(d.contenu),
     etapes: etapesDUE(d),
     droits: { ...droits, soumettre: droits.ecrire && d.statut !== 'validee',
       fixer_ponderations: NIVEAU_DIRECTION.includes(req.user?.role) && d.statut !== 'validee',
@@ -1305,7 +1313,7 @@ export function documentDUE(ueNum, annee) {
     ${bloc("Modalités d'évaluation", `${evaluation}
       <div class="fin">${c.note_ue ? riche(c.note_ue) : esc(getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</div>`)}
 
-    ${bloc("Critères d'évaluation", grillesCriteres(auto, c, evaluationUnique(ueNum, annee)) || '<p class="vide">à compléter</p>')}
+    ${croisementFait(c) ? bloc("Critères d'évaluation", grillesCriteres(auto, c, evaluationUnique(ueNum, annee)) || '<p class="vide">à compléter</p>') : ''}
 
     ${bloc('Degré de maîtrise', riche(rediges.degre_maitrise))}
   </div>`;

@@ -3,7 +3,7 @@ import { FriseEtapes } from '../components/graphiques.jsx';
 import { demander } from '../lib/dialogue.jsx';
 import { useEnregistrementAuto, heureCourte } from '../lib/enregistrementAuto.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { OuvrirEditions, Tableau, TableauEntete, Th, Td, Tr, TableauVide, PastilleEtat, ListeEtats, LigneEtat } from '../components/ui.jsx';
+import { OuvrirEditions, Tableau, TableauEntete, Th, Td, Tr, TableauVide, PastilleEtat, ListeEtats, LigneEtat, Encadre } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText, IconBulb,
@@ -1189,9 +1189,12 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       </Bloc>
 
       <Bloc titre="Critères d'évaluation" aide="Acquis par acquis, sous son chapeau : le critère et ses indicateurs. Pour mettre un mot en gras dans une case : **mot**.">
-        <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
-          onGrille={g => maj('grille_criteres', g)}
-          onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />
+        {/* SANS CROISEMENT, PAS DE CRITÈRES (3.5.420) : la DUE imprimée s'arrête aux modalités d'évaluation. */}
+        {d.croise === false
+          ? <Encadre etat="surveiller">Le croisement de l'étape 1 n'est pas réalisé : la DUE n'imprime pas de critères, seulement les modalités d'évaluation. Les critères paraîtront dès qu'un acquis sera croisé avec un point du programme.</Encadre>
+          : <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
+              onGrille={g => maj('grille_criteres', g)}
+              onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />}
       </Bloc>
 
       <Bloc titre="Degré de maîtrise" aide="Pour chaque acquis, ce qui distingue la maîtrise.">
