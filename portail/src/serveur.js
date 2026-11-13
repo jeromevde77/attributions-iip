@@ -466,6 +466,8 @@ function connecte(req, res, next) {
 }
 
 /* LE CENTRE DE DOCUMENTS : la demande attend sa réponse (20 s pour la liste, 50 s pour une pièce). */
+db.exec('CREATE TABLE IF NOT EXISTS centre_trace (id INTEGER PRIMARY KEY AUTOINCREMENT, le TEXT NOT NULL DEFAULT (datetime(\'now\')), texte TEXT)');
+function centreTrace(t) { try { db.prepare('INSERT INTO centre_trace (texte) VALUES (?)').run(String(t).slice(0, 400)); db.prepare("DELETE FROM centre_trace WHERE le < datetime('now', '-7 days')").run(); } catch { /* */ } }
 async function demanderCentre(req, res, action, code, delai, donnees = null) {
   const id = Number(db.prepare('INSERT INTO centre_requete (etudiant_id, apercu, action, code, donnees) VALUES (?,?,?,?,?)')
     .run(req.etudiant.id, req.apercu ? 1 : 0, action, code ? String(code).slice(0, 20) : null, donnees ? JSON.stringify(donnees).slice(0, 4000) : null).lastInsertRowid);
@@ -474,13 +476,19 @@ async function demanderCentre(req, res, action, code, delai, donnees = null) {
     const r = db.prepare('SELECT statut, rep_type, rep_nom, rep_corps FROM centre_requete WHERE id = ? AND fini_le IS NOT NULL').get(id);
     if (r) {
       db.prepare('DELETE FROM centre_requete WHERE id = ?').run(id);
-      if (r.rep_type) res.set('Content-Type', r.rep_type);
-      if (r.rep_nom) res.set('Content-Disposition', `inline; filename="${String(r.rep_nom).replace(/[^A-Za-z0-9_.-]/g, '_')}"`);
-      return res.status(r.statut || 502).send(r.rep_corps || Buffer.alloc(0));
+      // LA TRACE DU RETOUR (3.5.406) : ce que le portail a rendu au navigateur, relevé par Lucie (portail_etape « centre:portail »).
+      const corps = r.rep_corps == null ? Buffer.alloc(0) : (Buffer.isBuffer(r.rep_corps) ? r.rep_corps : Buffer.from(r.rep_corps));
+      centreTrace(`${action}${code ? `:${code}` : ''} → ${r.statut} ${r.rep_type || ''} ${corps.length} o`);
+      try {
+        if (r.rep_type) res.set('Content-Type', r.rep_type);
+        if (r.rep_nom) res.set('Content-Disposition', `inline; filename="${String(r.rep_nom).replace(/[^A-Za-z0-9_.-]/g, '_')}"`);
+        return res.status(r.statut || 502).send(corps);
+      } catch (e) { centreTrace(`${action} : envoi impossible — ${e.message}`); return res.status(500).json({ error: 'La pièce n’a pas pu être transmise.' }); }
     }
     await new Promise(x => setTimeout(x, 200));
   }
   db.prepare('DELETE FROM centre_requete WHERE id = ? AND prise_le IS NULL').run(id);
+  centreTrace(`${action}${code ? `:${code}` : ''} → 504 (pas de réponse de Lucie en ${delai / 1000} s)`);
   res.status(504).json({ error: 'Lucie ne répond pas pour l’instant. Réessayez dans un moment.' });
 }
 pub.get('/api/portail/centre', connecte, exige('documents'), (req, res) => demanderCentre(req, res, 'liste', null, 20000));
@@ -1115,7 +1123,8 @@ int.get('/interne/centre/requetes', (req, res) => {
     AND (prise_le IS NULL OR prise_le < datetime('now', '-60 seconds')) ORDER BY id LIMIT 20`).all();
   const prendre = db.prepare("UPDATE centre_requete SET prise_le = datetime('now') WHERE id = ?");
   for (const x of l) prendre.run(x.id);
-  res.json({ requetes: l.map(x => ({ ...x, apercu: !!x.apercu, donnees: x.donnees ? JSON.parse(x.donnees) : null })) });
+  const traces = db.prepare('SELECT id, le, texte FROM centre_trace ORDER BY id DESC LIMIT 20').all();
+  res.json({ requetes: l.map(x => ({ ...x, apercu: !!x.apercu, donnees: x.donnees ? JSON.parse(x.donnees) : null })), traces });
 });
 int.post('/interne/centre/reponses', (req, res) => {
   const up = db.prepare("UPDATE centre_requete SET statut = ?, rep_type = ?, rep_nom = ?, rep_corps = ?, fini_le = datetime('now') WHERE id = ?");
