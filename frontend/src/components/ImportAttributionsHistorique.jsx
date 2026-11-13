@@ -38,7 +38,7 @@ export default function ImportAttributionsHistorique({ onFermer, onFait }) {
         <span className="text-second text-slate-500 min-w-0 flex-1">{r?.ecrit ? `${r.ecrit} attribution(s) écrite(s).` : r?.bloque ? `Rien ne peut être écrit : ${r.bloque}.` : r?.lignes ? 'Simulation : rien n’est encore écrit.' : ''}</span>
         {r?.lignes && !r.ecrit && !r.bloque && (
           <button className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={enCours} onClick={() => envoyer(texte, true)}>
-            <IconCheck size={15} />Écrire les {r.totaux.lignes} attributions</button>)}
+            <IconCheck size={15} />Écrire les {r.totaux.lignes - (r.paires || []).filter(p => p.ignoree).reduce((t, p) => t + p.lignes, 0)} attributions</button>)}
       </>}>
       <div className="space-y-3">
         <label className="flex items-center gap-2 text-sm">
@@ -53,7 +53,7 @@ export default function ImportAttributionsHistorique({ onFermer, onFait }) {
             <tbody>{r.paires.map(p => (
               <tr key={p.annee + p.section} className="border-b border-slate-100">
                 <td className="px-2 py-1">{p.annee}</td><td className="px-2 py-1">{p.section}</td><td className="px-2 py-1 text-right tabular-nums">{p.lignes}</td>
-                <td className="px-2 py-1" style={{ color: p.bloque ? 'var(--c-refuse)' : 'var(--c-reussi)' }}>{p.bloque || (r.ecrit ? 'écrite' : 'prête')}</td>
+                <td className="px-2 py-1" style={{ color: p.bloque ? 'var(--c-refuse)' : p.ignoree ? 'var(--c-attente)' : 'var(--c-reussi)' }}>{p.bloque || p.ignoree || (r.ecrit ? 'écrite' : 'prête')}</td>
               </tr>))}</tbody>
           </table>)}
         {r?.totaux && (

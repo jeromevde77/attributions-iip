@@ -1989,6 +1989,9 @@ try {
   try {
     const aDesigner = db.prepare("SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1").get();
     if (aDesigner) {
+      /* LE NUMÉRO DE « À DÉSIGNER » PEUT CHANGER (3.5.426 : la fiche est passée de 661 à 794, le déclencheur pointait encore
+         vers 661 — toute attribution sans professeur était refusée). On repose les deux déclencheurs à chaque démarrage. */
+      db.exec('DROP TRIGGER IF EXISTS trg_attribution_prof_null_insert; DROP TRIGGER IF EXISTS trg_attribution_prof_null_update;');
       db.exec(`
         CREATE TRIGGER IF NOT EXISTS trg_attribution_prof_null_insert
         AFTER INSERT ON attribution
