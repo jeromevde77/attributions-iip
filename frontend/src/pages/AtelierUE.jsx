@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PastilleEtape, LienEtape } from '../components/graphiques.jsx';
 import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight, IconArrowLeft, IconLock, IconBook } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
+import { informer } from '../lib/dialogue.jsx';
 import { Fiche } from './DUE.jsx';
 import { UEModal } from './Referentiels.jsx';
 import ApercuDossier from '../components/ApercuDossier.jsx';
@@ -168,6 +169,14 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
      étapes en lecture pour avoir l'info ») : les verrous de l'ordre du travail ne gardent que ceux qui rédigent. */
   const [lecture, setLecture] = useState(false);
   const [pourquoi, setPourquoi] = useState(null);
+  const [etape3, setEtape3] = useState(false);
+  const [redaction, setRedaction] = useState(null);
+  async function reglerRedaction(mode) {
+    const r = await fetch('/api/due/redaction-section', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ ue_num: ue, mode }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { informer(j.error || 'Réglage refusé'); return; }
+    setRedaction(x => ({ ...x, mode }));
+  }
   const passe = lecture || passeLesVerrous();
   const lireSuivi = useCallback(async n => {
     if (!n) return;
@@ -179,6 +188,8 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
     setSuivi(etats(due, liens));
     setLecture(!!due && !due?.droits?.ecrire);
     setPourquoi(due?.droits?.pourquoi || null);
+    setEtape3(!!due?.droits?.etape3);
+    setRedaction(due?.redaction || null);
   }, []);
   // Relu à chaque changement d'unité ou d'étape : ce qu'on vient d'enregistrer se voit.
   useEffect(() => { lireSuivi(ue); }, [ue, face, lireSuivi]);
@@ -241,7 +252,20 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
       {dp && <UEModal ue={dp.ue} sections={dp.sections} ongletInitial="contenu" lecture onClose={() => setDp(null)} onSaved={() => setDp(null)} />}
 
       <Frise faces={FACES} ouvertes={ouvertes.map(f => f[0])} face={face} onFace={setFace} et={suivi} passe={lecture} />
-      {ue && lecture && <Encadre etat="neutre">Lecture seule{pourquoi ? ` — ${pourquoi}` : ''} Les enseignants qui donnent cours dans l’unité et la coordination rédigent ; vous voyez chaque étape.</Encadre>}
+      {ue && lecture && (etape3
+        ? <Encadre etat="neutre">Les étapes 0 à 2 sont rédigées par la coordination de la section : vous les voyez en lecture. À l’étape 3, vous complétez les méthodes d’apprentissage et le contrat pédagogique, les supports de cours, les modalités d’évaluation et le degré de maîtrise.</Encadre>
+        : <Encadre etat="neutre">Lecture seule{pourquoi ? ` — ${pourquoi}` : ''} Les enseignants qui donnent cours dans l’unité et la coordination rédigent ; vous voyez chaque étape.</Encadre>)}
+      {/* CE QUE LES ENSEIGNANTS RÉDIGENT (3.5.421) : réglé par section, par la direction ou la coordination de la section. */}
+      {ue && redaction?.peut_regler && (
+        <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
+          <span>En <b>{redaction.section}</b>, les enseignants rédigent :</span>
+          <div className="segments" role="radiogroup" aria-label="Ce que les enseignants rédigent">
+            {[['etape3', 'l’étape 3 seulement'], ['tout', 'toutes les étapes']].map(([v, l]) => (
+              <button key={v} type="button" role="radio" aria-checked={redaction.mode === v} onClick={() => reglerRedaction(v)}
+                className={redaction.mode === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+          </div>
+          {redaction.mode === 'etape3' && <span className="text-slate-500">méthodes, supports, modalités d’évaluation, degré de maîtrise ; les étapes 0 à 2 restent à la coordination.</span>}
+        </div>)}
 
       {railPropre && (
         <RailLateral titre="Unité" sections={[{ items: ouvertes.map(([k, l, I, n]) => (
