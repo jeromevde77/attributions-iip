@@ -7767,6 +7767,8 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
     const noteCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.note]));
     const naCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.na]));
     const calcCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.note_calculee]));
+    // UN COURS EN FAVEUR VAUT 10 SUR LA PIÈCE AUSSI (3.5.417, Charles, Gwladis, UE 251 : la grille imprimée gardait 9).
+    const favCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, !!c.faveur_directe]));
     const dec = d.ue?.decision_proposee || null;
     const arrete = db.prepare(`SELECT resultat FROM deliberation_resultat
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
@@ -7788,7 +7790,8 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
 
     const cells = cours.flatMap(c => [
       ...c.aas.map((aa, i) => `<td class="${i === 0 ? 'sep' : ''}">`
-        + `${mentionAA[`${c.cours_code}|${aa}`] ? `<span class="faible">${mentionAA[`${c.cours_code}|${aa}`]}</span>` : n2(parAA[`${c.cours_code}|${aa}`])}</td>`),
+        + `${favCours[c.cours_code] && (parAA[`${c.cours_code}|${aa}`] != null || mentionAA[`${c.cours_code}|${aa}`]) ? `${n2(reglesDeliberation().seuil_aa ?? 10)}*`
+          : mentionAA[`${c.cours_code}|${aa}`] ? `<span class="faible">${mentionAA[`${c.cours_code}|${aa}`]}</span>` : n2(parAA[`${c.cours_code}|${aa}`])}</td>`),
       // « NA » NE SURVIT PAS À UNE RÉUSSITE ARRÊTÉE.
       //
       // Un cours porté « non acquis » sous un étudiant que le Conseil a déclaré
