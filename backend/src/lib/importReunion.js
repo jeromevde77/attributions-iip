@@ -24,6 +24,11 @@ function blocsDuHtml(html) {
       continue;
     }
     // Un <li> qui contient un <p> : on garde le texte une fois (le <p> intérieur est sauté plus bas par la déduplication).
+    // UN PARAGRAPHE COUPÉ PAR DES <br> (la fiche de Plaud : « Date : … <br> Lieu : … <br> Participants : … ») : une ligne par morceau.
+    if (tag === 'p' && /<br\s*\/?>/i.test(m[2])) {
+      for (const morceau of m[2].split(/<br\s*\/?>/i)) { const t = net(morceau); if (t) out.push({ type: 'p', texte: t }); }
+      continue;
+    }
     const texte = net(m[2]);
     if (!texte) continue;
     out.push(tag[0] === 'h' ? { type: 'h', niveau: Number(tag[1]), texte } : { type: tag, texte });
@@ -67,7 +72,7 @@ export async function proposerReunion(buffer, nomFichier = '') {
     blocs = blocsDuHtml(a.html || '');
     avertissements = a.avertissements || [];
   }
-  const r = { titre: '', date_seance: null, lieu: '', genre: 'equipe', ordre_du_jour: [], participants: '', points: [], taches: [], avertissements };
+  const r = { titre: '', date_seance: null, heure_seance: null, lieu: '', genre: 'equipe', ordre_du_jour: [], participants: '', points: [], taches: [], avertissements };
 
   // Les champs « Clé : valeur », où qu'ils soient.
   for (const b of blocs) {
@@ -76,15 +81,22 @@ export async function proposerReunion(buffer, nomFichier = '') {
     const k = sans(m[1]);
     if (k === 'titre' && !r.titre) r.titre = m[2];
     else if (k === 'genre') r.genre = (GENRES.find(([re]) => re.test(sans(m[2]))) || [null, r.genre])[1];
-    else if (k === 'date' && !r.date_seance) r.date_seance = dateDe(m[2]);
+    else if (k === 'date' && !r.date_seance) {
+      r.date_seance = dateDe(m[2]);
+      const h = /(\d{1,2})\s*h\s*(\d{2})?|(\d{1,2}):(\d{2})/.exec(m[2].replace(/^\D*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/, ''));
+      if (h) r.heure_seance = `${String(h[1] ?? h[3]).padStart(2, '0')}:${h[2] ?? h[4] ?? '00'}`;
+    }
     else if (k === 'lieu' && !r.lieu) r.lieu = m[2];
     else if (/^(participants?|presents?)$/.test(k) && !r.participants) r.participants = m[2];
   }
   // Les blancs « [À COMPLÉTER] » d'un modèle restent des blancs.
   const vide = t => String(t || '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-  r.lieu = vide(r.lieu); r.participants = vide(r.participants);
-  const h1 = blocs.find(b => b.type === 'h' && b.niveau === 1);
-  if (!r.titre) r.titre = (h1?.texte || blocs[0]?.texte || 'Réunion').replace(/\s+[—-]\s+à coller.*$/i, '').slice(0, 160);
+  r.lieu = vide(r.lieu); r.participants = vide(r.participants).replace(/^[\s,;]+|[\s,;]+$/g, '');
+  if (/^(non precise|inconnu|-)$/.test(sans(r.lieu))) r.lieu = '';
+  // Le titre : le premier titre du document (h1, sinon le premier titre venu — Plaud ouvre par un h2 « 11-13 Réunion : … »).
+  const h1 = blocs.find(b => b.type === 'h' && b.niveau === 1) || blocs.find(b => b.type === 'h');
+  if (!r.titre) r.titre = (h1?.texte || blocs[0]?.texte || 'Réunion').replace(/\s+[—-]\s+à coller.*$/i, '')
+    .replace(/^\d{1,2}-\d{1,2}\s+/, '').replace(/^Réunion\s*:\s*/i, '').slice(0, 160);
   if (!r.date_seance) r.date_seance = dateDe(blocs.slice(0, 8).map(b => b.texte).join(' ')) || null;
 
   // Les sections, par titre.
@@ -100,7 +112,7 @@ export async function proposerReunion(buffer, nomFichier = '') {
   if (odj) r.ordre_du_jour = odj.filter(b => b.type !== 'tr').map(b => b.texte.replace(/^\d+[.)]\s*/, ''));
 
   // Les tâches : un tableau (Quoi · Qui · Pour quand), sinon une liste sous « Tâches / Actions / Récapitulatif des actions ».
-  const blocTaches = section(/^(\d+\.\s*)?(taches|actions|recapitulatif des actions|suites)/) || [];
+  const blocTaches = section(/^(\d+\.\s*)?(taches|actions|recapitulatif des actions|suites|prochaines etapes|a faire)/) || [];
   const lignes = blocs.filter(b => b.type === 'tr');
   const entete = lignes.find(l => l.cellules.some(c => /^quoi$/i.test(c)));
   if (entete) {
@@ -114,22 +126,37 @@ export async function proposerReunion(buffer, nomFichier = '') {
     }
   } else {
     // Une liste à puces fait les tâches ; les paragraphes qui la suivent (« Merci… », la signature) n'en sont pas.
-    const puces = blocTaches.filter(b => b.type === 'li');
-    for (const b of (puces.length ? puces : blocTaches.filter(b => b.type === 'p'))) r.taches.push({ titre: b.texte, qui: '', echeance: null, quand: '' });
+    // Les cases « ☐ » de Plaud sont des puces ; « Nicolas : contacter… » nomme qui ; « [Speaker 1] » ne nomme personne.
+    const caseA = b => b.type === 'p' && /^[☐☑☒□▢✓✔]\s*/.test(b.texte);
+    const puces = blocTaches.filter(b => b.type === 'li' || caseA(b));
+    for (const b of (puces.length ? puces : blocTaches.filter(b => b.type === 'p'))) {
+      let titre = b.texte.replace(/^[☐☑☒□▢✓✔]\s*/, '');
+      let qui = '';
+      const m = /^([^:]{2,40})\s*:\s+(.+)$/.exec(titre);
+      if (m && !/\s(de|du|des|la|le|les|au|aux|et)\s/i.test(` ${m[1]} `) && m[1].split(/\s+/).length <= 4) {
+        qui = m[1].replace(/\[[^\]]*\]/g, '').trim(); titre = m[2].charAt(0).toUpperCase() + m[2].slice(1);
+      }
+      r.taches.push({ titre, qui, echeance: dateDe(titre), quand: '' });
+    }
   }
 
   // Les points : la section « Points » (chaque point ouvert par un titre ou un « N. Intitulé »), sinon chaque grande partie
   // numérotée du document qui n'est ni la fiche, ni l'ordre du jour, ni les tâches.
-  const HORS = /fiche|ordre du jour|taches|actions|recapitulatif|suites/;
+  const HORS = /fiche|ordre du jour|taches|actions|recapitulatif|suites|prochaines etapes|^compte rendu/;
   const ouvrePoint = b => estTitre(b) || (b.type === 'p' && /^\d+\.\s+\S/.test(b.texte) && b.texte.length < 140);
-  let source = section(/^points?\b/);
+  // « Points » seul (ou « Points abordés ») — pas « Points restant à clarifier », qui est un point comme un autre.
+  let source = section(/^(\d+\.\s*)?points?(\s+(abordes|traites|discutes|de l'ordre du jour))?$/);
   if (!source) {
     source = [];
+    // Le niveau des parties : le plus haut niveau de titre qui revient au moins deux fois (hors titre du document).
+    const niveaux = blocs.filter(b => b.type === 'h' && b !== h1).map(b => b.niveau);
+    const nPartie = [1, 2, 3, 4, 5, 6].find(n => niveaux.filter(x => x === n).length >= 2) || 2;
     let dedans = false;
     for (const b of blocs) {
       if (b === h1) continue;
-      if (b.type === 'h' && b.niveau <= 2) { dedans = !HORS.test(sans(b.texte)); if (dedans) source.push({ ...b, type: 'h', niveau: 3 }); continue; }
-      if (dedans) source.push(b);
+      if (b.type === 'h' && b.niveau <= nPartie) { dedans = b.niveau === nPartie && !HORS.test(sans(b.texte)); if (dedans) source.push({ ...b, type: 'h', niveau: 3 }); continue; }
+      // Un sous-titre (« Budget et matériel ») reste dans les notes de sa partie.
+      if (dedans) source.push(b.type === 'h' ? { type: 'p', texte: `${b.texte} :` } : b);
     }
   }
   let courant = null;

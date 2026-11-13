@@ -42,7 +42,7 @@ export default function ImportReunion({ types = [], personnes = [], onFermer, on
     setErreur(null); setEnCours(true);
     try {
       const rep = await fetch('/api/reunions', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
-        titre: r.titre, genre: r.genre, date_seance: r.date_seance || undefined, lieu: r.lieu || null, ordre_du_jour: r.ordre || null,
+        titre: r.titre, genre: r.genre, date_seance: r.date_seance || undefined, heure_seance: r.heure_seance || null, lieu: r.lieu || null, ordre_du_jour: r.ordre || null,
         notes: r.participants ? `Participants : ${r.participants}` : null, statut: 'tenue',
         points: r.points.filter(p => p.intitule.trim() || p.notes.trim()) }) });
       const j = await rep.json().catch(() => ({}));
@@ -73,7 +73,7 @@ export default function ImportReunion({ types = [], personnes = [], onFermer, on
         {erreur && <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur} />}
         {r?.avertissements?.map(a => <Encadre key={a} etat="surveiller" titre={a} />)}
         {r && <>
-          <div className="grid gap-2 md:grid-cols-[1fr_12rem_10rem]">
+          <div className="grid gap-2 md:grid-cols-[1fr_12rem_10rem_6rem]">
             <label className="block"><span className="text-second text-slate-600">Titre</span>
               <input className="controle w-full" value={r.titre} onChange={e => maj('titre', e.target.value)} /></label>
             <label className="block"><span className="text-second text-slate-600">Type de réunion</span>
@@ -81,6 +81,8 @@ export default function ImportReunion({ types = [], personnes = [], onFermer, on
                 {types.map(t => <option key={t.cle} value={t.cle}>{t.libelle}</option>)}</select></label>
             <label className="block"><span className="text-second text-slate-600">Date</span>
               <input type="date" className="controle w-full" value={r.date_seance || ''} onChange={e => maj('date_seance', e.target.value)} /></label>
+            <label className="block"><span className="text-second text-slate-600">Heure</span>
+              <input className="controle w-full" placeholder="hh:mm" value={r.heure_seance || ''} onChange={e => maj('heure_seance', e.target.value)} /></label>
           </div>
           <div className="grid gap-2 md:grid-cols-2">
             <label className="block"><span className="text-second text-slate-600">Lieu</span>
