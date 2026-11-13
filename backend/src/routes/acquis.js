@@ -7608,7 +7608,8 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
     // deux pièces et cassait le saut de page qui les sépare.
     style: STYLE_ENTETE_DELIB + STYLE_LISTES,
     nb_listes: pages.length,
-    nb_ajournes: ajournes.length,
+    // 3.5.416 : le décompte se lit des listes par cours (`ajournes` n'existait plus — « ajournes is not defined », UE 251).
+    nb_ajournes: new Set(Object.values(parCours).flat().map(e => e.id ?? e.etudiant_id)).size,
     sans_cours: !cours.length,
   };
 }
