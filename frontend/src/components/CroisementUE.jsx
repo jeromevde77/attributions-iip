@@ -29,7 +29,7 @@ import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, I
 import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
-import { EnteteCarte, Tableau, Th, Tr, TrTotal, TableauVide } from './ui.jsx';
+import { EnteteCarte, Tableau, Th, Tr, TrTotal, TableauVide, Encadre } from './ui.jsx';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
 import { decouperProgramme, memeCours, texteVersHtml } from '../lib/texteDossier.js';
 const majuscule = t => String(t ?? '').replace(/^([«"“(\s]*)(\p{Ll})/u, (m, a, b) => a + b.toUpperCase());
@@ -359,6 +359,19 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
       {/* LA LÉGENDE DES ACQUIS (Charles, 8 octobre 2026 : « il faut la légende des AA…
           c'est important »). Les colonnes ne portent que le code : sans le texte, on
           coche au jugé. */}
+      {/* UN ACQUIS QU'AUCUN POINT NE PORTE SE SIGNALE (3.5.414, Charles, UE 298 : « AA298.4 — nous devons compléter ce tableau ») :
+          sans croix, il n'a aucun poids à l'étape 2 et ne s'évalue nulle part. Le remède est dans le cours où il s'enseigne :
+          « Ajouter un point du programme à ce cours… », puis la croix. */}
+      {acquis.length > 0 && cours.length > 0 && (() => {
+        const porte = new Set();
+        for (const x of cours) for (const pt of points(x.cours_code)) for (const aa of croix[x.cours_code]?.[pt] || []) porte.add(aa);
+        const seuls = acquis.filter(a => !porte.has(a.aa_code));
+        return seuls.length ? (
+          <Encadre etat="surveiller" titre={`${seuls.map(a => a.aa_code).join(', ')} : porté${seuls.length > 1 ? 's' : ''} par aucun point du programme`}>
+            Sans croix, un acquis n’a aucun poids à l’étape 2 et ne s’évalue dans aucun cours. Dans le cours où il s’enseigne, ajoutez le
+            point qui le porte (« Ajouter un point du programme à ce cours… », au bas de son tableau), puis cochez sa colonne.
+          </Encadre>) : null;
+      })()}
       {acquis.length > 0 && (
         <section className="carte overflow-hidden">
           <EnteteCarte titre="Acquis d’apprentissage de l’unité" />
