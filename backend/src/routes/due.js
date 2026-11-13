@@ -83,6 +83,26 @@ function pourquoiLecture({ peutRediger, titulaire, coordination, section }) {
   if (!titulaire && !coordination) return `Vous ne donnez pas cours dans cette unité et vous n’en êtes pas la coordination${section ? ` (section ${section} : vérifiez les sections de votre compte)` : ''}.`;
   return null;
 }
+/* CE QUE LES ENSEIGNANTS RÉDIGENT, SECTION PAR SECTION (3.5.421, Charles, 13 novembre 2026 : « les coordinations souhaitent
+ * choisir si on donne aux enseignants l'accès à la modification des DUE ; pour le moment, sauf en AeSI, garder la main sur les
+ * étapes 0, 1 et 2, mais laisser les profs compléter certaines parties de l'étape 3 » ; tranché : réglé dans Organisation → Unité
+ * par la direction et la coordination de la section). Deux modes : « tout » (la règle de 3.5.255) et « etape3 » — l'enseignant
+ * ne pose que les champs de CHAMPS_ETAPE3 ; croisement, pondération, chapeaux, dossier, identité et critères restent à la
+ * coordination. lucie_config « due_redaction » = { section: mode } ; sans réglage, l'AeSI est en « tout », les autres en « etape3 ». */
+export const CHAMPS_ETAPE3 = ['methodes', 'methode_autre', 'criteres', 'supports', 'evaluation', 'note_ue', 'degre_maitrise'];
+function reglagesRedaction() {
+  try { return JSON.parse(db.prepare(`SELECT valeur FROM lucie_config WHERE cle = 'due_redaction'`).get()?.valeur || '{}') || {}; }
+  catch { return {}; }
+}
+export function modeRedaction(section) {
+  const r = reglagesRedaction();
+  if (r[section] === 'tout' || r[section] === 'etape3') return r[section];
+  return String(section || '').toLowerCase() === 'aesi' ? 'tout' : 'etape3';
+}
+function sectionDeLUE(ueNum, annee) {
+  return db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(ueNum, annee)?.section || null;
+}
+
 export function droitsSurLUE(user, ueNum, annee) {
   const direction = NIVEAU_DIRECTION.includes(user?.role);
   // LES GESTES DE LA DUE se règlent dans Configuration → Accès (lib/gestes.js).
@@ -108,9 +128,12 @@ export function droitsSurLUE(user, ueNum, annee) {
     /* TOUS LES TITULAIRES DE L'UNITÉ ÉCRIVENT (3.5.255, Charles : « tous les professeurs qui donnent cours dans l'UE dont on gère
        les croisements doivent pouvoir modifier les pondérations, etc., dans unité, croiser, DUE ») : la règle de 3.5.144 (le
        référent seul) est levée. Le référent reste celui qui signe la DUE ; la direction valide et fixe. */
-    const ecrireP = peutRediger && (titulaire || coord);
-    return { lire: titulaire || coord, ecrire: ecrireP, valider: peutValider, titulaire, coordination: coord, referent: !!referent,
-      pourquoi: ecrireP ? null : pourquoiLecture({ peutRediger, titulaire, coordination: coord }) };
+    const mode = coord ? 'tout' : modeRedaction(sectionDeLUE(ueNum, annee));
+    const ecrireP = peutRediger && (coord || (titulaire && mode === 'tout'));
+    const etape3 = !ecrireP && peutRediger && titulaire && mode === 'etape3';
+    return { lire: titulaire || coord, ecrire: ecrireP, etape3, valider: peutValider, titulaire, coordination: coord, referent: !!referent,
+      pourquoi: ecrireP ? null : etape3 ? 'la coordination de la section rédige les étapes 0 à 2 ; vous complétez l’étape 3.'
+        : pourquoiLecture({ peutRediger, titulaire, coordination: coord }) };
   }
 
   /* Les autres lisent selon leur périmètre : la gestion de la section OU une
@@ -489,10 +512,17 @@ function lireDUE(ueNum, annee) {
   };
 }
 
+/** LE CROISEMENT EST-IL RÉALISÉ ? Au moins une croix dans l'UE (3.5.420, Charles, 13 novembre 2026 : « si le croisement
+ * n'est pas réalisé, la DUE n'affiche pas la partie critères mais juste les modalités d'évaluation » ; tranché : aucune croix
+ * dans l'unité). Lu par les étapes, l'écran de la DUE et la DUE imprimée. */
+export function croisementFait(c) {
+  return !!(c?.croisement && Object.values(c.croisement).some(pts => Object.values(pts || {}).some(aa => Array.isArray(aa) && aa.length)));
+}
+
 /** Les trois étapes, lues des traces : fait, courant, à venir. */
 export function etapesDUE(d) {
   const valide = d.statut === 'validee';
-  const croise = !!(d.contenu?.croisement && Object.values(d.contenu.croisement).some(pts => Object.keys(pts || {}).length));
+  const croise = croisementFait(d.contenu);
   const redac = !!d.soumis_le || valide;
   const pond = !!d.ponderation_fixee_le;
   const date = v => (v ? String(v).slice(0, 10).split('-').reverse().join('/') : '');
@@ -626,10 +656,14 @@ r.get('/:ueNum', authRequired, (req, res) => {
       : pointsDuProgramme(String(d.contenu?.programme || auto.dp?.programme || '').replace(/<[^>]+>/g, '\n')),
     grille_precedente,
     bilan_criteres: bilanGrille(d.contenu?.grille_criteres),
+    croise: croisementFait(d.contenu),
+    redaction: { section: auto.ue.section, mode: modeRedaction(auto.ue.section),
+      peut_regler: estCoordinationDe(req.user, ueNum, annee) },
     etapes: etapesDUE(d),
     droits: { ...droits, soumettre: droits.ecrire && d.statut !== 'validee',
       fixer_ponderations: NIVEAU_DIRECTION.includes(req.user?.role) && d.statut !== 'validee',
       ecrire: droits.ecrire && d.statut !== 'validee',
+      etape3: !!droits.etape3 && d.statut !== 'validee',
       pourquoi: droits.ecrire && d.statut === 'validee' ? 'La DUE est validée : elle est gelée (la direction peut la rouvrir).' : droits.pourquoi || null,
       regler_mode: peutReglerMode(req.user, ueNum, annee) && (d.statut !== 'validee' || droits.valider) },
   });
@@ -720,14 +754,37 @@ r.put('/:ueNum/chapeaux-acquis', authRequired, (req, res) => {
     acquis: db.prepare('SELECT aa_code, aa_num, description, chapeau FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code').all(ueNum) });
 });
 
+r.put('/redaction-section', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ueNum = Number(req.body?.ue_num);
+  const mode = req.body?.mode;
+  if (!['tout', 'etape3'].includes(mode)) return res.status(400).json({ error: 'mode : tout ou etape3' });
+  const section = sectionDeLUE(ueNum, annee);
+  if (!section) return res.status(404).json({ error: 'Unité inconnue cette année.' });
+  if (!estCoordinationDe(req.user, ueNum, annee)) {
+    return res.status(403).json({ error: 'Ce réglage appartient à la direction et à la coordination de la section.' });
+  }
+  const r2 = { ...reglagesRedaction(), [section]: mode };
+  db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES ('due_redaction', ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
+    .run(JSON.stringify(r2));
+  console.log(`[due] rédaction des enseignants en ${section} : ${mode} (${req.user?.email || '?'})`);
+  res.json({ ok: true, section, mode });
+});
+
 r.put('/:ueNum', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const ueNum = Number(req.params.ueNum);
   const droits = droitsSurLUE(req.user, ueNum, annee);
-  if (!droits.ecrire) {
+  if (!droits.ecrire && !droits.etape3) {
     return res.status(403).json({ error: "Vous n'êtes pas titulaire d'un cours de cette unité." });
   }
   const actuel = lireDUE(ueNum, annee);
+  // ÉTAPE 3 SEULEMENT (3.5.421) : l'enseignant ne pose que ses champs ; le reste du contenu enregistré ne bouge pas.
+  if (!droits.ecrire && req.body?.contenu && typeof req.body.contenu === 'object') {
+    const garde = { ...(actuel.contenu || {}) };
+    for (const k of CHAMPS_ETAPE3) if (k in req.body.contenu) garde[k] = req.body.contenu[k];
+    req.body.contenu = garde;
+  }
   if (actuel.statut === 'validee' && !droits.valider) {
     return res.status(409).json({
       error: 'Cette DUE a été validée par la direction : elle est en lecture seule. '
@@ -1305,7 +1362,7 @@ export function documentDUE(ueNum, annee) {
     ${bloc("Modalités d'évaluation", `${evaluation}
       <div class="fin">${c.note_ue ? riche(c.note_ue) : esc(getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</div>`)}
 
-    ${bloc("Critères d'évaluation", grillesCriteres(auto, c, evaluationUnique(ueNum, annee)) || '<p class="vide">à compléter</p>')}
+    ${croisementFait(c) ? bloc("Critères d'évaluation", grillesCriteres(auto, c, evaluationUnique(ueNum, annee)) || '<p class="vide">à compléter</p>') : ''}
 
     ${bloc('Degré de maîtrise', riche(rediges.degre_maitrise))}
   </div>`;

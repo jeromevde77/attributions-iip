@@ -3,7 +3,7 @@ import { FriseEtapes } from '../components/graphiques.jsx';
 import { demander } from '../lib/dialogue.jsx';
 import { useEnregistrementAuto, heureCourte } from '../lib/enregistrementAuto.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { OuvrirEditions, Tableau, TableauEntete, Th, Td, Tr, TableauVide, PastilleEtat, ListeEtats, LigneEtat } from '../components/ui.jsx';
+import { OuvrirEditions, Tableau, TableauEntete, Th, Td, Tr, TableauVide, PastilleEtat, ListeEtats, LigneEtat, Encadre } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText, IconBulb,
@@ -715,7 +715,10 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       .catch(e => setErreur(e.message));
   }, [ueNum]);
 
-  const lecture = !d?.droits?.ecrire;
+  /* ÉTAPE 3 SEULEMENT (3.5.421) : l'enseignant d'une section réglée « étape 3 » écrit méthodes, contrat, supports, modalités et
+     degré de maîtrise ; le reste se lit (lectureT). */
+  const lectureT = !d?.droits?.ecrire;
+  const lecture = lectureT && !d?.droits?.etape3;
 
   // CE QUI N'EST PAS ENCORE RÉDIGÉ EST REPRIS DU DOSSIER PÉDAGOGIQUE.
   //
@@ -850,7 +853,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
               {d.statut === 'validee' ? `validée le ${d.valide_le || ''}` : 'en préparation'}
             </PastilleEtat>
             <span className="text-xs text-slate-400 flex items-center gap-1">
-              {lecture ? <><IconEye size={12} /> lecture seule</>
+              {lecture ? <><IconEye size={12} /> lecture seule</> : lectureT ? <><IconPencil size={12} /> étape 3 : méthodes, supports, modalités, degré de maîtrise</>
                 : <><IconPencil size={12} /> vous pouvez modifier</>}
             </span>
           </div>
@@ -907,7 +910,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
           de ce qui est dans la nouvelle partie dossier pédagogique ») : finalités, degré de maîtrise et
           programme repris de la fiche d'UE, tels qu'ils y sont mis en page. Un programme enregistré d'après
           l'ancienne lecture du Word (« ¨ », « ♦ ») se signale. */}
-      {!lecture && d.dp && vue !== 'apercu' && (() => {
+      {!lectureT && d.dp && vue !== 'apercu' && (() => {
         const vieux = /[¨♦§•]/.test(String(c.programme_blocs ? Object.values(c.programme_blocs).join(' ') : ''));
         return (
           <div className="bloc-etat mb-3 px-3 py-2 text-second flex flex-wrap items-center gap-3" data-etat={vieux ? 'surveiller' : 'neutre'}>
@@ -954,17 +957,17 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
           <Su label="Code FWB" valeur={u.ue_code_fwb} />
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Responsable c={c} d={d} lecture={lecture} onChange={v => maj('responsable', v)} />
-          <Champ label="Bloc d'études administratif" valeur={c.bloc} lecture={lecture}
+          <Responsable c={c} d={d} lectureT={lectureT} onChange={v => maj('responsable', v)} />
+          <Champ label="Bloc d'études administratif" valeur={c.bloc} lectureT={lectureT}
             placeholder="1, 2 ou 3" onChange={v => maj('bloc', v)} />
           <Champ label="Niveau du cadre européen des certifications" valeur={c.niveau_cec}
-            lecture={lecture} placeholder={d.cec_defaut || 'aucun (formation continue)'} onChange={v => maj('niveau_cec', v)} />
-          <Champ label="Langue d'enseignement" valeur={c.langue_ens} lecture={lecture}
+            lectureT={lectureT} placeholder={d.cec_defaut || 'aucun (formation continue)'} onChange={v => maj('niveau_cec', v)} />
+          <Champ label="Langue d'enseignement" valeur={c.langue_ens} lectureT={lectureT}
             placeholder="Français" onChange={v => maj('langue_ens', v)} />
-          <Champ label="Langue d'évaluation" valeur={c.langue_eval} lecture={lecture}
+          <Champ label="Langue d'évaluation" valeur={c.langue_eval} lectureT={lectureT}
             placeholder="Français" onChange={v => maj('langue_eval', v)} />
         </div>
-        {!lecture && (
+        {!lectureT && (
           <label className="flex items-center gap-2 mt-2 text-second text-slate-700">
             <input type="checkbox" checked={!!c.codiplomation} className="w-4 h-4 accent-iip-blue"
               onChange={e => maj('codiplomation', e.target.checked)} />
@@ -1052,25 +1055,25 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       {/* ── Ce que l'enseignant et la coordination rédigent ── */}
       <Bloc titre="Finalités générales"
         aide="Celles du dossier pédagogique quand il les écrit à part ; à défaut, le texte de l'établissement (article 7 du décret).">
-        <Riche valeur={c.finalites_generales ?? d.dp?.finalites_generales ?? d.finalites_generales_defaut} lecture={lecture}
+        <Riche valeur={c.finalites_generales ?? d.dp?.finalites_generales ?? d.finalites_generales_defaut} lectureT={lectureT}
           onChange={v => maj('finalites_generales', v)} />
       </Bloc>
 
       <Bloc titre="Finalités particulières"
         aide="Ce que cette unité vise à faire acquérir, au-delà des finalités générales.">
-        <Riche valeur={valeur('finalites')} lecture={lecture} onChange={v => maj('finalites', v)} />
+        <Riche valeur={valeur('finalites')} lectureT={lectureT} onChange={v => maj('finalites', v)} />
         <Repris actif={reprisDuDP('finalites')} />
       </Bloc>
 
       <Bloc titre="Programme"
         aide="Une introduction, puis un bloc par activité d'apprentissage, mis en page avec la même barre que le reste du descriptif.">
-        <ProgrammeParCours cours={d.cours || []} lecture={lecture}
+        <ProgrammeParCours cours={d.cours || []} lectureT={lectureT}
           blocs={c.programme_blocs ?? blocsDepuisPoints(c.points ?? lireProgramme(c.programme || d.dp?.programme || (d.points_programme || []).join('\n'), d.cours || []), d.cours || [])}
           onChange={v => maj('programme_blocs', v)} />
-        {/* REPRENDRE DU DOSSIER (14 octobre 2026, UE 333) : un programme composé d'après une lecture
+        {/* REPRENDRE DU DOSSIER (14 octobre 2026, UE 333) : un programme composé d'après une lectureT
             ancienne du dossier — puces à plat — ne se répare pas en réimportant le dossier, puisqu'il
             est enregistré. Le geste le remplace par ce que dit le dossier, après confirmation. */}
-        {!lecture && d.dp?.programme && (
+        {!lectureT && d.dp?.programme && (
           <button type="button" className="bouton mt-2" onClick={async () => {
             if (!(await demander('Remplacer le programme de cette DUE par celui du dossier pédagogique (puces et sous-puces comprises) ? Ce que vous y aviez rédigé sera remplacé.'))) return;
             maj('programme_blocs', blocsDepuisPoints(lireProgramme(d.dp.programme, d.cours || []), d.cours || []));
@@ -1189,9 +1192,12 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       </Bloc>
 
       <Bloc titre="Critères d'évaluation" aide="Acquis par acquis, sous son chapeau : le critère et ses indicateurs. Pour mettre un mot en gras dans une case : **mot**.">
-        <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
-          onGrille={g => maj('grille_criteres', g)}
-          onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />
+        {/* SANS CROISEMENT, PAS DE CRITÈRES (3.5.420) : la DUE imprimée s'arrête aux modalités d'évaluation. */}
+        {d.croise === false
+          ? <Encadre etat="surveiller">Le croisement de l'étape 1 n'est pas réalisé : la DUE n'imprime pas de critères, seulement les modalités d'évaluation. Les critères paraîtront dès qu'un acquis sera croisé avec un point du programme.</Encadre>
+          : <GrilleCriteres d={d} c={c} lectureT={lectureT} ueNum={ueNum}
+              onGrille={g => maj('grille_criteres', g)}
+              onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />}
       </Bloc>
 
       <Bloc titre="Degré de maîtrise" aide="Pour chaque acquis, ce qui distingue la maîtrise.">
