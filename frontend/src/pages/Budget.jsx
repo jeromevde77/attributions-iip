@@ -29,6 +29,8 @@ export default function Budget() {
   const { passe } = useDroits();
   const direction = passe('admin', 'directeur', 'directeur_adjoint');
   const [categories, setCategories] = useState([]);
+  const [detaille, setDetaille] = useState(() => { try { return localStorage.getItem('lucie.budgetDetaille') === '1'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('lucie.budgetDetaille', detaille ? '1' : '0'); } catch { /* sans mémoire */ } }, [detaille]);
   const [form, setForm] = useState(null);           // ligne en cours d'édition
   const [depenseFor, setDepenseFor] = useState(null);
   const [message, setMessage] = useState(null);
@@ -43,7 +45,7 @@ export default function Budget() {
         const services = ['Direction', 'Direction adjointe', 'Secrétariat', 'Coordination', 'MDP', 'IIP', 'Autres'];
         const codes = [...l.map(s => s.code), ...services];
         setSections(codes);
-        if (codes.length && !section) setSection(codes[0]);
+        if (!section) setSection(TOUTES); // on ouvre sur toutes les lignes (3.5.424)
       }).catch(() => {});
     fetch('/api/budget/categories', { headers: authHeaders() })
       .then(r => r.json()).then(l => { if (Array.isArray(l)) setCategories(l); }).catch(() => {});
@@ -274,6 +276,15 @@ export default function Budget() {
               className="bouton flex items-center gap-1.5">
               <IconCopy size={14} /> Reprendre {annee - 1}
             </button>}
+            {/* TOUT LE DÉTAIL DE CHAQUE LIGNE (3.5.424, Charles : « la vue complète de chaque ligne du budget », toutes sections
+                comprises) : un grand tableau de toutes les colonnes, et son export Excel. */}
+            <div className="segments" role="radiogroup" aria-label="Présentation des lignes">
+              {[[false, 'Résumé'], [true, 'Tout le détail']].map(([v, l]) => (
+                <button key={l} type="button" role="radio" aria-checked={detaille === v} onClick={() => setDetaille(v)}
+                  className={`px-3 py-1.5 text-sm ${detaille === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>))}
+            </div>
+            {detaille && data?.lignes?.length > 0 && (
+              <button type="button" className="bouton" onClick={() => exporterLignes(data.lignes, categories, comptes, annee, section === TOUTES ? 'toutes' : section)}>Excel</button>)}
           </>
         )}
       </div>
@@ -283,7 +294,7 @@ export default function Budget() {
       ) : vue === 'investissements' ? (
         <Investissements annee={annee} />
       ) : vue === 'inventaire' ? (
-        <Inventaire sections={sections} sectionInitiale={section} />
+        <Inventaire sections={sections} sectionInitiale={section === TOUTES ? '' : section} />
       ) : vue === 'parametres' ? (
         <Parametres annee={annee} />
       ) : vue === 'synthese' ? (
@@ -324,6 +335,8 @@ export default function Budget() {
             <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
               Aucune prévision pour {section === TOUTES ? 'aucune section' : section} en {annee}.
             </div>
+          ) : detaille ? (
+            <TableauDetaille lignes={data.lignes} categories={categories} peutEcrire={data.peut_ecrire} onEditer={l => setForm({ ...l })} />
           ) : (
             <Tableau>
                 <TableauEntete>
@@ -393,6 +406,54 @@ export default function Budget() {
 }
 
 const TOUTES = '__toutes';
+const eurD = v => (v == null || v === '' ? '' : Number(v).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
+const STATUT_LIGNE = { prevu: 'Prévue', arbitre: 'Retenue', refuse: 'Refusée' };
+/** Une ligne en clair, colonne par colonne : la même pour l'écran et pour Excel. */
+function colonnesLigne(l, categories) {
+  const cat = categories.find(c => Number(c.id) === Number(l.categorie_id));
+  return {
+    Section: l.section, Compte: l.compte_ref || '', 'Libellé du compte': l.compte_libelle || '',
+    Catégorie: cat ? `${cat.groupe} — ${cat.libelle}` : '', Prévision: l.details || '', 'À charge de': l.a_charge || '',
+    Nature: l.nature === 'investissement' ? 'Investissement' : 'Fonctionnement', Priorité: PRIORITES[l.priorite] || '',
+    Mois: l.mois ? MOIS[l.mois - 1] : '', 'P.U. HTVA': Number(l.prix_unitaire || 0), Quantité: Number(l.quantite || 0),
+    'Total HTVA': Number(l.total_htva || 0), 'TVA %': Math.round(Number(l.taux_tva || 0) * 100), TVA: Number(l.valeur_tva || 0),
+    'Total TVAC': Number(l.total_tvac || 0), Engagé: Number(l.engage || 0), Solde: Number(l.solde || 0),
+    Statut: STATUT_LIGNE[l.statut] || l.statut || '', 'Motif de l’arbitrage': l.motif_arbitrage || '',
+    'Tronc commun': l.tronc_commun ? 'oui' : '', Justification: l.justification || '', Devis: l.devis || '', Remarque: l.remarque || '',
+    'Encodée par': l.cree_par || '',
+  };
+}
+const MONTANTS = new Set(['P.U. HTVA', 'Total HTVA', 'TVA', 'Total TVAC', 'Engagé', 'Solde']);
+async function exporterLignes(lignes, categories, comptes, annee, nom) {
+  const XLSX = await import('xlsx');
+  const ws = XLSX.utils.json_to_sheet(lignes.map(l => colonnesLigne(l, categories)));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `Budget ${annee}`);
+  XLSX.writeFile(wb, `Budget_${annee}_${nom}.xlsx`);
+}
+function TableauDetaille({ lignes, categories, peutEcrire, onEditer }) {
+  const lignesC = lignes.map(l => ({ l, c: colonnesLigne(l, categories) }));
+  const cles = Object.keys(lignesC[0]?.c || {});
+  const total = k => lignesC.reduce((t, x) => t + (Number(x.c[k]) || 0), 0);
+  return (
+    <div className="overflow-x-auto carte">
+      <table className="text-second min-w-full">
+        <thead><tr>{cles.map(k => <th key={k} className={`px-2 py-1.5 whitespace-nowrap ${MONTANTS.has(k) || k === 'Quantité' || k === 'TVA %' ? 'text-right' : 'text-left'}`}>{k}</th>)}{peutEcrire && <th />}</tr></thead>
+        <tbody>
+          <tr className="ligne-total font-semibold">
+            {cles.map((k, i) => <td key={k} className="px-2 py-1.5 text-right whitespace-nowrap">{i === 0 ? <span className="float-left">Total · {lignes.length} lignes</span> : MONTANTS.has(k) && k !== 'P.U. HTVA' ? eurD(total(k)) : ''}</td>)}
+            {peutEcrire && <td />}
+          </tr>
+          {lignesC.map(({ l, c }) => (
+            <tr key={l.id} className={`border-b border-slate-100 align-top ${l.depasse ? 'bg-red-50/40' : ''}`}>
+              {cles.map(k => <td key={k} className={`px-2 py-1.5 ${MONTANTS.has(k) || k === 'Quantité' || k === 'TVA %' ? 'text-right whitespace-nowrap' : k === 'Prévision' || k === 'Justification' || k === 'Remarque' ? 'min-w-[16rem]' : 'whitespace-nowrap'}`}>
+                {MONTANTS.has(k) ? eurD(c[k]) : String(c[k] ?? '')}</td>)}
+              {peutEcrire && <td className="px-2 py-1.5"><button onClick={() => onEditer(l)} className="text-slate-400 hover:text-iip-blue" title="Modifier">✎</button></td>}
+            </tr>))}
+        </tbody>
+      </table>
+    </div>);
+}
 /** Les lignes rangées par section, dans l'ordre alphabétique des sections. */
 function parSection(lignes) {
   const m = new Map();
