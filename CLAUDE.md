@@ -3489,6 +3489,8 @@ porte du PAE plutôt qu'un statut que 64 lecteurs ignoreraient), fiche « sortie
 En ligne : fonction `espace.desinscription` (née éteinte), routes du portail `/api/portail/desinscription` relayées comme le centre
 de documents (`desins_etat`, `desins_demande`).
 
+**3.5.407** — une VA complète retenue de l'ANNÉE compte dans « ECTS réussis » de la fiche (`annee_scolaire <= ?`, c'était `<`)
+et sort des ECTS de la ligne de la liste (`vaAnnee` de `/frises`) — Charles, HURET Sophie (TIM).
 **3.5.404** — nginx du portail : `location /api/portail/centre` SANS barre finale. Avec la barre, nginx renvoyait « /centre » vers
 « /centre/ » (301) et le navigateur répondait « Failed to fetch » : une `location` à barre finale redirige l'adresse sans barre. **Un 301 se garde dans le navigateur** : la liste s'appelle désormais
 `/centre?liste=1` (3.5.405), pour ne pas retomber sur le renvoi mémorisé.

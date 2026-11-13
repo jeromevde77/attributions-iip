@@ -1343,6 +1343,9 @@ r.get('/frises', authRequired, (req, res) => {
   // en bloc que la faveur et l'année de réussite, qui ne changent pas l'état.
   const faveurs = new Set(), inscritesDe = new Map();
   const ajouter = (m, id, v) => { if (!m.has(id)) m.set(id, new Set()); m.get(id).add(v); };
+  // Les VA complètes retenues de l'année : au programme, mais plus à suivre (3.5.407).
+  const vaAnnee = new Set(db.prepare(`SELECT etudiant_id, ue_num FROM etudiant_valorisation WHERE annee_scolaire = ? AND type = 'complete'
+    AND ${vaRetenue()}`).all(annee).map(x => `${x.etudiant_id}|${x.ue_num}`));
   const reussiesAn = new Map();
   for (const x of db.prepare(`SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_inscription
       WHERE resultat = 'reussi' ORDER BY annee_scolaire`).all()) {
@@ -1414,7 +1417,7 @@ r.get('/frises', authRequired, (req, res) => {
       if (st === 'en_attente') return 'a';
       if (st === 'accessible' || st === 'sous_reserve') return 'o';
       return 'n';
-    }).join(''), ects: [...inscrites].reduce((t, u) => t + (ectsUE.get(u) || 0), 0) };
+    }).join(''), ects: [...inscrites].filter(u => !vaAnnee.has(`${e.id}|${u}`)).reduce((t, u) => t + (ectsUE.get(u) || 0), 0) };
     /* LE SECOND CURSUS (Charles, 14 octobre 2026 : « les opto restent en opto, et ont un second
        parcours en optique, lié ») : un cursus compatible actif paraît AUSSI dans la liste, sous sa
        section, avec sa propre frise — même étudiant, même fiche. */
@@ -4346,7 +4349,7 @@ export function revuePAE(etudId, annee) {
   const acquises = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'
       AND annee_scolaire <= ?`).all(etudId, annee).map(x => x.ue_num);
   for (const v of db.prepare(`SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'
-      AND ${vaRetenue()} AND annee_scolaire < ?`).all(etudId, annee)) acquises.push(v.ue_num);
+      AND ${vaRetenue()} AND annee_scolaire <= ?`).all(etudId, annee)) acquises.push(v.ue_num);   // 3.5.407 : la VA de l'année est acquise aussi (Charles, HURET)
   const dejaAcquises = new Map(db.prepare(`SELECT ue_num, MIN(annee_scolaire) a FROM etudiant_inscription WHERE etudiant_id = ?
       AND resultat = 'reussi' AND annee_scolaire < ? GROUP BY ue_num`).all(etudId, annee).map(x => [x.ue_num, x.a]));
   for (const u of ues) if (dejaAcquises.has(u.ue_num)) u.deja = dejaAcquises.get(u.ue_num);
