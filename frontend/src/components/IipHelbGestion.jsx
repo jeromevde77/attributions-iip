@@ -114,7 +114,10 @@ export default function IipHelbGestion() {
   const vu = k => !masques.includes(k);
 
   // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
-  const Y = useMemo(() => (d?.Y || []).map(y => {
+  const Y = useMemo(() => (d?.Y || []).map(y0 => {
+    // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
+    const ret = Number(reglages.inscrits?.[y0.annee]);
+    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits } : y0;
     const avecC = mes.coord === 'oui', avecA = mes.admin === 'oui', cmb = mes.cout === 'cmb' && d.taux_cmb;
     const cI = avecC ? y.cetp_iip : 0, cH = avecC ? y.cetp_helb : 0;
     const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
@@ -167,6 +170,17 @@ export default function IipHelbGestion() {
           {masques.map(k => <button key={k} type="button" className="bouton !py-0.5 !px-2 text-mention" onClick={() => maj('masques', masques.filter(x => x !== k))}>{CARTES.find(c => c[0] === k)?.[1] || k}</button>)}
         </div>)}
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
+      {d?.Y?.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
+          <span>Inscrits retenus :</span>
+          {d.Y.map(y => (
+            <label key={y.annee} className="flex items-center gap-1" title={`Lucie en compte ${y.inscrits}`}>
+              <span className="text-slate-500">{court(y.annee)}</span>
+              <input className="controle !h-8 w-20 text-right" inputMode="numeric" placeholder={String(y.inscrits)} value={reglages.inscrits?.[y.annee] ?? ''}
+                onChange={e => maj('inscrits', { ...(reglages.inscrits || {}), [y.annee]: e.target.value.replace(/\D/g, '') })} aria-label={`Inscrits ${y.annee}`} />
+            </label>))}
+          <span className="text-mention text-slate-400">vide = le chiffre de Lucie (en gris)</span>
+        </div>)}
       {!d ? <p className="text-second text-slate-400">{enCours ? 'Calcul… (quelques secondes la première fois)' : ''}</p> : !Y.length
         ? <p className="text-second text-slate-500">Aucune attribution en {section} pour ces années.</p> : (<>
         <div className="flex flex-wrap gap-3">
