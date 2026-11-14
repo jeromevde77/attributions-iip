@@ -59,19 +59,33 @@ const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['
 /* LA VALEUR DANS UN BADGE DE LA COULEUR DE SA SÉRIE (3.5.443, Charles : « que les points soient connectés à la légende — le montant,
    les périodes — dans un badge de la même couleur »). Un rectangle arrondi, texte blanc, posé au-dessus du point ou de la barre, à
    droite d'une barre horizontale, au centre d'un segment empilé (cerné de blanc pour s'en détacher). */
-function badge(couleur, fmt = v => v, place = 'haut') {
-  return function Badge({ x, y, width = 0, height = 0, value }) {
+function badge(couleur, fmt = v => v, place = 'haut', rangDe = null) {
+  return function Badge({ x, y, width = 0, height = 0, value, index }) {
     if (value == null || value === '' || !Number.isFinite(Number(value)) || !Number(value)) return null;
     const t = String(fmt(value)), w = t.length * 6 + 10, h = 16;
     let cx = x + width / 2, cy = y - h / 2 - 4;
     if (place === 'centre') cy = y + height / 2;
     if (place === 'droite') { cx = x + width + w / 2 + 4; cy = y + height / 2; }
+    /* LISIBLE SUR UNE COURBE (3.5.444, Charles : « veiller à ce que cela soit lisible ») : à un même point, la série la plus haute garde
+       son badge au-dessus, la suivante le prend en dessous, une troisième se décale sur le côté — jamais deux badges l'un sur l'autre. */
+    if (rangDe) {
+      const r = rangDe(index);
+      if (r === 1) cy = y + h / 2 + 6;
+      else if (r >= 2) { cy = y + h / 2 + 6; cx = x + w + 6; }
+    }
     return (
       <g>
         <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={8} fill={couleur} stroke={place === 'centre' ? '#fff' : 'none'} strokeWidth={1.5} />
         <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{t}</text>
       </g>);
   };
+}
+
+/** Le rang d'une série à un point : 0 = la plus haute (à valeur égale, l'ordre des séries). */
+function rangA(data, cles, k, i) {
+  const row = data[i] || {};
+  const v = cle => (Number.isFinite(Number(row[cle])) && row[cle] !== null ? Number(row[cle]) : -Infinity);
+  return cles.filter(c => c !== k && (v(c) > v(k) || (v(c) === v(k) && cles.indexOf(c) < cles.indexOf(k)))).length;
 }
 
 /** Un graphique de deux séries sur les années, dans la forme choisie. */
@@ -86,7 +100,7 @@ function Graphe({ donnees, forme, fmt, series = [['iip', 'IIP', IIP], ['helb', '
         <LineChart data={d} margin={{ top: 30, right: 28, left: 4, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
           <XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={f} width={56} />{bulle}<Legend wrapperStyle={{ fontSize: 12 }} />
-          {series.map(([k, n, c]) => <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }}><LabelList dataKey={k} content={badge(c, f)} /></Line>)}
+          {series.map(([k, n, c]) => <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }}><LabelList dataKey={k} content={badge(c, f, 'haut', i => rangA(d, series.map(x => x[0]), k, i))} /></Line>)}
         </LineChart>
       </ResponsiveContainer>);
   }
@@ -432,7 +446,7 @@ export default function IipHelbGestion() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} /><XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={40} />
                         <Tooltip contentStyle={{ fontSize: 12 }} /><Legend wrapperStyle={{ fontSize: 12 }} />
                         {[['tim', `${section} (part HELB)`, PERCU], ['sante', 'Département santé', COULEUR_DEPT['Santé']], ['comav', 'Département COMAV', COULEUR_DEPT.COMAV]].map(([k, n, c]) => (
-                          <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }} connectNulls><LabelList dataKey={k} content={badge(c)} /></Line>))}
+                          <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }} connectNulls><LabelList dataKey={k} content={badge(c, v => v, 'haut', i => rangA(evol, ['tim', 'sante', 'comav'], k, i))} /></Line>))}
                       </LineChart>
                     </ResponsiveContainer></div>
                 </div>
