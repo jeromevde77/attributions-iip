@@ -247,19 +247,44 @@ export default function IipHelbGestion() {
         </div>)}
       {!d ? <p className="text-second text-slate-400">{enCours ? 'Calcul… (quelques secondes la première fois)' : ''}</p> : !Y.length
         ? <p className="text-second text-slate-500">Aucune attribution en {section} pour ces années.</p> : (<>
-        <div className="flex flex-wrap gap-3">
-          <Tuile ton="fort" valeur={fCh(aN.chI + aN.chH)} unite={uCh} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
-          <Tuile valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignant(s)`} />
-          <Tuile valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignant(s)`} />
-          <Tuile valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
-          <Tuile valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle="Coût d’un étudiant" precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
-          <Tuile valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="droits et frais, à l’ASBL" />
-          {(() => { const h = HY[HY.length - 1].h; return <Tuile valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
-            precision={`rapporte ${keur(h.recettes)} · coûte ${keur(h.cout)}`} />; })()}
-          <Tuile valeur={eur(HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0))} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="administration et aide à la réussite, 100 % IIP" />
-          <Tuile valeur="0 €" libelle="Coût supplémentaire pour l’IIP" precision="financé sur ses propres dotations" />
-          <Tuile valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
-        </div>
+        {(() => {
+          /* DES CARTES DE MÊME TAILLE, LES INDICATEURS CLÉS EN ÉVIDENCE (3.5.445, Charles : « des cartes de même taille, un peu de
+             couleurs, mettre en évidence les indicateurs clés »). Quatre clés, grandes, liseré et chiffre de couleur ; six autres, petites,
+             dans une grille régulière. */
+          const h = HY[HY.length - 1].h;
+          const timH = d.comparaison?.cursus?.find(c => c.tim), moy = d.comparaison?.moyennes?.['Moyenne HELB'];
+          const apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
+          const Cle = ({ couleur, valeur, libelle, precision }) => (
+            <div className="rounded-carte border border-slate-200 bg-white px-4 py-3 h-full" style={{ borderLeft: `6px solid ${couleur}` }}>
+              <div className="text-[26px] leading-tight font-bold tabular-nums" style={{ color: couleur }}>{valeur}</div>
+              <div className="text-sm font-semibold text-slate-800 mt-1">{libelle}</div>
+              {precision && <div className="text-second text-slate-500 mt-0.5">{precision}</div>}
+            </div>);
+          const Petite = ({ couleur = '#CBD5E1', valeur, libelle, precision }) => (
+            <div className="rounded-carte border border-slate-200 bg-white px-3 py-2 h-full" style={{ borderLeft: `4px solid ${couleur}` }}>
+              <div className="text-lg font-bold tabular-nums text-slate-800">{valeur}</div>
+              <div className="text-second text-slate-700">{libelle}</div>
+              {precision && <div className="text-mention text-slate-500 truncate" title={precision}>{precision}</div>}
+            </div>);
+          return (<>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
+              <Cle couleur={h.resultat >= 0 ? PERCU : '#9D4A38'} valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
+                precision={`rapporte ${keur(h.recettes)}, coûte ${keur(h.cout)}`} />
+              <Cle couleur={PERCU} valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n0(moy)}` : ''} />
+              <Cle couleur="#1B2B4B" valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle={`Coût d’un étudiant ${aN.annee}`}
+                precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
+              <Cle couleur={COULEUR_DEPT.IIP} valeur={eur(apport)} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="0 € de coût supplémentaire : ses propres dotations" />
+            </div>
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6 items-stretch">
+              <Petite couleur="#1B2B4B" valeur={`${fCh(aN.chI + aN.chH)} ${uCh}`} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
+              <Petite couleur={IIP} valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignants`} />
+              <Petite couleur={HELB} valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignants`} />
+              <Petite valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
+              <Petite couleur={PERCU} valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="par étudiant, droits et frais (ASBL)" />
+              <Petite valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
+            </div>
+          </>);
+        })()}
 
         <div className="grid gap-3 lg:grid-cols-2">
           {vu('charge') && <Carte titre={`La charge, en ${uCh}`} sous={mes.coord === 'oui' ? 'Enseignement et coordinations' : 'Enseignement seul'}
