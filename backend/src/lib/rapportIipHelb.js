@@ -36,12 +36,23 @@ function attributions(section, annee) {
     .map(l => ({ ...l, etp: (l.periodes || 0) / (l.type === 'PP' ? 1000 : 800), helb: l.contrat === 'HELB' }));
 }
 
+/* LE CALCUL DES COÛTS GARDÉ DIX MINUTES (3.5.432, Charles : « le rapport est lent à produire ») : donneesCout prend plusieurs secondes
+   par année ; quatre années, et chaque réglage, le relançaient. */
+const MEMO_COUT = new Map();
+function coutMemo(a) {
+  const m = MEMO_COUT.get(a);
+  if (m && Date.now() - m.t < 600e3) return m.d;
+  const d = donneesCout(a);
+  MEMO_COUT.set(a, { t: Date.now(), d });
+  return d;
+}
+
 /** Une année : périodes, ETP, coûts, inscrits, fonctions. */
 function annee(section, a) {
   const L = attributions(section, a);
   const som = (f, filtre = () => true) => L.filter(filtre).reduce((t, l) => t + f(l), 0);
   let d = null;
-  try { d = donneesCout(a); } catch (e) { console.error('[iip-helb] coût', a, e.message); }
+  try { d = coutMemo(a); } catch (e) { console.error('[iip-helb] coût', a, e.message); }
   const S = d?.sections.find(x => x.section === section) || null;
   const missions = d?.missions || [];
   const pncc = missions.filter(m => m.pncc);
@@ -53,7 +64,8 @@ function annee(section, a) {
      section, part IIP et part HELB, en ETP × 800 × la période CT du niveau de la section — même quand la personne a des périodes de
      cours. Seule exception : sa coordination figure déjà en lignes d'attribution (codes CO…) — elle est alors dans la charge. */
   const tCT = tarifs()[niveauDeSection(section)]?.CT || 0;
-  const coordEnAttribution = new Set(L.filter(l => /^CO/i.test(String(l.nature || ''))).map(l => l.professeur_id));
+  // Les codes de coordination de Lucie (COCUR, COSTA, COTFE, COSEC…) — en capitales : « Cours » n'en est pas un (3.5.432).
+  const coordEnAttribution = new Set(L.filter(l => /^CO[A-Z]{2,4}$/.test(String(l.nature || ''))).map(l => l.professeur_id));
   const coord = missions.filter(m => !m.pncc && m.section_code === section).map(m => {
     const etpHelb = Number(m.etp_helb) || 0;
     const etpTot = Math.max(Number(m.etp) || 0, etpHelb);
@@ -358,6 +370,29 @@ export function documentIipHelb(p) {
     nom: `IIP-HELB-${section}-${annees.map(court).join('_')}.html`,
     entete: { titre: `IIP et HELB : la charge et le coût de ${section}`, sous: `${annees.join(' · ')} · ${methode}${quoiTxt}` },
   };
+}
+
+/* LES DONNÉES, POUR LA PAGE DE GESTION (3.5.432, Charles : « en natif, comme le rapport finances ; plus précis avec les coordinations ;
+   tout en accès direct »). Les mêmes chiffres que la pièce, sans mise en page : l'écran les dessine avec les composants de Lucie. */
+export function donneesIipHelb(section, anneesDemandees) {
+  const toutes = db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution WHERE section = ? ORDER BY 1').all(section).map(r => r.a);
+  const annees = (anneesDemandees?.length ? anneesDemandees : toutes.slice(-4)).filter(a => toutes.includes(a)).sort();
+  const niv = niveauDeSection(section);
+  const ens = new Map();
+  const Y = annees.map(a => {
+    const y = annee(section, a);
+    const parCle = f => { const o = {}; for (const l of y.lignes) { const k = f(l); o[k] ||= { iip: 0, helb: 0 }; o[k][l.helb ? 'helb' : 'iip'] += l.etp; } return o; };
+    for (const l of y.lignes) {
+      const k = `${l.professeur || 'À désigner'}|${l.helb ? 'HELB' : 'IIP'}`;
+      if (!ens.has(k)) ens.set(k, { nom: l.professeur || 'À désigner', contrat: l.helb ? 'HELB' : 'IIP', par: {} });
+      ens.get(k).par[a] = (ens.get(k).par[a] || 0) + l.etp;
+    }
+    const { lignes, ...reste } = y;
+    return { ...reste, ens_iip: y.etp_iip, ens_helb: y.etp_helb,
+      blocs: parCle(l => l.bloc), natures: parCle(l => NATURES[l.nature] || (/^\d+$/.test(String(l.nature)) ? `Autre (${l.nature})` : l.nature)) };
+  });
+  return { section, annees, toutes, premiere: toutes[0] || null, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
+    tarif_ct: tarifs()[niv]?.CT || 0, Y, enseignants: [...ens.values()] };
 }
 
 /** Pour l'aperçu en tableau et le tableur : une ligne par année. */
