@@ -262,10 +262,10 @@ export default function IipHelbGestion() {
           const timH = d.comparaison?.cursus?.find(c => c.tim), moy = d.comparaison?.moyennes?.['Moyenne HELB'];
           const apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
           const Cle = ({ couleur, valeur, libelle, precision }) => (
-            <div className="rounded-carte border border-slate-200 bg-white px-4 py-3 h-full" style={{ borderLeft: `6px solid ${couleur}` }}>
-              <div className="text-[26px] leading-tight font-bold tabular-nums" style={{ color: couleur }}>{valeur}</div>
-              <div className="text-sm font-semibold text-slate-800 mt-1">{libelle}</div>
-              {precision && <div className="text-second text-slate-500 mt-0.5">{precision}</div>}
+            <div className="rounded-carte border border-slate-200 bg-white px-3 py-2 h-full" style={{ borderLeft: `5px solid ${couleur}` }}>
+              <div className="text-[20px] leading-tight font-bold tabular-nums" style={{ color: couleur }}>{valeur}</div>
+              <div className="text-second font-semibold text-slate-800 mt-0.5">{libelle}</div>
+              {precision && <div className="text-mention text-slate-500 truncate" title={precision}>{precision}</div>}
             </div>);
           const Petite = ({ couleur = '#CBD5E1', valeur, libelle, precision }) => (
             <div className="rounded-carte border border-slate-200 bg-white px-3 py-2 h-full" style={{ borderLeft: `4px solid ${couleur}` }}>
