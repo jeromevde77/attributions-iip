@@ -1000,6 +1000,8 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = 
       ? { portee: { ...portee, section: section || null } } : {}),
     ...(r.params.includes('etudiants') && etudiants ? { etudiants: Number(etudiants) } : {}),
     ...(r.params.includes('periode') ? { du: du || null, au: au || null } : {}),
+    // Les réglages de la page Gestion → Dotation → IIP et HELB (3.5.431) : la pièce sort comme on l'a réglée.
+    ...(r.params.includes('reglages') ? { reglages: (() => { try { return JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages || {}; } catch { return {}; } })() } : {}),
     ...(r.params.includes('annees') ? { annees: anneesSel || [...annees].sort().filter(a => a <= annee).slice(-4) } : {}),
   });
 
