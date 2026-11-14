@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
@@ -292,15 +292,50 @@ function indicateursLecture(annee) {
       femmes: s ? pct(s.F || 0, sexe) : null, primo: s ? pct(s.primo || 0, s.n) : null, age: s?.age_moyen ?? null, hors_ue: s ? pct(s.hors_ue || 0, s.n) : null,
       bruxelles: s?.domicile ? pct(s.domicile.bruxelles || 0, s.n) : null,
       etp: etp != null ? Math.round(etp * 100) / 100 : null, etu_etp: etp ? Math.round((nCout / etp) * 10) / 10 : null,
-      cout_etudiant: coutTot != null && nCout ? Math.round(coutTot / nCout) : null, recettes_etudiant: rec != null && nCout ? Math.round(rec / nCout) : null };
+      cout_etudiant: coutTot != null && nCout ? Math.round(coutTot / nCout) : null, cout_total: coutTot, recettes_etudiant: rec != null && nCout ? Math.round(rec / nCout) : null };
+  };
+  /* L'EFFICIENCE, MESURÉE SUR CE QUE CHACUN SUIT (3.5.448, Charles : « soins de plaies… ça n'a pas de sens » — 30 inscrits à un
+     module de 38 périodes donnaient 500 inscrits par ETP). Deux mesures, tranchées : la TAILLE MOYENNE DES GROUPES = Σ (inscriptions ×
+     périodes de cours de l'UE) ÷ périodes attribuées ; les ÉTUDIANTS ÉQUIVALENT TEMPS PLEIN (crédits ÷ 60) par ETP, la façon de
+     compter de la HELB. L'UE se lit une fois par numéro (un numéro peut exister sous plusieurs sections). */
+  const efficience = (() => {
+    const ues = new Map();
+    for (const u of db.prepare(`SELECT u.ue_num, u.section, u.ects, u.ue_per_etudiants AS per_etu, COALESCE(NULLIF(u.ue_per_cours, 0),
+        (SELECT SUM(c.cours_per) FROM cours c WHERE c.ue_num = u.ue_num AND c.annee_scolaire = u.annee_scolaire)) AS per
+      FROM ue u WHERE u.annee_scolaire = ?`).all(annee)) if (!ues.has(u.ue_num)) ues.set(u.ue_num, u);
+    const par = {}, tot = { pe: 0, pee: 0, ects: 0, per_att: 0 };
+    const de = k => (par[k] ||= { pe: 0, pee: 0, ects: 0, per_att: 0 });
+    for (const x of db.prepare('SELECT ue_num, COUNT(*) n FROM etudiant_inscription WHERE annee_scolaire = ? GROUP BY ue_num').all(annee)) {
+      const u = ues.get(x.ue_num); if (!u) continue;
+      const c = de(u.section); c.pe += x.n * (u.per || 0); c.pee += x.n * (u.per_etu || u.per || 0); c.ects += x.n * (u.ects || 0);
+      tot.pe += x.n * (u.per || 0); tot.pee += x.n * (u.per_etu || u.per || 0); tot.ects += x.n * (u.ects || 0);
+    }
+    for (const x of db.prepare('SELECT section, SUM(COALESCE(periodes_attribuees, 0)) per FROM attribution WHERE annee_scolaire = ? AND ue_num IS NOT NULL GROUP BY section').all(annee)) {
+      de(x.section).per_att += x.per || 0; tot.per_att += x.per || 0;
+    }
+    return { par, tot };
+  })();
+  const ajouterEfficience = (o, E) => {
+    if (!o) return o;
+    o.taille_groupes = E && E.per_att ? Math.round((E.pe / E.per_att) * 10) / 10 : null;
+    o.etc = E && E.ects ? Math.round((E.ects / 60) * 10) / 10 : null;
+    o.etc_etp = E && E.ects && o.etp ? Math.round((E.ects / 60 / o.etp) * 10) / 10 : null;
+    o.cout_etc = E && E.ects && o.cout_total ? Math.round(o.cout_total / (E.ects / 60)) : null;
+    // LE COÛT PAR CRÉDIT, ET PAR PÉRIODE DE LA GRILLE HORAIRE DE L'ÉTUDIANT (3.5.448, Charles : « une formation de 180 ECTS coûte
+    // autant… » ; « ramener à la grille horaire étudiants ») : la seconde vaut aussi pour les formations sans crédits.
+    o.cout_credit = E && E.ects && o.cout_total ? Math.round((o.cout_total / E.ects) * 10) / 10 : null;
+    o.cout_180 = o.cout_credit ? Math.round(o.cout_credit * 180) : null;
+    o.cout_periode = E && E.pee && o.cout_total ? Math.round((o.cout_total / E.pee) * 100) / 100 : null;
+    return o;
   };
   const codes = [...new Set([...(pop.sections || []).map(s => s.section), ...Object.keys(e?.par_section || {})])].filter(Boolean);
   const sections = codes.map(c => ind(c, (pop.sections || []).find(s => s.section === c), e?.par_section?.[c], ep?.par_section?.[c], reussiteAnnee.par[c], coutSec.get(c)))
+    .map(o => ajouterEfficience(o, efficience.par[o.section]))
     .sort((a, b) => (b.inscrits || 0) - (a.inscrits || 0));
   const totC = cout ? { per_ct: cout.sections.reduce((t, x) => t + (x.per_ct || 0), 0), per_pp: cout.sections.reduce((t, x) => t + (x.per_pp || 0), 0),
     cout_complet: cout.total?.cout_complet ?? cout.total?.cout, inscrits: cout.sections.reduce((t, x) => t + (x.inscrits || 0), 0),
     recettes: cout.recettes } : null;
-  const iip = ind('IIP', pop.ensemble, e?.total, ep?.total, reussiteAnnee.total, totC);
+  const iip = ajouterEfficience(ind('IIP', pop.ensemble, e?.total, ep?.total, reussiteAnnee.total, totC), efficience.tot);
   return { annee, resultats_annee: reussiteAnnee.annee, sections, iip };
 }
 const MEMO_LECTURE = new Map();
@@ -320,6 +355,8 @@ r.get('/lecture', authRequired, (req, res) => {
     const moy = COMPARAISON_HE.moyennes || {};
     res.json({ ...d, sections: garde(d.sections), prec: d.prec ? { ...d.prec, sections: garde(d.prec.sections) } : null,
       helb: { source: COMPARAISON_HE.source, annee: COMPARAISON_HE.annee, etu_etp: moy['Moyenne HELB'] ?? null, etu_etp_sante: moy['Santé'] ?? null,
+        // Estimation : coût moyen brut d'un ETP de la HELB ÷ ses étudiants comptés par ETP ÷ 60 crédits (salaires d'enseignement seuls).
+        cout_credit: moy['Moyenne HELB'] ? Math.round((PARAM_HELB.cmbp / moy['Moyenne HELB'] / 60) * 10) / 10 : null, cmbp: PARAM_HELB.cmbp,
         cursus: COMPARAISON_HE.cursus.map(c => ({ dept: c.dept, cursus: c.cursus, etu_etp: c.ratio ? Math.round(c.ratio * 10) / 10 : null })) },
       asbl: null });
   } catch (e) { res.status(500).json({ error: e.message }); }

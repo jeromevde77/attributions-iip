@@ -31,21 +31,26 @@ const IND = {
   reussite_s1: { l: 'Réussite en 1re session', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 1, v: 'res', court: '1re session' },
   reussite_s2: { l: 'Ajournés qui réussissent en 2e', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 1, v: 'res', court: '2e session' },
   etp: { l: 'ETP enseignant', f: n1, sens: 0, v: 'fin', aide: 'CT ÷ 800 + PP ÷ 1000' },
-  etu_etp: { l: 'Inscrits par ETP', f: n1, sens: 1, v: 'fin', aide: 'efficience de l’encadrement', court: 'Inscrits / ETP' },
+  taille_groupes: { l: 'Taille moyenne des groupes', f: n1, sens: 1, v: 'fin', aide: 'Σ inscriptions × périodes de l’UE ÷ périodes données', court: 'Groupes' },
+  etc_etp: { l: 'Étudiants temps plein par ETP', f: n1, sens: 1, v: 'fin', aide: 'crédits ÷ 60, par ETP enseignant (façon HELB)', court: 'ETC / ETP' },
   cout_etudiant: { l: 'Coût d’un étudiant', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ inscrits', court: 'Coût / étudiant' },
+  cout_etc: { l: 'Coût d’un étudiant temps plein', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ (crédits ÷ 60) : comparable d’une section à l’autre', court: 'Coût / ETC' },
+  cout_credit: { l: 'Coût par crédit', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ crédits suivis', court: 'Coût / crédit' },
+  cout_180: { l: 'Coût d’une formation de 180 crédits', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût par crédit × 180', court: '180 crédits' },
+  cout_periode: { l: 'Coût par période de la grille étudiant', f: v => (v == null ? '—' : `${(Math.round(v * 100) / 100).toLocaleString('fr-BE')} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ (inscriptions × périodes étudiant de l’UE) — vaut aussi sans crédits', court: 'Coût / période' },
   recettes_etudiant: { l: 'Recettes par étudiant', f: v => (v == null ? '—' : `${n0(v)} €`), sens: 1, v: 'fin', aide: 'droits et frais', court: 'Recettes / étudiant' },
 };
 const COLONNES = {
-  tout: ['inscrits', 'croissance', 'reussite_finale', 'reussite_s1', 'etu_etp', 'cout_etudiant', 'femmes'],
+  tout: ['inscrits', 'croissance', 'reussite_finale', 'reussite_s1', 'taille_groupes', 'cout_credit', 'cout_periode'],
   etu: ['inscrits', 'croissance', 'femmes', 'primo', 'age', 'hors_ue', 'bruxelles'],
   res: ['reussite_finale', 'reussite_s1', 'reussite_s2'],
-  fin: ['etp', 'etu_etp', 'cout_etudiant', 'recettes_etudiant'],
+  fin: ['etp', 'taille_groupes', 'etc_etp', 'cout_credit', 'cout_180', 'cout_periode', 'cout_etudiant', 'recettes_etudiant'],
 };
 const POSITION = {
-  tout: ['reussite_finale', 'reussite_s1', 'croissance', 'etu_etp', 'cout_etudiant', 'recettes_etudiant', 'primo', 'femmes'],
+  tout: ['reussite_finale', 'reussite_s1', 'croissance', 'taille_groupes', 'etc_etp', 'cout_credit', 'cout_periode', 'recettes_etudiant', 'primo', 'femmes'],
   etu: ['croissance', 'femmes', 'primo', 'age', 'hors_ue', 'bruxelles'],
   res: ['reussite_finale', 'reussite_s1', 'reussite_s2'],
-  fin: ['etu_etp', 'cout_etudiant', 'recettes_etudiant', 'etp'],
+  fin: ['taille_groupes', 'etc_etp', 'cout_credit', 'cout_180', 'cout_periode', 'recettes_etudiant', 'etp'],
 };
 const REFS = [['IIP', 'IIP'], ['HELB', 'HELB'], ['ASBL', 'ASBL'], ['N1', 'Année d’avant']];
 const LENTILLES = [['tout', 'Tout'], ['etu', 'Étudiants'], ['res', 'Réussite'], ['fin', 'Finances']];
@@ -100,12 +105,12 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
   const refDe = (k, code) => {
     if (ref === 'IIP') return code === 'IIP' ? null : d?.iip?.[k] ?? null;
     if (ref === 'N1') return code === 'IIP' ? d?.prec?.iip?.[k] ?? null : d?.prec?.sections?.find(x => x.section === code)?.[k] ?? null;
-    if (ref === 'HELB') return k === 'etu_etp' ? d?.helb?.etu_etp ?? null : null;
+    if (ref === 'HELB') return k === 'etc_etp' ? d?.helb?.etu_etp ?? null : k === 'cout_credit' ? d?.helb?.cout_credit ?? null : k === 'cout_180' && d?.helb?.cout_credit ? Math.round(d.helb.cout_credit * 180) : null;
     return null;   // ASBL : pas encore de référence dans Lucie
   };
   /* La valeur, dans la méthode de la référence : face à la HELB, l'efficience d'un cursus qu'elle publie est la SIENNE. */
   const valDe = (k, ligne) => {
-    if (ref === 'HELB' && k === 'etu_etp' && CURSUS_HELB[ligne.section]) return d?.helb?.cursus?.find(c => c.cursus === CURSUS_HELB[ligne.section])?.etu_etp ?? ligne[k];
+    if (ref === 'HELB' && k === 'etc_etp' && CURSUS_HELB[ligne.section]) return d?.helb?.cursus?.find(c => c.cursus === CURSUS_HELB[ligne.section])?.etu_etp ?? ligne[k];
     return ligne?.[k];
   };
   const juger = (k, v, r) => {
@@ -158,7 +163,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
     </div>);
 
   const noteRef = ref === 'ASBL' ? 'L’ASBL n’a pas encore de chiffres de référence dans Lucie : les comparaisons restent « à calculer ».'
-    : ref === 'HELB' ? `La HELB publie l’efficience de ses cursus (étudiants comptés par ETP, ${d?.helb?.annee || ''}) ; pour TIM et l’orthoptie, la valeur est celle de la HELB. Ses autres chiffres ne sont pas dans Lucie.`
+    : ref === 'HELB' ? `La HELB publie l’efficience de ses cursus (étudiants comptés par ETP, ${d?.helb?.annee || ''}) : elle se compare aux étudiants temps plein par ETP ; pour TIM et l’orthoptie, la valeur est celle de la HELB. Son coût par crédit est une ESTIMATION : ${n0(d?.helb?.cmbp)} € par ETP ÷ ses étudiants par ETP ÷ 60 (salaires d’enseignement seuls).`
       : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
 
   if (erreur && !d) return <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>;
@@ -189,15 +194,15 @@ function Cle({ couleur, valeur, libelle, precision }) {
 function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
   const I = d.iip, P = d.prec?.iip;
   const cols = COLONNES[lentille];
-  const k0 = { tout: 'reussite_finale', etu: 'inscrits', res: 'reussite_finale', fin: 'cout_etudiant' }[lentille];
+  const k0 = { tout: 'reussite_finale', etu: 'inscrits', res: 'reussite_finale', fin: 'cout_periode' }[lentille];
   const triees = [...d.sections].sort((a, b) => (b.inscrits || 0) - (a.inscrits || 0));
-  const barres = triees.filter(s => s[k0] != null && !(k0 === 'cout_etudiant' && (s.inscrits || 0) < 40)).map(s => ({ c: s.section, v: Math.round(s[k0]) }));
+  const barres = triees.filter(s => s[k0] != null && true).map(s => ({ c: s.section, v: Math.round(s[k0]) }));
   return (<>
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
       <Cle couleur={MARINE} valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
       <Cle couleur={VERT} valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${P?.reussite_finale != null ? ` · ${IND.reussite_finale.f(P.reussite_finale)} l’année d’avant` : ''}`} />
-      <Cle couleur={BLEU} valeur={IND.cout_etudiant.f(I.cout_etudiant)} libelle="coût moyen d’un étudiant" precision={`recettes : ${IND.recettes_etudiant.f(I.recettes_etudiant)} par étudiant`} />
-      <Cle couleur="#8A6A00" valeur={n1(I.etu_etp)} libelle="inscrits par ETP enseignant" precision={`${n1(I.etp)} ETP · HELB (sa méthode) : ${n1(d.helb?.etu_etp)}`} />
+      <Cle couleur={BLEU} valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · HELB ≈ ${IND.cout_credit.f(d.helb?.cout_credit)}`} />
+      <Cle couleur="#8A6A00" valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · HELB : ${n1(d.helb?.etu_etp)}`} />
     </div>
     <div className="grid gap-3 lg:grid-cols-2">
       <section className="carte overflow-hidden">
@@ -263,7 +268,7 @@ function Section({ S, d, lentille, refDe, valDe, juger, nomRef, blocs, pistes })
   const lignes = POSITION[lentille].map(k => {
     const v = valDe(k, S), r = refDe(k, S.section), j = juger(k, v, r);
     const tous = [v, r, ...d.sections.map(x => x[k])].filter(x => x != null && Number.isFinite(x));
-    const max = Math.max(1, ...tous.filter(x => !(k === 'etu_etp' && x > 200)), v || 0, r || 0) * 1.08;
+    const max = Math.max(1, ...tous.filter(x => !(k === 'etc_etp' && x > 200)), v || 0, r || 0) * 1.08;
     return { k, v, r, j, x: v == null ? null : Math.min(100, (v / max) * 100), rx: r == null ? null : Math.min(100, (r / max) * 100) };
   });
   const voir = l => lentille === 'tout' || lentille === l;
@@ -322,7 +327,7 @@ function Section({ S, d, lentille, refDe, valDe, juger, nomRef, blocs, pistes })
         <section className="carte overflow-hidden h-full">
           <EnteteCarte titre="Les finances" sous={`${d.annee} · coût complet, CT ÷ 800 + PP ÷ 1000`} />
           <div className="p-4 grid grid-cols-2 gap-3">
-            {[['cout_etudiant', BLEU], ['recettes_etudiant', VERT], ['etu_etp', '#8A6A00'], ['etp', MARINE]].map(([k, c]) => (
+            {[['cout_credit', BLEU], ['cout_periode', MARINE], ['taille_groupes', '#8A6A00'], ['recettes_etudiant', VERT]].map(([k, c]) => (
               <div key={k}><div className="text-[22px] font-bold tabular-nums" style={{ color: c }}>{IND[k].f(S[k])}</div><div className="text-mention text-slate-500">{IND[k].l}</div></div>))}
           </div>
         </section>)}
