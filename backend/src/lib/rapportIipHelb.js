@@ -197,7 +197,11 @@ export function reglagesIipHelb(c = {}) {
   for (const x of PARTIES) if (x.graphe) graphes[x.cle] = GRAPHES.some(([g]) => g === c.graphes?.[x.cle]) ? c.graphes[x.cle] : x.graphe;
   const mesures = {};
   for (const [k, opts] of Object.entries(MESURES)) mesures[k] = opts.some(([v]) => v === c.mesures?.[k]) ? c.mesures[k] : opts[0][0];
-  return { ordre, masques, graphes, mesures, saut: c.saut !== false, helb: paramHelb(c.helb) };
+  // LES INSCRITS RETENUS (3.5.434, Charles : « en 23-24 il y avait 117 étudiants ») : les années reprises d'Excel n'ont pas tous leurs
+  // dossiers dans Lucie ; la direction pose le chiffre réel, année par année, et la pièce le dit.
+  const inscrits = {};
+  for (const [a, v] of Object.entries(c.inscrits || {})) { const n = Number(v); if (/^\d{4}-\d{4}$/.test(a) && Number.isFinite(n) && n > 0) inscrits[a] = Math.round(n); }
+  return { ordre, masques, graphes, mesures, saut: c.saut !== false, helb: paramHelb(c.helb), inscrits };
 }
 
 /* ── LE DOCUMENT ─────────────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -216,6 +220,7 @@ export function documentIipHelb(p) {
   const cmb = R.mesures.cout === 'cmb' && taux;
   const Y = annees.map(a => annee(section, a));
   for (const y of Y) {
+    if (R.inscrits[y.annee]) { y.inscrits_lucie = y.inscrits; y.inscrits = R.inscrits[y.annee]; }
     y.ens_iip = y.etp_iip; y.ens_helb = y.etp_helb;
     if (!avecCoord) { y.cetp_iip = 0; y.cetp_helb = 0; y.coord_iip = 0; y.coord_helb = 0; }
     y.etp_iip = y.ens_iip + y.cetp_iip; y.etp_helb = y.ens_helb + y.cetp_helb;
@@ -399,7 +404,7 @@ export function documentIipHelb(p) {
     <p class="fin">Source : les attributions de Lucie (les années ${esc(annees.filter(a => a < '2025-2026').join(', ') || '—')} reprises des fichiers
       d'attributions de la direction), hors congés. ETP au barème du Pilotage : périodes CT ÷ 800 + PP ÷ 1 000, autonomie comprise ; une
       attribution sans type compte en CT. « HELB » : attributions dont le contrat est HELB. Inscrits : ceux des chiffres clés de l'année.
-      Graphiques au ${methode}${quoiTxt}. ${premiere ? `Première année de ${esc(section)} dans Lucie : ${esc(premiere)}.` : ''}</p>`;
+      Graphiques au ${methode}${quoiTxt}. ${Y.filter(y => y.inscrits_lucie != null).map(y => `Inscrits ${esc(y.annee)} : ${n0(y.inscrits)} retenus par la direction (Lucie en compte ${n0(y.inscrits_lucie)}).`).join(' ')} ${premiere ? `Première année de ${esc(section)} dans Lucie : ${esc(premiere)}.` : ''}</p>`;
 
   const visibles = R.ordre.filter(k => !R.masques.includes(k));
   const corps = `
