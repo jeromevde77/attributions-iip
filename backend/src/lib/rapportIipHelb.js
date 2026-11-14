@@ -274,6 +274,16 @@ export const COMPARAISON_HE = {
     ['Social', 'Écologie sociale', 32, 5.12, {}],
   ].map(([dept, cursus, etu, etp, series, tim]) => ({ dept, cursus, etu, etp, ratio: etp ? etu / etp : null, series, tim: !!tim })),
   moyennes: { 'Moyenne HELB': 17.2, 'Santé': 17.8, 'Bacheliers et masters santé': 19.4 },
+  /* LES SECTIONS DE L'IIP, MESURÉES PAR LA HELB ELLE-MÊME (3.5.442, Charles : « comparer les départements et placer TIM, et l'IIP ; TIM
+     face à l'IIP »). Tableau Cor_HE_AE, feuille Données_ASBL, 2025-2026 : étudiants comptés et ETP — même méthode que ses cursus. */
+  iip: [
+    ['Imagerie médicale (part IIP)', 126.9, 2.9, true],
+    ['Optométrie (hors orthoptie)', 88, 1.74],
+    ['Psychomotricité', 106, 2.58],
+    ['Orthoptie (tronc commun)', 33, 1.53],
+    ['Formation continue et optique', 137, 3.3],
+  ].map(([cursus, etu, etp, tim]) => ({ dept: 'IIP', cursus, etu, etp, ratio: etu / etp, series: { '2025-2026': [etu, etp] }, tim: !!tim })),
+  couleurs: { 'Santé': '#5DADE2', 'COMAV': '#9F7AEA', 'Technoeco': '#1F2937', 'Social': '#DC2626', 'IIP': '#F9B619' },
   admin: { 'Santé': { '2022-2023': 16.25, '2023-2024': 16.25, '2024-2025': 16.3, '2025-2026': 16.3 } },
 };
 
@@ -516,17 +526,33 @@ export function documentIipHelb(p) {
       <td class="barres-val"${c.tim ? ' style="font-weight:700;color:#3E7D5E"' : ''}>${n0(c.ratio)} · ${n2(c.etp)} ETP · ${n0(c.etu)} étu.</td></tr>`).join('')}</table>
     <p class="fin">Moyenne de la HELB : ${n0(COMPARAISON_HE.moyennes['Moyenne HELB'])} étudiants par ETP ; département santé : ${n0(COMPARAISON_HE.moyennes['Santé'])}.</p></div>
     ${(() => {
+      // LES DÉPARTEMENTS, TIM ET L'IIP CÔTE À CÔTE (3.5.442) : étudiants par ETP, 2025-2026.
+      const ratioDe = cs => { const e = cs.reduce((t, c) => t + c.etu, 0), t2 = cs.reduce((t, c) => t + c.etp, 0); return t2 ? e / t2 : 0; };
+      const lignes = [...new Set(COMPARAISON_HE.cursus.map(c => c.dept))].map(dp => ({ nom: `Département ${dp}`, v: ratioDe(COMPARAISON_HE.cursus.filter(c => c.dept === dp)), coul: COMPARAISON_HE.couleurs[dp] }))
+        .concat([{ nom: 'Ensemble de la HELB', v: ratioDe(COMPARAISON_HE.cursus), coul: '#94A3B8' }, { nom: 'Institut Ilya Prigogine', v: ratioDe(COMPARAISON_HE.iip), coul: COMPARAISON_HE.couleurs.IIP },
+          ...(tim ? [{ nom: `${section} — part HELB`, v: tim.ratio, coul: '#3E7D5E', fort: true }] : []),
+          ...COMPARAISON_HE.iip.filter(c => c.tim).map(c => ({ nom: `${section} — part IIP`, v: c.ratio, coul: '#3E7D5E', fort: true }))])
+        .sort((a, b) => b.v - a.v);
+      const mx = Math.max(...lignes.map(l => l.v));
+      return `<div class="cadre"><h3>Les départements, l'IIP et ${esc(section)} — étudiants par ETP (${esc(COMPARAISON_HE.annee)})</h3><table class="barres">${lignes.map(l =>
+        `<tr><td class="barres-lib" style="width:52mm;${l.fort ? 'font-weight:700' : ''}">${esc(l.nom)}</td><td class="barres-piste"><span class="barres-barre" style="width:${(l.v / mx) * 100}%;background:${l.coul};opacity:.9"></span></td>
+          <td class="barres-val"${l.fort ? ' style="font-weight:700"' : ''}>${n0(l.v)}</td></tr>`).join('')}</table></div>`;
+    })()}
+    ${(() => {
       // Par département : bande de couleur à gauche, sous-total (Σ étudiants ÷ Σ ETP) en tête de chaque groupe (3.5.441).
-      const COUL = { 'Santé': '#05B7E6', 'COMAV': '#F9B619', 'Technoeco': '#19537E', 'Social': '#64748B' };
+      const COUL = COMPARAISON_HE.couleurs;
       const val = (c, a) => { const v = c.series[a] || (a === COMPARAISON_HE.annee ? [c.etu, c.etp] : null); return v && v[1] ? v : null; };
       const ratio = (cs, a) => { let e = 0, t = 0; for (const c of cs) { const v = val(c, a); if (v) { e += v[0]; t += v[1]; } } return t ? n0(e / t) : '—'; };
       const ligne = (cs, lib, coul, fort) => `<tr${fort ? ' class="repere"' : ''}><td style="border-left:1.2mm solid ${coul};padding-left:2mm">${esc(lib)}</td>${ann.map(a => `<td class="n">${ratio(cs, a)}</td>`).join('')}</tr>`;
       const depts = [...new Set(COMPARAISON_HE.cursus.map(c => c.dept))];
       return `<table class="annees"><thead><tr><th>Cursus</th>${ann.map(a => `<th class="n">${esc(court(a))}</th>`).join('')}</tr></thead><tbody>
-        ${ligne(COMPARAISON_HE.cursus, 'Ensemble de la HELB', '#1B2B4B', true)}
+        ${ligne(COMPARAISON_HE.cursus, 'Ensemble de la HELB', '#94A3B8', true)}
         ${depts.map(dp => { const cs = COMPARAISON_HE.cursus.filter(c => c.dept === dp), coul = COUL[dp] || '#94A3B8';
           return ligne(cs, `Département ${dp}`, coul, true) + cs.map(c => `<tr${c.tim ? ' style="font-weight:700;color:#3E7D5E"' : ''}><td style="border-left:1.2mm solid ${coul};padding-left:2mm">${esc(c.cursus)}</td>
-            ${ann.map(a => { const v = val(c, a); return `<td class="n">${v ? n0(v[0] / v[1]) : '—'}</td>`; }).join('')}</tr>`).join(''); }).join('')}</tbody></table>`;
+            ${ann.map(a => { const v = val(c, a); return `<td class="n">${v ? n0(v[0] / v[1]) : '—'}</td>`; }).join('')}</tr>`).join(''); }).join('')}
+        ${ligne(COMPARAISON_HE.iip, 'Institut Ilya Prigogine', COUL.IIP, true)}
+        ${COMPARAISON_HE.iip.map(c => `<tr${c.tim ? ' style="font-weight:700;color:#3E7D5E"' : ''}><td style="border-left:1.2mm solid ${COUL.IIP};padding-left:2mm">${esc(c.cursus)}</td>
+          ${ann.map(a => { const v = val(c, a); return `<td class="n">${v ? n0(v[0] / v[1]) : '—'}</td>`; }).join('')}</tr>`).join('')}</tbody></table>`;
     })()}
     <p class="fin">Étudiants comptés par ETP enseignant, d'après les fichiers de la HELB : ${esc(COMPARAISON_HE.source)}. ${esc(section)} y figure sous
       « Technologue en imagerie médicale » (part HELB des étudiants et des ETP). Technoeco et Social : 2025-2026 seulement ; les sous-totaux d'avant ne comptent que la santé et COMAV. Le département santé compte en outre ${n2(COMPARAISON_HE.admin['Santé']['2025-2026'])} ETP
@@ -569,6 +595,8 @@ export function documentIipHelb(p) {
   P.fonctions = () => `<h2>Les coordinations et le cadre administratif</h2>${Y.map(y => `<h3>${esc(y.annee)}</h3>${!y.coord.length && !y.admin.fonctions.length
     ? '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>'
     : `<table><thead><tr><th>Fonction</th><th>Personne</th><th class="n">ETP</th><th class="n">dont HELB</th><th class="n">Coût IIP</th><th class="n">Coût HELB</th></tr></thead><tbody>
+      ${y.coord.length ? `<tr class="repere"><td colspan="2">Coordinations ${esc(y.annee)} — sous-total</td><td class="n">${n2(y.coord.reduce((t, c) => t + c.etp, 0))}</td>
+        <td class="n">${n2(y.coord.reduce((t, c) => t + c.etp_helb, 0))}</td><td class="n">${eur(y.coord.reduce((t, c) => t + c.cout_iip, 0))}</td><td class="n">${eur(y.coord.reduce((t, c) => t + c.cout_helb, 0))}</td></tr>` : ''}
       ${y.coord.map(c => `<tr><td>${esc(c.fonction)}</td><td>${esc(c.personne)}</td><td class="n">${c.etp ? n2(c.etp) : '—'}</td><td class="n">${c.etp_helb ? n2(c.etp_helb) : '—'}</td>
         <td class="n">${c.deja ? '<span class="fin">dans ses attributions</span>' : c.cout_iip ? eur(c.cout_iip) : '—'}</td>
         <td class="n">${c.cout_helb ? eur(c.cout_helb) : '—'}</td></tr>`).join('')}
