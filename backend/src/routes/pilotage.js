@@ -255,6 +255,33 @@ r.get('/iip-helb', authRequired, (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* LA PRÉSENTATION D'UNE SECTION (3.5.446, Charles, 14 novembre 2026 : « jeudi je présente la section imagerie médicale au CA,
+   sous tous les axes… une présentation grandiose » ; « dans Lucie, avec un export en PowerPoint »). Les chiffres viennent des routes
+   existantes (population, délibérations, IIP et HELB) ; ici, seulement les TEXTES de la direction — forces, faiblesses, opportunités,
+   menaces, ce qu'on demande au CA, titres retouchés —, gardés par section dans lucie_config « presentation:<section> ». Direction. */
+const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+const clePresentation = s => `presentation:${String(s || '').slice(0, 40)}`;
+r.get('/presentation/:section', authRequired, (req, res) => {
+  if (!DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  let v = null;
+  try { v = JSON.parse(db.prepare('SELECT valeur FROM lucie_config WHERE cle = ?').get(clePresentation(req.params.section))?.valeur || 'null'); } catch { v = null; }
+  res.json({ textes: v?.textes || {}, maj_le: v?.maj_le || null, maj_par: v?.maj_par || null });
+});
+r.put('/presentation/:section', authRequired, (req, res) => {
+  if (!DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const t = req.body?.textes;
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return res.status(400).json({ error: 'Textes attendus.' });
+  const textes = {};
+  for (const [k, v] of Object.entries(t).slice(0, 200)) {
+    if (!/^[a-z0-9_.-]{1,60}$/i.test(k)) continue;
+    if (v === null || v === undefined) continue;
+    textes[k] = String(v).slice(0, 4000);
+  }
+  const val = JSON.stringify({ textes, maj_le: new Date().toISOString(), maj_par: req.user?.nom || req.user?.email || null });
+  db.prepare('INSERT INTO lucie_config (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur').run(clePresentation(req.params.section), val);
+  res.json({ ok: true });
+});
+
 r.get('/totaux', authRequired, (req, res) => {
   const { where, params } = anneeFilter(req);
   const k = db.prepare(`

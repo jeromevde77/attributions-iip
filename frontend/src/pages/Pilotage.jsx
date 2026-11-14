@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette, IconPresentation } from '@tabler/icons-react';
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
@@ -13,6 +13,7 @@ import Population from '../components/Population.jsx';
 import PilotagePresences from '../components/PilotagePresences.jsx';
 import QuiFaitQuoi from '../components/QuiFaitQuoi.jsx';
 import EtpPlusieursAnnees from '../components/EtpPlusieursAnnees.jsx';
+import PresentationSection from '../components/PresentationSection.jsx';
 import IipHelbGestion from '../components/IipHelbGestion.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
@@ -1496,6 +1497,9 @@ export default function Pilotage({ vue = 'tout' }) {
   const lit = m => droitEffectif(u, m) !== 'rien';
   const coord = u?.role === 'coordination';
   const RUBRIQUES = [
+    /* PRÉSENTER UNE SECTION (3.5.446) : la direction présente une section au CA, avec export PowerPoint. */
+    { key: 'g-presenter', label: 'Présenter', icon: IconPresentation, faces: [
+      ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role) && ['presentation', 'Présenter une section']] },
     { key: 'g-population', label: 'Population', icon: IconUsersGroup, faces: [
       ['population-ecole', 'Qui sont nos étudiants'], !coord && ['personnel-ecole', 'Notre personnel'], ['population', 'Places par unité']] },
     /* LES PRÉSENCES (28 octobre 2026) : par UE, le comptage au 1er dixième, les alertes —
@@ -1547,7 +1551,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb' && k !== 'presentation') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
@@ -1912,6 +1916,7 @@ thead { display: table-header-group; }
             {tab === 'etp'      && renderETP()}
             {tab === 'etp-annees' && <EtpPlusieursAnnees />}
             {tab === 'iip-helb' && <IipHelbGestion />}
+            {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
             {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} />}
             {tab === 'config'   && renderConfig()}

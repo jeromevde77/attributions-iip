@@ -134,6 +134,35 @@ function Carte({ titre, sous, forme, onForme, onMasquer, children, large }) {
     </section>);
 }
 
+/* LES CHIFFRES DE LA PAGE, SELON LES RÉGLAGES (3.5.446) : une fonction pure, lue par la page et par la présentation d'une section
+   (PresentationSection.jsx) — un calcul, deux lecteurs. */
+export function chiffresIipHelb(d, reglages = {}) {
+  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', ...(reglages.mesures || {}) };
+  // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
+  const Y = (d?.Y || []).map(y0 => {
+    // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
+    const ret = Number(reglages.inscrits?.[y0.annee]);
+    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits, recettes: y0.inscrits ? y0.recettes * Math.round(ret) / y0.inscrits : y0.recettes } : y0;
+    const avecC = mes.coord === 'oui', avecA = mes.admin === 'oui', cmb = mes.cout === 'cmb' && d.taux_cmb;
+    const cI = avecC ? y.cetp_iip : 0, cH = avecC ? y.cetp_helb : 0;
+    const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
+    const adm = avecA ? y.admin.part : 0;
+    const coutI = (cmb ? pcI * d.taux_cmb : y.cout_iip + (avecC ? y.coord_iip : 0)) + adm;
+    const coutH = cmb ? pcH * d.taux_cmb : y.cout_helb + (avecC ? y.coord_helb : 0);
+    return { ...y, lib: court(y.annee), etpI: y.ens_iip + cI, etpH: y.ens_helb + cH, pcI, pcH, coutI, coutH,
+      chI: mes.charge === 'periodes' ? pcI : y.ens_iip + cI, chH: mes.charge === 'periodes' ? pcH : y.ens_helb + cH };
+  });
+  const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
+  const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
+  PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
+  const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
+  // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
+  const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
+  const u95 = y => (y.ue95?.cout || 0) * part95;
+  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe, materielDe(y.annee)) }));
+  return { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY };
+}
+
 export default function IipHelbGestion() {
   const memo = useMemo(lire, []);
   const [sections, setSections] = useState([]);
@@ -160,7 +189,6 @@ export default function IipHelbGestion() {
     return () => { vivant = false; };
   }, [section, annees, tour]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', ...(reglages.mesures || {}) };
   const maj = (k, v) => setReglages(r => ({ ...r, [k]: v }));
   const majMes = (k, v) => maj('mesures', { ...(reglages.mesures || {}), [k]: v });
   const forme = (k, def) => reglages.graphes?.[k] || def;
@@ -169,20 +197,7 @@ export default function IipHelbGestion() {
   const masquer = k => () => maj('masques', [...masques, k]);
   const vu = k => !masques.includes(k);
 
-  // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
-  const Y = useMemo(() => (d?.Y || []).map(y0 => {
-    // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
-    const ret = Number(reglages.inscrits?.[y0.annee]);
-    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits, recettes: y0.inscrits ? y0.recettes * Math.round(ret) / y0.inscrits : y0.recettes } : y0;
-    const avecC = mes.coord === 'oui', avecA = mes.admin === 'oui', cmb = mes.cout === 'cmb' && d.taux_cmb;
-    const cI = avecC ? y.cetp_iip : 0, cH = avecC ? y.cetp_helb : 0;
-    const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
-    const adm = avecA ? y.admin.part : 0;
-    const coutI = (cmb ? pcI * d.taux_cmb : y.cout_iip + (avecC ? y.coord_iip : 0)) + adm;
-    const coutH = cmb ? pcH * d.taux_cmb : y.cout_helb + (avecC ? y.coord_helb : 0);
-    return { ...y, lib: court(y.annee), etpI: y.ens_iip + cI, etpH: y.ens_helb + cH, pcI, pcH, coutI, coutH,
-      chI: mes.charge === 'periodes' ? pcI : y.ens_iip + cI, chH: mes.charge === 'periodes' ? pcH : y.ens_helb + cH };
-  }), [d, reglages]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY } = useMemo(() => chiffresIipHelb(d, reglages), [d, reglages]);
 
   const imprimer = async () => {
     const r = await fetch('/api/rapports/iip-helb-annees/document', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section, annees, reglages }) });
@@ -190,14 +205,6 @@ export default function IipHelbGestion() {
     ouvrirApercu({ html: j.html, titre: j.titre, sousTitre: (annees || []).join(' · '), nomFichier: j.nom });
   };
 
-  const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
-  const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
-  PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
-  const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
-  // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
-  const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
-  const u95 = y => (y.ue95?.cout || 0) * part95;
-  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe, materielDe(y.annee)) }));
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
   const totI = Y.reduce((t, y) => t + y.coutI, 0), totH = Y.reduce((t, y) => t + y.coutH, 0);
