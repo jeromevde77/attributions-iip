@@ -6,6 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
+import { donneesIipHelb } from '../lib/rapportIipHelb.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
@@ -243,6 +244,14 @@ r.get('/etp-annees', authRequired, (req, res) => {
     GROUP BY 1,2,3,4,5,6,7,8
   `).all(params);
   res.json({ annees, lignes: lignes.map(l => ({ ...l, etp: (l.periodes || 0) / (l.type === 'PP' ? 1000 : 800) })) });
+});
+
+// L'IIP ET LA HELB, LES DONNÉES DE LA PAGE (3.5.432) : direction seulement, comme la pièce.
+r.get('/iip-helb', authRequired, (req, res) => {
+  if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const annees = String(req.query.annees || '').split(',').map(a => a.trim()).filter(a => /^\d{4}-\d{4}$/.test(a)).slice(0, 10);
+  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 r.get('/totaux', authRequired, (req, res) => {

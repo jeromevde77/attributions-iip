@@ -36,12 +36,23 @@ function attributions(section, annee) {
     .map(l => ({ ...l, etp: (l.periodes || 0) / (l.type === 'PP' ? 1000 : 800), helb: l.contrat === 'HELB' }));
 }
 
+/* LE CALCUL DES COÛTS GARDÉ DIX MINUTES (3.5.432, Charles : « le rapport est lent à produire ») : donneesCout prend plusieurs secondes
+   par année ; quatre années, et chaque réglage, le relançaient. */
+const MEMO_COUT = new Map();
+function coutMemo(a) {
+  const m = MEMO_COUT.get(a);
+  if (m && Date.now() - m.t < 600e3) return m.d;
+  const d = donneesCout(a);
+  MEMO_COUT.set(a, { t: Date.now(), d });
+  return d;
+}
+
 /** Une année : périodes, ETP, coûts, inscrits, fonctions. */
 function annee(section, a) {
   const L = attributions(section, a);
   const som = (f, filtre = () => true) => L.filter(filtre).reduce((t, l) => t + f(l), 0);
   let d = null;
-  try { d = donneesCout(a); } catch (e) { console.error('[iip-helb] coût', a, e.message); }
+  try { d = coutMemo(a); } catch (e) { console.error('[iip-helb] coût', a, e.message); }
   const S = d?.sections.find(x => x.section === section) || null;
   const missions = d?.missions || [];
   const pncc = missions.filter(m => m.pncc);
@@ -53,7 +64,8 @@ function annee(section, a) {
      section, part IIP et part HELB, en ETP × 800 × la période CT du niveau de la section — même quand la personne a des périodes de
      cours. Seule exception : sa coordination figure déjà en lignes d'attribution (codes CO…) — elle est alors dans la charge. */
   const tCT = tarifs()[niveauDeSection(section)]?.CT || 0;
-  const coordEnAttribution = new Set(L.filter(l => /^CO/i.test(String(l.nature || ''))).map(l => l.professeur_id));
+  // Les codes de coordination de Lucie (COCUR, COSTA, COTFE, COSEC…) — en capitales : « Cours » n'en est pas un (3.5.432).
+  const coordEnAttribution = new Set(L.filter(l => /^CO[A-Z]{2,4}$/.test(String(l.nature || ''))).map(l => l.professeur_id));
   const coord = missions.filter(m => !m.pncc && m.section_code === section).map(m => {
     const etpHelb = Number(m.etp_helb) || 0;
     const etpTot = Math.max(Number(m.etp) || 0, etpHelb);
@@ -140,6 +152,7 @@ export const PARTIES = [
   { cle: 'couts', titre: 'Les coûts, poste par poste', graphe: 'empile' },
   { cle: 'etudiant', titre: 'Le coût d’un étudiant, deux méthodes', graphe: 'empile' },
   { cle: 'recettes', titre: 'Ce que la section rapporte', graphe: 'cote' },
+  { cle: 'helb', titre: 'Pour la HELB : ce que coûte et rapporte la section', graphe: 'cote' },
   { cle: 'blocs', titre: 'L’enseignement par bloc' },
   { cle: 'natures', titre: 'L’enseignement par nature' },
   { cle: 'fonctions', titre: 'Les coordinations et le cadre administratif' },
@@ -152,6 +165,29 @@ export const MESURES = {
   admin: [['oui', 'Avec le cadre administratif'], ['non', 'Sans le cadre administratif']],
   coord: [['oui', 'Avec les coordinations'], ['non', 'Enseignement seul']],
 };
+/* POUR LA HELB : CE QUE COÛTE ET RAPPORTE LA SECTION (3.5.433, Charles, 14 novembre 2026 : « calculer les coûts et bénéfices des
+   étudiants pour la HELB ; montrer que la section est très peu coûteuse mais rapporte beaucoup » ; tranché : la HELB compte 50 % des
+   inscrits, les droits d'inscription restent à l'IIP). Sources : la présentation financière de Vinci (MUCE 3 837,18 € en 2022, charges
+   de fonctionnement 20,8 % de l'allocation, autres services 37,2 % des salaires enseignants), le courriel de F. Vanderoost (27 août
+   2026 : santé × 1,5, coût moyen brut pondéré d'un MA proche de 90 000 €), le tableau Cor_HE_AE de la HELB (17 étudiants par ETP en
+   moyenne). Les paramètres se règlent dans la page ; l'écran (IipHelbGestion.jsx) applique LA MÊME formule que helbAnnee. */
+export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17 };
+export function paramHelb(h = {}) {
+  const o = { ...PARAM_HELB };
+  for (const k of Object.keys(PARAM_HELB)) { const v = Number(String(h?.[k] ?? '').replace(',', '.')); if (h?.[k] !== undefined && h?.[k] !== '' && Number.isFinite(v) && v >= 0) o[k] = v; }
+  return o;
+}
+export function helbAnnee(y, P, avecCoord = true) {
+  const comptes = y.inscrits * P.part / 100;
+  const recettes = comptes * P.muce * P.ponderation;
+  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0);
+  const salaires = etp * P.cmbp;
+  const autres = salaires * P.autres / 100;
+  const fonct = recettes * P.fonctionnement / 100;
+  const cout = salaires + autres + fonct;
+  return { comptes, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
+}
+
 /** Les réglages, nettoyés : rien ne passe qui ne soit au catalogue. */
 export function reglagesIipHelb(c = {}) {
   const cles = PARTIES.map(x => x.cle);
@@ -161,7 +197,7 @@ export function reglagesIipHelb(c = {}) {
   for (const x of PARTIES) if (x.graphe) graphes[x.cle] = GRAPHES.some(([g]) => g === c.graphes?.[x.cle]) ? c.graphes[x.cle] : x.graphe;
   const mesures = {};
   for (const [k, opts] of Object.entries(MESURES)) mesures[k] = opts.some(([v]) => v === c.mesures?.[k]) ? c.mesures[k] : opts[0][0];
-  return { ordre, masques, graphes, mesures, saut: c.saut !== false };
+  return { ordre, masques, graphes, mesures, saut: c.saut !== false, helb: paramHelb(c.helb) };
 }
 
 /* ── LE DOCUMENT ─────────────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -295,6 +331,32 @@ export function documentIipHelb(p) {
       formations », sans plafond ni exonération — le perçu réel se lit dans les fiches. Coûts au ${methode}${quoiTxt}.</p>`;
   };
 
+  P.helb = () => {
+    const H = R.helb;
+    const L = Y.map(y => ({ y, h: helbAnnee(y, H, avecCoord) }));
+    const tot = k => L.reduce((t, l) => t + l.h[k], 0);
+    const g = graphe(R.graphes.helb === 'parts' ? 'cote' : R.graphes.helb, L.map(l => ({ annee: l.y.annee, a: l.h.recettes, b: l.h.cout })), y => y.a, y => y.b,
+      v => `${n0(v / 1000)} k€`, 'Pour la HELB : ce que la section lui rapporte et ce qu’elle lui coûte')
+      .replace('</i>IIP</span>', '</i>Ce qu’elle rapporte</span>').replace('</i>HELB</span>', '</i>Ce qu’elle coûte</span>')
+      .replaceAll(`fill="${IIP}"`, 'fill="#3E7D5E"').replaceAll(`background:${IIP}`, 'background:#3E7D5E');
+    return `<h2>Pour la HELB : ce que coûte et rapporte la section</h2>
+    ${g}
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Comptés HELB</th><th class="n">Allocation perçue</th>
+      <th class="n">ETP HELB</th><th class="n">Salaires</th><th class="n">Autres services</th><th class="n">Fonctionnement</th><th class="n">Coût</th>
+      <th class="n">Résultat</th><th class="n">Étu. / ETP</th></tr></thead><tbody>
+      ${L.map(({ y, h }) => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td><td class="n">${n0(h.comptes)}</td><td class="n">${eur(h.recettes)}</td>
+        <td class="n">${n2(h.etp)}</td><td class="n">${eur(h.salaires)}</td><td class="n">${eur(h.autres)}</td><td class="n">${eur(h.fonct)}</td><td class="n">${eur(h.cout)}</td>
+        <td class="n g" style="color:${h.resultat >= 0 ? '#3E7D5E' : '#9D4A38'}">${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}</td>
+        <td class="n">${h.parEtp ? n0(h.parEtp) : '—'}</td></tr>`).join('')}
+      <tr class="repere"><td>Ensemble</td><td class="n"></td><td class="n"></td><td class="n">${eur(tot('recettes'))}</td><td class="n"></td><td class="n">${eur(tot('salaires'))}</td>
+        <td class="n">${eur(tot('autres'))}</td><td class="n">${eur(tot('fonct'))}</td><td class="n">${eur(tot('cout'))}</td>
+        <td class="n g">${tot('resultat') >= 0 ? '+' : '−'}${eur(Math.abs(tot('resultat')))}</td><td class="n"></td></tr></tbody></table>
+    <p class="fin">Allocation : ${n0(H.part)} % des inscrits de la section, comptés par la HELB, × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
+      (pondération santé). Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${n0(H.cmbp)} € (coût moyen brut pondéré), plus ${n2(H.autres)} %
+      pour les autres services et ${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement. La HELB compte en moyenne ${n0(H.moyenne)} étudiants par ETP.
+      Sources : présentation financière des départements (Vinci), courriel de F. Vanderoost du 27 août 2026, tableau Cor_HE_AE. Les droits d'inscription restent à l'IIP.</p>`;
+  };
+
   const croise = (cleDe, libelle, titre) => {
     const cles = [...new Set(Y.flatMap(y => y.lignes.map(cleDe)))].sort((a, b) => String(a).localeCompare(String(b), 'fr'));
     const v = (y, k, h) => y.lignes.filter(l => cleDe(l) === k && l.helb === h).reduce((t, l) => t + l.etp, 0);
@@ -358,6 +420,29 @@ export function documentIipHelb(p) {
     nom: `IIP-HELB-${section}-${annees.map(court).join('_')}.html`,
     entete: { titre: `IIP et HELB : la charge et le coût de ${section}`, sous: `${annees.join(' · ')} · ${methode}${quoiTxt}` },
   };
+}
+
+/* LES DONNÉES, POUR LA PAGE DE GESTION (3.5.432, Charles : « en natif, comme le rapport finances ; plus précis avec les coordinations ;
+   tout en accès direct »). Les mêmes chiffres que la pièce, sans mise en page : l'écran les dessine avec les composants de Lucie. */
+export function donneesIipHelb(section, anneesDemandees) {
+  const toutes = db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution WHERE section = ? ORDER BY 1').all(section).map(r => r.a);
+  const annees = (anneesDemandees?.length ? anneesDemandees : toutes.slice(-4)).filter(a => toutes.includes(a)).sort();
+  const niv = niveauDeSection(section);
+  const ens = new Map();
+  const Y = annees.map(a => {
+    const y = annee(section, a);
+    const parCle = f => { const o = {}; for (const l of y.lignes) { const k = f(l); o[k] ||= { iip: 0, helb: 0 }; o[k][l.helb ? 'helb' : 'iip'] += l.etp; } return o; };
+    for (const l of y.lignes) {
+      const k = `${l.professeur || 'À désigner'}|${l.helb ? 'HELB' : 'IIP'}`;
+      if (!ens.has(k)) ens.set(k, { nom: l.professeur || 'À désigner', contrat: l.helb ? 'HELB' : 'IIP', par: {} });
+      ens.get(k).par[a] = (ens.get(k).par[a] || 0) + l.etp;
+    }
+    const { lignes, ...reste } = y;
+    return { ...reste, ens_iip: y.etp_iip, ens_helb: y.etp_helb,
+      blocs: parCle(l => l.bloc), natures: parCle(l => NATURES[l.nature] || (/^\d+$/.test(String(l.nature)) ? `Autre (${l.nature})` : l.nature)) };
+  });
+  return { section, annees, toutes, premiere: toutes[0] || null, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
+    tarif_ct: tarifs()[niv]?.CT || 0, Y, enseignants: [...ens.values()] };
 }
 
 /** Pour l'aperçu en tableau et le tableur : une ligne par année. */
