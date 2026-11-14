@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconPresentation, IconRefresh, IconMaximize } from '@tabler/icons-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal } from './ui.jsx';
+import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
 
 /* LIRE ET COMPARER (3.5.447, Charles, 14 novembre 2026 — maquette validée : « choisir la manière de consulter : par établissement,
    par section avec toutes les données combinées, ou juste les résultats, ou les finances — modulable » ; « des référentiels : HELB,
@@ -64,8 +64,9 @@ function Segments({ valeur, options, onChange, label }) {
         className={`whitespace-nowrap ${valeur === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>)}
     </div>);
 }
-const Verdict = ({ ton, children }) => (
-  <span className="inline-block rounded-full px-2 py-0.5 text-[11.5px] font-bold text-white whitespace-nowrap" style={{ background: ton }}>{children}</span>);
+/* L'état d'un écart : la pastille du catalogue (réussi = mieux que la référence, surveiller = moins bien, neutre = un profil). */
+const etatDe = ton => (ton === VERT ? 'reussi' : ton === OCRE ? 'surveiller' : 'neutre');
+const Verdict = ({ ton, children }) => <PastilleEtat etat={etatDe(ton)}>{children}</PastilleEtat>;
 
 export default function GestionLecture({ annee: anneeProp, onPresenter, onSources }) {
   const memo = useMemo(lire, []);
@@ -192,15 +193,6 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
 }
 
 /* ------------------------------------------------------------------------------------------------ L'ÉTABLISSEMENT */
-function Cle({ couleur, valeur, libelle, precision }) {
-  return (
-    <div className="rounded-carte border border-slate-200 bg-white px-3 py-2 h-full" style={{ borderLeft: `5px solid ${couleur}` }}>
-      <div className="text-[20px] leading-tight font-bold tabular-nums" style={{ color: couleur }}>{valeur}</div>
-      <div className="text-second font-semibold text-slate-800 mt-0.5">{libelle}</div>
-      {precision && <div className="text-mention text-slate-500 truncate" title={precision}>{precision}</div>}
-    </div>);
-}
-
 function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
   const I = d.iip, P = d.prec?.iip;
   const cols = COLONNES[lentille];
@@ -209,10 +201,10 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
   const barres = triees.filter(s => s[k0] != null && true).map(s => ({ c: s.section, v: Math.round(s[k0]) }));
   return (<>
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
-      <Cle couleur={MARINE} valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
-      <Cle couleur={VERT} valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${P?.reussite_finale != null ? ` · ${IND.reussite_finale.f(P.reussite_finale)} l’année d’avant` : ''}`} />
-      <Cle couleur={BLEU} valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · HELB ${IND.cout_credit.f(d.helb?.cout_credit)}`} />
-      <Cle couleur="#8A6A00" valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · HELB : ${n1(d.helb?.etu_etp_2627 ?? d.helb?.etu_etp)}`} />
+      <TuileEtat etat="fort" valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
+      <TuileEtat etat="reussi" valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${P?.reussite_finale != null ? ` · ${IND.reussite_finale.f(P.reussite_finale)} l’année d’avant` : ''}`} />
+      <TuileEtat etat="disponible" valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · HELB ${IND.cout_credit.f(d.helb?.cout_credit)}`} />
+      <TuileEtat valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · HELB : ${n1(d.helb?.etu_etp_2627 ?? d.helb?.etu_etp)}`} />
     </div>
     <div className="grid gap-3 lg:grid-cols-2">
       <section className="carte overflow-hidden">
@@ -262,7 +254,7 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
                 {cols.map(k => {
                   const v = valDe(k, s), j = juger(k, v, refDe(k, s.section));
                   return <Td key={k} align="droite">{IND[k].sens && j.bien !== undefined
-                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[12px] font-bold text-white tabular-nums" style={{ background: j.ton }}>{IND[k].f(v)}</span>
+                    ? <PastilleEtat etat={etatDe(j.ton)}>{IND[k].f(v)}</PastilleEtat>
                     : <span className="tabular-nums">{IND[k].f(v)}</span>}</Td>;
                 })}
               </Tr>))}
@@ -294,7 +286,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
               {rx != null && <div className="absolute top-[3px] w-[3px] h-[19px] bg-slate-500" style={{ left: `${rx}%` }} />}
               {x != null && <div className="absolute top-[4px] w-4 h-4 -ml-2 rounded-full border-[3px] border-white" style={{ left: `${x}%`, background: BLEU, boxShadow: `0 0 0 1px ${BLEU}` }} />}
             </div>
-            <div className="text-right text-[15px] font-bold tabular-nums" style={{ color: BLEU }}>{IND[k].f(v)}</div>
+            <div className="text-right text-sm font-bold tabular-nums text-iip-blue">{IND[k].f(v)}</div>
             <div className="text-right text-second text-slate-500 tabular-nums">{r == null ? '—' : IND[k].f(r)}</div>
             <div className="text-right"><Verdict ton={j.ton}>{j.mot}</Verdict></div>
           </div>))}
@@ -337,8 +329,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
         <section className="carte overflow-hidden h-full">
           <EnteteCarte titre="Les finances" sous={`${d.annee} · coût complet, CT ÷ 800 + PP ÷ 1000`} />
           <div className="p-4 grid grid-cols-2 gap-3">
-            {[['cout_credit', BLEU], ['cout_periode', MARINE], ['taille_groupes', '#8A6A00'], ['recettes_etudiant', VERT]].map(([k, c]) => (
-              <div key={k}><div className="text-[22px] font-bold tabular-nums" style={{ color: c }}>{IND[k].f(S[k])}</div><div className="text-mention text-slate-500">{IND[k].l}</div></div>))}
+            {['cout_credit', 'cout_periode', 'taille_groupes', 'recettes_etudiant'].map(k => <TuileEtat key={k} valeur={IND[k].f(S[k])} libelle={IND[k].l} />)}
           </div>
         </section>)}
     </div>
