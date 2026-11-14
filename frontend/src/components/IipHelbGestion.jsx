@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconSend, IconX, IconEye } from '@tabler/icons-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
+import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { EnteteCarte } from './ui.jsx';
@@ -23,7 +23,7 @@ const pc = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const court = a => `${String(a).slice(2, 4)}-${String(a).slice(7, 9)}`;
 const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'], ['courbe', 'Courbe']];
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
-const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
+const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
   ['debut', 'Allocation à partir de', 'année'], ['lissage', 'Lissage', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
 const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
@@ -41,7 +41,7 @@ function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   const cout = salaires + autres + fonct;
   return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
 }
-const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'],
+const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
 /** Un graphique de deux séries sur les années, dans la forme choisie. */
@@ -147,6 +147,9 @@ export default function IipHelbGestion() {
   const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
   PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
   const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
+  // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
+  const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
+  const u95 = y => (y.ue95?.cout || 0) * part95;
   const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe, materielDe(y.annee)) }));
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
@@ -204,6 +207,7 @@ export default function IipHelbGestion() {
           <Tuile valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="droits et frais, à l’ASBL" />
           {(() => { const h = HY[HY.length - 1].h; return <Tuile valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
             precision={`rapporte ${keur(h.recettes)} · coûte ${keur(h.cout)}`} />; })()}
+          <Tuile valeur={eur(HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0))} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="administration et aide à la réussite, 100 % IIP" />
           <Tuile valeur="0 €" libelle="Coût supplémentaire pour l’IIP" precision="financé sur ses propres dotations" />
           <Tuile valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
         </div>
@@ -247,14 +251,16 @@ export default function IipHelbGestion() {
                 <div className="overflow-x-auto"><table className="w-full text-second mt-2 whitespace-nowrap">
                   <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés (lissés)</th><th className="px-2 py-1 text-right">Allocation</th><th className="px-2 py-1 text-right">Droits (ASBL)</th>
                     <th className="px-2 py-1 text-right">ETP HELB</th><th className="px-2 py-1 text-right">Salaires</th><th className="px-2 py-1 text-right">Autres serv.</th>
-                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th></tr></thead>
+                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th><th className="px-2 py-1 text-right" title="Direction et secrétariat, 100 % IIP">Apport IIP : admin.</th><th className="px-2 py-1 text-right" title="UE 95, 100 % IIP">Apport IIP : aide réussite</th></tr></thead>
                   <tbody>
                     <tr className="ligne-total font-semibold"><td className="px-2 py-1">Ensemble</td><td />
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.allocation, 0))}</td>
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.droits, 0))}</td><td />
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.salaires, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.autres, 0))}</td>
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.fonct, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.cout, 0))}</td>
-                      <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td /></tr>
+                      <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td />
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + (x.y.admin.part || 0), 0))}</td>
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + u95(x.y), 0))}</td></tr>
                     {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{y.annee}</td>
                       <td className="px-2 py-1 text-right">{h.base ? n0(h.base) : '—'}</td>
                       <td className="px-2 py-1 text-right">{h.allocation ? eur(h.allocation) : <span className="text-slate-400">en création</span>}</td>
@@ -262,8 +268,14 @@ export default function IipHelbGestion() {
                       <td className="px-2 py-1 text-right">{eur(h.salaires)}</td><td className="px-2 py-1 text-right">{eur(h.autres)}</td><td className="px-2 py-1 text-right">{eur(h.fonct)}</td>
                       <td className="px-2 py-1 text-right">{eur(h.cout)}</td>
                       <td className="px-2 py-1 text-right font-semibold" style={{ color: h.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{h.resultat >= 0 ? '+' : '−'}{eur(Math.abs(h.resultat))}</td>
-                      <td className="px-2 py-1 text-right">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</td></tr>)}
+                      <td className="px-2 py-1 text-right">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</td>
+                      <td className="px-2 py-1 text-right" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td>
+                      <td className="px-2 py-1 text-right" title={`UE 95 : ${n0(y.ue95?.periodes)} périodes`}>{u95(y) ? eur(u95(y)) : '—'}</td></tr>)}
                   </tbody></table></div>
+                <div className="bloc-etat px-3 py-2 text-second mt-2" data-etat="surveiller">
+                  <b>Les ressources humaines de la HELB sont mises de côté</b> : elle établit les contrats de ses enseignants, mais ce coût n’est pas estimable.
+                  Tout le reste de l’administration est à l’IIP — le secrétariat travaille à 100 % pour les étudiants et la direction —, ainsi que l’aide à la réussite (UE 95).
+                </div>
               </div>
               <div className="space-y-1.5">
                 <div className="intertitre">Le matériel et le fonctionnement</div>
@@ -280,6 +292,12 @@ export default function IipHelbGestion() {
                     <span className="w-20 text-mention text-slate-500">€</span>
                   </label>))}
                 <div className="intertitre pt-2">Les paramètres</div>
+                <label className="flex items-center gap-2 text-second">
+                  <span className="flex-1 min-w-0">Part de la section dans l’UE 95</span>
+                  <input className="controle !h-8 w-24 text-right" inputMode="decimal" placeholder={String(Math.round((d?.admin_reference?.ratio || 0) * 100))}
+                    value={reglages.helb?.part95 ?? ''} onChange={e => maj('helb', { ...(reglages.helb || {}), part95: e.target.value.replace(',', '.') })} aria-label="Part de la section dans l'UE 95" />
+                  <span className="w-20 text-mention text-slate-500">%</span>
+                </label>
                 {LIB_HELB.map(([k, l, u]) => (
                   <label key={k} className="flex items-center gap-2 text-second">
                     <span className="flex-1 min-w-0">{l}</span>
@@ -289,12 +307,75 @@ export default function IipHelbGestion() {
                   </label>))}
                 <p className="text-mention text-slate-500 m-0">Sources : présentation financière des départements (Vinci : MUCE 2022, 20,8 % de fonctionnement, 37,2 % d'autres
                   services), courriel de F. Vanderoost du 27 août 2026 (santé × 1,5, ~90 000 € par ETP), tableau Cor_HE_AE (17 étudiants par ETP en moyenne).
+                  Apport de l'IIP : le cadre administratif (direction, secrétariat), 100 % IIP, × la part de la section dans ses inscrits
+                  {d.admin_reference ? ` ; * structure de ${d.admin_reference.annee} reprise (${eur(d.admin_reference.cout)} × ${pc(d.admin_reference.ratio, 1)})` : ''} — la HELB n'en paie rien,
+                  la HELB n'y garde que les ressources humaines de ses propres contrats : « autres services » à régler en conséquence (0 % par défaut ; le taux de Vinci, 37,2 %, couvre tous ses services centraux).
                   Matériel : comptabilité analytique de l'ASBL (2023 : aucun matériel pour TIM) puis budgets 2025-2027, part HELB.
                   Les droits d'inscription vont à l'ASBL et alimentent les moyens de la Haute École. L'IIP a financé sa part sur ses propres
                   dotations : aucun coût supplémentaire, une optimisation des moyens existants.</p>
               </div>
             </div>
           </Carte>}
+
+          {vu('vrio') && (() => {
+            /* LA LECTURE VRIO (3.5.439, Charles : « un dossier très clair, transparent, qui montre une section optimisée, porteuse, une valeur
+               VRIN/VRIO »). Les preuves sont calculées ici, la lecture se réécrit (gardée avec les réglages, reprise par la pièce). */
+            const C = (d.comparaison?.cursus || []).filter(c => c.ratio).sort((a, b) => b.ratio - a.ratio);
+            const tim = C.find(c => c.tim), rang = C.findIndex(c => c.tim) + 1;
+            const res = HY.reduce((t, x) => t + x.h.resultat, 0), apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
+            const mat = HY.reduce((t, x) => t + x.h.fonct, 0), lN = HY[HY.length - 1];
+            const sg = v => `${v >= 0 ? '+' : '−'}${eur(Math.abs(v))}`;
+            const L = [
+              ['V', 'Valeur', [`Résultat HELB et ASBL : ${sg(res)} sur ${HY.length} an(s)`, `${lN.y.annee} : ${eur(lN.h.recettes)} de recettes, ${eur(lN.h.cout)} de coût`, `Apport de l’IIP : ${eur(apport)}`],
+                `La section rapporte plus qu'elle ne coûte : sur ${HY.length} année(s), le résultat pour la HELB et l'ASBL est de ${sg(res)}, et l'IIP y apporte ${eur(apport)} sans coût supplémentaire, sur ses propres dotations.`],
+              ['R', 'Rareté', tim ? [`${n0(tim.ratio)} étudiants par ETP (${d.comparaison.annee})`, `Rang ${rang} sur ${C.length} cursus HELB`, `Moyenne HELB ${n0(d.comparaison.moyennes['Moyenne HELB'])}, santé ${n0(d.comparaison.moyennes['Santé'])}`] : [],
+                tim ? `Avec ${n0(tim.ratio)} étudiants par ETP enseignant, ${section} est ${rang === 1 ? 'le cursus le plus efficient' : `au ${rang}e rang`} des ${C.length} cursus de la HELB, dont la moyenne est de ${n0(d.comparaison.moyennes['Moyenne HELB'])}.` : ''],
+              ['I', 'Difficile à imiter', [`Part IIP de la charge ${aN.annee} : ${pc(aN.etpI, aN.etpI + aN.etpH)}`, 'Administration : 100 % IIP', `Aide à la réussite (UE 95) : ${eur(HY.reduce((t, x) => t + u95(x.y), 0))}`],
+                "Le modèle tient à la co-organisation : l'enseignement partagé entre l'IIP (sur sa dotation) et la HELB (sur son allocation), l'administration entièrement à l'IIP, l'aide à la réussite (UE 95) intégrée. Il ne se reproduit pas sans les deux établissements."],
+              ['O', 'Organisation', [`Matériel et fonctionnement : ${eur(mat)}`, `${n0(aN.inscrits)} inscrits en ${aN.annee}`, `Coordinations : ${aN.coord.length} fonction(s) encodée(s)`],
+                `L'organisation est déjà en place : secrétariat et direction à l'IIP, coordinations identifiées, matériel réduit (${eur(mat)} sur la période), suivi dans Lucie.`],
+            ];
+            return (
+              <Carte large titre="Une section porteuse : la lecture VRIO" sous="Les preuves sont calculées ; la lecture est la vôtre — réécrivez-la, la pièce la reprend" onMasquer={masquer('vrio')}>
+                <div className="space-y-2">
+                  {L.map(([k, nom, preuves, defaut]) => (
+                    <div key={k} className="grid gap-3 md:grid-cols-[9rem_18rem_1fr] items-start border-b border-slate-100 pb-2">
+                      <div><span className="titre-carte">{k}</span> <span className="text-second text-slate-600">{nom}</span></div>
+                      <ul className="text-second m-0 pl-4 list-disc">{preuves.map(p => <li key={p}>{p}</li>)}</ul>
+                      <textarea className="controle w-full !h-auto text-second" rows={3} data-reponses="non" value={reglages.vrio?.[k] ?? defaut}
+                        onChange={e => maj('vrio', { ...(reglages.vrio || {}), [k]: e.target.value })} aria-label={`Lecture ${nom}`} />
+                    </div>))}
+                </div>
+              </Carte>);
+          })()}
+
+          {vu('comparaison') && d.comparaison && (() => {
+            const C = d.comparaison.cursus.filter(c => c.ratio).sort((a, b) => b.ratio - a.ratio);
+            const ann = ['2022-2023', '2023-2024', '2024-2025', '2025-2026'];
+            return (
+              <Carte large titre="Les cursus de la Haute École : étudiants par ETP enseignant" sous={`Les chiffres de la HELB — ${d.comparaison.source}`} onMasquer={masquer('comparaison')}>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <ResponsiveContainer width="100%" height={Math.max(280, C.length * 20)}>
+                    <BarChart data={C.map(c => ({ lib: c.cursus, v: Math.round(c.ratio), tim: c.tim }))} layout="vertical" margin={{ left: 10, right: 40 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} /><YAxis type="category" dataKey="lib" width={190} interval={0} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={v => [`${v} étudiants par ETP`, d.comparaison.annee]} contentStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="v" radius={[0, 3, 3, 0]}>
+                        {C.map(c => <Cell key={c.cursus} fill={c.tim ? PERCU : '#94A3B8'} />)}
+                        <LabelList dataKey="v" position="right" style={{ fontSize: 10, fill: '#475569' }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="overflow-x-auto"><table className="w-full text-second whitespace-nowrap">
+                    <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Cursus</th>{ann.map(a => <th key={a} className="px-2 py-1 text-right">{court(a)}</th>)}</tr></thead>
+                    <tbody>{d.comparaison.cursus.filter(c => Object.keys(c.series).length).map(c => (
+                      <tr key={c.cursus} className={`border-b border-slate-100 ${c.tim ? 'font-semibold' : ''}`} style={c.tim ? { color: PERCU } : undefined}><td className="px-2 py-1">{c.cursus}</td>
+                        {ann.map(a => { const v = c.series[a]; return <td key={a} className="px-2 py-1 text-right">{v && v[1] ? n0(v[0] / v[1]) : '—'}</td>; })}</tr>))}</tbody></table>
+                    <p className="text-mention text-slate-500 mt-1">Moyenne HELB {n0(d.comparaison.moyennes['Moyenne HELB'])}, santé {n0(d.comparaison.moyennes['Santé'])}. Le département santé compte {n2(d.comparaison.admin['Santé']['2025-2026'])} ETP administratifs en 2025-2026 ; ceux de {section} sont à l’IIP.</p>
+                  </div>
+                </div>
+              </Carte>);
+          })()}
 
           {vu('fonctions') && <Carte large titre="Les coordinations de la section" sous={`ETP × 800 × ${n2(d.tarif_ct)} € (période CT ${d.niveau}), part IIP et part HELB`} onMasquer={masquer('fonctions')}>
             <div className="overflow-x-auto"><table className="w-full text-second">
@@ -321,7 +402,8 @@ export default function IipHelbGestion() {
               <tbody>{Y.map(y => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1">{y.annee}</td>
                 <td className="px-2 py-1 text-right">{y.admin.fonctions.length ? n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0)) : '—'}</td>
                 <td className="px-2 py-1 text-right">{y.admin.cout ? eur(y.admin.cout) : y.admin.fonctions.length ? 'ETP à régler' : '—'}</td>
-                <td className="px-2 py-1 text-right">{pc(y.inscrits, y.admin.base)}</td><td className="px-2 py-1 text-right font-semibold">{y.admin.cout ? eur(y.admin.part) : '—'}</td></tr>)}</tbody></table>
+                <td className="px-2 py-1 text-right">{pc(y.inscrits, y.admin.base)}</td><td className="px-2 py-1 text-right font-semibold" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td></tr>)}</tbody></table>
+            {Y.some(y => y.admin.reprise) && <p className="text-mention text-slate-500 mt-1 mb-0">* Fonctions non encodées cette année : la structure de {d.admin_reference?.annee} est reprise, partagée selon la part de {section}.</p>}
           </Carte>}
 
           {[['blocs', 'L’enseignement par bloc (ETP)'], ['natures', 'L’enseignement par nature (ETP)']].map(([k, t]) => vu(k) && (
