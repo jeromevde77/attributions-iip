@@ -84,7 +84,9 @@ function lireAttributions(wb, nom) {
   const iPI = ix('total dix PI'), iSt = ix('total dixième statutaires'), iSal = ix('heures salariés conversion dixièmes'),
     iD = ix('Département'), iC = ix('Cursus'), iCr = ix('cours réel'), iA = ix('année académique');
   if (iPI < 0 || iD < 0 || iC < 0) return null;
-  const parCursus = {}, departements = {}; let ens = 0, fct = 0, dep = 0, adm = 0, annee = null;
+  // Les heures données : toutes les colonnes d'heures de la ligne (maîtres-assistants, maîtres de formation pratique, invités).
+  const iH = h.map((x, i) => (/^nbh|^heures PI /.test(String(x || '').trim()) ? i : -1)).filter(i => i >= 0);
+  const parCursus = {}, departements = {}; let ens = 0, fct = 0, dep = 0, adm = 0, annee = null, heures = 0;
   for (const l of L.slice(1)) {
     const D = String(l[iD] || ''), Cu = String(l[iC] || ''), cr = String(l[iCr] || '');
     if (!annee && l[iA]) annee = String(l[iA]);
@@ -94,12 +96,12 @@ function lireAttributions(wb, nom) {
     if (!DEPTS.includes(D)) { adm += d; continue; }
     if (/^Département/.test(Cu) || ['SimLabS', 'Cadre de santé'].includes(Cu)) { dep += d; departements[D] = (departements[D] || 0) + d; continue; }
     const c = (parCursus[`${D}|${Cu}`] ||= { dept: D, cursus: Cu, enseignement: 0, fonctions: 0 });
-    if (FONCTION.test(cr)) { c.fonctions += d; fct += d; } else { c.enseignement += d; ens += d; }
+    if (FONCTION.test(cr)) { c.fonctions += d; fct += d; } else { c.enseignement += d; ens += d; heures += iH.reduce((t, i) => t + num(l[i]), 0); }
   }
   if (!ens) return null;
   const cursus = Object.values(parCursus).map(c => ({ ...c, enseignement: r2(c.enseignement), fonctions: r2(c.fonctions) })).sort((a, b) => a.dept.localeCompare(b.dept) || a.cursus.localeCompare(b.cursus));
   return { nature: 'helb_attributions', libelle: NATURES.helb_attributions, annee: annee ? `20${annee.slice(0, 2)}-20${annee.slice(3, 5)}` : null, date_donnee: dateDuNom(nom),
-    totaux: { enseignement: r2(ens), fonctions: r2(fct), departements: r2(dep), administration: r2(adm), etp_cursus: r2(ens + fct),
+    totaux: { heures_enseignement: Math.round(heures), enseignement: r2(ens), fonctions: r2(fct), departements: r2(dep), administration: r2(adm), etp_cursus: r2(ens + fct),
       fonctions_sur_enseignement: r2(fct / ens), par_departement: Object.fromEntries(Object.entries(departements).map(([k, v]) => [k, r2(v)])), cursus } };
 }
 

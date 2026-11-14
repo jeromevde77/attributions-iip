@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconPresentation, IconRefresh, IconMaximize } from '@tabler/icons-react';
+import { IconPresentation, IconRefresh, IconMaximize, IconMinimize } from '@tabler/icons-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { couleursGraphique } from '../lib/couleurs.js';
@@ -79,6 +79,13 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   const [tour, setTour] = useState(0);
   const [blocs, setBlocs] = useState(null);
   const racine = useRef(null);
+  /* LE PLEIN ÉCRAN EST PLUS LÉGER (3.5.456, Charles : « quand on met plein écran, cela doit être plus light ») : la barre de choix et
+     la ligne d'explication s'effacent ; un titre dit ce qu'on regarde ; de l'air autour ; une croix discrète pour sortir. */
+  const [plein, setPlein] = useState(false);
+  useEffect(() => {
+    const f = () => setPlein(!!document.fullscreenElement && document.fullscreenElement === racine.current);
+    document.addEventListener('fullscreenchange', f); return () => document.removeEventListener('fullscreenchange', f);
+  }, []);
 
   useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ perim, section, lentille, ref })); } catch { /* sans mémoire */ } }, [perim, section, lentille, ref]);
   useEffect(() => {
@@ -107,7 +114,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     if (ref === 'N1') return code === 'IIP' ? d?.prec?.iip?.[k] ?? null : d?.prec?.sections?.find(x => x.section === code)?.[k] ?? null;
     if (ref === 'ASBL') {
       const A = d?.asbl || {};
-      return { cout_etudiant: A.cout_etudiant, cout_credit: A.cout_credit, cout_180: A.cout_180, etc_etp: A.etc_etp, etp: null }[k] ?? null;
+      return { cout_etudiant: A.cout_etudiant, cout_credit: A.cout_credit, cout_180: A.cout_180, etc_etp: A.etc_etp, taille_groupes: A.taille_groupes, etp: null }[k] ?? null;
     }
     return null;
   };
@@ -162,18 +169,25 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     </div>);
 
   const noteRef = ref === 'ASBL' ? (d?.asbl
-    ? `L’ASBL = les deux établissements réunis : ${n0(d.asbl.etudiants)} étudiants (${n0(d.asbl.etudiants_iip)} à l’IIP), ${n0(d.asbl.cout_total)} € — charges de l’ASBL en ${d.asbl.exercice} et coût de l’IIP calculé par Lucie —, ${n1(d.asbl.etp)} ETP d’enseignement.`
+    ? `L’ASBL = les deux établissements réunis : ${n0(d.asbl.etudiants)} étudiants (${n0(d.asbl.etudiants_iip)} à l’IIP), ${n0(d.asbl.cout_total)} € — charges de l’ASBL en ${d.asbl.exercice} et coût de l’IIP calculé par Lucie —, ${n1(d.asbl.etp)} ETP d’enseignement. Taille des groupes : on suppose qu’un étudiant de la HELB suit autant de périodes qu’un étudiant temps plein de l’IIP (${n0(d.asbl.periodes_par_etudiant)} par an).`
     : 'L’ASBL n’a pas encore de source : déposez ses comptes dans Vue d’ensemble → Les sources.')
     : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
 
   if (erreur && !d) return <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>;
   return (
-    <div ref={racine} className="space-y-3" style={{ background: 'var(--page-fond, #F4F6F9)' }}>
-      {barre}
+    <div ref={racine} className={plein ? 'space-y-5 overflow-auto' : 'space-y-3'} style={{ background: 'var(--page-fond, #F4F6F9)', ...(plein ? { height: '100vh', padding: '2.5rem clamp(1.5rem, 5vw, 5rem)' } : {}) }}>
+      {plein ? (
+        <div className="flex items-end gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{d?.annee} · {LENTILLES.find(l => l[0] === lentille)?.[1]} · comparé à {nomRef}</div>
+            <h1 className="titre-ecran m-0 mt-1">{perim === 'etab' ? 'L’Institut, section par section' : section}</h1>
+          </div>
+          <button type="button" className="bouton inline-flex items-center flex-none" onClick={presenter} aria-label="Quitter le plein écran" title="Quitter le plein écran"><IconMinimize size={15} /></button>
+        </div>) : barre}
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
       {!d ? <p className="text-second text-slate-400">Calcul des indicateurs de toutes les sections… (quelques secondes la première fois)</p> : (<>
-        <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}
-          {onSources && <button type="button" className="text-iip-blue underline" onClick={onSources}>Les sources</button>}</p>
+        {!plein && <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}
+          {onSources && <button type="button" className="text-iip-blue underline" onClick={onSources}>Les sources</button>}</p>}
         {perim === 'etab' ? <Etablissement d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef}
           ouvrir={s => { setSection(s); setPerim('section'); }} />
           : !S ? <p className="text-second text-slate-500">Section introuvable pour {d.annee}.</p>

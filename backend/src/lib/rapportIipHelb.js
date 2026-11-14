@@ -257,6 +257,7 @@ export const COR_HELB = {
   etp_enseignants: 143.39,       // statutaires
   fonctions_sur_enseignement: 0.182,   // coordinations, stages, TFE… ÷ enseignement, dans les cursus (attributions 2026-2027)
   etp_cursus: 140.22 + 25.54,    // enseignement + fonctions des cursus (attributions 2026-2027, dixièmes ÷ 10)
+  heures_enseignement: 89417,    // heures données dans les cursus (attributions 2026-2027, hors fonctions)
   inscrits: 3093,                // dossiers inscrits 2026-2027 au 2 novembre 2026, tous cursus (hors TIM, inscrit à l'IIP)
   inscrits_le: '2 novembre 2026',
 };

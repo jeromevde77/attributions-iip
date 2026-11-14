@@ -319,6 +319,7 @@ function indicateursLecture(annee) {
   const ajouterEfficience = (o, E) => {
     if (!o) return o;
     o.taille_groupes = E && E.per_att ? Math.round((E.pe / E.per_att) * 10) / 10 : null;
+    o.periodes_etudiants = E ? Math.round(E.pe) : null; o.periodes_donnees = E ? Math.round(E.per_att) : null;
     o.etc = E && E.ects ? Math.round((E.ects / 60) * 10) / 10 : null;
     o.etc_etp = E && E.ects && o.etp ? Math.round((E.ects / 60 / o.etp) * 10) / 10 : null;
     o.cout_etc = E && E.ects && o.cout_total ? Math.round(o.cout_total / (E.ects / 60)) : null;
@@ -398,11 +399,20 @@ r.get('/lecture', authRequired, (req, res) => {
         const coutCumul = charges + (I.cout_total || 0);
         const credits = insH * 60 + (I.etc || 0) * 60, etc = insH + (I.etc || 0);
         const etpH = att?.etp_cursus || COR_HELB.etp_cursus || 0, etp = etpH + (I.etp || 0);
+        /* LA TAILLE DES GROUPES DE L'ASBL (3.5.457, Charles : « tu as les données pour le faire ») : périodes suivies ÷ périodes
+           données, les deux établissements réunis. L'IIP : ses chiffres. La HELB : ses heures données (attributions, converties en
+           périodes de 50 minutes) ; ses périodes suivies ne sont pas dans ses fichiers — on suppose qu'un de ses étudiants suit autant
+           de périodes qu'un étudiant temps plein de l'IIP. L'hypothèse est dite à l'écran. */
+        const heuresH = att?.heures_enseignement || COR_HELB.heures_enseignement || 0;
+        const parEtc = I.etc ? (I.periodes_etudiants || 0) / I.etc : 0;
+        const donnees = (I.periodes_donnees || 0) + heuresH * 1.2;
+        const tailleGroupes = donnees && parEtc ? Math.round((((I.periodes_etudiants || 0) + insH * parEtc) / donnees) * 10) / 10 : null;
         return { exercice: ex || A?.totaux?.exercice, charges, cout_iip: Math.round(I.cout_total || 0), cout_total: Math.round(coutCumul),
           etudiants: n, etudiants_helb: insH, etudiants_iip: insI,
           cout_etudiant: Math.round(coutCumul / n), cout_credit: credits ? Math.round((coutCumul / credits) * 10) / 10 : null,
           cout_180: credits ? Math.round((coutCumul / credits) * 180) : null,
           etc_etp: etp ? Math.round((etc / etp) * 10) / 10 : null, etp: Math.round(etp * 10) / 10,
+          taille_groupes: tailleGroupes, periodes_par_etudiant: Math.round(parEtc), heures_helb: Math.round(heuresH),
           fonctionnement_etudiant: A?.totaux?.fonctionnement ? Math.round(A.totaux.fonctionnement / n) : null,
           helb: helbTot, iip: iipTot, administration: infra, fichier: (S || A).fichier };
       })(),
