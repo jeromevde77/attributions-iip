@@ -31,7 +31,7 @@ import { dixiemeUE } from '../lib/datesReelles.js';
 import { epreuves as epreuvesDeLAnnee } from '../lib/examens.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
 import { financesFormations, donneesCout, syntheseCout } from '../lib/coutFormation.js';
-import { documentIipHelb, lignesIipHelb } from '../lib/rapportIipHelb.js';
+import { documentIipHelb, lignesIipHelb, PARTIES as PARTIES_IIP_HELB, GRAPHES as GRAPHES_IIP_HELB, MESURES as MESURES_IIP_HELB } from '../lib/rapportIipHelb.js';
 import { getParamNum } from './parametres.js';
 import { TITRES_ACCES, DIPLOMES_MAX, SITUATIONS_PRO } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
@@ -2325,7 +2325,7 @@ export const RAPPORTS = [
   {
     /* L'IIP ET LA HELB SUR PLUSIEURS ANNÉES (3.5.428, lib/rapportIipHelb.js) : la pièce que demande la Haute École — la charge,
        le coût, les coordinations et le cadre administratif d'une section, année par année, en graphiques. */
-    id: 'iip-helb-annees', domaine: 'gestion', params: ['annees', 'section'],
+    id: 'iip-helb-annees', domaine: 'gestion', params: ['annees', 'section', 'reglages'],
     roles: ['admin', 'directeur', 'directeur_adjoint'],
     libelle: 'IIP et HELB sur plusieurs années — une section',
     aide: "Pour une section partagée avec la HELB : la charge (périodes, ETP), le coût des cours, des coordinations et du cadre administratif, les inscrits — année par année, l'IIP et la HELB côte à côte, en graphiques.",
@@ -3040,6 +3040,9 @@ function grilleDePortee(p) {
 /** Un rapport réservé (`roles`) ne s'ouvre qu'à ces rôles : pas de droit, pas de pièce. */
 const rapportPermis = (def, user) => !def.roles || def.roles.includes(user?.role);
 
+// LES RÉGLAGES POSSIBLES DE « IIP ET HELB » (3.5.431) : la page de Gestion les lit ici — une seule liste, celle de la pièce.
+r.get('/iip-helb/reglages', authRequired, (req, res) => res.json({ parties: PARTIES_IIP_HELB, graphes: GRAPHES_IIP_HELB, mesures: MESURES_IIP_HELB }));
+
 r.get('/catalogue', authRequired, (req, res) => {
   res.json({
     // « piece » dit à l'écran que ce rapport est une MISE EN PAGE et non un
@@ -3651,6 +3654,8 @@ function parametres(req, def) {
   const p = {};
   if (def.params.includes('annee')) p.annee = req.body?.annee || anneeDeTravail(req);
   if (def.params.includes('session')) p.session = Number(req.body?.session) === 2 ? 2 : 1;
+  // LES RÉGLAGES D'UNE PIÈCE PARAMÉTRABLE (3.5.431) : un objet, que la pièce nettoie elle-même (reglagesIipHelb).
+  if (def.params.includes('reglages')) p.reglages = req.body?.reglages && typeof req.body.reglages === 'object' ? req.body.reglages : {};
   // PLUSIEURS ANNÉES (3.5.428) : une liste de codes « 2024-2025 », vérifiés un à un.
   if (def.params.includes('annees')) p.annees = (Array.isArray(req.body?.annees) ? req.body.annees : [])
     .map(String).filter(a => /^\d{4}-\d{4}$/.test(a)).slice(0, 10);

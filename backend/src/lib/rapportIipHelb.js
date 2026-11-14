@@ -83,100 +83,218 @@ function annee(section, a) {
 }
 
 /* ── LES GRAPHIQUES, EN SVG, SANS SCRIPT ─────────────────────────────────────────────────────────────────────────────────── */
-/** Colonnes empilées IIP / HELB par année, la valeur de chaque part et le total au-dessus. Largeur fixe : le texte ne se déforme pas. */
-function colonnesEmpilees(Y, cle, fmt, titre) {
-  const W = 640, H = 230, bas = 190, haut = 30, larg = Math.min(90, (W - 60) / Y.length - 30);
-  const tot = y => (y[cle + '_iip'] || 0) + (y[cle + '_helb'] || 0);
-  const max = Math.max(...Y.map(tot), 0) || 1;
-  const h = v => (v / max) * (bas - haut);
+/* UN SEUL MOTEUR, QUATRE FORMES (3.5.431, Charles : « paramétrer ce que je veux comme diagrammes ») : colonnes empilées, colonnes côte
+   à côte, parts en %, courbe. Deux séries (IIP, HELB) sur les années. Largeur fixe en mm : le texte ne se déforme pas. */
+export const GRAPHES = [['empile', 'Colonnes empilées'], ['cote', 'Colonnes côte à côte'], ['parts', 'Parts en %'], ['courbe', 'Courbe'], ['aucun', 'Pas de graphique']];
+function graphe(type, Y, iip, helb, fmt, titre) {
+  if (type === 'aucun' || !Y.length) return '';
+  const leg = `<div class="legendes"><span class="leg"><i style="background:${IIP}"></i>IIP</span><span class="leg"><i style="background:${HELB}"></i>HELB</span></div>`;
+  if (type === 'parts') {
+    return `<div class="cadre"><h3>${titre}</h3><table class="barres">${Y.map(y => {
+      const i = iip(y) || 0, h = helb(y) || 0, t = i + h || 1;
+      return `<tr><td class="barres-lib">${esc(y.annee)}</td><td class="barres-piste" style="background:transparent">
+        <div class="parts"><span class="part" style="width:${(i / t) * 100}%;background:${IIP}"></span><span class="part" style="width:${(h / t) * 100}%;background:${HELB}"></span></div></td>
+        <td class="barres-val">IIP ${pc(i, t)} · HELB ${pc(h, t)}</td></tr>`;
+    }).join('')}</table>${leg}</div>`;
+  }
+  const W = 640, H = 230, bas = 190, haut = 30;
   const pas = (W - 40) / Y.length;
-  const cols = Y.map((y, i) => {
-    const x = 30 + pas * i + (pas - larg) / 2;
-    const hi = h(y[cle + '_iip'] || 0), hh = h(y[cle + '_helb'] || 0);
-    const yI = bas - hi, yH = yI - hh;
-    const txt = (v, yy, coul = '#fff') => (v && (v / max) * (bas - haut) > 14
-      ? `<text x="${x + larg / 2}" y="${yy}" text-anchor="middle" font-size="10" fill="${coul}" font-weight="600">${fmt(v)}</text>` : '');
-    return `<rect x="${x}" y="${yI}" width="${larg}" height="${hi}" fill="${IIP}" rx="2"/>
-      <rect x="${x}" y="${yH}" width="${larg}" height="${hh}" fill="${HELB}" rx="2"/>
-      ${txt(y[cle + '_iip'], yI + hi / 2 + 4)}${txt(y[cle + '_helb'], yH + hh / 2 + 4)}
-      <text x="${x + larg / 2}" y="${yH - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="#1B2B4B">${fmt(tot(y))}</text>
-      <text x="${x + larg / 2}" y="${bas + 15}" text-anchor="middle" font-size="11" fill="#475569">${court(y.annee)}</text>`;
-  }).join('');
+  const empile = type === 'empile';
+  const max = Math.max(...Y.map(y => (empile ? (iip(y) || 0) + (helb(y) || 0) : Math.max(iip(y) || 0, helb(y) || 0))), 0) || 1;
+  const h = v => ((v || 0) / max) * (bas - haut);
+  const xc = i => 30 + pas * i + pas / 2;
+  const lab = (x, y, t, o = {}) => `<text x="${x}" y="${y}" text-anchor="middle" font-size="${o.fs || 10}" font-weight="${o.fw || 600}" fill="${o.c || '#1B2B4B'}">${t}</text>`;
+  let corps = '';
+  if (type === 'courbe') {
+    const pts = f => Y.map((y, i) => `${xc(i)},${bas - h(f(y))}`).join(' ');
+    // La valeur de la courbe la plus haute au-dessus du point, l'autre en dessous : elles ne se chevauchent pas.
+    corps = [[iip, IIP, helb], [helb, HELB, iip]].map(([f, c, autre]) => `<polyline points="${pts(f)}" fill="none" stroke="${c}" stroke-width="2.5"/>
+      ${Y.map((y, i) => { const dessus = (f(y) || 0) >= (autre(y) || 0); return `<circle cx="${xc(i)}" cy="${bas - h(f(y))}" r="4" fill="${c}"/>${lab(xc(i), bas - h(f(y)) + (dessus ? -9 : 17), fmt(f(y)), { c })}`; }).join('')}`).join('');
+  } else {
+    const larg = Math.min(empile ? 90 : 40, empile ? pas - 30 : (pas - 30) / 2);
+    corps = Y.map((y, i) => {
+      const vi = iip(y) || 0, vh = helb(y) || 0;
+      if (empile) {
+        const x = xc(i) - larg / 2, hi = h(vi), hh = h(vh), yI = bas - hi, yH = yI - hh;
+        return `<rect x="${x}" y="${yI}" width="${larg}" height="${hi}" fill="${IIP}" rx="2"/><rect x="${x}" y="${yH}" width="${larg}" height="${hh}" fill="${HELB}" rx="2"/>
+          ${hi > 14 ? lab(xc(i), yI + hi / 2 + 4, fmt(vi), { c: '#fff' }) : ''}${hh > 14 ? lab(xc(i), yH + hh / 2 + 4, fmt(vh), { c: '#fff' }) : ''}
+          ${lab(xc(i), yH - 5, fmt(vi + vh), { fs: 11, fw: 700 })}`;
+      }
+      const x1 = xc(i) - larg - 2, x2 = xc(i) + 2;
+      return `<rect x="${x1}" y="${bas - h(vi)}" width="${larg}" height="${h(vi)}" fill="${IIP}" rx="2"/><rect x="${x2}" y="${bas - h(vh)}" width="${larg}" height="${h(vh)}" fill="${HELB}" rx="2"/>
+        ${lab(x1 + larg / 2, bas - h(vi) - 4, fmt(vi), { c: IIP })}${lab(x2 + larg / 2, bas - h(vh) - 4, fmt(vh), { c: HELB })}`;
+    }).join('');
+  }
+  const axes = Y.map((y, i) => lab(xc(i), bas + 15, court(y.annee), { fs: 11, fw: 400, c: '#475569' })).join('');
   return `<div class="cadre"><h3>${titre}</h3>
     <svg viewBox="0 0 ${W} ${H}" width="170mm" height="${(170 * H / W).toFixed(1)}mm">
-      <line x1="20" y1="${bas}" x2="${W - 10}" y2="${bas}" stroke="#CBD5E1" stroke-width="1"/>${cols}</svg>
-    <div class="legendes"><span class="leg"><i style="background:${IIP}"></i>IIP</span><span class="leg"><i style="background:${HELB}"></i>HELB</span></div></div>`;
+      <line x1="20" y1="${bas}" x2="${W - 10}" y2="${bas}" stroke="#CBD5E1" stroke-width="1"/>${corps}${axes}</svg>${leg}</div>`;
 }
-/** La part de la HELB, une barre par année. */
-function partsParAnnee(Y, cle, titre) {
-  return `<div class="cadre"><h3>${titre}</h3><table class="barres">${Y.map(y => {
-    const i = y[cle + '_iip'] || 0, h = y[cle + '_helb'] || 0, t = i + h || 1;
-    return `<tr><td class="barres-lib">${esc(y.annee)}</td><td class="barres-piste" style="background:transparent">
-      <div class="parts"><span class="part" style="width:${(i / t) * 100}%;background:${IIP}"></span><span class="part" style="width:${(h / t) * 100}%;background:${HELB}"></span></div></td>
-      <td class="barres-val">IIP ${pc(i, t)} · HELB ${pc(h, t)}</td></tr>`;
-  }).join('')}</table></div>`;
+
+/* ── LES PARTIES ET LES RÉGLAGES ─────────────────────────────────────────────────────────────────────────────────────────── */
+/* LES PARTIES DU RAPPORT (3.5.431, Charles : « une page dans Gestion ; paramétrer les parties affichées, le type de graphique, ce qu'on
+   mesure, l'ordre ; gardés, et l'impression les suit »). Le rapport d'Éditions est cette même page, réglée par défaut. */
+export const PARTIES = [
+  { cle: 'synthese', titre: 'Synthèse : chiffres clés et en bref' },
+  { cle: 'charge', titre: 'La charge (ETP ou périodes)', graphe: 'empile' },
+  { cle: 'couts', titre: 'Les coûts, poste par poste', graphe: 'empile' },
+  { cle: 'etudiant', titre: 'Le coût d’un étudiant, deux méthodes', graphe: 'empile' },
+  { cle: 'recettes', titre: 'Ce que la section rapporte', graphe: 'cote' },
+  { cle: 'blocs', titre: 'L’enseignement par bloc' },
+  { cle: 'natures', titre: 'L’enseignement par nature' },
+  { cle: 'fonctions', titre: 'Les coordinations et le cadre administratif' },
+  { cle: 'enseignants', titre: 'Par enseignant' },
+  { cle: 'methode', titre: 'Méthode' },
+];
+export const MESURES = {
+  charge: [['etp', 'En ETP'], ['periodes', 'En périodes']],
+  cout: [['convention', 'Coût convention'], ['cmb', 'Coût moyen brut (HE)']],
+  admin: [['oui', 'Avec le cadre administratif'], ['non', 'Sans le cadre administratif']],
+  coord: [['oui', 'Avec les coordinations'], ['non', 'Enseignement seul']],
+};
+/** Les réglages, nettoyés : rien ne passe qui ne soit au catalogue. */
+export function reglagesIipHelb(c = {}) {
+  const cles = PARTIES.map(x => x.cle);
+  const ordre = [...(Array.isArray(c.ordre) ? c.ordre.filter(k => cles.includes(k)) : []), ...cles].filter((k, i, t) => t.indexOf(k) === i);
+  const masques = (Array.isArray(c.masques) ? c.masques : []).filter(k => cles.includes(k));
+  const graphes = {};
+  for (const x of PARTIES) if (x.graphe) graphes[x.cle] = GRAPHES.some(([g]) => g === c.graphes?.[x.cle]) ? c.graphes[x.cle] : x.graphe;
+  const mesures = {};
+  for (const [k, opts] of Object.entries(MESURES)) mesures[k] = opts.some(([v]) => v === c.mesures?.[k]) ? c.mesures[k] : opts[0][0];
+  return { ordre, masques, graphes, mesures, saut: c.saut !== false };
 }
 
 /* ── LE DOCUMENT ─────────────────────────────────────────────────────────────────────────────────────────────────────────── */
 export function documentIipHelb(p) {
   const section = p.section || 'TIM';
+  const R = reglagesIipHelb(p.reglages);
   const toutes = db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution WHERE section = ? ORDER BY 1').all(section).map(r => r.a);
   const annees = (p.annees?.length ? p.annees : toutes.slice(-4)).filter(a => toutes.includes(a)).sort();
   if (!annees.length) {
     return { corps: `<p>Aucune attribution en ${esc(section)} pour les années choisies.</p>`, titre: 'IIP et HELB', nom: 'IIP-HELB.html',
       entete: { titre: `IIP et HELB — ${section}`, sous: '' } };
   }
+  const avecCoord = R.mesures.coord === 'oui', avecAdmin = R.mesures.admin === 'oui', enPer = R.mesures.charge === 'periodes';
+  const niv = niveauDeSection(section);
+  const taux = getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0);
+  const cmb = R.mesures.cout === 'cmb' && taux;
   const Y = annees.map(a => annee(section, a));
   for (const y of Y) {
-    // Enseignement seul (ens_*), puis la charge complète : enseignement + coordinations (3.5.429).
     y.ens_iip = y.etp_iip; y.ens_helb = y.etp_helb;
+    if (!avecCoord) { y.cetp_iip = 0; y.cetp_helb = 0; y.coord_iip = 0; y.coord_helb = 0; }
     y.etp_iip = y.ens_iip + y.cetp_iip; y.etp_helb = y.ens_helb + y.cetp_helb;
-    y.etp = y.etp_iip + y.etp_helb; y.per = y.per_iip + y.per_helb;
-    // Le coût de la section pour chacun : ses cours, ses coordinations (part HELB à la HELB), et pour l'IIP sa part du cadre administratif.
-    y.tout_iip = y.cout_iip + y.coord_iip + y.admin.part; y.tout_helb = y.cout_helb + y.coord_helb;
+    y.etp = y.etp_iip + y.etp_helb;
+    y.pc_iip = y.per_iip + y.cetp_iip * 800; y.pc_helb = y.per_helb + y.cetp_helb * 800;   // périodes, coordinations à 800 par ETP
+    y.per = y.per_iip + y.per_helb;
+    const adm = avecAdmin ? y.admin.part : 0;
+    // Le coût de chacun, selon la méthode choisie : convention (barème) ou coût moyen brut (un montant par période).
+    y.c_iip = (cmb ? y.pc_iip * taux : y.cout_iip + y.coord_iip) + adm;
+    y.c_helb = cmb ? y.pc_helb * taux : y.cout_helb + y.coord_helb;
+    y.tout_iip = y.cout_iip + y.coord_iip + adm; y.tout_helb = y.cout_helb + y.coord_helb;
   }
+  const methode = cmb ? `coût moyen brut (${n2(taux)} € la période)` : 'coût convention';
   const premiere = toutes[0];
   const a0 = Y[0], aN = Y[Y.length - 1];
   const evol = (k) => (a0[k] ? `${aN[k] >= a0[k] ? '+' : '−'}${Math.round(Math.abs((aN[k] - a0[k]) / a0[k]) * 100)} %` : '—');
-  const totHelb = Y.reduce((t, y) => t + y.tout_helb, 0), totIip = Y.reduce((t, y) => t + y.tout_iip, 0);
+  const totH = Y.reduce((t, y) => t + y.c_helb, 0), totI = Y.reduce((t, y) => t + y.c_iip, 0);
+  const chargeI = y => (enPer ? y.pc_iip : y.etp_iip), chargeH = y => (enPer ? y.pc_helb : y.etp_helb);
+  const fmtCharge = enPer ? n0 : n2, uCharge = enPer ? 'périodes' : 'ETP';
+  const quoi = [avecCoord && 'coordinations', avecAdmin && 'cadre administratif'].filter(Boolean);
+  const quoiTxt = quoi.length ? `, ${quoi.join(' et ')} compris` : '';
 
-  const bref = [
-    `Sur ${Y.length} année${Y.length > 1 ? 's' : ''} (${esc(annees[0])} à ${esc(annees[annees.length - 1])}), la section ${esc(section)} a coûté
-      <b>${eur(totIip)}</b> à l'IIP et <b>${eur(totHelb)}</b> à la HELB, cadre administratif et coordinations compris : la HELB en porte
-      <b>${pc(totHelb, totIip + totHelb)}</b>.`,
-    `En ${esc(aN.annee)}, la charge — enseignement et coordinations — est de <b>${n2(aN.etp)} ETP</b> : <b>${n2(aN.etp_iip)}</b> à l'IIP (${pc(aN.etp_iip, aN.etp)})
-      et <b>${n2(aN.etp_helb)}</b> à la HELB (${pc(aN.etp_helb, aN.etp)}).`,
-    Y.length > 1 ? `De ${esc(a0.annee)} à ${esc(aN.annee)}, l'ETP de l'IIP évolue de ${evol('etp_iip')} et celui de la HELB de ${evol('etp_helb')} ;
-      les inscrits passent de ${n0(a0.inscrits)} à ${n0(aN.inscrits)}.` : '',
-    aN.inscrits && !aN.tiers ? `En ${esc(aN.annee)}, un étudiant de ${esc(section)} rapporte <b>${eur(aN.recettes / aN.inscrits)}</b> à l'IIP (droit
-      d'inscription et frais, au barème) et lui coûte <b>${eur(aN.tout_iip / aN.inscrits)}</b>.` : '',
-    premiere && annees.includes(premiere) ? `${esc(premiere)} est la première année de la section dans Lucie : une section qui ouvre ne compte que ses premiers blocs.` : '',
-    Y.some(y => !y.admin.fonctions.length) ? `Le cadre administratif et les coordinations ne sont encodés que pour ${Y.filter(y => y.admin.fonctions.length).map(y => esc(y.annee)).join(', ') || 'aucune année'} :
-      les autres années ne portent que le coût des cours.` : '',
-  ];
+  const P = {};
+  P.synthese = () => `
+    <table class="tuiles"><tr>
+      <td class="tuile"><div class="tuile-boite fort" style="border-left-color:#1B2B4B"><div class="tuile-val">${fmtCharge(chargeI(aN) + chargeH(aN))}<span class="tuile-u">${uCharge}</span></div>
+        <div class="tuile-lib">Charge ${esc(aN.annee)}</div><div class="tuile-fin">${avecCoord ? 'enseignement et coordinations' : 'enseignement'}</div></div></td>
+      <td class="tuile"><div class="tuile-boite" style="border-left-color:${IIP}"><div class="tuile-val">${pc(chargeI(aN), chargeI(aN) + chargeH(aN))}</div>
+        <div class="tuile-lib">Part de l'IIP</div><div class="tuile-fin">${fmtCharge(chargeI(aN))} ${uCharge} · ${aN.profs_iip} enseignant(s)</div></div></td>
+      <td class="tuile"><div class="tuile-boite" style="border-left-color:${HELB}"><div class="tuile-val">${pc(chargeH(aN), chargeI(aN) + chargeH(aN))}</div>
+        <div class="tuile-lib">Part de la HELB</div><div class="tuile-fin">${fmtCharge(chargeH(aN))} ${uCharge} · ${aN.profs_helb} enseignant(s)</div></div></td>
+      <td class="tuile"><div class="tuile-boite" style="border-left-color:#1B2B4B"><div class="tuile-val">${n0(aN.inscrits)}</div>
+        <div class="tuile-lib">Inscrits ${esc(aN.annee)}</div><div class="tuile-fin">${Y.length > 1 ? `${n0(a0.inscrits)} en ${esc(a0.annee)}` : ''}</div></div></td>
+    </tr></table>
+    <div class="en-bref"><h3>En bref</h3><ul>${[
+      `Sur ${Y.length} année${Y.length > 1 ? 's' : ''} (${esc(annees[0])} à ${esc(annees[annees.length - 1])}), au ${methode}${quoiTxt}, la section ${esc(section)}
+        a coûté <b>${eur(totI)}</b> à l'IIP et <b>${eur(totH)}</b> à la HELB : la HELB en porte <b>${pc(totH, totI + totH)}</b>.`,
+      `En ${esc(aN.annee)}, la charge est de <b>${fmtCharge(chargeI(aN) + chargeH(aN))} ${uCharge}</b> : <b>${fmtCharge(chargeI(aN))}</b> à l'IIP
+        (${pc(chargeI(aN), chargeI(aN) + chargeH(aN))}) et <b>${fmtCharge(chargeH(aN))}</b> à la HELB.`,
+      Y.length > 1 ? `De ${esc(a0.annee)} à ${esc(aN.annee)}, l'ETP de l'IIP évolue de ${evol('etp_iip')} et celui de la HELB de ${evol('etp_helb')} ;
+        les inscrits passent de ${n0(a0.inscrits)} à ${n0(aN.inscrits)}.` : '',
+      aN.inscrits && !aN.tiers ? `En ${esc(aN.annee)}, un étudiant rapporte <b>${eur(aN.recettes / aN.inscrits)}</b> à l'IIP (droit d'inscription et frais,
+        au barème) et lui coûte <b>${eur(aN.c_iip / aN.inscrits)}</b>.` : '',
+      premiere && annees.includes(premiere) ? `${esc(premiere)} est la première année de la section dans Lucie : une section qui ouvre ne compte que ses premiers blocs.` : '',
+      (avecCoord || avecAdmin) && Y.some(y => !y.admin.fonctions.length) ? `Les fonctions (coordinations, cadre administratif) ne sont encodées que pour
+        ${Y.filter(y => y.admin.fonctions.length).map(y => esc(y.annee)).join(', ') || 'aucune année'}.` : '',
+    ].filter(Boolean).map(x => `<li>${x}</li>`).join('')}</ul></div>`;
 
-  const ligneAnnee = (y) => `<tr><td>${esc(y.annee)}</td>
-    <td class="n">${n0(y.per_iip)}</td><td class="n">${n0(y.per_helb)}</td>
-    <td class="n">${n2(y.ens_iip)}</td><td class="n">${n2(y.ens_helb)}</td>
-    <td class="n">${y.coord.length ? n2(y.cetp_iip) : '—'}</td><td class="n">${y.coord.length ? n2(y.cetp_helb) : '—'}</td>
-    <td class="n g">${n2(y.etp)}</td>
-    <td class="n">${pc(y.etp_helb, y.etp)}</td><td class="n">${y.profs_iip} / ${y.profs_helb}</td>
-    <td class="n">${n0(y.inscrits)}</td><td class="n">${y.inscrits ? n2(y.etp / y.inscrits * 100) : '—'}</td></tr>`;
+  P.charge = () => `<h2>La charge, année par année</h2>
+    ${graphe(R.graphes.charge, Y, chargeI, chargeH, fmtCharge, `La charge en ${uCharge} — ${avecCoord ? 'enseignement et coordinations' : 'enseignement'}`)}
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Pér. IIP</th><th class="n">Pér. HELB</th><th class="n">Ens. IIP</th><th class="n">Ens. HELB</th>
+      ${avecCoord ? '<th class="n">Coord. IIP</th><th class="n">Coord. HELB</th>' : ''}<th class="n">ETP total</th><th class="n">Part HELB</th>
+      <th class="n">Ens. IIP / HELB</th><th class="n">Inscrits</th><th class="n">ETP / 100 ét.</th></tr></thead>
+      <tbody>${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.per_iip)}</td><td class="n">${n0(y.per_helb)}</td>
+        <td class="n">${n2(y.ens_iip)}</td><td class="n">${n2(y.ens_helb)}</td>
+        ${avecCoord ? `<td class="n">${y.coord.length ? n2(y.cetp_iip) : '—'}</td><td class="n">${y.coord.length ? n2(y.cetp_helb) : '—'}</td>` : ''}
+        <td class="n g">${n2(y.etp)}</td><td class="n">${pc(y.etp_helb, y.etp)}</td><td class="n">${y.profs_iip} / ${y.profs_helb}</td>
+        <td class="n">${n0(y.inscrits)}</td><td class="n">${y.inscrits ? n2(y.etp / y.inscrits * 100) : '—'}</td></tr>`).join('')}</tbody></table>`;
 
-  const tableCouts = `<table class="annees"><thead><tr><th>Année</th><th class="n">Cours IIP</th><th class="n">Cours HELB</th><th class="n">Coord. IIP</th>
-    <th class="n">Coord. HELB</th><th class="n">Cadre admin. (IIP)</th><th class="n">Total IIP</th><th class="n">Total HELB</th><th class="n">Part HELB</th>
-    <th class="n">Par étudiant</th></tr></thead><tbody>
-    <tr class="repere"><td>Ensemble</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_helb, 0))}</td>
-      <td class="n">${eur(Y.reduce((t, y) => t + y.coord_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.coord_helb, 0))}</td>
-      <td class="n">${eur(Y.reduce((t, y) => t + y.admin.part, 0))}</td><td class="n">${eur(totIip)}</td><td class="n">${eur(totHelb)}</td>
-      <td class="n">${pc(totHelb, totIip + totHelb)}</td><td class="n"></td></tr>
-    ${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${eur(y.cout_iip)}</td><td class="n">${eur(y.cout_helb)}</td>
-      <td class="n">${y.coord.length ? eur(y.coord_iip) : '—'}</td><td class="n">${y.coord.length ? eur(y.coord_helb) : '—'}</td>
-      <td class="n">${y.admin.fonctions.length ? eur(y.admin.part) : '—'}</td><td class="n g">${eur(y.tout_iip)}</td><td class="n g">${eur(y.tout_helb)}</td>
-      <td class="n">${pc(y.tout_helb, y.tout_iip + y.tout_helb)}</td>
-      <td class="n">${y.inscrits ? eur((y.tout_iip + y.tout_helb) / y.inscrits) : '—'}</td></tr>`).join('')}</tbody></table>`;
+  P.couts = () => `<h2>Les coûts, poste par poste</h2>
+    ${graphe(R.graphes.couts, Y, y => y.c_iip, y => y.c_helb, v => `${n0(v / 1000)} k€`, `Le coût de la section — ${methode}${quoiTxt}`)}
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Cours IIP</th><th class="n">Cours HELB</th>
+      ${avecCoord ? '<th class="n">Coord. IIP</th><th class="n">Coord. HELB</th>' : ''}${avecAdmin ? '<th class="n">Cadre admin. (IIP)</th>' : ''}
+      <th class="n">Total IIP</th><th class="n">Total HELB</th><th class="n">Part HELB</th></tr></thead><tbody>
+      ${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${eur(y.cout_iip)}</td><td class="n">${eur(y.cout_helb)}</td>
+        ${avecCoord ? `<td class="n">${y.coord.length ? eur(y.coord_iip) : '—'}</td><td class="n">${y.coord.length ? eur(y.coord_helb) : '—'}</td>` : ''}
+        ${avecAdmin ? `<td class="n">${y.admin.fonctions.length ? eur(y.admin.part) : '—'}</td>` : ''}
+        <td class="n g">${eur(y.tout_iip)}</td><td class="n g">${eur(y.tout_helb)}</td><td class="n">${pc(y.tout_helb, y.tout_iip + y.tout_helb)}</td></tr>`).join('')}
+      <tr class="repere"><td>Ensemble</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_helb, 0))}</td>
+        ${avecCoord ? `<td class="n">${eur(Y.reduce((t, y) => t + y.coord_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.coord_helb, 0))}</td>` : ''}
+        ${avecAdmin ? `<td class="n">${eur(Y.reduce((t, y) => t + y.admin.part, 0))}</td>` : ''}
+        <td class="n">${eur(Y.reduce((t, y) => t + y.tout_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.tout_helb, 0))}</td><td class="n"></td></tr></tbody></table>
+    <p class="fin">Le tableau est au coût convention : les périodes au barème de la circulaire des conventions (CT, PP, cours spéciaux, par niveau),
+      comme « Coûts des formations ». Coordinations : ETP × 800 × la période CT du niveau, part IIP et part HELB — sauf si elles figurent déjà
+      dans les attributions. Cadre administratif (direction, secrétariat) : partagé entre les sections au prorata des inscrits, porté par l'IIP.</p>`;
 
-  // Par bloc et par nature : ETP IIP / HELB par année.
+  P.etudiant = () => {
+    const parEt = (v, y) => (y.inscrits ? eur(v / y.inscrits) : '—');
+    const L = Y.map(y => ({ y, convI: y.cout_iip + y.coord_iip, convH: y.cout_helb + y.coord_helb,
+      cmbI: taux ? y.pc_iip * taux : null, cmbH: taux ? y.pc_helb * taux : null, admin: avecAdmin ? y.admin.part : 0 }));
+    const Yi = Y.filter(y => y.inscrits);
+    return `<h2>Le coût d’un étudiant — l’IIP et la HELB, deux méthodes</h2>
+      ${graphe(R.graphes.etudiant, Yi, y => y.c_iip / y.inscrits, y => y.c_helb / y.inscrits, v => `${n0(v)} €`, `Le coût d’un étudiant — ${methode}${quoiTxt}`)}
+      <table class="annees"><thead>
+        <tr><th rowspan="2">Année</th><th class="n" rowspan="2">Inscrits</th><th class="n" colspan="3">Coût convention, par étudiant</th>
+          <th class="n" colspan="3">Coût moyen brut${taux ? ` (${n2(taux)} € / période)` : ''}, par étudiant</th>${avecAdmin ? '<th class="n" rowspan="2">Cadre admin. (IIP)</th>' : ''}</tr>
+        <tr><th class="n">IIP</th><th class="n">HELB</th><th class="n">Total</th><th class="n">IIP</th><th class="n">HELB</th><th class="n">Total</th></tr></thead>
+        <tbody>${L.map(l => `<tr><td>${esc(l.y.annee)}</td><td class="n">${n0(l.y.inscrits)}</td>
+          <td class="n">${parEt(l.convI, l.y)}</td><td class="n">${parEt(l.convH, l.y)}</td><td class="n g">${parEt(l.convI + l.convH, l.y)}</td>
+          <td class="n">${taux ? parEt(l.cmbI, l.y) : '—'}</td><td class="n">${taux ? parEt(l.cmbH, l.y) : '—'}</td><td class="n g">${taux ? parEt(l.cmbI + l.cmbH, l.y) : '—'}</td>
+          ${avecAdmin ? `<td class="n">${l.admin ? parEt(l.admin, l.y) : '—'}</td>` : ''}</tr>`).join('')}</tbody></table>
+      <p class="fin">Par étudiant : l'enseignement${avecCoord ? ' et les coordinations' : ''} de la section, divisé par ses inscrits de l'année.
+        <b>Coût convention</b> : le montant d'une période selon son type et son niveau. <b>Coût moyen brut</b> : la méthode de la Haute École, un
+        montant unique par période${avecCoord ? ' (coordinations à 800 périodes par ETP)' : ''}${taux ? '' : ' — non réglé : Configuration → Coût des périodes'}.
+        ${avecAdmin ? 'Le cadre administratif, porté par l’IIP, s’ajoute à sa part quelle que soit la méthode.' : ''}</p>`;
+  };
+
+  P.recettes = () => {
+    const Yi = Y.filter(y => y.inscrits && !y.tiers);
+    return `<h2>Ce que la section rapporte, par étudiant</h2>
+    ${R.graphes.recettes === 'aucun' ? '' : (() => {
+      // Ici les deux séries sont « ce qu'il rapporte » et « ce qu'il coûte à l'IIP » : même dessin, autres légendes.
+      const g = graphe(R.graphes.recettes === 'parts' ? 'cote' : R.graphes.recettes, Yi, y => y.c_iip / y.inscrits, y => y.recettes / y.inscrits, v => `${n0(v)} €`, 'Un étudiant : ce qu’il coûte à l’IIP et ce qu’il lui rapporte');
+      return g.replace('</i>IIP</span>', '</i>Coût pour l’IIP</span>').replace('</i>HELB</span>', '</i>Droits et frais perçus</span>');
+    })()}
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Droits et frais (IIP)</th><th class="n">Par étudiant</th>
+      <th class="n">Coût IIP par étudiant</th><th class="n">Coût HELB par étudiant</th></tr></thead><tbody>
+      ${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td>
+        <td class="n">${y.tiers ? `<span class="fin">perçus par ${esc(y.tiers)}</span>` : eur(y.recettes)}</td>
+        <td class="n g">${y.inscrits && !y.tiers ? eur(y.recettes / y.inscrits) : '—'}</td>
+        <td class="n">${y.inscrits ? eur(y.c_iip / y.inscrits) : '—'}</td><td class="n">${y.inscrits ? eur(y.c_helb / y.inscrits) : '—'}</td></tr>`).join('')}</tbody></table>
+    <p class="fin">Droits et frais au barème de l'année, unité par unité pour les inscrits de la section, plus les forfaits : le calcul de « Coûts des
+      formations », sans plafond ni exonération — le perçu réel se lit dans les fiches. Coûts au ${methode}${quoiTxt}.</p>`;
+  };
+
   const croise = (cleDe, libelle, titre) => {
     const cles = [...new Set(Y.flatMap(y => y.lignes.map(cleDe)))].sort((a, b) => String(a).localeCompare(String(b), 'fr'));
     const v = (y, k, h) => y.lignes.filter(l => cleDe(l) === k && l.helb === h).reduce((t, l) => t + l.etp, 0);
@@ -185,140 +303,60 @@ export function documentIipHelb(p) {
       ${cles.map(k => `<tr><td>${esc(NATURES[k] || (/^\d+$/.test(String(k)) ? `Autre (${k})` : k))}</td>${Y.map(y => `<td class="n">${v(y, k, false) ? n2(v(y, k, false)) : '—'}</td>
         <td class="n">${v(y, k, true) ? n2(v(y, k, true)) : '—'}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   };
+  P.blocs = () => croise(l => l.bloc, 'Bloc', 'L’enseignement par bloc d’études (ETP)');
+  P.natures = () => croise(l => l.nature, 'Nature', 'L’enseignement par nature (ETP)');
 
-  // Les coordinations et le cadre administratif, année par année.
-  const fonctions = Y.map(y => `<h3>${esc(y.annee)}</h3>${!y.coord.length && !y.admin.fonctions.length
+  P.fonctions = () => `<h2>Les coordinations et le cadre administratif</h2>${Y.map(y => `<h3>${esc(y.annee)}</h3>${!y.coord.length && !y.admin.fonctions.length
     ? '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>'
     : `<table><thead><tr><th>Fonction</th><th>Personne</th><th class="n">ETP</th><th class="n">dont HELB</th><th class="n">Coût IIP</th><th class="n">Coût HELB</th></tr></thead><tbody>
       ${y.coord.map(c => `<tr><td>${esc(c.fonction)}</td><td>${esc(c.personne)}</td><td class="n">${c.etp ? n2(c.etp) : '—'}</td><td class="n">${c.etp_helb ? n2(c.etp_helb) : '—'}</td>
         <td class="n">${c.deja ? '<span class="fin">dans ses attributions</span>' : c.cout_iip ? eur(c.cout_iip) : '—'}</td>
         <td class="n">${c.cout_helb ? eur(c.cout_helb) : '—'}</td></tr>`).join('')}
       ${y.admin.fonctions.length ? `<tr class="repere"><td colspan="2">Cadre administratif de l'établissement (${y.admin.fonctions.map(f => esc(f.fonction)).filter((v, i, t) => t.indexOf(v) === i).join(', ')})</td>
-        <td class="n">${n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0))}</td><td class="n">—</td>
-        <td class="n">${eur(y.admin.cout)}</td><td class="n">—</td></tr>
+        <td class="n">${n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0))}</td><td class="n">—</td><td class="n">${eur(y.admin.cout)}</td><td class="n">—</td></tr>
         <tr><td colspan="4">— part de ${esc(section)} : ${n0(y.inscrits)} inscrits sur ${n0(y.admin.base)} (${pc(y.inscrits, y.admin.base)})</td>
         <td class="n g">${y.admin.cout ? eur(y.admin.part) : 'ETP à régler'}</td><td class="n">—</td></tr>` : ''}
-      </tbody></table>`}`).join('');
+      </tbody></table>`}`).join('')}`;
 
-  // Les professeurs : qui porte la charge, année par année.
-  const profs = new Map();
-  for (const y of Y) for (const l of y.lignes) {
-    const k = `${l.professeur || 'À désigner'}|${l.helb ? 'HELB' : 'IIP'}`;
-    if (!profs.has(k)) profs.set(k, {});
-    profs.get(k)[y.annee] = (profs.get(k)[y.annee] || 0) + l.etp;
-  }
-  const rangProfs = [...profs.entries()].sort((a, b) => (b[1][aN.annee] || 0) - (a[1][aN.annee] || 0) || a[0].localeCompare(b[0], 'fr'));
-  const tableProfs = `<table><thead><tr><th>Professeur</th><th>Contrat</th>${Y.map(y => `<th class="n">${esc(court(y.annee))}</th>`).join('')}</tr></thead><tbody>
-    ${rangProfs.map(([k, v]) => { const [nom, c] = k.split('|'); return `<tr><td>${esc(nom)}</td>
-      <td><span class="marque" style="background:${c === 'HELB' ? HELB : IIP}">${c}</span></td>
-      ${Y.map(y => `<td class="n">${v[y.annee] ? n2(v[y.annee]) : '—'}</td>`).join('')}</tr>`; }).join('')}</tbody></table>
-    <p class="fin">Charge d'enseignement seule ; les coordinations sont détaillées à la page précédente.</p>`;
+  P.enseignants = () => {
+    const profs = new Map();
+    for (const y of Y) for (const l of y.lignes) {
+      const k = `${l.professeur || 'À désigner'}|${l.helb ? 'HELB' : 'IIP'}`;
+      if (!profs.has(k)) profs.set(k, {});
+      profs.get(k)[y.annee] = (profs.get(k)[y.annee] || 0) + l.etp;
+    }
+    const rang = [...profs.entries()].sort((a, b) => (b[1][aN.annee] || 0) - (a[1][aN.annee] || 0) || a[0].localeCompare(b[0], 'fr'));
+    return `<h2>Qui porte la charge — par enseignant (ETP)</h2><table><thead><tr><th>Professeur</th><th>Contrat</th>${Y.map(y => `<th class="n">${esc(court(y.annee))}</th>`).join('')}</tr></thead><tbody>
+      ${rang.map(([k, v]) => { const [nom, c] = k.split('|'); return `<tr><td>${esc(nom)}</td>
+        <td><span class="marque" style="background:${c === 'HELB' ? HELB : IIP}">${c}</span></td>
+        ${Y.map(y => `<td class="n">${v[y.annee] ? n2(v[y.annee]) : '—'}</td>`).join('')}</tr>`; }).join('')}</tbody></table>
+      <p class="fin">Charge d'enseignement seule ; les coordinations sont détaillées avec les fonctions.</p>`;
+  };
 
+  P.methode = () => `<h2>Méthode</h2>
+    <p class="fin">Source : les attributions de Lucie (les années ${esc(annees.filter(a => a < '2025-2026').join(', ') || '—')} reprises des fichiers
+      d'attributions de la direction), hors congés. ETP au barème du Pilotage : périodes CT ÷ 800 + PP ÷ 1 000, autonomie comprise ; une
+      attribution sans type compte en CT. « HELB » : attributions dont le contrat est HELB. Inscrits : ceux des chiffres clés de l'année.
+      Graphiques au ${methode}${quoiTxt}. ${premiere ? `Première année de ${esc(section)} dans Lucie : ${esc(premiere)}.` : ''}</p>`;
+
+  const visibles = R.ordre.filter(k => !R.masques.includes(k));
   const corps = `
     <style>
       h2 { font-size:12pt; margin:8mm 0 2mm; color:#1B2B4B; }
-      .saut { break-before: page; }
+      .partie + .partie.saut { break-before: page; }
       .en-bref ul { margin:1mm 0 0 4mm; padding:0; } .en-bref li { margin:0 0 1.5mm; font-size:9.5pt; line-height:1.4; }
       td.g { font-weight:700; }
       table.annees tbody td:first-child, table.annees td.n { white-space:nowrap; }
       table.annees th, table.annees td { padding-left:1.2mm; padding-right:1.2mm; }
       .fin { color:#64748b; font-size:8pt; }
     </style>
-    <table class="tuiles"><tr>
-      <td class="tuile"><div class="tuile-boite fort" style="border-left-color:#1B2B4B"><div class="tuile-val">${n2(aN.etp)}<span class="tuile-u">ETP</span></div>
-        <div class="tuile-lib">Charge ${esc(aN.annee)}</div><div class="tuile-fin">${n0(aN.per)} périodes</div></div></td>
-      <td class="tuile"><div class="tuile-boite" style="border-left-color:${IIP}"><div class="tuile-val">${pc(aN.etp_iip, aN.etp)}</div>
-        <div class="tuile-lib">Part de l'IIP</div><div class="tuile-fin">${n2(aN.etp_iip)} ETP · ${aN.profs_iip} enseignant(s)</div></div></td>
-      <td class="tuile"><div class="tuile-boite" style="border-left-color:${HELB}"><div class="tuile-val">${pc(aN.etp_helb, aN.etp)}</div>
-        <div class="tuile-lib">Part de la HELB</div><div class="tuile-fin">${n2(aN.etp_helb)} ETP · ${aN.profs_helb} enseignant(s)</div></div></td>
-      <td class="tuile"><div class="tuile-boite" style="border-left-color:#1B2B4B"><div class="tuile-val">${n0(aN.inscrits)}</div>
-        <div class="tuile-lib">Inscrits ${esc(aN.annee)}</div><div class="tuile-fin">${Y.length > 1 ? `${n0(a0.inscrits)} en ${esc(a0.annee)}` : ''}</div></div></td>
-    </tr></table>
-    <div class="en-bref"><h3>En bref</h3><ul>${bref.filter(Boolean).map(x => `<li>${x}</li>`).join('')}</ul></div>
-
-    ${colonnesEmpilees(Y, 'etp', n2, 'La charge en ETP — enseignement et coordinations')}
-    ${partsParAnnee(Y, 'etp', 'Qui porte la charge')}
-
-    <h2 class="saut">La charge, année par année</h2>
-    <table class="annees"><thead><tr><th>Année</th><th class="n">Pér. IIP</th><th class="n">Pér. HELB</th><th class="n">Ens. IIP</th><th class="n">Ens. HELB</th>
-      <th class="n">Coord. IIP</th><th class="n">Coord. HELB</th><th class="n">ETP total</th><th class="n">Part HELB</th><th class="n">Ens. IIP / HELB</th><th class="n">Inscrits</th><th class="n">ETP / 100 ét.</th></tr></thead>
-      <tbody>${Y.map(ligneAnnee).join('')}</tbody></table>
-
-    ${colonnesEmpilees(Y.map(y => ({ annee: y.annee, cout_iip: y.tout_iip, cout_helb: y.tout_helb })), 'cout', v => `${n0(v / 1000)} k€`, 'Le coût de la section, cadre administratif et coordinations compris')}
-    ${partsParAnnee(Y.map(y => ({ annee: y.annee, cout_iip: y.tout_iip, cout_helb: y.tout_helb })), 'cout', 'Qui paie')}
-
-    <h2 class="saut">Les coûts, poste par poste</h2>
-    ${tableCouts}
-    <p class="fin">Coût des cours : les périodes attribuées au barème de la circulaire des conventions (CT, PP, cours spéciaux, par niveau),
-      comme le rapport « Coûts des formations ». Coordinations : chaque fonction de coordination de la section compte, part IIP et part HELB,
-      en ETP × 800 × la période CT du niveau — sauf si elle figure déjà dans les attributions de la personne. Cadre administratif (direction,
-      secrétariat) : emplois de l'établissement, partagés entre les sections au prorata de leurs inscrits ; il est porté par l'IIP.</p>
-
-    ${(() => {
-      /* LE COÛT D'UN ÉTUDIANT, DEUX MÉTHODES (3.5.430, Charles : « un coût étudiant sur base des données financières — comparaison HE et
-         IIP » ; tranché : les deux méthodes côte à côte, dans ce rapport). Coût convention : le barème de la circulaire des conventions
-         (CT, PP, cours spéciaux, par niveau), celui de tout le rapport. Coût moyen brut : la lecture de la Haute École — chaque période
-         (cours, et coordinations à 800 périodes par ETP) au même montant (Configuration → Coût des périodes). Le cadre administratif,
-         qui n'est pas fait de périodes, s'ajoute à part, au coût convention. */
-      const niv = niveauDeSection(section);
-      const taux = getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0);
-      const parEt = (v, y) => (y.inscrits ? eur(v / y.inscrits) : '—');
-      const L = Y.map(y => {
-        const cmbI = taux ? (y.per_iip + y.cetp_iip * 800) * taux : null, cmbH = taux ? (y.per_helb + y.cetp_helb * 800) * taux : null;
-        return { y, convI: y.cout_iip + y.coord_iip, convH: y.cout_helb + y.coord_helb, cmbI, cmbH, admin: y.admin.part };
-      });
-      const graphe = colonnesEmpilees(L.filter(l => l.y.inscrits).map(l => ({ annee: l.y.annee,
-        et_iip: (l.convI + l.admin) / l.y.inscrits, et_helb: l.convH / l.y.inscrits })), 'et', v => `${n0(v)} €`,
-        'Le coût d’un étudiant, au coût convention (cadre administratif compris)');
-      return `<h2 class="saut">Le coût d’un étudiant — l’IIP et la HELB, deux méthodes</h2>
-      ${graphe}
-      <table class="annees"><thead>
-        <tr><th rowspan="2">Année</th><th class="n" rowspan="2">Inscrits</th><th class="n" colspan="3">Coût convention, par étudiant</th>
-          <th class="n" colspan="3">Coût moyen brut${taux ? ` (${n2(taux)} € / période)` : ''}, par étudiant</th><th class="n" rowspan="2">Cadre admin. (IIP)</th></tr>
-        <tr><th class="n">IIP</th><th class="n">HELB</th><th class="n">Total</th><th class="n">IIP</th><th class="n">HELB</th><th class="n">Total</th></tr></thead>
-        <tbody>${L.map(l => `<tr><td>${esc(l.y.annee)}</td><td class="n">${n0(l.y.inscrits)}</td>
-          <td class="n">${parEt(l.convI, l.y)}</td><td class="n">${parEt(l.convH, l.y)}</td><td class="n g">${parEt(l.convI + l.convH, l.y)}</td>
-          <td class="n">${taux ? parEt(l.cmbI, l.y) : '—'}</td><td class="n">${taux ? parEt(l.cmbH, l.y) : '—'}</td><td class="n g">${taux ? parEt(l.cmbI + l.cmbH, l.y) : '—'}</td>
-          <td class="n">${l.admin ? parEt(l.admin, l.y) : '—'}</td></tr>`).join('')}</tbody></table>
-      <p class="fin">Par étudiant : le coût de l'enseignement et des coordinations de la section, divisé par ses inscrits de l'année.
-        <b>Coût convention</b> : le montant d'une période selon son type et son niveau (circulaire des conventions) — la méthode de tout ce rapport.
-        <b>Coût moyen brut</b> : la méthode de la Haute École, un montant unique par période du ${niv === 'SUP' ? 'supérieur' : niv}, appliqué aux
-        périodes de cours et aux coordinations (800 périodes par ETP)${taux ? '' : ' — montant non réglé : Configuration → Coût des périodes'}.
-        Le cadre administratif (direction, secrétariat), qui n'est pas payé en périodes, se lit dans la dernière colonne : à ajouter à la
-        part de l'IIP, quelle que soit la méthode.</p>`;
-    })()}
-
-    <h2>Ce que la section rapporte, par étudiant</h2>
-    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Droits et frais (IIP)</th><th class="n">Par étudiant</th>
-      <th class="n">Coût IIP par étudiant</th><th class="n">Coût HELB par étudiant</th><th class="n">Coût total par étudiant</th></tr></thead><tbody>
-      ${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td>
-        <td class="n">${y.tiers ? `<span class="fin">perçus par ${esc(y.tiers)}</span>` : eur(y.recettes)}</td>
-        <td class="n g">${y.inscrits && !y.tiers ? eur(y.recettes / y.inscrits) : '—'}</td>
-        <td class="n">${y.inscrits ? eur(y.tout_iip / y.inscrits) : '—'}</td><td class="n">${y.inscrits ? eur(y.tout_helb / y.inscrits) : '—'}</td>
-        <td class="n">${y.inscrits ? eur((y.tout_iip + y.tout_helb) / y.inscrits) : '—'}</td></tr>`).join('')}</tbody></table>
-    <p class="fin">Droits et frais au barème de l'année (Configuration → droit d'inscription et frais), unité par unité pour les inscrits de la
-      section, plus les forfaits : le calcul de « Coûts des formations », sans plafond ni exonération — le perçu réel se lit dans les fiches.</p>
-
-    ${croise(l => l.bloc, 'Bloc', 'L’enseignement par bloc d’études (ETP)')}
-    ${croise(l => l.nature, 'Nature', 'L’enseignement par nature (ETP)')}
-
-    <h2 class="saut">Les coordinations et le cadre administratif</h2>
-    ${fonctions}
-
-    <h2 class="saut">Qui porte la charge — par enseignant (ETP)</h2>
-    ${tableProfs}
-
-    <h2>Méthode</h2>
-    <p class="fin">Source : les attributions de Lucie (les années ${esc(annees.filter(a => a < '2025-2026').join(', ') || '—')} reprises des fichiers
-      d'attributions de la direction), hors congés. ETP au barème du Pilotage : périodes CT ÷ 800 + PP ÷ 1 000, autonomie comprise ; une
-      attribution sans type compte en CT. « HELB » : attributions dont le contrat est HELB. Inscrits : ceux des chiffres clés de l'année.
-      ${premiere ? `Première année de ${esc(section)} dans Lucie : ${esc(premiere)}.` : ''}</p>`;
+    ${visibles.map((k, i) => `<section class="partie${R.saut && i > 0 && !['synthese', 'methode'].includes(k) ? ' saut' : ''}">${P[k]()}</section>`).join('')}`;
 
   return {
     corps,
     titre: `IIP et HELB — ${section}`,
     nom: `IIP-HELB-${section}-${annees.map(court).join('_')}.html`,
-    entete: { titre: `IIP et HELB : la charge et le coût de ${section}`, sous: `${annees.join(' · ')} · enseignement, coordinations, cadre administratif` },
+    entete: { titre: `IIP et HELB : la charge et le coût de ${section}`, sous: `${annees.join(' · ')} · ${methode}${quoiTxt}` },
   };
 }
 
