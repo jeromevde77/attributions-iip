@@ -114,7 +114,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     if (ref === 'N1') return code === 'IIP' ? d?.prec?.iip?.[k] ?? null : d?.prec?.sections?.find(x => x.section === code)?.[k] ?? null;
     if (ref === 'ASBL') {
       const A = d?.asbl || {};
-      return { cout_etudiant: A.cout_etudiant, cout_credit: A.cout_credit, cout_180: A.cout_180, etc_etp: A.etc_etp, etp: null }[k] ?? null;
+      return { cout_etudiant: A.cout_etudiant, cout_credit: A.cout_credit, cout_180: A.cout_180, etc_etp: A.etc_etp, taille_groupes: A.taille_groupes, etp: null }[k] ?? null;
     }
     return null;
   };
@@ -169,7 +169,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     </div>);
 
   const noteRef = ref === 'ASBL' ? (d?.asbl
-    ? `L’ASBL = les deux établissements réunis : ${n0(d.asbl.etudiants)} étudiants (${n0(d.asbl.etudiants_iip)} à l’IIP), ${n0(d.asbl.cout_total)} € — charges de l’ASBL en ${d.asbl.exercice} et coût de l’IIP calculé par Lucie —, ${n1(d.asbl.etp)} ETP d’enseignement.`
+    ? `L’ASBL = les deux établissements réunis : ${n0(d.asbl.etudiants)} étudiants (${n0(d.asbl.etudiants_iip)} à l’IIP), ${n0(d.asbl.cout_total)} € — charges de l’ASBL en ${d.asbl.exercice} et coût de l’IIP calculé par Lucie —, ${n1(d.asbl.etp)} ETP d’enseignement. Taille des groupes : on suppose qu’un étudiant de la HELB suit autant de périodes qu’un étudiant temps plein de l’IIP (${n0(d.asbl.periodes_par_etudiant)} par an).`
     : 'L’ASBL n’a pas encore de source : déposez ses comptes dans Vue d’ensemble → Les sources.')
     : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
 

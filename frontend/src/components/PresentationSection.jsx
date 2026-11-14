@@ -27,6 +27,21 @@ const C = { nuit: '#001A70', nuit2: '#0B2A86', bleu: '#2A7DB8', ciel: '#3A97C9',
   pale: '#F5FAFE', filet: '#D8DCE4', or: '#F9B619', iip: '#19537E', helb: '#C2408A', vert: '#3E7D5E', ocre: '#B45309', brique: '#9D4A38',
   violet: '#6B46C1', blanc: '#FFFFFF' };
 const SERIE = [C.bleu, C.or, C.helb, C.vert, '#05B7E6', C.ocre, C.violet, '#94A3B8'];
+/* LES DIAPOSITIVES PRENNENT LES COULEURS DE CONFIGURATION (3.5.457, Charles : « il ne prend pas les couleurs depuis le choix dans
+   Config, par exemple Maison IIP »). La palette ci-dessus n'est que le repli : à chaque dessin, `lirePalette` la remplace par les
+   réglages de Thèmes et couleurs — couleur principale pour les fonds et les titres, accent, or du logo, états, séries des graphiques. */
+const hexDe = v => { const m = String(v || '').trim().match(/^#([0-9a-f]{6})$/i); return m ? `#${m[1].toUpperCase()}` : null; };
+const meler = (hexa, p, vers = 255) => { const v = parseInt(hexa.slice(1), 16); return `#${[v >> 16, (v >> 8) & 255, v & 255].map(x => Math.round(x * p / 100 + vers * (1 - p / 100)).toString(16).padStart(2, '0')).join('')}`.toUpperCase(); };
+function lirePalette() {
+  const st = getComputedStyle(document.documentElement), v = n => hexDe(st.getPropertyValue(n));
+  const principal = v('--c-principal'), accent = v('--c-accent'), or = v('--c-iip_or'), bleuLogo = v('--c-iip_bleu');
+  if (!principal) return;
+  Object.assign(C, { nuit: principal, nuit2: meler(principal, 88), bleu: bleuLogo || accent || C.bleu, ciel: accent || C.ciel, clair: meler(principal, 28), encre: v('--c-texte') || principal,
+    pale: meler(principal, 5), or: or || C.or, iip: v('--c-iip') || principal, helb: v('--c-helb') || C.helb, vert: v('--c-reussi') || C.vert, ocre: v('--c-attente') || C.ocre,
+    brique: v('--c-refuse') || C.brique, violet: v('--c-faveur') || C.violet });
+  const series = [1, 2, 3, 4, 5, 6].map(i => v(`--c-serie_${i}`)).filter(Boolean);
+  if (series.length) SERIE.splice(0, SERIE.length, ...series, '#94A3B8');
+}
 const POLICE = "Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 const n0 = v => Math.round(v || 0).toLocaleString('fr-BE');
 const n1 = v => (v || 0).toLocaleString('fr-BE', { maximumFractionDigits: 1 });
@@ -88,8 +103,8 @@ function svgIcone(b) {
   const Ic = ICONE_SECTION[b.section] || IconSchool, t = Math.min(b.w, b.h), r = t / 2;
   const picto = renderToStaticMarkup(<Ic size={t * 0.52} stroke={1.3} color="#FFFFFF" />).replace('<svg ', `<svg x="${(b.w - t * 0.52) / 2}" y="${(b.h - t * 0.52) / 2}" `);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${b.w} ${b.h}" width="100%" height="100%">`
-    + `<circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r - 4}" fill="#0B2A86"/><circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r - 4}" fill="none" stroke="#3A97C9" stroke-width="3"/>`
-    + `<circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r * 0.74}" fill="#2A7DB8"/>${picto}</svg>`;
+    + `<circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r - 4}" fill="${C.nuit2}"/><circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r - 4}" fill="none" stroke="${C.ciel}" stroke-width="3"/>`
+    + `<circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r * 0.74}" fill="${C.bleu}"/>${picto}</svg>`;
 }
 
 /** Vingt silhouettes : une pour 5 %, femmes en framboise, hommes en bleu. */
@@ -112,7 +127,8 @@ function svgIsotype(b) {
 
 function composer(D, T) {
   const { section, nom, pop, stats, lec, annee } = D;
-  const s = pop?.sections?.[0] || {};
+  // LA SECTION CHOISIE, pas la première de la liste (3.5.457 : pour « Soins infirmiers », la présentation montrait le profil de TIM).
+  const s = pop?.sections?.find(x => x.section === section) || {};
   const iipEns = pop?.ensemble || {};
   const t = (cle, defaut) => (T[cle] !== undefined && T[cle] !== '' ? T[cle] : defaut);
   const lignes = (cle, defaut) => t(cle, defaut.join('\n')).split('\n').map(x => x.trim()).filter(Boolean);
@@ -207,7 +223,7 @@ function composer(D, T) {
     const w4 = (CW - 3 * 24) / 4;
     const cles = [
       [n0(derniere?.n || s.n), `inscrits en ${derniere?.annee || annee}`, premiere ? `${n0(premiere.n)} à l’ouverture en ${premiere.annee}` : ''],
-      [fois ? `× ${n1(fois)}` : '—', 'de croissance', premiere && derniere ? `de ${premiere.annee} à ${derniere.annee}` : ''],
+      [fois ? (fois >= 1.5 ? `× ${n1(fois)}` : `${fois >= 1 ? '+' : ''}${n0((fois - 1) * 100)} %`) : '—', fois >= 1 ? 'de croissance' : 'd’évolution', premiere && derniere ? `de ${premiere.annee} à ${derniere.annee}` : ''],
       [rN ? `${n0(rN.sec.total.final.taux_reussite)} %` : '—', `de réussite finale`, rN ? `${rN.annee}, après la seconde session` : ''],
       [LS?.cout_credit != null ? e0(LS.cout_credit) : '—', 'le coût d’un crédit', LA?.cout_credit != null ? `ensemble de l’ASBL : ${e0(LA.cout_credit)}` : LI?.cout_credit != null ? `IIP : ${e0(LI.cout_credit)}` : ''],
     ];
@@ -224,14 +240,15 @@ function composer(D, T) {
         { k: 'texte', x, y: 424, w: w5, h: 26, texte: a, taille: 18, couleur: C.nuit, gras: true },
         { k: 'texte', x, y: 452, w: w5, h: 60, texte: b, taille: 13.5, couleur: C.gris });
     });
-    bl.push(...retenir('regard', fois ? `En ${evo.length} ans, la section a été multipliée par ${n1(fois)}.` : 'Une section jeune, en forte croissance.'));
+    bl.push(...retenir('regard', fois >= 1.5 ? `En ${evo.length} ans, la section a été multipliée par ${n1(fois)}.` : premiere && derniere && evo.length > 1 ? `De ${n0(premiere.n)} à ${n0(derniere.n)} étudiants en ${evo.length} ans.` : `${n0(derniere?.n || s.n)} étudiants en ${annee}.`));
     ajouter({ id: 'regard', blocs: bl, notes: t('notes.regard', 'Quatre chiffres pour poser le décor ; la suite les explique un par un, en cinq parties.'), notesCle: 'notes.regard' });
   }
 
   /* PARTIE 1 — LA POPULATION */
-  separateur(1, 'La population', 'Une section ouverte en ' + (premiere?.annee || '—') + ', qui a trouvé son public.', '↗');
+  const monte = evo.length > 1 && evo.every((e, k) => !k || e.n >= evo[k - 1].n);
+  separateur(1, 'La population', premiere && derniere && evo.length > 1 ? `De ${n0(premiere.n)} à ${n0(derniere.n)} étudiants, de ${premiere.annee} à ${derniere.annee}.` : 'Les inscrits de la section.', '↗');
   if (evo.length) {
-    const bl = [...entete('Population', 'Une croissance continue depuis l’ouverture')];
+    const bl = [...entete('Population', monte ? 'Une croissance continue' : 'Les inscrits, année par année')];
     bl.push({ k: 'graphe', type: 'barres', x: M, y: 140, w: 700, h: 450, categories: evo.map(e => e.annee), series: [{ nom: 'Inscrits', valeurs: evo.map(e => e.n), couleur: C.bleu }], titre: `Inscrits en ${section}, par année` });
     const partIIP = derniere?.total ? pc(derniere.n, derniere.total) : 0, part0 = premiere?.total ? pc(premiere.n, premiere.total) : 0;
     bl.push(...tuileClaire(M + 740, 150, CW - 740, 130, `${partIIP} %`, `des étudiants de l’IIP en ${derniere?.annee}`, `${part0} % en ${premiere?.annee}`, C.or));
@@ -243,23 +260,24 @@ function composer(D, T) {
   if (derniere) {
     const e = (pop?.evolution || []).find(x => x.annee === derniere.annee);
     const parS = Object.entries(e?.par_section || {}).sort((a, b) => b[1] - a[1]);
-    const bl = [...entete('Population', `La plus grande section de l’IIP en ${derniere.annee}`)];
+    const rangS = parS.findIndex(([k]) => k === section) + 1;
+    const bl = [...entete('Population', rangS === 1 ? `La plus grande section de l’IIP en ${derniere.annee}` : `${nom} dans l’IIP en ${derniere.annee}`)];
     bl.push({ k: 'graphe', type: 'donut', x: M, y: 140, w: 560, h: 450, categories: parS.map(([k]) => k), series: [{ nom: 'Étudiants', valeurs: parS.map(([, v]) => v) }],
       couleurs: parS.map(([k], i) => (k === section ? C.bleu : ['#C9D6E8', '#AFC2DA', '#93ACCB', '#E2E8F0', '#B8C5D6', '#D5DEEA', '#A3B5CC', '#CBD5E1'][i % 8])), titre: 'Étudiants par section' });
     const blocs = Object.entries(s.par_niveau || {}).sort();
     bl.push(intertitreBloc(M + 600, 150, 500, `${section} par bloc, ${annee}`));
     bl.push({ k: 'graphe', type: 'barres', x: M + 600, y: 180, w: CW - 600, h: 250, categories: blocs.map(([k]) => k), series: [{ nom: 'Étudiants', valeurs: blocs.map(([, v]) => v), couleur: C.nuit }] });
     bl.push(...tuileClaire(M + 600, 450, (CW - 620) / 2, 130, n0(s.primo), 'primo-inscrits', `${pc(s.primo, s.n)} % de la section`, C.vert));
-    bl.push(...tuileClaire(M + 620 + (CW - 620) / 2, 450, (CW - 620) / 2, 130, n0(blocs.find(b => b[0] === 'BA3')?.[1] || s.ba3), 'en dernière année', 'la première cohorte vers le diplôme', C.or));
+    bl.push(...tuileClaire(M + 620 + (CW - 620) / 2, 450, (CW - 620) / 2, 130, n0(blocs.find(b => b[0] === 'BA3')?.[1] || s.ba3), 'en dernière année', 'vers le diplôme', C.or));
     bl.push(...retenir('place', `${pc(s.n || derniere.n, e?.total)} % des étudiants de l’IIP ; ${pc(s.primo, s.n)} % de nouveaux chaque année.`));
     ajouter({ id: 'place', blocs: bl, notes: t('notes.place', `Une section qui attire : ${pc(s.primo, s.n)} % de primo-inscrits, et une cohorte en dernière année.`), notesCle: 'notes.place' });
   }
 
   /* PARTIE 2 — LE PROFIL */
-  separateur(2, 'Qui sont nos étudiants', 'Des adultes, en majorité des femmes, venus de Bruxelles et du monde.', '◎');
+  separateur(2, 'Qui sont nos étudiants', 'Sexe, âge, nationalités, domicile, titre d’accès.', '◎');
   if (s.n) {
     const sexeConnu = (s.F || 0) + (s.M || 0) + (s.X || 0);
-    const bl = [...entete('Profil', 'Des adultes, en majorité des femmes')];
+    const bl = [...entete('Profil', `Des adultes, en majorité des ${(s.F || 0) >= (s.M || 0) ? 'femmes' : 'hommes'}`)];
     bl.push(intertitreBloc(M, 140, 480, 'Sexe — une silhouette pour 5 %'));
     bl.push({ k: 'isotype', x: M, y: 180, w: 470, h: 260, f: s.F, m: s.M });
     bl.push({ k: 'texte', x: M, y: 462, w: 230, h: 60, texte: `${pc(s.F, sexeConnu)} %`, taille: 46, couleur: C.helb, gras: true },
@@ -274,7 +292,7 @@ function composer(D, T) {
     ajouter({ id: 'sexe', blocs: bl, notes: t('notes.sexe', 'Comparaison avec l’ensemble de l’IIP dans les tuiles de droite.'), notesCle: 'notes.sexe' });
 
     const pays = Object.entries(s.pays || {}).sort((a, b) => b[1] - a[1]).slice(0, 8);
-    const bl2 = [...entete('Profil', 'Une section ouverte sur le monde')];
+    const bl2 = [...entete('Profil', pc(s.hors_ue, s.n) >= 30 ? 'Une section ouverte sur le monde' : 'Les nationalités')];
     bl2.push(intertitreBloc(M, 136, 760, `${Object.keys(parIso).length} nationalités sur la carte du monde`));
     bl2.push({ k: 'carte', quelle: 'monde', x: M, y: 166, w: 760, h: 380, valeurs: parIso });
     bl2.push(...legendeClasses(M, 560));
@@ -285,7 +303,7 @@ function composer(D, T) {
         { k: 'texte', x: x + 14, y: 492, w: w3 - 20, h: 40, texte: `${pc(n, s.n)} %`, taille: 28, couleur: c, gras: true },
         { k: 'texte', x: x + 14, y: 534, w: w3 - 20, h: 40, texte: `${l}\n${n0(n)} étudiants`, taille: 12, couleur: C.gris });
     });
-    bl2.push(...retenir('nationalites', `${pc(s.hors_ue, s.n)} % de nationalités hors Union européenne : une attractivité internationale réelle.`));
+    bl2.push(...retenir('nationalites', `${pc(s.hors_ue, s.n)} % de nationalités hors Union européenne${pc(s.hors_ue, s.n) >= 30 ? ' : une attractivité internationale réelle' : ''}.`));
     ajouter({ id: 'nationalites', blocs: bl2, notes: t('notes.nationalites', 'La nationalité n’est pas le domicile : la plupart vivent en Belgique, voir plus loin.'), notesCle: 'notes.nationalites' });
 
     const euro = Object.fromEntries(Object.entries(parIso).filter(([c]) => EUROPE.includes(c)));
@@ -302,7 +320,7 @@ function composer(D, T) {
 
     const dom = s.domicile || {};
     const communes = (dom.communes || []).slice(0, 8);
-    const bl3 = [...entete('Profil', 'Une section bruxelloise, ouverte aux trois régions')];
+    const bl3 = [...entete('Profil', pc((s.domicile || {}).bruxelles, s.n) >= 50 ? 'Une section bruxelloise, ouverte aux trois régions' : 'D’où viennent nos étudiants')];
     const parNis = dom.par_nis || {}, belges = Object.values(parNis).reduce((a, n) => a + n, 0);
     const bxlN = dom.bruxelles || 0;
     bl3.push(intertitreBloc(M, 136, 540, 'La Belgique'), intertitreBloc(M + 560, 136, 330, 'Bruxelles'));
@@ -316,7 +334,7 @@ function composer(D, T) {
         { k: 'texte', x: x + 16, y: y + 56, w: CW - 940, h: 36, texte: `${l} · ${n0(n)}`, taille: 13.5, couleur: C.encre, gras: true });
     });
     bl3.push({ k: 'texte', x: M + 560, y: 506, w: 330, h: 60, texte: communes.slice(0, 3).map(c => `${c.nom.replace(/^\d+ /, '')} ${n0(c.n)}`).join(' · '), taille: 12.5, couleur: C.gris });
-    bl3.push(...retenir('domicile', `${pc(dom.bruxelles, s.n)} % habitent Bruxelles ; Anderlecht, la commune du campus, en tête.`));
+    bl3.push(...retenir('domicile', `${pc(dom.bruxelles, s.n)} % habitent Bruxelles${communes[0] ? ` ; ${communes[0].nom.replace(/^\d+ /, '')} en tête` : ''}.`));
     ajouter({ id: 'domicile', blocs: bl3, notes: t('notes.domicile', 'Adresse actuelle de la fiche de chaque étudiant.'), notesCle: 'notes.domicile' });
 
     const libAcces = Object.fromEntries((pop?.listes?.acces || []).map(([k, l]) => [k, l.replace(/\s*\(.*\)$/, '')]));
@@ -328,13 +346,13 @@ function composer(D, T) {
       bl4.push({ k: 'graphe', type: 'donut', x: M, y: 140, w: sit.length ? 540 : CW - 360, h: 440, categories: acces.map(([k]) => libAcces[k] || k), series: [{ nom: 'Étudiants', valeurs: acces.map(([, v]) => v) }], couleurs: SERIE, titre: 'Titre d’accès' });
       if (sit.length) bl4.push({ k: 'graphe', type: 'donut', x: M + 580, y: 140, w: CW - 580, h: 440, categories: sit.map(([k]) => libSit[k] || k), series: [{ nom: 'Étudiants', valeurs: sit.map(([, v]) => v) }], couleurs: SERIE, titre: 'Situation professionnelle' });
       else bl4.push(...tuileClaire(M + CW - 330, 170, 330, 170, `${pc(s.acces_connu, s.n)} %`, 'des titres d’accès encodés', `${n0(s.acces_connu)} dossiers sur ${n0(s.n)} ; la situation professionnelle reste à encoder`, C.ocre));
-      bl4.push(...retenir('acces', `${pc(s.acces?.secondaire_etranger || 0, s.acces_connu)} % entrent avec un diplôme secondaire étranger reconnu.`));
+      bl4.push(...retenir('acces', acces[0] ? `Première porte d’entrée : ${(libAcces[acces[0][0]] || acces[0][0]).toLowerCase()} (${pc(acces[0][1], s.acces_connu)} %).` : ''));
       ajouter({ id: 'acces', blocs: bl4, notes: t('notes.acces', 'Parts calculées sur les dossiers où le titre d’accès est encodé.'), notesCle: 'notes.acces' });
     }
   }
 
   /* PARTIE 3 — LES RÉSULTATS */
-  separateur(3, 'Les résultats', 'Une première session exigeante, une seconde session qui rattrape.', '✓');
+  separateur(3, 'Les résultats', 'Première session, seconde session, et ce qui reste au final.', '✓');
   if (rN) {
     const tt = rN.sec.total, iipT = rN.iip?.total;
     const bl = [...entete('Résultats', `Les décisions de ${rN.annee}`)];
@@ -349,7 +367,7 @@ function composer(D, T) {
     bl.push(...tuileClaire(M + 760, 300, w3, 120, `${n0(tt.s1.taux_reussite)} %`, 'de réussite en 1re session', iipT ? `IIP : ${n0(iipT.s1.taux_reussite)} %` : '', C.or));
     bl.push(...tuileClaire(M + 760, 440, w3, 120, `${n0(tt.s2?.taux_reussite)} %`, 'des ajournés réussissent en 2e session', `${n0(tt.s2?.taux_retour)} % se présentent`, C.bleu));
     bl.push({ k: 'texte', x: M, y: 470, w: 720, h: 110, texte: `${n0(tt.inscrits)} décisions d’unité en ${rN.annee} (un étudiant suit plusieurs unités). En première session, ${n0(tt.s1.taux_ajournement)} % sont ajournés : la seconde session en rattrape ${n0(tt.s2?.taux_reussite)} %.`, taille: 15, couleur: C.gris });
-    bl.push(...retenir('decisions', `${n0(tt.final.taux_reussite)} % des unités réussies au final ; la seconde session fait la différence.`));
+    bl.push(...retenir('decisions', `${n0(tt.final.taux_reussite)} % des unités réussies au final${tt.s2?.reussi ? ` ; la seconde session en rattrape ${n0(tt.s2.taux_reussite)} %` : ''}.`));
     ajouter({ id: 'decisions', blocs: bl, notes: t('notes.decisions', 'Les chiffres portent sur les décisions par unité d’enseignement, pas sur les étudiants.'), notesCle: 'notes.decisions' });
 
     const niv = (rN.sec.par_niveau || []).filter(x => /^BA\d$/.test(x.cle)).sort((a, b) => a.cle.localeCompare(b.cle));
@@ -377,9 +395,9 @@ function composer(D, T) {
   }
 
   /* PARTIE 4 — LES FINANCES */
-  separateur(4, 'Ce qu’elle coûte, ce qu’elle rapporte', 'Une section menée par optimisation de nos propres dotations.', '€');
+  separateur(4, 'Ce qu’elle coûte, ce qu’elle rapporte', 'Le coût de la section, face à l’IIP et à l’ASBL.', '€');
   if (LS) {
-    const bl = [...entete('Finances', 'Une section efficiente')];
+    const bl = [...entete('Finances', LI?.cout_credit && LS.cout_credit && LS.cout_credit <= LI.cout_credit ? 'Une section efficiente' : 'Ce que coûte la section')];
     const w4 = (CW - 3 * 24) / 4;
     const face = k => [LI?.[k] != null ? `IIP ${k.startsWith('cout') ? e0(LI[k]) : n1(LI[k])}` : null, LA?.[k] != null ? `ASBL ${k.startsWith('cout') ? e0(LA[k]) : n1(LA[k])}` : null].filter(Boolean).join(' · ');
     const cles = [
@@ -706,6 +724,7 @@ async function exporterPptx(diapos, { titre, logo, logoRatio, nomFichier, cartes
 
 const MEMO = 'lucie.presentation';
 export default function PresentationSection() {
+  lirePalette();
   const identite = useIdentite();
   const cartes = useCartes();
   const [sections, setSections] = useState([]);
