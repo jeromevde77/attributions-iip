@@ -144,7 +144,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   }, [S, d, lentille, ref, blocs]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const barre = (
-    <div className="carte flex flex-nowrap items-center gap-x-4 gap-y-2 overflow-x-auto px-3 py-2">
+    <div className="flex flex-nowrap items-center gap-x-4 overflow-x-auto pb-1">
       <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Lire</span>
         <Segments label="Lire" valeur={perim} onChange={setPerim} options={[['etab', 'L’établissement'], ['section', 'Une section']]} />
         {perim === 'section' && (
