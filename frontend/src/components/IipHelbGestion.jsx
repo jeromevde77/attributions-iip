@@ -56,6 +56,24 @@ function Volet({ titre, ouvert = false, droite = null, children }) {
 const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
+/* LA VALEUR DANS UN BADGE DE LA COULEUR DE SA SÉRIE (3.5.443, Charles : « que les points soient connectés à la légende — le montant,
+   les périodes — dans un badge de la même couleur »). Un rectangle arrondi, texte blanc, posé au-dessus du point ou de la barre, à
+   droite d'une barre horizontale, au centre d'un segment empilé (cerné de blanc pour s'en détacher). */
+function badge(couleur, fmt = v => v, place = 'haut') {
+  return function Badge({ x, y, width = 0, height = 0, value }) {
+    if (value == null || value === '' || !Number.isFinite(Number(value)) || !Number(value)) return null;
+    const t = String(fmt(value)), w = t.length * 6 + 10, h = 16;
+    let cx = x + width / 2, cy = y - h / 2 - 4;
+    if (place === 'centre') cy = y + height / 2;
+    if (place === 'droite') { cx = x + width + w / 2 + 4; cy = y + height / 2; }
+    return (
+      <g>
+        <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={8} fill={couleur} stroke={place === 'centre' ? '#fff' : 'none'} strokeWidth={1.5} />
+        <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{t}</text>
+      </g>);
+  };
+}
+
 /** Un graphique de deux séries sur les années, dans la forme choisie. */
 function Graphe({ donnees, forme, fmt, series = [['iip', 'IIP', IIP], ['helb', 'HELB', HELB]] }) {
   const pct = forme === 'parts';
@@ -65,22 +83,22 @@ function Graphe({ donnees, forme, fmt, series = [['iip', 'IIP', IIP], ['helb', '
   if (forme === 'courbe') {
     return (
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={d} margin={{ top: 22, right: 24, left: 4, bottom: 0 }}>
+        <LineChart data={d} margin={{ top: 30, right: 28, left: 4, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
           <XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={f} width={56} />{bulle}<Legend wrapperStyle={{ fontSize: 12 }} />
-          {series.map(([k, n, c]) => <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }}><LabelList dataKey={k} position="top" formatter={f} style={{ fontSize: 10, fill: c }} /></Line>)}
+          {series.map(([k, n, c]) => <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }}><LabelList dataKey={k} content={badge(c, f)} /></Line>)}
         </LineChart>
       </ResponsiveContainer>);
   }
   const empile = forme === 'empile' || pct;
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={d} margin={{ top: 22, right: 8, left: 4, bottom: 0 }}>
+      <BarChart data={d} margin={{ top: 30, right: 8, left: 4, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
         <XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={f} width={56} domain={pct ? [0, 100] : undefined} />{bulle}<Legend wrapperStyle={{ fontSize: 12 }} />
         {series.map(([k, n, c], i) => (
           <Bar key={k} dataKey={k} name={n} fill={c} stackId={empile ? 'a' : undefined} radius={empile && i < series.length - 1 ? 0 : [3, 3, 0, 0]}>
-            <LabelList dataKey={k} position={empile ? 'center' : 'top'} formatter={v => (v ? f(v) : '')} style={{ fontSize: 10, fill: empile ? '#fff' : c }} />
+            <LabelList dataKey={k} content={badge(c, f, empile ? 'centre' : 'haut')} />
           </Bar>))}
       </BarChart>
     </ResponsiveContainer>);
@@ -391,11 +409,11 @@ export default function IipHelbGestion() {
               tim: timH && val(timH, a) ? val(timH, a)[0] / val(timH, a)[1] : null })).map(x => ({ ...x, sante: x.sante && Math.round(x.sante), comav: x.comav && Math.round(x.comav), tim: x.tim && Math.round(x.tim) }));
             const Barres = ({ data, hauteur }) => (
               <ResponsiveContainer width="100%" height={hauteur}>
-                <BarChart data={data} layout="vertical" margin={{ left: 10, right: 40 }}>
+                <BarChart data={data} layout="vertical" margin={{ left: 10, right: 56 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11 }} /><YAxis type="category" dataKey="lib" width={200} interval={0} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={v => [`${v} étudiants par ETP`, d.comparaison.annee]} contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="v" radius={[0, 3, 3, 0]}>{data.map(x => <Cell key={x.lib} fill={x.c} />)}<LabelList dataKey="v" position="right" style={{ fontSize: 10, fill: '#475569' }} /></Bar>
+                  <Bar dataKey="v" radius={[0, 3, 3, 0]}>{data.map(x => <Cell key={x.lib} fill={x.c} />)}<LabelList dataKey="v" content={p => badge(data[p.index]?.c || '#475569', v => v, 'droite')(p)} /></Bar>
                 </BarChart>
               </ResponsiveContainer>);
             const legende = <div className="flex flex-wrap gap-3 text-mention text-slate-600">{Object.entries(COULEUR_DEPT).map(([k, c]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: c }} />{k === 'IIP' ? 'IIP' : k}</span>)}<span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: PERCU }} />{section}</span></div>;
@@ -410,11 +428,11 @@ export default function IipHelbGestion() {
                   <div className="min-w-0"><div className="intertitre">Les départements, l’IIP et {section} ({d.comparaison.annee})</div><Barres data={barresDept} hauteur={Math.max(240, barresDept.length * 30)} /></div>
                   <div className="min-w-0"><div className="intertitre">L’évolution : {section} face aux départements</div>
                     <ResponsiveContainer width="100%" height={260}>
-                      <LineChart data={evol} margin={{ top: 22, right: 24, left: 4, bottom: 0 }}>
+                      <LineChart data={evol} margin={{ top: 30, right: 28, left: 4, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} /><XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={40} />
                         <Tooltip contentStyle={{ fontSize: 12 }} /><Legend wrapperStyle={{ fontSize: 12 }} />
                         {[['tim', `${section} (part HELB)`, PERCU], ['sante', 'Département santé', COULEUR_DEPT['Santé']], ['comav', 'Département COMAV', COULEUR_DEPT.COMAV]].map(([k, n, c]) => (
-                          <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }} connectNulls><LabelList dataKey={k} position="top" style={{ fontSize: 10, fill: c }} /></Line>))}
+                          <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }} connectNulls><LabelList dataKey={k} content={badge(c)} /></Line>))}
                       </LineChart>
                     </ResponsiveContainer></div>
                 </div>
