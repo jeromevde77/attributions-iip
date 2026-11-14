@@ -23,14 +23,22 @@ const pc = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const court = a => `${String(a).slice(2, 4)}-${String(a).slice(7, 9)}`;
 const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'], ['courbe', 'Courbe']];
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
-const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17 };
+const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
-  ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
-function helbAnnee(y, P, avecCoord) {
-  const comptes = y.inscrits * P.part / 100, recettes = comptes * P.muce * P.ponderation;
-  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = etp * P.cmbp, autres = salaires * P.autres / 100, fonct = recettes * P.fonctionnement / 100;
+  ['debut', 'Allocation à partir de', 'année'], ['lissage', 'Lissage', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
+const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
+function helbAnnee(y, P, avecCoord, inscritsDe) {
+  const comptes = y.inscrits * P.part / 100;
+  let base = 0;
+  if (Number(y.annee.slice(0, 4)) >= P.debut) {
+    const n = Math.max(1, Math.round(P.lissage));
+    for (let k = 1; k <= n; k++) base += (inscritsDe(decalee(y.annee, k)) || 0) * P.part / 100;
+    base /= n;
+  }
+  const allocation = base * P.muce * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
+  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = etp * P.cmbp, autres = salaires * P.autres / 100, fonct = allocation * P.fonctionnement / 100;
   const cout = salaires + autres + fonct;
-  return { comptes, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
+  return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
 }
 const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
@@ -117,7 +125,7 @@ export default function IipHelbGestion() {
   const Y = useMemo(() => (d?.Y || []).map(y0 => {
     // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
     const ret = Number(reglages.inscrits?.[y0.annee]);
-    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits } : y0;
+    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits, recettes: y0.inscrits ? y0.recettes * Math.round(ret) / y0.inscrits : y0.recettes } : y0;
     const avecC = mes.coord === 'oui', avecA = mes.admin === 'oui', cmb = mes.cout === 'cmb' && d.taux_cmb;
     const cI = avecC ? y.cetp_iip : 0, cH = avecC ? y.cetp_helb : 0;
     const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
@@ -135,7 +143,8 @@ export default function IipHelbGestion() {
   };
 
   const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
-  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui') }));
+  const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
+  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe) }));
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
   const totI = Y.reduce((t, y) => t + y.coutI, 0), totH = Y.reduce((t, y) => t + y.coutH, 0);
@@ -189,9 +198,10 @@ export default function IipHelbGestion() {
           <Tuile valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignant(s)`} />
           <Tuile valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
           <Tuile valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle="Coût d’un étudiant" precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
-          <Tuile valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte à l’IIP" precision="droits et frais, au barème" />
-          {(() => { const h = HY[HY.length - 1].h; return <Tuile valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Boni pour la HELB ${aN.annee}`}
+          <Tuile valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="droits et frais, à l’ASBL" />
+          {(() => { const h = HY[HY.length - 1].h; return <Tuile valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
             precision={`rapporte ${keur(h.recettes)} · coûte ${keur(h.cout)}`} />; })()}
+          <Tuile valeur="0 €" libelle="Coût supplémentaire pour l’IIP" precision="financé sur ses propres dotations" />
           <Tuile valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
         </div>
 
@@ -217,14 +227,14 @@ export default function IipHelbGestion() {
                   <td className="px-2 py-1 text-right">{eur(convI / y.inscrits)}</td><td className="px-2 py-1 text-right">{eur(convH / y.inscrits)}</td>
                   <td className="px-2 py-1 text-right">{d.taux_cmb ? eur(cmbI / y.inscrits) : '—'}</td><td className="px-2 py-1 text-right">{d.taux_cmb ? eur(cmbH / y.inscrits) : '—'}</td></tr>; })}</tbody></table>
           </Carte>}
-          {vu('recettes') && <Carte titre="Ce qu’un étudiant rapporte à l’IIP, et ce qu’il lui coûte" sous="Droits et frais au barème, sans plafond ni exonération"
+          {vu('recettes') && <Carte titre="Un étudiant : ce qu’il rapporte (droits, à l’ASBL) et ce qu’il coûte à l’IIP" sous="Droits et frais au barème, sans plafond ni exonération"
             forme={forme('recettes', 'cote')} onForme={majForme('recettes')} onMasquer={masquer('recettes')}>
             <Graphe forme={forme('recettes', 'cote') === 'parts' ? 'cote' : forme('recettes', 'cote')} fmt={eur}
               series={[['cout', 'Coût pour l’IIP', IIP], ['percu', 'Droits et frais perçus', PERCU]]}
               donnees={Y.filter(y => y.inscrits && !y.tiers).map(y => ({ lib: y.lib, cout: y.coutI / y.inscrits, percu: y.recettes / y.inscrits }))} />
           </Carte>}
 
-          {vu('helb') && <Carte large titre="Pour la HELB : ce que coûte et rapporte la section" sous={`${PH.part} % des inscrits comptés · allocation × ${PH.ponderation} (santé) · ETP à ${n0(PH.cmbp)} €`}
+          {vu('helb') && <Carte large titre="Pour la HELB et l’ASBL : ce que coûte et rapporte la section" sous={`Allocation dès ${PH.debut}-${PH.debut + 1}, lissée sur ${PH.lissage} ans · droits à l’ASBL · ETP à ${n0(PH.cmbp)} €`}
             forme={forme('helb', 'cote')} onForme={majForme('helb')} onMasquer={masquer('helb')}>
             <div className="grid gap-3 lg:grid-cols-[1fr_20rem]">
               <div className="min-w-0">
@@ -232,17 +242,20 @@ export default function IipHelbGestion() {
                   series={[['recettes', 'Ce qu’elle rapporte', PERCU], ['cout', 'Ce qu’elle coûte', HELB]]}
                   donnees={HY.map(({ y, h }) => ({ lib: y.lib, recettes: h.recettes, cout: h.cout }))} />
                 <div className="overflow-x-auto"><table className="w-full text-second mt-2 whitespace-nowrap">
-                  <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés</th><th className="px-2 py-1 text-right">Allocation</th>
+                  <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés (lissés)</th><th className="px-2 py-1 text-right">Allocation</th><th className="px-2 py-1 text-right">Droits (ASBL)</th>
                     <th className="px-2 py-1 text-right">ETP HELB</th><th className="px-2 py-1 text-right">Salaires</th><th className="px-2 py-1 text-right">Autres serv.</th>
                     <th className="px-2 py-1 text-right">Fonct.</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th></tr></thead>
                   <tbody>
                     <tr className="ligne-total font-semibold"><td className="px-2 py-1">Ensemble</td><td />
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.recettes, 0))}</td><td />
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.allocation, 0))}</td>
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.droits, 0))}</td><td />
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.salaires, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.autres, 0))}</td>
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.fonct, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.cout, 0))}</td>
                       <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td /></tr>
                     {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{y.annee}</td>
-                      <td className="px-2 py-1 text-right">{n0(h.comptes)}</td><td className="px-2 py-1 text-right">{eur(h.recettes)}</td><td className="px-2 py-1 text-right">{n2(h.etp)}</td>
+                      <td className="px-2 py-1 text-right">{h.base ? n0(h.base) : '—'}</td>
+                      <td className="px-2 py-1 text-right">{h.allocation ? eur(h.allocation) : <span className="text-slate-400">en création</span>}</td>
+                      <td className="px-2 py-1 text-right">{eur(h.droits)}</td><td className="px-2 py-1 text-right">{n2(h.etp)}</td>
                       <td className="px-2 py-1 text-right">{eur(h.salaires)}</td><td className="px-2 py-1 text-right">{eur(h.autres)}</td><td className="px-2 py-1 text-right">{eur(h.fonct)}</td>
                       <td className="px-2 py-1 text-right">{eur(h.cout)}</td>
                       <td className="px-2 py-1 text-right font-semibold" style={{ color: h.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{h.resultat >= 0 ? '+' : '−'}{eur(Math.abs(h.resultat))}</td>
@@ -260,7 +273,8 @@ export default function IipHelbGestion() {
                   </label>))}
                 <p className="text-mention text-slate-500 m-0">Sources : présentation financière des départements (Vinci : MUCE 2022, 20,8 % de fonctionnement, 37,2 % d'autres
                   services), courriel de F. Vanderoost du 27 août 2026 (santé × 1,5, ~90 000 € par ETP), tableau Cor_HE_AE (17 étudiants par ETP en moyenne).
-                  Les droits d'inscription restent à l'IIP.</p>
+                  Les droits d'inscription vont à l'ASBL et alimentent les moyens de la Haute École. L'IIP a financé sa part sur ses propres
+                  dotations : aucun coût supplémentaire, une optimisation des moyens existants.</p>
               </div>
             </div>
           </Carte>}

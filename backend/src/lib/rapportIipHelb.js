@@ -171,21 +171,36 @@ export const MESURES = {
    de fonctionnement 20,8 % de l'allocation, autres services 37,2 % des salaires enseignants), le courriel de F. Vanderoost (27 août
    2026 : santé × 1,5, coût moyen brut pondéré d'un MA proche de 90 000 €), le tableau Cor_HE_AE de la HELB (17 étudiants par ETP en
    moyenne). Les paramètres se règlent dans la page ; l'écran (IipHelbGestion.jsx) applique LA MÊME formule que helbAnnee. */
-export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17 };
+/* 3.5.435 (Charles : « TIM a été en création les trois premières années : l'allocation de la HE est fictive, elle ne commence à payer que
+   cette année, de façon lissée ; les droits d'inscription vont directement à l'ASBL, et la HE paie ses enseignants avec son allocation —
+   c'est de la rationalisation ») : l'allocation est nulle avant `debut`, puis vaut la MOYENNE des étudiants comptés des `lissage` années
+   précédentes ; les droits et frais des étudiants de la section (au barème) entrent aux recettes, versés à l'ASBL. */
+export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 export function paramHelb(h = {}) {
   const o = { ...PARAM_HELB };
   for (const k of Object.keys(PARAM_HELB)) { const v = Number(String(h?.[k] ?? '').replace(',', '.')); if (h?.[k] !== undefined && h?.[k] !== '' && Number.isFinite(v) && v >= 0) o[k] = v; }
   return o;
 }
-export function helbAnnee(y, P, avecCoord = true) {
+/** L'année « 2024-2025 » décalée de k ans. */
+export const anneeDecalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
+export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0) {
   const comptes = y.inscrits * P.part / 100;
-  const recettes = comptes * P.muce * P.ponderation;
+  const deb = Number(String(y.annee).slice(0, 4));
+  let base = 0;
+  if (deb >= P.debut) {
+    const n = Math.max(1, Math.round(P.lissage));
+    for (let k = 1; k <= n; k++) base += (inscritsDe(anneeDecalee(y.annee, k)) || 0) * P.part / 100;
+    base /= n;
+  }
+  const allocation = base * P.muce * P.ponderation;
+  const droits = y.tiers ? 0 : (y.recettes || 0);
+  const recettes = allocation + droits;
   const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0);
   const salaires = etp * P.cmbp;
   const autres = salaires * P.autres / 100;
-  const fonct = recettes * P.fonctionnement / 100;
+  const fonct = allocation * P.fonctionnement / 100;
   const cout = salaires + autres + fonct;
-  return { comptes, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
+  return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
 }
 
 /** Les réglages, nettoyés : rien ne passe qui ne soit au catalogue. */
@@ -220,7 +235,8 @@ export function documentIipHelb(p) {
   const cmb = R.mesures.cout === 'cmb' && taux;
   const Y = annees.map(a => annee(section, a));
   for (const y of Y) {
-    if (R.inscrits[y.annee]) { y.inscrits_lucie = y.inscrits; y.inscrits = R.inscrits[y.annee]; }
+    // Les droits et frais suivent les inscrits retenus : le montant moyen par étudiant de Lucie × le nombre retenu.
+    if (R.inscrits[y.annee]) { y.inscrits_lucie = y.inscrits; y.inscrits = R.inscrits[y.annee]; if (y.inscrits_lucie) y.recettes = y.recettes * y.inscrits / y.inscrits_lucie; }
     y.ens_iip = y.etp_iip; y.ens_helb = y.etp_helb;
     if (!avecCoord) { y.cetp_iip = 0; y.cetp_helb = 0; y.coord_iip = 0; y.coord_helb = 0; }
     y.etp_iip = y.ens_iip + y.cetp_iip; y.etp_helb = y.ens_helb + y.cetp_helb;
@@ -262,8 +278,8 @@ export function documentIipHelb(p) {
         (${pc(chargeI(aN), chargeI(aN) + chargeH(aN))}) et <b>${fmtCharge(chargeH(aN))}</b> à la HELB.`,
       Y.length > 1 ? `De ${esc(a0.annee)} à ${esc(aN.annee)}, l'ETP de l'IIP évolue de ${evol('etp_iip')} et celui de la HELB de ${evol('etp_helb')} ;
         les inscrits passent de ${n0(a0.inscrits)} à ${n0(aN.inscrits)}.` : '',
-      aN.inscrits && !aN.tiers ? `En ${esc(aN.annee)}, un étudiant rapporte <b>${eur(aN.recettes / aN.inscrits)}</b> à l'IIP (droit d'inscription et frais,
-        au barème) et lui coûte <b>${eur(aN.c_iip / aN.inscrits)}</b>.` : '',
+      aN.inscrits && !aN.tiers ? `En ${esc(aN.annee)}, un étudiant rapporte <b>${eur(aN.recettes / aN.inscrits)}</b> en droits d'inscription et frais (au barème, versés
+        à l'ASBL) et coûte à l'IIP <b>${eur(aN.c_iip / aN.inscrits)}</b>.` : '',
       premiere && annees.includes(premiere) ? `${esc(premiere)} est la première année de la section dans Lucie : une section qui ouvre ne compte que ses premiers blocs.` : '',
       (avecCoord || avecAdmin) && Y.some(y => !y.admin.fonctions.length) ? `Les fonctions (coordinations, cadre administratif) ne sont encodées que pour
         ${Y.filter(y => y.admin.fonctions.length).map(y => esc(y.annee)).join(', ') || 'aucune année'}.` : '',
@@ -326,7 +342,7 @@ export function documentIipHelb(p) {
       const g = graphe(R.graphes.recettes === 'parts' ? 'cote' : R.graphes.recettes, Yi, y => y.c_iip / y.inscrits, y => y.recettes / y.inscrits, v => `${n0(v)} €`, 'Un étudiant : ce qu’il coûte à l’IIP et ce qu’il lui rapporte');
       return g.replace('</i>IIP</span>', '</i>Coût pour l’IIP</span>').replace('</i>HELB</span>', '</i>Droits et frais perçus</span>');
     })()}
-    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Droits et frais (IIP)</th><th class="n">Par étudiant</th>
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Droits et frais (ASBL)</th><th class="n">Par étudiant</th>
       <th class="n">Coût IIP par étudiant</th><th class="n">Coût HELB par étudiant</th></tr></thead><tbody>
       ${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td>
         <td class="n">${y.tiers ? `<span class="fin">perçus par ${esc(y.tiers)}</span>` : eur(y.recettes)}</td>
@@ -338,28 +354,34 @@ export function documentIipHelb(p) {
 
   P.helb = () => {
     const H = R.helb;
-    const L = Y.map(y => ({ y, h: helbAnnee(y, H, avecCoord) }));
+    const insc = {};
+    for (const a of toutes) { try { insc[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { insc[a] = 0; } }
+    for (const [a, n] of Object.entries(R.inscrits)) insc[a] = n;
+    const L = Y.map(y => ({ y, h: helbAnnee(y, H, avecCoord, a => insc[a]) }));
     const tot = k => L.reduce((t, l) => t + l.h[k], 0);
     const g = graphe(R.graphes.helb === 'parts' ? 'cote' : R.graphes.helb, L.map(l => ({ annee: l.y.annee, a: l.h.recettes, b: l.h.cout })), y => y.a, y => y.b,
-      v => `${n0(v / 1000)} k€`, 'Pour la HELB : ce que la section lui rapporte et ce qu’elle lui coûte')
+      v => `${n0(v / 1000)} k€`, 'Pour la HELB et l’ASBL : ce que la section rapporte et ce qu’elle coûte')
       .replace('</i>IIP</span>', '</i>Ce qu’elle rapporte</span>').replace('</i>HELB</span>', '</i>Ce qu’elle coûte</span>')
       .replaceAll(`fill="${IIP}"`, 'fill="#3E7D5E"').replaceAll(`background:${IIP}`, 'background:#3E7D5E');
-    return `<h2>Pour la HELB : ce que coûte et rapporte la section</h2>
+    return `<h2>Pour la HELB et l’ASBL : ce que coûte et rapporte la section</h2>
     ${g}
-    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Comptés HELB</th><th class="n">Allocation perçue</th>
+    <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Comptés (lissés)</th><th class="n">Allocation</th><th class="n">Droits (ASBL)</th>
       <th class="n">ETP HELB</th><th class="n">Salaires</th><th class="n">Autres services</th><th class="n">Fonctionnement</th><th class="n">Coût</th>
       <th class="n">Résultat</th><th class="n">Étu. / ETP</th></tr></thead><tbody>
-      ${L.map(({ y, h }) => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td><td class="n">${n0(h.comptes)}</td><td class="n">${eur(h.recettes)}</td>
+      ${L.map(({ y, h }) => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td><td class="n">${h.base ? n0(h.base) : '—'}</td>
+        <td class="n">${h.allocation ? eur(h.allocation) : '<span class="fin">en création</span>'}</td><td class="n">${eur(h.droits)}</td>
         <td class="n">${n2(h.etp)}</td><td class="n">${eur(h.salaires)}</td><td class="n">${eur(h.autres)}</td><td class="n">${eur(h.fonct)}</td><td class="n">${eur(h.cout)}</td>
         <td class="n g" style="color:${h.resultat >= 0 ? '#3E7D5E' : '#9D4A38'}">${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}</td>
         <td class="n">${h.parEtp ? n0(h.parEtp) : '—'}</td></tr>`).join('')}
-      <tr class="repere"><td>Ensemble</td><td class="n"></td><td class="n"></td><td class="n">${eur(tot('recettes'))}</td><td class="n"></td><td class="n">${eur(tot('salaires'))}</td>
+      <tr class="repere"><td>Ensemble</td><td class="n"></td><td class="n"></td><td class="n">${eur(tot('allocation'))}</td><td class="n">${eur(tot('droits'))}</td><td class="n"></td><td class="n">${eur(tot('salaires'))}</td>
         <td class="n">${eur(tot('autres'))}</td><td class="n">${eur(tot('fonct'))}</td><td class="n">${eur(tot('cout'))}</td>
         <td class="n g">${tot('resultat') >= 0 ? '+' : '−'}${eur(Math.abs(tot('resultat')))}</td><td class="n"></td></tr></tbody></table>
-    <p class="fin">Allocation : ${n0(H.part)} % des inscrits de la section, comptés par la HELB, × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
-      (pondération santé). Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${n0(H.cmbp)} € (coût moyen brut pondéré), plus ${n2(H.autres)} %
+    <p class="fin">Allocation : nulle avant ${H.debut}-${H.debut + 1} (la section était en création) ; ensuite, la moyenne des étudiants comptés
+      (${n0(H.part)} % des inscrits) des ${n0(H.lissage)} années précédentes × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
+      (pondération santé). Droits : les droits d'inscription et frais des étudiants de la section, au barème, versés à l'ASBL, qui alimentent
+      les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${n0(H.cmbp)} € (coût moyen brut pondéré), plus ${n2(H.autres)} %
       pour les autres services et ${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement. La HELB compte en moyenne ${n0(H.moyenne)} étudiants par ETP.
-      Sources : présentation financière des départements (Vinci), courriel de F. Vanderoost du 27 août 2026, tableau Cor_HE_AE. Les droits d'inscription restent à l'IIP.</p>`;
+      Sources : présentation financière des départements (Vinci), courriel de F. Vanderoost du 27 août 2026, tableau Cor_HE_AE. </p>`;
   };
 
   const croise = (cleDe, libelle, titre) => {
@@ -446,7 +468,10 @@ export function donneesIipHelb(section, anneesDemandees) {
     return { ...reste, ens_iip: y.etp_iip, ens_helb: y.etp_helb,
       blocs: parCle(l => l.bloc), natures: parCle(l => NATURES[l.nature] || (/^\d+$/.test(String(l.nature)) ? `Autre (${l.nature})` : l.nature)) };
   });
-  return { section, annees, toutes, premiere: toutes[0] || null, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
+  // Les inscrits de chaque année de la section, pour le lissage de l'allocation (années hors du choix comprises).
+  const inscrits_annees = {};
+  for (const a of toutes) { try { inscrits_annees[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { inscrits_annees[a] = 0; } }
+  return { section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
     tarif_ct: tarifs()[niv]?.CT || 0, Y, enseignants: [...ens.values()] };
 }
 
