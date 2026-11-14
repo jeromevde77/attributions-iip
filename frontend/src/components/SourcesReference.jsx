@@ -15,6 +15,15 @@ const n1 = v => (v == null ? '—' : (Math.round(v * 10) / 10).toLocaleString('f
 const eur = v => (v == null ? '—' : `${n0(v)} €`);
 const jour = d => (d ? new Date(String(d).replace(' ', 'T')).toLocaleDateString('fr-BE') : '—');
 
+/* Les exercices réalisés de la synthèse de l'ASBL : un réalisé vide est tu ; un réalisé bien en dessous de son budget (exercice en
+   cours, exécution provisoire) est montré mais ne sert pas de référence — la règle du serveur (dernierRealise). */
+function realises(t) {
+  const tot = t.postes?.find(p => p.bloc === 'ASBL');
+  return [...new Set((t.exercices || []).filter(e => e.nature === 'realise').map(e => e.annee))].sort().map(a => {
+    const r = tot?.ex?.[`${a}|realise`], b = tot?.ex?.[`${a}|budget`] || tot?.ex?.[`${a}|ajuste`] || tot?.ex?.[`${a}|initial`];
+    return { annee: a, charges: r?.charges || 0, complet: !!r?.charges && (!b?.charges || r.charges > b.charges * 0.85) };
+  }).filter(x => x.charges > 0);
+}
 /* Ce que Lucie retient d'une source, en chiffres lisibles. */
 function chiffres(nature, t) {
   if (nature === 'helb_cor') return [['Rémunérations, total', eur(t.total)], ['Enseignement (statutaires + invités)', eur(t.enseignement)],
@@ -26,10 +35,9 @@ function chiffres(nature, t) {
   if (nature === 'asbl_comptes') return [['Exercice', t.exercice || '—'], ['Charges d’exploitation', eur(t.charges)], ['Rémunérations', eur(t.remunerations)],
     ['Fonctionnement (services, amortissements, autres)', eur(t.fonctionnement)], ['Subsides', eur(t.subsides)], ['Résultat de l’exercice', eur(t.resultat)], ['ETP déclarés par l’ASBL', n1(t.etp_declares)]];
   if (nature === 'asbl_synthese') {
-    const tot = t.postes?.find(p => p.bloc === 'ASBL');
-    const reals = [...new Set((t.exercices || []).filter(e => e.nature === 'realise').map(e => e.annee))].sort();
-    return [['Exercices', [...new Set((t.exercices || []).map(e => e.annee))].sort().join(' · ')], ['Postes lus (services, départements, cursus)', n0(t.postes?.length)],
-      ...reals.map(a => [`Charges de l’ASBL, réalisé ${a}`, eur(tot?.ex?.[`${a}|realise`]?.charges)])];
+    const R = realises(t);
+    return [['Exercices réalisés complets', R.filter(x => x.complet).map(x => x.annee).join(' · ') || '—'], ['Postes lus (services, départements, cursus)', n0(t.postes?.length)],
+      ...R.map(x => [`Charges de l’ASBL, réalisé ${x.annee}${x.complet ? '' : ' — exercice en cours ou provisoire, non retenu'}`, eur(x.charges)])];
   }
   return [];
 }
@@ -46,7 +54,7 @@ function Detail({ nature, t }) {
       </Tableau>);
   }
   if (nature === 'asbl_synthese') {
-    const reals = [...new Set((t.exercices || []).filter(e => e.nature === 'realise').map(e => e.annee))].sort().slice(-2);
+    const reals = realises(t).filter(x => x.complet).map(x => x.annee).slice(-2);
     const tot = t.postes?.find(p => p.bloc === 'ASBL');
     return (
       <Tableau className="!border-0 !rounded-none" dense>
@@ -131,13 +139,14 @@ export default function SourcesReference() {
 
       {!d ? <p className="text-second text-slate-400">Chargement…</p> : (<>
         <div className="grid gap-3 md:grid-cols-2 items-stretch">
-          {Object.entries(d.natures).map(([k, lib]) => { const s = enVigueur[k]; return (
+          {Object.entries(d.natures).map(([k, lib]) => { const s0 = enVigueur[k]; const s = k === 'asbl_synthese' && s0 && d.synthese ? { ...s0, totaux: d.synthese.totaux, reunis: d.synthese.fichiers } : s0; return (
             <section key={k} className="carte overflow-hidden h-full">
               <EnteteCarte icone={k === 'asbl_comptes' ? IconFileTypePdf : IconFileSpreadsheet} titre={lib} sous={s ? `${s.fichier} · déposé le ${jour(s.depose_le)} par ${s.depose_par || '—'}${s.fourni_par ? ` · fourni par ${s.fourni_par}` : ''}` : 'aucun fichier déposé'}>
                 {s && <button type="button" className="text-slate-400 hover:text-slate-700" title="Retirer cette source" aria-label="Retirer cette source" onClick={() => retirer(s)}><IconTrash size={15} /></button>}
               </EnteteCarte>
               {!s ? <p className="p-3 text-second text-slate-500 m-0">{k === 'helb_cor' || k === 'helb_attributions' || k === 'helb_inscrits' ? 'À défaut, les comparaisons utilisent les totaux repris le 14 novembre 2026.' : 'Sans ce fichier, cette référence reste « à calculer ».'}</p> : (
                 <div className="p-3">
+                  {s.reunis?.length > 1 && <p className="text-second text-slate-500 mt-0 mb-2">Classeurs réunis : {s.reunis.map(f => `${f.fichier} (${f.annees[0]}–${f.annees[f.annees.length - 1]})`).join(' ; ')}. Le plus récent fait foi pour ses années.</p>}
                   {chiffres(k, s.totaux).map(([l, v]) => <div key={l} className="flex justify-between gap-3 text-second border-b border-slate-100 last:border-0 py-1"><span className="text-slate-600">{l}</span><b className="tabular-nums text-right">{v}</b></div>)}
                   {['helb_attributions', 'helb_inscrits', 'asbl_synthese'].includes(k) && (
                     <button type="button" className="text-second text-iip-blue mt-2" onClick={() => setOuvert(o => (o === k ? null : k))}>{ouvert === k ? 'Replier le détail' : 'Voir le détail retenu'}</button>)}

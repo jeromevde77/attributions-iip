@@ -8,7 +8,7 @@ import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
 import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
-import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, NATURES } from '../lib/sourcesReference.js';
+import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
@@ -380,7 +380,7 @@ r.get('/lecture', authRequired, (req, res) => {
            entier — HELB et IIP. Son coût par étudiant = ses charges d'exploitation ÷ (inscrits de la HELB + inscrits de l'IIP) ; le
            fonctionnement (services et biens divers, amortissements, autres charges) à part. Les professeurs de l'IIP, payés par la
            Fédération, n'y sont pas : c'est le coût que porte l'ASBL. */
-        const V = sourcesEnVigueur(), S = V.asbl_synthese, A = V.asbl_comptes;
+        const V = sourcesEnVigueur(), S = syntheseAsbl(), A = V.asbl_comptes;
         const insH = V.helb_inscrits?.totaux?.total || COR_HELB.inscrits || 0, insI = d.iip?.inscrits || 0, n = insH + insI;
         if (!n || (!S && !A)) return null;
         // La synthèse des budgets et comptes d'abord (dernier exercice réalisé complet) ; à défaut les comptes annuels déposés.
@@ -397,11 +397,11 @@ r.get('/lecture', authRequired, (req, res) => {
       /* LA COMPTABILITÉ RÉELLE DES SECTIONS (3.5.450) : ce que la synthèse de l'ASBL porte pour une section, côté HELB et côté IIP,
          exercice par exercice (réalisé, à défaut budget). */
       compta: (() => {
-        const S = sourcesEnVigueur().asbl_synthese; if (!S) return null;
+        const S = syntheseAsbl(); if (!S) return null;
         const RE = { TIM: /imagerie/i, Optométrie: /^Optom/i, Psychomotricité: /^Psychomot/i, Orthoptie: /^Orthoptie/i };
         const annees = [...new Set(S.totaux.exercices.map(e => e.annee))].sort();
         const serie = p => annees.map(a => { const r = p.ex[`${a}|realise`], b = p.ex[`${a}|ajuste`] || p.ex[`${a}|budget`] || p.ex[`${a}|initial`];
-          const complet = dernierRealise(S.totaux) >= a; const v = complet && r?.charges != null && (r.charges || r.produits) ? r : b;
+          const v = r && realiseComplet(S.totaux, a) && (r.charges || r.produits) ? r : (b && (b.charges || b.produits) ? b : null);
           return v ? { annee: a, nature: v === r ? 'réalisé' : 'budget', ...v } : null; }).filter(Boolean);
         const par = {};
         for (const [code, re] of Object.entries(RE)) {
@@ -420,7 +420,7 @@ const estDirection = req => ['admin', 'directeur', 'directeur_adjoint'].includes
 const contenuDe = body => { const b = String(body?.contenu || '').replace(/^data:[^,]*,/, ''); return Buffer.from(b, 'base64'); };
 r.get('/sources', authRequired, (req, res) => {
   if (!estDirection(req)) return res.status(403).json({ error: 'Réservé à la direction.' });
-  res.json({ natures: NATURES, sources: listerSources(), integrees: [
+  res.json({ natures: NATURES, sources: listerSources(), synthese: syntheseAsbl(), integrees: [
     { libelle: 'Étudiants et ETP publiés par cursus de la HELB', source: COMPARAISON_HE.source, annee: COMPARAISON_HE.annee },
     { libelle: 'Totaux repris du COR, des attributions et des inscrits de la HELB (à défaut de source déposée)', source: COR_HELB.source, annee: '2026-2027' },
     { libelle: 'Coût moyen d’un ETP de la HELB (paramètre de la page IIP et HELB)', source: 'réglé par la direction', annee: null },
