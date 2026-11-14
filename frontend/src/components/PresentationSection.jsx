@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronLeft, IconChevronRight, IconMaximize, IconMinimize, IconPresentation, IconPencil, IconRefresh, IconDownload } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconMaximize, IconMinimize, IconPresentation, IconPencil, IconRefresh, IconDownload,
+  IconBone, IconEye, IconEyeglass, IconEyeglass2, IconStretching, IconStethoscope, IconBandage, IconDeviceDesktop, IconSchool } from '@tabler/icons-react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { BarChart, Bar, Cell, PieChart, Pie, XAxis, YAxis, CartesianGrid, LabelList, Legend, LineChart, Line } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { useIdentite } from '../lib/identite.js';
 import { ETOILES, TRAITS, ECLAT, POINTS_L } from '../lib/logoVierge.js';
-import { chiffresIipHelb } from './IipHelbGestion.jsx';
 import { useCartes, CLASSES } from './CarteCommunes.jsx';
 import { listePays } from '../lib/pays.js';
 
@@ -17,7 +18,7 @@ import { listePays } from '../lib/pays.js';
    UN MODÈLE, DEUX DESSINS. `composer()` range chaque diapositive en BLOCS posés au pixel sur une scène de 1280 × 720 (= 13,33 × 7,5
    pouces à 96 px par pouce) : l'écran les dessine en HTML et SVG, l'export les rend en PowerPoint (pptxgenjs, servi par Lucie dans
    /vendor comme pdf.js : pas de dépendance npm), avec des graphiques NATIFS, modifiables. Les chiffres viennent des routes de Gestion —
-   population, délibérations, IIP et HELB (avec les réglages de cette page) — ; les textes (phrases à retenir, forces, faiblesses,
+   population, délibérations, Lire et comparer (face à l'IIP et à l'ASBL) — ; les textes (phrases à retenir, forces, faiblesses,
    notes de l'orateur) sont PROPOSÉS d'après les chiffres et se corrigent : ils sont gardés par section sur le serveur. Couleurs en
    hexadécimal : attributs SVG et fichier PowerPoint, où var() ne s'évalue pas (CLAUDE.md §6). */
 
@@ -79,6 +80,18 @@ function svgCarte(b, cartes) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0.toFixed(1)} ${y0.toFixed(1)} ${(x1 - x0).toFixed(1)} ${(y1 - y0).toFixed(1)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${monde.pays.map(p =>
     `<path d="${p.d}" fill="${couleurClasse(v[p.iso] || 0, base)}" stroke="#CBD5E1" stroke-width="${sw}" fill-rule="evenodd"/>`).join('')}</svg>`;
 }
+/* L'ICÔNE DE LA SECTION (3.5.454, Charles : « au lieu du logo de Lucie en grand, une icône qui ressemble à la section ; le logo de
+   Lucie en petit, en bas »). Un pictogramme du jeu d'icônes de Lucie, dans un grand anneau ; une section sans le sien prend l'école. */
+const ICONE_SECTION = { TIM: IconBone, Optométrie: IconEye, Orthoptie: IconEyeglass, Optique: IconEyeglass2, Psychomotricité: IconStretching,
+  AeSI: IconStethoscope, Soins_plaies: IconBandage, ATNUP: IconDeviceDesktop };
+function svgIcone(b) {
+  const Ic = ICONE_SECTION[b.section] || IconSchool, t = Math.min(b.w, b.h), r = t / 2;
+  const picto = renderToStaticMarkup(<Ic size={t * 0.52} stroke={1.3} color="#FFFFFF" />).replace('<svg ', `<svg x="${(b.w - t * 0.52) / 2}" y="${(b.h - t * 0.52) / 2}" `);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${b.w} ${b.h}" width="100%" height="100%">`
+    + `<circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r - 4}" fill="#0B2A86"/><circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r - 4}" fill="none" stroke="#3A97C9" stroke-width="3"/>`
+    + `<circle cx="${b.w / 2}" cy="${b.h / 2}" r="${r * 0.74}" fill="#2A7DB8"/>${picto}</svg>`;
+}
+
 /** Vingt silhouettes : une pour 5 %, femmes en framboise, hommes en bleu. */
 function svgIsotype(b) {
   const tot = (b.f || 0) + (b.m || 0) || 1, nf = Math.round((b.f / tot) * 20), cols = 10, cw = b.w / cols, rh = b.h / 2;
@@ -98,7 +111,7 @@ function svgIsotype(b) {
 /* ------------------------------------------------------------------ LES DIAPOSITIVES ------------------------------------------- */
 
 function composer(D, T) {
-  const { section, nom, pop, stats, ih, annee } = D;
+  const { section, nom, pop, stats, lec, annee } = D;
   const s = pop?.sections?.[0] || {};
   const iipEns = pop?.ensemble || {};
   const t = (cle, defaut) => (T[cle] !== undefined && T[cle] !== '' ? T[cle] : defaut);
@@ -114,11 +127,16 @@ function composer(D, T) {
   const res = (stats || []).filter(x => x.sec?.total?.s1?.decides > 0);
   const resC = res.filter(x => (x.sec.total.final?.en_attente || 0) / Math.max(1, x.sec.total.inscrits) < 0.2);
   const rN = resC[resC.length - 1] || res[res.length - 1];
-  // L'IIP et la HELB.
-  const IH = ih?.d ? chiffresIipHelb(ih.d, ih.reglages) : null;
-  const yN = IH?.Y?.[IH.Y.length - 1], hN = IH?.HY?.[IH.HY.length - 1]?.h;
-  const timH = ih?.d?.comparaison?.cursus?.find(c => c.tim), moyH = ih?.d?.comparaison?.moyennes?.['Moyenne HELB'];
-  const apport = IH ? IH.HY.reduce((a, x) => a + (x.y.admin?.part || 0) + IH.u95(x.y), 0) : 0;
+  /* LES FINANCES SE LISENT FACE À L'IIP ET À L'ASBL (3.5.454, Charles : « pas de comparaison à la HELB mais à l'ASBL, les données
+     cumulées des deux, pour ne froisser personne ») : les indicateurs de Gestion → Lire et comparer (GET /api/pilotage/lecture). */
+  const LS = lec?.sections?.find(x => x.section === section) || null, LI = lec?.iip || null, LA = lec?.asbl || null;
+  const CP = lec?.compta?.sections?.[section] || null;
+  const comptes = CP ? [...new Set([...(CP.helb || []), ...(CP.iip || [])].map(x => x.annee))].sort().map(a => {
+    const h = (CP.helb || []).find(x => x.annee === a), i = (CP.iip || []).find(x => x.annee === a);
+    return { annee: a, nature: (h || i).nature, charges: (h?.charges || 0) + (i?.charges || 0), produits: (h?.produits || 0) + (i?.produits || 0), resultat: (h?.resultat || 0) + (i?.resultat || 0) };
+  }) : [];
+  const dernierCompte = [...comptes].reverse().find(x => x.nature === 'réalisé') || null;
+  const e0 = v => (v == null ? '—' : `${n0(v)} €`);
 
   /* — les blocs communs — */
   const entete = (kicker, titre) => [
@@ -171,13 +189,14 @@ function composer(D, T) {
   ajouter({ id: 'couverture', fond: C.nuit, blocs: [
     { k: 'logo', x: M, y: 48, w: 150, h: 64 },
     { k: 'texte', x: 640, y: 54, w: 568, h: 40, texte: 'INSTITUT ILYA PRIGOGINE\nENSEIGNEMENT POUR ADULTES', taille: 11, couleur: C.clair, gras: true, espace: 2, align: 'right' },
-    { k: 'vierge', x: 760, y: 150, w: 440, h: 330 },
+    { k: 'icone', section, x: 820, y: 150, w: 340, h: 340 },
+    { k: 'vierge', x: W / 2 - 50, y: 606, w: 100, h: 62 },
     { k: 'texte', x: M, y: 232, w: 700, h: 22, texte: t('couv.kicker', 'PRÉSENTATION AU CONSEIL D’ADMINISTRATION'), taille: 13, couleur: C.ciel, gras: true, espace: 2, edit: 'couv.kicker' },
     { k: 'texte', x: M, y: 262, w: 760, h: 150, texte: t('couv.titre', nom), taille: 60, couleur: C.blanc, gras: true, edit: 'couv.titre' },
     { k: 'rect', x: M, y: 420, w: 150, h: 4, fond: C.ciel },
     { k: 'texte', x: M, y: 444, w: 760, h: 80, texte: t('couv.sous', `La section ${section} sous tous ses angles : sa croissance, ses étudiants, leurs résultats, ce qu’elle coûte et ce qu’elle rapporte.`), taille: 19, couleur: C.clair, edit: 'couv.sous' },
     { k: 'rect', x: M, y: 600, w: CW, h: 1, fond: C.nuit2 },
-    { k: 'texte', x: M, y: 616, w: 700, h: 44, texte: t('couv.orateur', 'Présentation de Charles Sohet, directeur'), taille: 13, couleur: C.clair, edit: 'couv.orateur' },
+    { k: 'texte', x: M, y: 616, w: 480, h: 44, texte: t('couv.orateur', 'Présentation de Charles Sohet, directeur'), taille: 13, couleur: C.clair, edit: 'couv.orateur' },
     { k: 'texte', x: 760, y: 616, w: 448, h: 44, texte: t('couv.date', `Conseil d’administration — ${jeudiProchain()}`), taille: 13, couleur: C.clair, align: 'right', edit: 'couv.date' },
   ], notes: t('notes.couverture', `Merci de m’accorder ce temps. Je vous présente la section ${nom} : d’où elle vient, qui sont ses étudiants, comment ils réussissent, ce qu’elle coûte et ce qu’elle rapporte, puis ses forces et ses fragilités.`), notesCle: 'notes.couverture' });
 
@@ -190,12 +209,12 @@ function composer(D, T) {
       [n0(derniere?.n || s.n), `inscrits en ${derniere?.annee || annee}`, premiere ? `${n0(premiere.n)} à l’ouverture en ${premiere.annee}` : ''],
       [fois ? `× ${n1(fois)}` : '—', 'de croissance', premiere && derniere ? `de ${premiere.annee} à ${derniere.annee}` : ''],
       [rN ? `${n0(rN.sec.total.final.taux_reussite)} %` : '—', `de réussite finale`, rN ? `${rN.annee}, après la seconde session` : ''],
-      [timH ? `${n0(timH.ratio)}` : '—', 'étudiants par ETP', moyH ? `moyenne de la HELB : ${n0(moyH)}` : ''],
+      [LS?.cout_credit != null ? e0(LS.cout_credit) : '—', 'le coût d’un crédit', LA?.cout_credit != null ? `ensemble de l’ASBL : ${e0(LA.cout_credit)}` : LI?.cout_credit != null ? `IIP : ${e0(LI.cout_credit)}` : ''],
     ];
     cles.forEach((c, i) => bl.push(...tuileSombre(M + i * (w4 + 24), 150, w4, 170, ...c, i === 3 ? C.vert : C.nuit)));
     const parts = [
       ['Population', 'croissance, blocs, place dans l’IIP'], ['Profil', 'sexe, âge, nationalités, domicile, accès'],
-      ['Résultats', 'sessions, blocs, unités'], ['Finances', 'charge, coût, apport, comparaison HELB'], ['Bilan', 'forces, faiblesses, demandes'],
+      ['Résultats', 'sessions, blocs, unités'], ['Finances', 'coût, efficience, face à l’IIP et à l’ASBL'], ['Bilan', 'forces, faiblesses, demandes'],
     ];
     const w5 = (CW - 4 * 16) / 5;
     parts.forEach(([a, b], i) => {
@@ -205,7 +224,7 @@ function composer(D, T) {
         { k: 'texte', x, y: 424, w: w5, h: 26, texte: a, taille: 18, couleur: C.nuit, gras: true },
         { k: 'texte', x, y: 452, w: w5, h: 60, texte: b, taille: 13.5, couleur: C.gris });
     });
-    bl.push(...retenir('regard', fois ? `En ${evo.length} ans, la section a été multipliée par ${n1(fois)} — sans coût supplémentaire pour l’IIP.` : 'Une section jeune, en forte croissance.'));
+    bl.push(...retenir('regard', fois ? `En ${evo.length} ans, la section a été multipliée par ${n1(fois)}.` : 'Une section jeune, en forte croissance.'));
     ajouter({ id: 'regard', blocs: bl, notes: t('notes.regard', 'Quatre chiffres pour poser le décor ; la suite les explique un par un, en cinq parties.'), notesCle: 'notes.regard' });
   }
 
@@ -359,33 +378,38 @@ function composer(D, T) {
 
   /* PARTIE 4 — LES FINANCES */
   separateur(4, 'Ce qu’elle coûte, ce qu’elle rapporte', 'Une section menée par optimisation de nos propres dotations.', '€');
-  if (IH && yN) {
+  if (LS) {
     const bl = [...entete('Finances', 'Une section efficiente')];
     const w4 = (CW - 3 * 24) / 4;
+    const face = k => [LI?.[k] != null ? `IIP ${k.startsWith('cout') ? e0(LI[k]) : n1(LI[k])}` : null, LA?.[k] != null ? `ASBL ${k.startsWith('cout') ? e0(LA[k]) : n1(LA[k])}` : null].filter(Boolean).join(' · ');
     const cles = [
-      [hN ? `${hN.resultat >= 0 ? '+' : '−'}${eur(Math.abs(hN.resultat))}` : '—', `résultat HELB et ASBL ${court(yN.annee)}`, hN ? `rapporte ${eur(hN.recettes)}, coûte ${eur(hN.cout)}` : '', hN?.resultat >= 0 ? C.vert : C.brique],
-      [timH ? n0(timH.ratio) : '—', 'étudiants par ETP', moyH ? `moyenne de la HELB : ${n0(moyH)}` : '', C.vert],
-      [yN.inscrits ? eur((yN.coutI + yN.coutH) / yN.inscrits) : '—', `coût d’un étudiant ${court(yN.annee)}`, yN.inscrits ? `IIP ${eur(yN.coutI / yN.inscrits)} · HELB ${eur(yN.coutH / yN.inscrits)}` : '', C.nuit],
-      [eur(apport), `apport de l’IIP sur ${IH.Y.length} ans`, '0 € de coût supplémentaire : nos propres dotations', '#8A6A00'],
+      [e0(LS.cout_credit), 'le coût d’un crédit', face('cout_credit'), C.vert],
+      [e0(LS.cout_180), 'une formation de 180 crédits', face('cout_180'), C.nuit],
+      [n1(LS.taille_groupes), 'étudiants par groupe', LI?.taille_groupes != null ? `en moyenne · IIP ${n1(LI.taille_groupes)}` : 'en moyenne', C.nuit],
+      [n1(LS.etc_etp), 'étudiants par ETP', `en temps plein · ${face('etc_etp')}`, C.vert],
     ];
     cles.forEach((c, i) => bl.push(...tuileSombre(M + i * (w4 + 24), 140, w4, 190, c[0], c[1], c[2], c[3])));
-    bl.push({ k: 'graphe', type: 'empile', x: M, y: 352, w: CW, h: 240, categories: IH.Y.map(y => y.annee), unite: ' ETP',
-      series: [{ nom: 'IIP', valeurs: IH.Y.map(y => +(y.etpI).toFixed(2)), couleur: C.iip }, { nom: 'HELB', valeurs: IH.Y.map(y => +(y.etpH).toFixed(2)), couleur: C.helb }],
-      titre: 'La charge d’enseignement (et de coordination), en ETP', decimales: 1 });
-    bl.push(...retenir('finances', timH && moyH ? `${n0(timH.ratio)} étudiants par ETP, contre ${n0(moyH)} en moyenne à la HELB : ${n1(timH.ratio / moyH)} fois plus efficiente.` : 'Une section qui rapporte plus qu’elle ne coûte.'));
-    ajouter({ id: 'finances', blocs: bl, notes: t('notes.finances', 'Méthode et réglages : Gestion → Dotation → IIP et HELB (les mêmes chiffres que la pièce remise à la HELB).'), notesCle: 'notes.finances' });
+    const cats = [section, 'IIP', ...(LA ? ['ASBL'] : [])];
+    bl.push({ k: 'graphe', type: 'barres', x: M, y: 352, w: CW / 2 - 16, h: 240, categories: cats, unite: ' €',
+      series: [{ nom: 'Coût par crédit', valeurs: [LS.cout_credit, LI?.cout_credit, ...(LA ? [LA.cout_credit] : [])].map(v => Math.round(v || 0)) }], couleursPoints: [C.bleu, C.or, '#94A3B8'], titre: 'Le coût d’un crédit' });
+    bl.push({ k: 'graphe', type: 'barres', x: M + CW / 2 + 16, y: 352, w: CW / 2 - 16, h: 240, categories: cats,
+      series: [{ nom: 'Étudiants temps plein par ETP', valeurs: [LS.etc_etp, LI?.etc_etp, ...(LA ? [LA.etc_etp] : [])].map(v => Math.round(v || 0)) }], couleursPoints: [C.bleu, C.or, '#94A3B8'], titre: 'Étudiants temps plein par ETP d’enseignant' });
+    bl.push(...retenir('finances', LA?.cout_credit && LS.cout_credit ? `Un crédit coûte ${e0(LS.cout_credit)} en ${section}, contre ${e0(LA.cout_credit)} pour l’ensemble de l’ASBL.`
+      : LI?.cout_credit && LS.cout_credit ? `Un crédit coûte ${e0(LS.cout_credit)} en ${section}, contre ${e0(LI.cout_credit)} en moyenne à l’IIP.` : 'Une section efficiente.'));
+    ajouter({ id: 'finances', blocs: bl, notes: t('notes.finances', 'Mêmes chiffres que Gestion → Lire et comparer. L’ASBL = les deux établissements réunis ; coût complet ÷ crédits suivis.'), notesCle: 'notes.finances' });
 
-    const cursus = (ih.d.comparaison?.cursus || []).filter(c => c.ratio).sort((a, b) => b.ratio - a.ratio).slice(0, 14);
-    if (cursus.length) {
-      const bl2 = [...entete('Finances', 'Comparée aux cursus de la HELB')];
-      bl2.push({ k: 'graphe', type: 'barresH', x: M, y: 140, w: CW - 340, h: 460, categories: cursus.map(c => (c.tim ? `▶ ${c.cursus}` : c.cursus).slice(0, 46)),
-        series: [{ nom: 'Étudiants par ETP', valeurs: cursus.map(c => Math.round(c.ratio)) }], couleursPoints: cursus.map(c => (c.tim ? C.bleu : COULEUR_DEPT[c.dept] || '#94A3B8')), titre: `Étudiants par ETP enseignant, ${ih.d.comparaison.annee || ''}` });
-      const dep = Object.entries(COULEUR_DEPT);
-      dep.forEach(([d, c], i) => bl2.push({ k: 'rect', x: W - M - 300, y: 170 + i * 34, w: 18, h: 18, fond: c, rayon: 4 }, { k: 'texte', x: W - M - 272, y: 166 + i * 34, w: 270, h: 26, texte: d, taille: 14, couleur: C.encre }));
-      bl2.push({ k: 'rect', x: W - M - 300, y: 170 + dep.length * 34, w: 18, h: 18, fond: C.bleu, rayon: 4 }, { k: 'texte', x: W - M - 272, y: 166 + dep.length * 34, w: 270, h: 26, texte: `${section} (codiplômé)`, taille: 14, couleur: C.encre, gras: true });
-      const rang = cursus.findIndex(c => c.tim) + 1, nbC = (ih.d.comparaison?.cursus || []).filter(c => c.ratio).length;
-      bl2.push(...retenir('cursus', rang === 1 ? `${section} est le cursus le plus efficient des ${nbC} cursus de la HELB.` : `${section} est ${rang}e sur ${nbC} cursus de la HELB pour l’efficience.`));
-      ajouter({ id: 'cursus', blocs: bl2, notes: t('notes.cursus', 'Source : chiffres de la HELB par cursus (étudiants comptés et ETP).'), notesCle: 'notes.cursus' });
+    if (comptes.length) {
+      const bl2 = [...entete('Finances', 'Dans les comptes de l’ASBL')];
+      bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : ' (budget)'}`), unite: ' k€',
+        series: [{ nom: 'Charges', valeurs: comptes.map(x => Math.round(x.charges / 1000)), couleur: C.brique }, { nom: 'Produits', valeurs: comptes.map(x => Math.round(x.produits / 1000)), couleur: C.vert }],
+        titre: 'Charges et produits de la section, en milliers d’euros' });
+      if (dernierCompte) {
+        bl2.push(...tuileSombre(W - M - 350, 150, 350, 200, `${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))}`, `résultat ${dernierCompte.annee}`, `produits ${e0(dernierCompte.produits)} · charges ${e0(dernierCompte.charges)}`, dernierCompte.resultat >= 0 ? C.vert : C.brique));
+        const cumul = comptes.filter(x => x.nature === 'réalisé').reduce((a, x) => a + x.resultat, 0);
+        bl2.push(...tuileClaire(W - M - 350, 370, 350, 130, `${cumul >= 0 ? '+' : '−'}${e0(Math.abs(cumul))}`, 'résultat cumulé, exercices réalisés', comptes.filter(x => x.nature === 'réalisé').map(x => x.annee).join(' · '), C.vert));
+      }
+      bl2.push(...retenir('comptes', dernierCompte ? `En ${dernierCompte.annee}, la section a dégagé ${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))} dans les comptes de l’ASBL.` : 'Une section qui rapporte plus qu’elle ne coûte.'));
+      ajouter({ id: 'comptes', blocs: bl2, notes: t('notes.comptes', 'Source : la synthèse des budgets et comptes de l’ASBL, tous les postes de la section réunis.'), notesCle: 'notes.comptes' });
     }
   }
 
@@ -393,8 +417,8 @@ function composer(D, T) {
   separateur(5, 'Le bilan', 'Ce qui fait la force de la section, ce qui la fragilise, ce que nous vous demandons.', '★');
   const forcesDef = [
     premiere && derniere ? `Croissance : de ${n0(premiere.n)} à ${n0(derniere.n)} étudiants en ${evo.length} ans` : null,
-    timH && moyH ? `Efficience : ${n0(timH.ratio)} étudiants par ETP, ${n1(timH.ratio / moyH)} fois la moyenne de la HELB` : null,
-    hN && hN.resultat >= 0 ? `Un résultat positif pour la HELB et l’ASBL (${eur(hN.resultat)} en ${yN.annee})` : null,
+    LS?.cout_credit && LA?.cout_credit && LS.cout_credit < LA.cout_credit ? `Efficience : un crédit à ${e0(LS.cout_credit)}, contre ${e0(LA.cout_credit)} pour l’ensemble de l’ASBL` : LS?.cout_credit && LI?.cout_credit && LS.cout_credit < LI.cout_credit ? `Efficience : un crédit à ${e0(LS.cout_credit)}, contre ${e0(LI.cout_credit)} à l’IIP` : null,
+    dernierCompte && dernierCompte.resultat >= 0 ? `Un résultat positif dans les comptes de l’ASBL (${e0(dernierCompte.resultat)} en ${dernierCompte.annee})` : null,
     'Aucun coût supplémentaire pour l’IIP : des dotations optimisées',
     rN?.sec?.total?.s2 ? `Une seconde session qui rattrape : ${n0(rN.sec.total.s2.taux_reussite)} % des ajournés réussissent` : null,
     'Une codiplomation avec la HELB : un diplôme de haute école, accessible aux adultes',
@@ -403,12 +427,12 @@ function composer(D, T) {
   const faiblessesDef = [
     rN ? `Une première session difficile : ${n0(rN.sec.total.s1.taux_reussite)} % de réussite (${n0((rN.sec.par_niveau || []).find(x => x.cle === 'BA1')?.s1?.taux_reussite)} % en BA1)` : null,
     bas1 ? `Quelques unités très sélectives : ${String(bas1.libelle).replace(/ — .*/, '')} à ${n0(bas1.final.taux_reussite)} %` : null,
-    timH ? `Un encadrement très tendu : ${n0(timH.ratio)} étudiants par ETP` : null,
+    LS?.taille_groupes && LI?.taille_groupes && LS.taille_groupes > LI.taille_groupes * 1.2 ? `Des groupes chargés : ${n1(LS.taille_groupes)} étudiants en moyenne, contre ${n1(LI.taille_groupes)} à l’IIP` : null,
     'La capacité des lieux de stage et du matériel d’imagerie, à suivre avec la croissance',
     s.acces_connu < s.n ? `Des données à compléter : titre d’accès connu pour ${pc(s.acces_connu, s.n)} % des dossiers, situation professionnelle à encoder` : null,
   ].filter(Boolean);
   const opportunitesDef = [
-    'L’allocation de la HELB, lissée sur trois ans à partir de 2026',
+    'Le financement de la section, qui monte en charge à partir de 2026',
     'Une demande forte de technologues dans les hôpitaux (à étayer par les chiffres du secteur)',
     'Le modèle de codiplomation, transposable à d’autres sections',
   ];
@@ -420,7 +444,7 @@ function composer(D, T) {
   const demandesDef = [
     'Prendre acte de la croissance et de l’efficience de la section',
     'Soutenir le renforcement de l’encadrement en premier bloc',
-    'Appuyer auprès de la HELB la reconnaissance de la part de l’IIP',
+    'Reconnaître, au sein de l’ASBL, la contribution de la section',
   ];
   const listeBlocs = (x, y, w, h, titre, couleur, cle, defaut, taille = 17) => {
     const items = lignes(cle, defaut);
@@ -449,7 +473,8 @@ function composer(D, T) {
 
   /* MERCI */
   ajouter({ id: 'merci', fond: C.nuit, blocs: [
-    { k: 'vierge', x: 420, y: 90, w: 440, h: 330 },
+    { k: 'icone', section, x: W / 2 - 140, y: 120, w: 280, h: 280 },
+    { k: 'vierge', x: W / 2 - 50, y: 612, w: 100, h: 62 },
     { k: 'texte', x: M, y: 440, w: CW, h: 80, texte: t('merci.titre', 'Merci. Vos questions.'), taille: 50, couleur: C.blanc, gras: true, align: 'center', edit: 'merci.titre' },
     { k: 'texte', x: M, y: 530, w: CW, h: 40, texte: t('merci.sous', `${nom} — Institut Ilya Prigogine`), taille: 18, couleur: C.clair, align: 'center', edit: 'merci.sous' },
   ], notes: t('notes.merci', ''), notesCle: 'notes.merci' });
@@ -544,6 +569,7 @@ function Bloc({ b, logo, editer, onEditer, cartes, anim }) {
   if (b.k === 'graphe') return <div style={pos}><Graphe b={b} /></div>;
   if (b.k === 'carte') return <div style={pos} dangerouslySetInnerHTML={{ __html: svgCarte(b, cartes) }} />;
   if (b.k === 'isotype') return <div style={pos} dangerouslySetInnerHTML={{ __html: svgIsotype(b) }} />;
+  if (b.k === 'icone') return <div style={pos} dangerouslySetInnerHTML={{ __html: svgIcone(b) }} />;
   if (b.k === 'liste') return (
     <ul onClick={() => editer && b.edit && onEditer(b.edit)} style={{ ...pos, ...marque, margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 14, fontSize: b.taille, color: b.couleur, lineHeight: 1.35 }}>
       {b.items.map((it, i) => (
@@ -620,8 +646,8 @@ async function exporterPptx(diapos, { titre, logo, logoRatio, nomFichier, cartes
           const h = b.h, w = Math.min(b.w, h * (logoRatio || 2));
           sl.addImage({ data: logo.replace(/^data:/, ''), x: IN(b.x), y: IN(b.y), w: IN(w), h: IN(h) });
         }
-      } else if (b.k === 'carte' || b.k === 'isotype') {
-        const svg = b.k === 'carte' ? svgCarte(b, cartes) : svgIsotype(b);
+      } else if (b.k === 'carte' || b.k === 'isotype' || b.k === 'icone') {
+        const svg = b.k === 'carte' ? svgCarte(b, cartes) : b.k === 'icone' ? svgIcone(b) : svgIsotype(b);
         if (svg) sl.addImage({ data: (await svgEnPng(svg, b.w, b.h)).replace(/^data:/, ''), ...geo });
       } else if (b.k === 'vierge') {
         // La figure, dessinée en formes : traits, étoiles, le L.
@@ -707,22 +733,21 @@ export default function PresentationSection() {
   useEffect(() => {
     let vivant = true; setD(null); setErreur(null);
     const j = u => fetch(u, { headers: authHeaders() }).then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.error || `Erreur ${r.status}`); return x; });
-    const rgl = (() => { try { const m = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}'); return m.section === section ? (m.reglages || {}) : (m.reglages || {}); } catch { return {}; } })();
     (async () => {
-      const [pop, ihd, txt] = await Promise.all([
+      const [pop, lec, txt] = await Promise.all([
         j(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`),
-        j(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}${tour ? '&recalculer=1' : ''}`).catch(() => null),
+        j(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`).catch(() => null),
         j(`/api/pilotage/presentation/${encodeURIComponent(section)}`).catch(() => ({ textes: {} })),
       ]);
       const evo = (pop.evolution || []).filter(e => (e.par_section?.[section] || 0) > 0).map(e => e.annee);
-      const anneesRes = [...new Set([...evo, ...(ihd?.annees || [])])].filter(a => a <= annee).sort();
+      const anneesRes = [...new Set(evo)].filter(a => a <= annee).sort();
       const stats = await Promise.all(anneesRes.map(async a => {
         const [sec, iip] = await Promise.all([j(`/api/stats-deliberation?annee=${a}&section=${encodeURIComponent(section)}`).catch(() => null), j(`/api/stats-deliberation?annee=${a}`).catch(() => null)]);
         return { annee: a, sec, iip };
       }));
       if (!vivant) return;
       setTextes(txt.textes || {});
-      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, ih: ihd ? { d: ihd, reglages: rgl } : null, annee });
+      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee });
     })().catch(e => vivant && setErreur(e.message));
     return () => { vivant = false; };
   }, [section, annee, tour]);
