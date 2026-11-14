@@ -175,7 +175,7 @@ export const MESURES = {
    cette année, de façon lissée ; les droits d'inscription vont directement à l'ASBL, et la HE paie ses enseignants avec son allocation —
    c'est de la rationalisation ») : l'allocation est nulle avant `debut`, puis vaut la MOYENNE des étudiants comptés des `lissage` années
    précédentes ; les droits et frais des étudiants de la section (au barème) entrent aux recettes, versés à l'ASBL. */
-export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
+export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 /* LE MATÉRIEL ET LE FONCTIONNEMENT DE LA SECTION (3.5.436, Charles : « aller chercher dans les bilans ce que coûte la section en
    matériel » ; « vas-y »). La comptabilité analytique de l'ASBL (classeur « 2021 à 2024 Comptes & Budgets », cursus 111066) ne porte pour
    TIM en 2023 que des traitements, payés par la Fédération : aucun matériel. Ensuite, la part HELB (50 %) des lignes TIM des budgets
@@ -192,6 +192,27 @@ export function paramHelb(h = {}) {
   for (const k of Object.keys(PARAM_HELB)) { const v = Number(String(h?.[k] ?? '').replace(',', '.')); if (h?.[k] !== undefined && h?.[k] !== '' && Number.isFinite(v) && v >= 0) o[k] = v; }
   return o;
 }
+/* L'APPORT DE L'IIP : LE CADRE ADMINISTRATIF (3.5.437, Charles : « la quote-part du personnel administratif, 100 % IIP — direction,
+   etc. — % de la section dans l'IIP » ; tranché : une contribution de l'IIP, la structure de 2026-2027 reprise pour les années sans
+   fonctions encodées). Le coût de la direction et du secrétariat de l'IIP × la part de la section dans ses inscrits. La HELB n'en paie
+   rien : d'où les « autres services » de la HELB à 0 % par défaut (le taux de Vinci, 37,2 %, répartit SES services centraux). */
+export function adminReference(section, toutes) {
+  for (const a of [...toutes].sort().reverse()) {
+    try {
+      const d = coutMemo(a);
+      const cout = (d.missions || []).filter(m => m.pncc).reduce((t, m) => t + (m.cout || 0), 0);
+      const ins = d.sections.find(x => x.section === section)?.inscrits || 0;
+      if (cout > 0 && d.base_inscrits) return { annee: a, cout, ratio: ins / d.base_inscrits };
+    } catch { /* année sans calcul */ }
+  }
+  return null;
+}
+/** L'apport administratif de l'IIP pour une année : le sien s'il est encodé, sinon la structure de référence. */
+export function apportAdmin(y, ref) {
+  if (y.admin?.part) return { montant: y.admin.part, reprise: !!y.admin.reprise };
+  return ref ? { montant: ref.cout * ref.ratio, reprise: true } : { montant: 0, reprise: false };
+}
+
 /** L'année « 2024-2025 » décalée de k ans. */
 export const anneeDecalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
 export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0, materiel = null) {
@@ -247,7 +268,10 @@ export function documentIipHelb(p) {
   const taux = getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0);
   const cmb = R.mesures.cout === 'cmb' && taux;
   const Y = annees.map(a => annee(section, a));
+  const refAdmin = adminReference(section, toutes);
   for (const y of Y) {
+    // Le cadre administratif d'une année sans fonctions encodées : la structure de référence (3.5.437).
+    if (!(y.admin.cout > 0) && refAdmin) y.admin = { ...y.admin, part: refAdmin.cout * refAdmin.ratio, reprise: refAdmin.annee };
     // Les droits et frais suivent les inscrits retenus : le montant moyen par étudiant de Lucie × le nombre retenu.
     if (R.inscrits[y.annee]) { y.inscrits_lucie = y.inscrits; y.inscrits = R.inscrits[y.annee]; if (y.inscrits_lucie) y.recettes = y.recettes * y.inscrits / y.inscrits_lucie; }
     y.ens_iip = y.etp_iip; y.ens_helb = y.etp_helb;
@@ -316,7 +340,7 @@ export function documentIipHelb(p) {
       <th class="n">Total IIP</th><th class="n">Total HELB</th><th class="n">Part HELB</th></tr></thead><tbody>
       ${Y.map(y => `<tr><td>${esc(y.annee)}</td><td class="n">${eur(y.cout_iip)}</td><td class="n">${eur(y.cout_helb)}</td>
         ${avecCoord ? `<td class="n">${y.coord.length ? eur(y.coord_iip) : '—'}</td><td class="n">${y.coord.length ? eur(y.coord_helb) : '—'}</td>` : ''}
-        ${avecAdmin ? `<td class="n">${y.admin.fonctions.length ? eur(y.admin.part) : '—'}</td>` : ''}
+        ${avecAdmin ? `<td class="n">${y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td>` : ''}
         <td class="n g">${eur(y.tout_iip)}</td><td class="n g">${eur(y.tout_helb)}</td><td class="n">${pc(y.tout_helb, y.tout_iip + y.tout_helb)}</td></tr>`).join('')}
       <tr class="repere"><td>Ensemble</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.cout_helb, 0))}</td>
         ${avecCoord ? `<td class="n">${eur(Y.reduce((t, y) => t + y.coord_iip, 0))}</td><td class="n">${eur(Y.reduce((t, y) => t + y.coord_helb, 0))}</td>` : ''}
@@ -370,7 +394,8 @@ export function documentIipHelb(p) {
     const insc = {};
     for (const a of toutes) { try { insc[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { insc[a] = 0; } }
     for (const [a, n] of Object.entries(R.inscrits)) insc[a] = n;
-    const L = Y.map(y => ({ y, h: helbAnnee(y, H, avecCoord, a => insc[a], R.materiel[y.annee]) }));
+    const ref = adminReference(section, toutes);
+    const L = Y.map(y => ({ y, h: helbAnnee(y, H, avecCoord, a => insc[a], R.materiel[y.annee]), adm: apportAdmin(y, ref) }));
     const tot = k => L.reduce((t, l) => t + l.h[k], 0);
     const g = graphe(R.graphes.helb === 'parts' ? 'cote' : R.graphes.helb, L.map(l => ({ annee: l.y.annee, a: l.h.recettes, b: l.h.cout })), y => y.a, y => y.b,
       v => `${n0(v / 1000)} k€`, 'Pour la HELB et l’ASBL : ce que la section rapporte et ce qu’elle coûte')
@@ -380,21 +405,23 @@ export function documentIipHelb(p) {
     ${g}
     <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Comptés (lissés)</th><th class="n">Allocation</th><th class="n">Droits (ASBL)</th>
       <th class="n">ETP HELB</th><th class="n">Salaires</th><th class="n">Autres services</th><th class="n">${H.mode_fonct === 'forfait' ? 'Fonctionnement (forfait)' : 'Matériel et fonct.'}</th><th class="n">Coût</th>
-      <th class="n">Résultat</th><th class="n">Étu. / ETP</th></tr></thead><tbody>
-      ${L.map(({ y, h }) => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td><td class="n">${h.base ? n0(h.base) : '—'}</td>
+      <th class="n">Résultat</th><th class="n">Étu. / ETP</th><th class="n">Apport IIP : admin.</th></tr></thead><tbody>
+      ${L.map(({ y, h, adm }) => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td><td class="n">${h.base ? n0(h.base) : '—'}</td>
         <td class="n">${h.allocation ? eur(h.allocation) : '<span class="fin">en création</span>'}</td><td class="n">${eur(h.droits)}</td>
         <td class="n">${n2(h.etp)}</td><td class="n">${eur(h.salaires)}</td><td class="n">${eur(h.autres)}</td><td class="n">${eur(h.fonct)}</td><td class="n">${eur(h.cout)}</td>
         <td class="n g" style="color:${h.resultat >= 0 ? '#3E7D5E' : '#9D4A38'}">${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}</td>
-        <td class="n">${h.parEtp ? n0(h.parEtp) : '—'}</td></tr>`).join('')}
+        <td class="n">${h.parEtp ? n0(h.parEtp) : '—'}</td><td class="n">${eur(adm.montant)}${adm.reprise ? ' *' : ''}</td></tr>`).join('')}
       <tr class="repere"><td>Ensemble</td><td class="n"></td><td class="n"></td><td class="n">${eur(tot('allocation'))}</td><td class="n">${eur(tot('droits'))}</td><td class="n"></td><td class="n">${eur(tot('salaires'))}</td>
         <td class="n">${eur(tot('autres'))}</td><td class="n">${eur(tot('fonct'))}</td><td class="n">${eur(tot('cout'))}</td>
-        <td class="n g">${tot('resultat') >= 0 ? '+' : '−'}${eur(Math.abs(tot('resultat')))}</td><td class="n"></td></tr></tbody></table>
+        <td class="n g">${tot('resultat') >= 0 ? '+' : '−'}${eur(Math.abs(tot('resultat')))}</td><td class="n"></td><td class="n">${eur(L.reduce((t, l) => t + l.adm.montant, 0))}</td></tr></tbody></table>
     <p class="fin">Allocation : nulle avant ${H.debut}-${H.debut + 1} (la section était en création) ; ensuite, la moyenne des étudiants comptés
       (${n0(H.part)} % des inscrits) des ${n0(H.lissage)} années précédentes × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
       (pondération santé). Droits : les droits d'inscription et frais des étudiants de la section, au barème, versés à l'ASBL, qui alimentent
       les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${n0(H.cmbp)} € (coût moyen brut pondéré), plus ${n2(H.autres)} %
       pour les autres services, et ${H.mode_fonct === 'forfait' ? `${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement (forfait)`
         : `le matériel et le fonctionnement de la section : ${L.map(({ y }) => `${esc(y.annee)} ${R.materiel[y.annee] != null ? 'posé par la direction' : esc(MATERIEL_HELB[y.annee]?.source || 'inconnu')}`).join(' ; ')}`}.
+      Apport de l'IIP : le cadre administratif de l'école (direction, secrétariat), 100 % IIP, × la part de ${esc(section)} dans les inscrits de
+      l'IIP${ref ? ` ; * structure de ${esc(ref.annee)} reprise (${eur(ref.cout)} × ${pc(ref.ratio, 1)})` : ''} — la HELB n'en paie rien, hors la gestion RH de ses propres contrats (« autres services », réglable).
       Pour comparaison, l'orthoptie porte en 2023 des frais réels de matériel, de documentation, d'informatique et d'amortissements (comptabilité analytique). La HELB compte en moyenne ${n0(H.moyenne)} étudiants par ETP.
       Sources : présentation financière des départements (Vinci), courriel de F. Vanderoost du 27 août 2026, tableau Cor_HE_AE. </p>`;
   };
@@ -471,6 +498,7 @@ export function donneesIipHelb(section, anneesDemandees) {
   const annees = (anneesDemandees?.length ? anneesDemandees : toutes.slice(-4)).filter(a => toutes.includes(a)).sort();
   const niv = niveauDeSection(section);
   const ens = new Map();
+  const refAdm = adminReference(section, toutes);
   const Y = annees.map(a => {
     const y = annee(section, a);
     const parCle = f => { const o = {}; for (const l of y.lignes) { const k = f(l); o[k] ||= { iip: 0, helb: 0 }; o[k][l.helb ? 'helb' : 'iip'] += l.etp; } return o; };
@@ -479,6 +507,7 @@ export function donneesIipHelb(section, anneesDemandees) {
       if (!ens.has(k)) ens.set(k, { nom: l.professeur || 'À désigner', contrat: l.helb ? 'HELB' : 'IIP', par: {} });
       ens.get(k).par[a] = (ens.get(k).par[a] || 0) + l.etp;
     }
+    if (!(y.admin.cout > 0) && refAdm) y.admin = { ...y.admin, part: refAdm.cout * refAdm.ratio, reprise: refAdm.annee };
     const { lignes, ...reste } = y;
     return { ...reste, ens_iip: y.etp_iip, ens_helb: y.etp_helb,
       blocs: parCle(l => l.bloc), natures: parCle(l => NATURES[l.nature] || (/^\d+$/.test(String(l.nature)) ? `Autre (${l.nature})` : l.nature)) };
@@ -486,7 +515,7 @@ export function donneesIipHelb(section, anneesDemandees) {
   // Les inscrits de chaque année de la section, pour le lissage de l'allocation (années hors du choix comprises).
   const inscrits_annees = {};
   for (const a of toutes) { try { inscrits_annees[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { inscrits_annees[a] = 0; } }
-  return { section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
+  return { section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, admin_reference: refAdm, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
     tarif_ct: tarifs()[niv]?.CT || 0, Y, enseignants: [...ens.values()] };
 }
 

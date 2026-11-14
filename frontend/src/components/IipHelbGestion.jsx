@@ -23,7 +23,7 @@ const pc = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const court = a => `${String(a).slice(2, 4)}-${String(a).slice(7, 9)}`;
 const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'], ['courbe', 'Courbe']];
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
-const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
+const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
   ['debut', 'Allocation à partir de', 'année'], ['lissage', 'Lissage', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
 const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
@@ -247,14 +247,15 @@ export default function IipHelbGestion() {
                 <div className="overflow-x-auto"><table className="w-full text-second mt-2 whitespace-nowrap">
                   <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés (lissés)</th><th className="px-2 py-1 text-right">Allocation</th><th className="px-2 py-1 text-right">Droits (ASBL)</th>
                     <th className="px-2 py-1 text-right">ETP HELB</th><th className="px-2 py-1 text-right">Salaires</th><th className="px-2 py-1 text-right">Autres serv.</th>
-                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th></tr></thead>
+                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th><th className="px-2 py-1 text-right" title="Direction et secrétariat, 100 % IIP">Apport IIP : admin.</th></tr></thead>
                   <tbody>
                     <tr className="ligne-total font-semibold"><td className="px-2 py-1">Ensemble</td><td />
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.allocation, 0))}</td>
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.droits, 0))}</td><td />
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.salaires, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.autres, 0))}</td>
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.fonct, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.cout, 0))}</td>
-                      <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td /></tr>
+                      <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td />
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + (x.y.admin.part || 0), 0))}</td></tr>
                     {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{y.annee}</td>
                       <td className="px-2 py-1 text-right">{h.base ? n0(h.base) : '—'}</td>
                       <td className="px-2 py-1 text-right">{h.allocation ? eur(h.allocation) : <span className="text-slate-400">en création</span>}</td>
@@ -262,7 +263,8 @@ export default function IipHelbGestion() {
                       <td className="px-2 py-1 text-right">{eur(h.salaires)}</td><td className="px-2 py-1 text-right">{eur(h.autres)}</td><td className="px-2 py-1 text-right">{eur(h.fonct)}</td>
                       <td className="px-2 py-1 text-right">{eur(h.cout)}</td>
                       <td className="px-2 py-1 text-right font-semibold" style={{ color: h.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{h.resultat >= 0 ? '+' : '−'}{eur(Math.abs(h.resultat))}</td>
-                      <td className="px-2 py-1 text-right">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</td></tr>)}
+                      <td className="px-2 py-1 text-right">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</td>
+                      <td className="px-2 py-1 text-right" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td></tr>)}
                   </tbody></table></div>
               </div>
               <div className="space-y-1.5">
@@ -289,6 +291,9 @@ export default function IipHelbGestion() {
                   </label>))}
                 <p className="text-mention text-slate-500 m-0">Sources : présentation financière des départements (Vinci : MUCE 2022, 20,8 % de fonctionnement, 37,2 % d'autres
                   services), courriel de F. Vanderoost du 27 août 2026 (santé × 1,5, ~90 000 € par ETP), tableau Cor_HE_AE (17 étudiants par ETP en moyenne).
+                  Apport de l'IIP : le cadre administratif (direction, secrétariat), 100 % IIP, × la part de la section dans ses inscrits
+                  {d.admin_reference ? ` ; * structure de ${d.admin_reference.annee} reprise (${eur(d.admin_reference.cout)} × ${pc(d.admin_reference.ratio, 1)})` : ''} — la HELB n'en paie rien,
+                  la HELB n'y garde que les ressources humaines de ses propres contrats : « autres services » à régler en conséquence (0 % par défaut ; le taux de Vinci, 37,2 %, couvre tous ses services centraux).
                   Matériel : comptabilité analytique de l'ASBL (2023 : aucun matériel pour TIM) puis budgets 2025-2027, part HELB.
                   Les droits d'inscription vont à l'ASBL et alimentent les moyens de la Haute École. L'IIP a financé sa part sur ses propres
                   dotations : aucun coût supplémentaire, une optimisation des moyens existants.</p>
@@ -321,7 +326,8 @@ export default function IipHelbGestion() {
               <tbody>{Y.map(y => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1">{y.annee}</td>
                 <td className="px-2 py-1 text-right">{y.admin.fonctions.length ? n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0)) : '—'}</td>
                 <td className="px-2 py-1 text-right">{y.admin.cout ? eur(y.admin.cout) : y.admin.fonctions.length ? 'ETP à régler' : '—'}</td>
-                <td className="px-2 py-1 text-right">{pc(y.inscrits, y.admin.base)}</td><td className="px-2 py-1 text-right font-semibold">{y.admin.cout ? eur(y.admin.part) : '—'}</td></tr>)}</tbody></table>
+                <td className="px-2 py-1 text-right">{pc(y.inscrits, y.admin.base)}</td><td className="px-2 py-1 text-right font-semibold" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td></tr>)}</tbody></table>
+            {Y.some(y => y.admin.reprise) && <p className="text-mention text-slate-500 mt-1 mb-0">* Fonctions non encodées cette année : la structure de {d.admin_reference?.annee} est reprise, partagée selon la part de {section}.</p>}
           </Carte>}
 
           {[['blocs', 'L’enseignement par bloc (ETP)'], ['natures', 'L’enseignement par nature (ETP)']].map(([k, t]) => vu(k) && (
