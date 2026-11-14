@@ -151,23 +151,40 @@ function lireSynthese(wb, nom) {
   const ws = wb.worksheets.find(w => /^Synth[èe]ses? asbl/i.test(w.name)); if (!ws) return null;
   const L = lignes(ws); const h = L[0] || [];
   const exercices = [];
-  h.forEach((c, i) => { const t = String(c || '').trim(); const m = t.match(/^(20\d\d)\s+(.*)$/); if (m && !exercices.some(e => e.libelle === t)) exercices.push({ col: i, annee: m[1], nature: /r[ée]alis|ex[ée]cution/i.test(m[2]) ? 'realise' : /ajust/i.test(m[2]) ? 'ajuste' : /initial/i.test(m[2]) ? 'initial' : 'budget', libelle: t }); });
+  h.forEach((c, i) => { const t = String(c || '').trim(); const m = t.match(/^(20\d\d)\s+(.*)$/);   // une cellule fusionnée se répète sur ses trois colonnes
+    if (m && !exercices.some(e => e.libelle === t)) exercices.push({ col: i, annee: m[1], provisoire: /provisoire/i.test(m[2]),
+      nature: /r[ée]alis|ex[ée]cution/i.test(m[2]) ? 'realise' : /ajust/i.test(m[2]) ? 'ajuste' : /initial/i.test(m[2]) ? 'initial' : 'budget', libelle: t }); });
   if (!exercices.length) return null;
-  const postes = []; let bloc = null, dept = null;
-  for (const l of L.slice(2)) {
-    const lab = String(l.find(x => typeof x === 'string' && x.trim()) || '').trim();
-    if (!lab) continue;
-    if (/^ASBL ILYA PRIGOGINE$/i.test(lab)) { postes.push({ bloc: 'ASBL', dept: null, poste: 'Total de l’ASBL', niveau: 0, ex: valeurs(l) }); break; }
-    function valeurs(row) { return Object.fromEntries(exercices.map(e => [`${e.annee}|${e.nature}`, { charges: Math.round(Math.abs(num(row[e.col]))), produits: Math.round(num(row[e.col + 1])), resultat: Math.round(num(row[e.col + 2])) }])); }
-    let niveau = 2;
-    if (BLOCS.includes(lab)) { bloc = lab; dept = null; niveau = 0; }
-    else if (/^Département /.test(lab)) { dept = lab.replace(/^Département /, ''); niveau = 1; }
-    else if (bloc !== 'HELB') niveau = 1;
-    postes.push({ bloc, dept: niveau === 2 ? dept : null, poste: lab.replace(/\s*\((nouveau cursus[^)]*|cursus suspendu)\)/i, '').trim(), niveau, ex: valeurs(l) });
+  /* CHAQUE GROUPE D'EXERCICES A SA COLONNE D'INTITULÉS, ET SON ORDRE DE LIGNES (3.5.453 : dans le classeur « 2021 à 2024 », la ligne
+     « Optométrie » de 2024 porte « Administration » en 2021) : l'intitulé d'un exercice est la dernière cellule de texte à sa gauche,
+     et chaque groupe se lit de haut en bas avec ses propres blocs. */
+  const colLabel = e => { for (const l of L.slice(2, 40)) { for (let i = e.col - 1; i >= 0; i--) if (typeof l[i] === 'string' && l[i].trim()) return i; } return 1; };
+  const groupes = new Map();
+  for (const e of exercices) { const c = colLabel(e); if (!groupes.has(c)) groupes.set(c, []); groupes.get(c).push(e); }
+  const par = new Map();
+  const net = t => t.replace(/\s*\((nouveau cursus[^)]*|cursus suspendu)\)/i, '').trim();
+  for (const [c, exs] of groupes) {
+    let bloc = null, dept = null;
+    for (const l of L.slice(2)) {
+      const lab = typeof l[c] === 'string' ? l[c].trim() : '';
+      if (!lab) continue;
+      const vals = Object.fromEntries(exs.map(e => [`${e.annee}|${e.nature}`, { charges: Math.round(Math.abs(num(l[e.col]))), produits: Math.round(num(l[e.col + 1])), resultat: Math.round(num(l[e.col + 2])) }]));
+      const total = /^ASBL ILYA PRIGOGINE$/i.test(lab);
+      let niveau = 2;
+      if (total) { bloc = 'ASBL'; dept = null; niveau = 0; }
+      else if (BLOCS.includes(lab)) { bloc = lab; dept = null; niveau = 0; }
+      else if (/^Département /.test(lab)) { dept = lab.replace(/^Département /, ''); niveau = 1; }
+      else if (bloc !== 'HELB') niveau = 1;
+      const poste = total ? 'Total de l’ASBL' : net(lab), d = niveau === 2 ? dept : null, k = `${bloc}|${d}|${poste}`;
+      if (!par.has(k)) par.set(k, { bloc, dept: d, poste, niveau, ex: {} });
+      Object.assign(par.get(k).ex, vals);
+      if (total) break;
+    }
   }
+  const postes = [...par.values()];
   if (postes.length < 5) return null;
   return { nature: 'asbl_synthese', libelle: NATURES.asbl_synthese, annee: exercices.map(e => e.annee).sort().pop(), date_donnee: dateDuNom(nom),
-    totaux: { exercices: exercices.map(({ annee, nature, libelle }) => ({ annee, nature, libelle })), postes } };
+    totaux: { exercices: exercices.map(({ annee, nature, libelle, provisoire }) => ({ annee, nature, libelle, provisoire })), postes } };
 }
 
 /** Lit un fichier déposé et rend ce que Lucie en garderait — sans rien écrire. */
@@ -213,14 +230,41 @@ export function sourcesEnVigueur() {
   return r;
 }
 
-/** Le dernier exercice RÉALISÉ complet de la synthèse de l'ASBL (un réalisé en cours d'année, bien plus bas que son budget, est écarté). */
+/** Un exercice est RÉALISÉ COMPLET quand son réalisé existe et n'est pas loin sous son budget (un exercice en cours, une exécution
+ *  provisoire ou une colonne vide ne servent pas de référence). */
+export function realiseComplet(totaux, annee) {
+  const tot = totaux?.postes?.find(p => p.bloc === 'ASBL'); if (!tot) return false;
+  const r = tot.ex[`${annee}|realise`], b = tot.ex[`${annee}|budget`] || tot.ex[`${annee}|ajuste`] || tot.ex[`${annee}|initial`];
+  return !!r?.charges && (!b?.charges || r.charges > b.charges * 0.85);
+}
+/** Le dernier exercice réalisé complet de la synthèse de l'ASBL. */
 export function dernierRealise(totaux) {
-  const tot = totaux?.postes?.find(p => p.bloc === 'ASBL');
-  if (!tot) return null;
-  const annees = [...new Set((totaux.exercices || []).filter(e => e.nature === 'realise').map(e => e.annee))].sort().reverse();
-  for (const a of annees) {
-    const r = tot.ex[`${a}|realise`], b = tot.ex[`${a}|budget`] || tot.ex[`${a}|ajuste`] || tot.ex[`${a}|initial`];
-    if (r?.charges && (!b?.charges || r.charges > b.charges * 0.85)) return a;
+  const annees = [...new Set((totaux?.exercices || []).filter(e => e.nature === 'realise').map(e => e.annee))].sort().reverse();
+  return annees.find(a => realiseComplet(totaux, a)) || null;
+}
+
+/** LA SYNTHÈSE DE L'ASBL, TOUS CLASSEURS RÉUNIS (3.5.453) : chaque classeur couvre ses années (« 2021 à 2024 » : 2015-2024 ;
+ *  « 2023 à 2027 » : 2023-2026). Pour chaque année, le classeur qui en porte le réalisé le plus complet fait foi (le « 2021 à 2024 »
+ *  n'a de 2023 qu'une exécution provisoire, et rien de 2024) ; à égalité, le classeur qui va le plus loin. */
+export function syntheseAsbl() {
+  const L = listerSources().filter(s => s.nature === 'asbl_synthese' && !s.retire_le);
+  if (!L.length) return null;
+  const fin = s => Math.max(...(s.totaux.exercices || []).map(e => Number(e.annee)), 0);
+  const realise = (s, a) => s.totaux.postes?.find(p => p.bloc === 'ASBL')?.ex?.[`${a}|realise`]?.charges || 0;
+  const annees = [...new Set(L.flatMap(s => (s.totaux.exercices || []).map(e => e.annee)))].sort();
+  const choix = new Map(annees.map(a => [a, L.filter(s => s.totaux.exercices.some(e => e.annee === a))
+    .sort((x, y) => realise(y, a) - realise(x, a) || fin(y) - fin(x) || y.id - x.id)[0]]));
+  const exercices = [], par = new Map(), fichiers = new Map();
+  for (const [a, s] of choix) {
+    if (!fichiers.has(s.id)) fichiers.set(s.id, { fichier: s.fichier, annees: [] });
+    fichiers.get(s.id).annees.push(a);
+    for (const e of s.totaux.exercices) if (e.annee === a) exercices.push(e);
+    for (const p of s.totaux.postes || []) {
+      const k = `${p.bloc}|${p.dept}|${p.poste}`;
+      if (!par.has(k)) par.set(k, { ...p, ex: {} });
+      for (const [cle, v] of Object.entries(p.ex)) if (cle.slice(0, 4) === a) par.get(k).ex[cle] = v;
+    }
   }
-  return null;
+  const F = [...fichiers.values()];
+  return { fichier: F.map(f => f.fichier).join(' + '), fichiers: F, date_donnee: L[0].date_donnee, totaux: { exercices, postes: [...par.values()] } };
 }

@@ -3,7 +3,7 @@ import { IconSend, IconX, IconEye, IconRefresh, IconChevronRight } from '@tabler
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { EnteteCarte } from './ui.jsx';
+import { EnteteCarte, TuileEtat, Tableau, Th, Td } from './ui.jsx';
 import { Tuile } from './statsUi.jsx';
 
 /* L'IIP ET LA HELB, UNE PAGE DE GESTION NATIVE (3.5.432, Charles, 14 novembre 2026 : « le rapport est lent ; je le voudrais en natif,
@@ -119,7 +119,7 @@ function Graphe({ donnees, forme, fmt, series = [['iip', 'IIP', IIP], ['helb', '
 }
 
 /** Une carte : son titre, le choix de la forme, et la croix qui la masque. */
-function Carte({ titre, sous, forme, onForme, onMasquer, children, large }) {
+function Carte({ titre, sous, forme, onForme, onMasquer, children, large, plat }) {
   return (
     <section className={`carte overflow-hidden ${large ? 'lg:col-span-2' : ''}`}>
       <EnteteCarte titre={titre} sous={sous}>
@@ -130,7 +130,8 @@ function Carte({ titre, sous, forme, onForme, onMasquer, children, large }) {
           </div>)}
         <button type="button" className="text-slate-400 hover:text-slate-700" onClick={onMasquer} aria-label={`Masquer « ${titre} »`} title="Masquer cette partie"><IconX size={15} /></button>
       </EnteteCarte>
-      <div className="p-3">{children}</div>
+      {/* `plat` : une carte qui n'est qu'un tableau — il va d'un bord à l'autre, sans cadre dans le cadre (3.5.452). */}
+      <div className={plat ? '' : 'p-3'}>{children}</div>
     </section>);
 }
 
@@ -261,34 +262,22 @@ export default function IipHelbGestion() {
           const h = HY[HY.length - 1].h;
           const timH = d.comparaison?.cursus?.find(c => c.tim), moy = d.comparaison?.moyennes?.['Moyenne HELB'];
           const apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
-          const Cle = ({ couleur, valeur, libelle, precision }) => (
-            <div className="rounded-carte border border-slate-200 bg-white px-4 py-3 h-full" style={{ borderLeft: `6px solid ${couleur}` }}>
-              <div className="text-[26px] leading-tight font-bold tabular-nums" style={{ color: couleur }}>{valeur}</div>
-              <div className="text-sm font-semibold text-slate-800 mt-1">{libelle}</div>
-              {precision && <div className="text-second text-slate-500 mt-0.5">{precision}</div>}
-            </div>);
-          const Petite = ({ couleur = '#CBD5E1', valeur, libelle, precision }) => (
-            <div className="rounded-carte border border-slate-200 bg-white px-3 py-2 h-full" style={{ borderLeft: `4px solid ${couleur}` }}>
-              <div className="text-lg font-bold tabular-nums text-slate-800">{valeur}</div>
-              <div className="text-second text-slate-700">{libelle}</div>
-              {precision && <div className="text-mention text-slate-500 truncate" title={precision}>{precision}</div>}
-            </div>);
           return (<>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
-              <Cle couleur={h.resultat >= 0 ? PERCU : '#9D4A38'} valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
+              <TuileEtat etat={h.resultat >= 0 ? 'reussi' : 'corriger'} valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
                 precision={`rapporte ${keur(h.recettes)}, coûte ${keur(h.cout)}`} />
-              <Cle couleur={PERCU} valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n0(moy)}` : ''} />
-              <Cle couleur="#1B2B4B" valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle={`Coût d’un étudiant ${aN.annee}`}
+              <TuileEtat etat="reussi" valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n0(moy)}` : ''} />
+              <TuileEtat etat="fort" valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle={`Coût d’un étudiant ${aN.annee}`}
                 precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
-              <Cle couleur={COULEUR_DEPT.IIP} valeur={eur(apport)} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="0 € de coût supplémentaire : ses propres dotations" />
+              <TuileEtat etat="disponible" valeur={eur(apport)} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="0 € de coût supplémentaire : ses propres dotations" />
             </div>
             <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6 items-stretch">
-              <Petite couleur="#1B2B4B" valeur={`${fCh(aN.chI + aN.chH)} ${uCh}`} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
-              <Petite couleur={IIP} valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignants`} />
-              <Petite couleur={HELB} valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignants`} />
-              <Petite valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
-              <Petite couleur={PERCU} valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="par étudiant, droits et frais (ASBL)" />
-              <Petite valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
+              <TuileEtat taille="compacte" etat="fort" valeur={`${fCh(aN.chI + aN.chH)} ${uCh}`} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
+              <TuileEtat taille="compacte" valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignants`} />
+              <TuileEtat taille="compacte" valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignants`} />
+              <TuileEtat taille="compacte" valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
+              <TuileEtat taille="compacte" valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="par étudiant, droits et frais (ASBL)" />
+              <TuileEtat taille="compacte" valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
             </div>
           </>);
         })()}
@@ -304,16 +293,16 @@ export default function IipHelbGestion() {
           </Carte>}
           {vu('etudiant') && <Carte titre="Le coût d’un étudiant" sous={methode} forme={forme('etudiant', 'empile')} onForme={majForme('etudiant')} onMasquer={masquer('etudiant')}>
             <Graphe forme={forme('etudiant', 'empile')} fmt={eur} donnees={Y.filter(y => y.inscrits).map(y => ({ lib: y.lib, iip: y.coutI / y.inscrits, helb: y.coutH / y.inscrits }))} />
-            <table className="w-full text-second mt-2"><thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th>
-              <th className="px-2 py-1 text-right">Convention IIP</th><th className="px-2 py-1 text-right">Convention HELB</th>
-              <th className="px-2 py-1 text-right">Coût moyen brut IIP</th><th className="px-2 py-1 text-right">Coût moyen brut HELB</th></tr></thead>
+            <Tableau className="!border-0 !rounded-none"><thead><tr className="tab-entete"><Th>Année</Th>
+              <Th align="droite">Convention IIP</Th><Th align="droite">Convention HELB</Th>
+              <Th align="droite">Coût moyen brut IIP</Th><Th align="droite">Coût moyen brut HELB</Th></tr></thead>
               <tbody>{Y.filter(y => y.inscrits).map(y => {
                 const cI = mes.coord === 'oui' ? y.cetp_iip : 0, cH = mes.coord === 'oui' ? y.cetp_helb : 0, adm = mes.admin === 'oui' ? y.admin.part : 0;
                 const convI = y.cout_iip + (mes.coord === 'oui' ? y.coord_iip : 0) + adm, convH = y.cout_helb + (mes.coord === 'oui' ? y.coord_helb : 0);
                 const cmbI = (y.per_iip + cI * 800) * d.taux_cmb + adm, cmbH = (y.per_helb + cH * 800) * d.taux_cmb;
-                return <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{y.annee}</td>
-                  <td className="px-2 py-1 text-right">{eur(convI / y.inscrits)}</td><td className="px-2 py-1 text-right">{eur(convH / y.inscrits)}</td>
-                  <td className="px-2 py-1 text-right">{d.taux_cmb ? eur(cmbI / y.inscrits) : '—'}</td><td className="px-2 py-1 text-right">{d.taux_cmb ? eur(cmbH / y.inscrits) : '—'}</td></tr>; })}</tbody></table>
+                return <tr key={y.annee} className="border-b border-slate-100"><Td className="whitespace-nowrap">{y.annee}</Td>
+                  <Td align="droite">{eur(convI / y.inscrits)}</Td><Td align="droite">{eur(convH / y.inscrits)}</Td>
+                  <Td align="droite">{d.taux_cmb ? eur(cmbI / y.inscrits) : '—'}</Td><Td align="droite">{d.taux_cmb ? eur(cmbH / y.inscrits) : '—'}</Td></tr>; })}</tbody></Tableau>
           </Carte>}
           {vu('recettes') && <Carte titre="Un étudiant : ce qu’il rapporte (droits, à l’ASBL) et ce qu’il coûte à l’IIP" sous="Droits et frais au barème, sans plafond ni exonération"
             forme={forme('recettes', 'cote')} onForme={majForme('recettes')} onMasquer={masquer('recettes')}>
@@ -329,30 +318,30 @@ export default function IipHelbGestion() {
                 <Graphe forme={forme('helb', 'cote') === 'parts' ? 'cote' : forme('helb', 'cote')} fmt={keur}
                   series={[['recettes', 'Ce qu’elle rapporte', PERCU], ['cout', 'Ce qu’elle coûte', HELB]]}
                   donnees={HY.map(({ y, h }) => ({ lib: y.lib, recettes: h.recettes, cout: h.cout }))} />
-                <div className="overflow-x-auto"><table className="w-full text-second mt-2 whitespace-nowrap">
-                  <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés (lissés)</th><th className="px-2 py-1 text-right">Allocation</th><th className="px-2 py-1 text-right">Droits (ASBL)</th>
-                    <th className="px-2 py-1 text-right">ETP HELB</th><th className="px-2 py-1 text-right">Salaires</th><th className="px-2 py-1 text-right">Autres serv.</th>
-                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th><th className="px-2 py-1 text-right" title="Direction et secrétariat, 100 % IIP">Apport IIP : admin.</th><th className="px-2 py-1 text-right" title="UE 95, 100 % IIP">Apport IIP : aide réussite</th></tr></thead>
+                <div className="overflow-x-auto"><Tableau className="!border-0 !rounded-none">
+                  <thead><tr className="tab-entete"><Th>Année</Th><Th align="droite">Comptés (lissés)</Th><Th align="droite">Allocation</Th><Th align="droite">Droits (ASBL)</Th>
+                    <Th align="droite">ETP HELB</Th><Th align="droite">Salaires</Th><Th align="droite">Autres serv.</Th>
+                    <Th align="droite">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</Th><Th align="droite">Coût</Th><Th align="droite">Résultat</Th><Th align="droite">Étu./ETP</Th><Th align="droite" title="Direction et secrétariat, 100 % IIP">Apport IIP : admin.</Th><Th align="droite" title="UE 95, 100 % IIP">Apport IIP : aide réussite</Th></tr></thead>
                   <tbody>
-                    <tr className="ligne-total font-semibold"><td className="px-2 py-1">Ensemble</td><td />
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.allocation, 0))}</td>
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.droits, 0))}</td><td />
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.salaires, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.autres, 0))}</td>
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.fonct, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.cout, 0))}</td>
-                      <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td />
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + (x.y.admin.part || 0), 0))}</td>
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + u95(x.y), 0))}</td></tr>
-                    {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{y.annee}</td>
-                      <td className="px-2 py-1 text-right">{h.base ? n0(h.base) : '—'}</td>
-                      <td className="px-2 py-1 text-right">{h.allocation ? eur(h.allocation) : <span className="text-slate-400">en création</span>}</td>
-                      <td className="px-2 py-1 text-right">{eur(h.droits)}</td><td className="px-2 py-1 text-right">{n2(h.etp)}</td>
-                      <td className="px-2 py-1 text-right">{eur(h.salaires)}</td><td className="px-2 py-1 text-right">{eur(h.autres)}</td><td className="px-2 py-1 text-right">{eur(h.fonct)}</td>
-                      <td className="px-2 py-1 text-right">{eur(h.cout)}</td>
-                      <td className="px-2 py-1 text-right font-semibold" style={{ color: h.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{h.resultat >= 0 ? '+' : '−'}{eur(Math.abs(h.resultat))}</td>
-                      <td className="px-2 py-1 text-right">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</td>
-                      <td className="px-2 py-1 text-right" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td>
-                      <td className="px-2 py-1 text-right" title={`UE 95 : ${n0(y.ue95?.periodes)} périodes`}>{u95(y) ? eur(u95(y)) : '—'}</td></tr>)}
-                  </tbody></table></div>
+                    <tr className="ligne-total font-semibold"><Td>Ensemble</Td><Td />
+                      <Td align="droite">{eur(HY.reduce((t, x) => t + x.h.allocation, 0))}</Td>
+                      <Td align="droite">{eur(HY.reduce((t, x) => t + x.h.droits, 0))}</Td><Td />
+                      <Td align="droite">{eur(HY.reduce((t, x) => t + x.h.salaires, 0))}</Td><Td align="droite">{eur(HY.reduce((t, x) => t + x.h.autres, 0))}</Td>
+                      <Td align="droite">{eur(HY.reduce((t, x) => t + x.h.fonct, 0))}</Td><Td align="droite">{eur(HY.reduce((t, x) => t + x.h.cout, 0))}</Td>
+                      <Td align="droite" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</Td><Td />
+                      <Td align="droite">{eur(HY.reduce((t, x) => t + (x.y.admin.part || 0), 0))}</Td>
+                      <Td align="droite">{eur(HY.reduce((t, x) => t + u95(x.y), 0))}</Td></tr>
+                    {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><Td className="whitespace-nowrap">{y.annee}</Td>
+                      <Td align="droite">{h.base ? n0(h.base) : '—'}</Td>
+                      <Td align="droite">{h.allocation ? eur(h.allocation) : <span className="text-slate-400">en création</span>}</Td>
+                      <Td align="droite">{eur(h.droits)}</Td><Td align="droite">{n2(h.etp)}</Td>
+                      <Td align="droite">{eur(h.salaires)}</Td><Td align="droite">{eur(h.autres)}</Td><Td align="droite">{eur(h.fonct)}</Td>
+                      <Td align="droite">{eur(h.cout)}</Td>
+                      <Td align="droite" className="font-semibold" style={{ color: h.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{h.resultat >= 0 ? '+' : '−'}{eur(Math.abs(h.resultat))}</Td>
+                      <Td align="droite">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</Td>
+                      <Td align="droite" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</Td>
+                      <Td align="droite" title={`UE 95 : ${n0(y.ue95?.periodes)} périodes`}>{u95(y) ? eur(u95(y)) : '—'}</Td></tr>)}
+                  </tbody></Tableau></div>
                 <div className="bloc-etat px-3 py-2 text-second mt-2" data-etat="surveiller">
                   <b>Les ressources humaines de la HELB sont mises de côté</b> : elle établit les contrats de ses enseignants, mais ce coût n’est pas estimable.
                   Tout le reste de l’administration est à l’IIP — le secrétariat travaille à 100 % pour les étudiants et la direction —, ainsi que l’aide à la réussite (UE 95).
@@ -465,8 +454,8 @@ export default function IipHelbGestion() {
             const legende = <div className="flex flex-wrap gap-3 text-mention text-slate-600">{Object.entries(COULEUR_DEPT).map(([k, c]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: c }} />{k === 'IIP' ? 'IIP' : k}</span>)}<span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: PERCU }} />{section}</span></div>;
             const ligneT = (cs, lib, coul, fort, k, onClick, ouvert) => (
               <tr key={k} className={fort ? 'ligne-total font-semibold' : 'border-b border-slate-100'} style={{ boxShadow: `inset 5px 0 0 ${coul}`, cursor: onClick ? 'pointer' : undefined }} onClick={onClick}>
-                <td className="px-2 py-1 pl-4">{onClick && <IconChevronRight size={12} className={`inline mr-1 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}{lib}</td>
-                {ann.map(a => { const r = ratioCs(cs, a); return <td key={a} className="px-2 py-1 text-right">{r ? n0(r) : '—'}</td>; })}</tr>);
+                <Td className="pl-4">{onClick && <IconChevronRight size={12} className={`inline mr-1 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}{lib}</Td>
+                {ann.map(a => { const r = ratioCs(cs, a); return <Td key={a} align="droite">{r ? n0(r) : '—'}</Td>; })}</tr>);
             return (
               <Carte large titre="Les cursus et départements : étudiants par ETP enseignant" sous={`Les chiffres de la HELB — ${d.comparaison.source}`} onMasquer={masquer('comparaison')}>
                 {legende}
@@ -484,8 +473,8 @@ export default function IipHelbGestion() {
                 </div>
                 <Volet titre={`Tous les cursus, un par un (${d.comparaison.annee})`}><Barres data={parCursus} hauteur={Math.max(300, parCursus.length * 20)} /></Volet>
                 <Volet titre="Le tableau, département par département (cliquer un département pour le déplier)" ouvert>
-                  <div className="overflow-x-auto"><table className="w-full text-second whitespace-nowrap">
-                    <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Cursus</th>{ann.map(a => <th key={a} className="px-2 py-1 text-right">{court(a)}</th>)}</tr></thead>
+                  <div className="overflow-x-auto"><Tableau className="!border-0 !rounded-none">
+                    <thead><tr className="tab-entete"><Th>Cursus</Th>{ann.map(a => <Th key={a} align="droite">{court(a)}</Th>)}</tr></thead>
                     <tbody>
                       {ligneT(d.comparaison.cursus, 'Ensemble de la HELB', '#94A3B8', true, 'tout')}
                       {[...depts, 'IIP'].flatMap(dp => {
@@ -494,76 +483,76 @@ export default function IipHelbGestion() {
                         return [ligneT(cs, dp === 'IIP' ? 'Institut Ilya Prigogine' : `Département ${dp}`, coul, true, dp, () => setDeplies(x => (x.includes(dp) ? x.filter(y => y !== dp) : [...x, dp])), ouvert),
                           ...(ouvert ? cs.map(c => (
                             <tr key={dp + c.cursus} className={`border-b border-slate-100 ${c.tim ? 'font-semibold' : ''}`} style={{ boxShadow: `inset 5px 0 0 ${coul}`, ...(c.tim ? { color: PERCU } : {}) }}>
-                              <td className="px-2 py-1 pl-8">{c.cursus}</td>
-                              {ann.map(a => { const v = val(c, a); return <td key={a} className="px-2 py-1 text-right">{v ? n0(v[0] / v[1]) : '—'}</td>; })}</tr>)) : [])];
+                              <Td className="pl-8">{c.cursus}</Td>
+                              {ann.map(a => { const v = val(c, a); return <Td key={a} align="droite">{v ? n0(v[0] / v[1]) : '—'}</Td>; })}</tr>)) : [])];
                       })}
-                    </tbody></table>
+                    </tbody></Tableau>
                     <p className="text-mention text-slate-500 mt-1">Technoeco, Social et l’IIP : chiffres de 2025-2026 seulement (les années d’avant ne comptent que la santé et COMAV). L’IIP vient du tableau Cor_HE_AE de la HELB, même méthode. Moyenne HELB {n0(d.comparaison.moyennes['Moyenne HELB'])}, santé {n0(d.comparaison.moyennes['Santé'])}. Le département santé compte {n2(d.comparaison.admin['Santé']['2025-2026'])} ETP administratifs en 2025-2026 ; ceux de {section} sont à l’IIP.</p>
                   </div>
                 </Volet>
               </Carte>);
           })()}
 
-          {vu('fonctions') && <Carte large titre="Les coordinations de la section" sous={`ETP × 800 × ${n2(d.tarif_ct)} € (période CT ${d.niveau}), part IIP et part HELB`} onMasquer={masquer('fonctions')}>
-            <div className="overflow-x-auto"><table className="w-full text-second">
-              <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-left">Fonction</th><th className="px-2 py-1 text-left">Personne</th>
-                <th className="px-2 py-1 text-right">ETP</th><th className="px-2 py-1 text-right">dont IIP</th><th className="px-2 py-1 text-right">dont HELB</th>
-                <th className="px-2 py-1 text-right">Coût IIP</th><th className="px-2 py-1 text-right">Coût HELB</th></tr></thead>
+          {vu('fonctions') && <Carte large plat titre="Les coordinations de la section" sous={`ETP × 800 × ${n2(d.tarif_ct)} € (période CT ${d.niveau}), part IIP et part HELB`} onMasquer={masquer('fonctions')}>
+            <div className="overflow-x-auto"><Tableau className="!border-0 !rounded-none">
+              <thead><tr className="tab-entete"><Th>Année</Th><Th>Fonction</Th><Th>Personne</Th>
+                <Th align="droite">ETP</Th><Th align="droite">dont IIP</Th><Th align="droite">dont HELB</Th>
+                <Th align="droite">Coût IIP</Th><Th align="droite">Coût HELB</Th></tr></thead>
               <tbody>
-                <tr className="ligne-total font-semibold"><td className="px-2 py-1" colSpan={3}>Total</td>
-                  <td className="px-2 py-1 text-right">{n2(Y.reduce((t, y) => t + y.cetp_iip + y.cetp_helb, 0))}</td>
-                  <td className="px-2 py-1 text-right">{n2(Y.reduce((t, y) => t + y.cetp_iip, 0))}</td><td className="px-2 py-1 text-right">{n2(Y.reduce((t, y) => t + y.cetp_helb, 0))}</td>
-                  <td className="px-2 py-1 text-right">{eur(Y.reduce((t, y) => t + y.coord_iip, 0))}</td><td className="px-2 py-1 text-right">{eur(Y.reduce((t, y) => t + y.coord_helb, 0))}</td></tr>
+                <tr className="ligne-total font-semibold"><Td colSpan={3}>Total</Td>
+                  <Td align="droite">{n2(Y.reduce((t, y) => t + y.cetp_iip + y.cetp_helb, 0))}</Td>
+                  <Td align="droite">{n2(Y.reduce((t, y) => t + y.cetp_iip, 0))}</Td><Td align="droite">{n2(Y.reduce((t, y) => t + y.cetp_helb, 0))}</Td>
+                  <Td align="droite">{eur(Y.reduce((t, y) => t + y.coord_iip, 0))}</Td><Td align="droite">{eur(Y.reduce((t, y) => t + y.coord_helb, 0))}</Td></tr>
                 {Y.flatMap(y => {
                   // UNE ANNÉE, UN VOLET (3.5.442) : le sous-total de l'année, un clic déplie ses fonctions.
                   const ouvert = coordOuv.includes(y.annee), bascule = () => setCoordOuv(x => (x.includes(y.annee) ? x.filter(a => a !== y.annee) : [...x, y.annee]));
-                  if (!y.coord.length) return [<tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1">{y.annee}</td><td className="px-2 py-1 text-slate-400" colSpan={7}>Aucune coordination encodée (Personnel → fiche → Fonctions, année {y.annee}).</td></tr>];
+                  if (!y.coord.length) return [<tr key={y.annee} className="border-b border-slate-100"><Td>{y.annee}</Td><Td className="text-slate-400" colSpan={7}>Aucune coordination encodée (Personnel → fiche → Fonctions, année {y.annee}).</Td></tr>];
                   const somme = k => y.coord.reduce((t, c) => t + (c[k] || 0), 0);
                   return [
                     <tr key={y.annee + 's'} className="tab-repere font-semibold cursor-pointer" onClick={bascule}>
-                      <td className="px-2 py-1 whitespace-nowrap"><IconChevronRight size={12} className={`inline mr-1 transition-transform ${ouvert ? 'rotate-90' : ''}`} />{y.annee}</td>
-                      <td className="px-2 py-1 text-slate-500 font-normal" colSpan={2}>{y.coord.length} fonction(s){y.coord.some(c => !c.etp) ? ' — ETP à renseigner' : ''}</td>
-                      <td className="px-2 py-1 text-right">{n2(somme('etp'))}</td><td className="px-2 py-1 text-right">{n2(somme('etp_iip'))}</td><td className="px-2 py-1 text-right">{n2(somme('etp_helb'))}</td>
-                      <td className="px-2 py-1 text-right">{eur(somme('cout_iip'))}</td><td className="px-2 py-1 text-right">{eur(somme('cout_helb'))}</td></tr>,
+                      <Td className="whitespace-nowrap"><IconChevronRight size={12} className={`inline mr-1 transition-transform ${ouvert ? 'rotate-90' : ''}`} />{y.annee}</Td>
+                      <Td className="text-slate-500 font-normal" colSpan={2}>{y.coord.length} fonction(s){y.coord.some(c => !c.etp) ? ' — ETP à renseigner' : ''}</Td>
+                      <Td align="droite">{n2(somme('etp'))}</Td><Td align="droite">{n2(somme('etp_iip'))}</Td><Td align="droite">{n2(somme('etp_helb'))}</Td>
+                      <Td align="droite">{eur(somme('cout_iip'))}</Td><Td align="droite">{eur(somme('cout_helb'))}</Td></tr>,
                     ...(ouvert ? y.coord.map((c, i) => (
-                  <tr key={y.annee + i} className="border-b border-slate-100"><td className="px-2 py-1" />
-                    <td className="px-2 py-1">{c.fonction}</td><td className="px-2 py-1">{c.personne}</td>
-                    <td className="px-2 py-1 text-right">{c.etp ? n2(c.etp) : <span style={{ color: 'var(--c-attente)' }} title="Personnel → fiche → Fonctions">ETP à renseigner</span>}</td><td className="px-2 py-1 text-right">{c.deja ? <span className="text-slate-400" title="Déjà dans ses attributions">dans ses cours</span> : n2(c.etp_iip)}</td>
-                    <td className="px-2 py-1 text-right">{n2(c.etp_helb)}</td><td className="px-2 py-1 text-right">{c.cout_iip ? eur(c.cout_iip) : '—'}</td><td className="px-2 py-1 text-right">{c.cout_helb ? eur(c.cout_helb) : '—'}</td></tr>)) : [])];
+                  <tr key={y.annee + i} className="border-b border-slate-100"><Td />
+                    <Td>{c.fonction}</Td><Td>{c.personne}</Td>
+                    <Td align="droite">{c.etp ? n2(c.etp) : <span style={{ color: 'var(--c-attente)' }} title="Personnel → fiche → Fonctions">ETP à renseigner</span>}</Td><Td align="droite">{c.deja ? <span className="text-slate-400" title="Déjà dans ses attributions">dans ses cours</span> : n2(c.etp_iip)}</Td>
+                    <Td align="droite">{n2(c.etp_helb)}</Td><Td align="droite">{c.cout_iip ? eur(c.cout_iip) : '—'}</Td><Td align="droite">{c.cout_helb ? eur(c.cout_helb) : '—'}</Td></tr>)) : [])];
                 })}
-              </tbody></table></div>
+              </tbody></Tableau></div>
           </Carte>}
 
-          {vu('admin') && <Carte titre="Le cadre administratif" sous="Direction et secrétariat, partagés au prorata des inscrits" onMasquer={masquer('admin')}>
-            <table className="w-full text-second"><thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">ETP de l’école</th>
-              <th className="px-2 py-1 text-right">Coût de l’école</th><th className="px-2 py-1 text-right">Part de {section}</th><th className="px-2 py-1 text-right">Montant</th></tr></thead>
-              <tbody>{Y.map(y => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1">{y.annee}</td>
-                <td className="px-2 py-1 text-right">{y.admin.fonctions.length ? n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0)) : '—'}</td>
-                <td className="px-2 py-1 text-right">{y.admin.cout ? eur(y.admin.cout) : y.admin.fonctions.length ? 'ETP à régler' : '—'}</td>
-                <td className="px-2 py-1 text-right">{pc(y.inscrits, y.admin.base)}</td><td className="px-2 py-1 text-right font-semibold" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td></tr>)}</tbody></table>
-            {Y.some(y => y.admin.reprise) && <p className="text-mention text-slate-500 mt-1 mb-0">* Fonctions non encodées cette année : la structure de {d.admin_reference?.annee} est reprise, partagée selon la part de {section}.</p>}
+          {vu('admin') && <Carte plat titre="Le cadre administratif" sous="Direction et secrétariat, partagés au prorata des inscrits" onMasquer={masquer('admin')}>
+            <Tableau className="!border-0 !rounded-none"><thead><tr className="tab-entete"><Th>Année</Th><Th align="droite">ETP de l’école</Th>
+              <Th align="droite">Coût de l’école</Th><Th align="droite">Part de {section}</Th><Th align="droite">Montant</Th></tr></thead>
+              <tbody>{Y.map(y => <tr key={y.annee} className="border-b border-slate-100"><Td>{y.annee}</Td>
+                <Td align="droite">{y.admin.fonctions.length ? n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0)) : '—'}</Td>
+                <Td align="droite">{y.admin.cout ? eur(y.admin.cout) : y.admin.fonctions.length ? 'ETP à régler' : '—'}</Td>
+                <Td align="droite">{y.admin.reprise ? `${Math.round((d.admin_reference?.ratio || 0) * 100)} %` : pc(y.inscrits, y.admin.base)}</Td><Td align="droite" className="font-semibold" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</Td></tr>)}</tbody></Tableau>
+            {Y.some(y => y.admin.reprise) && <p className="text-mention text-slate-500 px-4 py-2 m-0">* Fonctions non encodées cette année : la structure de {d.admin_reference?.annee} est reprise, partagée selon la part de {section}.</p>}
           </Carte>}
 
           {[['blocs', 'L’enseignement par bloc (ETP)'], ['natures', 'L’enseignement par nature (ETP)']].map(([k, t]) => vu(k) && (
-            <Carte key={k} titre={t} onMasquer={masquer(k)}>
-              <div className="overflow-x-auto"><table className="w-full text-second">
-                <thead><tr className="tab-entete"><th className="px-2 py-1 text-left" />{Y.map(y => <th key={y.annee} className="px-2 py-1 text-right" colSpan={2}>{y.lib}</th>)}</tr>
-                  <tr className="tab-entete"><th />{Y.map(y => [<th key={y.annee + 'i'} className="px-2 py-1 text-right font-normal">IIP</th>, <th key={y.annee + 'h'} className="px-2 py-1 text-right font-normal">HELB</th>])}</tr></thead>
+            <Carte key={k} plat titre={t} onMasquer={masquer(k)}>
+              <div className="overflow-x-auto"><Tableau className="!border-0 !rounded-none">
+                <thead><tr className="tab-entete"><Th />{Y.map(y => <Th key={y.annee} align="droite" colSpan={2}>{y.lib}</Th>)}</tr>
+                  <tr className="tab-entete"><Th />{Y.map(y => [<Th key={y.annee + 'i'} align="droite" className="font-normal">IIP</Th>, <Th key={y.annee + 'h'} align="droite" className="font-normal">HELB</Th>])}</tr></thead>
                 <tbody>{[...new Set(Y.flatMap(y => Object.keys(y[k] || {})))].sort((a, b) => a.localeCompare(b, 'fr')).map(c => (
-                  <tr key={c} className="border-b border-slate-100"><td className="px-2 py-1">{c}</td>
-                    {Y.map(y => [<td key={y.annee + 'i'} className="px-2 py-1 text-right">{y[k]?.[c]?.iip ? n2(y[k][c].iip) : '—'}</td>,
-                      <td key={y.annee + 'h'} className="px-2 py-1 text-right">{y[k]?.[c]?.helb ? n2(y[k][c].helb) : '—'}</td>])}</tr>))}</tbody></table></div>
+                  <tr key={c} className="border-b border-slate-100"><Td>{c}</Td>
+                    {Y.map(y => [<Td key={y.annee + 'i'} align="droite">{y[k]?.[c]?.iip ? n2(y[k][c].iip) : '—'}</Td>,
+                      <Td key={y.annee + 'h'} align="droite">{y[k]?.[c]?.helb ? n2(y[k][c].helb) : '—'}</Td>])}</tr>))}</tbody></Tableau></div>
             </Carte>))}
 
           {vu('enseignants') && <Carte large titre="Qui porte l’enseignement — par enseignant (ETP)" sous={`Rangé par la charge de ${aN.annee}`} onMasquer={masquer('enseignants')}>
             <Volet titre={`${d.enseignants.length} enseignants — déplier la liste`}>
-            <div className="overflow-x-auto max-h-[28rem]"><table className="w-full text-second">
-              <thead className="sticky top-0 bg-white"><tr className="tab-entete"><th className="px-2 py-1 text-left">Enseignant</th><th className="px-2 py-1 text-left">Contrat</th>
-                {Y.map(y => <th key={y.annee} className="px-2 py-1 text-right">{y.lib}</th>)}</tr></thead>
+            <div className="overflow-x-auto max-h-[28rem]"><Tableau className="!border-0 !rounded-none">
+              <thead className="sticky top-0 bg-white"><tr className="tab-entete"><Th>Enseignant</Th><Th>Contrat</Th>
+                {Y.map(y => <Th key={y.annee} align="droite">{y.lib}</Th>)}</tr></thead>
               <tbody>{[...d.enseignants].sort((a, b) => (b.par[aN.annee] || 0) - (a.par[aN.annee] || 0) || a.nom.localeCompare(b.nom, 'fr')).map(e => (
-                <tr key={e.nom + e.contrat} className="border-b border-slate-100"><td className="px-2 py-1">{e.nom}</td>
-                  <td className="px-2 py-1"><span className="pastille-etat" style={{ color: '#fff', background: e.contrat === 'HELB' ? HELB : IIP }}>{e.contrat}</span></td>
-                  {Y.map(y => <td key={y.annee} className="px-2 py-1 text-right">{e.par[y.annee] ? n2(e.par[y.annee]) : '—'}</td>)}</tr>))}</tbody></table></div>
+                <tr key={e.nom + e.contrat} className="border-b border-slate-100"><Td>{e.nom}</Td>
+                  <Td><span className="pastille-etat" style={{ color: '#fff', background: e.contrat === 'HELB' ? HELB : IIP }}>{e.contrat}</span></Td>
+                  {Y.map(y => <Td key={y.annee} align="droite">{e.par[y.annee] ? n2(e.par[y.annee]) : '—'}</Td>)}</tr>))}</tbody></Tableau></div>
             </Volet>
           </Carte>}
         </div>
