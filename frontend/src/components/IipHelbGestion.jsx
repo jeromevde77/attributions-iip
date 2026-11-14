@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconSend, IconX, IconEye } from '@tabler/icons-react';
+import { IconSend, IconX, IconEye, IconRefresh } from '@tabler/icons-react';
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -105,13 +105,14 @@ export default function IipHelbGestion() {
       setSections((Array.isArray(l) ? l : []).map(s => s.code || s).filter(Boolean))).catch(() => {});
   }, []);
   useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ section, annees, reglages })); } catch { /* sans mémoire */ } }, [section, annees, reglages]);
+  const [tour, setTour] = useState(0);   // « Recalculer » : refait le calcul côté serveur
   useEffect(() => {
     let vivant = true; setEnCours(true); setErreur(null);
-    fetch(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}${annees?.length ? `&annees=${encodeURIComponent(annees.join(','))}` : ''}`, { headers: authHeaders() })
+    fetch(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}${annees?.length ? `&annees=${encodeURIComponent(annees.join(','))}` : ''}${tour ? '&recalculer=1' : ''}`, { headers: authHeaders() })
       .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); if (vivant) { setD(j); if (!annees) setAnnees(j.annees); } })
       .catch(e => vivant && setErreur(e.message)).finally(() => vivant && setEnCours(false));
     return () => { vivant = false; };
-  }, [section, annees]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [section, annees, tour]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', ...(reglages.mesures || {}) };
   const maj = (k, v) => setReglages(r => ({ ...r, [k]: v }));
@@ -176,7 +177,9 @@ export default function IipHelbGestion() {
         {segm('cout', [['convention', 'Coût convention'], ['cmb', 'Coût moyen brut']])}
         {segm('coord', [['oui', 'Avec coordinations'], ['non', 'Sans']])}
         {segm('admin', [['oui', 'Avec cadre admin.'], ['non', 'Sans']])}
-        <button type="button" className="bouton bouton-sortir ml-auto inline-flex items-center gap-1.5 whitespace-nowrap" onClick={imprimer} disabled={!Y.length}>
+        <button type="button" className="bouton ml-auto inline-flex items-center gap-1.5 whitespace-nowrap" disabled={enCours} onClick={() => setTour(t => t + 1)}
+          title="Refaire le calcul avec les dernières données encodées"><IconRefresh size={15} />{enCours ? 'Calcul…' : 'Recalculer'}</button>
+        <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5 whitespace-nowrap" onClick={imprimer} disabled={!Y.length}>
           <IconSend size={15} />Imprimer</button>
       </div>
       {masques.length > 0 && (

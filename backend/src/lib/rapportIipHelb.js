@@ -38,12 +38,25 @@ function attributions(section, annee) {
 
 /* LE CALCUL DES COÛTS GARDÉ DIX MINUTES (3.5.432, Charles : « le rapport est lent à produire ») : donneesCout prend plusieurs secondes
    par année ; quatre années, et chaque réglage, le relançaient. */
+/* LA MÉMOIRE SUIT LES DONNÉES (3.5.440, Charles : « tout est encodé pourtant » — la page montrait les fonctions d'avant son encodage).
+   Une empreinte bon marché des fonctions, des attributions et des inscriptions de l'année : si elle change, on recalcule. */
 const MEMO_COUT = new Map();
+function empreinte(a) {
+  try {
+    const f = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(COALESCE(etp, 0) * 1000 + COALESCE(etp_helb, 0) * 7 + professeur_id), 0) s
+      FROM personnel_mission WHERE annee_scolaire = ?`).get(a);
+    const t = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(COALESCE(periodes_attribuees, 0) + COALESCE(autonomie_attribuee, 0) * 3 + COALESCE(professeur_id, 0)), 0) s,
+      MAX(COALESCE(updated_at, created_at)) m FROM attribution WHERE annee_scolaire = ?`).get(a);
+    const i = db.prepare('SELECT COUNT(*) n FROM etudiant_inscription WHERE annee_scolaire = ?').get(a);
+    return `${f.n}|${f.s}|${t.n}|${t.s}|${t.m}|${i.n}`;
+  } catch { return String(Date.now()); }
+}
+export function viderMemoCout() { MEMO_COUT.clear(); }
 function coutMemo(a) {
-  const m = MEMO_COUT.get(a);
-  if (m && Date.now() - m.t < 600e3) return m.d;
+  const m = MEMO_COUT.get(a), e = empreinte(a);
+  if (m && m.e === e && Date.now() - m.t < 600e3) return m.d;
   const d = donneesCout(a);
-  MEMO_COUT.set(a, { t: Date.now(), d });
+  MEMO_COUT.set(a, { t: Date.now(), d, e });
   return d;
 }
 
