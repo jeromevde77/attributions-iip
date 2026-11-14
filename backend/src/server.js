@@ -3082,6 +3082,7 @@ app.use('/api/envois', express.json({ limit: '60mb' }));
 app.use('/api/impression', express.json({ limit: '120mb' }));
 app.use('/api/documentation/mode-emploi/pdf', express.json({ limit: '60mb' }));
 app.use('/api/calendrier/comparer-excel', express.json({ limit: '20mb' }));
+app.use('/api/pilotage/sources', express.json({ limit: '40mb' }));   // sources des référentiels (3.5.450)
 app.use('/api/reunions/importer', express.json({ limit: '30mb' }));   // compte rendu à importer (3.5.379)   // horaire d'examens à comparer (3.5.361)
 app.use('/api/communication', express.json({ limit: '30mb' }));   // pièces jointes des messages (3.5.131)
 app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)

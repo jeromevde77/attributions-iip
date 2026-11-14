@@ -67,7 +67,7 @@ function Segments({ valeur, options, onChange, label }) {
 const Verdict = ({ ton, children }) => (
   <span className="inline-block rounded-full px-2 py-0.5 text-[11.5px] font-bold text-white whitespace-nowrap" style={{ background: ton }}>{children}</span>);
 
-export default function GestionLecture({ annee: anneeProp, onPresenter }) {
+export default function GestionLecture({ annee: anneeProp, onPresenter, onSources }) {
   const memo = useMemo(lire, []);
   const annee = anneeProp || getAnnee();
   const [perim, setPerim] = useState(memo.perim || 'etab');
@@ -109,7 +109,11 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
       const H = d?.helb || {};
       return { etc_etp: H.etu_etp_2627 ?? H.etu_etp, cout_credit: H.cout_credit, cout_180: H.cout_credit ? Math.round(H.cout_credit * 180) : null, cout_etudiant: H.cout_etudiant }[k] ?? null;
     }
-    return null;   // ASBL : pas encore de référence dans Lucie
+    if (ref === 'ASBL') {
+      const A = d?.asbl || {};
+      return { cout_etudiant: A.cout_etudiant, cout_credit: A.cout_credit, cout_180: A.cout_credit ? Math.round(A.cout_credit * 180) : null }[k] ?? null;
+    }
+    return null;
   };
   /* La valeur, dans la méthode de la référence : face à la HELB, l'efficience d'un cursus qu'elle publie est la SIENNE. */
   const valDe = (k, ligne) => {
@@ -165,7 +169,9 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
         {perim === 'section' ? <IconPresentation size={15} /> : <IconMaximize size={15} />}Présenter</button>
     </div>);
 
-  const noteRef = ref === 'ASBL' ? 'L’ASBL n’a pas encore de chiffres de référence dans Lucie : les comparaisons restent « à calculer ».'
+  const noteRef = ref === 'ASBL' ? (d?.asbl
+    ? `ASBL Ilya Prigogine, réalisé ${d.asbl.exercice} : ${n0(d.asbl.charges)} € de charges pour ${n0(d.asbl.etudiants)} étudiants (HELB ${n0(d.asbl.etudiants_helb)} + IIP ${n0(d.asbl.etudiants_iip)}) — ce que porte le pouvoir organisateur ; les professeurs de l’IIP, payés par la Fédération, n’y sont pas. Le coût par crédit suppose 60 crédits par étudiant.`
+    : 'L’ASBL n’a pas encore de source : déposez ses comptes dans Vue d’ensemble → Les sources.')
     : ref === 'HELB' ? `HELB 2026-2027 : ${n0(d?.helb?.etudiants)} inscrits (${d?.helb?.inscrits_le || ''}), ${n1(d?.helb?.etu_etp_2627)} étudiants par ETP de cursus (publié en ${d?.helb?.annee || ''} : ${n1(d?.helb?.etu_etp)}) ; coût par crédit = son COR (rémunérations, encadrement compris) ÷ inscrits ÷ 60 — ${n0(d?.helb?.cout_credit_enseignement)} € pour l’enseignement seul, + ${n0(d?.helb?.encadrement_pct)} % d’encadrement ; un ETP d’enseignant y coûte ${n0(d?.helb?.cout_etp)} €. Seules ces proportions viennent de ses fichiers.`
       : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
 
@@ -175,11 +181,12 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
       {barre}
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
       {!d ? <p className="text-second text-slate-400">Calcul des indicateurs de toutes les sections… (quelques secondes la première fois)</p> : (<>
-        <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}</p>
+        <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}
+          {onSources && <button type="button" className="text-iip-blue underline" onClick={onSources}>Les sources</button>}</p>
         {perim === 'etab' ? <Etablissement d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef}
           ouvrir={s => { setSection(s); setPerim('section'); }} />
           : !S ? <p className="text-second text-slate-500">Section introuvable pour {d.annee}.</p>
-            : <Section S={S} d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />}
+            : <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />}
       </>)}
     </div>);
 }
@@ -267,7 +274,7 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
 }
 
 /* ------------------------------------------------------------------------------------------------ UNE SECTION */
-function Section({ S, d, lentille, refDe, valDe, juger, nomRef, blocs, pistes }) {
+function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, nomRef, blocs, pistes }) {
   const lignes = POSITION[lentille].map(k => {
     const v = valDe(k, S), r = refDe(k, S.section), j = juger(k, v, r);
     const tous = [v, r, ...d.sections.map(x => x[k])].filter(x => x != null && Number.isFinite(x));
@@ -336,6 +343,22 @@ function Section({ S, d, lentille, refDe, valDe, juger, nomRef, blocs, pistes })
         </section>)}
     </div>
 
+    {voir('fin') && compta && (
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="La comptabilité de l’ASBL pour cette section" sous={`charges, produits et résultat, exercice par exercice · ${comptaSource?.fichier || ''}`} />
+        <div className="overflow-x-auto">
+          <Tableau className="!border-0 !rounded-none">
+            <thead><tr className="tab-entete"><Th>Exercice</Th><Th>Côté</Th><Th align="droite">Charges</Th><Th align="droite">Produits</Th><Th align="droite">Résultat</Th></tr></thead>
+            <tbody>
+              {[...new Set([...(compta.helb || []), ...(compta.iip || [])].map(x => x.annee))].sort().reverse().flatMap(a => [['HELB', compta.helb], ['IIP', compta.iip]].map(([cote, L]) => {
+                const v = (L || []).find(x => x.annee === a); if (!v) return null;
+                return (<Tr key={a + cote}><Td>{a} <span className="text-slate-400">· {v.nature}</span></Td><Td>{cote}</Td><Td align="droite">{n0(v.charges)} €</Td><Td align="droite">{n0(v.produits)} €</Td>
+                  <Td align="droite"><b style={{ color: v.resultat >= 0 ? VERT : OCRE }}>{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</b></Td></Tr>);
+              }))}
+            </tbody>
+          </Tableau>
+        </div>
+      </section>)}
     <section className="carte overflow-hidden">
       <EnteteCarte titre="Ce qu’on peut améliorer — ou non" sous={`déduit des écarts à ${nomRef}`} />
       <div className="px-4 py-1">

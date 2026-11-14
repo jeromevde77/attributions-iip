@@ -15,6 +15,7 @@ import QuiFaitQuoi from '../components/QuiFaitQuoi.jsx';
 import EtpPlusieursAnnees from '../components/EtpPlusieursAnnees.jsx';
 import PresentationSection from '../components/PresentationSection.jsx';
 import GestionLecture from '../components/GestionLecture.jsx';
+import SourcesReference from '../components/SourcesReference.jsx';
 import IipHelbGestion from '../components/IipHelbGestion.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
@@ -1503,7 +1504,7 @@ export default function Pilotage({ vue = 'tout' }) {
   const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role);
   const RUBRIQUES = [
     { key: 'g-ensemble', label: 'Vue d’ensemble', icon: IconChartInfographic, faces: [
-      ['lecture', 'Lire et comparer'], direction && ['presentation', 'Présenter une section']] },
+      ['lecture', 'Lire et comparer'], direction && ['presentation', 'Présenter une section'], direction && ['sources', 'Les sources']] },
     { key: 'g-population', label: 'Étudiants', icon: IconUsersGroup, faces: [
       ['population-ecole', 'Qui sont nos étudiants'], ['population', 'Places par unité'], !coord && ['presences-ue', 'Présences par UE']] },
     { key: 'g-resultats', label: 'Réussite', icon: IconSchool, faces: [
@@ -1548,7 +1549,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb' && k !== 'presentation' && k !== 'lecture') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
@@ -1865,6 +1866,9 @@ thead { display: table-header-group; }
         ) : tab === 'lecture' ? (
           <PageHeader icon={IconChartInfographic} titre="Vue d’ensemble"
             sous="Lire l’établissement ou une section, tout ou un axe, face à l’IIP, la HELB, l’ASBL ou l’année d’avant" />
+        ) : tab === 'sources' ? (
+          <PageHeader icon={IconChartInfographic} titre="Les sources"
+            sous="Les fichiers de référence — HELB, ASBL — dont Lucie ne garde que les totaux ; chaque comparaison y renvoie" />
         ) : tab === 'presentation' ? (
           <PageHeader icon={IconPresentation} titre="Présenter une section"
             sous="Les chiffres de Lucie en diapositives, en plein écran — sur iPad ou grand écran" />
@@ -1922,7 +1926,8 @@ thead { display: table-header-group; }
             {tab === 'etp'      && renderETP()}
             {tab === 'etp-annees' && <EtpPlusieursAnnees />}
             {tab === 'iip-helb' && <IipHelbGestion />}
-            {tab === 'lecture' && <GestionLecture annee={anneeActive} onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} />}
+            {tab === 'lecture' && <GestionLecture annee={anneeActive} onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
+            {tab === 'sources' && <SourcesReference />}
             {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
             {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} />}
