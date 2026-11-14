@@ -147,6 +147,9 @@ export default function IipHelbGestion() {
   const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
   PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
   const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
+  // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
+  const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
+  const u95 = y => (y.ue95?.cout || 0) * part95;
   const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe, materielDe(y.annee)) }));
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
@@ -204,6 +207,7 @@ export default function IipHelbGestion() {
           <Tuile valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="droits et frais, à l’ASBL" />
           {(() => { const h = HY[HY.length - 1].h; return <Tuile valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
             precision={`rapporte ${keur(h.recettes)} · coûte ${keur(h.cout)}`} />; })()}
+          <Tuile valeur={eur(HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0))} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="administration et aide à la réussite, 100 % IIP" />
           <Tuile valeur="0 €" libelle="Coût supplémentaire pour l’IIP" precision="financé sur ses propres dotations" />
           <Tuile valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
         </div>
@@ -247,7 +251,7 @@ export default function IipHelbGestion() {
                 <div className="overflow-x-auto"><table className="w-full text-second mt-2 whitespace-nowrap">
                   <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés (lissés)</th><th className="px-2 py-1 text-right">Allocation</th><th className="px-2 py-1 text-right">Droits (ASBL)</th>
                     <th className="px-2 py-1 text-right">ETP HELB</th><th className="px-2 py-1 text-right">Salaires</th><th className="px-2 py-1 text-right">Autres serv.</th>
-                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th><th className="px-2 py-1 text-right" title="Direction et secrétariat, 100 % IIP">Apport IIP : admin.</th></tr></thead>
+                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th><th className="px-2 py-1 text-right" title="Direction et secrétariat, 100 % IIP">Apport IIP : admin.</th><th className="px-2 py-1 text-right" title="UE 95, 100 % IIP">Apport IIP : aide réussite</th></tr></thead>
                   <tbody>
                     <tr className="ligne-total font-semibold"><td className="px-2 py-1">Ensemble</td><td />
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.allocation, 0))}</td>
@@ -255,7 +259,8 @@ export default function IipHelbGestion() {
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.salaires, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.autres, 0))}</td>
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.fonct, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.cout, 0))}</td>
                       <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td />
-                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + (x.y.admin.part || 0), 0))}</td></tr>
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + (x.y.admin.part || 0), 0))}</td>
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + u95(x.y), 0))}</td></tr>
                     {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{y.annee}</td>
                       <td className="px-2 py-1 text-right">{h.base ? n0(h.base) : '—'}</td>
                       <td className="px-2 py-1 text-right">{h.allocation ? eur(h.allocation) : <span className="text-slate-400">en création</span>}</td>
@@ -264,8 +269,13 @@ export default function IipHelbGestion() {
                       <td className="px-2 py-1 text-right">{eur(h.cout)}</td>
                       <td className="px-2 py-1 text-right font-semibold" style={{ color: h.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{h.resultat >= 0 ? '+' : '−'}{eur(Math.abs(h.resultat))}</td>
                       <td className="px-2 py-1 text-right">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</td>
-                      <td className="px-2 py-1 text-right" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td></tr>)}
+                      <td className="px-2 py-1 text-right" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</td>
+                      <td className="px-2 py-1 text-right" title={`UE 95 : ${n0(y.ue95?.periodes)} périodes`}>{u95(y) ? eur(u95(y)) : '—'}</td></tr>)}
                   </tbody></table></div>
+                <div className="bloc-etat px-3 py-2 text-second mt-2" data-etat="surveiller">
+                  <b>Les ressources humaines de la HELB sont mises de côté</b> : elle établit les contrats de ses enseignants, mais ce coût n’est pas estimable.
+                  Tout le reste de l’administration est à l’IIP — le secrétariat travaille à 100 % pour les étudiants et la direction —, ainsi que l’aide à la réussite (UE 95).
+                </div>
               </div>
               <div className="space-y-1.5">
                 <div className="intertitre">Le matériel et le fonctionnement</div>
@@ -282,6 +292,12 @@ export default function IipHelbGestion() {
                     <span className="w-20 text-mention text-slate-500">€</span>
                   </label>))}
                 <div className="intertitre pt-2">Les paramètres</div>
+                <label className="flex items-center gap-2 text-second">
+                  <span className="flex-1 min-w-0">Part de la section dans l’UE 95</span>
+                  <input className="controle !h-8 w-24 text-right" inputMode="decimal" placeholder={String(Math.round((d?.admin_reference?.ratio || 0) * 100))}
+                    value={reglages.helb?.part95 ?? ''} onChange={e => maj('helb', { ...(reglages.helb || {}), part95: e.target.value.replace(',', '.') })} aria-label="Part de la section dans l'UE 95" />
+                  <span className="w-20 text-mention text-slate-500">%</span>
+                </label>
                 {LIB_HELB.map(([k, l, u]) => (
                   <label key={k} className="flex items-center gap-2 text-second">
                     <span className="flex-1 min-w-0">{l}</span>
