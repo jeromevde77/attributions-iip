@@ -27,7 +27,7 @@ const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, aut
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
   ['debut', 'Allocation à partir de', 'année'], ['lissage', 'Lissage', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
 const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
-function helbAnnee(y, P, avecCoord, inscritsDe) {
+function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   const comptes = y.inscrits * P.part / 100;
   let base = 0;
   if (Number(y.annee.slice(0, 4)) >= P.debut) {
@@ -36,7 +36,8 @@ function helbAnnee(y, P, avecCoord, inscritsDe) {
     base /= n;
   }
   const allocation = base * P.muce * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
-  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = etp * P.cmbp, autres = salaires * P.autres / 100, fonct = allocation * P.fonctionnement / 100;
+  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = etp * P.cmbp, autres = salaires * P.autres / 100;
+  const fonct = P.mode_fonct === 'forfait' ? allocation * P.fonctionnement / 100 : (materiel || 0);
   const cout = salaires + autres + fonct;
   return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
 }
@@ -144,7 +145,9 @@ export default function IipHelbGestion() {
 
   const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
   const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
-  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe) }));
+  PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
+  const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
+  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe, materielDe(y.annee)) }));
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
   const totI = Y.reduce((t, y) => t + y.coutI, 0), totH = Y.reduce((t, y) => t + y.coutH, 0);
@@ -244,7 +247,7 @@ export default function IipHelbGestion() {
                 <div className="overflow-x-auto"><table className="w-full text-second mt-2 whitespace-nowrap">
                   <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés (lissés)</th><th className="px-2 py-1 text-right">Allocation</th><th className="px-2 py-1 text-right">Droits (ASBL)</th>
                     <th className="px-2 py-1 text-right">ETP HELB</th><th className="px-2 py-1 text-right">Salaires</th><th className="px-2 py-1 text-right">Autres serv.</th>
-                    <th className="px-2 py-1 text-right">Fonct.</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th></tr></thead>
+                    <th className="px-2 py-1 text-right">{PH.mode_fonct === 'forfait' ? 'Fonct. (forfait)' : 'Matériel'}</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th></tr></thead>
                   <tbody>
                     <tr className="ligne-total font-semibold"><td className="px-2 py-1">Ensemble</td><td />
                       <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.allocation, 0))}</td>
@@ -263,7 +266,20 @@ export default function IipHelbGestion() {
                   </tbody></table></div>
               </div>
               <div className="space-y-1.5">
-                <div className="intertitre">Les paramètres</div>
+                <div className="intertitre">Le matériel et le fonctionnement</div>
+                <div className="segments w-full" role="radiogroup">
+                  {[['reel', 'Réel de la section'], ['forfait', `Forfait ${PH.fonctionnement} %`]].map(([v, l]) => (
+                    <button key={v} type="button" role="radio" aria-checked={PH.mode_fonct === v} onClick={() => maj('helb', { ...(reglages.helb || {}), mode_fonct: v })}
+                      className={`flex-1 whitespace-nowrap ${PH.mode_fonct === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>))}
+                </div>
+                {PH.mode_fonct === 'reel' && HY.map(({ y }) => (
+                  <label key={y.annee} className="flex items-center gap-2 text-second" title={d?.materiel_defaut?.[y.annee]?.source || ''}>
+                    <span className="flex-1 min-w-0 truncate">{y.annee} <span className="text-mention text-slate-400">{d?.materiel_defaut?.[y.annee]?.source?.split(' — ')[0] || ''}</span></span>
+                    <input className="controle !h-8 w-24 text-right" inputMode="decimal" placeholder={String(d?.materiel_defaut?.[y.annee]?.montant ?? 0)}
+                      value={reglages.materiel?.[y.annee] ?? ''} onChange={e => maj('materiel', { ...(reglages.materiel || {}), [y.annee]: e.target.value.replace(',', '.') })} aria-label={`Matériel ${y.annee}`} />
+                    <span className="w-20 text-mention text-slate-500">€</span>
+                  </label>))}
+                <div className="intertitre pt-2">Les paramètres</div>
                 {LIB_HELB.map(([k, l, u]) => (
                   <label key={k} className="flex items-center gap-2 text-second">
                     <span className="flex-1 min-w-0">{l}</span>
@@ -273,6 +289,7 @@ export default function IipHelbGestion() {
                   </label>))}
                 <p className="text-mention text-slate-500 m-0">Sources : présentation financière des départements (Vinci : MUCE 2022, 20,8 % de fonctionnement, 37,2 % d'autres
                   services), courriel de F. Vanderoost du 27 août 2026 (santé × 1,5, ~90 000 € par ETP), tableau Cor_HE_AE (17 étudiants par ETP en moyenne).
+                  Matériel : comptabilité analytique de l'ASBL (2023 : aucun matériel pour TIM) puis budgets 2025-2027, part HELB.
                   Les droits d'inscription vont à l'ASBL et alimentent les moyens de la Haute École. L'IIP a financé sa part sur ses propres
                   dotations : aucun coût supplémentaire, une optimisation des moyens existants.</p>
               </div>

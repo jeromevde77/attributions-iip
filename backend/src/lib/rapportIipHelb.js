@@ -176,14 +176,25 @@ export const MESURES = {
    c'est de la rationalisation ») : l'allocation est nulle avant `debut`, puis vaut la MOYENNE des étudiants comptés des `lissage` années
    précédentes ; les droits et frais des étudiants de la section (au barème) entrent aux recettes, versés à l'ASBL. */
 export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
+/* LE MATÉRIEL ET LE FONCTIONNEMENT DE LA SECTION (3.5.436, Charles : « aller chercher dans les bilans ce que coûte la section en
+   matériel » ; « vas-y »). La comptabilité analytique de l'ASBL (classeur « 2021 à 2024 Comptes & Budgets », cursus 111066) ne porte pour
+   TIM en 2023 que des traitements, payés par la Fédération : aucun matériel. Ensuite, la part HELB (50 %) des lignes TIM des budgets
+   initiaux 2025 et 2026 et du budget 2027 de Lucie, en prévision. Une année = le budget civil de sa seconde moitié. Corrigeable dans la
+   page ; le forfait de 20,8 % de l'allocation reste au choix (mode_fonct), jamais additionné au réel — il couvre les mêmes achats. */
+export const MATERIEL_HELB = {
+  '2023-2024': { montant: 0, source: 'réel — comptabilité analytique 2023 (traitements seuls, aucun matériel)' },
+  '2024-2025': { montant: 3250, source: 'prévu — budget initial 2025, part HELB 50 %' },
+  '2025-2026': { montant: 7650, source: 'prévu — budget initial 2026, part HELB 50 %' },
+  '2026-2027': { montant: 3750, source: 'prévu — budget 2027 (Lucie), part HELB 50 %' },
+};
 export function paramHelb(h = {}) {
-  const o = { ...PARAM_HELB };
+  const o = { ...PARAM_HELB, mode_fonct: h?.mode_fonct === 'forfait' ? 'forfait' : 'reel' };
   for (const k of Object.keys(PARAM_HELB)) { const v = Number(String(h?.[k] ?? '').replace(',', '.')); if (h?.[k] !== undefined && h?.[k] !== '' && Number.isFinite(v) && v >= 0) o[k] = v; }
   return o;
 }
 /** L'année « 2024-2025 » décalée de k ans. */
 export const anneeDecalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
-export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0) {
+export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0, materiel = null) {
   const comptes = y.inscrits * P.part / 100;
   const deb = Number(String(y.annee).slice(0, 4));
   let base = 0;
@@ -198,7 +209,7 @@ export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0) {
   const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0);
   const salaires = etp * P.cmbp;
   const autres = salaires * P.autres / 100;
-  const fonct = allocation * P.fonctionnement / 100;
+  const fonct = P.mode_fonct === 'forfait' ? allocation * P.fonctionnement / 100 : (materiel ?? MATERIEL_HELB[y.annee]?.montant ?? 0);
   const cout = salaires + autres + fonct;
   return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
 }
@@ -216,7 +227,9 @@ export function reglagesIipHelb(c = {}) {
   // dossiers dans Lucie ; la direction pose le chiffre réel, année par année, et la pièce le dit.
   const inscrits = {};
   for (const [a, v] of Object.entries(c.inscrits || {})) { const n = Number(v); if (/^\d{4}-\d{4}$/.test(a) && Number.isFinite(n) && n > 0) inscrits[a] = Math.round(n); }
-  return { ordre, masques, graphes, mesures, saut: c.saut !== false, helb: paramHelb(c.helb), inscrits };
+  const materiel = {};
+  for (const [a, v] of Object.entries(c.materiel || {})) { const n = Number(v); if (/^\d{4}-\d{4}$/.test(a) && v !== '' && Number.isFinite(n) && n >= 0) materiel[a] = n; }
+  return { ordre, masques, graphes, mesures, saut: c.saut !== false, helb: paramHelb(c.helb), inscrits, materiel };
 }
 
 /* ── LE DOCUMENT ─────────────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -357,7 +370,7 @@ export function documentIipHelb(p) {
     const insc = {};
     for (const a of toutes) { try { insc[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { insc[a] = 0; } }
     for (const [a, n] of Object.entries(R.inscrits)) insc[a] = n;
-    const L = Y.map(y => ({ y, h: helbAnnee(y, H, avecCoord, a => insc[a]) }));
+    const L = Y.map(y => ({ y, h: helbAnnee(y, H, avecCoord, a => insc[a], R.materiel[y.annee]) }));
     const tot = k => L.reduce((t, l) => t + l.h[k], 0);
     const g = graphe(R.graphes.helb === 'parts' ? 'cote' : R.graphes.helb, L.map(l => ({ annee: l.y.annee, a: l.h.recettes, b: l.h.cout })), y => y.a, y => y.b,
       v => `${n0(v / 1000)} k€`, 'Pour la HELB et l’ASBL : ce que la section rapporte et ce qu’elle coûte')
@@ -366,7 +379,7 @@ export function documentIipHelb(p) {
     return `<h2>Pour la HELB et l’ASBL : ce que coûte et rapporte la section</h2>
     ${g}
     <table class="annees"><thead><tr><th>Année</th><th class="n">Inscrits</th><th class="n">Comptés (lissés)</th><th class="n">Allocation</th><th class="n">Droits (ASBL)</th>
-      <th class="n">ETP HELB</th><th class="n">Salaires</th><th class="n">Autres services</th><th class="n">Fonctionnement</th><th class="n">Coût</th>
+      <th class="n">ETP HELB</th><th class="n">Salaires</th><th class="n">Autres services</th><th class="n">${H.mode_fonct === 'forfait' ? 'Fonctionnement (forfait)' : 'Matériel et fonct.'}</th><th class="n">Coût</th>
       <th class="n">Résultat</th><th class="n">Étu. / ETP</th></tr></thead><tbody>
       ${L.map(({ y, h }) => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td><td class="n">${h.base ? n0(h.base) : '—'}</td>
         <td class="n">${h.allocation ? eur(h.allocation) : '<span class="fin">en création</span>'}</td><td class="n">${eur(h.droits)}</td>
@@ -380,7 +393,9 @@ export function documentIipHelb(p) {
       (${n0(H.part)} % des inscrits) des ${n0(H.lissage)} années précédentes × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
       (pondération santé). Droits : les droits d'inscription et frais des étudiants de la section, au barème, versés à l'ASBL, qui alimentent
       les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${n0(H.cmbp)} € (coût moyen brut pondéré), plus ${n2(H.autres)} %
-      pour les autres services et ${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement. La HELB compte en moyenne ${n0(H.moyenne)} étudiants par ETP.
+      pour les autres services, et ${H.mode_fonct === 'forfait' ? `${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement (forfait)`
+        : `le matériel et le fonctionnement de la section : ${L.map(({ y }) => `${esc(y.annee)} ${R.materiel[y.annee] != null ? 'posé par la direction' : esc(MATERIEL_HELB[y.annee]?.source || 'inconnu')}`).join(' ; ')}`}.
+      Pour comparaison, l'orthoptie porte en 2023 des frais réels de matériel, de documentation, d'informatique et d'amortissements (comptabilité analytique). La HELB compte en moyenne ${n0(H.moyenne)} étudiants par ETP.
       Sources : présentation financière des départements (Vinci), courriel de F. Vanderoost du 27 août 2026, tableau Cor_HE_AE. </p>`;
   };
 
@@ -471,7 +486,7 @@ export function donneesIipHelb(section, anneesDemandees) {
   // Les inscrits de chaque année de la section, pour le lissage de l'allocation (années hors du choix comprises).
   const inscrits_annees = {};
   for (const a of toutes) { try { inscrits_annees[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { inscrits_annees[a] = 0; } }
-  return { section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
+  return { section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
     tarif_ct: tarifs()[niv]?.CT || 0, Y, enseignants: [...ens.values()] };
 }
 
