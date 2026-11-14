@@ -52,7 +52,7 @@ function empreinte(a) {
   } catch { return String(Date.now()); }
 }
 export function viderMemoCout() { MEMO_COUT.clear(); }
-function coutMemo(a) {
+export function coutMemo(a) {
   const m = MEMO_COUT.get(a), e = empreinte(a);
   if (m && m.e === e && Date.now() - m.t < 600e3) return m.d;
   const d = donneesCout(a);

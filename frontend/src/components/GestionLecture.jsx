@@ -1,0 +1,342 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { IconPresentation, IconRefresh, IconMaximize } from '@tabler/icons-react';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid } from 'recharts';
+import { authHeaders, getAnnee } from '../lib/api.js';
+import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal } from './ui.jsx';
+
+/* LIRE ET COMPARER (3.5.447, Charles, 14 novembre 2026 — maquette validée : « choisir la manière de consulter : par établissement,
+   par section avec toutes les données combinées, ou juste les résultats, ou les finances — modulable » ; « des référentiels : HELB,
+   IIP, ASBL… positionner la section, voir ce qu'on peut améliorer ou non » ; « tout dans Lucie : on sélectionne, on présente »).
+   Gestion → Vue d'ensemble. Une bande, trois choix — LIRE (l'établissement ou une section) · VOIR (tout, étudiants, réussite,
+   finances) · COMPARER À (IIP, HELB, ASBL, l'année d'avant) — décide de tout ce que la page montre. Les chiffres : GET
+   /api/pilotage/lecture (mêmes sources que les autres faces de Gestion). Couleurs des graphiques en hexadécimal (attributs SVG). */
+
+const MEMO = 'lucie.gestionLecture';
+const lire = () => { try { return JSON.parse(localStorage.getItem(MEMO) || '{}'); } catch { return {}; } };
+const n0 = v => (v == null ? '—' : Math.round(v).toLocaleString('fr-BE'));
+const n1 = v => (v == null ? '—' : (Math.round(v * 10) / 10).toLocaleString('fr-BE'));
+const VERT = '#3E7D5E', OCRE = '#B45309', BLEU = '#19537E', MARINE = '#16406A', GRIS = '#94A3B8', OR = '#F9B619', FRAMBOISE = '#C2408A';
+const SERIE = ['#19537E', '#F9B619', '#05B7E6', '#3E7D5E', '#C2408A', '#B45309', '#6B46C1', '#94A3B8', '#0F2A44'];
+
+/* LES INDICATEURS : libellé, format, sens (1 = plus haut, mieux ; −1 = plus bas, mieux ; 0 = un profil, sans jugement), lentille. */
+const IND = {
+  inscrits: { l: 'Inscrits', f: n0, sens: 0, v: 'etu', aide: 'au 15/10 (référence de Population)' },
+  croissance: { l: 'Croissance', f: v => (v == null ? '—' : `${v > 0 ? '+' : ''}${n0(v)} %`), sens: 1, v: 'etu', aide: 'sur un an' },
+  femmes: { l: 'Femmes', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 0, v: 'etu' },
+  primo: { l: 'Primo-inscrits', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 0, v: 'etu' },
+  age: { l: 'Âge moyen', f: v => (v == null ? '—' : `${n0(v)} ans`), sens: 0, v: 'etu' },
+  hors_ue: { l: 'Hors Union européenne', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 0, v: 'etu', court: 'Hors UE' },
+  bruxelles: { l: 'Domicile à Bruxelles', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 0, v: 'etu', court: 'Bruxelles' },
+  reussite_finale: { l: 'Réussite finale', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 1, v: 'res', aide: 'unités réussies, après la seconde session' },
+  reussite_s1: { l: 'Réussite en 1re session', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 1, v: 'res', court: '1re session' },
+  reussite_s2: { l: 'Ajournés qui réussissent en 2e', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 1, v: 'res', court: '2e session' },
+  etp: { l: 'ETP enseignant', f: n1, sens: 0, v: 'fin', aide: 'CT ÷ 800 + PP ÷ 1000' },
+  etu_etp: { l: 'Inscrits par ETP', f: n1, sens: 1, v: 'fin', aide: 'efficience de l’encadrement', court: 'Inscrits / ETP' },
+  cout_etudiant: { l: 'Coût d’un étudiant', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ inscrits', court: 'Coût / étudiant' },
+  recettes_etudiant: { l: 'Recettes par étudiant', f: v => (v == null ? '—' : `${n0(v)} €`), sens: 1, v: 'fin', aide: 'droits et frais', court: 'Recettes / étudiant' },
+};
+const COLONNES = {
+  tout: ['inscrits', 'croissance', 'reussite_finale', 'reussite_s1', 'etu_etp', 'cout_etudiant', 'femmes'],
+  etu: ['inscrits', 'croissance', 'femmes', 'primo', 'age', 'hors_ue', 'bruxelles'],
+  res: ['reussite_finale', 'reussite_s1', 'reussite_s2'],
+  fin: ['etp', 'etu_etp', 'cout_etudiant', 'recettes_etudiant'],
+};
+const POSITION = {
+  tout: ['reussite_finale', 'reussite_s1', 'croissance', 'etu_etp', 'cout_etudiant', 'recettes_etudiant', 'primo', 'femmes'],
+  etu: ['croissance', 'femmes', 'primo', 'age', 'hors_ue', 'bruxelles'],
+  res: ['reussite_finale', 'reussite_s1', 'reussite_s2'],
+  fin: ['etu_etp', 'cout_etudiant', 'recettes_etudiant', 'etp'],
+};
+const REFS = [['IIP', 'IIP'], ['HELB', 'HELB'], ['ASBL', 'ASBL'], ['N1', 'Année d’avant']];
+const LENTILLES = [['tout', 'Tout'], ['etu', 'Étudiants'], ['res', 'Réussite'], ['fin', 'Finances']];
+// Les sections qui ont leur cursus dans les chiffres de la HELB (étudiants comptés à sa façon).
+const CURSUS_HELB = { TIM: 'Technologue en imagerie médicale', Orthoptie: 'Orthoptie' };
+
+function Segments({ valeur, options, onChange, label }) {
+  return (
+    <div className="segments flex-none" role="radiogroup" aria-label={label}>
+      {options.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={valeur === v} onClick={() => onChange(v)}
+        className={`whitespace-nowrap ${valeur === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>)}
+    </div>);
+}
+const Verdict = ({ ton, children }) => (
+  <span className="inline-block rounded-full px-2 py-0.5 text-[11.5px] font-bold text-white whitespace-nowrap" style={{ background: ton }}>{children}</span>);
+
+export default function GestionLecture({ annee: anneeProp, onPresenter }) {
+  const memo = useMemo(lire, []);
+  const annee = anneeProp || getAnnee();
+  const [perim, setPerim] = useState(memo.perim || 'etab');
+  const [section, setSection] = useState(memo.section || 'TIM');
+  const [lentille, setLentille] = useState(memo.lentille || 'tout');
+  const [ref, setRef] = useState(memo.ref || 'IIP');
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [tour, setTour] = useState(0);
+  const [blocs, setBlocs] = useState(null);
+  const racine = useRef(null);
+
+  useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ perim, section, lentille, ref })); } catch { /* sans mémoire */ } }, [perim, section, lentille, ref]);
+  useEffect(() => {
+    let vivant = true; setErreur(null);
+    fetch(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`, { headers: authHeaders() })
+      .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); if (vivant) setD(j); })
+      .catch(e => vivant && setErreur(e.message));
+    return () => { vivant = false; };
+  }, [annee, tour]);
+  useEffect(() => {
+    if (perim !== 'section' || !d?.resultats_annee) { setBlocs(null); return undefined; }
+    let vivant = true;
+    fetch(`/api/stats-deliberation?annee=${d.resultats_annee}&section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => vivant && setBlocs((j?.par_niveau || []).filter(x => /^BA\d$/.test(x.cle)).sort((a, b) => a.cle.localeCompare(b.cle))))
+      .catch(() => vivant && setBlocs([]));
+    return () => { vivant = false; };
+  }, [perim, section, d?.resultats_annee]);
+
+  const sections = d?.sections || [];
+  const S = sections.find(x => x.section === section) || null;
+  const nomRef = { IIP: 'l’IIP', HELB: 'la HELB', ASBL: 'l’ASBL', N1: d?.prec ? d.prec.annee : 'l’année d’avant' }[ref];
+
+  /* La référence d'un indicateur, pour une ligne (une section, ou l'établissement). */
+  const refDe = (k, code) => {
+    if (ref === 'IIP') return code === 'IIP' ? null : d?.iip?.[k] ?? null;
+    if (ref === 'N1') return code === 'IIP' ? d?.prec?.iip?.[k] ?? null : d?.prec?.sections?.find(x => x.section === code)?.[k] ?? null;
+    if (ref === 'HELB') return k === 'etu_etp' ? d?.helb?.etu_etp ?? null : null;
+    return null;   // ASBL : pas encore de référence dans Lucie
+  };
+  /* La valeur, dans la méthode de la référence : face à la HELB, l'efficience d'un cursus qu'elle publie est la SIENNE. */
+  const valDe = (k, ligne) => {
+    if (ref === 'HELB' && k === 'etu_etp' && CURSUS_HELB[ligne.section]) return d?.helb?.cursus?.find(c => c.cursus === CURSUS_HELB[ligne.section])?.etu_etp ?? ligne[k];
+    return ligne?.[k];
+  };
+  const juger = (k, v, r) => {
+    if (v == null || r == null) return { ton: GRIS, mot: 'à calculer', ecart: null };
+    const e = v - r, s = IND[k].sens;
+    if (!s) return { ton: '#64748B', mot: `${e > 0 ? '+' : ''}${IND[k].f(e).replace(/ (%|€|ans)$/, '')}${/%$/.test(IND[k].f(v)) ? ' pts' : ''}`, ecart: e };
+    const bien = s > 0 ? e >= 0 : e <= 0;
+    return { ton: bien ? VERT : OCRE, mot: bien ? 'au-dessus' : 'en dessous', ecart: e, bien };
+  };
+
+  const presenter = () => {
+    if (perim === 'section' && onPresenter) { onPresenter(section); return; }
+    if (document.fullscreenElement) document.exitFullscreen(); else racine.current?.requestFullscreen?.().catch(() => {});
+  };
+
+  /* CE QU'ON PEUT AMÉLIORER — OU NON : les écarts à la référence, les pires d'abord, les points forts ensuite. */
+  const pistes = useMemo(() => {
+    if (!S || !d) return [];
+    const r = [];
+    for (const k of POSITION[lentille]) {
+      const v = valDe(k, S), rf = refDe(k, S.section), j = juger(k, v, rf);
+      if (!IND[k].sens || j.ecart == null) continue;
+      const ampleur = Math.abs(j.ecart) / Math.max(1, Math.abs(rf));
+      if (ampleur < 0.03) continue;
+      r.push({ k, bien: j.bien, ampleur, txt: `${IND[k].l} : ${IND[k].f(v)} contre ${IND[k].f(rf)} pour ${nomRef}.` });
+    }
+    if (lentille !== 'fin' && blocs?.length) {
+      const pire = [...blocs].sort((a, b) => a.s1.taux_reussite - b.s1.taux_reussite)[0];
+      if (pire && S.reussite_s1 != null && pire.s1.taux_reussite < S.reussite_s1 - 3) r.push({ k: 'bloc', bien: false, ampleur: 0.5, txt: `Le ${pire.cle} concentre l’échec de première session : ${n0(pire.s1.taux_reussite)} % (${n0(pire.final.taux_reussite)} % au final). C’est là que l’accompagnement porte le plus.` });
+    }
+    return [...r.filter(x => !x.bien).sort((a, b) => b.ampleur - a.ampleur), ...r.filter(x => x.bien).sort((a, b) => b.ampleur - a.ampleur)];
+  }, [S, d, lentille, ref, blocs]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const barre = (
+    <div className="carte flex flex-nowrap items-center gap-x-4 gap-y-2 overflow-x-auto px-3 py-2">
+      <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Lire</span>
+        <Segments label="Lire" valeur={perim} onChange={setPerim} options={[['etab', 'L’établissement'], ['section', 'Une section']]} />
+        {perim === 'section' && (
+          <select className="controle flex-none" value={section} onChange={e => setSection(e.target.value)} aria-label="Section">
+            {sections.map(x => <option key={x.section} value={x.section}>{x.section}</option>)}
+          </select>)}
+      </div>
+      <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Voir</span>
+        <Segments label="Voir" valeur={lentille} onChange={setLentille} options={LENTILLES} /></div>
+      <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Comparer à</span>
+        <Segments label="Comparer à" valeur={ref} onChange={setRef} options={REFS} /></div>
+      <button type="button" className="bouton ml-auto inline-flex items-center flex-none" onClick={() => setTour(t => t + 1)} title="Recalculer avec les dernières données" aria-label="Recalculer"><IconRefresh size={15} /></button>
+      <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5 whitespace-nowrap flex-none" onClick={presenter} disabled={!d}>
+        {perim === 'section' ? <IconPresentation size={15} /> : <IconMaximize size={15} />}Présenter</button>
+    </div>);
+
+  const noteRef = ref === 'ASBL' ? 'L’ASBL n’a pas encore de chiffres de référence dans Lucie : les comparaisons restent « à calculer ».'
+    : ref === 'HELB' ? `La HELB publie l’efficience de ses cursus (étudiants comptés par ETP, ${d?.helb?.annee || ''}) ; pour TIM et l’orthoptie, la valeur est celle de la HELB. Ses autres chiffres ne sont pas dans Lucie.`
+      : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
+
+  if (erreur && !d) return <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>;
+  return (
+    <div ref={racine} className="space-y-3" style={{ background: 'var(--page-fond, #F4F6F9)' }}>
+      {barre}
+      {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
+      {!d ? <p className="text-second text-slate-400">Calcul des indicateurs de toutes les sections… (quelques secondes la première fois)</p> : (<>
+        <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}</p>
+        {perim === 'etab' ? <Etablissement d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef}
+          ouvrir={s => { setSection(s); setPerim('section'); }} />
+          : !S ? <p className="text-second text-slate-500">Section introuvable pour {d.annee}.</p>
+            : <Section S={S} d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />}
+      </>)}
+    </div>);
+}
+
+/* ------------------------------------------------------------------------------------------------ L'ÉTABLISSEMENT */
+function Cle({ couleur, valeur, libelle, precision }) {
+  return (
+    <div className="rounded-carte border border-slate-200 bg-white px-4 py-3 h-full" style={{ borderLeft: `6px solid ${couleur}` }}>
+      <div className="text-[26px] leading-tight font-bold tabular-nums" style={{ color: couleur }}>{valeur}</div>
+      <div className="text-sm font-semibold text-slate-800 mt-1">{libelle}</div>
+      {precision && <div className="text-second text-slate-500 mt-0.5">{precision}</div>}
+    </div>);
+}
+
+function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
+  const I = d.iip, P = d.prec?.iip;
+  const cols = COLONNES[lentille];
+  const k0 = { tout: 'reussite_finale', etu: 'inscrits', res: 'reussite_finale', fin: 'cout_etudiant' }[lentille];
+  const triees = [...d.sections].sort((a, b) => (b.inscrits || 0) - (a.inscrits || 0));
+  const barres = triees.filter(s => s[k0] != null && !(k0 === 'cout_etudiant' && (s.inscrits || 0) < 40)).map(s => ({ c: s.section, v: Math.round(s[k0]) }));
+  return (<>
+    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
+      <Cle couleur={MARINE} valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
+      <Cle couleur={VERT} valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${P?.reussite_finale != null ? ` · ${IND.reussite_finale.f(P.reussite_finale)} l’année d’avant` : ''}`} />
+      <Cle couleur={BLEU} valeur={IND.cout_etudiant.f(I.cout_etudiant)} libelle="coût moyen d’un étudiant" precision={`recettes : ${IND.recettes_etudiant.f(I.recettes_etudiant)} par étudiant`} />
+      <Cle couleur="#8A6A00" valeur={n1(I.etu_etp)} libelle="inscrits par ETP enseignant" precision={`${n1(I.etp)} ETP · HELB (sa méthode) : ${n1(d.helb?.etu_etp)}`} />
+    </div>
+    <div className="grid gap-3 lg:grid-cols-2">
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Les étudiants par section" sous={`${n0(I.inscrits)} au 15/10`} />
+        <div className="p-3 flex items-center gap-4">
+          <PieChart width={220} height={220}>
+            <Pie data={triees} dataKey="inscrits" nameKey="section" innerRadius={62} outerRadius={100} paddingAngle={1} isAnimationActive={false} stroke="#fff" strokeWidth={2}>
+              {triees.map((s, i) => <Cell key={s.section} fill={SERIE[i % SERIE.length]} />)}
+            </Pie>
+          </PieChart>
+          <div className="flex-1 min-w-0 space-y-1.5">
+            {triees.map((s, i) => (
+              <button key={s.section} type="button" onClick={() => ouvrir(s.section)} className="w-full flex items-center gap-2 text-second hover:text-iip-blue text-left">
+                <span className="w-3 h-3 rounded-sm flex-none" style={{ background: SERIE[i % SERIE.length] }} />
+                <span className="flex-1 truncate">{s.section}</span><b className="tabular-nums">{n0(s.inscrits)}</b>
+                <span className="w-11 text-right text-slate-500 tabular-nums">{Math.round((s.inscrits / Math.max(1, I.inscrits)) * 100)} %</span>
+              </button>))}
+          </div>
+        </div>
+      </section>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre={IND[k0].l} sous={`par section · le trait : ${nomRef}`} />
+        <div className="p-3 overflow-x-auto">
+          <BarChart width={520} height={Math.max(180, barres.length * 30 + 20)} data={barres} layout="vertical" margin={{ top: 4, right: 56, left: 0, bottom: 4 }}>
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#E5E9F0" />
+            <XAxis type="number" hide domain={[0, 'dataMax']} />
+            <YAxis type="category" dataKey="c" width={110} tick={{ fontSize: 12, fill: '#475569' }} axisLine={false} tickLine={false} interval={0} />
+            {refDe(k0, 'X') != null && <ReferenceLine x={refDe(k0, 'X')} stroke="#1B2B4B" strokeDasharray="4 3" />}
+            <Bar dataKey="v" fill={BLEU} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+              {barres.map(b => { const j = juger(k0, b.v, refDe(k0, b.c)); return <Cell key={b.c} fill={j.bien === undefined ? BLEU : j.bien ? VERT : OCRE} />; })}
+              <LabelList dataKey="v" position="right" formatter={v => IND[k0].f(v)} style={{ fontSize: 12, fontWeight: 700, fill: '#1B2B4B' }} />
+            </Bar>
+          </BarChart>
+        </div>
+      </section>
+    </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Les sections côte à côte" sous={`chaque case comparée à ${nomRef} — vert au-dessus, ocre en dessous ; un clic ouvre la section`} />
+      <div className="overflow-x-auto">
+        <Tableau className="!border-0 !rounded-none">
+          <thead><tr className="tab-entete"><Th>Section</Th>{cols.map(k => <Th key={k} align="droite" title={IND[k].aide}>{IND[k].court || IND[k].l}</Th>)}</tr></thead>
+          <tbody>
+            <TrTotal><Td>Institut (IIP)</Td>{cols.map(k => <Td key={k} align="droite">{IND[k].f(I[k])}</Td>)}</TrTotal>
+            {triees.map(s => (
+              <Tr key={s.section} className="cursor-pointer" onClick={() => ouvrir(s.section)}>
+                <Td><span className="font-semibold text-iip-blue">{s.section}</span></Td>
+                {cols.map(k => {
+                  const v = valDe(k, s), j = juger(k, v, refDe(k, s.section));
+                  return <Td key={k} align="droite">{IND[k].sens && j.bien !== undefined
+                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[12px] font-bold text-white tabular-nums" style={{ background: j.ton }}>{IND[k].f(v)}</span>
+                    : <span className="tabular-nums">{IND[k].f(v)}</span>}</Td>;
+                })}
+              </Tr>))}
+          </tbody>
+        </Tableau>
+      </div>
+    </section>
+  </>);
+}
+
+/* ------------------------------------------------------------------------------------------------ UNE SECTION */
+function Section({ S, d, lentille, refDe, valDe, juger, nomRef, blocs, pistes }) {
+  const lignes = POSITION[lentille].map(k => {
+    const v = valDe(k, S), r = refDe(k, S.section), j = juger(k, v, r);
+    const tous = [v, r, ...d.sections.map(x => x[k])].filter(x => x != null && Number.isFinite(x));
+    const max = Math.max(1, ...tous.filter(x => !(k === 'etu_etp' && x > 200)), v || 0, r || 0) * 1.08;
+    return { k, v, r, j, x: v == null ? null : Math.min(100, (v / max) * 100), rx: r == null ? null : Math.min(100, (r / max) * 100) };
+  });
+  const voir = l => lentille === 'tout' || lentille === l;
+  return (<>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre={`Où se situe ${S.section} ?`} sous={`comparée à ${nomRef} · le point bleu = ${S.section}, le trait = la référence`} />
+      <div className="px-4 pb-2">
+        {lignes.map(({ k, v, r, j, x, rx }) => (
+          <div key={k} className="grid items-center gap-3 py-2.5 border-b border-slate-100 last:border-0" style={{ gridTemplateColumns: 'minmax(150px,1.3fr) minmax(120px,3fr) 84px 110px 110px' }}>
+            <div className="min-w-0"><div className="text-sm font-semibold text-slate-800">{IND[k].l}</div>{IND[k].aide && <div className="text-mention text-slate-500 truncate">{IND[k].aide}</div>}</div>
+            <div className="relative h-6" aria-hidden="true">
+              <div className="absolute inset-x-0 top-[11px] h-[3px] rounded bg-slate-200" />
+              {rx != null && <div className="absolute top-[3px] w-[3px] h-[19px] bg-slate-500" style={{ left: `${rx}%` }} />}
+              {x != null && <div className="absolute top-[4px] w-4 h-4 -ml-2 rounded-full border-[3px] border-white" style={{ left: `${x}%`, background: BLEU, boxShadow: `0 0 0 1px ${BLEU}` }} />}
+            </div>
+            <div className="text-right text-[15px] font-bold tabular-nums" style={{ color: BLEU }}>{IND[k].f(v)}</div>
+            <div className="text-right text-second text-slate-500 tabular-nums">{r == null ? '—' : IND[k].f(r)}</div>
+            <div className="text-right"><Verdict ton={j.ton}>{j.mot}</Verdict></div>
+          </div>))}
+      </div>
+    </section>
+
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 items-stretch">
+      {voir('etu') && (
+        <section className="carte overflow-hidden h-full">
+          <EnteteCarte titre="Les étudiants" sous={`${n0(S.inscrits)} au 15/10 · ${IND.croissance.f(S.croissance)} sur un an`} />
+          <div className="p-4 flex items-center gap-4">
+            <PieChart width={130} height={130}>
+              <Pie data={[{ n: 'Femmes', v: S.femmes || 0 }, { n: 'Hommes', v: 100 - (S.femmes || 0) }]} dataKey="v" innerRadius={40} outerRadius={60} startAngle={90} endAngle={-270} isAnimationActive={false} stroke="#fff" strokeWidth={2}>
+                <Cell fill={FRAMBOISE} /><Cell fill={BLEU} />
+              </Pie>
+            </PieChart>
+            <div className="space-y-1.5 text-sm">
+              <div><b style={{ color: FRAMBOISE }}>{IND.femmes.f(S.femmes)}</b> femmes · <b style={{ color: BLEU }}>{S.femmes == null ? '—' : `${n0(100 - S.femmes)} %`}</b> hommes</div>
+              <div><b>{IND.age.f(S.age)}</b> en moyenne</div>
+              <div><b>{IND.primo.f(S.primo)}</b> de primo-inscrits</div>
+              <div><b>{IND.hors_ue.f(S.hors_ue)}</b> hors Union européenne</div>
+              <div><b>{IND.bruxelles.f(S.bruxelles)}</b> à Bruxelles</div>
+            </div>
+          </div>
+        </section>)}
+      {voir('res') && (
+        <section className="carte overflow-hidden h-full">
+          <EnteteCarte titre="La réussite par bloc" sous={`${d.resultats_annee || ''} · or : 1re session · vert : au final`} />
+          <div className="p-4">
+            {!blocs ? <p className="text-second text-slate-400">Chargement…</p> : !blocs.length ? <p className="text-second text-slate-500">Pas de décisions par bloc pour cette section.</p> : (
+              <BarChart width={330} height={170} data={blocs.map(b => ({ c: b.cle, s1: Math.round(b.s1.taux_reussite), f: Math.round(b.final.taux_reussite) }))} margin={{ top: 18, right: 4, left: 4, bottom: 0 }}>
+                <XAxis dataKey="c" tick={{ fontSize: 12, fill: '#475569' }} axisLine={{ stroke: '#D8DCE4' }} tickLine={false} />
+                <YAxis hide domain={[0, 100]} />
+                <Bar dataKey="s1" fill={OR} radius={[4, 4, 0, 0]} isAnimationActive={false}><LabelList dataKey="s1" position="top" formatter={v => `${v} %`} style={{ fontSize: 11, fontWeight: 700, fill: '#1B2B4B' }} /></Bar>
+                <Bar dataKey="f" fill={VERT} radius={[4, 4, 0, 0]} isAnimationActive={false}><LabelList dataKey="f" position="top" formatter={v => `${v} %`} style={{ fontSize: 11, fontWeight: 700, fill: '#1B2B4B' }} /></Bar>
+              </BarChart>)}
+          </div>
+        </section>)}
+      {voir('fin') && (
+        <section className="carte overflow-hidden h-full">
+          <EnteteCarte titre="Les finances" sous={`${d.annee} · coût complet, CT ÷ 800 + PP ÷ 1000`} />
+          <div className="p-4 grid grid-cols-2 gap-3">
+            {[['cout_etudiant', BLEU], ['recettes_etudiant', VERT], ['etu_etp', '#8A6A00'], ['etp', MARINE]].map(([k, c]) => (
+              <div key={k}><div className="text-[22px] font-bold tabular-nums" style={{ color: c }}>{IND[k].f(S[k])}</div><div className="text-mention text-slate-500">{IND[k].l}</div></div>))}
+          </div>
+        </section>)}
+    </div>
+
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Ce qu’on peut améliorer — ou non" sous={`déduit des écarts à ${nomRef}`} />
+      <div className="px-4 py-1">
+        {!pistes.length ? <p className="text-second text-slate-500 py-2">Rien à signaler face à cette référence, ou pas de référence pour ces indicateurs.</p> : pistes.map(p => (
+          <div key={p.k} className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
+            <Verdict ton={p.bien ? VERT : OCRE}>{p.bien ? 'Point fort' : 'À améliorer'}</Verdict>
+            <div className="text-sm leading-snug text-slate-800">{p.txt}</div>
+          </div>))}
+      </div>
+    </section>
+  </>);
+}

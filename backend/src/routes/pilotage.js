@@ -6,7 +6,8 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE } from '../lib/rapportIipHelb.js';
+import { reussiteParSection } from './statsDeliberation.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
@@ -253,6 +254,75 @@ r.get('/iip-helb', authRequired, (req, res) => {
   if (req.query.recalculer) viderMemoCout();
   try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees)); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* LIRE ET COMPARER (3.5.447, Charles, 14 novembre 2026, maquette validée : « choisir la manière de consulter : par établissement,
+   par section avec toutes les données combinées, ou juste les résultats, ou les finances — modulable » ; « des référentiels : HELB,
+   IIP, ASBL… telle section coûte autant par étudiant en comparaison avec la moyenne ; positionner la section ; voir ce qu'on peut
+   améliorer »). UNE route rend, pour chaque section ET pour l'établissement, les mêmes indicateurs, lus aux sources de Gestion :
+   population (donneesPopulation), décisions (reussiteParSection, comme Décisions et taux), coûts et ETP (donneesCout, gardé en
+   mémoire comme IIP et HELB : CT ÷ 800 + PP ÷ 1000), inscrits de référence (l'évolution de Population). L'année d'avant pour
+   « années passées » ; la HELB pour ce qu'elle publie (étudiants par ETP). La coordination ne voit que ses sections ; l'IIP, un
+   agrégat, reste la référence de tous. */
+const anneePrec = a => `${Number(a.slice(0, 4)) - 1}-${Number(a.slice(5, 9)) - 1}`;
+function indicateursLecture(annee) {
+  const pop = donneesPopulation(annee, {});
+  const evo = new Map((pop.evolution || []).map(e => [e.annee, e]));
+  const reussiteAnnee = (() => {
+    // Les résultats de l'année la plus récente qui en a de complets (la seconde session faite pour l'essentiel).
+    for (const a of [annee, anneePrec(annee), anneePrec(anneePrec(annee))]) {
+      try { const r = reussiteParSection(a); const t = r.total; if (t && t.s1.decides > 0 && (t.final.en_attente || 0) / Math.max(1, t.inscrits) < 0.2) return { annee: a, ...r }; } catch { /* */ }
+    }
+    return { annee: null, par: {}, total: null };
+  })();
+  let cout = null; try { cout = coutMemo(annee); } catch { cout = null; }
+  const coutSec = new Map((cout?.sections || []).map(x => [x.section, x]));
+  const etpDe = x => (x?.per_ct || 0) / 800 + (x?.per_pp || 0) / 1000;
+  const e = evo.get(annee), ep = evo.get(anneePrec(annee));
+  const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : null);
+  const ind = (code, s, inscritsRef, inscritsPrec, R, C) => {
+    const sexe = (s?.F || 0) + (s?.M || 0) + (s?.X || 0);
+    const n = inscritsRef || s?.n || 0;
+    const etp = C ? etpDe(C) : null;
+    const coutTot = C ? (C.cout_complet ?? C.cout) : null;
+    const rec = C?.recettes ? (C.recettes.di || 0) + (C.recettes.dis || 0) + (C.recettes.frais || 0) : null;
+    const nCout = C?.inscrits || n;
+    return { section: code, inscrits: n, inscrits_prec: inscritsPrec || null, croissance: inscritsPrec ? pct(n - inscritsPrec, inscritsPrec) : null,
+      reussite_finale: R?.final?.taux_reussite ?? null, reussite_s1: R?.s1?.taux_reussite ?? null, reussite_s2: R?.s2?.taux_reussite ?? null, decisions: R?.inscrits || 0,
+      femmes: s ? pct(s.F || 0, sexe) : null, primo: s ? pct(s.primo || 0, s.n) : null, age: s?.age_moyen ?? null, hors_ue: s ? pct(s.hors_ue || 0, s.n) : null,
+      bruxelles: s?.domicile ? pct(s.domicile.bruxelles || 0, s.n) : null,
+      etp: etp != null ? Math.round(etp * 100) / 100 : null, etu_etp: etp ? Math.round((nCout / etp) * 10) / 10 : null,
+      cout_etudiant: coutTot != null && nCout ? Math.round(coutTot / nCout) : null, recettes_etudiant: rec != null && nCout ? Math.round(rec / nCout) : null };
+  };
+  const codes = [...new Set([...(pop.sections || []).map(s => s.section), ...Object.keys(e?.par_section || {})])].filter(Boolean);
+  const sections = codes.map(c => ind(c, (pop.sections || []).find(s => s.section === c), e?.par_section?.[c], ep?.par_section?.[c], reussiteAnnee.par[c], coutSec.get(c)))
+    .sort((a, b) => (b.inscrits || 0) - (a.inscrits || 0));
+  const totC = cout ? { per_ct: cout.sections.reduce((t, x) => t + (x.per_ct || 0), 0), per_pp: cout.sections.reduce((t, x) => t + (x.per_pp || 0), 0),
+    cout_complet: cout.total?.cout_complet ?? cout.total?.cout, inscrits: cout.sections.reduce((t, x) => t + (x.inscrits || 0), 0),
+    recettes: cout.recettes } : null;
+  const iip = ind('IIP', pop.ensemble, e?.total, ep?.total, reussiteAnnee.total, totC);
+  return { annee, resultats_annee: reussiteAnnee.annee, sections, iip };
+}
+const MEMO_LECTURE = new Map();
+r.get('/lecture', authRequired, (req, res) => {
+  try {
+    const annee = req.query.annee || anneeDeTravail(req);
+    const k = annee; const m = MEMO_LECTURE.get(k);
+    let d;
+    if (m && Date.now() - m.t < 600e3 && !req.query.recalculer) d = m.d;
+    else {
+      let prec = null; try { prec = indicateursLecture(anneePrec(annee)); } catch { prec = null; }
+      d = { ...indicateursLecture(annee), prec };
+      MEMO_LECTURE.set(k, { t: Date.now(), d });
+    }
+    const perim = getUserSections(req.user);
+    const garde = l => (perim ? l.filter(x => perim.includes(x.section)) : l);
+    const moy = COMPARAISON_HE.moyennes || {};
+    res.json({ ...d, sections: garde(d.sections), prec: d.prec ? { ...d.prec, sections: garde(d.prec.sections) } : null,
+      helb: { source: COMPARAISON_HE.source, annee: COMPARAISON_HE.annee, etu_etp: moy['Moyenne HELB'] ?? null, etu_etp_sante: moy['Santé'] ?? null,
+        cursus: COMPARAISON_HE.cursus.map(c => ({ dept: c.dept, cursus: c.cursus, etu_etp: c.ratio ? Math.round(c.ratio * 10) / 10 : null })) },
+      asbl: null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 /* LA PRÉSENTATION D'UNE SECTION (3.5.446, Charles, 14 novembre 2026 : « jeudi je présente la section imagerie médicale au CA,

@@ -218,6 +218,15 @@ function agreger(lignes, clef) {
  * Quand deux valeurs sont également fréquentes, il n'y a pas UN mode : on les
  * rend toutes plutôt que d'en choisir une au hasard.
  */
+/** LA RÉUSSITE PAR SECTION, POUR LA LECTURE DE GESTION (3.5.447) : les mêmes décisions et les mêmes taux que cette page,
+ *  regroupés par section de l'étudiant, plus le total de l'établissement. */
+export function reussiteParSection(annee) {
+  const lignes = decisions(annee, null);
+  const par = agreger(lignes, l => l.section || null);
+  const tot = agreger(lignes, () => '*').get('*');
+  return { par: Object.fromEntries([...par].map(([k, c]) => [k, taux(c)])), total: tot ? taux(tot) : null };
+}
+
 function distribution(valeurs) {
   const v = valeurs.filter(x => x !== null && x !== undefined && Number.isFinite(Number(x)))
     .map(Number).sort((a, b) => a - b);
