@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
@@ -355,8 +355,19 @@ r.get('/lecture', authRequired, (req, res) => {
     const moy = COMPARAISON_HE.moyennes || {};
     res.json({ ...d, sections: garde(d.sections), prec: d.prec ? { ...d.prec, sections: garde(d.prec.sections) } : null,
       helb: { source: COMPARAISON_HE.source, annee: COMPARAISON_HE.annee, etu_etp: moy['Moyenne HELB'] ?? null, etu_etp_sante: moy['Santé'] ?? null,
-        // Estimation : coût moyen brut d'un ETP de la HELB ÷ ses étudiants comptés par ETP ÷ 60 crédits (salaires d'enseignement seuls).
-        cout_credit: moy['Moyenne HELB'] ? Math.round((PARAM_HELB.cmbp / moy['Moyenne HELB'] / 60) * 10) / 10 : null, cmbp: PARAM_HELB.cmbp,
+        // LE COÛT PAR CRÉDIT DE LA HELB, ENCADREMENT COMPRIS (3.5.449) : les rémunérations de son COR ÷ ses étudiants comptés ÷ 60 —
+        // comparable à notre coût complet ; à côté, l'enseignement seul, et les proportions qui l'expliquent.
+        ...(() => {
+          // Les inscrits de la même année que le COR (2026-2027), à défaut les étudiants comptés publiés (2025-2026).
+          const etu = COR_HELB.inscrits || COMPARAISON_HE.cursus.reduce((t, c) => t + (c.etu || 0), 0);
+          const parCredit = v => (etu ? Math.round((v / etu / 60) * 10) / 10 : null);
+          return { etudiants: Math.round(etu), cout_credit: parCredit(COR_HELB.total), cout_credit_enseignement: parCredit(COR_HELB.enseignement),
+            cout_etudiant: etu ? Math.round(COR_HELB.total / etu) : null, encadrement_pct: Math.round((COR_HELB.encadrement / COR_HELB.enseignement) * 100),
+            cout_etp: Math.round((COR_HELB.enseignement - 1800490) / COR_HELB.etp_enseignants), fonctions_pct: Math.round(COR_HELB.fonctions_sur_enseignement * 100),
+            source_cor: COR_HELB.source, inscrits_le: COR_HELB.inscrits_le,
+            etu_etp_2627: COR_HELB.inscrits && COR_HELB.etp_cursus ? Math.round((COR_HELB.inscrits / COR_HELB.etp_cursus) * 10) / 10 : null };
+        })(),
+        cmbp: PARAM_HELB.cmbp,
         cursus: COMPARAISON_HE.cursus.map(c => ({ dept: c.dept, cursus: c.cursus, etu_etp: c.ratio ? Math.round(c.ratio * 10) / 10 : null })) },
       asbl: null });
   } catch (e) { res.status(500).json({ error: e.message }); }

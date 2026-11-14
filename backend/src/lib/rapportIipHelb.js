@@ -244,6 +244,23 @@ export function apportAdmin(y, ref) {
    départements de la HE »). Les chiffres de la HELB elle-même : Chiffres_Santé.xlsx et « Evolution COMAV + étudiants » (étudiants
    comptés et ETP enseignants par cursus, 2022-2023 à 2025-2026), tableau Cor_HE_AE (2025-2026, Technoeco, Social, IIP). Des
    données de référence, jamais recalculées : la source est écrite sur la pièce. */
+/* LES PROPORTIONS RÉELLES DE LA HELB (3.5.449, Charles, 14 novembre 2026 : « je veux juste utiliser les proportions pour nous assurer
+   que nous comparons les bonnes choses »). Tirées du COR de la HELB (cadre organique réel, septembre 2026, version « total ») et de ses
+   attributions 2026-2027 — des TOTAUX seulement : aucune donnée de personne n'est gardée. Elles disent ce que coûte vraiment un ETP
+   d'enseignant, et ce que pèse l'encadrement (direction, administration) au-dessus de l'enseignement. */
+export const COR_HELB = {
+  source: 'HELB : COR septembre 2026 (total) et attributions 2026-2027 — totaux',
+  total: 18682190.77,            // rémunérations du COR, sans le personnel de recherche
+  allocation: 18650000,
+  enseignement: 12217316.27 + 1800490,   // maîtres-assistants, MFP (statutaires) + professeurs invités
+  encadrement: 453420 + 113355 + 113355 + 1925089.5 + 2059165,   // direction, personnel administratif statutaire et contractuel
+  etp_enseignants: 143.39,       // statutaires
+  fonctions_sur_enseignement: 0.182,   // coordinations, stages, TFE… ÷ enseignement, dans les cursus (attributions 2026-2027)
+  etp_cursus: 140.22 + 25.54,    // enseignement + fonctions des cursus (attributions 2026-2027, dixièmes ÷ 10)
+  inscrits: 3093,                // dossiers inscrits 2026-2027 au 2 novembre 2026, tous cursus (hors TIM, inscrit à l'IIP)
+  inscrits_le: '2 novembre 2026',
+};
+
 export const COMPARAISON_HE = {
   source: 'HELB : Chiffres_Santé.xlsx, Evolution COMAV + étudiants (3 avril 2026), Cor_HE_AE (2025-2026)',
   annee: '2025-2026',

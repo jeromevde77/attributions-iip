@@ -105,7 +105,10 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
   const refDe = (k, code) => {
     if (ref === 'IIP') return code === 'IIP' ? null : d?.iip?.[k] ?? null;
     if (ref === 'N1') return code === 'IIP' ? d?.prec?.iip?.[k] ?? null : d?.prec?.sections?.find(x => x.section === code)?.[k] ?? null;
-    if (ref === 'HELB') return k === 'etc_etp' ? d?.helb?.etu_etp ?? null : k === 'cout_credit' ? d?.helb?.cout_credit ?? null : k === 'cout_180' && d?.helb?.cout_credit ? Math.round(d.helb.cout_credit * 180) : null;
+    if (ref === 'HELB') {
+      const H = d?.helb || {};
+      return { etc_etp: H.etu_etp_2627 ?? H.etu_etp, cout_credit: H.cout_credit, cout_180: H.cout_credit ? Math.round(H.cout_credit * 180) : null, cout_etudiant: H.cout_etudiant }[k] ?? null;
+    }
     return null;   // ASBL : pas encore de référence dans Lucie
   };
   /* La valeur, dans la méthode de la référence : face à la HELB, l'efficience d'un cursus qu'elle publie est la SIENNE. */
@@ -118,7 +121,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
     const e = v - r, s = IND[k].sens;
     if (!s) return { ton: '#64748B', mot: `${e > 0 ? '+' : ''}${IND[k].f(e).replace(/ (%|€|ans)$/, '')}${/%$/.test(IND[k].f(v)) ? ' pts' : ''}`, ecart: e };
     const bien = s > 0 ? e >= 0 : e <= 0;
-    return { ton: bien ? VERT : OCRE, mot: bien ? 'au-dessus' : 'en dessous', ecart: e, bien };
+    return { ton: bien ? VERT : OCRE, mot: s < 0 ? (bien ? 'moins cher' : 'plus cher') : (bien ? 'au-dessus' : 'en dessous'), ecart: e, bien };
   };
 
   const presenter = () => {
@@ -163,7 +166,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter }) {
     </div>);
 
   const noteRef = ref === 'ASBL' ? 'L’ASBL n’a pas encore de chiffres de référence dans Lucie : les comparaisons restent « à calculer ».'
-    : ref === 'HELB' ? `La HELB publie l’efficience de ses cursus (étudiants comptés par ETP, ${d?.helb?.annee || ''}) : elle se compare aux étudiants temps plein par ETP ; pour TIM et l’orthoptie, la valeur est celle de la HELB. Son coût par crédit est une ESTIMATION : ${n0(d?.helb?.cmbp)} € par ETP ÷ ses étudiants par ETP ÷ 60 (salaires d’enseignement seuls).`
+    : ref === 'HELB' ? `HELB 2026-2027 : ${n0(d?.helb?.etudiants)} inscrits (${d?.helb?.inscrits_le || ''}), ${n1(d?.helb?.etu_etp_2627)} étudiants par ETP de cursus (publié en ${d?.helb?.annee || ''} : ${n1(d?.helb?.etu_etp)}) ; coût par crédit = son COR (rémunérations, encadrement compris) ÷ inscrits ÷ 60 — ${n0(d?.helb?.cout_credit_enseignement)} € pour l’enseignement seul, + ${n0(d?.helb?.encadrement_pct)} % d’encadrement ; un ETP d’enseignant y coûte ${n0(d?.helb?.cout_etp)} €. Seules ces proportions viennent de ses fichiers.`
       : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
 
   if (erreur && !d) return <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>;
@@ -201,8 +204,8 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
       <Cle couleur={MARINE} valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
       <Cle couleur={VERT} valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${P?.reussite_finale != null ? ` · ${IND.reussite_finale.f(P.reussite_finale)} l’année d’avant` : ''}`} />
-      <Cle couleur={BLEU} valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · HELB ≈ ${IND.cout_credit.f(d.helb?.cout_credit)}`} />
-      <Cle couleur="#8A6A00" valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · HELB : ${n1(d.helb?.etu_etp)}`} />
+      <Cle couleur={BLEU} valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · HELB ${IND.cout_credit.f(d.helb?.cout_credit)}`} />
+      <Cle couleur="#8A6A00" valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · HELB : ${n1(d.helb?.etu_etp_2627 ?? d.helb?.etu_etp)}`} />
     </div>
     <div className="grid gap-3 lg:grid-cols-2">
       <section className="carte overflow-hidden">
