@@ -112,7 +112,7 @@ export default function SourcesReference() {
   const enVigueur = {}; for (const s of sources) if (!s.retire_le && !enVigueur[s.nature]) enVigueur[s.nature] = s;
   return (
     <div className="space-y-3">
-      <div className="carte px-3 py-2 flex flex-nowrap items-center gap-3 overflow-x-auto">
+      <div className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-1">
         <input ref={champ} type="file" accept=".xlsx,.xlsm,.pdf" className="hidden" onChange={e => choisir(e.target.files?.[0])} />
         <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5 whitespace-nowrap flex-none" disabled={enCours} onClick={() => champ.current?.click()}>
           <IconUpload size={15} />{enCours ? 'Lecture…' : 'Déposer un fichier'}</button>
