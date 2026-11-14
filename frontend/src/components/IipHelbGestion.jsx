@@ -22,7 +22,17 @@ const keur = v => `${n0((v || 0) / 1000)} k€`;
 const pc = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const court = a => `${String(a).slice(2, 4)}-${String(a).slice(7, 9)}`;
 const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'], ['courbe', 'Courbe']];
-const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'],
+/* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
+const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 37.2, fonctionnement: 20.8, moyenne: 17 };
+const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
+  ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
+function helbAnnee(y, P, avecCoord) {
+  const comptes = y.inscrits * P.part / 100, recettes = comptes * P.muce * P.ponderation;
+  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = etp * P.cmbp, autres = salaires * P.autres / 100, fonct = recettes * P.fonctionnement / 100;
+  const cout = salaires + autres + fonct;
+  return { comptes, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
+}
+const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
 /** Un graphique de deux séries sur les années, dans la forme choisie. */
@@ -121,6 +131,8 @@ export default function IipHelbGestion() {
     ouvrirApercu({ html: j.html, titre: j.titre, sousTitre: (annees || []).join(' · '), nomFichier: j.nom });
   };
 
+  const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
+  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui') }));
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
   const totI = Y.reduce((t, y) => t + y.coutI, 0), totH = Y.reduce((t, y) => t + y.coutH, 0);
@@ -164,6 +176,8 @@ export default function IipHelbGestion() {
           <Tuile valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
           <Tuile valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle="Coût d’un étudiant" precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
           <Tuile valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte à l’IIP" precision="droits et frais, au barème" />
+          {(() => { const h = HY[HY.length - 1].h; return <Tuile valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Boni pour la HELB ${aN.annee}`}
+            precision={`rapporte ${keur(h.recettes)} · coûte ${keur(h.cout)}`} />; })()}
           <Tuile valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
         </div>
 
@@ -194,6 +208,47 @@ export default function IipHelbGestion() {
             <Graphe forme={forme('recettes', 'cote') === 'parts' ? 'cote' : forme('recettes', 'cote')} fmt={eur}
               series={[['cout', 'Coût pour l’IIP', IIP], ['percu', 'Droits et frais perçus', PERCU]]}
               donnees={Y.filter(y => y.inscrits && !y.tiers).map(y => ({ lib: y.lib, cout: y.coutI / y.inscrits, percu: y.recettes / y.inscrits }))} />
+          </Carte>}
+
+          {vu('helb') && <Carte large titre="Pour la HELB : ce que coûte et rapporte la section" sous={`${PH.part} % des inscrits comptés · allocation × ${PH.ponderation} (santé) · ETP à ${n0(PH.cmbp)} €`}
+            forme={forme('helb', 'cote')} onForme={majForme('helb')} onMasquer={masquer('helb')}>
+            <div className="grid gap-3 lg:grid-cols-[1fr_20rem]">
+              <div className="min-w-0">
+                <Graphe forme={forme('helb', 'cote') === 'parts' ? 'cote' : forme('helb', 'cote')} fmt={keur}
+                  series={[['recettes', 'Ce qu’elle rapporte', PERCU], ['cout', 'Ce qu’elle coûte', HELB]]}
+                  donnees={HY.map(({ y, h }) => ({ lib: y.lib, recettes: h.recettes, cout: h.cout }))} />
+                <div className="overflow-x-auto"><table className="w-full text-second mt-2 whitespace-nowrap">
+                  <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Comptés</th><th className="px-2 py-1 text-right">Allocation</th>
+                    <th className="px-2 py-1 text-right">ETP HELB</th><th className="px-2 py-1 text-right">Salaires</th><th className="px-2 py-1 text-right">Autres serv.</th>
+                    <th className="px-2 py-1 text-right">Fonct.</th><th className="px-2 py-1 text-right">Coût</th><th className="px-2 py-1 text-right">Résultat</th><th className="px-2 py-1 text-right">Étu./ETP</th></tr></thead>
+                  <tbody>
+                    <tr className="ligne-total font-semibold"><td className="px-2 py-1">Ensemble</td><td />
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.recettes, 0))}</td><td />
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.salaires, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.autres, 0))}</td>
+                      <td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.fonct, 0))}</td><td className="px-2 py-1 text-right">{eur(HY.reduce((t, x) => t + x.h.cout, 0))}</td>
+                      <td className="px-2 py-1 text-right" style={{ color: 'var(--c-reussi)' }}>{eur(HY.reduce((t, x) => t + x.h.resultat, 0))}</td><td /></tr>
+                    {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{y.annee}</td>
+                      <td className="px-2 py-1 text-right">{n0(h.comptes)}</td><td className="px-2 py-1 text-right">{eur(h.recettes)}</td><td className="px-2 py-1 text-right">{n2(h.etp)}</td>
+                      <td className="px-2 py-1 text-right">{eur(h.salaires)}</td><td className="px-2 py-1 text-right">{eur(h.autres)}</td><td className="px-2 py-1 text-right">{eur(h.fonct)}</td>
+                      <td className="px-2 py-1 text-right">{eur(h.cout)}</td>
+                      <td className="px-2 py-1 text-right font-semibold" style={{ color: h.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-refuse)' }}>{h.resultat >= 0 ? '+' : '−'}{eur(Math.abs(h.resultat))}</td>
+                      <td className="px-2 py-1 text-right">{h.parEtp ? <span title={`Moyenne HELB : ${PH.moyenne}`}>{n0(h.parEtp)} <span className="text-slate-400">/ {PH.moyenne}</span></span> : '—'}</td></tr>)}
+                  </tbody></table></div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="intertitre">Les paramètres</div>
+                {LIB_HELB.map(([k, l, u]) => (
+                  <label key={k} className="flex items-center gap-2 text-second">
+                    <span className="flex-1 min-w-0">{l}</span>
+                    <input className="controle !h-8 w-24 text-right" inputMode="decimal" value={reglages.helb?.[k] ?? PARAM_HELB[k]}
+                      onChange={e => maj('helb', { ...(reglages.helb || {}), [k]: e.target.value.replace(',', '.') })} aria-label={l} />
+                    <span className="w-20 text-mention text-slate-500">{u}</span>
+                  </label>))}
+                <p className="text-mention text-slate-500 m-0">Sources : présentation financière des départements (Vinci : MUCE 2022, 20,8 % de fonctionnement, 37,2 % d'autres
+                  services), courriel de F. Vanderoost du 27 août 2026 (santé × 1,5, ~90 000 € par ETP), tableau Cor_HE_AE (17 étudiants par ETP en moyenne).
+                  Les droits d'inscription restent à l'IIP.</p>
+              </div>
+            </div>
           </Carte>}
 
           {vu('fonctions') && <Carte large titre="Les coordinations de la section" sous={`ETP × 800 × ${n2(d.tarif_ct)} € (période CT ${d.niveau}), part IIP et part HELB`} onMasquer={masquer('fonctions')}>
