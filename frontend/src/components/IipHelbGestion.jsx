@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconSend, IconX, IconEye } from '@tabler/icons-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
+import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { EnteteCarte } from './ui.jsx';
@@ -41,7 +41,7 @@ function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   const cout = salaires + autres + fonct;
   return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
 }
-const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'],
+const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
 /** Un graphique de deux séries sur les années, dans la forme choisie. */
@@ -316,6 +316,66 @@ export default function IipHelbGestion() {
               </div>
             </div>
           </Carte>}
+
+          {vu('vrio') && (() => {
+            /* LA LECTURE VRIO (3.5.439, Charles : « un dossier très clair, transparent, qui montre une section optimisée, porteuse, une valeur
+               VRIN/VRIO »). Les preuves sont calculées ici, la lecture se réécrit (gardée avec les réglages, reprise par la pièce). */
+            const C = (d.comparaison?.cursus || []).filter(c => c.ratio).sort((a, b) => b.ratio - a.ratio);
+            const tim = C.find(c => c.tim), rang = C.findIndex(c => c.tim) + 1;
+            const res = HY.reduce((t, x) => t + x.h.resultat, 0), apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
+            const mat = HY.reduce((t, x) => t + x.h.fonct, 0), lN = HY[HY.length - 1];
+            const sg = v => `${v >= 0 ? '+' : '−'}${eur(Math.abs(v))}`;
+            const L = [
+              ['V', 'Valeur', [`Résultat HELB et ASBL : ${sg(res)} sur ${HY.length} an(s)`, `${lN.y.annee} : ${eur(lN.h.recettes)} de recettes, ${eur(lN.h.cout)} de coût`, `Apport de l’IIP : ${eur(apport)}`],
+                `La section rapporte plus qu'elle ne coûte : sur ${HY.length} année(s), le résultat pour la HELB et l'ASBL est de ${sg(res)}, et l'IIP y apporte ${eur(apport)} sans coût supplémentaire, sur ses propres dotations.`],
+              ['R', 'Rareté', tim ? [`${n0(tim.ratio)} étudiants par ETP (${d.comparaison.annee})`, `Rang ${rang} sur ${C.length} cursus HELB`, `Moyenne HELB ${n0(d.comparaison.moyennes['Moyenne HELB'])}, santé ${n0(d.comparaison.moyennes['Santé'])}`] : [],
+                tim ? `Avec ${n0(tim.ratio)} étudiants par ETP enseignant, ${section} est ${rang === 1 ? 'le cursus le plus efficient' : `au ${rang}e rang`} des ${C.length} cursus de la HELB, dont la moyenne est de ${n0(d.comparaison.moyennes['Moyenne HELB'])}.` : ''],
+              ['I', 'Difficile à imiter', [`Part IIP de la charge ${aN.annee} : ${pc(aN.etpI, aN.etpI + aN.etpH)}`, 'Administration : 100 % IIP', `Aide à la réussite (UE 95) : ${eur(HY.reduce((t, x) => t + u95(x.y), 0))}`],
+                "Le modèle tient à la co-organisation : l'enseignement partagé entre l'IIP (sur sa dotation) et la HELB (sur son allocation), l'administration entièrement à l'IIP, l'aide à la réussite (UE 95) intégrée. Il ne se reproduit pas sans les deux établissements."],
+              ['O', 'Organisation', [`Matériel et fonctionnement : ${eur(mat)}`, `${n0(aN.inscrits)} inscrits en ${aN.annee}`, `Coordinations : ${aN.coord.length} fonction(s) encodée(s)`],
+                `L'organisation est déjà en place : secrétariat et direction à l'IIP, coordinations identifiées, matériel réduit (${eur(mat)} sur la période), suivi dans Lucie.`],
+            ];
+            return (
+              <Carte large titre="Une section porteuse : la lecture VRIO" sous="Les preuves sont calculées ; la lecture est la vôtre — réécrivez-la, la pièce la reprend" onMasquer={masquer('vrio')}>
+                <div className="space-y-2">
+                  {L.map(([k, nom, preuves, defaut]) => (
+                    <div key={k} className="grid gap-3 md:grid-cols-[9rem_18rem_1fr] items-start border-b border-slate-100 pb-2">
+                      <div><span className="titre-carte">{k}</span> <span className="text-second text-slate-600">{nom}</span></div>
+                      <ul className="text-second m-0 pl-4 list-disc">{preuves.map(p => <li key={p}>{p}</li>)}</ul>
+                      <textarea className="controle w-full !h-auto text-second" rows={3} data-reponses="non" value={reglages.vrio?.[k] ?? defaut}
+                        onChange={e => maj('vrio', { ...(reglages.vrio || {}), [k]: e.target.value })} aria-label={`Lecture ${nom}`} />
+                    </div>))}
+                </div>
+              </Carte>);
+          })()}
+
+          {vu('comparaison') && d.comparaison && (() => {
+            const C = d.comparaison.cursus.filter(c => c.ratio).sort((a, b) => b.ratio - a.ratio);
+            const ann = ['2022-2023', '2023-2024', '2024-2025', '2025-2026'];
+            return (
+              <Carte large titre="Les cursus de la Haute École : étudiants par ETP enseignant" sous={`Les chiffres de la HELB — ${d.comparaison.source}`} onMasquer={masquer('comparaison')}>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <ResponsiveContainer width="100%" height={Math.max(280, C.length * 20)}>
+                    <BarChart data={C.map(c => ({ lib: c.cursus, v: Math.round(c.ratio), tim: c.tim }))} layout="vertical" margin={{ left: 10, right: 40 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} /><YAxis type="category" dataKey="lib" width={190} interval={0} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={v => [`${v} étudiants par ETP`, d.comparaison.annee]} contentStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="v" radius={[0, 3, 3, 0]}>
+                        {C.map(c => <Cell key={c.cursus} fill={c.tim ? PERCU : '#94A3B8'} />)}
+                        <LabelList dataKey="v" position="right" style={{ fontSize: 10, fill: '#475569' }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="overflow-x-auto"><table className="w-full text-second whitespace-nowrap">
+                    <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Cursus</th>{ann.map(a => <th key={a} className="px-2 py-1 text-right">{court(a)}</th>)}</tr></thead>
+                    <tbody>{d.comparaison.cursus.filter(c => Object.keys(c.series).length).map(c => (
+                      <tr key={c.cursus} className={`border-b border-slate-100 ${c.tim ? 'font-semibold' : ''}`} style={c.tim ? { color: PERCU } : undefined}><td className="px-2 py-1">{c.cursus}</td>
+                        {ann.map(a => { const v = c.series[a]; return <td key={a} className="px-2 py-1 text-right">{v && v[1] ? n0(v[0] / v[1]) : '—'}</td>; })}</tr>))}</tbody></table>
+                    <p className="text-mention text-slate-500 mt-1">Moyenne HELB {n0(d.comparaison.moyennes['Moyenne HELB'])}, santé {n0(d.comparaison.moyennes['Santé'])}. Le département santé compte {n2(d.comparaison.admin['Santé']['2025-2026'])} ETP administratifs en 2025-2026 ; ceux de {section} sont à l’IIP.</p>
+                  </div>
+                </div>
+              </Carte>);
+          })()}
 
           {vu('fonctions') && <Carte large titre="Les coordinations de la section" sous={`ETP × 800 × ${n2(d.tarif_ct)} € (période CT ${d.niveau}), part IIP et part HELB`} onMasquer={masquer('fonctions')}>
             <div className="overflow-x-auto"><table className="w-full text-second">
