@@ -38,12 +38,25 @@ function attributions(section, annee) {
 
 /* LE CALCUL DES COÛTS GARDÉ DIX MINUTES (3.5.432, Charles : « le rapport est lent à produire ») : donneesCout prend plusieurs secondes
    par année ; quatre années, et chaque réglage, le relançaient. */
+/* LA MÉMOIRE SUIT LES DONNÉES (3.5.440, Charles : « tout est encodé pourtant » — la page montrait les fonctions d'avant son encodage).
+   Une empreinte bon marché des fonctions, des attributions et des inscriptions de l'année : si elle change, on recalcule. */
 const MEMO_COUT = new Map();
+function empreinte(a) {
+  try {
+    const f = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(COALESCE(etp, 0) * 1000 + COALESCE(etp_helb, 0) * 7 + professeur_id), 0) s
+      FROM personnel_mission WHERE annee_scolaire = ?`).get(a);
+    const t = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(COALESCE(periodes_attribuees, 0) + COALESCE(autonomie_attribuee, 0) * 3 + COALESCE(professeur_id, 0)), 0) s,
+      MAX(COALESCE(updated_at, created_at)) m FROM attribution WHERE annee_scolaire = ?`).get(a);
+    const i = db.prepare('SELECT COUNT(*) n FROM etudiant_inscription WHERE annee_scolaire = ?').get(a);
+    return `${f.n}|${f.s}|${t.n}|${t.s}|${t.m}|${i.n}`;
+  } catch { return String(Date.now()); }
+}
+export function viderMemoCout() { MEMO_COUT.clear(); }
 function coutMemo(a) {
-  const m = MEMO_COUT.get(a);
-  if (m && Date.now() - m.t < 600e3) return m.d;
+  const m = MEMO_COUT.get(a), e = empreinte(a);
+  if (m && m.e === e && Date.now() - m.t < 600e3) return m.d;
   const d = donneesCout(a);
-  MEMO_COUT.set(a, { t: Date.now(), d });
+  MEMO_COUT.set(a, { t: Date.now(), d, e });
   return d;
 }
 
@@ -502,11 +515,21 @@ export function documentIipHelb(p) {
       <td class="barres-piste"><span class="barres-barre" style="width:${(c.ratio / max) * 100}%;background:${c.tim ? '#3E7D5E' : '#94A3B8'};opacity:.9"></span></td>
       <td class="barres-val"${c.tim ? ' style="font-weight:700;color:#3E7D5E"' : ''}>${n0(c.ratio)} · ${n2(c.etp)} ETP · ${n0(c.etu)} étu.</td></tr>`).join('')}</table>
     <p class="fin">Moyenne de la HELB : ${n0(COMPARAISON_HE.moyennes['Moyenne HELB'])} étudiants par ETP ; département santé : ${n0(COMPARAISON_HE.moyennes['Santé'])}.</p></div>
-    <table class="annees"><thead><tr><th>Cursus (santé, COMAV)</th>${ann.map(a => `<th class="n">${esc(court(a))}</th>`).join('')}</tr></thead><tbody>
-      ${COMPARAISON_HE.cursus.filter(c => Object.keys(c.series).length).map(c => `<tr${c.tim ? ' style="font-weight:700"' : ''}><td>${esc(c.cursus)}</td>
-        ${ann.map(a => { const v = c.series[a]; return `<td class="n">${v && v[1] ? n0(v[0] / v[1]) : '—'}</td>`; }).join('')}</tr>`).join('')}</tbody></table>
+    ${(() => {
+      // Par département : bande de couleur à gauche, sous-total (Σ étudiants ÷ Σ ETP) en tête de chaque groupe (3.5.441).
+      const COUL = { 'Santé': '#05B7E6', 'COMAV': '#F9B619', 'Technoeco': '#19537E', 'Social': '#64748B' };
+      const val = (c, a) => { const v = c.series[a] || (a === COMPARAISON_HE.annee ? [c.etu, c.etp] : null); return v && v[1] ? v : null; };
+      const ratio = (cs, a) => { let e = 0, t = 0; for (const c of cs) { const v = val(c, a); if (v) { e += v[0]; t += v[1]; } } return t ? n0(e / t) : '—'; };
+      const ligne = (cs, lib, coul, fort) => `<tr${fort ? ' class="repere"' : ''}><td style="border-left:1.2mm solid ${coul};padding-left:2mm">${esc(lib)}</td>${ann.map(a => `<td class="n">${ratio(cs, a)}</td>`).join('')}</tr>`;
+      const depts = [...new Set(COMPARAISON_HE.cursus.map(c => c.dept))];
+      return `<table class="annees"><thead><tr><th>Cursus</th>${ann.map(a => `<th class="n">${esc(court(a))}</th>`).join('')}</tr></thead><tbody>
+        ${ligne(COMPARAISON_HE.cursus, 'Ensemble de la HELB', '#1B2B4B', true)}
+        ${depts.map(dp => { const cs = COMPARAISON_HE.cursus.filter(c => c.dept === dp), coul = COUL[dp] || '#94A3B8';
+          return ligne(cs, `Département ${dp}`, coul, true) + cs.map(c => `<tr${c.tim ? ' style="font-weight:700;color:#3E7D5E"' : ''}><td style="border-left:1.2mm solid ${coul};padding-left:2mm">${esc(c.cursus)}</td>
+            ${ann.map(a => { const v = val(c, a); return `<td class="n">${v ? n0(v[0] / v[1]) : '—'}</td>`; }).join('')}</tr>`).join(''); }).join('')}</tbody></table>`;
+    })()}
     <p class="fin">Étudiants comptés par ETP enseignant, d'après les fichiers de la HELB : ${esc(COMPARAISON_HE.source)}. ${esc(section)} y figure sous
-      « Technologue en imagerie médicale » (part HELB des étudiants et des ETP). Le département santé compte en outre ${n2(COMPARAISON_HE.admin['Santé']['2025-2026'])} ETP
+      « Technologue en imagerie médicale » (part HELB des étudiants et des ETP). Technoeco et Social : 2025-2026 seulement ; les sous-totaux d'avant ne comptent que la santé et COMAV. Le département santé compte en outre ${n2(COMPARAISON_HE.admin['Santé']['2025-2026'])} ETP
       administratifs en 2025-2026 ; ceux de ${esc(section)} sont à l'IIP.</p>`;
   };
 
