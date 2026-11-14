@@ -219,5 +219,8 @@ export function couleursGraphique() {
   const st = getComputedStyle(document.documentElement);
   const v = n => st.getPropertyValue(n).trim();
   return { series: [1, 2, 3, 4, 5, 6].map(i => v(`--g-${i}`)), vide: v('--g-vide'), grille: v('--g-grille'),
-    reference: v('--g-ref'), principal: v('--c-principal'), helb: v('--c-helb'), iip: v('--c-iip') };
+    reference: v('--g-ref'), principal: v('--c-principal'), helb: v('--c-helb'), iip: v('--c-iip'),
+    // Les états, pour un graphique qui en porte un (3.5.454) : mêmes réglages que les pastilles et les tuiles.
+    reussi: v('--c-reussi'), attente: v('--c-attente'), refuse: v('--c-refuse'), disponible: v('--c-disponible'), faveur: v('--c-faveur'),
+    texte: v('--c-texte') || '#1B2B4B', second: '#64748B' };
 }

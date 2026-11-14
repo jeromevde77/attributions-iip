@@ -389,8 +389,20 @@ r.get('/lecture', authRequired, (req, res) => {
         const charges = tot?.charges || A?.totaux?.charges; if (!charges) return null;
         const de = (bloc, re) => { const p = S?.totaux?.postes?.find(x => x.bloc === bloc && re.test(x.poste)); return p && ex ? p.ex[`${ex}|realise`] : null; };
         const helbTot = de('HELB', /^HELB$/), iipTot = de('Institut Ilya Prigogine', /^Institut/), infra = de('ASBL Administration', /^ASBL Administration$/);
-        return { exercice: ex || A?.totaux?.exercice, charges, etudiants: n, etudiants_helb: insH, etudiants_iip: insI,
-          cout_etudiant: Math.round(charges / n), cout_credit: Math.round((charges / n / 60) * 10) / 10,
+        /* L'ASBL = LE CUMUL DES DEUX ÉTABLISSEMENTS (3.5.454, Charles : « pas de comparaison à la HELB mais à l'ASBL, donc les données
+           cumulées des deux, pour ne froisser personne ; comparer chaque section à l'IIP et à l'ASBL »). Coût = charges de l'ASBL
+           (HELB, services communs, fonctionnement de l'IIP) + le coût complet de l'IIP calculé par Lucie (ses enseignants, payés par
+           la Fédération, ne sont pas dans les comptes de l'ASBL). Étudiants et crédits = HELB (60 crédits par inscrit) + IIP (crédits
+           réellement suivis). ETP = cursus de la HELB + enseignants de l'IIP. */
+        const I = d.iip || {}, att = V.helb_attributions?.totaux;
+        const coutCumul = charges + (I.cout_total || 0);
+        const credits = insH * 60 + (I.etc || 0) * 60, etc = insH + (I.etc || 0);
+        const etpH = att?.etp_cursus || COR_HELB.etp_cursus || 0, etp = etpH + (I.etp || 0);
+        return { exercice: ex || A?.totaux?.exercice, charges, cout_iip: Math.round(I.cout_total || 0), cout_total: Math.round(coutCumul),
+          etudiants: n, etudiants_helb: insH, etudiants_iip: insI,
+          cout_etudiant: Math.round(coutCumul / n), cout_credit: credits ? Math.round((coutCumul / credits) * 10) / 10 : null,
+          cout_180: credits ? Math.round((coutCumul / credits) * 180) : null,
+          etc_etp: etp ? Math.round((etc / etp) * 10) / 10 : null, etp: Math.round(etp * 10) / 10,
           fonctionnement_etudiant: A?.totaux?.fonctionnement ? Math.round(A.totaux.fonctionnement / n) : null,
           helb: helbTot, iip: iipTot, administration: infra, fichier: (S || A).fichier };
       })(),

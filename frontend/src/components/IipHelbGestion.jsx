@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconSend, IconX, IconEye, IconRefresh, IconChevronRight } from '@tabler/icons-react';
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import { couleursGraphique } from '../lib/couleurs.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { EnteteCarte, TuileEtat, Tableau, Th, Td } from './ui.jsx';
 import { Tuile } from './statsUi.jsx';
@@ -12,7 +13,10 @@ import { Tuile } from './statsUi.jsx';
    dix minutes) ; l'écran les dessine. « Imprimer ou envoyer » compose la pièce avec les MÊMES réglages (gardés dans `lucie.iipHelb`).
    Couleurs en hexadécimal : attributs SVG des graphiques, où var() ne s'évalue pas (CLAUDE.md §6). */
 
-const IIP = '#19537E', HELB = '#C2408A', PERCU = '#3E7D5E';
+/* Les couleurs de l'IIP, de la HELB et de « ce qui est perçu » sont celles de Configuration → Thèmes et couleurs (3.5.454) : lues au
+   moment de dessiner (`lireCouleurs`, appelé par la page), avec celles de la maison en repli tant que rien n'est chargé. */
+let IIP = '#19537E', HELB = '#C2408A', PERCU = '#3E7D5E';
+function lireCouleurs() { const G = couleursGraphique(); IIP = G.iip || IIP; HELB = G.helb || HELB; PERCU = G.reussi || PERCU; }
 const MEMO = 'lucie.iipHelb';
 const lire = () => { try { return JSON.parse(localStorage.getItem(MEMO) || '{}'); } catch { return {}; } };
 const n0 = v => Math.round(v || 0).toLocaleString('fr-BE');
@@ -165,6 +169,7 @@ export function chiffresIipHelb(d, reglages = {}) {
 }
 
 export default function IipHelbGestion() {
+  lireCouleurs();
   const memo = useMemo(lire, []);
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState(memo.section || 'TIM');

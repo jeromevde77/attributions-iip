@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconPresentation, IconRefresh, IconMaximize } from '@tabler/icons-react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
 
 /* LIRE ET COMPARER (3.5.447, Charles, 14 novembre 2026 — maquette validée : « choisir la manière de consulter : par établissement,
@@ -15,8 +16,9 @@ const MEMO = 'lucie.gestionLecture';
 const lire = () => { try { return JSON.parse(localStorage.getItem(MEMO) || '{}'); } catch { return {}; } };
 const n0 = v => (v == null ? '—' : Math.round(v).toLocaleString('fr-BE'));
 const n1 = v => (v == null ? '—' : (Math.round(v * 10) / 10).toLocaleString('fr-BE'));
-const VERT = '#3E7D5E', OCRE = '#B45309', BLEU = '#19537E', MARINE = '#16406A', GRIS = '#94A3B8', OR = '#F9B619', FRAMBOISE = '#C2408A';
-const SERIE = ['#19537E', '#F9B619', '#05B7E6', '#3E7D5E', '#C2408A', '#B45309', '#6B46C1', '#94A3B8', '#0F2A44'];
+/* LES COULEURS VIENNENT DE CONFIGURATION (3.5.454, Charles : « ce que tu as choisi ne correspond pas à ce qui se trouve dans
+   Config ») : séries et états de Thèmes et couleurs, lus au moment de dessiner (recharts pose des attributs SVG). */
+const palette = () => { const G = couleursGraphique(); return { ...G, serie: i => G.series[i % G.series.length] }; };
 
 /* LES INDICATEURS : libellé, format, sens (1 = plus haut, mieux ; −1 = plus bas, mieux ; 0 = un profil, sans jugement), lentille. */
 const IND = {
@@ -32,7 +34,7 @@ const IND = {
   reussite_s2: { l: 'Ajournés qui réussissent en 2e', f: v => (v == null ? '—' : `${n0(v)} %`), sens: 1, v: 'res', court: '2e session' },
   etp: { l: 'ETP enseignant', f: n1, sens: 0, v: 'fin', aide: 'CT ÷ 800 + PP ÷ 1000' },
   taille_groupes: { l: 'Taille moyenne des groupes', f: n1, sens: 1, v: 'fin', aide: 'Σ inscriptions × périodes de l’UE ÷ périodes données', court: 'Groupes' },
-  etc_etp: { l: 'Étudiants temps plein par ETP', f: n1, sens: 1, v: 'fin', aide: 'crédits ÷ 60, par ETP enseignant (façon HELB)', court: 'ETC / ETP' },
+  etc_etp: { l: 'Étudiants temps plein par ETP', f: n1, sens: 1, v: 'fin', aide: 'crédits ÷ 60, par ETP enseignant', court: 'ETC / ETP' },
   cout_etudiant: { l: 'Coût d’un étudiant', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ inscrits', court: 'Coût / étudiant' },
   cout_etc: { l: 'Coût d’un étudiant temps plein', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ (crédits ÷ 60) : comparable d’une section à l’autre', court: 'Coût / ETC' },
   cout_credit: { l: 'Coût par crédit', f: v => (v == null ? '—' : `${n0(v)} €`), sens: -1, v: 'fin', aide: 'coût complet ÷ crédits suivis', court: 'Coût / crédit' },
@@ -52,10 +54,8 @@ const POSITION = {
   res: ['reussite_finale', 'reussite_s1', 'reussite_s2'],
   fin: ['taille_groupes', 'etc_etp', 'cout_credit', 'cout_180', 'cout_periode', 'recettes_etudiant', 'etp'],
 };
-const REFS = [['IIP', 'IIP'], ['HELB', 'HELB'], ['ASBL', 'ASBL'], ['N1', 'Année d’avant']];
+const REFS = [['IIP', 'IIP'], ['ASBL', 'ASBL'], ['N1', 'Année d’avant']];
 const LENTILLES = [['tout', 'Tout'], ['etu', 'Étudiants'], ['res', 'Réussite'], ['fin', 'Finances']];
-// Les sections qui ont leur cursus dans les chiffres de la HELB (étudiants comptés à sa façon).
-const CURSUS_HELB = { TIM: 'Technologue en imagerie médicale', Orthoptie: 'Orthoptie' };
 
 function Segments({ valeur, options, onChange, label }) {
   return (
@@ -65,8 +65,7 @@ function Segments({ valeur, options, onChange, label }) {
     </div>);
 }
 /* L'état d'un écart : la pastille du catalogue (réussi = mieux que la référence, surveiller = moins bien, neutre = un profil). */
-const etatDe = ton => (ton === VERT ? 'reussi' : ton === OCRE ? 'surveiller' : 'neutre');
-const Verdict = ({ ton, children }) => <PastilleEtat etat={etatDe(ton)}>{children}</PastilleEtat>;
+const Verdict = ({ etat, children }) => <PastilleEtat etat={etat}>{children}</PastilleEtat>;
 
 export default function GestionLecture({ annee: anneeProp, onPresenter, onSources }) {
   const memo = useMemo(lire, []);
@@ -74,7 +73,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   const [perim, setPerim] = useState(memo.perim || 'etab');
   const [section, setSection] = useState(memo.section || 'TIM');
   const [lentille, setLentille] = useState(memo.lentille || 'tout');
-  const [ref, setRef] = useState(memo.ref || 'IIP');
+  const [ref, setRef] = useState(memo.ref === 'HELB' ? 'ASBL' : memo.ref || 'IIP');
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [tour, setTour] = useState(0);
@@ -100,33 +99,25 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
 
   const sections = d?.sections || [];
   const S = sections.find(x => x.section === section) || null;
-  const nomRef = { IIP: 'l’IIP', HELB: 'la HELB', ASBL: 'l’ASBL', N1: d?.prec ? d.prec.annee : 'l’année d’avant' }[ref];
+  const nomRef = { IIP: 'l’IIP', ASBL: 'l’ASBL', N1: d?.prec ? d.prec.annee : 'l’année d’avant' }[ref];
 
   /* La référence d'un indicateur, pour une ligne (une section, ou l'établissement). */
   const refDe = (k, code) => {
     if (ref === 'IIP') return code === 'IIP' ? null : d?.iip?.[k] ?? null;
     if (ref === 'N1') return code === 'IIP' ? d?.prec?.iip?.[k] ?? null : d?.prec?.sections?.find(x => x.section === code)?.[k] ?? null;
-    if (ref === 'HELB') {
-      const H = d?.helb || {};
-      return { etc_etp: H.etu_etp_2627 ?? H.etu_etp, cout_credit: H.cout_credit, cout_180: H.cout_credit ? Math.round(H.cout_credit * 180) : null, cout_etudiant: H.cout_etudiant }[k] ?? null;
-    }
     if (ref === 'ASBL') {
       const A = d?.asbl || {};
-      return { cout_etudiant: A.cout_etudiant, cout_credit: A.cout_credit, cout_180: A.cout_credit ? Math.round(A.cout_credit * 180) : null }[k] ?? null;
+      return { cout_etudiant: A.cout_etudiant, cout_credit: A.cout_credit, cout_180: A.cout_180, etc_etp: A.etc_etp, etp: null }[k] ?? null;
     }
     return null;
   };
-  /* La valeur, dans la méthode de la référence : face à la HELB, l'efficience d'un cursus qu'elle publie est la SIENNE. */
-  const valDe = (k, ligne) => {
-    if (ref === 'HELB' && k === 'etc_etp' && CURSUS_HELB[ligne.section]) return d?.helb?.cursus?.find(c => c.cursus === CURSUS_HELB[ligne.section])?.etu_etp ?? ligne[k];
-    return ligne?.[k];
-  };
+  const valDe = (k, ligne) => ligne?.[k];
   const juger = (k, v, r) => {
-    if (v == null || r == null) return { ton: GRIS, mot: 'à calculer', ecart: null };
+    if (v == null || r == null) return { etat: 'indisponible', mot: 'à calculer', ecart: null };
     const e = v - r, s = IND[k].sens;
-    if (!s) return { ton: '#64748B', mot: `${e > 0 ? '+' : ''}${IND[k].f(e).replace(/ (%|€|ans)$/, '')}${/%$/.test(IND[k].f(v)) ? ' pts' : ''}`, ecart: e };
+    if (!s) return { etat: 'neutre', mot: `${e > 0 ? '+' : ''}${IND[k].f(e).replace(/ (%|€|ans)$/, '')}${/%$/.test(IND[k].f(v)) ? ' pts' : ''}`, ecart: e };
     const bien = s > 0 ? e >= 0 : e <= 0;
-    return { ton: bien ? VERT : OCRE, mot: s < 0 ? (bien ? 'moins cher' : 'plus cher') : (bien ? 'au-dessus' : 'en dessous'), ecart: e, bien };
+    return { etat: bien ? 'reussi' : 'surveiller', mot: s < 0 ? (bien ? 'moins cher' : 'plus cher') : (bien ? 'au-dessus' : 'en dessous'), ecart: e, bien };
   };
 
   const presenter = () => {
@@ -171,10 +162,9 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     </div>);
 
   const noteRef = ref === 'ASBL' ? (d?.asbl
-    ? `ASBL Ilya Prigogine, réalisé ${d.asbl.exercice} : ${n0(d.asbl.charges)} € de charges pour ${n0(d.asbl.etudiants)} étudiants (HELB ${n0(d.asbl.etudiants_helb)} + IIP ${n0(d.asbl.etudiants_iip)}) — ce que porte le pouvoir organisateur ; les professeurs de l’IIP, payés par la Fédération, n’y sont pas. Le coût par crédit suppose 60 crédits par étudiant.`
+    ? `L’ASBL = les deux établissements réunis : ${n0(d.asbl.etudiants)} étudiants (${n0(d.asbl.etudiants_iip)} à l’IIP), ${n0(d.asbl.cout_total)} € — charges de l’ASBL en ${d.asbl.exercice} et coût de l’IIP calculé par Lucie —, ${n1(d.asbl.etp)} ETP d’enseignement.`
     : 'L’ASBL n’a pas encore de source : déposez ses comptes dans Vue d’ensemble → Les sources.')
-    : ref === 'HELB' ? `HELB 2026-2027 : ${n0(d?.helb?.etudiants)} inscrits (${d?.helb?.inscrits_le || ''}), ${n1(d?.helb?.etu_etp_2627)} étudiants par ETP de cursus (publié en ${d?.helb?.annee || ''} : ${n1(d?.helb?.etu_etp)}) ; coût par crédit = son COR (rémunérations, encadrement compris) ÷ inscrits ÷ 60 — ${n0(d?.helb?.cout_credit_enseignement)} € pour l’enseignement seul, + ${n0(d?.helb?.encadrement_pct)} % d’encadrement ; un ETP d’enseignant y coûte ${n0(d?.helb?.cout_etp)} €. Seules ces proportions viennent de ses fichiers.`
-      : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
+    : ref === 'N1' ? `Chaque section comparée à elle-même en ${d?.prec?.annee || 'l’année d’avant'}.` : 'L’ensemble de l’IIP, toutes sections.';
 
   if (erreur && !d) return <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>;
   return (
@@ -194,7 +184,8 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
 
 /* ------------------------------------------------------------------------------------------------ L'ÉTABLISSEMENT */
 function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
-  const I = d.iip, P = d.prec?.iip;
+  const P = palette();
+  const I = d.iip, Pr = d.prec?.iip;
   const cols = COLONNES[lentille];
   const k0 = { tout: 'reussite_finale', etu: 'inscrits', res: 'reussite_finale', fin: 'cout_periode' }[lentille];
   const triees = [...d.sections].sort((a, b) => (b.inscrits || 0) - (a.inscrits || 0));
@@ -202,9 +193,9 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
   return (<>
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
       <TuileEtat etat="fort" valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
-      <TuileEtat etat="reussi" valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${P?.reussite_finale != null ? ` · ${IND.reussite_finale.f(P.reussite_finale)} l’année d’avant` : ''}`} />
-      <TuileEtat etat="disponible" valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · HELB ${IND.cout_credit.f(d.helb?.cout_credit)}`} />
-      <TuileEtat valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · HELB : ${n1(d.helb?.etu_etp_2627 ?? d.helb?.etu_etp)}`} />
+      <TuileEtat etat="reussi" valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${Pr?.reussite_finale != null ? ` · ${IND.reussite_finale.f(Pr.reussite_finale)} l’année d’avant` : ''}`} />
+      <TuileEtat etat="disponible" valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · ASBL ${IND.cout_credit.f(d.asbl?.cout_credit)}`} />
+      <TuileEtat valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · ASBL : ${n1(d.asbl?.etc_etp)}`} />
     </div>
     <div className="grid gap-3 lg:grid-cols-2">
       <section className="carte overflow-hidden">
@@ -212,13 +203,13 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
         <div className="p-3 flex items-center gap-4">
           <PieChart width={220} height={220}>
             <Pie data={triees} dataKey="inscrits" nameKey="section" innerRadius={62} outerRadius={100} paddingAngle={1} isAnimationActive={false} stroke="#fff" strokeWidth={2}>
-              {triees.map((s, i) => <Cell key={s.section} fill={SERIE[i % SERIE.length]} />)}
+              {triees.map((s, i) => <Cell key={s.section} fill={P.serie(i)} />)}
             </Pie>
           </PieChart>
           <div className="flex-1 min-w-0 space-y-1.5">
             {triees.map((s, i) => (
               <button key={s.section} type="button" onClick={() => ouvrir(s.section)} className="w-full flex items-center gap-2 text-second hover:text-iip-blue text-left">
-                <span className="w-3 h-3 rounded-sm flex-none" style={{ background: SERIE[i % SERIE.length] }} />
+                <span className="w-3 h-3 rounded-sm flex-none" style={{ background: P.serie(i) }} />
                 <span className="flex-1 truncate">{s.section}</span><b className="tabular-nums">{n0(s.inscrits)}</b>
                 <span className="w-11 text-right text-slate-500 tabular-nums">{Math.round((s.inscrits / Math.max(1, I.inscrits)) * 100)} %</span>
               </button>))}
@@ -229,13 +220,13 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
         <EnteteCarte titre={IND[k0].l} sous={`par section · le trait : ${nomRef}`} />
         <div className="p-3 overflow-x-auto">
           <BarChart width={520} height={Math.max(180, barres.length * 30 + 20)} data={barres} layout="vertical" margin={{ top: 4, right: 56, left: 0, bottom: 4 }}>
-            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#E5E9F0" />
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke={P.grille} />
             <XAxis type="number" hide domain={[0, 'dataMax']} />
-            <YAxis type="category" dataKey="c" width={110} tick={{ fontSize: 12, fill: '#475569' }} axisLine={false} tickLine={false} interval={0} />
-            {refDe(k0, 'X') != null && <ReferenceLine x={refDe(k0, 'X')} stroke="#1B2B4B" strokeDasharray="4 3" />}
-            <Bar dataKey="v" fill={BLEU} radius={[0, 4, 4, 0]} isAnimationActive={false}>
-              {barres.map(b => { const j = juger(k0, b.v, refDe(k0, b.c)); return <Cell key={b.c} fill={j.bien === undefined ? BLEU : j.bien ? VERT : OCRE} />; })}
-              <LabelList dataKey="v" position="right" formatter={v => IND[k0].f(v)} style={{ fontSize: 12, fontWeight: 700, fill: '#1B2B4B' }} />
+            <YAxis type="category" dataKey="c" width={110} tick={{ fontSize: 12, fill: P.second }} axisLine={false} tickLine={false} interval={0} />
+            {refDe(k0, 'X') != null && <ReferenceLine x={refDe(k0, 'X')} stroke={P.reference} strokeDasharray="4 3" />}
+            <Bar dataKey="v" fill={P.principal} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+              {barres.map(b => { const j = juger(k0, b.v, refDe(k0, b.c)); return <Cell key={b.c} fill={j.bien === undefined ? P.principal : j.bien ? P.reussi : P.attente} />; })}
+              <LabelList dataKey="v" position="right" formatter={v => IND[k0].f(v)} style={{ fontSize: 12, fontWeight: 700, fill: P.texte }} />
             </Bar>
           </BarChart>
         </div>
@@ -254,7 +245,7 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
                 {cols.map(k => {
                   const v = valDe(k, s), j = juger(k, v, refDe(k, s.section));
                   return <Td key={k} align="droite">{IND[k].sens && j.bien !== undefined
-                    ? <PastilleEtat etat={etatDe(j.ton)}>{IND[k].f(v)}</PastilleEtat>
+                    ? <PastilleEtat etat={j.etat}>{IND[k].f(v)}</PastilleEtat>
                     : <span className="tabular-nums">{IND[k].f(v)}</span>}</Td>;
                 })}
               </Tr>))}
@@ -267,6 +258,7 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
 
 /* ------------------------------------------------------------------------------------------------ UNE SECTION */
 function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, nomRef, blocs, pistes }) {
+  const P = palette();
   const lignes = POSITION[lentille].map(k => {
     const v = valDe(k, S), r = refDe(k, S.section), j = juger(k, v, r);
     const tous = [v, r, ...d.sections.map(x => x[k])].filter(x => x != null && Number.isFinite(x));
@@ -284,11 +276,11 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
             <div className="relative h-6" aria-hidden="true">
               <div className="absolute inset-x-0 top-[11px] h-[3px] rounded bg-slate-200" />
               {rx != null && <div className="absolute top-[3px] w-[3px] h-[19px] bg-slate-500" style={{ left: `${rx}%` }} />}
-              {x != null && <div className="absolute top-[4px] w-4 h-4 -ml-2 rounded-full border-[3px] border-white" style={{ left: `${x}%`, background: BLEU, boxShadow: `0 0 0 1px ${BLEU}` }} />}
+              {x != null && <div className="absolute top-[4px] w-4 h-4 -ml-2 rounded-full border-[3px] border-white" style={{ left: `${x}%`, background: P.principal, boxShadow: `0 0 0 1px ${P.principal}` }} />}
             </div>
             <div className="text-right text-sm font-bold tabular-nums text-iip-blue">{IND[k].f(v)}</div>
             <div className="text-right text-second text-slate-500 tabular-nums">{r == null ? '—' : IND[k].f(r)}</div>
-            <div className="text-right"><Verdict ton={j.ton}>{j.mot}</Verdict></div>
+            <div className="text-right"><Verdict etat={j.etat}>{j.mot}</Verdict></div>
           </div>))}
       </div>
     </section>
@@ -300,11 +292,11 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
           <div className="p-4 flex items-center gap-4">
             <PieChart width={130} height={130}>
               <Pie data={[{ n: 'Femmes', v: S.femmes || 0 }, { n: 'Hommes', v: 100 - (S.femmes || 0) }]} dataKey="v" innerRadius={40} outerRadius={60} startAngle={90} endAngle={-270} isAnimationActive={false} stroke="#fff" strokeWidth={2}>
-                <Cell fill={FRAMBOISE} /><Cell fill={BLEU} />
+                <Cell fill={P.serie(0)} /><Cell fill={P.serie(1)} />
               </Pie>
             </PieChart>
             <div className="space-y-1.5 text-sm">
-              <div><b style={{ color: FRAMBOISE }}>{IND.femmes.f(S.femmes)}</b> femmes · <b style={{ color: BLEU }}>{S.femmes == null ? '—' : `${n0(100 - S.femmes)} %`}</b> hommes</div>
+              <div><b style={{ color: P.serie(0) }}>{IND.femmes.f(S.femmes)}</b> femmes · <b style={{ color: P.serie(1) }}>{S.femmes == null ? '—' : `${n0(100 - S.femmes)} %`}</b> hommes</div>
               <div><b>{IND.age.f(S.age)}</b> en moyenne</div>
               <div><b>{IND.primo.f(S.primo)}</b> de primo-inscrits</div>
               <div><b>{IND.hors_ue.f(S.hors_ue)}</b> hors Union européenne</div>
@@ -314,14 +306,15 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
         </section>)}
       {voir('res') && (
         <section className="carte overflow-hidden h-full">
-          <EnteteCarte titre="La réussite par bloc" sous={`${d.resultats_annee || ''} · or : 1re session · vert : au final`} />
+          <EnteteCarte titre="La réussite par bloc" sous={`${d.resultats_annee || ''} · 1re session, puis au final`} />
           <div className="p-4">
             {!blocs ? <p className="text-second text-slate-400">Chargement…</p> : !blocs.length ? <p className="text-second text-slate-500">Pas de décisions par bloc pour cette section.</p> : (
-              <BarChart width={330} height={170} data={blocs.map(b => ({ c: b.cle, s1: Math.round(b.s1.taux_reussite), f: Math.round(b.final.taux_reussite) }))} margin={{ top: 18, right: 4, left: 4, bottom: 0 }}>
-                <XAxis dataKey="c" tick={{ fontSize: 12, fill: '#475569' }} axisLine={{ stroke: '#D8DCE4' }} tickLine={false} />
+              <BarChart width={330} height={195} data={blocs.map(b => ({ c: b.cle, s1: Math.round(b.s1.taux_reussite), f: Math.round(b.final.taux_reussite) }))} margin={{ top: 18, right: 4, left: 4, bottom: 0 }}>
+                <XAxis dataKey="c" tick={{ fontSize: 12, fill: P.second }} axisLine={{ stroke: P.grille }} tickLine={false} />
                 <YAxis hide domain={[0, 100]} />
-                <Bar dataKey="s1" fill={OR} radius={[4, 4, 0, 0]} isAnimationActive={false}><LabelList dataKey="s1" position="top" formatter={v => `${v} %`} style={{ fontSize: 11, fontWeight: 700, fill: '#1B2B4B' }} /></Bar>
-                <Bar dataKey="f" fill={VERT} radius={[4, 4, 0, 0]} isAnimationActive={false}><LabelList dataKey="f" position="top" formatter={v => `${v} %`} style={{ fontSize: 11, fontWeight: 700, fill: '#1B2B4B' }} /></Bar>
+                <Legend verticalAlign="bottom" height={24} wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="s1" name="1re session" fill={P.attente} radius={[4, 4, 0, 0]} isAnimationActive={false}><LabelList dataKey="s1" position="top" formatter={v => `${v} %`} style={{ fontSize: 11, fontWeight: 700, fill: P.texte }} /></Bar>
+                <Bar dataKey="f" name="Au final" fill={P.reussi} radius={[4, 4, 0, 0]} isAnimationActive={false}><LabelList dataKey="f" position="top" formatter={v => `${v} %`} style={{ fontSize: 11, fontWeight: 700, fill: P.texte }} /></Bar>
               </BarChart>)}
           </div>
         </section>)}
@@ -344,7 +337,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
               {[...new Set([...(compta.helb || []), ...(compta.iip || [])].map(x => x.annee))].sort().reverse().flatMap(a => [['HELB', compta.helb], ['IIP', compta.iip]].map(([cote, L]) => {
                 const v = (L || []).find(x => x.annee === a); if (!v) return null;
                 return (<Tr key={a + cote}><Td>{a} <span className="text-slate-400">· {v.nature}</span></Td><Td>{cote}</Td><Td align="droite">{n0(v.charges)} €</Td><Td align="droite">{n0(v.produits)} €</Td>
-                  <Td align="droite"><b style={{ color: v.resultat >= 0 ? VERT : OCRE }}>{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</b></Td></Tr>);
+                  <Td align="droite"><b style={{ color: v.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</b></Td></Tr>);
               }))}
             </tbody>
           </Tableau>
@@ -355,7 +348,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
       <div className="px-4 py-1">
         {!pistes.length ? <p className="text-second text-slate-500 py-2">Rien à signaler face à cette référence, ou pas de référence pour ces indicateurs.</p> : pistes.map(p => (
           <div key={p.k} className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
-            <Verdict ton={p.bien ? VERT : OCRE}>{p.bien ? 'Point fort' : 'À améliorer'}</Verdict>
+            <Verdict etat={p.bien ? 'reussi' : 'surveiller'}>{p.bien ? 'Point fort' : 'À améliorer'}</Verdict>
             <div className="text-sm leading-snug text-slate-800">{p.txt}</div>
           </div>))}
       </div>
