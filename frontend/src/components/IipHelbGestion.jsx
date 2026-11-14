@@ -56,6 +56,38 @@ function Volet({ titre, ouvert = false, droite = null, children }) {
 const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
+/* LA VALEUR DANS UN BADGE DE LA COULEUR DE SA SÉRIE (3.5.443, Charles : « que les points soient connectés à la légende — le montant,
+   les périodes — dans un badge de la même couleur »). Un rectangle arrondi, texte blanc, posé au-dessus du point ou de la barre, à
+   droite d'une barre horizontale, au centre d'un segment empilé (cerné de blanc pour s'en détacher). */
+function badge(couleur, fmt = v => v, place = 'haut', rangDe = null) {
+  return function Badge({ x, y, width = 0, height = 0, value, index }) {
+    if (value == null || value === '' || !Number.isFinite(Number(value)) || !Number(value)) return null;
+    const t = String(fmt(value)), w = t.length * 6 + 10, h = 16;
+    let cx = x + width / 2, cy = y - h / 2 - 4;
+    if (place === 'centre') cy = y + height / 2;
+    if (place === 'droite') { cx = x + width + w / 2 + 4; cy = y + height / 2; }
+    /* LISIBLE SUR UNE COURBE (3.5.444, Charles : « veiller à ce que cela soit lisible ») : à un même point, la série la plus haute garde
+       son badge au-dessus, la suivante le prend en dessous, une troisième se décale sur le côté — jamais deux badges l'un sur l'autre. */
+    if (rangDe) {
+      const r = rangDe(index);
+      if (r === 1) cy = y + h / 2 + 6;
+      else if (r >= 2) { cy = y + h / 2 + 6; cx = x + w + 6; }
+    }
+    return (
+      <g>
+        <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={8} fill={couleur} stroke={place === 'centre' ? '#fff' : 'none'} strokeWidth={1.5} />
+        <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{t}</text>
+      </g>);
+  };
+}
+
+/** Le rang d'une série à un point : 0 = la plus haute (à valeur égale, l'ordre des séries). */
+function rangA(data, cles, k, i) {
+  const row = data[i] || {};
+  const v = cle => (Number.isFinite(Number(row[cle])) && row[cle] !== null ? Number(row[cle]) : -Infinity);
+  return cles.filter(c => c !== k && (v(c) > v(k) || (v(c) === v(k) && cles.indexOf(c) < cles.indexOf(k)))).length;
+}
+
 /** Un graphique de deux séries sur les années, dans la forme choisie. */
 function Graphe({ donnees, forme, fmt, series = [['iip', 'IIP', IIP], ['helb', 'HELB', HELB]] }) {
   const pct = forme === 'parts';
@@ -65,22 +97,22 @@ function Graphe({ donnees, forme, fmt, series = [['iip', 'IIP', IIP], ['helb', '
   if (forme === 'courbe') {
     return (
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={d} margin={{ top: 22, right: 24, left: 4, bottom: 0 }}>
+        <LineChart data={d} margin={{ top: 30, right: 28, left: 4, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
           <XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={f} width={56} />{bulle}<Legend wrapperStyle={{ fontSize: 12 }} />
-          {series.map(([k, n, c]) => <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }}><LabelList dataKey={k} position="top" formatter={f} style={{ fontSize: 10, fill: c }} /></Line>)}
+          {series.map(([k, n, c]) => <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }}><LabelList dataKey={k} content={badge(c, f, 'haut', i => rangA(d, series.map(x => x[0]), k, i))} /></Line>)}
         </LineChart>
       </ResponsiveContainer>);
   }
   const empile = forme === 'empile' || pct;
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={d} margin={{ top: 22, right: 8, left: 4, bottom: 0 }}>
+      <BarChart data={d} margin={{ top: 30, right: 8, left: 4, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
         <XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={f} width={56} domain={pct ? [0, 100] : undefined} />{bulle}<Legend wrapperStyle={{ fontSize: 12 }} />
         {series.map(([k, n, c], i) => (
           <Bar key={k} dataKey={k} name={n} fill={c} stackId={empile ? 'a' : undefined} radius={empile && i < series.length - 1 ? 0 : [3, 3, 0, 0]}>
-            <LabelList dataKey={k} position={empile ? 'center' : 'top'} formatter={v => (v ? f(v) : '')} style={{ fontSize: 10, fill: empile ? '#fff' : c }} />
+            <LabelList dataKey={k} content={badge(c, f, empile ? 'centre' : 'haut')} />
           </Bar>))}
       </BarChart>
     </ResponsiveContainer>);
@@ -100,6 +132,35 @@ function Carte({ titre, sous, forme, onForme, onMasquer, children, large }) {
       </EnteteCarte>
       <div className="p-3">{children}</div>
     </section>);
+}
+
+/* LES CHIFFRES DE LA PAGE, SELON LES RÉGLAGES (3.5.446) : une fonction pure, lue par la page et par la présentation d'une section
+   (PresentationSection.jsx) — un calcul, deux lecteurs. */
+export function chiffresIipHelb(d, reglages = {}) {
+  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', ...(reglages.mesures || {}) };
+  // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
+  const Y = (d?.Y || []).map(y0 => {
+    // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
+    const ret = Number(reglages.inscrits?.[y0.annee]);
+    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits, recettes: y0.inscrits ? y0.recettes * Math.round(ret) / y0.inscrits : y0.recettes } : y0;
+    const avecC = mes.coord === 'oui', avecA = mes.admin === 'oui', cmb = mes.cout === 'cmb' && d.taux_cmb;
+    const cI = avecC ? y.cetp_iip : 0, cH = avecC ? y.cetp_helb : 0;
+    const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
+    const adm = avecA ? y.admin.part : 0;
+    const coutI = (cmb ? pcI * d.taux_cmb : y.cout_iip + (avecC ? y.coord_iip : 0)) + adm;
+    const coutH = cmb ? pcH * d.taux_cmb : y.cout_helb + (avecC ? y.coord_helb : 0);
+    return { ...y, lib: court(y.annee), etpI: y.ens_iip + cI, etpH: y.ens_helb + cH, pcI, pcH, coutI, coutH,
+      chI: mes.charge === 'periodes' ? pcI : y.ens_iip + cI, chH: mes.charge === 'periodes' ? pcH : y.ens_helb + cH };
+  });
+  const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
+  const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
+  PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
+  const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
+  // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
+  const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
+  const u95 = y => (y.ue95?.cout || 0) * part95;
+  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe, materielDe(y.annee)) }));
+  return { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY };
 }
 
 export default function IipHelbGestion() {
@@ -128,7 +189,6 @@ export default function IipHelbGestion() {
     return () => { vivant = false; };
   }, [section, annees, tour]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', ...(reglages.mesures || {}) };
   const maj = (k, v) => setReglages(r => ({ ...r, [k]: v }));
   const majMes = (k, v) => maj('mesures', { ...(reglages.mesures || {}), [k]: v });
   const forme = (k, def) => reglages.graphes?.[k] || def;
@@ -137,20 +197,7 @@ export default function IipHelbGestion() {
   const masquer = k => () => maj('masques', [...masques, k]);
   const vu = k => !masques.includes(k);
 
-  // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
-  const Y = useMemo(() => (d?.Y || []).map(y0 => {
-    // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
-    const ret = Number(reglages.inscrits?.[y0.annee]);
-    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits, recettes: y0.inscrits ? y0.recettes * Math.round(ret) / y0.inscrits : y0.recettes } : y0;
-    const avecC = mes.coord === 'oui', avecA = mes.admin === 'oui', cmb = mes.cout === 'cmb' && d.taux_cmb;
-    const cI = avecC ? y.cetp_iip : 0, cH = avecC ? y.cetp_helb : 0;
-    const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
-    const adm = avecA ? y.admin.part : 0;
-    const coutI = (cmb ? pcI * d.taux_cmb : y.cout_iip + (avecC ? y.coord_iip : 0)) + adm;
-    const coutH = cmb ? pcH * d.taux_cmb : y.cout_helb + (avecC ? y.coord_helb : 0);
-    return { ...y, lib: court(y.annee), etpI: y.ens_iip + cI, etpH: y.ens_helb + cH, pcI, pcH, coutI, coutH,
-      chI: mes.charge === 'periodes' ? pcI : y.ens_iip + cI, chH: mes.charge === 'periodes' ? pcH : y.ens_helb + cH };
-  }), [d, reglages]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY } = useMemo(() => chiffresIipHelb(d, reglages), [d, reglages]);
 
   const imprimer = async () => {
     const r = await fetch('/api/rapports/iip-helb-annees/document', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section, annees, reglages }) });
@@ -158,14 +205,6 @@ export default function IipHelbGestion() {
     ouvrirApercu({ html: j.html, titre: j.titre, sousTitre: (annees || []).join(' · '), nomFichier: j.nom });
   };
 
-  const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
-  const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
-  PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
-  const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
-  // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
-  const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
-  const u95 = y => (y.ue95?.cout || 0) * part95;
-  const HY = Y.map(y => ({ y, h: helbAnnee(y, PH, mes.coord === 'oui', inscritsDe, materielDe(y.annee)) }));
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
   const totI = Y.reduce((t, y) => t + y.coutI, 0), totH = Y.reduce((t, y) => t + y.coutH, 0);
@@ -215,19 +254,44 @@ export default function IipHelbGestion() {
         </div>)}
       {!d ? <p className="text-second text-slate-400">{enCours ? 'Calcul… (quelques secondes la première fois)' : ''}</p> : !Y.length
         ? <p className="text-second text-slate-500">Aucune attribution en {section} pour ces années.</p> : (<>
-        <div className="flex flex-wrap gap-3">
-          <Tuile ton="fort" valeur={fCh(aN.chI + aN.chH)} unite={uCh} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
-          <Tuile valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignant(s)`} />
-          <Tuile valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignant(s)`} />
-          <Tuile valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
-          <Tuile valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle="Coût d’un étudiant" precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
-          <Tuile valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="droits et frais, à l’ASBL" />
-          {(() => { const h = HY[HY.length - 1].h; return <Tuile valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
-            precision={`rapporte ${keur(h.recettes)} · coûte ${keur(h.cout)}`} />; })()}
-          <Tuile valeur={eur(HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0))} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="administration et aide à la réussite, 100 % IIP" />
-          <Tuile valeur="0 €" libelle="Coût supplémentaire pour l’IIP" precision="financé sur ses propres dotations" />
-          <Tuile valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
-        </div>
+        {(() => {
+          /* DES CARTES DE MÊME TAILLE, LES INDICATEURS CLÉS EN ÉVIDENCE (3.5.445, Charles : « des cartes de même taille, un peu de
+             couleurs, mettre en évidence les indicateurs clés »). Quatre clés, grandes, liseré et chiffre de couleur ; six autres, petites,
+             dans une grille régulière. */
+          const h = HY[HY.length - 1].h;
+          const timH = d.comparaison?.cursus?.find(c => c.tim), moy = d.comparaison?.moyennes?.['Moyenne HELB'];
+          const apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
+          const Cle = ({ couleur, valeur, libelle, precision }) => (
+            <div className="rounded-carte border border-slate-200 bg-white px-4 py-3 h-full" style={{ borderLeft: `6px solid ${couleur}` }}>
+              <div className="text-[26px] leading-tight font-bold tabular-nums" style={{ color: couleur }}>{valeur}</div>
+              <div className="text-sm font-semibold text-slate-800 mt-1">{libelle}</div>
+              {precision && <div className="text-second text-slate-500 mt-0.5">{precision}</div>}
+            </div>);
+          const Petite = ({ couleur = '#CBD5E1', valeur, libelle, precision }) => (
+            <div className="rounded-carte border border-slate-200 bg-white px-3 py-2 h-full" style={{ borderLeft: `4px solid ${couleur}` }}>
+              <div className="text-lg font-bold tabular-nums text-slate-800">{valeur}</div>
+              <div className="text-second text-slate-700">{libelle}</div>
+              {precision && <div className="text-mention text-slate-500 truncate" title={precision}>{precision}</div>}
+            </div>);
+          return (<>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
+              <Cle couleur={h.resultat >= 0 ? PERCU : '#9D4A38'} valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
+                precision={`rapporte ${keur(h.recettes)}, coûte ${keur(h.cout)}`} />
+              <Cle couleur={PERCU} valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n0(moy)}` : ''} />
+              <Cle couleur="#1B2B4B" valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle={`Coût d’un étudiant ${aN.annee}`}
+                precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
+              <Cle couleur={COULEUR_DEPT.IIP} valeur={eur(apport)} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="0 € de coût supplémentaire : ses propres dotations" />
+            </div>
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6 items-stretch">
+              <Petite couleur="#1B2B4B" valeur={`${fCh(aN.chI + aN.chH)} ${uCh}`} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
+              <Petite couleur={IIP} valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignants`} />
+              <Petite couleur={HELB} valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignants`} />
+              <Petite valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
+              <Petite couleur={PERCU} valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="par étudiant, droits et frais (ASBL)" />
+              <Petite valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
+            </div>
+          </>);
+        })()}
 
         <div className="grid gap-3 lg:grid-cols-2">
           {vu('charge') && <Carte titre={`La charge, en ${uCh}`} sous={mes.coord === 'oui' ? 'Enseignement et coordinations' : 'Enseignement seul'}
@@ -391,11 +455,11 @@ export default function IipHelbGestion() {
               tim: timH && val(timH, a) ? val(timH, a)[0] / val(timH, a)[1] : null })).map(x => ({ ...x, sante: x.sante && Math.round(x.sante), comav: x.comav && Math.round(x.comav), tim: x.tim && Math.round(x.tim) }));
             const Barres = ({ data, hauteur }) => (
               <ResponsiveContainer width="100%" height={hauteur}>
-                <BarChart data={data} layout="vertical" margin={{ left: 10, right: 40 }}>
+                <BarChart data={data} layout="vertical" margin={{ left: 10, right: 56 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11 }} /><YAxis type="category" dataKey="lib" width={200} interval={0} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={v => [`${v} étudiants par ETP`, d.comparaison.annee]} contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="v" radius={[0, 3, 3, 0]}>{data.map(x => <Cell key={x.lib} fill={x.c} />)}<LabelList dataKey="v" position="right" style={{ fontSize: 10, fill: '#475569' }} /></Bar>
+                  <Bar dataKey="v" radius={[0, 3, 3, 0]}>{data.map(x => <Cell key={x.lib} fill={x.c} />)}<LabelList dataKey="v" content={p => badge(data[p.index]?.c || '#475569', v => v, 'droite')(p)} /></Bar>
                 </BarChart>
               </ResponsiveContainer>);
             const legende = <div className="flex flex-wrap gap-3 text-mention text-slate-600">{Object.entries(COULEUR_DEPT).map(([k, c]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: c }} />{k === 'IIP' ? 'IIP' : k}</span>)}<span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: PERCU }} />{section}</span></div>;
@@ -410,11 +474,11 @@ export default function IipHelbGestion() {
                   <div className="min-w-0"><div className="intertitre">Les départements, l’IIP et {section} ({d.comparaison.annee})</div><Barres data={barresDept} hauteur={Math.max(240, barresDept.length * 30)} /></div>
                   <div className="min-w-0"><div className="intertitre">L’évolution : {section} face aux départements</div>
                     <ResponsiveContainer width="100%" height={260}>
-                      <LineChart data={evol} margin={{ top: 22, right: 24, left: 4, bottom: 0 }}>
+                      <LineChart data={evol} margin={{ top: 30, right: 28, left: 4, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} /><XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={40} />
                         <Tooltip contentStyle={{ fontSize: 12 }} /><Legend wrapperStyle={{ fontSize: 12 }} />
                         {[['tim', `${section} (part HELB)`, PERCU], ['sante', 'Département santé', COULEUR_DEPT['Santé']], ['comav', 'Département COMAV', COULEUR_DEPT.COMAV]].map(([k, n, c]) => (
-                          <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }} connectNulls><LabelList dataKey={k} position="top" style={{ fontSize: 10, fill: c }} /></Line>))}
+                          <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }} connectNulls><LabelList dataKey={k} content={badge(c, v => v, 'haut', i => rangA(evol, ['tim', 'sante', 'comav'], k, i))} /></Line>))}
                       </LineChart>
                     </ResponsiveContainer></div>
                 </div>

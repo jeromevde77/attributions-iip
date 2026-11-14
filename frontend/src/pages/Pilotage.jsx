@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette, IconPresentation } from '@tabler/icons-react';
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
@@ -13,6 +13,9 @@ import Population from '../components/Population.jsx';
 import PilotagePresences from '../components/PilotagePresences.jsx';
 import QuiFaitQuoi from '../components/QuiFaitQuoi.jsx';
 import EtpPlusieursAnnees from '../components/EtpPlusieursAnnees.jsx';
+import PresentationSection from '../components/PresentationSection.jsx';
+import GestionLecture from '../components/GestionLecture.jsx';
+import SourcesReference from '../components/SourcesReference.jsx';
 import IipHelbGestion from '../components/IipHelbGestion.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
@@ -536,7 +539,7 @@ export default function Pilotage({ vue = 'tout' }) {
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
   const [tab, setTab]               = useState(() => (vue === 'reporting' ? 'etp'
-    : new URLSearchParams(window.location.search).get('onglet') || 'population-ecole'));
+    : new URLSearchParams(window.location.search).get('onglet') || 'lecture'));
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -1495,31 +1498,30 @@ export default function Pilotage({ vue = 'tout' }) {
   const u = getUser();
   const lit = m => droitEffectif(u, m) !== 'rien';
   const coord = u?.role === 'coordination';
+  /* LES SEPT ENTRÉES DE GESTION (3.5.447, Charles, 14 novembre 2026, maquette validée : rangées par la question qu'on se pose).
+     La Vue d'ensemble ouvre sur « Lire et comparer » : l'établissement ou une section, tout ou un axe, face à l'IIP, la HELB, l'ASBL
+     ou l'année d'avant. Les autres entrées gardent leurs faces détaillées. */
+  const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role);
   const RUBRIQUES = [
-    { key: 'g-population', label: 'Population', icon: IconUsersGroup, faces: [
-      ['population-ecole', 'Qui sont nos étudiants'], !coord && ['personnel-ecole', 'Notre personnel'], ['population', 'Places par unité']] },
-    /* LES PRÉSENCES (28 octobre 2026) : par UE, le comptage au 1er dixième, les alertes —
-       direction et secrétariat (la route le garde ; la coordination n'y passe pas). */
-    { key: 'g-presences', label: 'Présences', icon: IconUserCheck, faces: [
-      !coord && ['presences-ue', 'Présences par UE']] },
-    /* QUI FAIT QUOI (3.5.066) : ce que chacun a fait, ce qui attend et à qui — la direction seule. */
-    { key: 'g-equipe', label: 'Équipe', icon: IconListCheck, faces: [
-      ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role) && ['qui-fait-quoi', 'Qui fait quoi']] },
-    { key: 'g-resultats', label: 'Résultats', icon: IconSchool, faces: [
+    { key: 'g-ensemble', label: 'Vue d’ensemble', icon: IconChartInfographic, faces: [
+      ['lecture', 'Lire et comparer'], direction && ['presentation', 'Présenter une section'], direction && ['sources', 'Les sources']] },
+    { key: 'g-population', label: 'Étudiants', icon: IconUsersGroup, faces: [
+      ['population-ecole', 'Qui sont nos étudiants'], ['population', 'Places par unité'], !coord && ['presences-ue', 'Présences par UE']] },
+    { key: 'g-resultats', label: 'Réussite', icon: IconSchool, faces: [
       ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
+    { key: 'g-equipe', label: 'Personnel et charge', icon: IconListCheck, faces: [
+      !coord && ['personnel-ecole', 'Notre personnel'], ['etp', 'ETP'], ['etp-annees', 'ETP sur plusieurs années'],
+      !coord && lit('repartition') && ['repartition', 'Répartition des périodes'], direction && ['qui-fait-quoi', 'Qui fait quoi']] },
     { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
-      lit('dotation') && ['synthese', 'Dotation'], ['etp', 'ETP'], ['etp-annees', 'ETP sur plusieurs années'],
-      ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role) && ['iip-helb', 'IIP et HELB'], ['dotation', 'Comparaison'],
-      !coord && lit('repartition') && ['repartition', 'Répartition des périodes'],
+      lit('dotation') && ['synthese', 'Dotation'], ['dotation', 'Comparaison'], direction && ['iip-helb', 'IIP et HELB'],
       lit('dotation') && ['config', 'Configuration']] },
-    /* LA DÉMARCHE QUALITÉ (3.1.442) : le plan d'action AEQES, tenu dans Lucie dès 2026-2027 —
-       rien ne se rattrape en 2028. La coordination y pose les actions de ses sections. */
-    { key: 'g-qualite', label: 'Qualité', icon: IconRosette, faces: [
-      ['qualite', 'Plan d’action']] },
     { key: 'g-finances', label: 'Finances', icon: IconCoin, faces: [
       !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget'],
       // MES FRAIS (3.5.197) : les notes de frais de la personne connectée, à elle seule.
-      ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role) && ['mes-frais', 'Mes frais']] },
+      direction && ['mes-frais', 'Mes frais']] },
+    /* LA DÉMARCHE QUALITÉ (3.1.442) : le plan d'action AEQES. */
+    { key: 'g-qualite', label: 'Qualité', icon: IconRosette, faces: [
+      ['qualite', 'Plan d’action']] },
   ].map(r => ({ ...r, faces: r.faces.filter(Boolean) })).filter(r => r.faces.length);
   const rubriqueActive = RUBRIQUES.find(r => r.faces.some(f => f[0] === tab)) || null;
   const railGestion = [{
@@ -1547,7 +1549,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
@@ -1861,6 +1863,18 @@ thead { display: table-header-group; }
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
+        ) : tab === 'lecture' ? (
+          <PageHeader icon={IconChartInfographic} titre="Vue d’ensemble"
+            sous="Lire l’établissement ou une section, tout ou un axe, face à l’IIP, la HELB, l’ASBL ou l’année d’avant" />
+        ) : tab === 'sources' ? (
+          <PageHeader icon={IconChartInfographic} titre="Les sources"
+            sous="Les fichiers de référence — HELB, ASBL — dont Lucie ne garde que les totaux ; chaque comparaison y renvoie" />
+        ) : tab === 'presentation' ? (
+          <PageHeader icon={IconPresentation} titre="Présenter une section"
+            sous="Les chiffres de Lucie en diapositives, en plein écran — sur iPad ou grand écran" />
+        ) : tab === 'iip-helb' ? (
+          <PageHeader icon={IconBuildingBank} titre="L’IIP et la HELB"
+            sous="Charge, coût et ce qu’une section rapporte, des deux côtés de la codiplomation" />
         ) : tab === 'qualite' ? (
           <PageHeader icon={IconRosette} titre="Démarche qualité"
             sous="Le plan d’action : ce qui est décidé, qui s’en charge, où on en est" />
@@ -1912,6 +1926,9 @@ thead { display: table-header-group; }
             {tab === 'etp'      && renderETP()}
             {tab === 'etp-annees' && <EtpPlusieursAnnees />}
             {tab === 'iip-helb' && <IipHelbGestion />}
+            {tab === 'lecture' && <GestionLecture annee={anneeActive} onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
+            {tab === 'sources' && <SourcesReference />}
+            {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
             {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} />}
             {tab === 'config'   && renderConfig()}

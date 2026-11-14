@@ -6,7 +6,9 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB } from '../lib/rapportIipHelb.js';
+import { reussiteParSection } from './statsDeliberation.js';
+import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
@@ -253,6 +255,224 @@ r.get('/iip-helb', authRequired, (req, res) => {
   if (req.query.recalculer) viderMemoCout();
   try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees)); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* LIRE ET COMPARER (3.5.447, Charles, 14 novembre 2026, maquette validée : « choisir la manière de consulter : par établissement,
+   par section avec toutes les données combinées, ou juste les résultats, ou les finances — modulable » ; « des référentiels : HELB,
+   IIP, ASBL… telle section coûte autant par étudiant en comparaison avec la moyenne ; positionner la section ; voir ce qu'on peut
+   améliorer »). UNE route rend, pour chaque section ET pour l'établissement, les mêmes indicateurs, lus aux sources de Gestion :
+   population (donneesPopulation), décisions (reussiteParSection, comme Décisions et taux), coûts et ETP (donneesCout, gardé en
+   mémoire comme IIP et HELB : CT ÷ 800 + PP ÷ 1000), inscrits de référence (l'évolution de Population). L'année d'avant pour
+   « années passées » ; la HELB pour ce qu'elle publie (étudiants par ETP). La coordination ne voit que ses sections ; l'IIP, un
+   agrégat, reste la référence de tous. */
+const anneePrec = a => `${Number(a.slice(0, 4)) - 1}-${Number(a.slice(5, 9)) - 1}`;
+function indicateursLecture(annee) {
+  const pop = donneesPopulation(annee, {});
+  const evo = new Map((pop.evolution || []).map(e => [e.annee, e]));
+  const reussiteAnnee = (() => {
+    // Les résultats de l'année la plus récente qui en a de complets (la seconde session faite pour l'essentiel).
+    for (const a of [annee, anneePrec(annee), anneePrec(anneePrec(annee))]) {
+      try { const r = reussiteParSection(a); const t = r.total; if (t && t.s1.decides > 0 && (t.final.en_attente || 0) / Math.max(1, t.inscrits) < 0.2) return { annee: a, ...r }; } catch { /* */ }
+    }
+    return { annee: null, par: {}, total: null };
+  })();
+  let cout = null; try { cout = coutMemo(annee); } catch { cout = null; }
+  const coutSec = new Map((cout?.sections || []).map(x => [x.section, x]));
+  const etpDe = x => (x?.per_ct || 0) / 800 + (x?.per_pp || 0) / 1000;
+  const e = evo.get(annee), ep = evo.get(anneePrec(annee));
+  const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : null);
+  const ind = (code, s, inscritsRef, inscritsPrec, R, C) => {
+    const sexe = (s?.F || 0) + (s?.M || 0) + (s?.X || 0);
+    const n = inscritsRef || s?.n || 0;
+    const etp = C ? etpDe(C) : null;
+    const coutTot = C ? (C.cout_complet ?? C.cout) : null;
+    const rec = C?.recettes ? (C.recettes.di || 0) + (C.recettes.dis || 0) + (C.recettes.frais || 0) : null;
+    const nCout = C?.inscrits || n;
+    return { section: code, inscrits: n, inscrits_prec: inscritsPrec || null, croissance: inscritsPrec ? pct(n - inscritsPrec, inscritsPrec) : null,
+      reussite_finale: R?.final?.taux_reussite ?? null, reussite_s1: R?.s1?.taux_reussite ?? null, reussite_s2: R?.s2?.taux_reussite ?? null, decisions: R?.inscrits || 0,
+      femmes: s ? pct(s.F || 0, sexe) : null, primo: s ? pct(s.primo || 0, s.n) : null, age: s?.age_moyen ?? null, hors_ue: s ? pct(s.hors_ue || 0, s.n) : null,
+      bruxelles: s?.domicile ? pct(s.domicile.bruxelles || 0, s.n) : null,
+      etp: etp != null ? Math.round(etp * 100) / 100 : null, etu_etp: etp ? Math.round((nCout / etp) * 10) / 10 : null,
+      cout_etudiant: coutTot != null && nCout ? Math.round(coutTot / nCout) : null, cout_total: coutTot, recettes_etudiant: rec != null && nCout ? Math.round(rec / nCout) : null };
+  };
+  /* L'EFFICIENCE, MESURÉE SUR CE QUE CHACUN SUIT (3.5.448, Charles : « soins de plaies… ça n'a pas de sens » — 30 inscrits à un
+     module de 38 périodes donnaient 500 inscrits par ETP). Deux mesures, tranchées : la TAILLE MOYENNE DES GROUPES = Σ (inscriptions ×
+     périodes de cours de l'UE) ÷ périodes attribuées ; les ÉTUDIANTS ÉQUIVALENT TEMPS PLEIN (crédits ÷ 60) par ETP, la façon de
+     compter de la HELB. L'UE se lit une fois par numéro (un numéro peut exister sous plusieurs sections). */
+  const efficience = (() => {
+    const ues = new Map();
+    for (const u of db.prepare(`SELECT u.ue_num, u.section, u.ects, u.ue_per_etudiants AS per_etu, COALESCE(NULLIF(u.ue_per_cours, 0),
+        (SELECT SUM(c.cours_per) FROM cours c WHERE c.ue_num = u.ue_num AND c.annee_scolaire = u.annee_scolaire)) AS per
+      FROM ue u WHERE u.annee_scolaire = ?`).all(annee)) if (!ues.has(u.ue_num)) ues.set(u.ue_num, u);
+    const par = {}, tot = { pe: 0, pee: 0, ects: 0, per_att: 0 };
+    const de = k => (par[k] ||= { pe: 0, pee: 0, ects: 0, per_att: 0 });
+    for (const x of db.prepare('SELECT ue_num, COUNT(*) n FROM etudiant_inscription WHERE annee_scolaire = ? GROUP BY ue_num').all(annee)) {
+      const u = ues.get(x.ue_num); if (!u) continue;
+      const c = de(u.section); c.pe += x.n * (u.per || 0); c.pee += x.n * (u.per_etu || u.per || 0); c.ects += x.n * (u.ects || 0);
+      tot.pe += x.n * (u.per || 0); tot.pee += x.n * (u.per_etu || u.per || 0); tot.ects += x.n * (u.ects || 0);
+    }
+    for (const x of db.prepare('SELECT section, SUM(COALESCE(periodes_attribuees, 0)) per FROM attribution WHERE annee_scolaire = ? AND ue_num IS NOT NULL GROUP BY section').all(annee)) {
+      de(x.section).per_att += x.per || 0; tot.per_att += x.per || 0;
+    }
+    return { par, tot };
+  })();
+  const ajouterEfficience = (o, E) => {
+    if (!o) return o;
+    o.taille_groupes = E && E.per_att ? Math.round((E.pe / E.per_att) * 10) / 10 : null;
+    o.etc = E && E.ects ? Math.round((E.ects / 60) * 10) / 10 : null;
+    o.etc_etp = E && E.ects && o.etp ? Math.round((E.ects / 60 / o.etp) * 10) / 10 : null;
+    o.cout_etc = E && E.ects && o.cout_total ? Math.round(o.cout_total / (E.ects / 60)) : null;
+    // LE COÛT PAR CRÉDIT, ET PAR PÉRIODE DE LA GRILLE HORAIRE DE L'ÉTUDIANT (3.5.448, Charles : « une formation de 180 ECTS coûte
+    // autant… » ; « ramener à la grille horaire étudiants ») : la seconde vaut aussi pour les formations sans crédits.
+    o.cout_credit = E && E.ects && o.cout_total ? Math.round((o.cout_total / E.ects) * 10) / 10 : null;
+    o.cout_180 = o.cout_credit ? Math.round(o.cout_credit * 180) : null;
+    o.cout_periode = E && E.pee && o.cout_total ? Math.round((o.cout_total / E.pee) * 100) / 100 : null;
+    return o;
+  };
+  const codes = [...new Set([...(pop.sections || []).map(s => s.section), ...Object.keys(e?.par_section || {})])].filter(Boolean);
+  const sections = codes.map(c => ind(c, (pop.sections || []).find(s => s.section === c), e?.par_section?.[c], ep?.par_section?.[c], reussiteAnnee.par[c], coutSec.get(c)))
+    .map(o => ajouterEfficience(o, efficience.par[o.section]))
+    .sort((a, b) => (b.inscrits || 0) - (a.inscrits || 0));
+  const totC = cout ? { per_ct: cout.sections.reduce((t, x) => t + (x.per_ct || 0), 0), per_pp: cout.sections.reduce((t, x) => t + (x.per_pp || 0), 0),
+    cout_complet: cout.total?.cout_complet ?? cout.total?.cout, inscrits: cout.sections.reduce((t, x) => t + (x.inscrits || 0), 0),
+    recettes: cout.recettes } : null;
+  const iip = ajouterEfficience(ind('IIP', pop.ensemble, e?.total, ep?.total, reussiteAnnee.total, totC), efficience.tot);
+  return { annee, resultats_annee: reussiteAnnee.annee, sections, iip };
+}
+const MEMO_LECTURE = new Map();
+r.get('/lecture', authRequired, (req, res) => {
+  try {
+    const annee = req.query.annee || anneeDeTravail(req);
+    const k = annee; const m = MEMO_LECTURE.get(k);
+    let d;
+    if (m && Date.now() - m.t < 600e3 && !req.query.recalculer) d = m.d;
+    else {
+      let prec = null; try { prec = indicateursLecture(anneePrec(annee)); } catch { prec = null; }
+      d = { ...indicateursLecture(annee), prec };
+      MEMO_LECTURE.set(k, { t: Date.now(), d });
+    }
+    const perim = getUserSections(req.user);
+    const garde = l => (perim ? l.filter(x => perim.includes(x.section)) : l);
+    const moy = COMPARAISON_HE.moyennes || {};
+    res.json({ ...d, sections: garde(d.sections), prec: d.prec ? { ...d.prec, sections: garde(d.prec.sections) } : null,
+      helb: { source: COMPARAISON_HE.source, annee: COMPARAISON_HE.annee, etu_etp: moy['Moyenne HELB'] ?? null, etu_etp_sante: moy['Santé'] ?? null,
+        // LE COÛT PAR CRÉDIT DE LA HELB, ENCADREMENT COMPRIS (3.5.449) : les rémunérations de son COR ÷ ses étudiants comptés ÷ 60 —
+        // comparable à notre coût complet ; à côté, l'enseignement seul, et les proportions qui l'expliquent.
+        ...(() => {
+          // LES SOURCES DÉPOSÉES PRIMENT (3.5.450) ; à défaut, les totaux repris le 14 novembre 2026 (COR_HELB).
+          const V = sourcesEnVigueur(), cor = V.helb_cor?.totaux, att = V.helb_attributions?.totaux, ins = V.helb_inscrits?.totaux;
+          const COR = { ...COR_HELB, ...(cor ? { total: cor.total, enseignement: cor.enseignement, encadrement: cor.encadrement, etp_enseignants: cor.etp_enseignants, invites: cor.invites } : {}),
+            ...(att ? { etp_cursus: att.etp_cursus, fonctions_sur_enseignement: att.fonctions_sur_enseignement } : {}),
+            ...(ins ? { inscrits: ins.total, inscrits_le: ins.date_feuille || V.helb_inscrits.date_donnee } : {}) };
+          // Les inscrits de la même année que le COR (2026-2027), à défaut les étudiants comptés publiés (2025-2026).
+          const etu = COR.inscrits || COMPARAISON_HE.cursus.reduce((t, c) => t + (c.etu || 0), 0);
+          const parCredit = v => (etu ? Math.round((v / etu / 60) * 10) / 10 : null);
+          return { etudiants: Math.round(etu), cout_credit: parCredit(COR.total), cout_credit_enseignement: parCredit(COR.enseignement),
+            cout_etudiant: etu ? Math.round(COR.total / etu) : null, encadrement_pct: Math.round((COR.encadrement / COR.enseignement) * 100),
+            cout_etp: Math.round((COR.enseignement - (COR.invites ?? 1800490)) / COR.etp_enseignants), fonctions_pct: Math.round(COR.fonctions_sur_enseignement * 100),
+            source_cor: COR.source, inscrits_le: COR.inscrits_le,
+            etu_etp_2627: COR.inscrits && COR.etp_cursus ? Math.round((COR.inscrits / COR.etp_cursus) * 10) / 10 : null };
+        })(),
+        cmbp: PARAM_HELB.cmbp,
+        cursus: COMPARAISON_HE.cursus.map(c => ({ dept: c.dept, cursus: c.cursus, etu_etp: c.ratio ? Math.round(c.ratio * 10) / 10 : null })) },
+      asbl: (() => {
+        /* L'ASBL (3.5.450, Charles : « tu as les données de l'ASBL puisque tu as les rapports financiers ») : le pouvoir organisateur
+           entier — HELB et IIP. Son coût par étudiant = ses charges d'exploitation ÷ (inscrits de la HELB + inscrits de l'IIP) ; le
+           fonctionnement (services et biens divers, amortissements, autres charges) à part. Les professeurs de l'IIP, payés par la
+           Fédération, n'y sont pas : c'est le coût que porte l'ASBL. */
+        const V = sourcesEnVigueur(), S = V.asbl_synthese, A = V.asbl_comptes;
+        const insH = V.helb_inscrits?.totaux?.total || COR_HELB.inscrits || 0, insI = d.iip?.inscrits || 0, n = insH + insI;
+        if (!n || (!S && !A)) return null;
+        // La synthèse des budgets et comptes d'abord (dernier exercice réalisé complet) ; à défaut les comptes annuels déposés.
+        const ex = S ? dernierRealise(S.totaux) : null;
+        const tot = ex ? S.totaux.postes.find(p => p.bloc === 'ASBL')?.ex[`${ex}|realise`] : null;
+        const charges = tot?.charges || A?.totaux?.charges; if (!charges) return null;
+        const de = (bloc, re) => { const p = S?.totaux?.postes?.find(x => x.bloc === bloc && re.test(x.poste)); return p && ex ? p.ex[`${ex}|realise`] : null; };
+        const helbTot = de('HELB', /^HELB$/), iipTot = de('Institut Ilya Prigogine', /^Institut/), infra = de('ASBL Administration', /^ASBL Administration$/);
+        return { exercice: ex || A?.totaux?.exercice, charges, etudiants: n, etudiants_helb: insH, etudiants_iip: insI,
+          cout_etudiant: Math.round(charges / n), cout_credit: Math.round((charges / n / 60) * 10) / 10,
+          fonctionnement_etudiant: A?.totaux?.fonctionnement ? Math.round(A.totaux.fonctionnement / n) : null,
+          helb: helbTot, iip: iipTot, administration: infra, fichier: (S || A).fichier };
+      })(),
+      /* LA COMPTABILITÉ RÉELLE DES SECTIONS (3.5.450) : ce que la synthèse de l'ASBL porte pour une section, côté HELB et côté IIP,
+         exercice par exercice (réalisé, à défaut budget). */
+      compta: (() => {
+        const S = sourcesEnVigueur().asbl_synthese; if (!S) return null;
+        const RE = { TIM: /imagerie/i, Optométrie: /^Optom/i, Psychomotricité: /^Psychomot/i, Orthoptie: /^Orthoptie/i };
+        const annees = [...new Set(S.totaux.exercices.map(e => e.annee))].sort();
+        const serie = p => annees.map(a => { const r = p.ex[`${a}|realise`], b = p.ex[`${a}|ajuste`] || p.ex[`${a}|budget`] || p.ex[`${a}|initial`];
+          const complet = dernierRealise(S.totaux) >= a; const v = complet && r?.charges != null && (r.charges || r.produits) ? r : b;
+          return v ? { annee: a, nature: v === r ? 'réalisé' : 'budget', ...v } : null; }).filter(Boolean);
+        const par = {};
+        for (const [code, re] of Object.entries(RE)) {
+          if (perim && !perim.includes(code)) continue;
+          const h = S.totaux.postes.find(p => p.bloc === 'HELB' && p.niveau === 2 && re.test(p.poste)), i = S.totaux.postes.find(p => p.bloc === 'Institut Ilya Prigogine' && re.test(p.poste));
+          if (h || i) par[code] = { helb: h ? serie(h) : null, iip: i ? serie(i) : null };
+        }
+        return { fichier: S.fichier, date: S.date_donnee, sections: par };
+      })(),
+      sources: Object.fromEntries(Object.entries(sourcesEnVigueur()).map(([k, v]) => [k, { fichier: v.fichier, date: v.date_donnee, depose_le: v.depose_le, depose_par: v.depose_par }])) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* LES SOURCES DES RÉFÉRENTIELS (3.5.450) : la direction dépose, Lucie lit et ne garde que les totaux (lib/sourcesReference.js). */
+const estDirection = req => ['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role);
+const contenuDe = body => { const b = String(body?.contenu || '').replace(/^data:[^,]*,/, ''); return Buffer.from(b, 'base64'); };
+r.get('/sources', authRequired, (req, res) => {
+  if (!estDirection(req)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  res.json({ natures: NATURES, sources: listerSources(), integrees: [
+    { libelle: 'Étudiants et ETP publiés par cursus de la HELB', source: COMPARAISON_HE.source, annee: COMPARAISON_HE.annee },
+    { libelle: 'Totaux repris du COR, des attributions et des inscrits de la HELB (à défaut de source déposée)', source: COR_HELB.source, annee: '2026-2027' },
+    { libelle: 'Coût moyen d’un ETP de la HELB (paramètre de la page IIP et HELB)', source: 'réglé par la direction', annee: null },
+  ] });
+});
+r.post('/sources/lire', authRequired, async (req, res) => {
+  if (!estDirection(req)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  try { res.json(await lireSource(String(req.body?.nom || ''), contenuDe(req.body))); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+r.post('/sources', authRequired, async (req, res) => {
+  if (!estDirection(req)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  try {
+    const lu = await lireSource(String(req.body?.nom || ''), contenuDe(req.body));
+    const id = enregistrerSource(lu, { par: req.user?.nom || req.user?.email, fourni_par: req.body?.fourni_par || null, remarque: req.body?.remarque || null });
+    MEMO_LECTURE.clear();
+    res.json({ ok: true, id, nature: lu.nature });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+r.delete('/sources/:id', authRequired, (req, res) => {
+  if (!estDirection(req)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const motif = String(req.body?.motif || req.query.motif || '').trim();
+  if (!motif) return res.status(400).json({ error: 'Le motif est obligatoire.' });
+  const n = retirerSource(Number(req.params.id), motif); MEMO_LECTURE.clear();
+  res.json({ ok: n > 0 });
+});
+
+/* LA PRÉSENTATION D'UNE SECTION (3.5.446, Charles, 14 novembre 2026 : « jeudi je présente la section imagerie médicale au CA,
+   sous tous les axes… une présentation grandiose » ; « dans Lucie, avec un export en PowerPoint »). Les chiffres viennent des routes
+   existantes (population, délibérations, IIP et HELB) ; ici, seulement les TEXTES de la direction — forces, faiblesses, opportunités,
+   menaces, ce qu'on demande au CA, titres retouchés —, gardés par section dans lucie_config « presentation:<section> ». Direction. */
+const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+const clePresentation = s => `presentation:${String(s || '').slice(0, 40)}`;
+r.get('/presentation/:section', authRequired, (req, res) => {
+  if (!DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  let v = null;
+  try { v = JSON.parse(db.prepare('SELECT valeur FROM lucie_config WHERE cle = ?').get(clePresentation(req.params.section))?.valeur || 'null'); } catch { v = null; }
+  res.json({ textes: v?.textes || {}, maj_le: v?.maj_le || null, maj_par: v?.maj_par || null });
+});
+r.put('/presentation/:section', authRequired, (req, res) => {
+  if (!DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const t = req.body?.textes;
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return res.status(400).json({ error: 'Textes attendus.' });
+  const textes = {};
+  for (const [k, v] of Object.entries(t).slice(0, 200)) {
+    if (!/^[a-z0-9_.-]{1,60}$/i.test(k)) continue;
+    if (v === null || v === undefined) continue;
+    textes[k] = String(v).slice(0, 4000);
+  }
+  const val = JSON.stringify({ textes, maj_le: new Date().toISOString(), maj_par: req.user?.nom || req.user?.email || null });
+  db.prepare('INSERT INTO lucie_config (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur').run(clePresentation(req.params.section), val);
+  res.json({ ok: true });
 });
 
 r.get('/totaux', authRequired, (req, res) => {
