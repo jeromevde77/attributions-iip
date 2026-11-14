@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconSend, IconX, IconEye, IconRefresh } from '@tabler/icons-react';
+import { IconSend, IconX, IconEye, IconRefresh, IconChevronRight } from '@tabler/icons-react';
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -41,7 +41,18 @@ function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   const cout = salaires + autres + fonct;
   return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
 }
-const COULEUR_DEPT = { 'Santé': '#05B7E6', 'COMAV': '#F9B619', 'Technoeco': '#19537E', 'Social': '#64748B' };
+const COULEUR_DEPT = { 'Santé': '#5DADE2', 'COMAV': '#9F7AEA', 'Technoeco': '#1F2937', 'Social': '#DC2626', 'IIP': '#F9B619' };
+/* UN VOLET QUI SE REPLIE (3.5.442, Charles : « des volets à refermer là où cela rend la lecture plus fine »). */
+function Volet({ titre, ouvert = false, droite = null, children }) {
+  const [o, setO] = useState(ouvert);
+  return (
+    <div className="border-t border-slate-100 pt-2 mt-2">
+      <button type="button" onClick={() => setO(x => !x)} aria-expanded={o} className="w-full flex items-center gap-1.5 text-second font-semibold text-slate-700 hover:text-iip-blue">
+        <IconChevronRight size={14} className={`transition-transform ${o ? 'rotate-90' : ''}`} /> <span className="flex-1 text-left">{titre}</span>{droite}
+      </button>
+      {o && <div className="mt-2">{children}</div>}
+    </div>);
+}
 const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
@@ -106,7 +117,9 @@ export default function IipHelbGestion() {
       setSections((Array.isArray(l) ? l : []).map(s => s.code || s).filter(Boolean))).catch(() => {});
   }, []);
   useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ section, annees, reglages })); } catch { /* sans mémoire */ } }, [section, annees, reglages]);
-  const [tour, setTour] = useState(0);   // « Recalculer » : refait le calcul côté serveur
+  const [tour, setTour] = useState(0);
+  const [deplies, setDeplies] = useState(['Santé', 'IIP']);
+  const [coordOuv, setCoordOuv] = useState([]);   // les années de coordinations dépliées   // les départements dépliés dans la comparaison   // « Recalculer » : refait le calcul côté serveur
   useEffect(() => {
     let vivant = true; setEnCours(true); setErreur(null);
     fetch(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}${annees?.length ? `&annees=${encodeURIComponent(annees.join(','))}` : ''}${tour ? '&recalculer=1' : ''}`, { headers: authHeaders() })
@@ -247,7 +260,7 @@ export default function IipHelbGestion() {
 
           {vu('helb') && <Carte large titre="Pour la HELB et l’ASBL : ce que coûte et rapporte la section" sous={`Allocation dès ${PH.debut}-${PH.debut + 1}, lissée sur ${PH.lissage} ans · droits à l’ASBL · ETP à ${n0(PH.cmbp)} €`}
             forme={forme('helb', 'cote')} onForme={majForme('helb')} onMasquer={masquer('helb')}>
-            <div className="grid gap-3 lg:grid-cols-[1fr_20rem]">
+            <div>
               <div className="min-w-0">
                 <Graphe forme={forme('helb', 'cote') === 'parts' ? 'cote' : forme('helb', 'cote')} fmt={keur}
                   series={[['recettes', 'Ce qu’elle rapporte', PERCU], ['cout', 'Ce qu’elle coûte', HELB]]}
@@ -281,21 +294,23 @@ export default function IipHelbGestion() {
                   Tout le reste de l’administration est à l’IIP — le secrétariat travaille à 100 % pour les étudiants et la direction —, ainsi que l’aide à la réussite (UE 95).
                 </div>
               </div>
-              <div className="space-y-1.5">
+              <Volet titre="Les réglages : matériel, paramètres et sources">
+              <div className="space-y-2">
                 <div className="intertitre">Le matériel et le fonctionnement</div>
-                <div className="segments w-full" role="radiogroup">
+                <div className="segments" role="radiogroup">
                   {[['reel', 'Réel de la section'], ['forfait', `Forfait ${PH.fonctionnement} %`]].map(([v, l]) => (
                     <button key={v} type="button" role="radio" aria-checked={PH.mode_fonct === v} onClick={() => maj('helb', { ...(reglages.helb || {}), mode_fonct: v })}
                       className={`flex-1 whitespace-nowrap ${PH.mode_fonct === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>))}
                 </div>
-                {PH.mode_fonct === 'reel' && HY.map(({ y }) => (
+                {PH.mode_fonct === 'reel' && <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-4">{HY.map(({ y }) => (
                   <label key={y.annee} className="flex items-center gap-2 text-second" title={d?.materiel_defaut?.[y.annee]?.source || ''}>
                     <span className="flex-1 min-w-0 truncate">{y.annee} <span className="text-mention text-slate-400">{d?.materiel_defaut?.[y.annee]?.source?.split(' — ')[0] || ''}</span></span>
                     <input className="controle !h-8 w-24 text-right" inputMode="decimal" placeholder={String(d?.materiel_defaut?.[y.annee]?.montant ?? 0)}
                       value={reglages.materiel?.[y.annee] ?? ''} onChange={e => maj('materiel', { ...(reglages.materiel || {}), [y.annee]: e.target.value.replace(',', '.') })} aria-label={`Matériel ${y.annee}`} />
-                    <span className="w-20 text-mention text-slate-500">€</span>
-                  </label>))}
+                    <span className="w-6 text-mention text-slate-500">€</span>
+                  </label>))}</div>}
                 <div className="intertitre pt-2">Les paramètres</div>
+                <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-4">
                 <label className="flex items-center gap-2 text-second">
                   <span className="flex-1 min-w-0">Part de la section dans l’UE 95</span>
                   <input className="controle !h-8 w-24 text-right" inputMode="decimal" placeholder={String(Math.round((d?.admin_reference?.ratio || 0) * 100))}
@@ -309,6 +324,7 @@ export default function IipHelbGestion() {
                       onChange={e => maj('helb', { ...(reglages.helb || {}), [k]: e.target.value.replace(',', '.') })} aria-label={l} />
                     <span className="w-20 text-mention text-slate-500">{u}</span>
                   </label>))}
+                </div>
                 <p className="text-mention text-slate-500 m-0">Sources : présentation financière des départements (Vinci : MUCE 2022, 20,8 % de fonctionnement, 37,2 % d'autres
                   services), courriel de F. Vanderoost du 27 août 2026 (santé × 1,5, ~90 000 € par ETP), tableau Cor_HE_AE (17 étudiants par ETP en moyenne).
                   Apport de l'IIP : le cadre administratif (direction, secrétariat), 100 % IIP, × la part de la section dans ses inscrits
@@ -318,6 +334,7 @@ export default function IipHelbGestion() {
                   Les droits d'inscription vont à l'ASBL et alimentent les moyens de la Haute École. L'IIP a financé sa part sur ses propres
                   dotations : aucun coût supplémentaire, une optimisation des moyens existants.</p>
               </div>
+              </Volet>
             </div>
           </Carte>}
 
@@ -354,44 +371,72 @@ export default function IipHelbGestion() {
           })()}
 
           {vu('comparaison') && d.comparaison && (() => {
-            const C = d.comparaison.cursus.filter(c => c.ratio).sort((a, b) => b.ratio - a.ratio);
+            /* LA COMPARAISON, DIDACTIQUE (3.5.442, Charles : « des graphes pour comparer les départements et placer TIM, et l'IIP ; TIM face à
+               l'IIP ; la bande de couleur du département — santé bleu clair, COMAV mauve, Technoeco noir, Social rouge, IIP jaune ; des volets »). */
+            const tous = [...d.comparaison.cursus, ...(d.comparaison.iip || [])];
             const ann = ['2022-2023', '2023-2024', '2024-2025', '2025-2026'];
+            const val = (c, a) => { const v = c.series[a] || (a === d.comparaison.annee ? [c.etu, c.etp] : null); return v && v[1] ? v : null; };
+            const ratioCs = (cs, a = d.comparaison.annee) => { let e = 0, t = 0; for (const c of cs) { const v = val(c, a); if (v) { e += v[0]; t += v[1]; } } return t ? e / t : null; };
+            const depts = [...new Set(d.comparaison.cursus.map(c => c.dept))];
+            const timH = d.comparaison.cursus.find(c => c.tim), timI = (d.comparaison.iip || []).find(c => c.tim);
+            const barresDept = [
+              ...depts.map(dp => ({ lib: `Département ${dp}`, v: ratioCs(d.comparaison.cursus.filter(c => c.dept === dp)), c: COULEUR_DEPT[dp] })),
+              { lib: 'Ensemble de la HELB', v: ratioCs(d.comparaison.cursus), c: '#94A3B8' },
+              { lib: 'Institut Ilya Prigogine', v: ratioCs(d.comparaison.iip || []), c: COULEUR_DEPT.IIP },
+              ...(timH ? [{ lib: `${section} — part HELB`, v: timH.ratio, c: PERCU }] : []),
+              ...(timI ? [{ lib: `${section} — part IIP`, v: timI.ratio, c: PERCU }] : []),
+            ].filter(x => x.v).map(x => ({ ...x, v: Math.round(x.v) })).sort((x, y) => y.v - x.v);
+            const parCursus = tous.filter(c => c.ratio).map(c => ({ lib: c.cursus, v: Math.round(c.ratio), c: c.tim ? PERCU : COULEUR_DEPT[c.dept] })).sort((x, y) => y.v - x.v);
+            const evol = ann.map(a => ({ lib: court(a), sante: ratioCs(d.comparaison.cursus.filter(c => c.dept === 'Santé'), a), comav: ratioCs(d.comparaison.cursus.filter(c => c.dept === 'COMAV'), a),
+              tim: timH && val(timH, a) ? val(timH, a)[0] / val(timH, a)[1] : null })).map(x => ({ ...x, sante: x.sante && Math.round(x.sante), comav: x.comav && Math.round(x.comav), tim: x.tim && Math.round(x.tim) }));
+            const Barres = ({ data, hauteur }) => (
+              <ResponsiveContainer width="100%" height={hauteur}>
+                <BarChart data={data} layout="vertical" margin={{ left: 10, right: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} /><YAxis type="category" dataKey="lib" width={200} interval={0} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={v => [`${v} étudiants par ETP`, d.comparaison.annee]} contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="v" radius={[0, 3, 3, 0]}>{data.map(x => <Cell key={x.lib} fill={x.c} />)}<LabelList dataKey="v" position="right" style={{ fontSize: 10, fill: '#475569' }} /></Bar>
+                </BarChart>
+              </ResponsiveContainer>);
+            const legende = <div className="flex flex-wrap gap-3 text-mention text-slate-600">{Object.entries(COULEUR_DEPT).map(([k, c]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: c }} />{k === 'IIP' ? 'IIP' : k}</span>)}<span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: PERCU }} />{section}</span></div>;
+            const ligneT = (cs, lib, coul, fort, k, onClick, ouvert) => (
+              <tr key={k} className={fort ? 'ligne-total font-semibold' : 'border-b border-slate-100'} style={{ boxShadow: `inset 5px 0 0 ${coul}`, cursor: onClick ? 'pointer' : undefined }} onClick={onClick}>
+                <td className="px-2 py-1 pl-4">{onClick && <IconChevronRight size={12} className={`inline mr-1 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}{lib}</td>
+                {ann.map(a => { const r = ratioCs(cs, a); return <td key={a} className="px-2 py-1 text-right">{r ? n0(r) : '—'}</td>; })}</tr>);
             return (
-              <Carte large titre="Les cursus de la Haute École : étudiants par ETP enseignant" sous={`Les chiffres de la HELB — ${d.comparaison.source}`} onMasquer={masquer('comparaison')}>
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <ResponsiveContainer width="100%" height={Math.max(280, C.length * 20)}>
-                    <BarChart data={C.map(c => ({ lib: c.cursus, v: Math.round(c.ratio), tim: c.tim }))} layout="vertical" margin={{ left: 10, right: 40 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11 }} /><YAxis type="category" dataKey="lib" width={190} interval={0} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={v => [`${v} étudiants par ETP`, d.comparaison.annee]} contentStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="v" radius={[0, 3, 3, 0]}>
-                        {C.map(c => <Cell key={c.cursus} fill={c.tim ? PERCU : '#94A3B8'} />)}
-                        <LabelList dataKey="v" position="right" style={{ fontSize: 10, fill: '#475569' }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+              <Carte large titre="Les cursus et départements : étudiants par ETP enseignant" sous={`Les chiffres de la HELB — ${d.comparaison.source}`} onMasquer={masquer('comparaison')}>
+                {legende}
+                <div className="grid gap-4 lg:grid-cols-2 mt-2">
+                  <div className="min-w-0"><div className="intertitre">Les départements, l’IIP et {section} ({d.comparaison.annee})</div><Barres data={barresDept} hauteur={Math.max(240, barresDept.length * 30)} /></div>
+                  <div className="min-w-0"><div className="intertitre">L’évolution : {section} face aux départements</div>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <LineChart data={evol} margin={{ top: 22, right: 24, left: 4, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} /><XAxis dataKey="lib" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={40} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} /><Legend wrapperStyle={{ fontSize: 12 }} />
+                        {[['tim', `${section} (part HELB)`, PERCU], ['sante', 'Département santé', COULEUR_DEPT['Santé']], ['comav', 'Département COMAV', COULEUR_DEPT.COMAV]].map(([k, n, c]) => (
+                          <Line key={k} dataKey={k} name={n} stroke={c} strokeWidth={2.5} dot={{ r: 4 }} connectNulls><LabelList dataKey={k} position="top" style={{ fontSize: 10, fill: c }} /></Line>))}
+                      </LineChart>
+                    </ResponsiveContainer></div>
+                </div>
+                <Volet titre={`Tous les cursus, un par un (${d.comparaison.annee})`}><Barres data={parCursus} hauteur={Math.max(300, parCursus.length * 20)} /></Volet>
+                <Volet titre="Le tableau, département par département (cliquer un département pour le déplier)" ouvert>
                   <div className="overflow-x-auto"><table className="w-full text-second whitespace-nowrap">
                     <thead><tr className="tab-entete"><th className="px-2 py-1 text-left">Cursus</th>{ann.map(a => <th key={a} className="px-2 py-1 text-right">{court(a)}</th>)}</tr></thead>
-                    <tbody>{(() => {
-                      /* PAR DÉPARTEMENT (3.5.441, Charles : « une bande de couleur selon le département sur le côté, et les chiffres par
-                         département en sous-total ») : la bande à gauche, le sous-total (Σ étudiants ÷ Σ ETP) en tête de chaque groupe. */
-                      const val = (c, a) => { const v = c.series[a] || (a === d.comparaison.annee ? [c.etu, c.etp] : null); return v && v[1] ? v : null; };
-                      const ratio = (cs, a) => { let e = 0, t = 0; for (const c of cs) { const v = val(c, a); if (v) { e += v[0]; t += v[1]; } } return t ? n0(e / t) : '—'; };
-                      const depts = [...new Set(d.comparaison.cursus.map(c => c.dept))];
-                      const ligne = (cs, lib, coul, fort, k) => (
-                        <tr key={k} className={fort ? 'ligne-total font-semibold' : 'border-b border-slate-100'} style={{ boxShadow: `inset 4px 0 0 ${coul}` }}>
-                          <td className="px-2 py-1 pl-3">{lib}</td>{ann.map(a => <td key={a} className="px-2 py-1 text-right">{ratio(cs, a)}</td>)}</tr>);
-                      return [ligne(d.comparaison.cursus, 'Ensemble de la HELB', '#1B2B4B', true, 'tout'),
-                        ...depts.flatMap(dp => { const cs = d.comparaison.cursus.filter(c => c.dept === dp), coul = COULEUR_DEPT[dp] || '#94A3B8';
-                          return [ligne(cs, `Département ${dp}`, coul, true, dp),
-                            ...cs.map(c => (
-                              <tr key={c.cursus} className={`border-b border-slate-100 ${c.tim ? 'font-semibold' : ''}`} style={{ boxShadow: `inset 4px 0 0 ${coul}`, ...(c.tim ? { color: PERCU } : {}) }}>
-                                <td className="px-2 py-1 pl-3">{c.cursus}</td>
-                                {ann.map(a => { const v = val(c, a); return <td key={a} className="px-2 py-1 text-right">{v ? n0(v[0] / v[1]) : '—'}</td>; })}</tr>))]; })];
-                    })()}</tbody></table>
-                    <p className="text-mention text-slate-500 mt-1">Technoeco et Social : chiffres de 2025-2026 seulement (les années d'avant ne comptent que la santé et COMAV). Moyenne HELB {n0(d.comparaison.moyennes['Moyenne HELB'])}, santé {n0(d.comparaison.moyennes['Santé'])}. Le département santé compte {n2(d.comparaison.admin['Santé']['2025-2026'])} ETP administratifs en 2025-2026 ; ceux de {section} sont à l’IIP.</p>
+                    <tbody>
+                      {ligneT(d.comparaison.cursus, 'Ensemble de la HELB', '#94A3B8', true, 'tout')}
+                      {[...depts, 'IIP'].flatMap(dp => {
+                        const cs = dp === 'IIP' ? (d.comparaison.iip || []) : d.comparaison.cursus.filter(c => c.dept === dp), coul = COULEUR_DEPT[dp] || '#94A3B8';
+                        const ouvert = deplies.includes(dp);
+                        return [ligneT(cs, dp === 'IIP' ? 'Institut Ilya Prigogine' : `Département ${dp}`, coul, true, dp, () => setDeplies(x => (x.includes(dp) ? x.filter(y => y !== dp) : [...x, dp])), ouvert),
+                          ...(ouvert ? cs.map(c => (
+                            <tr key={dp + c.cursus} className={`border-b border-slate-100 ${c.tim ? 'font-semibold' : ''}`} style={{ boxShadow: `inset 5px 0 0 ${coul}`, ...(c.tim ? { color: PERCU } : {}) }}>
+                              <td className="px-2 py-1 pl-8">{c.cursus}</td>
+                              {ann.map(a => { const v = val(c, a); return <td key={a} className="px-2 py-1 text-right">{v ? n0(v[0] / v[1]) : '—'}</td>; })}</tr>)) : [])];
+                      })}
+                    </tbody></table>
+                    <p className="text-mention text-slate-500 mt-1">Technoeco, Social et l’IIP : chiffres de 2025-2026 seulement (les années d’avant ne comptent que la santé et COMAV). L’IIP vient du tableau Cor_HE_AE de la HELB, même méthode. Moyenne HELB {n0(d.comparaison.moyennes['Moyenne HELB'])}, santé {n0(d.comparaison.moyennes['Santé'])}. Le département santé compte {n2(d.comparaison.admin['Santé']['2025-2026'])} ETP administratifs en 2025-2026 ; ceux de {section} sont à l’IIP.</p>
                   </div>
-                </div>
+                </Volet>
               </Carte>);
           })()}
 
@@ -405,12 +450,23 @@ export default function IipHelbGestion() {
                   <td className="px-2 py-1 text-right">{n2(Y.reduce((t, y) => t + y.cetp_iip + y.cetp_helb, 0))}</td>
                   <td className="px-2 py-1 text-right">{n2(Y.reduce((t, y) => t + y.cetp_iip, 0))}</td><td className="px-2 py-1 text-right">{n2(Y.reduce((t, y) => t + y.cetp_helb, 0))}</td>
                   <td className="px-2 py-1 text-right">{eur(Y.reduce((t, y) => t + y.coord_iip, 0))}</td><td className="px-2 py-1 text-right">{eur(Y.reduce((t, y) => t + y.coord_helb, 0))}</td></tr>
-                {Y.map(y => (y.coord.length ? y.coord.map((c, i) => (
-                  <tr key={y.annee + i} className="border-b border-slate-100"><td className="px-2 py-1 whitespace-nowrap">{i === 0 ? y.annee : ''}</td>
+                {Y.flatMap(y => {
+                  // UNE ANNÉE, UN VOLET (3.5.442) : le sous-total de l'année, un clic déplie ses fonctions.
+                  const ouvert = coordOuv.includes(y.annee), bascule = () => setCoordOuv(x => (x.includes(y.annee) ? x.filter(a => a !== y.annee) : [...x, y.annee]));
+                  if (!y.coord.length) return [<tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1">{y.annee}</td><td className="px-2 py-1 text-slate-400" colSpan={7}>Aucune coordination encodée (Personnel → fiche → Fonctions, année {y.annee}).</td></tr>];
+                  const somme = k => y.coord.reduce((t, c) => t + (c[k] || 0), 0);
+                  return [
+                    <tr key={y.annee + 's'} className="tab-repere font-semibold cursor-pointer" onClick={bascule}>
+                      <td className="px-2 py-1 whitespace-nowrap"><IconChevronRight size={12} className={`inline mr-1 transition-transform ${ouvert ? 'rotate-90' : ''}`} />{y.annee}</td>
+                      <td className="px-2 py-1 text-slate-500 font-normal" colSpan={2}>{y.coord.length} fonction(s){y.coord.some(c => !c.etp) ? ' — ETP à renseigner' : ''}</td>
+                      <td className="px-2 py-1 text-right">{n2(somme('etp'))}</td><td className="px-2 py-1 text-right">{n2(somme('etp_iip'))}</td><td className="px-2 py-1 text-right">{n2(somme('etp_helb'))}</td>
+                      <td className="px-2 py-1 text-right">{eur(somme('cout_iip'))}</td><td className="px-2 py-1 text-right">{eur(somme('cout_helb'))}</td></tr>,
+                    ...(ouvert ? y.coord.map((c, i) => (
+                  <tr key={y.annee + i} className="border-b border-slate-100"><td className="px-2 py-1" />
                     <td className="px-2 py-1">{c.fonction}</td><td className="px-2 py-1">{c.personne}</td>
                     <td className="px-2 py-1 text-right">{c.etp ? n2(c.etp) : <span style={{ color: 'var(--c-attente)' }} title="Personnel → fiche → Fonctions">ETP à renseigner</span>}</td><td className="px-2 py-1 text-right">{c.deja ? <span className="text-slate-400" title="Déjà dans ses attributions">dans ses cours</span> : n2(c.etp_iip)}</td>
-                    <td className="px-2 py-1 text-right">{n2(c.etp_helb)}</td><td className="px-2 py-1 text-right">{c.cout_iip ? eur(c.cout_iip) : '—'}</td><td className="px-2 py-1 text-right">{c.cout_helb ? eur(c.cout_helb) : '—'}</td></tr>))
-                  : <tr key={y.annee} className="border-b border-slate-100"><td className="px-2 py-1">{y.annee}</td><td className="px-2 py-1 text-slate-400" colSpan={7}>Aucune coordination encodée (Personnel → fiche → Fonctions, année {y.annee}).</td></tr>))}
+                    <td className="px-2 py-1 text-right">{n2(c.etp_helb)}</td><td className="px-2 py-1 text-right">{c.cout_iip ? eur(c.cout_iip) : '—'}</td><td className="px-2 py-1 text-right">{c.cout_helb ? eur(c.cout_helb) : '—'}</td></tr>)) : [])];
+                })}
               </tbody></table></div>
           </Carte>}
 
@@ -436,6 +492,7 @@ export default function IipHelbGestion() {
             </Carte>))}
 
           {vu('enseignants') && <Carte large titre="Qui porte l’enseignement — par enseignant (ETP)" sous={`Rangé par la charge de ${aN.annee}`} onMasquer={masquer('enseignants')}>
+            <Volet titre={`${d.enseignants.length} enseignants — déplier la liste`}>
             <div className="overflow-x-auto max-h-[28rem]"><table className="w-full text-second">
               <thead className="sticky top-0 bg-white"><tr className="tab-entete"><th className="px-2 py-1 text-left">Enseignant</th><th className="px-2 py-1 text-left">Contrat</th>
                 {Y.map(y => <th key={y.annee} className="px-2 py-1 text-right">{y.lib}</th>)}</tr></thead>
@@ -443,6 +500,7 @@ export default function IipHelbGestion() {
                 <tr key={e.nom + e.contrat} className="border-b border-slate-100"><td className="px-2 py-1">{e.nom}</td>
                   <td className="px-2 py-1"><span className="pastille-etat" style={{ color: '#fff', background: e.contrat === 'HELB' ? HELB : IIP }}>{e.contrat}</span></td>
                   {Y.map(y => <td key={y.annee} className="px-2 py-1 text-right">{e.par[y.annee] ? n2(e.par[y.annee]) : '—'}</td>)}</tr>))}</tbody></table></div>
+            </Volet>
           </Carte>}
         </div>
         <p className="text-mention text-slate-500">Charge au barème du Pilotage (CT ÷ 800 + PP ÷ 1 000, autonomie comprise). Coût convention : la période selon son type et son niveau
