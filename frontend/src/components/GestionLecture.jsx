@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconPresentation, IconRefresh, IconMaximize, IconMinimize } from '@tabler/icons-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid, Legend } from 'recharts';
-import { authHeaders, getAnnee } from '../lib/api.js';
+import { authHeaders, getAnnee, getUser } from '../lib/api.js';
+import IipHelbGestion from './IipHelbGestion.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
 
@@ -192,7 +193,17 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
         {perim === 'etab' ? <Etablissement d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef}
           ouvrir={s => { setSection(s); setPerim('section'); }} />
           : !S ? <p className="text-second text-slate-500">Section introuvable pour {d.annee}.</p>
-            : <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />}
+            : <>
+              <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
+              {/* UNE CODIPLOMATION PORTE SES DONNÉES IIP / HELB (3.5.461, Charles : « dans le choix du TIM, ces données en plus ; si co-dip,
+                  alors données complémentaires ») : la page IIP et HELB, années au choix, pour la section lue — direction seule (la route l'est). */}
+              {(d.codiplomation || []).includes(String(S.section).toLowerCase()) && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role)
+                && (lentille === 'tout' || lentille === 'fin') && <>
+                  <h2 className="titre-ecran !mt-6 !mb-0">La codiplomation IIP / HELB, année par année</h2>
+                  <p className="text-mention text-slate-500 m-0">{S.section} est organisée avec la HELB : charge, coût, part de chacun, coordinations et enseignants sur les années choisies.</p>
+                  <IipHelbGestion sectionFixe={S.section} />
+                </>}
+            </>}
       </>)}
     </div>);
 }

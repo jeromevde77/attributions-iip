@@ -4331,7 +4331,10 @@ marqueurs du positionnement à la couleur du verdict (3.5.458). **La référence
 comparaison ETP et les bilans comptables ») : croissance (HELB : étudiants comptés de `COMPARAISON_HE`, deux dernières années ; IIP :
 inscrits), primo-inscrits (débutants START de la HELB, gardés désormais par `lireInscrits`, repli `COR_HELB.debutants`), coût par ETC
 et par période de la grille, recettes = chiffre d'affaires des comptes ÷ étudiants. Sans référence : réussite, sexe, âge, nationalité,
-domicile (absents des fichiers de la HELB).
+domicile (absents des fichiers de la HELB). **Une codiplomation porte ses données IIP / HELB** (3.5.461, Charles : « dans le choix du TIM, ces données en
+plus ; si co-dip, alors données complémentaires ») : Lire et comparer, une section de `sectionsCodiplomation()` (rendue par `/lecture`,
+`codiplomation`), axes Tout ou Finances, direction : la page IIP et HELB (`IipHelbGestion sectionFixe`) s'affiche dessous. Elle reste
+aussi dans Dotation → IIP et HELB.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
