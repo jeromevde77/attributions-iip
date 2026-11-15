@@ -47,10 +47,11 @@ function attributions(section, annee, unite = 'periodes') {
       v.professeur_id, v.professeur,
       COALESCE(NULLIF(v.type_cours_helb, ''), NULLIF(p.statut_helb, ''), '') AS titre_helb,
       CASE WHEN v.helb_nature = 'TP' THEN 'TP' ELSE 'TH' END AS nature_helb,
+      CASE WHEN v.statut_mdp = 'EXP' THEN 'EXP' WHEN v.statut_mdp = 'CC' THEN 'CC' ELSE 'AUTRE' END AS statut,
       SUM(v.total_attribue_professeur) AS periodes, SUM(v.charge_en_heures) AS heures
     FROM v_attribution_complete v LEFT JOIN professeur p ON p.id = v.professeur_id
     WHERE v.annee_scolaire = ? AND v.section = ? AND COALESCE(v.en_conge, 0) = 0
-    GROUP BY 1,2,3,4,5,6,7,8,9`).all(annee, section)
+    GROUP BY 1,2,3,4,5,6,7,8,9,10`).all(annee, section)
     .map(l => ({ ...l, helb: l.contrat === 'HELB' })).map(l => ({ ...l, etp: etpLigne(l, unite) }));
 }
 
@@ -767,7 +768,11 @@ export function donneesIipHelb(section, anneesDemandees, { unite = 'periodes', c
     y.ue95 = aideReussite(a);
     const { lignes, ...reste } = y;
     return { ...reste, ens_iip: y.etp_iip, ens_helb: y.etp_helb,
-      blocs: parCle(l => l.bloc), natures: parCle(l => NATURES[l.nature] || (/^\d+$/.test(String(l.nature)) ? `Autre (${l.nature})` : l.nature)) };
+      blocs: parCle(l => l.bloc), natures: parCle(l => NATURES[l.nature] || (/^\d+$/.test(String(l.nature)) ? `Autre (${l.nature})` : l.nature)),
+      /* LA BALANCE PAR ÉCOLE (3.5.471, Charles : « avoir cette balance chargés de cours / experts par école » — 2025-2026 : une
+         enseignante de la HELHa détachée vers la HELB fin août, des UE basculées ; 2026-2027 : tous les stages passés à l'IIP). Par statut
+         (chargé de cours, expert ou invité) et par nature (cours, stages, épreuve intégrée, coordination), IIP et HELB, en ETP. */
+      statuts: parCle(l => `${{ CC: 'Chargés de cours', EXP: 'Experts et invités', AUTRE: 'Autres statuts' }[l.statut]} · ${l.nature === 'ES' ? 'stages' : l.nature === 'EI' ? 'épreuve intégrée' : l.nature === 'Cours' ? 'cours' : 'coordination et autres'}`) };
   });
   // Les inscrits de chaque année de la section, pour le lissage de l'allocation (années hors du choix comprises).
   const inscrits_annees = {};
