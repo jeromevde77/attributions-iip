@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronLeft, IconChevronRight, IconMaximize, IconMinimize, IconPresentation, IconPencil, IconRefresh, IconDownload,
+import { IconChevronLeft, IconChevronRight, IconMaximize, IconMinimize, IconPresentation, IconPencil, IconRefresh, IconDownload, IconListCheck,
   IconBone, IconEye, IconEyeglass, IconEyeglass2, IconStretching, IconStethoscope, IconBandage, IconDeviceDesktop, IconSchool } from '@tabler/icons-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { BarChart, Bar, Cell, PieChart, Pie, XAxis, YAxis, CartesianGrid, LabelList, Legend, LineChart, Line } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { useIdentite } from '../lib/identite.js';
+import { Fenetre } from './ui.jsx';
 import { ETOILES, TRAITS, ECLAT, POINTS_L } from '../lib/logoVierge.js';
 import { useCartes, CLASSES } from './CarteCommunes.jsx';
 import { listePays } from '../lib/pays.js';
@@ -134,7 +135,7 @@ function svgIsotype(b) {
 
 /* ------------------------------------------------------------------ LES DIAPOSITIVES ------------------------------------------- */
 
-function composer(D, T) {
+function composer(D, T, opts = {}) {
   const { section, nom, pop, stats, lec, annee } = D;
   // LA SECTION CHOISIE, pas la première de la liste (3.5.457 : pour « Soins infirmiers », la présentation montrait le profil de TIM).
   const s = pop?.sections?.find(x => x.section === section) || {};
@@ -545,6 +546,19 @@ function composer(D, T) {
     { k: 'texte', x: M, y: 530, w: CW, h: 40, texte: t('merci.sous', `${nom} — Institut Ilya Prigogine`), taille: 18, couleur: C.clair, align: 'center', edit: 'merci.sous' },
   ], notes: t('notes.merci', ''), notesCle: 'notes.merci' });
 
+  /* CHOISIR CE QUI PASSE, SELON LE PUBLIC (3.5.475, Charles : « choisir via un menu ce qui sera dans les slides parmi tout ce qui est
+     possible ; cela permet d'adapter en fonction du public »). Les diapositives retirées sont gardées par section (`choix.masquees`,
+     avec les textes) ; `opts.tout` rend le catalogue complet, pour le menu. Chaque diapositive porte son intitulé (`titre`). */
+  for (const d of diapos) {
+    d.titre = d.id === 'couverture' ? 'Couverture' : d.id === 'merci' ? 'Merci, vos questions'
+      : /^sep\d$/.test(d.id) ? `Partie ${d.id.slice(3)} : ${d.blocs.find(b => b.k === 'texte' && b.taille === 46)?.texte || ''}`
+        : (d.blocs.find(b => b.k === 'texte' && b.taille === 32)?.texte || d.id);
+  }
+  if (!opts.tout) {
+    const masq = new Set(String(T['choix.masquees'] || '').split(',').filter(Boolean));
+    for (let k = diapos.length - 1; k >= 0; k--) if (masq.has(diapos[k].id)) diapos.splice(k, 1);
+  }
+  if (opts.tout) return diapos;
   // Le pied de chaque diapositive de contenu : section, numéro.
   diapos.forEach((d, i) => {
     if (d.fond) return;
@@ -820,6 +834,18 @@ export default function PresentationSection() {
   }, [section, annee, tour]);
 
   const diapos = useMemo(() => (D ? composer(D, textes) : []), [D, textes]);
+  const catalogue = useMemo(() => (D ? composer(D, textes, { tout: true }).map(x => ({ id: x.id, titre: x.titre })) : []), [D, textes]);
+  const [choisir, setChoisir] = useState(false);
+  const masquees = new Set(String(textes['choix.masquees'] || '').split(',').filter(Boolean));
+  const poserMasquees = (ids, plus = {}) => { const nouveaux = { ...textes, ...plus, 'choix.masquees': [...ids].join(',') }; setTextes(nouveaux); setI(0); enregistrer(nouveaux); };
+  /* LES PUBLICS (3.5.475) : un départ, qu'on retouche ensuite case par case. */
+  const PUBLICS = [
+    // [nom, diapositives retirées, la ligne de couverture] — la couverture dit à qui l'on parle.
+    ['Conseil d’administration', [], 'PRÉSENTATION AU CONSEIL D’ADMINISTRATION'],
+    ['Équipe pédagogique', ['sep4', 'finances', 'comptes', 'demandes'], 'PRÉSENTATION À L’ÉQUIPE PÉDAGOGIQUE'],
+    ['Public extérieur (salon, partenaires)', ['sep4', 'finances', 'comptes', 'unites', 'forces', 'opportunites', 'demandes', 'sep5'], 'PRÉSENTATION DE LA SECTION'],
+    ['Les chiffres seuls', ['forces', 'opportunites', 'demandes', 'sep5'], 'LES CHIFFRES DE LA SECTION'],
+  ];
   const d = diapos[Math.min(i, diapos.length - 1)];
 
   // La taille de la scène suit la largeur disponible (et l'écran entier en plein écran).
@@ -879,6 +905,8 @@ export default function PresentationSection() {
           {(sections.length ? sections : [section]).map(s => <option key={s} value={s}>{NOMS_SECTION[s] ? `${s} — ${NOMS_SECTION[s]}` : s}</option>)}
         </select>
         <span className="text-second text-slate-500 whitespace-nowrap">{diapos.length ? `${diapos.length} diapositives` : 'Composition…'}</span>
+        <button type="button" className="bouton inline-flex items-center gap-1.5 whitespace-nowrap" onClick={() => setChoisir(true)} disabled={!D}
+          title="Choisir les diapositives, selon le public"><IconListCheck size={15} />Choisir les diapositives{masquees.size ? ` (${masquees.size} retirée${masquees.size > 1 ? 's' : ''})` : ''}</button>
         <button type="button" className={`bouton inline-flex items-center gap-1.5 whitespace-nowrap ${editer ? 'bouton-fort' : ''}`} onClick={() => setEditer(x => !x)} disabled={!D}
           title="Corriger les textes proposés : phrases à retenir, forces, faiblesses, notes"><IconPencil size={15} />{editer ? 'Terminer les corrections' : 'Corriger les textes'}</button>
         <button type="button" className="bouton inline-flex items-center gap-1.5 whitespace-nowrap" onClick={() => setTour(t => t + 1)} disabled={!D} title="Relire les chiffres"><IconRefresh size={15} />Recalculer</button>
@@ -887,6 +915,33 @@ export default function PresentationSection() {
         <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5 whitespace-nowrap" onClick={exporter} disabled={!D || exporte}><IconDownload size={15} />{exporte ? 'Export…' : 'PowerPoint'}</button>
       </div>
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
+      {choisir && (
+        <Fenetre titre="Choisir les diapositives" sous={`${catalogue.length - masquees.size} sur ${catalogue.length} · gardé pour ${section}`} onFermer={() => setChoisir(false)} large="moyenne"
+          pied={<button type="button" className="bouton bouton-fort" onClick={() => setChoisir(false)}>Terminé</button>}>
+          <div className="space-y-4">
+            <div>
+              <div className="intertitre mb-1.5">Pour quel public ?</div>
+              <div className="flex flex-wrap gap-2">
+                {PUBLICS.map(([nom, ids, kicker]) => <button key={nom} type="button" className="bouton" onClick={() => poserMasquees(ids.filter(x => catalogue.some(c => c.id === x)), { 'couv.kicker': kicker, 'couv.date': nom === 'Conseil d’administration' ? undefined : '' })}>{nom}</button>)}
+              </div>
+              <p className="text-mention text-slate-500 mt-1.5 mb-0">Un public coche un départ et adapte la ligne de couverture ; chaque case et chaque texte se retouchent ensuite.</p>
+            </div>
+            <div>
+              <div className="intertitre mb-1.5">Les diapositives</div>
+              <ul className="m-0 p-0 list-none divide-y divide-slate-100">
+                {catalogue.map(c => {
+                  const partie = /^sep\d$/.test(c.id);
+                  return (
+                    <li key={c.id} className={`flex items-center gap-2 py-1.5 ${partie ? 'font-semibold mt-1' : 'pl-5'}`}>
+                      <input id={`dia-${c.id}`} type="checkbox" checked={!masquees.has(c.id)}
+                        onChange={() => { const n = new Set(masquees); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); poserMasquees(n); }} />
+                      <label htmlFor={`dia-${c.id}`} className="text-sm cursor-pointer">{c.titre}</label>
+                    </li>);
+                })}
+              </ul>
+            </div>
+          </div>
+        </Fenetre>)}
       <div ref={racine} className={plein ? 'flex items-center justify-center' : ''} style={plein ? { background: '#000', width: '100vw', height: '100vh' } : undefined}>
         {!D || !d ? <p className="text-second text-slate-400">Calcul des chiffres de la section… (quelques secondes)</p> : (
           <div ref={cadre} className="relative" style={plein ? { width: largeur } : undefined}>

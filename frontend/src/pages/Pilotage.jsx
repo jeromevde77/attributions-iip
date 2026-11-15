@@ -1519,7 +1519,7 @@ export default function Pilotage({ vue = 'tout' }) {
       lit('dotation') && ['synthese', 'Dotation', true], ['dotation', 'Dotation : comparaison des années', true], direction && ['iip-helb', 'IIP et HELB', true],
       lit('dotation') && ['config', 'Dotation : configuration', true]] },
     { key: 'g-section', label: 'Une section', icon: IconUsersGroup, faces: [['section', 'Une section']] },
-    { key: 'g-presenter', label: 'Présenter', icon: IconPresentation, faces: [direction && ['presentation', 'Présenter une section']] },
+    { key: 'g-presenter', label: 'Présentation', icon: IconPresentation, faces: [direction && ['presentation', 'Présentation d’une section']] },
     { key: 'g-finances', label: 'Budget et frais', icon: IconCoin, faces: [
       !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget'],
       // MES FRAIS (3.5.197) : les notes de frais de la personne connectée, à elle seule.
@@ -1880,7 +1880,7 @@ thead { display: table-header-group; }
           <PageHeader icon={IconChartInfographic} titre="Les sources"
             sous="Les fichiers de référence — HELB, ASBL — dont Lucie ne garde que les totaux ; chaque comparaison y renvoie" />
         ) : tab === 'presentation' ? (
-          <PageHeader icon={IconPresentation} titre="Présenter une section"
+          <PageHeader icon={IconPresentation} titre="Présentation d’une section"
             sous="Les chiffres de Lucie en diapositives, en plein écran — sur iPad ou grand écran" />
         ) : tab === 'iip-helb' ? (
           <PageHeader icon={IconBuildingBank} titre="L’IIP et la HELB"
