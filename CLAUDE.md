@@ -4334,7 +4334,11 @@ et par période de la grille, recettes = chiffre d'affaires des comptes ÷ étud
 domicile (absents des fichiers de la HELB). **Une codiplomation porte ses données IIP / HELB** (3.5.461, Charles : « dans le choix du TIM, ces données en
 plus ; si co-dip, alors données complémentaires ») : Lire et comparer, une section de `sectionsCodiplomation()` (rendue par `/lecture`,
 `codiplomation`), axes Tout ou Finances, direction : la page IIP et HELB (`IipHelbGestion sectionFixe`) s'affiche dessous. Elle reste
-aussi dans Dotation → IIP et HELB.
+aussi dans Dotation → IIP et HELB. **Le bilan de la présentation se déduit des chiffres de la section** (3.5.462, Charles : « tu mets les mêmes
+conclusions à toutes les sections ») : forces, faiblesses, opportunités, menaces, demandes et « à retenir » ne portent une phrase que
+si les chiffres de CETTE section la justifient (croissance, coût face à l'IIP et à l'ASBL, réussite face à l'IIP, comptes, hors UE,
+taille des groupes) ; métier et matériel par section (`METIER`), codiplomation seulement pour TIM et Orthoptie. Les textes corrigés à
+la main restent ceux de la section.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
