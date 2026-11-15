@@ -222,7 +222,6 @@ Paramètres par défaut, tous réglables dans la page :
 | Part des inscrits comptés pour la HELB | 50 % |
 | Unité de charge (MUCE) | 3 837,18 € |
 | Pondération santé | × 1,5 |
-| Allocation à partir de | 2026-2027 |
 | Lissage | 3 ans |
 | Prix d'un ETP HELB | au choix : au titre (COR : maître-assistant 88 981 € ; tout le reste au prix d'un maître de formation pratique, 78 037 €), à la moyenne du COR (85 203 €), ou au montant réglé (90 000 €, courriel de F. Vanderoost du 27 août 2026) |
 | Autres services | 0 % des salaires |
@@ -230,7 +229,9 @@ Paramètres par défaut, tous réglables dans la page :
 
 ```
 étudiants comptés   = inscrits × 50 %
-allocation          = moyenne des étudiants comptés des 3 années précédentes × MUCE × 1,5   (dès 2026-2027)
+allocation (année civile C) = moyenne des étudiants comptés des années académiques (C−4)-(C−3), (C−3)-(C−2), (C−2)-(C−1)
+                              × MUCE × 1,5      (décret du 9 septembre 1996, art. 17 ; l'année budgétaire est l'année civile)
+allocation (année académique Y-(Y+1)) = 4/12 de l'année civile Y + 8/12 de l'année civile Y+1
 recettes HELB/ASBL  = allocation + droits et frais (§ 2.4)
 salaires (au titre)    = ETP des maîtres-assistants × 88 981 € + tout le reste (MFP, praticiens, coordinations) × 78 037 €
 salaires (moyenne)     = ETP HELB (coordinations comprises) × 85 203 €
@@ -267,8 +268,8 @@ Un budget ne dit pas le réel : pour une codiplomation, Lucie remplace un exerci
 l'ASBL (côté HELB et côté IIP réunis), d'après les inscrits et les attributions :
 ```
 produits = allocation de la HELB + droits et frais des inscrits (barème de Lucie)
-   allocation : le calcul du § 5.3 dès 2026-2027 ; avant, le niveau réel des subsides du dernier exercice réalisé
-   (TIM 2025 : 248 372 €, compte 737100)
+   allocation (lecture « UCE ») : le décret, § 5.3 — chaque année d'étudiants est payée trois fois un tiers, avec retard ;
+   aucune n'est perdue
 charges  = enseignants HELB (ETP de Lucie, coordinations comprises, prix du titre) + matériel
 année civile = 8/12 de l'année scolaire qui finit + 4/12 de celle qui commence
 ```

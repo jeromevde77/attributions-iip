@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee, allocationCivile } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
@@ -513,7 +513,9 @@ r.get('/lecture', authRequired, (req, res) => {
             const civil = Y => {
               const e1 = est(`${Y - 1}-${Y}`), e2 = est(`${Y}-${Y + 1}`); if (!e1 && !e2) return null;
               const m = k => Math.round((e1?.[k] || 0) * 8 / 12 + (e2?.[k] || 0) * 4 / 12);
-              return ligne({ annee: String(Y) }, { cout: m('cout'), produits: m('produits'), allocation: m('allocation'), droits: m('droits'), salaires: m('salaires'),
+              // L'allocation d'une année civile se calcule telle quelle (décret, art. 17 : l'année budgétaire est l'année civile).
+              let alloc = m('allocation'); try { alloc = allocationCivile(code, Y); } catch { /* le mélange 8/12 – 4/12 */ }
+              return ligne({ annee: String(Y) }, { cout: m('cout'), produits: m('droits') + alloc, allocation: alloc, droits: m('droits'), salaires: m('salaires'),
                 materiel: m('materiel'), allocation_subsides: m('allocation_subsides'), produits_subsides: m('produits_subsides'), etp_helb: Math.round(((e1?.etp_helb || 0) * 8 / 12 + (e2?.etp_helb || 0) * 4 / 12) * 100) / 100, allocation_reelle: !!(e1?.allocation_reelle || e2?.allocation_reelle) });
             };
             helb = helb.map(v => (v.nature === 'réalisé' ? v : civil(Number(v.annee)) || v));
