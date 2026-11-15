@@ -169,11 +169,11 @@ recettes par étudiant = chiffre d'affaires de l'ASBL ÷ étudiants
 - Le chiffre d'affaires de l'ASBL comprend des prestations en plus des droits et frais ; l'IIP, lui, compte ses droits et frais.
 - **Sans référence ASBL** : réussite, sexe, âge, nationalité, domicile — les fichiers de la HELB n'en disent rien.
 
-### 4.3 Point à vérifier
+### 4.3 Pas de double compte (confirmé par Charles, 15 novembre 2026)
 
-Les enseignants de l'IIP sont payés par la Fédération et ne figurent pas dans les comptes de l'ASBL : Lucie ajoute donc leur
-coût. Si certaines fonctions de l'IIP (direction, secrétariat) sont **déjà** dans les comptes de l'ASBL, elles sont comptées
-deux fois dans le coût de l'ASBL. **À confirmer.**
+Tout le personnel de l'IIP — enseignants, direction, secrétariat — est payé par la dotation ou occupe des postes accordés par la
+FWB : il a une valeur, mais elle ne passe pas dans les comptes de l'ASBL. Les charges de l'ASBL ne le contiennent donc pas, et
+Lucie l'ajoute une seule fois, par le coût complet de l'IIP.
 
 ---
 
@@ -280,8 +280,7 @@ dotation organique. Si l'IIP organise du DI sur la dotation, c'est à corriger.
 
 ## 7. Ce qui reste ouvert
 
-1. Fonctions de l'IIP déjà dans les comptes de l'ASBL ? (double compte possible, § 4.3)
-2. Pondération DI dans la dotation (§ 6.2).
-3. Un étudiant HELB = 60 crédits et 568 périodes par an : hypothèses à remplacer par les vrais chiffres de la HELB si on les obtient.
-4. Le cadre administratif réparti au prorata des inscrits (et non des périodes) : avantage les sections à petits effectifs
+1. Pondération DI dans la dotation (§ 6.2).
+2. Un étudiant HELB = 60 crédits et 568 périodes par an : hypothèses à remplacer par les vrais chiffres de la HELB si on les obtient.
+3. Le cadre administratif réparti au prorata des inscrits (et non des périodes) : avantage les sections à petits effectifs
    et beaucoup d'heures, pénalise celles à unités courtes (Soins de plaies).
