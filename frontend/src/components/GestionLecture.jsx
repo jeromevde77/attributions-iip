@@ -68,10 +68,15 @@ function Segments({ valeur, options, onChange, label }) {
 /* L'état d'un écart : la pastille du catalogue (réussi = mieux que la référence, surveiller = moins bien, neutre = un profil). */
 const Verdict = ({ etat, children }) => <PastilleEtat etat={etat}>{children}</PastilleEtat>;
 
-export default function GestionLecture({ annee: anneeProp, onPresenter, onSources }) {
+/* LA FICHE (3.5.474, Charles, maquette A retenue : « trop de sous-menus » ; « centraliser — aller chercher dans trois fenêtres »).
+   `perimFixe` : la page « L'école » (etab) ou « Une section » (section) de Gestion — plus de choix « Lire » dans la barre.
+   `onOuvrirSection` : un clic sur une section de l'école ouvre sa fiche. En fiche de section, des ancres sautent aux parties, et la
+   charge, les coûts, la balance IIP / HELB (la page IIP et HELB) suivent pour TOUTES les sections — direction seule. */
+export default function GestionLecture({ annee: anneeProp, onPresenter, onSources, perimFixe = null, onOuvrirSection = null }) {
   const memo = useMemo(lire, []);
   const annee = anneeProp || getAnnee();
-  const [perim, setPerim] = useState(memo.perim || 'etab');
+  const [perimChoisi, setPerim] = useState(memo.perim || 'etab');
+  const perim = perimFixe || perimChoisi;
   const [section, setSection] = useState(memo.section || 'TIM');
   const [lentille, setLentille] = useState(memo.lentille || 'tout');
   const [ref, setRef] = useState(memo.ref === 'HELB' ? 'ASBL' : memo.ref || 'IIP');
@@ -108,6 +113,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   const sections = d?.sections || [];
   const S = sections.find(x => x.section === section) || null;
   const nomRef = { IIP: 'l’IIP', ASBL: 'l’ASBL', N1: d?.prec ? d.prec.annee : 'l’année d’avant' }[ref];
+  const estDirection = ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
 
   /* La référence d'un indicateur, pour une ligne (une section, ou l'établissement). */
   const refDe = (k, code) => {
@@ -154,8 +160,8 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
 
   const barre = (
     <div className="flex flex-nowrap items-center gap-x-4 overflow-x-auto pb-1">
-      <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Lire</span>
-        <Segments label="Lire" valeur={perim} onChange={setPerim} options={[['etab', 'L’établissement'], ['section', 'Une section']]} />
+      <div className="flex items-center gap-2 flex-none">{!perimFixe && <><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Lire</span>
+        <Segments label="Lire" valeur={perim} onChange={setPerim} options={[['etab', 'L’établissement'], ['section', 'Une section']]} /></>}
         {perim === 'section' && (
           <select className="controle flex-none" value={section} onChange={e => setSection(e.target.value)} aria-label="Section">
             {sections.map(x => <option key={x.section} value={x.section}>{x.section}</option>)}
@@ -191,16 +197,22 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
         {!plein && <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}
           {onSources && <button type="button" className="text-iip-blue underline" onClick={onSources}>Les sources</button>}</p>}
         {perim === 'etab' ? <Etablissement d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef}
-          ouvrir={s => { setSection(s); setPerim('section'); }} />
+          ouvrir={s => { setSection(s); try { localStorage.setItem(MEMO, JSON.stringify({ ...lire(), section: s })); } catch { /* */ } if (onOuvrirSection) onOuvrirSection(s); else setPerim('section'); }} />
           : !S ? <p className="text-second text-slate-500">Section introuvable pour {d.annee}.</p>
             : <>
+              {perimFixe === 'section' && !plein && (
+                <nav aria-label="Parties de la fiche" className="flex gap-5 border-b border-slate-200 overflow-x-auto">
+                  {[['fiche-position', 'Où se situe la section'], ['fiche-comptes', 'Comptes de l’ASBL'], ['fiche-pistes', 'Ce qu’on peut améliorer'],
+                    ...(estDirection ? [['fiche-iiphelb', 'Enseignants, coûts et financement']] : [])].map(([id, l]) => (
+                    <button key={id} type="button" className="onglet-page whitespace-nowrap" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>{l}</button>))}
+                </nav>)}
               <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
               {/* UNE CODIPLOMATION PORTE SES DONNÉES IIP / HELB (3.5.461, Charles : « dans le choix du TIM, ces données en plus ; si co-dip,
                   alors données complémentaires ») : la page IIP et HELB, années au choix, pour la section lue — direction seule (la route l'est). */}
-              {(d.codiplomation || []).includes(String(S.section).toLowerCase()) && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role)
+              {estDirection && (perimFixe === 'section' || (d.codiplomation || []).includes(String(S.section).toLowerCase()))
                 && (lentille === 'tout' || lentille === 'fin') && <>
-                  <h2 className="titre-ecran !mt-6 !mb-0">La codiplomation IIP / HELB, année par année</h2>
-                  <p className="text-mention text-slate-500 m-0">{S.section} est organisée avec la HELB : charge, coût, part de chacun, coordinations et enseignants sur les années choisies.</p>
+                  <h2 id="fiche-iiphelb" className="titre-ecran !mt-6 !mb-0 scroll-mt-24">{(d.codiplomation || []).includes(String(S.section).toLowerCase()) ? 'Enseignants, coûts et financement — IIP et HELB, année par année' : 'Enseignants et coûts, année par année'}</h2>
+                  <p className="text-mention text-slate-500 m-0">{(d.codiplomation || []).includes(String(S.section).toLowerCase()) ? `${S.section} est organisée avec la HELB : charge, coût, part de chacun, financement, balance chargés de cours et experts, coordinations et enseignants.` : `Charge, coût, balance chargés de cours et experts, coordinations et enseignants de ${S.section}.`}</p>
                   <IipHelbGestion sectionFixe={S.section} />
                 </>}
             </>}
@@ -294,7 +306,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
   const voir = l => lentille === 'tout' || lentille === l;
   const reel = (compta?.helb || []).some(x => x.non_impute != null);
   return (<>
-    <section className="carte overflow-hidden">
+    <section id="fiche-position" className="carte overflow-hidden scroll-mt-24">
       <EnteteCarte titre={`Où se situe ${S.section} ?`} sous={`comparée à ${nomRef} · le point = ${S.section} (vert : mieux que la référence, orange : à surveiller), le trait = la référence`} />
       <div className="px-4 pb-2">
         {lignes.map(({ k, v, r, j, x, rx }) => (
@@ -356,7 +368,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
     </div>
 
     {voir('fin') && compta && (
-      <section className="carte overflow-hidden">
+      <section id="fiche-comptes" className="carte overflow-hidden scroll-mt-24">
         <EnteteCarte titre="La comptabilité de l’ASBL pour cette section" sous={reel ? 'résultat réel : le coût des enseignants HELB que les comptes imputent à d’autres codes analytiques est ajouté (ETP de Lucie, coordinations comprises, au prix du titre ; 8/12 de l’année scolaire qui finit, 4/12 de celle qui commence)' : `charges, produits et résultat, exercice par exercice · ${comptaSource?.fichier || ''}`} />
         <div className="overflow-x-auto">
           <Tableau className="!border-0 !rounded-none">
@@ -381,7 +393,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
           </Tableau>
         </div>
       </section>)}
-    <section className="carte overflow-hidden">
+    <section id="fiche-pistes" className="carte overflow-hidden scroll-mt-24">
       <EnteteCarte titre="Ce qu’on peut améliorer — ou non" sous={`déduit des écarts à ${nomRef}`} />
       <div className="px-4 py-1">
         {!pistes.length ? <p className="text-second text-slate-500 py-2">Rien à signaler face à cette référence, ou pas de référence pour ces indicateurs.</p> : pistes.map(p => (

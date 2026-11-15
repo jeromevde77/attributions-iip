@@ -4360,7 +4360,11 @@ plus de « début de l'allocation ». Pondération 1,5 = groupe F, paramédical 
 (art. 19) et les étudiants non finançables (art. 6 k et 8 — hors UE sans catégorie, redoublements). **Le (?) de chaque tuile de calcul** (3.5.472, Charles : « par honnêteté scientifique ») : `TuileEtat` prend
 `aide` (le calcul, en clair) et l'ouvre par `BulleAide` (ancrée `droite`) ; posé sur les tuiles de Lire et comparer, IIP et HELB, Dotation,
 ETP, Population, Personnel, Présences. **Une tuile de calcul nouvelle porte son `aide`, vérifiée dans le code.** Balance par école : un disque
-par école et par année (part des experts et invités).
+par école et par année (part des experts et invités). **Gestion sans sous-menus** (3.5.474, Charles : « trop de sous-menus » ; « centraliser — aller chercher dans
+trois fenêtres » ; maquette A retenue) : six entrées — L'école (`ecole` : Lire et comparer de l'établissement + « Les tableaux
+détaillés », les anciennes faces CACHÉES, troisième élément `true`, avec « ← L'école »), Une section (`section` : la fiche — ancres,
+positionnement, comptes, pistes, enseignants/coûts/financement IIP-HELB pour toute section, direction), Présenter, Budget et frais
+(seule entrée à onglets), Qualité, Les sources. `GestionLecture` prend `perimFixe` et `onOuvrirSection` ; `onglet=lecture` → `ecole`.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
