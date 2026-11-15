@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee, allocationCivile } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
@@ -494,17 +494,29 @@ r.get('/lecture', authRequired, (req, res) => {
             const dernier = real[real.length - 1];
             const fraisGeneraux = dernier ? Math.max(0, dernier.charges - dernier.deja_impute) : 0;
             const subsidesReels = dernier ? Math.max(0, dernier.produits - fraisGeneraux) : 0;
+            /* DEUX LECTURES DU FINANCEMENT DE LA HELB (3.5.469, Charles : « montre-moi les deux ») : (1) les UCE — 50 % des inscrits ×
+               MUCE × 1,5, lissé sur 3 ans (le calcul de la page IIP et HELB) ; (2) les subsides réels — ceux que les comptes attribuent à
+               la section au dernier exercice réalisé (TIM 2025 : 248 372 €), ajustés au nombre d'inscrits. */
+            const inscritsDe = a => { try { return estimationAnnee(code, a)?.inscrits || 0; } catch { return 0; } };
+            const Yd = dernier ? Number(dernier.annee) : null;
+            const inscritsDernier = Yd ? inscritsDe(`${Yd - 1}-${Yd}`) * 8 / 12 + inscritsDe(`${Yd}-${Yd + 1}`) * 4 / 12 : 0;
+            const parInscrit = inscritsDernier ? subsidesReels / inscritsDernier : 0;
             const est = a => { let e = null; try { e = estimationAnnee(code, a); } catch { e = null; }
-              if (e && !e.allocation && subsidesReels) { e = { ...e, allocation: subsidesReels, produits: e.produits + subsidesReels, allocation_reelle: true }; }
-              return e; };
+              if (!e) return null;
+              const reelle = Math.round(parInscrit * (e.inscrits || 0));
+              const uce = e.allocation || reelle;   // avant 2026-2027, pas d'UCE dans le calcul : le niveau réel
+              return { ...e, allocation: uce, produits: e.droits + uce, allocation_subsides: reelle, produits_subsides: e.droits + reelle, allocation_reelle: !e.allocation }; };
             const ligne = (base, e) => ({ ...base, nature: 'estimation', estimation: true, charges: e.cout, produits: e.produits, resultat: e.produits - e.cout,
+              allocation_subsides: e.allocation_subsides, produits_subsides: e.produits_subsides, resultat_subsides: e.produits_subsides - e.cout, par_inscrit: Math.round(parInscrit),
               resultat_reel: e.produits - e.cout, charges_reelles: e.cout, non_impute: null, allocation: e.allocation, droits: e.droits, salaires: e.salaires,
               materiel: e.materiel, etp_helb: e.etp_helb, allocation_reelle: !!e.allocation_reelle, subsides_de: dernier?.annee || null });
             const civil = Y => {
               const e1 = est(`${Y - 1}-${Y}`), e2 = est(`${Y}-${Y + 1}`); if (!e1 && !e2) return null;
               const m = k => Math.round((e1?.[k] || 0) * 8 / 12 + (e2?.[k] || 0) * 4 / 12);
-              return ligne({ annee: String(Y) }, { cout: m('cout'), produits: m('produits'), allocation: m('allocation'), droits: m('droits'), salaires: m('salaires'),
-                materiel: m('materiel'), etp_helb: Math.round(((e1?.etp_helb || 0) * 8 / 12 + (e2?.etp_helb || 0) * 4 / 12) * 100) / 100, allocation_reelle: !!(e1?.allocation_reelle || e2?.allocation_reelle) });
+              // L'allocation d'une année civile se calcule telle quelle (décret, art. 17 : l'année budgétaire est l'année civile).
+              let alloc = m('allocation'); try { alloc = allocationCivile(code, Y); } catch { /* le mélange 8/12 – 4/12 */ }
+              return ligne({ annee: String(Y) }, { cout: m('cout'), produits: m('droits') + alloc, allocation: alloc, droits: m('droits'), salaires: m('salaires'),
+                materiel: m('materiel'), allocation_subsides: m('allocation_subsides'), produits_subsides: m('produits_subsides'), etp_helb: Math.round(((e1?.etp_helb || 0) * 8 / 12 + (e2?.etp_helb || 0) * 4 / 12) * 100) / 100, allocation_reelle: !!(e1?.allocation_reelle || e2?.allocation_reelle) });
             };
             helb = helb.map(v => (v.nature === 'réalisé' ? v : civil(Number(v.annee)) || v));
             const eS = est(annee);

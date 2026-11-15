@@ -379,15 +379,21 @@ export function salairesHelb(y, P, avecCoord = true) {
   }
   return etp * P.cmbp;
 }
+/* LE LISSAGE DU DÉCRET (3.5.470 ; décret du 9 septembre 1996 relatif au financement des Hautes Écoles, art. 17 al. 2 : « le nombre
+   d'étudiants […] des trois dernières années précédant l'année budgétaire […] divisé par trois » ; l'année budgétaire est l'année
+   civile ; Charles : « lissage selon le décret »). Les étudiants comptés d'une année budgétaire C = la moyenne de ceux des années
+   académiques (C−4)-(C−3), (C−3)-(C−2), (C−2)-(C−1). Aucune année n'est perdue : chacune est payée trois fois un tiers, avec retard.
+   Une année académique Y-(Y+1) reçoit 4/12 de l'allocation de l'année civile Y et 8/12 de celle de Y+1. Le nombre d'années de
+   lissage reste réglable (3 au décret) ; il n'y a plus de « début de l'allocation ». */
+export function baseDecret(deb, P, inscritsDe) {
+  const n = Math.max(1, Math.round(P.lissage || 3));
+  const civile = C => { let s = 0; for (let k = 2; k < 2 + n; k++) s += (inscritsDe(`${C - k}-${C - k + 1}`) || 0) * P.part / 100; return s / n; };
+  return civile(deb) * 4 / 12 + civile(deb + 1) * 8 / 12;
+}
 export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0, materiel = null) {
   const comptes = y.inscrits * P.part / 100;
   const deb = Number(String(y.annee).slice(0, 4));
-  let base = 0;
-  if (deb >= P.debut) {
-    const n = Math.max(1, Math.round(P.lissage));
-    for (let k = 1; k <= n; k++) base += (inscritsDe(anneeDecalee(y.annee, k)) || 0) * P.part / 100;
-    base /= n;
-  }
+  const base = baseDecret(deb, P, inscritsDe);
   const allocation = base * P.muce * P.ponderation;
   const droits = y.tiers ? 0 : (y.recettes || 0);
   const recettes = allocation + droits;
@@ -591,8 +597,8 @@ export function documentIipHelb(p) {
       <tr class="repere"><td>Ensemble</td><td class="n"></td><td class="n"></td><td class="n">${eur(tot('allocation'))}</td><td class="n">${eur(tot('droits'))}</td><td class="n"></td><td class="n">${eur(tot('salaires'))}</td>
         <td class="n">${eur(tot('autres'))}</td><td class="n">${eur(tot('fonct'))}</td><td class="n">${eur(tot('cout'))}</td>
         <td class="n g">${tot('resultat') >= 0 ? '+' : '−'}${eur(Math.abs(tot('resultat')))}</td><td class="n"></td><td class="n">${eur(L.reduce((t, l) => t + l.adm.montant, 0))}</td><td class="n">${eur(L.reduce((t, l) => t + u95(l.y), 0))}</td></tr></tbody></table>
-    <p class="fin">Allocation : nulle avant ${H.debut}-${H.debut + 1} (la section était en création) ; ensuite, la moyenne des étudiants comptés
-      (${n0(H.part)} % des inscrits) des ${n0(H.lissage)} années précédentes × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
+    <p class="fin">Allocation (décret du 9 septembre 1996, art. 17) : pour chaque année civile, la moyenne des étudiants comptés
+      (${n0(H.part)} % des inscrits) des ${n0(H.lissage)} années académiques précédentes ; une année académique reçoit 4/12 de l'année civile où elle commence et 8/12 de la suivante × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
       (pondération santé). Droits : les droits d'inscription et frais des étudiants de la section, au barème, versés à l'ASBL, qui alimentent
       les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${H.prix === 'titres' ? `le coût de leur titre au COR (maître-assistant ${n0(H.prix_ma)} € par ETP, les autres au prix d'un maître de formation pratique, ${n0(H.prix_mfp)} € ; ETP comptés à 480 h pour la théorie d'un maître-assistant, 750 h pour le reste)` : H.prix === 'moyenne' ? `${n0(H.prix_moyen)} € (moyenne du COR de la HELB)` : `${n0(H.cmbp)} € (coût moyen brut pondéré)`}, plus ${n2(H.autres)} %
       pour les autres services, et ${H.mode_fonct === 'forfait' ? `${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement (forfait)`
@@ -822,4 +828,17 @@ export function estimationAnnee(section, a) {
   return { annee: a, inscrits: y.inscrits, etp_helb: Math.round((y.etp_helb + y.cetp_helb) * 100) / 100,
     allocation: Math.round(h.allocation), droits: Math.round(h.droits), produits: Math.round(h.recettes),
     salaires: Math.round(h.salaires), materiel: Math.round(h.fonct), cout: Math.round(h.cout) };
+}
+
+/** L'allocation de la HELB pour une section et une ANNÉE CIVILE (l'année budgétaire du décret, art. 17) : la moyenne des étudiants
+ *  comptés des trois années académiques précédentes × MUCE × pondération. Pour l'estimation d'une année civile (3.5.470). */
+export function allocationCivile(section, C) {
+  const P = PARAM_HELB, n = Math.max(1, Math.round(P.lissage || 3));
+  let s = 0;
+  for (let k = 2; k < 2 + n; k++) {
+    const a = `${C - k}-${C - k + 1}`;
+    let ins = 0; try { ins = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { ins = 0; }
+    s += ins * P.part / 100;
+  }
+  return Math.round((s / n) * P.muce * P.ponderation);
 }

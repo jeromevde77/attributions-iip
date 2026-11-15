@@ -161,8 +161,10 @@ function composer(D, T) {
     /* LE RÉSULTAT RÉEL (3.5.467, Charles : « ne pas être flatteur ») : pour une codiplomation, le coût des enseignants HELB que les
        comptes imputent ailleurs est ajouté ; le résultat comptable reste à côté (`resultat_comptable`). */
     const ajout = h?.non_impute || 0;
-    return { annee: a, nature: (h || i).nature, estimation: !!h?.estimation, charges: (h?.charges || 0) + (i?.charges || 0) + ajout, produits: (h?.produits || 0) + (i?.produits || 0),
-      resultat: (h?.resultat || 0) + (i?.resultat || 0) - ajout, resultat_comptable: (h?.resultat || 0) + (i?.resultat || 0), ajout };
+    // Une estimation : le financement de la HELB au niveau des subsides réels (la lecture prudente) ; les UCE en note (3.5.469).
+    const prodH = h?.estimation && h.produits_subsides != null ? h.produits_subsides : (h?.produits || 0);
+    return { annee: a, nature: (h || i).nature, estimation: !!h?.estimation, uce: h?.estimation ? h.resultat_reel + (i?.resultat || 0) : null, charges: (h?.charges || 0) + (i?.charges || 0) + ajout, produits: prodH + (i?.produits || 0),
+      resultat: (h?.estimation && h.resultat_subsides != null ? h.resultat_subsides : (h?.resultat || 0)) + (i?.resultat || 0) - ajout, resultat_comptable: (h?.resultat || 0) + (i?.resultat || 0), ajout };
   }) : [];
   const dernierCompte = [...comptes].reverse().find(x => x.nature === 'réalisé') || null;
   const e0 = v => (v == null ? '—' : `${n0(v)} €`);
@@ -443,7 +445,7 @@ function composer(D, T) {
       bl2.push(...retenir('comptes', dernierCompte ? (avecReel
         ? `En ${dernierCompte.annee}, enseignants HELB compris, la section ${dernierCompte.resultat >= 0 ? `dégage ${e0(dernierCompte.resultat)}` : `coûte ${e0(-dernierCompte.resultat)} de plus qu’elle ne rapporte`} à l’ASBL (résultat comptable : ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))}).`
         : `En ${dernierCompte.annee}, la section a dégagé ${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))} dans les comptes de l’ASBL.`) : 'Une section qui rapporte plus qu’elle ne coûte.'));
-      ajouter({ id: 'comptes', blocs: bl2, notes: t('notes.comptes', avecReel ? 'Source : la synthèse des budgets et comptes de l’ASBL. Les comptes n’imputent à la section qu’une petite part de ses enseignants HELB : Lucie ajoute leur coût (ETP de Lucie, coordinations comprises, au prix de leur titre au COR), moins le personnel déjà imputé.' : 'Source : la synthèse des budgets et comptes de l’ASBL, tous les postes de la section réunis.'), notesCle: 'notes.comptes' });
+      ajouter({ id: 'comptes', blocs: bl2, notes: t('notes.comptes', avecReel ? `Source : la synthèse des budgets et comptes de l’ASBL. Les comptes n’imputent à la section qu’une petite part de ses enseignants HELB : Lucie ajoute leur coût (ETP de Lucie, coordinations comprises, au prix de leur titre au COR), moins le personnel déjà imputé.${comptes.filter(x => x.estimation && x.uce != null).map(x => ` ${x.annee} est une estimation : financement de la HELB au niveau des subsides réels (résultat ${x.resultat >= 0 ? '+' : '−'}${e0(Math.abs(x.resultat))}) ; aux UCE, le résultat serait de ${x.uce >= 0 ? '+' : '−'}${e0(Math.abs(x.uce))}.`).join('')}` : 'Source : la synthèse des budgets et comptes de l’ASBL, tous les postes de la section réunis.'), notesCle: 'notes.comptes' });
     }
   }
 

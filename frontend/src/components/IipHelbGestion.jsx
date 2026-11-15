@@ -30,7 +30,7 @@ const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
 const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
-  ['debut', 'Allocation à partir de', 'année'], ['lissage', 'Lissage', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
+  ['lissage', 'Lissage (décret : 3)', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
 const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
 /* LE PRIX D'UN ETP DE LA HELB (3.5.463) : au titre (théorie = maître-assistant, TP = maître de formation pratique), à la moyenne du COR,
    ou au montant réglé — la formule de salairesHelb (lib/rapportIipHelb.js), recopiée : qui change l'une change l'autre. */
@@ -45,12 +45,10 @@ function salairesHelb(y, P, avecCoord) {
 }
 function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   const comptes = y.inscrits * P.part / 100;
-  let base = 0;
-  if (Number(y.annee.slice(0, 4)) >= P.debut) {
-    const n = Math.max(1, Math.round(P.lissage));
-    for (let k = 1; k <= n; k++) base += (inscritsDe(decalee(y.annee, k)) || 0) * P.part / 100;
-    base /= n;
-  }
+  // Le lissage du décret (art. 17) : la formule de baseDecret (lib/rapportIipHelb.js), recopiée — qui change l'une change l'autre.
+  const n = Math.max(1, Math.round(P.lissage || 3)), deb = Number(y.annee.slice(0, 4));
+  const civile = C => { let s = 0; for (let k = 2; k < 2 + n; k++) s += (inscritsDe(`${C - k}-${C - k + 1}`) || 0) * P.part / 100; return s / n; };
+  const base = civile(deb) * 4 / 12 + civile(deb + 1) * 8 / 12;
   const allocation = base * P.muce * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
   const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = salairesHelb(y, P, avecCoord), autres = salaires * P.autres / 100;
   const fonct = P.mode_fonct === 'forfait' ? allocation * P.fonctionnement / 100 : (materiel || 0);
@@ -333,7 +331,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
               donnees={Y.filter(y => y.inscrits && !y.tiers).map(y => ({ lib: y.lib, cout: y.coutI / y.inscrits, percu: y.recettes / y.inscrits }))} />
           </Carte>}
 
-          {vu('helb') && <Carte large titre="Pour la HELB et l’ASBL : ce que coûte et rapporte la section" sous={`Allocation dès ${PH.debut}-${PH.debut + 1}, lissée sur ${PH.lissage} ans · droits à l’ASBL · ETP à ${n0(PH.cmbp)} €`}
+          {vu('helb') && <Carte large titre="Pour la HELB et l’ASBL : ce que coûte et rapporte la section" sous={`Allocation lissée sur ${PH.lissage} ans (décret de 1996, art. 17) · droits à l’ASBL`}
             forme={forme('helb', 'cote')} onForme={majForme('helb')} onMasquer={masquer('helb')}>
             <div>
               <div className="min-w-0">

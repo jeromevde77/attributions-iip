@@ -4353,7 +4353,11 @@ analytiques `ASBLyy` (personnel par code, `CODES_ANALYTIQUES`, TIM = 111066), `e
 (repli `RELEVE` pour TIM). Lire et comparer et la présentation mettent le réel en avant, le comptable à côté. **L'estimation** (3.5.468, Charles : « une estimation sur 2026 et 26-27 en fonction des inscrits et des
 attributions ») : un exercice budgété d'une codiplomation devient l'estimation de Lucie (`estimationAnnee` : allocation + droits −
 enseignants HELB − matériel ; allocation nulle avant 2026-2027 remplacée par les subsides réels du dernier exercice) ; l'année scolaire en
-cours en ligne propre ; la paire frais généraux (626000) / quote-part (737000), neutre, laissée de côté.
+cours en ligne propre ; la paire frais généraux (626000) / quote-part (737000), neutre, laissée de côté. **Le lissage du décret** (3.5.470, décret du 9 septembre 1996 relatif au financement des
+Hautes Écoles, art. 17 ; Charles : « lissage selon le décret ») : allocation d'une année civile C = moyenne des étudiants comptés des
+années académiques (C−4)-(C−3) à (C−2)-(C−1) × MUCE × 1,5 (`baseDecret`, `allocationCivile`, recopiée dans `IipHelbGestion.jsx`) ;
+plus de « début de l'allocation ». Pondération 1,5 = groupe F, paramédical (art. 16). Non traités : la MUCE réelle de chaque année
+(art. 19) et les étudiants non finançables (art. 6 k et 8 — hors UE sans catégorie, redoublements).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
