@@ -25,25 +25,31 @@ const NATURES = { Cours: 'Cours', EI: 'Épreuve intégrée', ES: 'Encadrement de
   COSTA: 'Coordination des stages', COTFE: 'Coordination des TFE', COSEC: 'Coordination de section', CP: 'Coordination pédagogique' };
 
 /** Les attributions d'une section pour une année, regroupées. */
-/* UN ETP DE LA HELB SE COMPTE EN HEURES DE LA HELB (3.5.463, Charles, 15 novembre 2026 : « tout ce qui est TP est payé en 750 heures
-   annuelles ; la théorie, si la personne est master, en 480 heures » ; « prévoir les deux » pour l'unité des lignes ; théorie et TP
-   se lisent au type de cours CT / PP). Une ligne HELB : heures = périodes × 50/60 (ou les heures telles quelles), ÷ 480 en CT, ÷ 750
-   en PP. Les lignes IIP gardent la règle de la dotation : CT ÷ 800, PP ÷ 1 000. */
-export const HEURES_HELB = { CT: 480, PP: 750 };
+/* UN ETP DE LA HELB SE COMPTE EN HEURES DE LA HELB (3.5.463-464, Charles, 15 novembre 2026 : « seuls les cours de théorie donnés par
+   un MA sont payés en 480 h ; le reste en 750 h, et si pas MA, au tarif d'un MFP »). LA RÈGLE EXISTAIT DÉJÀ dans Lucie (Pilotage → ETP,
+   `calculHELB` de frontend/src/lib/helb.js) : on la reprend, on ne la réécrit pas. Par ligne HELB : le titre = la colonne « HELB » de
+   la ligne (MA / MFP), à défaut le statut HELB de la fiche ; la nature = TH ou TP de la ligne (`helb_nature`) ; heures = périodes ×
+   50/60 (`charge_en_heures`), ou les périodes telles quelles si les lignes sont en heures. Diviseur : coordination 1 400, MFP 750,
+   MA / PI / à défaut : théorie 480, TP 750. Les lignes IIP gardent la règle de la dotation : CT ÷ 800, PP ÷ 1 000. */
+export const HEURES_HELB = { CT: 480, PP: 750, COORD: 1400 };
+export const divHelb = (titre, nature) => (titre === 'COORD' ? 1400 : titre === 'MFP' ? 750 : nature === 'TP' ? 750 : 480);
 const etpLigne = (l, unite) => {
   if (!l.helb) return (l.periodes || 0) / (l.type === 'PP' ? 1000 : 800);
-  const h = (l.periodes || 0) * (unite === 'heures' ? 1 : 50 / 60);
-  return h / HEURES_HELB[l.type === 'PP' ? 'PP' : 'CT'];
+  const h = unite === 'heures' ? (l.periodes || 0) : (l.heures || 0);
+  return h / divHelb(l.titre_helb, l.nature_helb);
 };
 function attributions(section, annee, unite = 'periodes') {
   return db.prepare(`
-    SELECT COALESCE(bloc, '—') AS bloc, COALESCE(contrat_mdp, 'IIP') AS contrat,
-      CASE WHEN UPPER(COALESCE(type_cours, 'CT')) = 'PP' THEN 'PP' ELSE 'CT' END AS type,
-      COALESCE(NULLIF(coordination_encadrement, ''), 'Cours') AS nature, cours_ept_ad AS ept,
-      professeur_id, professeur, SUM(total_attribue_professeur) AS periodes
-    FROM v_attribution_complete
-    WHERE annee_scolaire = ? AND section = ? AND COALESCE(en_conge, 0) = 0
-    GROUP BY 1,2,3,4,5,6,7`).all(annee, section)
+    SELECT COALESCE(v.bloc, '—') AS bloc, COALESCE(v.contrat_mdp, 'IIP') AS contrat,
+      CASE WHEN UPPER(COALESCE(v.type_cours, 'CT')) = 'PP' THEN 'PP' ELSE 'CT' END AS type,
+      COALESCE(NULLIF(v.coordination_encadrement, ''), 'Cours') AS nature, v.cours_ept_ad AS ept,
+      v.professeur_id, v.professeur,
+      COALESCE(NULLIF(v.type_cours_helb, ''), NULLIF(p.statut_helb, ''), '') AS titre_helb,
+      CASE WHEN v.helb_nature = 'TP' THEN 'TP' ELSE 'TH' END AS nature_helb,
+      SUM(v.total_attribue_professeur) AS periodes, SUM(v.charge_en_heures) AS heures
+    FROM v_attribution_complete v LEFT JOIN professeur p ON p.id = v.professeur_id
+    WHERE v.annee_scolaire = ? AND v.section = ? AND COALESCE(v.en_conge, 0) = 0
+    GROUP BY 1,2,3,4,5,6,7,8,9`).all(annee, section)
     .map(l => ({ ...l, helb: l.contrat === 'HELB' })).map(l => ({ ...l, etp: etpLigne(l, unite) }));
 }
 
@@ -106,7 +112,8 @@ function annee(section, a, unite = 'periodes') {
     annee: a, lignes: L,
     per_iip: som(l => l.periodes, l => !l.helb), per_helb: som(l => l.periodes, l => l.helb),
     etp_iip: som(l => l.etp, l => !l.helb), etp_helb: som(l => l.etp, l => l.helb),
-    etp_helb_ct: som(l => l.etp, l => l.helb && l.type !== 'PP'), etp_helb_pp: som(l => l.etp, l => l.helb && l.type === 'PP'),
+    etp_helb_ma: som(l => l.etp, l => l.helb && l.titre_helb === 'MA'), etp_helb_mfp: som(l => l.etp, l => l.helb && l.titre_helb !== 'MA'),
+    etp_helb_480: som(l => l.etp, l => l.helb && divHelb(l.titre_helb, l.nature_helb) === 480),
     profs_iip: new Set(L.filter(l => !l.helb && l.professeur_id).map(l => l.professeur_id)).size,
     profs_helb: new Set(L.filter(l => l.helb && l.professeur_id).map(l => l.professeur_id)).size,
     cout_iip: S?.cout_iip || 0, cout_helb: S?.cout_helb || 0, inscrits,
@@ -196,8 +203,7 @@ export const MESURES = {
   prix_helb: [['titres', 'ETP HELB au titre (COR)'], ['moyenne', 'ETP HELB à la moyenne (COR)'], ['fixe', 'ETP HELB au montant réglé']],
 };
 /* LE PRIX D'UN ETP DE LA HELB (3.5.463, Charles : « plusieurs calculs : la moyenne HELB, et les titres réels ») : les montants du COR.
-   Au titre : un ETP de théorie (CT) au maître-assistant, de TP (PP) au maître de formation pratique, une coordination au
-   maître-assistant. À la moyenne : rémunérations d'enseignement statutaires ÷ ETP statutaires. Fixe : le montant réglé (cmbp). */
+   Au titre : un maître-assistant au prix du MA, tout le reste (MFP, praticiens, coordinations) au prix du MFP. À la moyenne : rémunérations d'enseignement statutaires ÷ ETP statutaires. Fixe : le montant réglé (cmbp). */
 export function prixHelb(cor = null) {
   let c = cor;
   if (!c) { try { c = sourcesEnVigueur().helb_cor?.totaux || {}; } catch { c = {}; } }
@@ -339,8 +345,9 @@ export function salairesHelb(y, P, avecCoord = true) {
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
-    const pp = y.etp_helb_pp || 0, ct = Math.max(0, (y.ens_helb || 0) - pp);
-    return (ct + c) * P.prix_ma + pp * (P.prix_mfp || P.prix_ma);
+    // Au titre : un maître-assistant au prix du MA ; tout le reste (MFP, praticiens, coordinations) au prix du MFP.
+    const ma = y.etp_helb_ma || 0, autres = Math.max(0, (y.ens_helb || 0) - ma) + c;
+    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma);
   }
   return etp * P.cmbp;
 }
@@ -559,7 +566,7 @@ export function documentIipHelb(p) {
     <p class="fin">Allocation : nulle avant ${H.debut}-${H.debut + 1} (la section était en création) ; ensuite, la moyenne des étudiants comptés
       (${n0(H.part)} % des inscrits) des ${n0(H.lissage)} années précédentes × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
       (pondération santé). Droits : les droits d'inscription et frais des étudiants de la section, au barème, versés à l'ASBL, qui alimentent
-      les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${H.prix === 'titres' ? `le coût de leur titre au COR (théorie ${n0(H.prix_ma)} € par ETP, maître-assistant ; TP ${n0(H.prix_mfp)} €, maître de formation pratique ; ETP comptés à ${HEURES_HELB.CT} h en théorie et ${HEURES_HELB.PP} h en TP)` : H.prix === 'moyenne' ? `${n0(H.prix_moyen)} € (moyenne du COR de la HELB)` : `${n0(H.cmbp)} € (coût moyen brut pondéré)`}, plus ${n2(H.autres)} %
+      les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × ${H.prix === 'titres' ? `le coût de leur titre au COR (maître-assistant ${n0(H.prix_ma)} € par ETP, les autres au prix d'un maître de formation pratique, ${n0(H.prix_mfp)} € ; ETP comptés à 480 h pour la théorie d'un maître-assistant, 750 h pour le reste)` : H.prix === 'moyenne' ? `${n0(H.prix_moyen)} € (moyenne du COR de la HELB)` : `${n0(H.cmbp)} € (coût moyen brut pondéré)`}, plus ${n2(H.autres)} %
       pour les autres services, et ${H.mode_fonct === 'forfait' ? `${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement (forfait)`
         : `le matériel et le fonctionnement de la section : ${L.map(({ y }) => `${esc(y.annee)} ${R.materiel[y.annee] != null ? 'posé par la direction' : esc(MATERIEL_HELB[y.annee]?.source || 'inconnu')}`).join(' ; ')}`}.
       Apport de l'IIP : le cadre administratif de l'école (direction, secrétariat), 100 % IIP, × la part de ${esc(section)} dans les inscrits de
@@ -729,7 +736,10 @@ export function donneesIipHelb(section, anneesDemandees, { unite = 'periodes', c
   // Les inscrits de chaque année de la section, pour le lissage de l'allocation (années hors du choix comprises).
   const inscrits_annees = {};
   for (const a of toutes) { try { inscrits_annees[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { inscrits_annees[a] = 0; } }
-  return { section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, admin_reference: refAdm, comparaison: COMPARAISON_HE, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
+  // L'ETP QUE DÉCLARE LA HELB (3.5.464, Charles : « les deux côte à côte ») : la comparaison ETP de la HELB, quand elle connaît la section.
+  const cursusHe = COMPARAISON_HE.cursus.find(c => c.dept !== 'IIP' && c.tim && section === 'TIM');
+  const etp_declare_helb = Object.fromEntries(Object.entries(cursusHe?.series || {}).map(([a, v]) => [a, v[1]]));
+  return { etp_declare_helb, section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, admin_reference: refAdm, comparaison: COMPARAISON_HE, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
     tarif_ct: tarifs()[niv]?.CT || 0, prix_helb: prixHelb(cor), heures_helb: HEURES_HELB, unite_helb: unite, Y, enseignants: [...ens.values()] };
 }
 

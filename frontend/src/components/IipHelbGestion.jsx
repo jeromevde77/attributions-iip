@@ -37,8 +37,8 @@ function salairesHelb(y, P, avecCoord) {
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
-    const pp = y.etp_helb_pp || 0, ct = Math.max(0, (y.ens_helb || 0) - pp);
-    return (ct + c) * P.prix_ma + pp * (P.prix_mfp || P.prix_ma);
+    const ma = y.etp_helb_ma || 0, autres = Math.max(0, (y.ens_helb || 0) - ma) + c;
+    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma);
   }
   return etp * P.cmbp;
 }
@@ -384,12 +384,18 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                   </label>))}</div>}
                 {/* UN ETP DE LA HELB (3.5.463) : ses heures, et son prix — plusieurs calculs côte à côte. */}
                 <div className="intertitre pt-2">Un ETP de la HELB</div>
-                <p className="text-second text-slate-600 m-0">Théorie (CT) : {d?.heures_helb?.CT || 480} h par an · TP (PP) : {d?.heures_helb?.PP || 750} h par an. Les lignes HELB des attributions sont lues :</p>
+                <p className="text-second text-slate-600 m-0">Un temps plein : 480 h pour la théorie d’un maître-assistant, 750 h pour tout le reste (TP, maîtres de formation pratique, praticiens), 1 400 h pour une coordination. Le titre se lit dans la colonne « HELB » de la ligne d’attribution (à défaut, le statut HELB de la fiche), la théorie ou le TP dans la colonne TH/TP. Les lignes HELB des attributions sont lues :</p>
                 <div className="flex flex-wrap gap-2">
                   {segm('unite_helb', [['periodes', 'en périodes de 50 min'], ['heures', 'en heures']])}
                   {segm('prix_helb', [['titres', `Au titre — MA ${eur(d?.prix_helb?.ma)}, MFP ${eur(d?.prix_helb?.mfp)}`], ['moyenne', `Moyenne HELB — ${eur(d?.prix_helb?.moyen)}`], ['fixe', `Montant réglé — ${eur(PH.cmbp)}`]])}
                 </div>
-                {HY.length > 0 && <p className="text-mention text-slate-500 m-0">Salaires HELB {HY[HY.length - 1].y.annee} : au titre {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'titres' }, mes.coord === 'oui'))} · à la moyenne {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'moyenne' }, mes.coord === 'oui'))} · au montant réglé {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'fixe' }, mes.coord === 'oui'))}. Au titre, une coordination vaut un maître-assistant ; il faut encoder PP sur les lignes HELB de TP.</p>}
+                {HY.length > 0 && <p className="text-mention text-slate-500 m-0">Salaires HELB {HY[HY.length - 1].y.annee} : au titre {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'titres' }, mes.coord === 'oui'))} · à la moyenne {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'moyenne' }, mes.coord === 'oui'))} · au montant réglé {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'fixe' }, mes.coord === 'oui'))}. Au titre : un maître-assistant au prix du MA, tout le reste au prix d’un MFP.</p>}
+                {HY.length > 0 && <div className="overflow-x-auto"><Tableau className="!w-auto">
+                  <thead><tr><Th>Année</Th><Th align="droite">ETP HELB selon Lucie</Th><Th align="droite">dont maîtres-assistants</Th><Th align="droite">ETP déclaré par la HELB</Th><Th align="droite">Écart</Th></tr></thead>
+                  <tbody>{HY.map(({ y }) => { const dec = d?.etp_declare_helb?.[y.annee]; return (
+                    <tr key={y.annee}><Td>{y.annee}</Td><Td align="droite">{n2(y.ens_helb)}</Td><Td align="droite">{n2(y.etp_helb_ma)}</Td>
+                      <Td align="droite">{dec != null ? n2(dec) : '—'}</Td><Td align="droite">{dec != null ? n2(y.ens_helb - dec) : '—'}</Td></tr>); })}</tbody>
+                </Tableau></div>}
                 <div className="intertitre pt-2">Les paramètres</div>
                 <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-4">
                 <label className="flex items-center gap-2 text-second">
