@@ -442,37 +442,67 @@ function composer(D, T) {
 
   /* PARTIE 5 — LE BILAN */
   separateur(5, 'Le bilan', 'Ce qui fait la force de la section, ce qui la fragilise, ce que nous vous demandons.', '★');
-  const forcesDef = [
-    premiere && derniere ? `Croissance : de ${n0(premiere.n)} à ${n0(derniere.n)} étudiants en ${evo.length} ans` : null,
-    LS?.cout_credit && LA?.cout_credit && LS.cout_credit < LA.cout_credit ? `Efficience : un crédit à ${e0(LS.cout_credit)}, contre ${e0(LA.cout_credit)} pour l’ensemble de l’ASBL` : LS?.cout_credit && LI?.cout_credit && LS.cout_credit < LI.cout_credit ? `Efficience : un crédit à ${e0(LS.cout_credit)}, contre ${e0(LI.cout_credit)} à l’IIP` : null,
-    dernierCompte && dernierCompte.resultat >= 0 ? `Un résultat positif dans les comptes de l’ASBL (${e0(dernierCompte.resultat)} en ${dernierCompte.annee})` : null,
-    'Aucun coût supplémentaire pour l’IIP : des dotations optimisées',
-    rN?.sec?.total?.s2 ? `Une seconde session qui rattrape : ${n0(rN.sec.total.s2.taux_reussite)} % des ajournés réussissent` : null,
-    'Une codiplomation avec la HELB : un diplôme de haute école, accessible aux adultes',
-  ].filter(Boolean);
+  /* LE BILAN SE DÉDUIT DES CHIFFRES DE LA SECTION (3.5.462, Charles : « tu mets les mêmes conclusions à toutes les sections ») :
+     chaque phrase ne paraît que si les chiffres de CETTE section la portent ; ce qui est propre à un métier ou à la codiplomation
+     ne paraît que pour la section concernée. Les textes corrigés à la main restent ceux de la section (gardés par section). */
+  const codip = (lec?.codiplomation || []).includes(String(section).toLowerCase());
+  const METIER = { TIM: ['technologues en imagerie médicale', 'du matériel d’imagerie'], AeSI: ['infirmiers', 'des places de stage hospitalières'],
+    Psychomotricité: ['psychomotriciens', 'des lieux de stage'], Optométrie: ['optométristes', 'du matériel de mesure'],
+    Orthoptie: ['orthoptistes', 'des lieux de stage'], Optique: ['opticiens', 'des ateliers'], Soins_plaies: ['infirmiers spécialisés en soins de plaies', null] };
+  const [metier, materiel] = METIER[section] || [null, null];
+  const croit = premiere && derniere && derniere.n > premiere.n * 1.1, decroit = premiere && derniere && derniere.n < premiere.n * 0.9;
+  const nouvelle = evo.length <= 1;
+  const plusCher = LS?.cout_credit != null && LI?.cout_credit != null && LS.cout_credit > LI.cout_credit * 1.15;
+  const moinsCher = (k) => plusCher ? null : (LS?.[k] != null && LA?.[k] != null && LS[k] < LA[k]) ? 'ASBL' : (LS?.[k] != null && LI?.[k] != null && LS[k] < LI[k]) ? 'IIP' : null;
+  const s1 = rN?.sec?.total?.s1?.taux_reussite, s1I = rN?.iip?.total?.s1?.taux_reussite ?? LI?.reussite_s1;
+  const fin = rN?.sec?.total?.final?.taux_reussite ?? LS?.reussite_finale, finI = LI?.reussite_finale;
+  const ba1 = (rN?.sec?.par_niveau || []).find(x => x.cle === 'BA1')?.s1?.taux_reussite;
+  const horsUE = s.n ? pc(s.hors_ue, s.n) : 0;
   const bas1 = rN ? [...(rN.sec.par_ue || [])].filter(u => u.inscrits >= 10 && u.final).sort((a, b) => a.final.taux_reussite - b.final.taux_reussite)[0] : null;
+  const forcesDef = [
+    croit ? `Croissance : de ${n0(premiere.n)} à ${n0(derniere.n)} étudiants en ${evo.length} ans` : null,
+    moinsCher('cout_credit') ? `Efficience : un crédit à ${e0(LS.cout_credit)}, contre ${e0(moinsCher('cout_credit') === 'ASBL' ? LA.cout_credit : LI.cout_credit)} ${moinsCher('cout_credit') === 'ASBL' ? 'pour l’ensemble de l’ASBL' : 'en moyenne à l’IIP'}` : null,
+    fin != null && finI != null && fin >= finI + 3 ? `Une réussite au-dessus de l’IIP : ${n0(fin)} % contre ${n0(finI)} %` : null,
+    dernierCompte && dernierCompte.resultat >= 0 ? `Un résultat positif dans les comptes de l’ASBL (${e0(dernierCompte.resultat)} en ${dernierCompte.annee})` : null,
+    codip ? 'Une codiplomation avec la HELB : un diplôme de haute école, accessible aux adultes' : null,
+    rN?.sec?.total?.s2 && rN.sec.total.s2.taux_reussite >= 60 ? `Une seconde session qui rattrape : ${n0(rN.sec.total.s2.taux_reussite)} % des ajournés réussissent` : null,
+    horsUE >= 30 ? `Une section attractive au-delà de l’Europe : ${horsUE} % de nationalités hors UE` : null,
+    LS?.taille_groupes && LI?.taille_groupes && LS.taille_groupes < LI.taille_groupes * 0.8 ? `Des groupes à taille humaine : ${n1(LS.taille_groupes)} étudiants en moyenne` : null,
+  ].filter(Boolean);
   const faiblessesDef = [
-    rN ? `Une première session difficile : ${n0(rN.sec.total.s1.taux_reussite)} % de réussite (${n0((rN.sec.par_niveau || []).find(x => x.cle === 'BA1')?.s1?.taux_reussite)} % en BA1)` : null,
-    bas1 ? `Quelques unités très sélectives : ${String(bas1.libelle).replace(/ — .*/, '')} à ${n0(bas1.final.taux_reussite)} %` : null,
+    decroit ? `Des effectifs en recul : de ${n0(premiere.n)} à ${n0(derniere.n)} étudiants en ${evo.length} ans` : null,
+    s1 != null && (s1I == null || s1 < s1I - 3) ? `Une première session difficile : ${n0(s1)} % de réussite${ba1 != null ? ` (${n0(ba1)} % en BA1)` : ''}${s1I != null ? `, contre ${n0(s1I)} % à l’IIP` : ''}` : null,
+    bas1 && bas1.final.taux_reussite < 70 ? `Une unité très sélective : ${String(bas1.libelle).replace(/ — .*/, '')} à ${n0(bas1.final.taux_reussite)} %` : null,
+    plusCher ? `Un coût par crédit au-dessus de l’IIP : ${e0(LS.cout_credit)} contre ${e0(LI.cout_credit)}` : null,
     LS?.taille_groupes && LI?.taille_groupes && LS.taille_groupes > LI.taille_groupes * 1.2 ? `Des groupes chargés : ${n1(LS.taille_groupes)} étudiants en moyenne, contre ${n1(LI.taille_groupes)} à l’IIP` : null,
-    'La capacité des lieux de stage et du matériel d’imagerie, à suivre avec la croissance',
-    s.acces_connu < s.n ? `Des données à compléter : titre d’accès connu pour ${pc(s.acces_connu, s.n)} % des dossiers, situation professionnelle à encoder` : null,
+    dernierCompte && dernierCompte.resultat < 0 ? `Un résultat négatif dans les comptes de l’ASBL (−${e0(Math.abs(dernierCompte.resultat))} en ${dernierCompte.annee})` : null,
+    croit && materiel ? `La capacité ${materiel}, à suivre avec la croissance` : null,
+    s.acces_connu < s.n ? `Des données à compléter : titre d’accès connu pour ${pc(s.acces_connu, s.n)} % des dossiers` : null,
   ].filter(Boolean);
   const opportunitesDef = [
-    'Le financement de la section, qui monte en charge à partir de 2026',
-    'Une demande forte de technologues dans les hôpitaux (à étayer par les chiffres du secteur)',
-    'Le modèle de codiplomation, transposable à d’autres sections',
-  ];
+    metier ? `Les besoins du secteur en ${metier} (à étayer par les chiffres du secteur)` : null,
+    codip ? 'Le modèle de codiplomation avec la HELB, transposable à d’autres sections' : null,
+    codip ? 'Le financement de la section par la HELB, qui monte en charge' : null,
+    decroit ? 'Un recrutement à relancer : information, valorisation des acquis, horaires adaptés aux adultes' : null,
+    nouvelle ? 'Une section nouvelle, qui peut trouver son public' : !decroit && !croit ? 'Une section stable, sur laquelle bâtir de nouveaux publics' : null,
+  ].filter(Boolean);
   const menacesDef = [
-    'Une croissance plus rapide que l’encadrement et les locaux',
-    'La dépendance aux étudiants internationaux (visas, titres de séjour)',
-    'L’échec en premier bloc, qui pèse sur la réussite et la réputation',
-  ];
+    croit ? 'Une croissance plus rapide que l’encadrement et les locaux' : null,
+    decroit ? 'Un effectif sous le seuil qui fragilise l’organisation des unités' : null,
+    horsUE >= 30 ? 'La dépendance aux étudiants internationaux (visas, titres de séjour)' : null,
+    s1 != null && s1I != null && s1 < s1I - 3 ? 'L’échec en première session, qui pèse sur la réussite et la réputation' : null,
+    plusCher ? 'Un coût élevé, à justifier devant l’ASBL' : null,
+  ].filter(Boolean);
   const demandesDef = [
-    'Prendre acte de la croissance et de l’efficience de la section',
-    'Soutenir le renforcement de l’encadrement en premier bloc',
-    'Reconnaître, au sein de l’ASBL, la contribution de la section',
-  ];
+    croit ? 'Prendre acte de la croissance de la section' : nouvelle ? 'Prendre acte de l’ouverture de la section' : 'Prendre acte de la situation de la section',
+    moinsCher('cout_credit') ? 'Reconnaître, au sein de l’ASBL, l’efficience de la section' : null,
+    s1 != null && s1I != null && s1 < s1I - 3 ? 'Soutenir le renforcement de l’encadrement en premier bloc' : null,
+    decroit ? 'Soutenir un plan de recrutement' : null,
+    croit && materiel ? `Prévoir les moyens nécessaires à la croissance : ${materiel.replace(/^(des|du) /, '')}` : null,
+  ].filter(Boolean);
+  const retenirBilan = [croit ? 'Une section qui grandit' : decroit ? 'Une section dont les effectifs reculent' : nouvelle ? 'Une section qui s’ouvre' : 'Une section stable',
+    dernierCompte ? (dernierCompte.resultat >= 0 ? 'qui rapporte' : 'dont le résultat est à redresser') : null].filter(Boolean).join(' et ')
+    + (s1 != null && s1I != null && s1 < s1I - 3 ? ' ; la réussite en première session reste le chantier.' : fin != null && finI != null && fin >= finI ? ' ; une réussite solide.' : '.');
   const listeBlocs = (x, y, w, h, titre, couleur, cle, defaut, taille = 17) => {
     const items = lignes(cle, defaut);
     return [
@@ -486,16 +516,16 @@ function composer(D, T) {
   ajouter({ id: 'forces', blocs: [...entete('Bilan', 'Forces et faiblesses'),
     ...listeBlocs(M, 140, CW / 2 - 14, 450, 'Forces', C.vert, 'swot.forces', forcesDef, 16),
     ...listeBlocs(M + CW / 2 + 14, 140, CW / 2 - 14, 450, 'Faiblesses', C.brique, 'swot.faiblesses', faiblessesDef, 16),
-    ...retenir('forces', 'Une section qui rapporte et qui grandit ; la réussite du premier bloc reste le chantier.'),
+    ...retenir('forces', retenirBilan),
   ], notes: t('notes.forces', 'Propositions de Lucie d’après les chiffres ; à relire et corriger avant le CA.'), notesCle: 'notes.forces' });
   ajouter({ id: 'opportunites', blocs: [...entete('Bilan', 'Opportunités et menaces'),
     ...listeBlocs(M, 140, CW / 2 - 14, 450, 'Opportunités', C.bleu, 'swot.opportunites', opportunitesDef),
     ...listeBlocs(M + CW / 2 + 14, 140, CW / 2 - 14, 450, 'Menaces', C.ocre, 'swot.menaces', menacesDef),
-    ...retenir('opportunites', 'Grandir, oui — en gardant la qualité de l’encadrement.'),
+    ...retenir('opportunites', croit ? 'Grandir, oui — en gardant la qualité de l’encadrement.' : nouvelle ? 'Installer la section, et lui trouver son public.' : decroit ? 'Retrouver des étudiants sans perdre ce qui fait la qualité.' : 'Consolider, et ouvrir à de nouveaux publics.'),
   ], notes: t('notes.opportunites', ''), notesCle: 'notes.opportunites' });
   ajouter({ id: 'demandes', blocs: [...entete('Bilan', 'Ce que nous demandons au Conseil'),
     ...listeBlocs(M, 140, CW, 450, 'Nos demandes', C.nuit, 'demandes', demandesDef, 20),
-    ...retenir('demandes', 'Une section qui a fait ses preuves, et qui demande les moyens de bien grandir.'),
+    ...retenir('demandes', croit ? 'Une section qui a fait ses preuves, et qui demande les moyens de bien grandir.' : 'Une section qui demande le soutien du Conseil pour la suite.'),
   ], notes: t('notes.demandes', ''), notesCle: 'notes.demandes' });
 
   /* MERCI */
