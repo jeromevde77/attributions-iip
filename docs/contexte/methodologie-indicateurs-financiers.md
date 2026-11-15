@@ -196,10 +196,18 @@ coût IIP          = coût d'enseignement IIP + coordinations IIP + part du cadr
 
 ### 5.2 Côté HELB
 
+Un ETP de la HELB ne se compte pas comme un ETP de l'IIP (Charles, 15 novembre 2026) : un temps plein de **théorie** (maître-
+assistant, master) = **480 heures** par an ; un temps plein de **TP** (maître de formation pratique) = **750 heures** par an.
+
 ```
-charge HELB (ETP) = ETP des lignes au contrat HELB + ETP de coordination HELB
-coût HELB         = coût d'enseignement HELB + coordinations HELB   (au tarif de la circulaire, ou × 106 € en CMB)
+heures d'une ligne HELB = périodes × 50/60      (réglage « lignes HELB en périodes », par défaut)
+                        = périodes telles quelles (réglage « lignes HELB en heures »)
+ETP HELB = heures ÷ 480 (ligne CT, théorie) ou ÷ 750 (ligne PP, TP)
+charge HELB (ETP) = ETP des lignes HELB + ETP de coordination HELB
+coût HELB (coût de la section) = coût d'enseignement HELB + coordinations HELB   (au tarif de la circulaire, ou × 106 € en CMB)
 ```
+Théorie et TP se lisent au **type de cours** des lignes HELB : il faut donc encoder PP sur les lignes de TP (au 15 novembre 2026,
+toutes les lignes HELB de TIM sont en CT).
 
 ### 5.3 Ce que la section coûte et rapporte à la HELB et à l'ASBL
 
@@ -212,7 +220,7 @@ Paramètres par défaut, tous réglables dans la page :
 | Pondération santé | × 1,5 |
 | Allocation à partir de | 2026-2027 |
 | Lissage | 3 ans |
-| Coût moyen brut d'un ETP HELB | 90 000 € |
+| Prix d'un ETP HELB | au choix : au titre (COR : maître-assistant 88 981 €, maître de formation pratique 78 037 €), à la moyenne du COR (85 203 €), ou au montant réglé (90 000 €, courriel de F. Vanderoost du 27 août 2026) |
 | Autres services | 0 % des salaires |
 | Fonctionnement | réel (matériel des budgets), ou forfait 20,8 % de l'allocation |
 
@@ -220,7 +228,9 @@ Paramètres par défaut, tous réglables dans la page :
 étudiants comptés   = inscrits × 50 %
 allocation          = moyenne des étudiants comptés des 3 années précédentes × MUCE × 1,5   (dès 2026-2027)
 recettes HELB/ASBL  = allocation + droits et frais (§ 2.4)
-salaires            = ETP HELB (coordinations comprises) × 90 000 €
+salaires (au titre)    = (ETP théorie + ETP coordination) × 88 981 € + ETP TP × 78 037 €
+salaires (moyenne)     = ETP HELB (coordinations comprises) × 85 203 €
+salaires (montant réglé) = ETP HELB (coordinations comprises) × 90 000 €
 fonctionnement      = matériel réel : 0 € (2023-24), 3 250 € (2024-25), 7 650 € (2025-26), 3 750 € (2026-27)
 coût HELB           = salaires + autres services + fonctionnement
 résultat            = recettes − coût

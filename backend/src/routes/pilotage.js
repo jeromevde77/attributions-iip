@@ -254,7 +254,8 @@ r.get('/iip-helb', authRequired, (req, res) => {
   if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
   const annees = String(req.query.annees || '').split(',').map(a => a.trim()).filter(a => /^\d{4}-\d{4}$/.test(a)).slice(0, 10);
   if (req.query.recalculer) viderMemoCout();
-  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees)); }
+  const unite = req.query.unite_helb === 'heures' ? 'heures' : 'periodes';
+  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, cor: sourcesEnVigueur().helb_cor?.totaux || null })); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
