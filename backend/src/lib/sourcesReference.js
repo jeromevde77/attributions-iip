@@ -111,16 +111,18 @@ function lireInscrits(wb, nom) {
   if (!feuilles.length) return null;
   const dateF = ws => { const m = ws.name.match(/^(\d\d)(\d\d)(\d\d)$/); return m ? `20${m[3]}-${m[2]}-${m[1]}` : ''; };
   const ws = feuilles.sort((a, b) => dateF(b).localeCompare(dateF(a)))[0];
-  const cursus = []; let total = 0;
+  const cursus = [], cohortes = {}; let total = 0;
   for (const l of lignes(ws)) {
     const k = String(l[0] || '').trim(), n = l[1];
-    if (!k || typeof n !== 'number' || ['END', 'PROGRESS', 'START', 'TEMP', 'Étiquettes de lignes'].includes(k)) continue;
+    // Les cohortes (START = débutant, PROGRESS, END = diplômant) : seuls leurs totaux sont gardés (3.5.460, primo-inscrits de l'ASBL).
+    if (['END', 'PROGRESS', 'START', 'TEMP'].includes(k) && typeof n === 'number') { cohortes[k] = (cohortes[k] || 0) + n; continue; }
+    if (!k || typeof n !== 'number' || k === 'Étiquettes de lignes') continue;
     if (/^Total/i.test(k)) { total = n; continue; }
     cursus.push({ cursus: k, inscrits: n });
   }
   if (!cursus.length) return null;
   if (!total) total = cursus.reduce((t, c) => t + c.inscrits, 0);
-  return { nature: 'helb_inscrits', libelle: NATURES.helb_inscrits, date_donnee: dateF(ws) || dateDuNom(nom), totaux: { total, cursus, feuille: ws.name } };
+  return { nature: 'helb_inscrits', libelle: NATURES.helb_inscrits, date_donnee: dateF(ws) || dateDuNom(nom), totaux: { total, cursus, cohortes, debutants: cohortes.START ?? null, feuille: ws.name } };
 }
 
 /* LES COMPTES ANNUELS DE L'ASBL (PDF de la Banque nationale) : la première valeur après le code, sur la ligne du code. */

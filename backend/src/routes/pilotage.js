@@ -319,7 +319,7 @@ function indicateursLecture(annee) {
   const ajouterEfficience = (o, E) => {
     if (!o) return o;
     o.taille_groupes = E && E.per_att ? Math.round((E.pe / E.per_att) * 10) / 10 : null;
-    o.periodes_etudiants = E ? Math.round(E.pe) : null; o.periodes_donnees = E ? Math.round(E.per_att) : null;
+    o.periodes_etudiants = E ? Math.round(E.pe) : null; o.periodes_grille = E ? Math.round(E.pee) : null; o.periodes_donnees = E ? Math.round(E.per_att) : null;
     o.etc = E && E.ects ? Math.round((E.ects / 60) * 10) / 10 : null;
     o.etc_etp = E && E.ects && o.etp ? Math.round((E.ects / 60 / o.etp) * 10) / 10 : null;
     o.cout_etc = E && E.ects && o.cout_total ? Math.round(o.cout_total / (E.ects / 60)) : null;
@@ -407,7 +407,32 @@ r.get('/lecture', authRequired, (req, res) => {
         const parEtc = I.etc ? (I.periodes_etudiants || 0) / I.etc : 0;
         const donnees = (I.periodes_donnees || 0) + heuresH * 1.2;
         const tailleGroupes = donnees && parEtc ? Math.round((((I.periodes_etudiants || 0) + insH * parEtc) / donnees) * 10) / 10 : null;
-        return { exercice: ex || A?.totaux?.exercice, charges, cout_iip: Math.round(I.cout_total || 0), cout_total: Math.round(coutCumul),
+        /* CE QUE L'ASBL PEUT ENCORE DIRE (3.5.460, Charles : « je ne comprends pas pourquoi tu ne parviens pas à comparer avec
+           l'ASBL ; tu as tous les nombres dans la comparaison ETP et les bilans comptables »).
+           — Croissance : la HELB d'après ses étudiants comptés, d'une année à l'autre (comparaison ETP, mêmes cursus les deux années,
+             hors TIM inscrit à l'IIP), appliquée à ses inscrits ; l'IIP, ses inscrits de l'année d'avant.
+           — Primo-inscrits : les débutants de la HELB (cohorte START) + les primo-inscrits de l'IIP.
+           — Coût par étudiant temps plein, par période de la grille étudiant (même hypothèse que la taille des groupes).
+           — Recettes par étudiant : le chiffre d'affaires des comptes annuels (droits, frais, prestations) ÷ étudiants.
+           Restent sans référence : la réussite, le sexe, l'âge, la nationalité, le domicile — absents des fichiers de la HELB. */
+        const helbCursus = COMPARAISON_HE.cursus.filter(c => c.dept !== 'IIP' && !c.tim);
+        const ans = [...new Set(helbCursus.flatMap(c => Object.keys(c.series || {})))].sort();
+        const [aP, aD] = ans.slice(-2);
+        const deux = helbCursus.filter(c => c.series?.[aP] && c.series?.[aD]);
+        const sP = deux.reduce((t, c) => t + c.series[aP][0], 0), sD = deux.reduce((t, c) => t + c.series[aD][0], 0);
+        const gH = sP ? sD / sP - 1 : null;
+        const precI = d.iip?.inscrits_prec || null;
+        const croissance = gH != null && precI ? Math.round(((n / (insH / (1 + gH) + precI)) - 1) * 1000) / 10 : null;
+        const debH = V.helb_inscrits?.totaux?.debutants ?? COR_HELB.debutants ?? null;
+        const primo = debH != null && I.primo != null ? Math.round(((debH + (I.primo / 100) * insI) / n) * 1000) / 10 : null;
+        const grilleEtc = I.etc ? (I.periodes_grille || 0) / I.etc : 0;
+        const grille = (I.periodes_grille || 0) + insH * grilleEtc;
+        const ca = A?.totaux?.chiffre_affaires ?? null;
+        return { croissance, croissance_helb: gH != null ? Math.round(gH * 1000) / 10 : null, croissance_annees: aP && aD ? `${aP} → ${aD}` : null,
+          primo, debutants_helb: debH, cout_etc: etc ? Math.round(coutCumul / etc) : null,
+          cout_periode: grille ? Math.round((coutCumul / grille) * 100) / 100 : null,
+          recettes_etudiant: ca ? Math.round(ca / n) : null, chiffre_affaires: ca, exercice_comptes: A?.totaux?.exercice ?? null,
+          exercice: ex || A?.totaux?.exercice, charges, cout_iip: Math.round(I.cout_total || 0), cout_total: Math.round(coutCumul),
           etudiants: n, etudiants_helb: insH, etudiants_iip: insI,
           cout_etudiant: Math.round(coutCumul / n), cout_credit: credits ? Math.round((coutCumul / credits) * 10) / 10 : null,
           cout_180: credits ? Math.round((coutCumul / credits) * 180) : null,
