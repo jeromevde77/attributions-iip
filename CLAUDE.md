@@ -4343,7 +4343,10 @@ théorie (master) en 480 h » ; « plusieurs calculs : moyenne HELB et titres r�
 on la reprend (3.5.464, `divHelb`) : titre de la ligne (`type_cours_helb`, à défaut `professeur.statut_helb`), nature TH/TP
 (`helb_nature`), heures = `charge_en_heures` ; ÷ 480 seulement pour la théorie d'un MA, ÷ 750 sinon, ÷ 1 400 pour une coordination ;
 salaires HELB (`salairesHelb`, recopiée à l'écran) au titre (MA au prix du MA, tout le reste au prix du MFP), à la moyenne du COR ou au montant réglé (`prix_helb`) ;
-prix lus du COR déposé (`prix_ma`, `prix_mfp`), repli `COR_HELB`. Méthodologie : `docs/contexte/methodologie-indicateurs-financiers.md`. ETP selon Lucie et ETP déclaré par la HELB (`etp_declare_helb`, comparaison ETP) côte à côte.
+prix lus du COR déposé (`prix_ma`, `prix_mfp`), repli `COR_HELB`. Méthodologie : `docs/contexte/methodologie-indicateurs-financiers.md`. ETP selon Lucie et ETP déclaré par la HELB (`etp_declare_helb`, comparaison ETP) côte à côte. **Les ratios par département de la HELB** (3.5.465, document « ratio par
+département ») : `DEPARTEMENTS_HE` (repli) et nature de source `helb_ratios` (`lireRatios`) ; `departementsHe()`, `ratioHelb()` font foi
+pour les départements et l'ensemble de la HELB (16,2 étudiants finançables par ETP en 2025-2026) ; les cursus restent ceux de la
+comparaison ETP.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
