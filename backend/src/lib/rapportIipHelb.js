@@ -804,3 +804,22 @@ export function enseignantsHelbCivil(section, anneeCivile) {
   if (!a.poids && !b.poids) return null;
   return { cout: Math.round(a.cout + b.cout), etp: Math.round((a.etp + b.etp) * 100) / 100 };
 }
+
+/* L'ESTIMATION D'UNE ANNÉE SCOLAIRE POUR TOUTE L'ASBL (3.5.468, Charles : « je veux une estimation sur 2026 et 26-27 en fonction des
+   inscrits ; tu sais combien ils paient, et les attributions tu les as »). Le calcul de la page IIP et HELB (`helbAnnee`) : produits
+   = allocation de la HELB (50 % des inscrits, MUCE × 1,5, lissée sur 3 ans, dès 2026-2027) + droits et frais des inscrits (barème de
+   Lucie) ; charges = enseignants HELB de Lucie (coordinations comprises, prix du titre) + matériel. Les enseignants de l'IIP, payés par
+   la Fédération, n'y sont pas : ils ne sont pas une charge de l'ASBL. */
+export function estimationAnnee(section, a) {
+  const toutes = db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution WHERE section = ? ORDER BY 1').all(section).map(r => r.a);
+  if (!toutes.includes(a)) return null;
+  const y = annee(section, a);
+  const insc = {};
+  for (const x of toutes) { try { insc[x] = coutMemo(x).sections.find(z => z.section === section)?.inscrits || 0; } catch { insc[x] = 0; } }
+  const P = { ...PARAM_HELB, mode_fonct: 'reel', prix: 'titres', ...Object.fromEntries(Object.entries(prixHelb()).map(([k, v]) => [`prix_${k}`, v])) };
+  const yy = { ...y, ens_helb: y.etp_helb };
+  const h = helbAnnee(yy, P, true, x => insc[x], MATERIEL_HELB[a]?.montant ?? 0);
+  return { annee: a, inscrits: y.inscrits, etp_helb: Math.round((y.etp_helb + y.cetp_helb) * 100) / 100,
+    allocation: Math.round(h.allocation), droits: Math.round(h.droits), produits: Math.round(h.recettes),
+    salaires: Math.round(h.salaires), materiel: Math.round(h.fonct), cout: Math.round(h.cout) };
+}

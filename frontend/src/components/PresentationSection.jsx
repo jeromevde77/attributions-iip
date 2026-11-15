@@ -156,12 +156,12 @@ function composer(D, T) {
      cumulées des deux, pour ne froisser personne ») : les indicateurs de Gestion → Lire et comparer (GET /api/pilotage/lecture). */
   const LS = lec?.sections?.find(x => x.section === section) || null, LI = lec?.iip || null, LA = lec?.asbl || null;
   const CP = lec?.compta?.sections?.[section] || null;
-  const comptes = CP ? [...new Set([...(CP.helb || []), ...(CP.iip || [])].map(x => x.annee))].sort().map(a => {
+  const comptes = CP ? [...new Set([...(CP.helb || []), ...(CP.iip || [])].filter(x => !x.scolaire).map(x => x.annee))].sort().map(a => {
     const h = (CP.helb || []).find(x => x.annee === a), i = (CP.iip || []).find(x => x.annee === a);
     /* LE RÉSULTAT RÉEL (3.5.467, Charles : « ne pas être flatteur ») : pour une codiplomation, le coût des enseignants HELB que les
        comptes imputent ailleurs est ajouté ; le résultat comptable reste à côté (`resultat_comptable`). */
     const ajout = h?.non_impute || 0;
-    return { annee: a, nature: (h || i).nature, charges: (h?.charges || 0) + (i?.charges || 0) + ajout, produits: (h?.produits || 0) + (i?.produits || 0),
+    return { annee: a, nature: (h || i).nature, estimation: !!h?.estimation, charges: (h?.charges || 0) + (i?.charges || 0) + ajout, produits: (h?.produits || 0) + (i?.produits || 0),
       resultat: (h?.resultat || 0) + (i?.resultat || 0) - ajout, resultat_comptable: (h?.resultat || 0) + (i?.resultat || 0), ajout };
   }) : [];
   const dernierCompte = [...comptes].reverse().find(x => x.nature === 'réalisé') || null;
@@ -432,7 +432,7 @@ function composer(D, T) {
     if (comptes.length) {
       const avecReel = comptes.some(x => x.ajout);
       const bl2 = [...entete('Finances', avecReel ? 'Ce que la section coûte et rapporte vraiment à l’ASBL' : 'Dans les comptes de l’ASBL')];
-      bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : ' (budget)'}`), unite: ' k€',
+      bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : x.estimation ? ' (estimation)' : ' (budget)'}`), unite: ' k€',
         series: [{ nom: 'Charges', valeurs: comptes.map(x => Math.round(x.charges / 1000)), couleur: C.brique }, { nom: 'Produits', valeurs: comptes.map(x => Math.round(x.produits / 1000)), couleur: C.vert }],
         titre: avecReel ? 'Charges (enseignants HELB compris) et produits, en milliers d’euros' : 'Charges et produits de la section, en milliers d’euros' });
       if (dernierCompte) {

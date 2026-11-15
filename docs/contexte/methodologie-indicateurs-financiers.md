@@ -261,6 +261,20 @@ Le personnel imputé se lit dans les feuilles analytiques (« ASBL23 », « ASBL
 connu (TIM : 111066) ou reconnu par l'égalité exacte des charges. Pour un exercice budgété, le personnel déjà imputé est inconnu :
 tout le coût des enseignants HELB est ajouté. Montré dans Lire et comparer (comptabilité de la section) et dans la présentation au CA.
 
+### 5.3 ter L'estimation d'un exercice non réalisé (2026, et l'année scolaire en cours)
+
+Un budget ne dit pas le réel : pour une codiplomation, Lucie remplace un exercice seulement budgété par son estimation, pour toute
+l'ASBL (côté HELB et côté IIP réunis), d'après les inscrits et les attributions :
+```
+produits = allocation de la HELB + droits et frais des inscrits (barème de Lucie)
+   allocation : le calcul du § 5.3 dès 2026-2027 ; avant, le niveau réel des subsides du dernier exercice réalisé
+   (TIM 2025 : 248 372 €, compte 737100)
+charges  = enseignants HELB (ETP de Lucie, coordinations comprises, prix du titre) + matériel
+année civile = 8/12 de l'année scolaire qui finit + 4/12 de celle qui commence
+```
+La quote-part des frais généraux (626000, 152 707 € en 2025) est compensée dans les comptes par un produit du même montant
+(737000) : l'estimation laisse cette paire de côté. Les enseignants de l'IIP, payés par la Fédération, ne sont pas une charge de l'ASBL.
+
 ### 5.4 Le coût d'un étudiant
 
 ```

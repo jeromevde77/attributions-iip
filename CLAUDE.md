@@ -4350,7 +4350,10 @@ comparaison ETP. **Le résultat réel d'une codiplomation** (3.5.467, Charles : 
 calculs doivent être réels ») : les comptes n'imputent à TIM qu'une part de ses enseignants HELB ; `lireSynthese` lit aussi les feuilles
 analytiques `ASBLyy` (personnel par code, `CODES_ANALYTIQUES`, TIM = 111066), `enseignantsHelbCivil` chiffre les enseignants HELB
 (ETP de Lucie, coordinations comprises, prix du titre, 8/12 + 4/12), et `/lecture` → `compta` rend `non_impute` et `resultat_reel`
-(repli `RELEVE` pour TIM). Lire et comparer et la présentation mettent le réel en avant, le comptable à côté.
+(repli `RELEVE` pour TIM). Lire et comparer et la présentation mettent le réel en avant, le comptable à côté. **L'estimation** (3.5.468, Charles : « une estimation sur 2026 et 26-27 en fonction des inscrits et des
+attributions ») : un exercice budgété d'une codiplomation devient l'estimation de Lucie (`estimationAnnee` : allocation + droits −
+enseignants HELB − matériel ; allocation nulle avant 2026-2027 remplacée par les subsides réels du dernier exercice) ; l'année scolaire en
+cours en ligne propre ; la paire frais généraux (626000) / quote-part (737000), neutre, laissée de côté.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
