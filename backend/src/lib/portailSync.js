@@ -476,7 +476,14 @@ async function deposer() {
   await appel('POST', '/interne/exceptions', { exceptions: db.prepare(`SELECT etudiant_id, MAX(jusqu_au) AS jusqu_au FROM portail_exception
     WHERE retire_le IS NULL AND jusqu_au >= date('now') GROUP BY etudiant_id`).all() });
   // LE REGISTRE D'AUTHENTICITÉ (3.1.511) : ce que le scan d'un QR doit retrouver. En ajout seul, par lots.
-  for (let i = 0; i < 20; i++) {
+  await transmettreAuthentiques(20);
+}
+
+/* LE QR SE VÉRIFIE DÈS QUE LA PIÈCE EST REMISE (3.5.476, Charles, 15 novembre 2026 : une attestation tirée du centre de documents
+   répondait « Référence inconnue » au scan — inscrite au registre, elle n'était partie au portail que douze minutes plus tard, avec
+   le dépôt de l'école). Le registre part désormais aussi par la boucle rapide (toutes les 3,5 s), et avant chaque pièce du centre. */
+export async function transmettreAuthentiques(lots = 1) {
+  for (let i = 0; i < lots; i++) {
     const l = piecesATransmettre(500);
     if (!l.length) break;
     await appel('POST', '/interne/authentiques', { pieces: l });
@@ -637,6 +644,10 @@ async function relayerVite() {
     if (relaisTours % 2 === 0) {
       try { const { relayerCentre } = await import('./centreDocuments.js'); await relayerCentre(appel); }
       catch (e) { if (relaisTours % 300 === 0) console.error('[centre de documents]', e.message); }
+    }
+    if (relaisTours % 5 === 0) {
+      try { await transmettreAuthentiques(1); }
+      catch (e) { if (relaisTours % 300 === 0) console.error('[registre d’authenticité]', e.message); }
     }
   } finally { relaisTours++; relaisEnCours = false; }
 }

@@ -194,6 +194,11 @@ export async function relayerCentre(appel) {
     } catch (e) { reponses.push(json(q.id, 502, { error: 'Lucie n’a pas pu composer la pièce : ' + e.message })); }
     const r = reponses[avant];
     tracer(q, t0, r && r.statut >= 400 ? `${r.statut} ${Buffer.from(r.corps || '', 'base64').toString('utf8').slice(0, 300)}` : null);
+    // Sa référence d'authenticité part AVANT la pièce (3.5.476) : le QR scanné dès réception doit la retrouver.
+    if (r?.type === 'application/pdf') {
+      try { const { transmettreAuthentiques } = await import('./portailSync.js'); await transmettreAuthentiques(1); }
+      catch (x) { tracer(q, t0, `registre d’authenticité : ${x.message}`); }
+    }
     // Chaque réponse part aussitôt : une pièce longue ne fait pas attendre la suivante (ni dépasser l'attente du portail).
     await appel('POST', '/interne/centre/reponses', { reponses: [r] }).catch(x => tracer(q, t0, `envoi de la réponse : ${x.message}`));
   }

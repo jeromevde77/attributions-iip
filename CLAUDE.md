@@ -4370,6 +4370,11 @@ diapositive (`composer(D, T, { tout: true })` donne le catalogue, chaque diaposi
 (CA, équipe pédagogique, public extérieur, les chiffres seuls) qui adaptent aussi la ligne de couverture ; gardé par section dans
 `choix.masquees` des textes. L'entrée du rail s'appelle « Présentation ».
 
+**LE QR SE VÉRIFIE DÈS LA REMISE** (3.5.476, Charles, 15 novembre 2026 : une attestation d'allocations familiales tirée du centre de
+documents répondait « Référence inconnue » au scan — inscrite au registre, elle n'était partie au portail que douze minutes plus tard).
+`transmettreAuthentiques()` (`lib/portailSync.js`) : le registre part aussi par la boucle rapide (toutes les 3,5 s) et AVANT chaque pièce du
+centre de documents (`relayerCentre`).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
