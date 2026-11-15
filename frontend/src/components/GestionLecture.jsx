@@ -369,7 +369,13 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
                   <Td>{v.estimation ? <span title={`Produits : allocation HELB ${n0(v.allocation)} €${v.allocation_reelle ? ` (en partie au niveau réel des subsides de ${v.subsides_de})` : ''} + droits et frais des inscrits ${n0(v.droits)} €. Charges : enseignants HELB ${n0(v.salaires)} € (${n1(v.etp_helb)} ETP, coordinations comprises, prix du titre) + matériel ${n0(v.materiel)} €. Frais généraux et leur quote-part : neutres, laissés de côté.`}>HELB + IIP</span> : cote}</Td><Td align="droite">{n0(v.charges)} €</Td><Td align="droite">{n0(v.produits)} €</Td>
                   <Td align="droite">{v.estimation ? <span className="text-slate-400">—</span> : reel ? <span className="text-slate-500">{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</span> : <b style={{ color: v.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</b>}</Td>
                   {reel && <><Td align="droite">{v.estimation ? <span className="text-slate-400">compris</span> : v.non_impute != null ? <span title={`${n1(v.etp_helb)} ETP HELB (coordinations comprises), ${n0(v.enseignants_helb)} € au prix du titre ; déjà imputés à la section : ${v.deja_impute == null ? 'inconnu' : `${n0(v.deja_impute)} €`}`}>−{n0(v.non_impute)} €</span> : '—'}</Td>
-                    <Td align="droite">{(() => { const r = v.resultat_reel ?? v.resultat; return <b style={{ color: r >= 0 ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{r >= 0 ? '+' : ''}{n0(r)} €</b>; })()}</Td></>}</Tr>);
+                    <Td align="droite">{(() => {
+                      const coul = r => (r >= 0 ? 'var(--c-reussi)' : 'var(--c-attente)'), f = r => `${r >= 0 ? '+' : ''}${n0(r)} €`;
+                      // Une estimation montre les deux lectures du financement de la HELB (3.5.469) : UCE et subsides réels.
+                      if (v.estimation && v.resultat_subsides != null) return (<span className="inline-flex flex-col items-end leading-tight">
+                        <b style={{ color: coul(v.resultat_subsides) }} title={`Financement HELB au niveau des subsides réels : ${n0(v.par_inscrit)} € par inscrit, soit ${n0(v.allocation_subsides)} €`}>{f(v.resultat_subsides)} <span className="font-normal text-mention text-slate-500">subsides réels</span></b>
+                        <b style={{ color: coul(v.resultat_reel) }} title={`Financement HELB aux UCE : ${n0(v.allocation)} €`}>{f(v.resultat_reel)} <span className="font-normal text-mention text-slate-500">UCE</span></b></span>);
+                      const r = v.resultat_reel ?? v.resultat; return <b style={{ color: coul(r) }}>{f(r)}</b>; })()}</Td></>}</Tr>);
               }))}
             </tbody>
           </Tableau>

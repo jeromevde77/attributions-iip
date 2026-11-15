@@ -272,6 +272,12 @@ produits = allocation de la HELB + droits et frais des inscrits (barème de Luci
 charges  = enseignants HELB (ETP de Lucie, coordinations comprises, prix du titre) + matériel
 année civile = 8/12 de l'année scolaire qui finit + 4/12 de celle qui commence
 ```
+**Deux lectures du financement de la HELB, côte à côte** (Charles : « montre-moi les deux ») :
+- **subsides réels** : ceux que les comptes attribuent à la section au dernier exercice réalisé, ramenés à un montant par inscrit
+  (inscrits de l'année civile : 8/12 + 4/12), × les inscrits de l'année estimée ;
+- **UCE** : 50 % des inscrits × MUCE 3 837,18 € × 1,5, lissé sur les 3 années précédentes (à défaut, avant 2026-2027, les subsides réels).
+La présentation au CA retient les subsides réels et cite les UCE dans les notes de l'orateur.
+
 La quote-part des frais généraux (626000, 152 707 € en 2025) est compensée dans les comptes par un produit du même montant
 (737000) : l'estimation laisse cette paire de côté. Les enseignants de l'IIP, payés par la Fédération, ne sont pas une charge de l'ASBL.
 
