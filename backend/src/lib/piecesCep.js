@@ -210,8 +210,11 @@ function blocAbandon(e) {
   const date = e.sortie_statut === 'sorti' && e.sortie_le ? jour(e.sortie_le) : '—';
   return `<div style="font-size:8.5pt;margin:0.5mm 0 1mm">${lab("Date d'abandon de la formation (le cas échéant)")} &nbsp;${val(date)}</div>`;
 }
-function blocSignature(ident) {
-  return `<div style="border-top:0.3mm solid ${OR};margin-top:1mm"></div>
+/* LA PERSONNE DE LA PIÈCE (3.5.477) : le registre d'authenticité lit le DERNIER `.nom` avant le bloc de clôture ; sans celui-ci,
+   il lisait celui du directeur de la page précédente, ou rien — et le QR ne disait pas à qui la pièce appartient. Invisible. */
+export const nomPourRegistre = e => `<div style="display:none"><div class="nom">${esc(String(e?.nom || '').toUpperCase())} ${esc(e?.prenom || '')}</div></div>`;
+function blocSignature(ident, e) {
+  return `${e ? nomPourRegistre(e) : ''}<div style="border-top:0.3mm solid ${OR};margin-top:1mm"></div>
   <div class="cloture">
     <div class="sceau"></div><div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(new Date().toISOString().slice(0, 10))}</div>
@@ -279,7 +282,7 @@ function page(type, d, u, { correction = null } = {}) {
       correction: blocCorrection(correction), cadre_legal: blocCadre(d, 'I bis'), soussigne: blocSoussigne(ident),
       identite: blocEtudiant(d), unite: blocUnite(d, u), heures: tableHeures(u), dates: blocDates(u),
       calendrier: blocCalendrier(d, u), assiduite: tableAssiduite(u, type === 'assiduite'), abandon: blocAbandon(e),
-      signature: blocSignature(ident),
+      signature: blocSignature(ident, e),
     },
   })}
 </div>`;
@@ -307,7 +310,7 @@ function pageSecondeSession(d, { correction = null } = {}) {
     <th style="text-align:left;${LAB};padding:1mm 2mm">Unité d'enseignement</th><th style="text-align:left;${LAB};padding:1mm 2mm">Seconde session</th>
     <th style="text-align:left;${LAB};padding:1mm 2mm">Participation</th></tr></thead><tbody>${lignes}</tbody></table>
   ${tous ? `<p style="font-size:8.5pt">L'école confirme la participation effective à la seconde session ; date du dernier examen : ${val(court(d.session2.reduce((m, u) => (u.au > m ? u.au : m), '')))}.</p>` : ''}
-  ${blocSignature(ident)}
+  ${blocSignature(ident, e)}
 </div>`;
 }
 
