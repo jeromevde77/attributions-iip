@@ -4327,7 +4327,11 @@ la présentation — fond, police, couleur — dans config »). Thèmes et coule
 `COULEURS_DEFAUT` : `pres_fond_titre`, `pres_sur_titre`, `pres_fond`, `pres_titre`, `pres_texte`, `pres_tuile`, `pres_accent` ; sans
 réglage, chacune suit l'écran) ; Formes et composants → *Présentation d'une section* (`presentation_police`, `--d-pres-police`).
 `lirePalette()` de `PresentationSection.jsx` les lit, écran et PowerPoint ; les graphiques suivent les séries. Lire et comparer :
-marqueurs du positionnement à la couleur du verdict (3.5.458).
+marqueurs du positionnement à la couleur du verdict (3.5.458). **La référence ASBL complète** (3.5.460, Charles : « tu as tous les nombres dans la
+comparaison ETP et les bilans comptables ») : croissance (HELB : étudiants comptés de `COMPARAISON_HE`, deux dernières années ; IIP :
+inscrits), primo-inscrits (débutants START de la HELB, gardés désormais par `lireInscrits`, repli `COR_HELB.debutants`), coût par ETC
+et par période de la grille, recettes = chiffre d'affaires des comptes ÷ étudiants. Sans référence : réussite, sexe, âge, nationalité,
+domicile (absents des fichiers de la HELB).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

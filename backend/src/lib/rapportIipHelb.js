@@ -260,6 +260,7 @@ export const COR_HELB = {
   heures_enseignement: 89417,    // heures données dans les cursus (attributions 2026-2027, hors fonctions)
   inscrits: 3093,                // dossiers inscrits 2026-2027 au 2 novembre 2026, tous cursus (hors TIM, inscrit à l'IIP)
   inscrits_le: '2 novembre 2026',
+  debutants: 1701,               // cohorte START (débutants) des mêmes dossiers, au 2 novembre 2026
 };
 
 export const COMPARAISON_HE = {
