@@ -539,7 +539,7 @@ export default function Pilotage({ vue = 'tout' }) {
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
   const [tab, setTab]               = useState(() => (vue === 'reporting' ? 'etp'
-    : new URLSearchParams(window.location.search).get('onglet') || 'lecture'));
+    : ({ lecture: 'ecole' }[new URLSearchParams(window.location.search).get('onglet')] || new URLSearchParams(window.location.search).get('onglet') || 'ecole')));
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -904,15 +904,16 @@ export default function Pilotage({ vue = 'tout' }) {
               {/* KPIs compacts */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 border-b border-gray-100">
                 {[
-                  { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B', etat: 'fort' },
+                  { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B', etat: 'fort', aide: 'La dotation organique de l’année civile, en périodes B, telle que saisie dans Configuration (Gestion → Dotation → Configuration).' },
                   { label: 'Utilisées',     value: fmt(d.usage_organique),
                     sub: d.dot_total > 0 ? `dont ${fmt(d.dot_total)} pér. de dépassement` : 'périodes B',
-                    etat: d.dot_total > 0 ? 'surveiller' : 'neutre' },
-                  { label: 'Charges fixes', value: `−${fmt(charges)}`, sub: `FELSI ${fmt(felsi)} + GIPS 40`, etat: 'surveiller' },
-                  { label: 'Solde réel',    value: `${sign(soldeReel)}${fmt(soldeReel)}`, sub: soldeReel < -200 ? '⚠ Pénalité ×1,5' : 'après FELSI + GIPS', etat: soldeReel < 0 ? 'corriger' : 'reussi' },
-                  { label: 'Taux',          value: pct(d.pct_organique), sub: <ProgressBar pct={d.pct_organique} />, etat: tonDotation(d.pct_organique).etat },
-                ].map(({ label, value, sub, etat }) => (
-                  <TuileEtat key={label} etat={etat} valeur={value} libelle={label} precision={sub} />
+                    etat: d.dot_total > 0 ? 'surveiller' : 'neutre',
+                    aide: 'Les périodes attribuées au contrat IIP, hors congé, pondérées par niveau (supérieur × 1,5 ; secondaire supérieur × 1,25), sur l’année civile : janvier-juin = 2e quadrimestre de l’année scolaire qui finit, septembre-décembre = 1er quadrimestre de celle qui commence (une UE sur deux quadrimestres : 40 % au Q1, 60 % au Q2). S’y ajoutent les dépassements des enveloppes externes (qualité, formation continue, inclusion) : usage − périodes de l’enveloppe. Une année « historique » reprend le chiffre saisi.' },
+                  { label: 'Charges fixes', value: `−${fmt(charges)}`, sub: `FELSI ${fmt(felsi)} + GIPS 40`, etat: 'surveiller', aide: 'FELSI = 1 % de la dotation organique, arrondi ; GIPS = 40 périodes. Retenues sur la dotation avant le solde réel.' },
+                  { label: 'Solde réel',    value: `${sign(soldeReel)}${fmt(soldeReel)}`, sub: soldeReel < -200 ? '⚠ Pénalité ×1,5' : 'après FELSI + GIPS', etat: soldeReel < 0 ? 'corriger' : 'reussi', aide: 'Dotation organique − périodes utilisées − charges fixes (FELSI + GIPS). Au-delà de 200 périodes de dépassement, la pénalité de 1,5 s’applique.' },
+                  { label: 'Taux',          value: pct(d.pct_organique), sub: <ProgressBar pct={d.pct_organique} />, etat: tonDotation(d.pct_organique).etat, aide: 'Périodes utilisées ÷ dotation organique.' },
+                ].map(({ label, value, sub, etat, aide }) => (
+                  <TuileEtat key={label} etat={etat} valeur={value} libelle={label} precision={sub} aide={aide} />
                 ))}
               </div>
 
@@ -930,8 +931,8 @@ export default function Pilotage({ vue = 'tout' }) {
                     L'année civile en deux moitiés
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <TuileEtat etat="neutre" valeur={fmt(d.usage_jan_juin)} libelle={<>Janvier – juin {d.annee_civile}</>} precision={<>Q2 de {d.scolaire_jan_juin} — consommé</>} />
-                    <TuileEtat etat="neutre" valeur={fmt(d.usage_sep_dec)} libelle={<>Septembre – décembre {d.annee_civile}</>} precision={<>Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant</>} />
+                    <TuileEtat etat="neutre" aide="Les périodes pondérées du 2e quadrimestre de l’année scolaire qui se termine en juin (et 60 % des UE sur deux quadrimestres)." valeur={fmt(d.usage_jan_juin)} libelle={<>Janvier – juin {d.annee_civile}</>} precision={<>Q2 de {d.scolaire_jan_juin} — consommé</>} />
+                    <TuileEtat etat="neutre" aide="Les périodes pondérées du 1er quadrimestre de l’année scolaire qui commence en septembre (et 40 % des UE sur deux quadrimestres). Encore mouvant : les attributions peuvent changer." valeur={fmt(d.usage_sep_dec)} libelle={<>Septembre – décembre {d.annee_civile}</>} precision={<>Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant</>} />
                     {/* LA MOITIÉ QUI VIENT — l'année académique en cours ne
                         s'arrête pas en décembre. Son second quadrimestre est
                         déjà attribué : il tombe en janvier-juin de l'année
@@ -939,9 +940,10 @@ export default function Pilotage({ vue = 'tout' }) {
                         celle-ci. Ne montrer que les deux moitiés de l'année
                         civile revenait à couper l'année académique en cours en
                         deux et à n'en regarder que la première moitié. */}
-                    <TuileEtat etat="neutre" valeur={fmt(d.usage_jan_juin_suivant)} libelle={<>Janvier – juin {d.annee_civile + 1}</>} precision={<>Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}</>} />
+                    <TuileEtat etat="neutre" aide="Le 2e quadrimestre de l’année scolaire en cours, déjà attribué : il tombera sur la dotation de l’année civile suivante." valeur={fmt(d.usage_jan_juin_suivant)} libelle={<>Janvier – juin {d.annee_civile + 1}</>} precision={<>Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}</>} />
 
                     <TuileEtat etat={d.solde_apres_jan_juin < 0 ? 'corriger' : 'reussi'}
+                      aide="Dotation organique − périodes pondérées de janvier à juin : ce qu’il reste pour septembre-décembre."
                       valeur={fmt(d.solde_apres_jan_juin)} libelle="Reste pour la rentrée"
                       precision="après décompte de janvier – juin" />
                   </div>
@@ -1192,10 +1194,10 @@ export default function Pilotage({ vue = 'tout' }) {
     return (
       <div>
         <div className="flex flex-wrap gap-3 mb-4">
-          <div className="flex-1 min-w-[170px]"><TuileEtat valeur={ratio(etpCours)} libelle="étudiants par ETP de cours" precision={`${f(etpCours)} ETP · ${pour(etpCours)}`} /></div>
-          <div className="flex-1 min-w-[170px]"><TuileEtat valeur={ratio(etpAdmin)} libelle="étudiants par ETP administratif"
+          <div className="flex-1 min-w-[170px]"><TuileEtat aide="Étudiants inscrits (hors archivés, chacun une fois) ÷ ETP de cours (CT ÷ 800 + PP ÷ 1 000, toutes les attributions de l’année)." valeur={ratio(etpCours)} libelle="étudiants par ETP de cours" precision={`${f(etpCours)} ETP · ${pour(etpCours)}`} /></div>
+          <div className="flex-1 min-w-[170px]"><TuileEtat aide="Étudiants inscrits ÷ ETP des fonctions d’établissement encodées (direction, secrétariat…), à leur ETP." valeur={ratio(etpAdmin)} libelle="étudiants par ETP administratif"
             precision={`${f(etpAdmin)} ETP — ${(R.admin || []).map(a => `${a.fonction} ${String(a.etp).replace('.', ',')}`).join(', ') || 'aucune fonction d’établissement encodée'}`} /></div>
-          <div className="flex-1 min-w-[170px]"><TuileEtat etat="fort" valeur={ratio(etpCours + etpAdmin)} libelle="étudiants par ETP, tout le monde compris" precision={`${f(etpCours + etpAdmin)} ETP · ${pour(etpCours + etpAdmin)}`} /></div>
+          <div className="flex-1 min-w-[170px]"><TuileEtat etat="fort" aide="Étudiants inscrits ÷ (ETP de cours + ETP administratifs)." valeur={ratio(etpCours + etpAdmin)} libelle="étudiants par ETP, tout le monde compris" precision={`${f(etpCours + etpAdmin)} ETP · ${pour(etpCours + etpAdmin)}`} /></div>
           <div className="flex-1 min-w-[140px]"><TuileEtat valeur={nEtu.toLocaleString('fr-BE')} libelle="étudiants inscrits" precision="hors archivés, chacun une fois" /></div>
         </div>
         <div className="mb-4 text-second text-gray-700">
@@ -1502,26 +1504,29 @@ export default function Pilotage({ vue = 'tout' }) {
      La Vue d'ensemble ouvre sur « Lire et comparer » : l'établissement ou une section, tout ou un axe, face à l'IIP, la HELB, l'ASBL
      ou l'année d'avant. Les autres entrées gardent leurs faces détaillées. */
   const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role);
+  /* GESTION SANS SOUS-MENUS (3.5.474, Charles, maquette A retenue le 15 novembre 2026 : « trop de sous-menus » ; « centraliser —
+     aller chercher dans trois fenêtres »). Six entrées. « L'école » lit l'établissement et ouvre, en bas de page, les tableaux
+     détaillés (faces CACHÉES : on y entre par la page, on en revient par « ← L'école ») ; « Une section » rassemble tout sur une
+     section — positionnement, comptes de l'ASBL, enseignants, coûts et financement IIP / HELB. Seule « Budget et frais » garde des
+     onglets, trois pages de nature différente. Une face cachée porte un troisième élément : true. */
   const RUBRIQUES = [
-    { key: 'g-ensemble', label: 'Vue d’ensemble', icon: IconChartInfographic, faces: [
-      ['lecture', 'Lire et comparer'], direction && ['presentation', 'Présenter une section'], direction && ['sources', 'Les sources']] },
-    { key: 'g-population', label: 'Étudiants', icon: IconUsersGroup, faces: [
-      ['population-ecole', 'Qui sont nos étudiants'], ['population', 'Places par unité'], !coord && ['presences-ue', 'Présences par UE']] },
-    { key: 'g-resultats', label: 'Réussite', icon: IconSchool, faces: [
-      ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
-    { key: 'g-equipe', label: 'Personnel et charge', icon: IconListCheck, faces: [
-      !coord && ['personnel-ecole', 'Notre personnel'], ['etp', 'ETP'], ['etp-annees', 'ETP sur plusieurs années'],
-      !coord && lit('repartition') && ['repartition', 'Répartition des périodes'], direction && ['qui-fait-quoi', 'Qui fait quoi']] },
-    { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
-      lit('dotation') && ['synthese', 'Dotation'], ['dotation', 'Comparaison'], direction && ['iip-helb', 'IIP et HELB'],
-      lit('dotation') && ['config', 'Configuration']] },
-    { key: 'g-finances', label: 'Finances', icon: IconCoin, faces: [
+    { key: 'g-ecole', label: 'L’école', icon: IconChartInfographic, faces: [
+      ['ecole', 'L’école'],
+      ['population-ecole', 'Qui sont nos étudiants', true], ['population', 'Places par unité', true], !coord && ['presences-ue', 'Présences par UE', true],
+      ['deliberation', 'Décisions et taux de réussite', true], ['distributions', 'Distributions des cotes', true],
+      !coord && ['personnel-ecole', 'Notre personnel', true], ['etp', 'ETP', true], ['etp-annees', 'ETP sur plusieurs années', true],
+      !coord && lit('repartition') && ['repartition', 'Répartition des périodes', true], direction && ['qui-fait-quoi', 'Qui fait quoi', true],
+      lit('dotation') && ['synthese', 'Dotation', true], ['dotation', 'Dotation : comparaison des années', true], direction && ['iip-helb', 'IIP et HELB', true],
+      lit('dotation') && ['config', 'Dotation : configuration', true]] },
+    { key: 'g-section', label: 'Une section', icon: IconUsersGroup, faces: [['section', 'Une section']] },
+    { key: 'g-presenter', label: 'Présentation', icon: IconPresentation, faces: [direction && ['presentation', 'Présentation d’une section']] },
+    { key: 'g-finances', label: 'Budget et frais', icon: IconCoin, faces: [
       !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget'],
       // MES FRAIS (3.5.197) : les notes de frais de la personne connectée, à elle seule.
       direction && ['mes-frais', 'Mes frais']] },
     /* LA DÉMARCHE QUALITÉ (3.1.442) : le plan d'action AEQES. */
-    { key: 'g-qualite', label: 'Qualité', icon: IconRosette, faces: [
-      ['qualite', 'Plan d’action']] },
+    { key: 'g-qualite', label: 'Qualité', icon: IconRosette, faces: [['qualite', 'Plan d’action']] },
+    { key: 'g-sources', label: 'Les sources', icon: IconReportAnalytics, faces: [direction && ['sources', 'Les sources']] },
   ].map(r => ({ ...r, faces: r.faces.filter(Boolean) })).filter(r => r.faces.length);
   const rubriqueActive = RUBRIQUES.find(r => r.faces.some(f => f[0] === tab)) || null;
   const railGestion = [{
@@ -1549,7 +1554,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb' && k !== 'presentation' && k !== 'lecture' && k !== 'ecole' && k !== 'section' && k !== 'sources') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
@@ -1825,9 +1830,11 @@ thead { display: table-header-group; }
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-5">
         {vue === 'gestion' && rubriqueActive && (
           <div className="flex items-center gap-3 flex-wrap">
-            {rubriqueActive.faces.length > 1 && (
+            {rubriqueActive.faces.some(([k, , cache]) => cache && k === tab) && (
+              <button type="button" className="bouton inline-flex items-center gap-1" onClick={() => setTab('ecole')}>← L’école</button>)}
+            {rubriqueActive.faces.filter(f => !f[2]).length > 1 && (
               <div className="segments">
-                {rubriqueActive.faces.map(([k, l]) => (
+                {rubriqueActive.faces.filter(f => !f[2]).map(([k, l]) => (
                   <button key={k} type="button" onClick={() => setTab(k)}
                     className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}
               </div>)}
@@ -1863,14 +1870,17 @@ thead { display: table-header-group; }
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
-        ) : tab === 'lecture' ? (
-          <PageHeader icon={IconChartInfographic} titre="Vue d’ensemble"
-            sous="Lire l’établissement ou une section, tout ou un axe, face à l’IIP, la HELB, l’ASBL ou l’année d’avant" />
+        ) : tab === 'ecole' || tab === 'lecture' ? (
+          <PageHeader icon={IconChartInfographic} titre="L’école"
+            sous="L’Institut, section par section, face à l’IIP, l’ASBL ou l’année d’avant ; les tableaux détaillés en bas de page" />
+        ) : tab === 'section' ? (
+          <PageHeader icon={IconUsersGroup} titre="Une section"
+            sous="Tout sur une section : où elle se situe, ses comptes, ses enseignants, ses coûts et son financement" />
         ) : tab === 'sources' ? (
           <PageHeader icon={IconChartInfographic} titre="Les sources"
             sous="Les fichiers de référence — HELB, ASBL — dont Lucie ne garde que les totaux ; chaque comparaison y renvoie" />
         ) : tab === 'presentation' ? (
-          <PageHeader icon={IconPresentation} titre="Présenter une section"
+          <PageHeader icon={IconPresentation} titre="Présentation d’une section"
             sous="Les chiffres de Lucie en diapositives, en plein écran — sur iPad ou grand écran" />
         ) : tab === 'iip-helb' ? (
           <PageHeader icon={IconBuildingBank} titre="L’IIP et la HELB"
@@ -1926,7 +1936,26 @@ thead { display: table-header-group; }
             {tab === 'etp'      && renderETP()}
             {tab === 'etp-annees' && <EtpPlusieursAnnees />}
             {tab === 'iip-helb' && <IipHelbGestion />}
-            {tab === 'lecture' && <GestionLecture annee={anneeActive} onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
+            {(tab === 'ecole' || tab === 'lecture') && <>
+              <GestionLecture annee={anneeActive} perimFixe="etab" onOuvrirSection={() => setTab('section')} onSources={direction ? () => setTab('sources') : null} />
+              {/* LES TABLEAUX DÉTAILLÉS DE L'ÉCOLE (3.5.474) : ce qui était en sous-menus, ici en sommaire. */}
+              <section className="carte overflow-hidden">
+                <EnteteCarte titre="Les tableaux détaillés" sous="Chaque lien ouvre son tableau ; « ← L’école » y ramène" />
+                <div className="grid gap-x-8 gap-y-1 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[['Les étudiants', ['population-ecole', 'population', 'presences-ue']], ['La réussite', ['deliberation', 'distributions']],
+                    ['Le personnel', ['personnel-ecole', 'etp', 'etp-annees', 'repartition', 'qui-fait-quoi']], ['La dotation', ['synthese', 'dotation', 'iip-helb', 'config']]]
+                    .map(([titre, cles]) => {
+                      const faces = RUBRIQUES[0].faces.filter(([k]) => cles.includes(k));
+                      return faces.length ? (
+                        <div key={titre} className="min-w-0">
+                          <div className="intertitre mb-1">{titre}</div>
+                          {faces.map(([k, l]) => <button key={k} type="button" className="block text-left text-sm text-iip-blue hover:underline py-1" onClick={() => setTab(k)}>{l}</button>)}
+                        </div>) : null;
+                    })}
+                </div>
+              </section>
+            </>}
+            {tab === 'section' && <GestionLecture annee={anneeActive} perimFixe="section" onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
             {tab === 'sources' && <SourcesReference />}
             {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}

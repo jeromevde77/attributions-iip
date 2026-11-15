@@ -105,19 +105,19 @@ export default function PopulationEcole({ annee: anneeProp }) {
 
       {eff && !section && (
         <div className="flex flex-wrap gap-3">
-          <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" valeur={k0(eff.au_15_10.total)} libelle="inscrits au 15/10"
+          <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" aide="Les étudiants (chacun une fois, archivés exclus) dont une inscription de l’année est datée au plus tard du 15 octobre. À partir de 2027-2028, ce chiffre est gelé le 15 octobre et ne bouge plus ; avant, il est reconstruit à partir des dates d’inscription (indicatif)." valeur={k0(eff.au_15_10.total)} libelle="inscrits au 15/10"
             precision={eff.au_15_10.fige ? 'référence de l’année, gelée' : 'reconstruit, indicatif — gelé d’office à partir de 2027-2028'} /></div>
-          <div className="flex-1 min-w-[150px]"><TuileEtat valeur={eff.au10 ? k0(eff.au10.total) : '—'} libelle="réguliers au 1er dixième"
+          <div className="flex-1 min-w-[150px]"><TuileEtat aide="Les étudiants réguliers (R) dans au moins une UE dont le premier dixième est passé, chacun une fois. Régulier = présences + absences justifiées ≥ 60 % des heures dues jusqu’au dixième. Le dixième d’une UE = 1/10 entre sa première et sa dernière séance de l’horaire, séance la plus proche. Seules les UE à l’horaire comptent." valeur={eff.au10 ? k0(eff.au10.total) : '—'} libelle="réguliers au 1er dixième"
             precision={eff.au10 ? `${eff.au10.ues_atteintes} UE sur ${eff.au10.ues} ont passé leur 1/10` : ''} /></div>
-          <div className="flex-1 min-w-[150px]"><TuileEtat valeur={eff.au50 ? k0(eff.au50.total) : '—'} libelle="réguliers au 5e dixième"
+          <div className="flex-1 min-w-[150px]"><TuileEtat aide="Même règle qu’au premier dixième, au cinquième dixième de l’UE (5/10 entre la première et la dernière séance)." valeur={eff.au50 ? k0(eff.au50.total) : '—'} libelle="réguliers au 5e dixième"
             precision={eff.au50 ? `${eff.au50.ues_atteintes} UE sur ${eff.au50.ues} ont passé leur 5/10` : ''} /></div>
           <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(eff.en_parcours)} libelle="encore en parcours"
             precision={`une UE encore ouverte · ${k0(eff.inscrits)} inscrits non archivés${eff.sortis ? `, dont ${eff.sortis} sorti(s)` : ''}`} /></div>
         </div>)}
       <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" valeur={k0(v.n)} libelle="inscrits" precision={section ? NOM_SECTION(section) : `${d.sections.length} sections`} /></div>
-        <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(v.primo)} libelle="nouveaux étudiants" precision={`${pc(v.primo, v.n)} — aucune inscription avant ${d.annee}`} /></div>
-        <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(v.ba3)} libelle="en année diplômante" precision={`${pc(v.ba3, v.n)} — bloc 3, niveau principal`} /></div>
+        <div className="flex-1 min-w-[150px]"><TuileEtat aide="Aucune inscription ni valorisation dans une année antérieure (règle du badge « primo », lib/primo.js) ÷ inscrits." valeur={k0(v.primo)} libelle="nouveaux étudiants" precision={`${pc(v.primo, v.n)} — aucune inscription avant ${d.annee}`} /></div>
+        <div className="flex-1 min-w-[150px]"><TuileEtat aide="Les étudiants dont le niveau de l’année, tel que Lucie le calcule pour la fiche, est le bloc 3." valeur={k0(v.ba3)} libelle="en année diplômante" precision={`${pc(v.ba3, v.n)} — bloc 3, niveau principal`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={pc(v.F, sexeConnu)} libelle="de femmes" precision={`${k0(v.F)} F · ${k0(v.M)} M${v.X ? ` · ${k0(v.X)} X` : ''}`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={v.age_moyen != null ? `${Math.round(v.age_moyen)} ans` : '—'} libelle="âge moyen" precision={`${k0(v.m25)} de moins de 25 ans`} /></div>
       </div>

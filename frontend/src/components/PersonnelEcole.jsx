@@ -60,7 +60,7 @@ export default function PersonnelEcole({ annee: anneeProp }) {
 
       <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" valeur={k0(v.n)} libelle="membres du personnel" precision={`${k0(v.enseignant)} enseignant(s) · ${k0(v.adm)} administratif(s)`} /></div>
-        <div className="flex-1 min-w-[150px]"><TuileEtat valeur={e2(etpVue)} libelle={section ? 'ETP dans la section' : 'ETP'} precision="CT ÷ 800 + PP ÷ 1000 ; fonctions à leur ETP" /></div>
+        <div className="flex-1 min-w-[150px]"><TuileEtat aide="Attributions de l’année : CT ÷ 800 + PP ÷ 1 000 ; les fonctions (direction, coordinations…) à leur ETP encodé. Lignes en congé exclues." valeur={e2(etpVue)} libelle={section ? 'ETP dans la section' : 'ETP'} precision="CT ÷ 800 + PP ÷ 1000 ; fonctions à leur ETP" /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={pc(v.F, sexeConnu)} libelle="de femmes" precision={`${k0(v.F)} F · ${k0(v.M)} M${v.X ? ` · ${k0(v.X)} X` : ''}`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={v.age_moyen != null ? `${Math.round(v.age_moyen)} ans` : '—'} libelle="âge moyen" precision={`${k0(v.p55)} de 55 ans et plus`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(v.definitif)} libelle="définitifs" precision={`${k0(v.temporaire)} temporaire(s)`} /></div>

@@ -4357,7 +4357,18 @@ cours en ligne propre ; la paire frais généraux (626000) / quote-part (737000)
 Hautes Écoles, art. 17 ; Charles : « lissage selon le décret ») : allocation d'une année civile C = moyenne des étudiants comptés des
 années académiques (C−4)-(C−3) à (C−2)-(C−1) × MUCE × 1,5 (`baseDecret`, `allocationCivile`, recopiée dans `IipHelbGestion.jsx`) ;
 plus de « début de l'allocation ». Pondération 1,5 = groupe F, paramédical (art. 16). Non traités : la MUCE réelle de chaque année
-(art. 19) et les étudiants non finançables (art. 6 k et 8 — hors UE sans catégorie, redoublements).
+(art. 19) et les étudiants non finançables (art. 6 k et 8 — hors UE sans catégorie, redoublements). **Le (?) de chaque tuile de calcul** (3.5.472, Charles : « par honnêteté scientifique ») : `TuileEtat` prend
+`aide` (le calcul, en clair) et l'ouvre par `BulleAide` (ancrée `droite`) ; posé sur les tuiles de Lire et comparer, IIP et HELB, Dotation,
+ETP, Population, Personnel, Présences. **Une tuile de calcul nouvelle porte son `aide`, vérifiée dans le code.** Balance par école : un disque
+par école et par année (part des experts et invités). **Gestion sans sous-menus** (3.5.474, Charles : « trop de sous-menus » ; « centraliser — aller chercher dans
+trois fenêtres » ; maquette A retenue) : six entrées — L'école (`ecole` : Lire et comparer de l'établissement + « Les tableaux
+détaillés », les anciennes faces CACHÉES, troisième élément `true`, avec « ← L'école »), Une section (`section` : la fiche — ancres,
+positionnement, comptes, pistes, enseignants/coûts/financement IIP-HELB pour toute section, direction), Présenter, Budget et frais
+(seule entrée à onglets), Qualité, Les sources. `GestionLecture` prend `perimFixe` et `onOuvrirSection` ; `onglet=lecture` → `ecole`. **La présentation se compose selon le public** (3.5.475, Charles : « choisir via un menu ce qui sera
+dans les slides parmi tout ce qui est possible ; adapter en fonction du public ») : « Choisir les diapositives » — une case par
+diapositive (`composer(D, T, { tout: true })` donne le catalogue, chaque diapositive porte `titre`), quatre publics de départ
+(CA, équipe pédagogique, public extérieur, les chiffres seuls) qui adaptent aussi la ligne de couverture ; gardé par section dans
+`choix.masquees` des textes. L'entrée du rail s'appelle « Présentation ».
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

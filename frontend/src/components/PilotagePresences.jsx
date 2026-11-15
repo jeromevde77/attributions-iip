@@ -34,8 +34,8 @@ export default function PilotagePresences({ annee }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <TuileEtat etat="neutre" valeur={d.ues.length} libelle="UE à l’horaire" precision={annee} />
-        <TuileEtat etat="neutre" valeur={tauxMoyen == null ? '—' : `${nb(tauxMoyen)} %`} libelle="Présence moyenne" precision="présences + justifiées, par UE" />
-        <TuileEtat etat={nonEnc ? 'surveiller' : 'reussi'} valeur={nonEnc} libelle="Présences non encodées" precision="séances tenues × étudiants" />
+        <TuileEtat etat="neutre" aide="Pour chaque UE à l’horaire : (présences + absences justifiées) ÷ heures dues des séances déjà tenues ; puis la moyenne simple des UE (chaque UE pèse autant, quelle que soit sa taille)." valeur={tauxMoyen == null ? '—' : `${nb(tauxMoyen)} %`} libelle="Présence moyenne" precision="présences + justifiées, par UE" />
+        <TuileEtat etat={nonEnc ? 'surveiller' : 'reussi'} aide="Pour chaque séance déjà tenue et non annulée : les étudiants concernés sans présence encodée ; additionnés sur toutes les UE." valeur={nonEnc} libelle="Présences non encodées" precision="séances tenues × étudiants" />
       </div>
 
       {d.alertes.length > 0 && (

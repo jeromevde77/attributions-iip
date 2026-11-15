@@ -591,7 +591,7 @@ export function documentIipHelb(p) {
       <th class="n">ETP HELB</th><th class="n">Salaires</th><th class="n">Autres services</th><th class="n">${H.mode_fonct === 'forfait' ? 'Fonctionnement (forfait)' : 'Matériel et fonct.'}</th><th class="n">Coût</th>
       <th class="n">Résultat</th><th class="n">Étu. / ETP</th><th class="n">Apport IIP : admin.</th><th class="n">Apport IIP : aide réussite</th></tr></thead><tbody>
       ${L.map(({ y, h, adm }) => `<tr><td>${esc(y.annee)}</td><td class="n">${n0(y.inscrits)}</td><td class="n">${h.base ? n0(h.base) : '—'}</td>
-        <td class="n">${h.allocation ? eur(h.allocation) : '<span class="fin">en création</span>'}</td><td class="n">${eur(h.droits)}</td>
+        <td class="n">${h.allocation ? eur(h.allocation) : '0 €'}</td><td class="n">${eur(h.droits)}</td>
         <td class="n">${n2(h.etp)}</td><td class="n">${eur(h.salaires)}</td><td class="n">${eur(h.autres)}</td><td class="n">${eur(h.fonct)}</td><td class="n">${eur(h.cout)}</td>
         <td class="n g" style="color:${h.resultat >= 0 ? '#3E7D5E' : '#9D4A38'}">${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}</td>
         <td class="n">${h.parEtp ? n0(h.parEtp) : '—'}</td><td class="n">${eur(adm.montant)}${adm.reprise ? ' *' : ''}</td><td class="n">${eur(u95(y))}</td></tr>`).join('')}
