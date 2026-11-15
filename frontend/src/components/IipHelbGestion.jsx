@@ -578,12 +578,13 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
               {/* LES DISQUES DE LA BALANCE (3.5.472, Charles : « des disques, avec la part de profs invités et experts pour chaque école
                   sur les années ») : une ligne par école, un disque par année — chargés de cours, experts et invités, en ETP. */}
               {k === 'statuts' && (() => {
-                const part = (y, cote, re) => Object.entries(y.statuts || {}).filter(([c]) => re.test(c)).reduce((t, [, v]) => t + (v[cote] || 0), 0);
+                // « Les deux écoles réunies » (3.5.473, Charles : « et la part globale toute école confondue ») : IIP + HELB.
+                const part = (y, cote, re) => Object.entries(y.statuts || {}).filter(([c]) => re.test(c)).reduce((t, [, v]) => t + (cote === 'tout' ? (v.iip || 0) + (v.helb || 0) : (v[cote] || 0)), 0);
                 const COUL = { cc: 'var(--g-1)', exp: 'var(--g-3)', autre: 'var(--g-vide)' };
                 return (
                   <div className="p-3 space-y-3 border-b border-slate-100">
-                    {[['iip', 'Institut Ilya Prigogine'], ['helb', 'Haute École (HELB)']].map(([cote, nom]) => (
-                      <div key={cote} className="flex items-center gap-4 flex-wrap">
+                    {[['iip', 'Institut Ilya Prigogine'], ['helb', 'Haute École (HELB)'], ['tout', 'Les deux écoles réunies']].map(([cote, nom]) => (
+                      <div key={cote} className={`flex items-center gap-4 flex-wrap ${cote === 'tout' ? 'pt-3 border-t border-slate-100' : ''}`}>
                         <div className="w-44 flex-none text-sm font-semibold text-slate-700">{nom}</div>
                         {Y.map(y => {
                           const cc = part(y, cote, /^Chargés/), ex = part(y, cote, /^Experts/), au = part(y, cote, /^Autres/), tot = cc + ex + au;
