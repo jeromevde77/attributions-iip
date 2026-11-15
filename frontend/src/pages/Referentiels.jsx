@@ -150,7 +150,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
   }
 
   const analyser = () => {
-    if (!fichiers.length) return setError('Sélectionnez un ou plusieurs dossiers (.pdf ou .docx)');
+    if (!fichiers.length) return setError('Sélectionnez un ou plusieurs dossiers (.pdf, .docx ou .doc)');
     return parcourir(true, setAnalyses);
   };
   const confirmer = async () => {
@@ -208,10 +208,10 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                   <div className="text-xs text-gray-400 truncate">
                     {fichiers.length
                       ? fichiers.map(f => f.name).join(', ')
-                      : 'Les PDF publiés par la Fédération, ou des .docx'}
+                      : 'Les PDF publiés par la Fédération, ou des .docx et .doc'}
                   </div>
                 </div>
-                <input type="file" accept=".pdf,.docx" multiple className="sr-only"
+                <input type="file" accept=".pdf,.docx,.doc" multiple className="sr-only"
                   onChange={e => {
                     setFichiers(Array.from(e.target.files || []));
                     setAnalyses(null); setError(''); setCibles({});

@@ -173,6 +173,9 @@ function lireComptes(texte) {
    HELB (ses départements, leurs cursus), Institut Ilya Prigogine (ses sections), CREA, IRO, UDR, Conseil social — et un même intitulé
    revient dans deux blocs (Orthoptie, Technologue en imagerie médicale) : chaque ligne garde son bloc. */
 const BLOCS = ['ASBL Administration', 'HELB', 'Institut Ilya Prigogine', 'CREA Formations continues', 'International Relations Office (IRO)', 'Unité de Recherches (UDR)', 'HELB Conseil social'];
+/* LES CODES ANALYTIQUES CONNUS (3.5.467) : relevés dans la comptabilité de l'ASBL. Un poste absent ici se relie par l'égalité exacte des
+   charges, ou ne se relie pas (le personnel imputé reste alors inconnu, et l'écran le dit). */
+export const CODES_ANALYTIQUES = { 'HELB .*imagerie': '111066' };
 function lireSynthese(wb, nom) {
   const ws = wb.worksheets.find(w => /^Synth[èe]ses? asbl/i.test(w.name)); if (!ws) return null;
   const L = lignes(ws); const h = L[0] || [];
@@ -209,6 +212,40 @@ function lireSynthese(wb, nom) {
   }
   const postes = [...par.values()];
   if (postes.length < 5) return null;
+  /* LE PERSONNEL DÉJÀ IMPUTÉ À CHAQUE POSTE (3.5.467, Charles : « il vaut mieux ne pas être flatteur ; nos calculs doivent être
+     réels »). Les feuilles « ASBL23 », « ASBL24 »… du classeur sont la comptabilité analytique : une ligne par écriture, son code
+     analytique, son compte général. Par code et par année : charges (comptes 6), salaires (620 à 623), professeurs invités et
+     prestataires d'enseignement (613). Un poste se relie à son code : connu (`CODES_ANALYTIQUES`), sinon celui dont les charges égalent exactement les siennes une année.
+     Rien d'une personne n'est gardé : des totaux par code. */
+  const analytique = {};
+  for (const w of wb.worksheets) {
+    const m = w.name.match(/^ASBL(\d\d)$/); if (!m) continue;
+    const an = `20${m[1]}`, A = (analytique[an] = {});
+    let iA = -1, iG = -1, iM = -1;
+    w.eachRow({ includeEmpty: false }, row => {
+      const l = row.values.slice(1).map(val);
+      if (iA < 0) { iA = l.findIndex(x => /compte analytique/i.test(String(x || ''))); iG = l.findIndex(x => /compte g[ée]n[ée]ral/i.test(String(x || ''))); iM = l.findIndex(x => /montant complet/i.test(String(x || ''))); return; }
+      const code = String(l[iA] ?? '').trim(), cg = String(l[iG] ?? ''), mt = num(l[iM]);
+      if (!code || !/^6/.test(cg)) return;
+      const c = (A[code] ||= { charges: 0, salaires: 0, invites: 0 });
+      c.charges += mt; if (/^62[0-3]/.test(cg)) c.salaires += mt; if (/^613/.test(cg)) c.invites += mt;
+    });
+  }
+  for (const p of postes) {
+    if (p.niveau !== 2) continue;
+    // Le code analytique d'un poste : connu (CODES_ANALYTIQUES), sinon celui dont les charges égalent exactement les siennes une année.
+    let code = Object.entries(CODES_ANALYTIQUES).find(([re]) => new RegExp(re, 'i').test(`${p.bloc} ${p.poste}`))?.[1] || null;
+    if (!code) for (const [an, A] of Object.entries(analytique)) {
+      const ch = p.ex[`${an}|realise`]?.charges; if (!ch) continue;
+      const t = Object.entries(A).filter(([, c]) => Math.abs(c.charges - ch) <= 2);
+      if (t.length === 1) { code = t[0][0]; break; }
+    }
+    if (!code) continue;
+    for (const [an, A] of Object.entries(analytique)) {
+      const c = A[code]; if (!c || !p.ex[`${an}|realise`]) continue;
+      (p.personnel ||= {})[an] = { code, salaires: Math.round(c.salaires), invites: Math.round(c.invites) };
+    }
+  }
   return { nature: 'asbl_synthese', libelle: NATURES.asbl_synthese, annee: exercices.map(e => e.annee).sort().pop(), date_donnee: dateDuNom(nom),
     totaux: { exercices: exercices.map(({ annee, nature, libelle, provisoire }) => ({ annee, nature, libelle, provisoire })), postes } };
 }
@@ -287,8 +324,9 @@ export function syntheseAsbl() {
     for (const e of s.totaux.exercices) if (e.annee === a) exercices.push(e);
     for (const p of s.totaux.postes || []) {
       const k = `${p.bloc}|${p.dept}|${p.poste}`;
-      if (!par.has(k)) par.set(k, { ...p, ex: {} });
+      if (!par.has(k)) par.set(k, { ...p, ex: {}, personnel: undefined });
       for (const [cle, v] of Object.entries(p.ex)) if (cle.slice(0, 4) === a) par.get(k).ex[cle] = v;
+      if (p.personnel?.[a]) (par.get(k).personnel ||= {})[a] = p.personnel[a];
     }
   }
   const F = [...fichiers.values()];

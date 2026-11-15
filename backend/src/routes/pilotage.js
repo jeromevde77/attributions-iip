@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
@@ -457,7 +457,63 @@ r.get('/lecture', authRequired, (req, res) => {
         for (const [code, re] of Object.entries(RE)) {
           if (perim && !perim.includes(code)) continue;
           const h = S.totaux.postes.find(p => p.bloc === 'HELB' && p.niveau === 2 && re.test(p.poste)), i = S.totaux.postes.find(p => p.bloc === 'Institut Ilya Prigogine' && re.test(p.poste));
-          if (h || i) par[code] = { helb: h ? serie(h) : null, iip: i ? serie(i) : null };
+          /* LE RÉSULTAT RÉEL D'UNE CODIPLOMATION (3.5.467) : les comptes imputent à la section à peine une partie de ses enseignants
+             HELB (TIM 2025 : 30 164 € de personnel pour 2 ETP environ). Lucie ajoute le coût des enseignants HELB que les comptes
+             imputent ailleurs : coût (ETP de Lucie, coordinations comprises, au prix du titre) − personnel déjà imputé (salaires et
+             professeurs invités du code analytique de la section). Sans code analytique connu, le personnel imputé reste inconnu. */
+          const codip = sectionsCodiplomation().includes(code.toLowerCase());
+          const reelle = s => s.map(v => {
+            if (!codip) return v;
+            let ens = null; try { ens = enseignantsHelbCivil(code, v.annee); } catch { ens = null; }
+            if (!ens) return v;
+            // Repli : le personnel de TIM relevé le 15 novembre 2026 dans les classeurs (code 111066), tant que le classeur déposé
+            // n'a pas été relu par la version qui garde ce détail.
+            const RELEVE = { TIM: { 2023: { code: '111066', salaires: 0, invites: 0 }, 2024: { code: '111066', salaires: 14173, invites: 3220 },
+              2025: { code: '111066', salaires: 16873, invites: 13291 }, 2026: { code: '111066', salaires: 12039, invites: 14077 } } };
+            const imp = h?.personnel?.[v.annee] || (v.nature === 'réalisé' ? RELEVE[code]?.[v.annee] : null);
+            const deja = imp ? (imp.salaires || 0) + (imp.invites || 0) : null;
+            const ajout = Math.max(0, ens.cout - (deja || 0));
+            return { ...v, enseignants_helb: ens.cout, etp_helb: ens.etp, deja_impute: deja, code_analytique: imp?.code || null,
+              non_impute: ajout, charges_reelles: v.charges + ajout, resultat_reel: v.resultat - ajout };
+          });
+          let helb = h ? reelle(serie(h)) : null, iip = i ? serie(i) : null;
+          /* UN BUDGET NE DIT PAS LE RÉEL ; LUCIE ESTIME (3.5.468, Charles : « une estimation sur 2026 et 26-27 en fonction des inscrits ;
+             tu sais combien ils paient ; les attributions tu les as »). Pour une codiplomation, un exercice seulement budgété est remplacé
+             par l'estimation de Lucie, pour toute l'ASBL (côté HELB et côté IIP réunis) : une année civile = 8/12 de l'année scolaire qui
+             finit + 4/12 de celle qui commence (`estimationAnnee`). S'y ajoutent les autres charges que les comptes imputent à la section
+             (quote-part des frais généraux…), au niveau du dernier exercice réalisé, personnel déjà imputé retiré. L'année scolaire en
+             cours suit, en ligne propre. */
+          if (codip && helb) {
+            /* CE QUE DISENT LES COMPTES DE TIM CÔTÉ HELB (relu le 15 novembre 2026, classeur « 2023 à 2027 », compte analytique 111066) :
+               deux produits. (1) Une quote-part des frais généraux (compte 737000), du MÊME montant que la charge de frais généraux
+               imputée à la section (626000) : 152 707 € en 2025, neutre. (2) Des subsides (737100) : 248 372 € en 2025 — la part de
+               l'allocation de la HELB déjà attribuée à TIM. L'estimation laisse donc de côté la paire frais généraux / quote-part
+               (neutre), et, pour une année scolaire où le calcul ne prévoit pas encore d'allocation, reprend le niveau réel des subsides
+               du dernier exercice réalisé (produits − charges hors personnel). */
+            const real = helb.filter(v => v.nature === 'réalisé' && v.deja_impute != null);
+            const dernier = real[real.length - 1];
+            const fraisGeneraux = dernier ? Math.max(0, dernier.charges - dernier.deja_impute) : 0;
+            const subsidesReels = dernier ? Math.max(0, dernier.produits - fraisGeneraux) : 0;
+            const est = a => { let e = null; try { e = estimationAnnee(code, a); } catch { e = null; }
+              if (e && !e.allocation && subsidesReels) { e = { ...e, allocation: subsidesReels, produits: e.produits + subsidesReels, allocation_reelle: true }; }
+              return e; };
+            const ligne = (base, e) => ({ ...base, nature: 'estimation', estimation: true, charges: e.cout, produits: e.produits, resultat: e.produits - e.cout,
+              resultat_reel: e.produits - e.cout, charges_reelles: e.cout, non_impute: null, allocation: e.allocation, droits: e.droits, salaires: e.salaires,
+              materiel: e.materiel, etp_helb: e.etp_helb, allocation_reelle: !!e.allocation_reelle, subsides_de: dernier?.annee || null });
+            const civil = Y => {
+              const e1 = est(`${Y - 1}-${Y}`), e2 = est(`${Y}-${Y + 1}`); if (!e1 && !e2) return null;
+              const m = k => Math.round((e1?.[k] || 0) * 8 / 12 + (e2?.[k] || 0) * 4 / 12);
+              return ligne({ annee: String(Y) }, { cout: m('cout'), produits: m('produits'), allocation: m('allocation'), droits: m('droits'), salaires: m('salaires'),
+                materiel: m('materiel'), etp_helb: Math.round(((e1?.etp_helb || 0) * 8 / 12 + (e2?.etp_helb || 0) * 4 / 12) * 100) / 100, allocation_reelle: !!(e1?.allocation_reelle || e2?.allocation_reelle) });
+            };
+            helb = helb.map(v => (v.nature === 'réalisé' ? v : civil(Number(v.annee)) || v));
+            const eS = est(annee);
+            if (eS) helb.push(ligne({ annee, scolaire: true, inscrits: eS.inscrits }, eS));
+            // Une année estimée porte déjà les droits des étudiants (côté IIP) : sa ligne IIP budgétée ne s'additionne plus.
+            const estimees = new Set(helb.filter(v => v.estimation).map(v => v.annee));
+            if (iip) iip = iip.filter(v => !estimees.has(v.annee));
+          }
+          if (h || i) par[code] = { helb, iip };
         }
         return { fichier: S.fichier, date: S.date_donnee, sections: par };
       })(),

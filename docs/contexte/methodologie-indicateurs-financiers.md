@@ -243,6 +243,38 @@ résultat            = recettes − coût
 Le matériel vient de la synthèse des budgets de l'ASBL (part HELB 50 % des lignes TIM) : réel pour 2023, budgets initiaux
 ensuite. Les **inscrits retenus** peuvent être corrigés année par année dans la page (vide = le chiffre de Lucie).
 
+### 5.3 bis Le résultat réel d'une codiplomation dans les comptes de l'ASBL
+
+La synthèse des budgets et comptes de l'ASBL n'impute à TIM qu'une petite part de ses enseignants HELB : en 2025, 30 164 € de
+personnel sur le code analytique 111066 (16 873 € de salaires, 13 291 € de professeurs invités et prestataires), pour environ
+2 ETP. Les autres enseignants sont payés, mais leur coût est imputé à d'autres codes. Le résultat comptable de TIM (+218 065 € en
+2025) est donc flatteur. Choix de Charles (15 novembre 2026) : « nos calculs doivent être réels ».
+
+```
+coût des enseignants HELB (année civile) = 8/12 × coût de l'année scolaire qui finit + 4/12 × coût de celle qui commence
+   coût d'une année scolaire = ETP HELB de Lucie (lignes HELB + coordinations HELB, § 5.2) au prix du titre (COR)
+déjà imputé = salaires (620 à 623) + professeurs invités (613) du code analytique de la section
+imputé ailleurs = max(0, coût des enseignants HELB − déjà imputé)
+résultat réel = résultat comptable − imputé ailleurs
+```
+Le personnel imputé se lit dans les feuilles analytiques (« ASBL23 », « ASBL24 »…) du classeur déposé ; le code d'une section est
+connu (TIM : 111066) ou reconnu par l'égalité exacte des charges. Pour un exercice budgété, le personnel déjà imputé est inconnu :
+tout le coût des enseignants HELB est ajouté. Montré dans Lire et comparer (comptabilité de la section) et dans la présentation au CA.
+
+### 5.3 ter L'estimation d'un exercice non réalisé (2026, et l'année scolaire en cours)
+
+Un budget ne dit pas le réel : pour une codiplomation, Lucie remplace un exercice seulement budgété par son estimation, pour toute
+l'ASBL (côté HELB et côté IIP réunis), d'après les inscrits et les attributions :
+```
+produits = allocation de la HELB + droits et frais des inscrits (barème de Lucie)
+   allocation : le calcul du § 5.3 dès 2026-2027 ; avant, le niveau réel des subsides du dernier exercice réalisé
+   (TIM 2025 : 248 372 €, compte 737100)
+charges  = enseignants HELB (ETP de Lucie, coordinations comprises, prix du titre) + matériel
+année civile = 8/12 de l'année scolaire qui finit + 4/12 de celle qui commence
+```
+La quote-part des frais généraux (626000, 152 707 € en 2025) est compensée dans les comptes par un produit du même montant
+(737000) : l'estimation laisse cette paire de côté. Les enseignants de l'IIP, payés par la Fédération, ne sont pas une charge de l'ASBL.
+
 ### 5.4 Le coût d'un étudiant
 
 ```

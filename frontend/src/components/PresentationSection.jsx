@@ -156,9 +156,13 @@ function composer(D, T) {
      cumulées des deux, pour ne froisser personne ») : les indicateurs de Gestion → Lire et comparer (GET /api/pilotage/lecture). */
   const LS = lec?.sections?.find(x => x.section === section) || null, LI = lec?.iip || null, LA = lec?.asbl || null;
   const CP = lec?.compta?.sections?.[section] || null;
-  const comptes = CP ? [...new Set([...(CP.helb || []), ...(CP.iip || [])].map(x => x.annee))].sort().map(a => {
+  const comptes = CP ? [...new Set([...(CP.helb || []), ...(CP.iip || [])].filter(x => !x.scolaire).map(x => x.annee))].sort().map(a => {
     const h = (CP.helb || []).find(x => x.annee === a), i = (CP.iip || []).find(x => x.annee === a);
-    return { annee: a, nature: (h || i).nature, charges: (h?.charges || 0) + (i?.charges || 0), produits: (h?.produits || 0) + (i?.produits || 0), resultat: (h?.resultat || 0) + (i?.resultat || 0) };
+    /* LE RÉSULTAT RÉEL (3.5.467, Charles : « ne pas être flatteur ») : pour une codiplomation, le coût des enseignants HELB que les
+       comptes imputent ailleurs est ajouté ; le résultat comptable reste à côté (`resultat_comptable`). */
+    const ajout = h?.non_impute || 0;
+    return { annee: a, nature: (h || i).nature, estimation: !!h?.estimation, charges: (h?.charges || 0) + (i?.charges || 0) + ajout, produits: (h?.produits || 0) + (i?.produits || 0),
+      resultat: (h?.resultat || 0) + (i?.resultat || 0) - ajout, resultat_comptable: (h?.resultat || 0) + (i?.resultat || 0), ajout };
   }) : [];
   const dernierCompte = [...comptes].reverse().find(x => x.nature === 'réalisé') || null;
   const e0 = v => (v == null ? '—' : `${n0(v)} €`);
@@ -426,17 +430,20 @@ function composer(D, T) {
     ajouter({ id: 'finances', blocs: bl, notes: t('notes.finances', 'Mêmes chiffres que Gestion → Lire et comparer. L’ASBL = les deux établissements réunis ; coût complet ÷ crédits suivis.'), notesCle: 'notes.finances' });
 
     if (comptes.length) {
-      const bl2 = [...entete('Finances', 'Dans les comptes de l’ASBL')];
-      bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : ' (budget)'}`), unite: ' k€',
+      const avecReel = comptes.some(x => x.ajout);
+      const bl2 = [...entete('Finances', avecReel ? 'Ce que la section coûte et rapporte vraiment à l’ASBL' : 'Dans les comptes de l’ASBL')];
+      bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : x.estimation ? ' (estimation)' : ' (budget)'}`), unite: ' k€',
         series: [{ nom: 'Charges', valeurs: comptes.map(x => Math.round(x.charges / 1000)), couleur: C.brique }, { nom: 'Produits', valeurs: comptes.map(x => Math.round(x.produits / 1000)), couleur: C.vert }],
-        titre: 'Charges et produits de la section, en milliers d’euros' });
+        titre: avecReel ? 'Charges (enseignants HELB compris) et produits, en milliers d’euros' : 'Charges et produits de la section, en milliers d’euros' });
       if (dernierCompte) {
-        bl2.push(...tuileSombre(W - M - 350, 150, 350, 200, `${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))}`, `résultat ${dernierCompte.annee}`, `produits ${e0(dernierCompte.produits)} · charges ${e0(dernierCompte.charges)}`, dernierCompte.resultat >= 0 ? C.vert : C.brique));
+        bl2.push(...tuileSombre(W - M - 350, 150, 350, 200, `${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))}`, `résultat ${avecReel ? 'réel ' : ''}${dernierCompte.annee}`, avecReel ? `comptable ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))} · enseignants HELB imputés ailleurs −${e0(dernierCompte.ajout)}` : `produits ${e0(dernierCompte.produits)} · charges ${e0(dernierCompte.charges)}`, dernierCompte.resultat >= 0 ? C.vert : C.brique));
         const cumul = comptes.filter(x => x.nature === 'réalisé').reduce((a, x) => a + x.resultat, 0);
-        bl2.push(...tuileClaire(W - M - 350, 370, 350, 130, `${cumul >= 0 ? '+' : '−'}${e0(Math.abs(cumul))}`, 'résultat cumulé, exercices réalisés', comptes.filter(x => x.nature === 'réalisé').map(x => x.annee).join(' · '), C.vert));
+        bl2.push(...tuileClaire(W - M - 350, 370, 350, 130, `${cumul >= 0 ? '+' : '−'}${e0(Math.abs(cumul))}`, avecReel ? 'résultat réel cumulé, exercices réalisés' : 'résultat cumulé, exercices réalisés', comptes.filter(x => x.nature === 'réalisé').map(x => x.annee).join(' · '), C.vert));
       }
-      bl2.push(...retenir('comptes', dernierCompte ? `En ${dernierCompte.annee}, la section a dégagé ${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))} dans les comptes de l’ASBL.` : 'Une section qui rapporte plus qu’elle ne coûte.'));
-      ajouter({ id: 'comptes', blocs: bl2, notes: t('notes.comptes', 'Source : la synthèse des budgets et comptes de l’ASBL, tous les postes de la section réunis.'), notesCle: 'notes.comptes' });
+      bl2.push(...retenir('comptes', dernierCompte ? (avecReel
+        ? `En ${dernierCompte.annee}, enseignants HELB compris, la section ${dernierCompte.resultat >= 0 ? `dégage ${e0(dernierCompte.resultat)}` : `coûte ${e0(-dernierCompte.resultat)} de plus qu’elle ne rapporte`} à l’ASBL (résultat comptable : ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))}).`
+        : `En ${dernierCompte.annee}, la section a dégagé ${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))} dans les comptes de l’ASBL.`) : 'Une section qui rapporte plus qu’elle ne coûte.'));
+      ajouter({ id: 'comptes', blocs: bl2, notes: t('notes.comptes', avecReel ? 'Source : la synthèse des budgets et comptes de l’ASBL. Les comptes n’imputent à la section qu’une petite part de ses enseignants HELB : Lucie ajoute leur coût (ETP de Lucie, coordinations comprises, au prix de leur titre au COR), moins le personnel déjà imputé.' : 'Source : la synthèse des budgets et comptes de l’ASBL, tous les postes de la section réunis.'), notesCle: 'notes.comptes' });
     }
   }
 
@@ -463,7 +470,7 @@ function composer(D, T) {
     croit ? `Croissance : de ${n0(premiere.n)} à ${n0(derniere.n)} étudiants en ${evo.length} ans` : null,
     moinsCher('cout_credit') ? `Efficience : un crédit à ${e0(LS.cout_credit)}, contre ${e0(moinsCher('cout_credit') === 'ASBL' ? LA.cout_credit : LI.cout_credit)} ${moinsCher('cout_credit') === 'ASBL' ? 'pour l’ensemble de l’ASBL' : 'en moyenne à l’IIP'}` : null,
     fin != null && finI != null && fin >= finI + 3 ? `Une réussite au-dessus de l’IIP : ${n0(fin)} % contre ${n0(finI)} %` : null,
-    dernierCompte && dernierCompte.resultat >= 0 ? `Un résultat positif dans les comptes de l’ASBL (${e0(dernierCompte.resultat)} en ${dernierCompte.annee})` : null,
+    dernierCompte && dernierCompte.resultat >= 0 ? `Un résultat ${dernierCompte.ajout ? 'réel ' : ''}positif pour l’ASBL (${e0(dernierCompte.resultat)} en ${dernierCompte.annee}${dernierCompte.ajout ? ', enseignants HELB compris' : ''})` : null,
     codip ? 'Une codiplomation avec la HELB : un diplôme de haute école, accessible aux adultes' : null,
     rN?.sec?.total?.s2 && rN.sec.total.s2.taux_reussite >= 60 ? `Une seconde session qui rattrape : ${n0(rN.sec.total.s2.taux_reussite)} % des ajournés réussissent` : null,
     horsUE >= 30 ? `Une section attractive au-delà de l’Europe : ${horsUE} % de nationalités hors UE` : null,
@@ -475,7 +482,7 @@ function composer(D, T) {
     bas1 && bas1.final.taux_reussite < 70 ? `Une unité très sélective : ${String(bas1.libelle).replace(/ — .*/, '')} à ${n0(bas1.final.taux_reussite)} %` : null,
     plusCher ? `Un coût par crédit au-dessus de l’IIP : ${e0(LS.cout_credit)} contre ${e0(LI.cout_credit)}` : null,
     LS?.taille_groupes && LI?.taille_groupes && LS.taille_groupes > LI.taille_groupes * 1.2 ? `Des groupes chargés : ${n1(LS.taille_groupes)} étudiants en moyenne, contre ${n1(LI.taille_groupes)} à l’IIP` : null,
-    dernierCompte && dernierCompte.resultat < 0 ? `Un résultat négatif dans les comptes de l’ASBL (−${e0(Math.abs(dernierCompte.resultat))} en ${dernierCompte.annee})` : null,
+    dernierCompte && dernierCompte.resultat < 0 ? `Un résultat ${dernierCompte.ajout ? 'réel ' : ''}négatif pour l’ASBL (−${e0(Math.abs(dernierCompte.resultat))} en ${dernierCompte.annee}${dernierCompte.ajout ? ', enseignants HELB compris' : ''})` : null,
     croit && materiel ? `La capacité ${materiel}, à suivre avec la croissance` : null,
     s.acces_connu < s.n ? `Des données à compléter : titre d’accès connu pour ${pc(s.acces_connu, s.n)} % des dossiers` : null,
   ].filter(Boolean);

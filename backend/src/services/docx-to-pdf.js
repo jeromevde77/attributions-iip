@@ -75,3 +75,26 @@ export async function docxToPdf(docxBuffer) {
     rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
+
+/* UN ANCIEN DOCUMENT WORD (.doc) SE CONVERTIT EN .docx (3.5.466, Charles : « tu ne sais pas lire les dossiers en DOC dans l'import
+   de dossiers pédagogiques »). Même LibreOffice que pour les PDF ; le lecteur des dossiers reçoit ensuite un .docx ordinaire. */
+export const SIGNATURE_DOC = Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]);
+export const estDocAncien = b => Buffer.isBuffer(b) && b.length > 8 && b.subarray(0, 8).equals(SIGNATURE_DOC);
+export async function docEnDocx(docBuffer) {
+  const bin = await findSoffice();
+  const dir = await mkdtemp(join(tmpdir(), 'doc2docx-'));
+  const entree = join(dir, 'document.doc'), sortie = join(dir, 'document.docx');
+  try {
+    await writeFile(entree, docBuffer);
+    try {
+      await execFileAsync(bin, ['--headless', '--norestore', '--nolockcheck', '--nodefault', '--nologo',
+        `-env:UserInstallation=file://${join(dir, 'lo-profile')}`, '--convert-to', 'docx:MS Word 2007 XML', '--outdir', dir, entree],
+      { timeout: 120000, maxBuffer: 10 * 1024 * 1024 });
+    } catch (e) { throw new Error(`Conversion du .doc impossible : ${e.message}`); }
+    const docx = await readFile(sortie).catch(() => null);
+    if (!docx?.length) throw new Error('La conversion du .doc n’a rien produit.');
+    return docx;
+  } finally {
+    rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
