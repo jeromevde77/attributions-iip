@@ -271,16 +271,15 @@ suivante.
 À côté de ce calcul, la direction peut saisir un **solde constaté** : il ne corrige pas le calcul, il le confronte ; l'écart
 mesure ce qui n'est pas encore encodé.
 
-### 6.2 Point à vérifier
+### 6.2 Pas de secondaire inférieur (confirmé par Charles, 15 novembre 2026)
 
-Le secondaire inférieur (DI) porte une pondération **0** dans ce calcul : ses périodes n'entrent pas dans l'usage de la
-dotation organique. Si l'IIP organise du DI sur la dotation, c'est à corriger.
+L'IIP n'organise pas de degré inférieur : la dotation n'emploie que des périodes du secondaire supérieur (DS) et du supérieur
+(SUP). La pondération 0 du DI dans le calcul est donc sans effet.
 
 ---
 
 ## 7. Ce qui reste ouvert
 
-1. Pondération DI dans la dotation (§ 6.2).
-2. Un étudiant HELB = 60 crédits et 568 périodes par an : hypothèses à remplacer par les vrais chiffres de la HELB si on les obtient.
-3. Le cadre administratif réparti au prorata des inscrits (et non des périodes) : avantage les sections à petits effectifs
+1. Un étudiant HELB = 60 crédits et 568 périodes par an : hypothèses à remplacer par les vrais chiffres de la HELB si on les obtient.
+2. Le cadre administratif réparti au prorata des inscrits (et non des périodes) : avantage les sections à petits effectifs
    et beaucoup d'heures, pénalise celles à unités courtes (Soins de plaies).
