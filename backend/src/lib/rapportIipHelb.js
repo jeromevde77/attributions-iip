@@ -786,3 +786,21 @@ export function lignesIipHelb(p) {
       recettes: Math.round(y.recettes), par_etudiant: y.inscrits ? Math.round(y.recettes / y.inscrits) : null };
   });
 }
+
+/* LE COÛT DES ENSEIGNANTS HELB D'UNE SECTION SUR UNE ANNÉE CIVILE (3.5.467, Charles : « il vaut mieux ne pas être flatteur ; nos calculs
+   doivent être réels » ; « cela comprend les coordinations : 2 ETP en 25-26 »). Les ETP de Lucie (lignes HELB + coordinations HELB,
+   règle `divHelb`), au prix de leur titre (COR) ; une année civile = 8/12 de l'année scolaire qui finit + 4/12 de celle qui commence.
+   Rend aussi les ETP, pour l'écran. */
+export function enseignantsHelbCivil(section, anneeCivile) {
+  const Y = Number(anneeCivile), P = { ...PARAM_HELB, prix: 'titres', ...Object.fromEntries(Object.entries(prixHelb()).map(([k, v]) => [`prix_${k}`, v])) };
+  const toutes = new Set(db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution WHERE section = ?').all(section).map(r => r.a));
+  const part = (a, poids) => {
+    if (!toutes.has(a)) return { cout: 0, etp: 0, poids: 0 };
+    const y = annee(section, a);
+    const yy = { ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma };
+    return { cout: salairesHelb(yy, P, true) * poids, etp: (y.etp_helb + y.cetp_helb) * poids, poids };
+  };
+  const a = part(`${Y - 1}-${Y}`, 8 / 12), b = part(`${Y}-${Y + 1}`, 4 / 12);
+  if (!a.poids && !b.poids) return null;
+  return { cout: Math.round(a.cout + b.cout), etp: Math.round((a.etp + b.etp) * 100) / 100 };
+}

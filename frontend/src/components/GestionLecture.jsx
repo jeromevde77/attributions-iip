@@ -292,6 +292,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
     return { k, v, r, j, x: v == null ? null : Math.min(100, (v / max) * 100), rx: r == null ? null : Math.min(100, (r / max) * 100) };
   });
   const voir = l => lentille === 'tout' || lentille === l;
+  const reel = (compta?.helb || []).some(x => x.non_impute != null);
   return (<>
     <section className="carte overflow-hidden">
       <EnteteCarte titre={`Où se situe ${S.section} ?`} sous={`comparée à ${nomRef} · le point = ${S.section} (vert : mieux que la référence, orange : à surveiller), le trait = la référence`} />
@@ -356,15 +357,18 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
 
     {voir('fin') && compta && (
       <section className="carte overflow-hidden">
-        <EnteteCarte titre="La comptabilité de l’ASBL pour cette section" sous={`charges, produits et résultat, exercice par exercice · ${comptaSource?.fichier || ''}`} />
+        <EnteteCarte titre="La comptabilité de l’ASBL pour cette section" sous={reel ? 'résultat réel : le coût des enseignants HELB que les comptes imputent à d’autres codes analytiques est ajouté (ETP de Lucie, coordinations comprises, au prix du titre ; 8/12 de l’année scolaire qui finit, 4/12 de celle qui commence)' : `charges, produits et résultat, exercice par exercice · ${comptaSource?.fichier || ''}`} />
         <div className="overflow-x-auto">
           <Tableau className="!border-0 !rounded-none">
-            <thead><tr className="tab-entete"><Th>Exercice</Th><Th>Côté</Th><Th align="droite">Charges</Th><Th align="droite">Produits</Th><Th align="droite">Résultat</Th></tr></thead>
+            <thead><tr className="tab-entete"><Th>Exercice</Th><Th>Côté</Th><Th align="droite">Charges</Th><Th align="droite">Produits</Th><Th align="droite">Résultat comptable</Th>
+              {reel && <><Th align="droite">Enseignants HELB imputés ailleurs</Th><Th align="droite">Résultat réel</Th></>}</tr></thead>
             <tbody>
               {[...new Set([...(compta.helb || []), ...(compta.iip || [])].map(x => x.annee))].sort().reverse().flatMap(a => [['HELB', compta.helb], ['IIP', compta.iip]].map(([cote, L]) => {
                 const v = (L || []).find(x => x.annee === a); if (!v) return null;
                 return (<Tr key={a + cote}><Td>{a} <span className="text-slate-400">· {v.nature}</span></Td><Td>{cote}</Td><Td align="droite">{n0(v.charges)} €</Td><Td align="droite">{n0(v.produits)} €</Td>
-                  <Td align="droite"><b style={{ color: v.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</b></Td></Tr>);
+                  <Td align="droite">{reel ? <span className="text-slate-500">{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</span> : <b style={{ color: v.resultat >= 0 ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{v.resultat >= 0 ? '+' : ''}{n0(v.resultat)} €</b>}</Td>
+                  {reel && <><Td align="droite">{v.non_impute != null ? <span title={`${n1(v.etp_helb)} ETP HELB (coordinations comprises), ${n0(v.enseignants_helb)} € au prix du titre ; déjà imputés à la section : ${v.deja_impute == null ? 'inconnu' : `${n0(v.deja_impute)} €`}`}>−{n0(v.non_impute)} €</span> : '—'}</Td>
+                    <Td align="droite">{(() => { const r = v.resultat_reel ?? v.resultat; return <b style={{ color: r >= 0 ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{r >= 0 ? '+' : ''}{n0(r)} €</b>; })()}</Td></>}</Tr>);
               }))}
             </tbody>
           </Tableau>

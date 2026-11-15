@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
@@ -457,7 +457,26 @@ r.get('/lecture', authRequired, (req, res) => {
         for (const [code, re] of Object.entries(RE)) {
           if (perim && !perim.includes(code)) continue;
           const h = S.totaux.postes.find(p => p.bloc === 'HELB' && p.niveau === 2 && re.test(p.poste)), i = S.totaux.postes.find(p => p.bloc === 'Institut Ilya Prigogine' && re.test(p.poste));
-          if (h || i) par[code] = { helb: h ? serie(h) : null, iip: i ? serie(i) : null };
+          /* LE RÉSULTAT RÉEL D'UNE CODIPLOMATION (3.5.467) : les comptes imputent à la section à peine une partie de ses enseignants
+             HELB (TIM 2025 : 30 164 € de personnel pour 2 ETP environ). Lucie ajoute le coût des enseignants HELB que les comptes
+             imputent ailleurs : coût (ETP de Lucie, coordinations comprises, au prix du titre) − personnel déjà imputé (salaires et
+             professeurs invités du code analytique de la section). Sans code analytique connu, le personnel imputé reste inconnu. */
+          const codip = sectionsCodiplomation().includes(code.toLowerCase());
+          const reelle = s => s.map(v => {
+            if (!codip) return v;
+            let ens = null; try { ens = enseignantsHelbCivil(code, v.annee); } catch { ens = null; }
+            if (!ens) return v;
+            // Repli : le personnel de TIM relevé le 15 novembre 2026 dans les classeurs (code 111066), tant que le classeur déposé
+            // n'a pas été relu par la version qui garde ce détail.
+            const RELEVE = { TIM: { 2023: { code: '111066', salaires: 0, invites: 0 }, 2024: { code: '111066', salaires: 14173, invites: 3220 },
+              2025: { code: '111066', salaires: 16873, invites: 13291 }, 2026: { code: '111066', salaires: 12039, invites: 14077 } } };
+            const imp = h?.personnel?.[v.annee] || (v.nature === 'réalisé' ? RELEVE[code]?.[v.annee] : null);
+            const deja = imp ? (imp.salaires || 0) + (imp.invites || 0) : null;
+            const ajout = Math.max(0, ens.cout - (deja || 0));
+            return { ...v, enseignants_helb: ens.cout, etp_helb: ens.etp, deja_impute: deja, code_analytique: imp?.code || null,
+              non_impute: ajout, charges_reelles: v.charges + ajout, resultat_reel: v.resultat - ajout };
+          });
+          if (h || i) par[code] = { helb: h ? reelle(serie(h)) : null, iip: i ? serie(i) : null };
         }
         return { fichier: S.fichier, date: S.date_donnee, sections: par };
       })(),

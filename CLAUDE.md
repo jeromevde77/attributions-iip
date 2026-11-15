@@ -4346,7 +4346,11 @@ salaires HELB (`salairesHelb`, recopiée à l'écran) au titre (MA au prix du MA
 prix lus du COR déposé (`prix_ma`, `prix_mfp`), repli `COR_HELB`. Méthodologie : `docs/contexte/methodologie-indicateurs-financiers.md`. ETP selon Lucie et ETP déclaré par la HELB (`etp_declare_helb`, comparaison ETP) côte à côte. **Les ratios par département de la HELB** (3.5.465, document « ratio par
 département ») : `DEPARTEMENTS_HE` (repli) et nature de source `helb_ratios` (`lireRatios`) ; `departementsHe()`, `ratioHelb()` font foi
 pour les départements et l'ensemble de la HELB (16,2 étudiants finançables par ETP en 2025-2026) ; les cursus restent ceux de la
-comparaison ETP.
+comparaison ETP. **Le résultat réel d'une codiplomation** (3.5.467, Charles : « il vaut mieux ne pas être flatteur ; nos
+calculs doivent être réels ») : les comptes n'imputent à TIM qu'une part de ses enseignants HELB ; `lireSynthese` lit aussi les feuilles
+analytiques `ASBLyy` (personnel par code, `CODES_ANALYTIQUES`, TIM = 111066), `enseignantsHelbCivil` chiffre les enseignants HELB
+(ETP de Lucie, coordinations comprises, prix du titre, 8/12 + 4/12), et `/lecture` → `compta` rend `non_impute` et `resultat_reel`
+(repli `RELEVE` pour TIM). Lire et comparer et la présentation mettent le réel en avant, le comptable à côté.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
