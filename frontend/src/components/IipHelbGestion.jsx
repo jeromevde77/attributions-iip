@@ -21,6 +21,7 @@ const MEMO = 'lucie.iipHelb';
 const lire = () => { try { return JSON.parse(localStorage.getItem(MEMO) || '{}'); } catch { return {}; } };
 const n0 = v => Math.round(v || 0).toLocaleString('fr-BE');
 const n2 = v => (v || 0).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const n1 = v => (v || 0).toLocaleString('fr-BE', { maximumFractionDigits: 1 });
 const eur = v => `${n0(v)} €`;
 const keur = v => `${n0((v || 0) / 1000)} k€`;
 const pc = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
@@ -280,13 +281,14 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
              couleurs, mettre en évidence les indicateurs clés »). Quatre clés, grandes, liseré et chiffre de couleur ; six autres, petites,
              dans une grille régulière. */
           const h = HY[HY.length - 1].h;
-          const timH = d.comparaison?.cursus?.find(c => c.tim), moy = d.comparaison?.moyennes?.['Moyenne HELB'];
+          const timH = d.comparaison?.cursus?.find(c => c.tim);
+          const moy = (() => { let e = 0, t = 0; for (const o of Object.values(d.comparaison?.departements?.departements || {})) { const v = o[d.comparaison.annee]; if (v) { e += v[0]; t += v[1]; } } return t ? e / t : d.comparaison?.moyennes?.['Moyenne HELB']; })();
           const apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
           return (<>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
               <TuileEtat etat={h.resultat >= 0 ? 'reussi' : 'corriger'} valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
                 precision={`rapporte ${keur(h.recettes)}, coûte ${keur(h.cout)}`} />
-              <TuileEtat etat="reussi" valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n0(moy)}` : ''} />
+              <TuileEtat etat="reussi" valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n1(moy)}` : ''} />
               <TuileEtat etat="fort" valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle={`Coût d’un étudiant ${aN.annee}`}
                 precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
               <TuileEtat etat="disponible" valeur={eur(apport)} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="0 € de coût supplémentaire : ses propres dotations" />
@@ -464,17 +466,22 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
             const ann = ['2022-2023', '2023-2024', '2024-2025', '2025-2026'];
             const val = (c, a) => { const v = c.series[a] || (a === d.comparaison.annee ? [c.etu, c.etp] : null); return v && v[1] ? v : null; };
             const ratioCs = (cs, a = d.comparaison.annee) => { let e = 0, t = 0; for (const c of cs) { const v = val(c, a); if (v) { e += v[0]; t += v[1]; } } return t ? e / t : null; };
+            /* LES DÉPARTEMENTS FONT FOI (3.5.465) : le document « ratio par département » de la HELB (étudiants finançables ÷ ETP), quatre
+               départements, quatre années ; à défaut la somme des cursus. L'ensemble de la HELB = la somme des départements. */
+            const DEP = d.comparaison.departements?.departements || {};
+            const ratioDep = (dp, a = d.comparaison.annee) => { const v = DEP[dp]?.[a]; return v && v[1] ? v[0] / v[1] : ratioCs(d.comparaison.cursus.filter(c => c.dept === dp), a); };
+            const ratioHe = (a = d.comparaison.annee) => { let e = 0, t = 0; for (const o of Object.values(DEP)) { const v = o[a]; if (v) { e += v[0]; t += v[1]; } } return t ? e / t : ratioCs(d.comparaison.cursus, a); };
             const depts = [...new Set(d.comparaison.cursus.map(c => c.dept))];
             const timH = d.comparaison.cursus.find(c => c.tim), timI = (d.comparaison.iip || []).find(c => c.tim);
             const barresDept = [
-              ...depts.map(dp => ({ lib: `Département ${dp}`, v: ratioCs(d.comparaison.cursus.filter(c => c.dept === dp)), c: COULEUR_DEPT[dp] })),
-              { lib: 'Ensemble de la HELB', v: ratioCs(d.comparaison.cursus), c: '#94A3B8' },
+              ...depts.map(dp => ({ lib: `Département ${dp}`, v: ratioDep(dp), c: COULEUR_DEPT[dp] })),
+              { lib: 'Ensemble de la HELB', v: ratioHe(), c: '#94A3B8' },
               { lib: 'Institut Ilya Prigogine', v: ratioCs(d.comparaison.iip || []), c: COULEUR_DEPT.IIP },
               ...(timH ? [{ lib: `${section} — part HELB`, v: timH.ratio, c: PERCU }] : []),
               ...(timI ? [{ lib: `${section} — part IIP`, v: timI.ratio, c: PERCU }] : []),
             ].filter(x => x.v).map(x => ({ ...x, v: Math.round(x.v) })).sort((x, y) => y.v - x.v);
             const parCursus = tous.filter(c => c.ratio).map(c => ({ lib: c.cursus, v: Math.round(c.ratio), c: c.tim ? PERCU : COULEUR_DEPT[c.dept] })).sort((x, y) => y.v - x.v);
-            const evol = ann.map(a => ({ lib: court(a), sante: ratioCs(d.comparaison.cursus.filter(c => c.dept === 'Santé'), a), comav: ratioCs(d.comparaison.cursus.filter(c => c.dept === 'COMAV'), a),
+            const evol = ann.map(a => ({ lib: court(a), sante: ratioDep('Santé', a), comav: ratioDep('COMAV', a),
               tim: timH && val(timH, a) ? val(timH, a)[0] / val(timH, a)[1] : null })).map(x => ({ ...x, sante: x.sante && Math.round(x.sante), comav: x.comav && Math.round(x.comav), tim: x.tim && Math.round(x.tim) }));
             const Barres = ({ data, hauteur }) => (
               <ResponsiveContainer width="100%" height={hauteur}>
@@ -486,10 +493,10 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                 </BarChart>
               </ResponsiveContainer>);
             const legende = <div className="flex flex-wrap gap-3 text-mention text-slate-600">{Object.entries(COULEUR_DEPT).map(([k, c]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: c }} />{k === 'IIP' ? 'IIP' : k}</span>)}<span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: PERCU }} />{section}</span></div>;
-            const ligneT = (cs, lib, coul, fort, k, onClick, ouvert) => (
+            const ligneT = (cs, lib, coul, fort, k, onClick, ouvert, ratio = a => ratioCs(cs, a)) => (
               <tr key={k} className={fort ? 'ligne-total font-semibold' : 'border-b border-slate-100'} style={{ boxShadow: `inset 5px 0 0 ${coul}`, cursor: onClick ? 'pointer' : undefined }} onClick={onClick}>
                 <Td className="pl-4">{onClick && <IconChevronRight size={12} className={`inline mr-1 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}{lib}</Td>
-                {ann.map(a => { const r = ratioCs(cs, a); return <Td key={a} align="droite">{r ? n0(r) : '—'}</Td>; })}</tr>);
+                {ann.map(a => { const r = ratio(a); return <Td key={a} align="droite">{r ? n1(r) : '—'}</Td>; })}</tr>);
             return (
               <Carte large titre="Les cursus et départements : étudiants par ETP enseignant" sous={`Les chiffres de la HELB — ${d.comparaison.source}`} onMasquer={masquer('comparaison')}>
                 {legende}
@@ -510,18 +517,18 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                   <div className="overflow-x-auto"><Tableau className="!border-0 !rounded-none">
                     <thead><tr className="tab-entete"><Th>Cursus</Th>{ann.map(a => <Th key={a} align="droite">{court(a)}</Th>)}</tr></thead>
                     <tbody>
-                      {ligneT(d.comparaison.cursus, 'Ensemble de la HELB', '#94A3B8', true, 'tout')}
+                      {ligneT(d.comparaison.cursus, 'Ensemble de la HELB', '#94A3B8', true, 'tout', null, false, a => ratioHe(a))}
                       {[...depts, 'IIP'].flatMap(dp => {
                         const cs = dp === 'IIP' ? (d.comparaison.iip || []) : d.comparaison.cursus.filter(c => c.dept === dp), coul = COULEUR_DEPT[dp] || '#94A3B8';
                         const ouvert = deplies.includes(dp);
-                        return [ligneT(cs, dp === 'IIP' ? 'Institut Ilya Prigogine' : `Département ${dp}`, coul, true, dp, () => setDeplies(x => (x.includes(dp) ? x.filter(y => y !== dp) : [...x, dp])), ouvert),
+                        return [ligneT(cs, dp === 'IIP' ? 'Institut Ilya Prigogine' : `Département ${dp}`, coul, true, dp, () => setDeplies(x => (x.includes(dp) ? x.filter(y => y !== dp) : [...x, dp])), ouvert, dp === 'IIP' ? undefined : a => ratioDep(dp, a)),
                           ...(ouvert ? cs.map(c => (
                             <tr key={dp + c.cursus} className={`border-b border-slate-100 ${c.tim ? 'font-semibold' : ''}`} style={{ boxShadow: `inset 5px 0 0 ${coul}`, ...(c.tim ? { color: PERCU } : {}) }}>
                               <Td className="pl-8">{c.cursus}</Td>
                               {ann.map(a => { const v = val(c, a); return <Td key={a} align="droite">{v ? n0(v[0] / v[1]) : '—'}</Td>; })}</tr>)) : [])];
                       })}
                     </tbody></Tableau>
-                    <p className="text-mention text-slate-500 mt-1">Technoeco, Social et l’IIP : chiffres de 2025-2026 seulement (les années d’avant ne comptent que la santé et COMAV). L’IIP vient du tableau Cor_HE_AE de la HELB, même méthode. Moyenne HELB {n0(d.comparaison.moyennes['Moyenne HELB'])}, santé {n0(d.comparaison.moyennes['Santé'])}. Le département santé compte {n2(d.comparaison.admin['Santé']['2025-2026'])} ETP administratifs en 2025-2026 ; ceux de {section} sont à l’IIP.</p>
+                    <p className="text-mention text-slate-500 mt-1">Départements et ensemble de la HELB : {d.comparaison.departements?.source || "comparaison ETP"} — étudiants finançables par ETP, 2022-2023 à 2025-2026. Cursus : comparaison ETP de la HELB (Technoeco et Social : 2025-2026 seulement). L’IIP vient du tableau Cor_HE_AE de la HELB, même méthode.</p>
                   </div>
                 </Volet>
               </Carte>);

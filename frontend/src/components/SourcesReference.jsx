@@ -31,6 +31,12 @@ function chiffres(nature, t) {
     ['ETP d’enseignants statutaires', n1(t.etp_enseignants)], ['Allocation globale', eur(t.allocation)]];
   if (nature === 'helb_attributions') return [['ETP d’enseignement', n1(t.enseignement)], ['ETP de fonctions dans les cursus', `${n1(t.fonctions)} · ${Math.round((t.fonctions_sur_enseignement || 0) * 100)} % de l’enseignement`],
     ['ETP des départements', n1(t.departements)], ['ETP d’administration et services', n1(t.administration)], ['Cursus lus', n0(t.cursus?.length)]];
+  if (nature === 'helb_ratios') {
+    const a = t.annees?.[t.annees.length - 1]; let e = 0, p = 0;
+    for (const o of Object.values(t.departements || {})) { const v = o[a]; if (v) { e += v.etudiants; p += v.etp; } }
+    return [['Départements', n0(Object.keys(t.departements || {}).length)], ['Années', (t.annees || []).join(' · ')],
+      [`Ensemble de la HELB ${a || ''}`, p ? `${n1(e / p)} étudiants par ETP (${n0(e)} ÷ ${n1(p)})` : '—']];
+  }
   if (nature === 'helb_inscrits') return [['Inscrits, tous cursus', n0(t.total)], ['Cursus', n0(t.cursus?.length)], ['Feuille retenue', t.feuille || '—']];
   if (nature === 'asbl_comptes') return [['Exercice', t.exercice || '—'], ['Charges d’exploitation', eur(t.charges)], ['Rémunérations', eur(t.remunerations)],
     ['Fonctionnement (services, amortissements, autres)', eur(t.fonctionnement)], ['Subsides', eur(t.subsides)], ['Résultat de l’exercice', eur(t.resultat)], ['ETP déclarés par l’ASBL', n1(t.etp_declares)]];
@@ -43,6 +49,15 @@ function chiffres(nature, t) {
 }
 
 function Detail({ nature, t }) {
+  if (nature === 'helb_ratios') {
+    const A = t.annees || [];
+    return (
+      <Tableau className="!border-0 !rounded-none" dense>
+        <thead><tr className="tab-entete"><Th>Département</Th>{A.map(a => <Th key={a} align="droite">{a}</Th>)}</tr></thead>
+        <tbody>{Object.entries(t.departements || {}).map(([dp, o]) => (
+          <Tr key={dp}><Td>{dp}</Td>{A.map(a => <Td key={a} align="droite">{o[a] ? `${n1(o[a].ratio)} · ${n0(o[a].etudiants)} ÷ ${n1(o[a].etp)}` : '—'}</Td>)}</Tr>))}</tbody>
+      </Tableau>);
+  }
   if (nature === 'helb_attributions' || nature === 'helb_inscrits') {
     const L = t.cursus || [];
     return (
@@ -144,11 +159,11 @@ export default function SourcesReference() {
               <EnteteCarte icone={k === 'asbl_comptes' ? IconFileTypePdf : IconFileSpreadsheet} titre={lib} sous={s ? `${s.fichier} · déposé le ${jour(s.depose_le)} par ${s.depose_par || '—'}${s.fourni_par ? ` · fourni par ${s.fourni_par}` : ''}` : 'aucun fichier déposé'}>
                 {s && <button type="button" className="text-slate-400 hover:text-slate-700" title="Retirer cette source" aria-label="Retirer cette source" onClick={() => retirer(s)}><IconTrash size={15} /></button>}
               </EnteteCarte>
-              {!s ? <p className="p-3 text-second text-slate-500 m-0">{k === 'helb_cor' || k === 'helb_attributions' || k === 'helb_inscrits' ? 'À défaut, les comparaisons utilisent les totaux repris le 14 novembre 2026.' : 'Sans ce fichier, cette référence reste « à calculer ».'}</p> : (
+              {!s ? <p className="p-3 text-second text-slate-500 m-0">{k === 'helb_cor' || k === 'helb_attributions' || k === 'helb_inscrits' || k === 'helb_ratios' ? 'À défaut, les comparaisons utilisent les totaux repris en novembre 2026.' : 'Sans ce fichier, cette référence reste « à calculer ».'}</p> : (
                 <div className="p-3">
                   {s.reunis?.length > 1 && <p className="text-second text-slate-500 mt-0 mb-2">Classeurs réunis : {s.reunis.map(f => `${f.fichier} (${f.annees[0]}–${f.annees[f.annees.length - 1]})`).join(' ; ')}. Le plus récent fait foi pour ses années.</p>}
                   {chiffres(k, s.totaux).map(([l, v]) => <div key={l} className="flex justify-between gap-3 text-second border-b border-slate-100 last:border-0 py-1"><span className="text-slate-600">{l}</span><b className="tabular-nums text-right">{v}</b></div>)}
-                  {['helb_attributions', 'helb_inscrits', 'asbl_synthese'].includes(k) && (
+                  {['helb_attributions', 'helb_inscrits', 'helb_ratios', 'asbl_synthese'].includes(k) && (
                     <button type="button" className="text-second text-iip-blue mt-2" onClick={() => setOuvert(o => (o === k ? null : k))}>{ouvert === k ? 'Replier le détail' : 'Voir le détail retenu'}</button>)}
                 </div>)}
               {s && ouvert === k && <div className="overflow-x-auto border-t border-slate-100"><Detail nature={k} t={s.totaux} /></div>}

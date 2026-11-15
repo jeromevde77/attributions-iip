@@ -250,10 +250,14 @@ coût d'un étudiant = (coût IIP + coût HELB) ÷ inscrits
 apport de l'IIP sur la période = Σ coûts IIP des années choisies
 ```
 
-### 5.5 La comparaison aux cursus de la HELB
+### 5.5 La comparaison aux départements et aux cursus de la HELB
 
-Étudiants comptés ÷ ETP enseignant, cursus par cursus et département par département, d'après les chiffres de la HELB
-(Chiffres_Santé.xlsx, Évolution COMAV, Cor_HE_AE 2025-2026). Données de référence, jamais recalculées par Lucie.
+Étudiants **finançables** ÷ ETP enseignant.
+- **Départements et ensemble de la HELB** : le document de la HELB « ratio par département » (Social, Technoeco, COMAV, Santé,
+  2022-2023 à 2025-2026). L'ensemble de la HELB = la somme des quatre départements : 2 739,9 étudiants ÷ 169,05 ETP = **16,2** en
+  2025-2026 (au lieu des 17,2 repris auparavant). Un nouveau fichier du même modèle se dépose dans Les sources.
+- **Cursus** : la comparaison ETP de la HELB (Chiffres_Santé.xlsx, Évolution COMAV, Cor_HE_AE 2025-2026).
+Données de référence, jamais recalculées par Lucie.
 
 ---
 

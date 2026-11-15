@@ -18,6 +18,7 @@ const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const n2 = n => (n || 0).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const eur = n => `${n0(n)} €`;
+const n1r = n => (n || 0).toLocaleString('fr-BE', { maximumFractionDigits: 1 });
 const pc = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const court = a => `${String(a).slice(0, 4)}-${String(a).slice(7, 9)}`;
 const IIP = '#19537E', HELB = '#C2408A';
@@ -278,6 +279,33 @@ export function apportAdmin(y, ref) {
    que nous comparons les bonnes choses »). Tirées du COR de la HELB (cadre organique réel, septembre 2026, version « total ») et de ses
    attributions 2026-2027 — des TOTAUX seulement : aucune donnée de personne n'est gardée. Elles disent ce que coûte vraiment un ETP
    d'enseignant, et ce que pèse l'encadrement (direction, administration) au-dessus de l'enseignement. */
+/* LES RATIOS PAR DÉPARTEMENT DE LA HELB (3.5.465, Charles : « un autre document de la HE » — « ratio par département ») : étudiants
+   finançables ÷ ETP, 2022-2023 à 2025-2026. Ils font foi pour les départements ; les cursus restent ceux de la comparaison ETP.
+   Le dépôt d'un fichier du même modèle dans Les sources les remplace. */
+export const DEPARTEMENTS_HE = {
+  source: 'HELB : ratio par département (étudiants finançables et ETP)',
+  departements: {
+    Social: { '2022-2023': [424.5, 24.42], '2023-2024': [387.5, 26.35], '2024-2025': [368, 21.85], '2025-2026': [294.5, 22.03] },
+    Technoeco: { '2022-2023': [214.5, 11.3], '2023-2024': [212.2, 11], '2024-2025': [210, 12.45], '2025-2026': [202.79, 13.15] },
+    COMAV: { '2022-2023': [594.5, 35.12], '2023-2024': [600.5, 37.66], '2024-2025': [602.5, 43.25], '2025-2026': [578.5, 38.43] },
+    'Santé': { '2022-2023': [1660.6, 95.74], '2023-2024': [1593.08, 97.91], '2024-2025': [1585.5, 95.13], '2025-2026': [1664.1, 95.44] },
+  },
+};
+/** Les départements en vigueur : le fichier déposé, à défaut celui repris le 15 novembre 2026. { dept: { année: [étudiants, ETP] } } */
+export function departementsHe() {
+  try {
+    const t = sourcesEnVigueur().helb_ratios?.totaux;
+    if (t?.departements) return { source: 'HELB : ratio par département (fichier déposé)', departements: Object.fromEntries(Object.entries(t.departements)
+      .map(([d, o]) => [d, Object.fromEntries(Object.entries(o).map(([a, v]) => [a, [v.etudiants, v.etp]]))])) };
+  } catch { /* les sources ne se lisent pas : le repli */ }
+  return DEPARTEMENTS_HE;
+}
+/** Étudiants par ETP de toute la HELB, une année : la somme des départements. */
+export function ratioHelb(annee, D = departementsHe()) {
+  let e = 0, p = 0;
+  for (const o of Object.values(D.departements)) { const v = o[annee]; if (v) { e += v[0]; p += v[1]; } }
+  return p ? e / p : null;
+}
 export const COR_HELB = {
   source: 'HELB : COR septembre 2026 (total) et attributions 2026-2027 — totaux',
   total: 18682190.77,            // rémunérations du COR, sans le personnel de recherche
@@ -586,12 +614,14 @@ export function documentIipHelb(p) {
     <table class="barres">${C.map(c => `<tr><td class="barres-lib" style="width:52mm;${c.tim ? 'font-weight:700' : ''}">${esc(c.cursus)} <span class="fin">${esc(c.dept)}</span></td>
       <td class="barres-piste"><span class="barres-barre" style="width:${(c.ratio / max) * 100}%;background:${c.tim ? '#3E7D5E' : '#94A3B8'};opacity:.9"></span></td>
       <td class="barres-val"${c.tim ? ' style="font-weight:700;color:#3E7D5E"' : ''}>${n0(c.ratio)} · ${n2(c.etp)} ETP · ${n0(c.etu)} étu.</td></tr>`).join('')}</table>
-    <p class="fin">Moyenne de la HELB : ${n0(COMPARAISON_HE.moyennes['Moyenne HELB'])} étudiants par ETP ; département santé : ${n0(COMPARAISON_HE.moyennes['Santé'])}.</p></div>
+    <p class="fin">Moyenne de la HELB : ${n1r(ratioHelb(COMPARAISON_HE.annee) || COMPARAISON_HE.moyennes['Moyenne HELB'])} étudiants finançables par ETP ; département santé : ${n1r(departementsHe().departements['Santé']?.[COMPARAISON_HE.annee] ? departementsHe().departements['Santé'][COMPARAISON_HE.annee][0] / departementsHe().departements['Santé'][COMPARAISON_HE.annee][1] : COMPARAISON_HE.moyennes['Santé'])} (${esc(departementsHe().source)}).</p></div>
     ${(() => {
       // LES DÉPARTEMENTS, TIM ET L'IIP CÔTE À CÔTE (3.5.442) : étudiants par ETP, 2025-2026.
       const ratioDe = cs => { const e = cs.reduce((t, c) => t + c.etu, 0), t2 = cs.reduce((t, c) => t + c.etp, 0); return t2 ? e / t2 : 0; };
-      const lignes = [...new Set(COMPARAISON_HE.cursus.map(c => c.dept))].map(dp => ({ nom: `Département ${dp}`, v: ratioDe(COMPARAISON_HE.cursus.filter(c => c.dept === dp)), coul: COMPARAISON_HE.couleurs[dp] }))
-        .concat([{ nom: 'Ensemble de la HELB', v: ratioDe(COMPARAISON_HE.cursus), coul: '#94A3B8' }, { nom: 'Institut Ilya Prigogine', v: ratioDe(COMPARAISON_HE.iip), coul: COMPARAISON_HE.couleurs.IIP },
+      const DH = departementsHe(), aC = COMPARAISON_HE.annee;
+      const ratioDep = dp => { const v = DH.departements[dp]?.[aC]; return v && v[1] ? v[0] / v[1] : ratioDe(COMPARAISON_HE.cursus.filter(c => c.dept === dp)); };
+      const lignes = [...new Set(COMPARAISON_HE.cursus.map(c => c.dept))].map(dp => ({ nom: `Département ${dp}`, v: ratioDep(dp), coul: COMPARAISON_HE.couleurs[dp] }))
+        .concat([{ nom: 'Ensemble de la HELB', v: ratioHelb(aC, DH) || ratioDe(COMPARAISON_HE.cursus), coul: '#94A3B8' }, { nom: 'Institut Ilya Prigogine', v: ratioDe(COMPARAISON_HE.iip), coul: COMPARAISON_HE.couleurs.IIP },
           ...(tim ? [{ nom: `${section} — part HELB`, v: tim.ratio, coul: '#3E7D5E', fort: true }] : []),
           ...COMPARAISON_HE.iip.filter(c => c.tim).map(c => ({ nom: `${section} — part IIP`, v: c.ratio, coul: '#3E7D5E', fort: true }))])
         .sort((a, b) => b.v - a.v);
@@ -739,7 +769,7 @@ export function donneesIipHelb(section, anneesDemandees, { unite = 'periodes', c
   // L'ETP QUE DÉCLARE LA HELB (3.5.464, Charles : « les deux côte à côte ») : la comparaison ETP de la HELB, quand elle connaît la section.
   const cursusHe = COMPARAISON_HE.cursus.find(c => c.dept !== 'IIP' && c.tim && section === 'TIM');
   const etp_declare_helb = Object.fromEntries(Object.entries(cursusHe?.series || {}).map(([a, v]) => [a, v[1]]));
-  return { etp_declare_helb, section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, admin_reference: refAdm, comparaison: COMPARAISON_HE, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
+  return { etp_declare_helb, section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, admin_reference: refAdm, comparaison: { ...COMPARAISON_HE, departements: departementsHe() }, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
     tarif_ct: tarifs()[niv]?.CT || 0, prix_helb: prixHelb(cor), heures_helb: HEURES_HELB, unite_helb: unite, Y, enseignants: [...ens.values()] };
 }
 

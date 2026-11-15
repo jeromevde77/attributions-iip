@@ -39,6 +39,7 @@ export const NATURES = {
   helb_cor: 'COR de la HELB — rémunérations',
   helb_attributions: 'Attributions de la HELB — ETP par cursus',
   helb_inscrits: 'Inscrits de la HELB par cursus',
+  helb_ratios: 'Ratios de la HELB — étudiants finançables par ETP, par département',
   asbl_comptes: 'Comptes annuels de l’ASBL',
   asbl_synthese: 'Budgets et comptes de l’ASBL — synthèse par cursus',
 };
@@ -108,6 +109,25 @@ function lireAttributions(wb, nom) {
 }
 
 /* LES INSCRITS : un tableau croisé « Nombre de Cohorte » ; chaque feuille datée jjmmaa ; la plus récente fait foi. */
+/* LES RATIOS PAR DÉPARTEMENT (3.5.465, document de la HELB « ratio par département ») : pour chaque département, un bloc titré
+   « département … », puis par année « 22-23 » : étudiants finançables, ETP, ratio. Des totaux seulement. */
+function lireRatios(wb, nom) {
+  const ws = wb.worksheets[0]; if (!ws) return null;
+  const NOMS = { social: 'Social', 'techno eco': 'Technoeco', technoeco: 'Technoeco', comav: 'COMAV', 'santé': 'Santé', sante: 'Santé' };
+  const departements = {}; let dep = null;
+  for (const l of lignes(ws)) {
+    const t = String(l[0] || '').trim().toLowerCase();
+    const m = t.match(/^d[ée]partement\s+(.+)$/);
+    if (m) { dep = NOMS[m[1].trim()] || m[1].trim(); continue; }
+    const a = t.match(/^(\d\d)-(\d\d)$/);
+    if (dep && a && typeof num(l[1]) === 'number' && num(l[2])) {
+      (departements[dep] ||= {})[`20${a[1]}-20${a[2]}`] = { etudiants: num(l[1]), etp: num(l[2]), ratio: r2(num(l[1]) / num(l[2])) };
+    }
+  }
+  if (!Object.keys(departements).length) return null;
+  const annees = [...new Set(Object.values(departements).flatMap(o => Object.keys(o)))].sort();
+  return { nature: 'helb_ratios', libelle: NATURES.helb_ratios, annee: annees[annees.length - 1], date_donnee: dateDuNom(nom), totaux: { departements, annees } };
+}
 function lireInscrits(wb, nom) {
   const feuilles = wb.worksheets.filter(ws => lignes(ws).some(l => String(l[1] || '') === 'Nombre de Cohorte'));
   if (!feuilles.length) return null;
@@ -209,7 +229,7 @@ export async function lireSource(nom, buffer) {
   if (!['xlsx', 'xlsm'].includes(ext)) throw new Error('Formats lus : Excel (.xlsx, .xlsm) et PDF des comptes annuels.');
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
-  const r = lireCor(wb, nom) || lireSynthese(wb, nom) || lireAttributions(wb, nom) || lireInscrits(wb, nom);
+  const r = lireCor(wb, nom) || lireSynthese(wb, nom) || lireAttributions(wb, nom) || lireInscrits(wb, nom) || lireRatios(wb, nom);
   if (!r) throw new Error('Ce classeur n’est pas reconnu : COR de la HELB, synthèse des budgets et comptes de l’ASBL, attributions de la HELB, inscrits par cursus.');
   return { ...r, fichier: nom };
 }
