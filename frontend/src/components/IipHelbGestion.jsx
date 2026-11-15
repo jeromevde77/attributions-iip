@@ -68,7 +68,7 @@ function Volet({ titre, ouvert = false, droite = null, children }) {
     </div>);
 }
 const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
-  ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
+  ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['statuts', 'Chargés de cours et experts'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
 /* LA VALEUR DANS UN BADGE DE LA COULEUR DE SA SÉRIE (3.5.443, Charles : « que les points soient connectés à la légende — le montant,
    les périodes — dans un badge de la même couleur »). Un rectangle arrondi, texte blanc, posé au-dessus du point ou de la barre, à
@@ -572,7 +572,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
             {Y.some(y => y.admin.reprise) && <p className="text-mention text-slate-500 px-4 py-2 m-0">* Fonctions non encodées cette année : la structure de {d.admin_reference?.annee} est reprise, partagée selon la part de {section}.</p>}
           </Carte>}
 
-          {[['blocs', 'L’enseignement par bloc (ETP)'], ['natures', 'L’enseignement par nature (ETP)']].map(([k, t]) => vu(k) && (
+          {[['statuts', 'La balance par école : chargés de cours, experts et invités (ETP)'], ['blocs', 'L’enseignement par bloc (ETP)'], ['natures', 'L’enseignement par nature (ETP)']].map(([k, t]) => vu(k) && (
             <Carte key={k} plat titre={t} onMasquer={masquer(k)}>
               <div className="overflow-x-auto"><Tableau className="!border-0 !rounded-none">
                 <thead><tr className="tab-entete"><Th />{Y.map(y => <Th key={y.annee} align="droite" colSpan={2}>{y.lib}</Th>)}</tr>
@@ -580,7 +580,14 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                 <tbody>{[...new Set(Y.flatMap(y => Object.keys(y[k] || {})))].sort((a, b) => a.localeCompare(b, 'fr')).map(c => (
                   <tr key={c} className="border-b border-slate-100"><Td>{c}</Td>
                     {Y.map(y => [<Td key={y.annee + 'i'} align="droite">{y[k]?.[c]?.iip ? n2(y[k][c].iip) : '—'}</Td>,
-                      <Td key={y.annee + 'h'} align="droite">{y[k]?.[c]?.helb ? n2(y[k][c].helb) : '—'}</Td>])}</tr>))}</tbody></Tableau></div>
+                      <Td key={y.annee + 'h'} align="droite">{y[k]?.[c]?.helb ? n2(y[k][c].helb) : '—'}</Td>])}</tr>))}
+                  {k === 'statuts' && (() => {
+                    // Les totaux par statut, puis la part de l'IIP dans les stages : la balance se lit d'un coup d'œil.
+                    const tot = (y, re, cote) => Object.entries(y.statuts || {}).filter(([c]) => re.test(c)).reduce((t, [, v]) => t + (v[cote] || 0), 0);
+                    return [['Chargés de cours', /^Chargés/], ['Experts et invités', /^Experts/], ['Stages (tous statuts)', /stages$/]].map(([lib, re]) => (
+                      <tr key={lib} className="ligne-total font-semibold"><Td>{lib}</Td>
+                        {Y.map(y => [<Td key={y.annee + 'i'} align="droite">{n2(tot(y, re, 'iip'))}</Td>, <Td key={y.annee + 'h'} align="droite">{n2(tot(y, re, 'helb'))}</Td>])}</tr>));
+                  })()}</tbody></Tableau></div>
             </Carte>))}
 
           {vu('enseignants') && <Carte large titre="Qui porte l’enseignement — par enseignant (ETP)" sous={`Rangé par la charge de ${aN.annee}`} onMasquer={masquer('enseignants')}>
@@ -595,7 +602,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
             </Volet>
           </Carte>}
         </div>
-        <p className="text-mention text-slate-500">Charge au barème du Pilotage (CT ÷ 800 + PP ÷ 1 000, autonomie comprise). Coût convention : la période selon son type et son niveau
+        <p className="text-mention text-slate-500">Charge : IIP au barème du Pilotage (CT ÷ 800 + PP ÷ 1 000, autonomie comprise) ; HELB en heures de la HELB (480 h pour la théorie d’un maître-assistant, 750 h pour le reste, 1 400 h pour une coordination). Coût convention : la période selon son type et son niveau
           (circulaire des conventions) ; coût moyen brut : un montant unique par période ({n2(d.taux_cmb)} €, Configuration → Coût des périodes). Coordinations :
           ETP × 800 × la période CT, sauf si elles figurent déjà dans les attributions. {d.premiere ? `Première année de ${section} dans Lucie : ${d.premiere}.` : ''}</p>
       </>)}
