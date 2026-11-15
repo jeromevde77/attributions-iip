@@ -2391,7 +2391,8 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
         // qui se présente.
         const pk  = full.indexOf(Buffer.from([0x50, 0x4B, 0x03, 0x04]));
         const pdf = full.indexOf(Buffer.from('%PDF', 'latin1'));
-        const candidats = [pk, pdf].filter(i => i >= 0);
+        const doc = full.indexOf(Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]));   // ancien .doc (3.5.466)
+        const candidats = [pk, pdf, doc].filter(i => i >= 0);
         resolve(candidats.length ? full.slice(Math.min(...candidats)) : full);
       });
       req.on('error', reject);

@@ -3,6 +3,7 @@
  * Parse un .docx de dossier pédagogique FWB (format EPS standard)
  * et retourne { ue, cours[] } prêt à l'import Lucie.
  */
+import { estDocAncien, docEnDocx } from './services/docx-to-pdf.js';
 import JSZip from 'jszip';
 import { parse as parseHtml } from 'node-html-parser';
 
@@ -757,6 +758,8 @@ export function estIntertitreDP(t) {
     || /^(\d+\s*[.)]?\s*)?(capacites?\s+prealables?|finalites?|acquis\s+d.apprentissage|programme|horaire|constitution\s+des\s+groupes|charges?\s+de\s+cours|degre\s+de\s+maitrise|titres?\s+(pouvant|requis)|chargee?s?\s+de\s+cours)/i.test(x);
 }
 export async function parseDossierPedagogique(buffer) {
+  // Un ancien .doc (en-tête D0 CF 11 E0) : converti en .docx par LibreOffice, puis lu comme un .docx (3.5.466).
+  if (estDocAncien(buffer)) buffer = await docEnDocx(buffer);
   // %PDF en tête : dossier publié par la Fédération. PK : un .docx.
   // Un PDF sans texte (un scan) passe par la lecture optique ; la réponse le dit.
   if (buffer.slice(0, 4).toString('latin1') === '%PDF') {
