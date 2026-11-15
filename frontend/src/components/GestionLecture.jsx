@@ -282,7 +282,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
   const voir = l => lentille === 'tout' || lentille === l;
   return (<>
     <section className="carte overflow-hidden">
-      <EnteteCarte titre={`Où se situe ${S.section} ?`} sous={`comparée à ${nomRef} · le point bleu = ${S.section}, le trait = la référence`} />
+      <EnteteCarte titre={`Où se situe ${S.section} ?`} sous={`comparée à ${nomRef} · le point = ${S.section} (vert : mieux que la référence, orange : à surveiller), le trait = la référence`} />
       <div className="px-4 pb-2">
         {lignes.map(({ k, v, r, j, x, rx }) => (
           <div key={k} className="grid items-center gap-3 py-2.5 border-b border-slate-100 last:border-0" style={{ gridTemplateColumns: 'minmax(150px,1.3fr) minmax(120px,3fr) 84px 110px 110px' }}>
@@ -290,7 +290,8 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
             <div className="relative h-6" aria-hidden="true">
               <div className="absolute inset-x-0 top-[11px] h-[3px] rounded bg-slate-200" />
               {rx != null && <div className="absolute top-[3px] w-[3px] h-[19px] bg-slate-500" style={{ left: `${rx}%` }} />}
-              {x != null && <div className="absolute top-[4px] w-4 h-4 -ml-2 rounded-full border-[3px] border-white" style={{ left: `${x}%`, background: P.principal, boxShadow: `0 0 0 1px ${P.principal}` }} />}
+              {x != null && rx != null && j.bien !== undefined && <div className="absolute top-[11px] h-[3px] rounded" style={{ left: `${Math.min(x, rx)}%`, width: `${Math.abs(x - rx)}%`, background: j.bien ? P.reussi : P.attente, opacity: .55 }} />}
+              {x != null && (() => { const c = j.bien === undefined ? P.principal : j.bien ? P.reussi : P.attente; return <div className="absolute top-[4px] w-4 h-4 -ml-2 rounded-full border-[3px] border-white" style={{ left: `${x}%`, background: c, boxShadow: `0 0 0 1px ${c}` }} />; })()}
             </div>
             <div className="text-right text-sm font-bold tabular-nums text-iip-blue">{IND[k].f(v)}</div>
             <div className="text-right text-second text-slate-500 tabular-nums">{r == null ? '—' : IND[k].f(r)}</div>

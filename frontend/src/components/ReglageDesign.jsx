@@ -14,7 +14,7 @@ import { TuileEtat, PastilleEtat, Encadre } from './ui.jsx';
  * Des thèmes pour aller vite, puis chaque réglage à la main. L'aperçu emploie
  * les VRAIS composants : ce qu'on voit ici est ce que l'on verra partout.
  */
-const GROUPES = [['rayons', 'Rayons'], ['tuiles', 'Tuiles et pastilles'], ['controles', 'Boutons, champs, onglets'], ['titres', 'Titres et intertitres'], ['tableaux', 'Tableaux'], ['graphiques', 'Graphiques'], ['elevations', 'Ombres et fenêtres'], ['texte', 'Texte']];
+const GROUPES = [['rayons', 'Rayons'], ['tuiles', 'Tuiles et pastilles'], ['controles', 'Boutons, champs, onglets'], ['titres', 'Titres et intertitres'], ['tableaux', 'Tableaux'], ['graphiques', 'Graphiques'], ['elevations', 'Ombres et fenêtres'], ['texte', 'Texte'], ['presentation', 'Présentation d’une section']];
 const THEMES = {
   'Maison IIP': {},
   'Arrondi': { rayon_champ: 12, rayon_carte: 20, rayon_fenetre: 28, rayon_tuile: 14, tuile_coins: 'hg,hd,bd,bg', rayon_pastille: 10 },

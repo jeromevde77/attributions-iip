@@ -102,6 +102,16 @@ export const COULEURS_DEFAUT = {
   graphique_grille:    { groupe: 'graphiques', libelle: 'Grille et axes', valeur: '#E8ECF2' },
   graphique_piste:     { groupe: 'graphiques', libelle: 'Fond des jauges et des barres', valeur: '#EEF1F5' },
   graphique_reference: { groupe: 'graphiques', libelle: 'Ligne de référence (norme, seuil)', valeur: null, suit: 'refuse' },
+  // LA PRÉSENTATION D'UNE SECTION (3.5.459, Charles : « pouvoir changer les couleurs de la présentation — fond, police,
+  // couleur — dans Configuration »). Sans réglage, chaque zone suit l'écran : rien ne change pour qui ne touche à rien.
+  // Les graphiques des diapositives suivent les séries ci-dessus ; la police se règle dans Formes et composants.
+  pres_fond_titre: { groupe: 'presentation', libelle: 'Pages de titre (couverture, intercalaires, fin) — fond', valeur: null, suit: 'principal' },
+  pres_sur_titre:  { groupe: 'presentation', libelle: 'Pages de titre — texte', valeur: '#FFFFFF' },
+  pres_fond:       { groupe: 'presentation', libelle: 'Diapositives — fond', valeur: '#FFFFFF' },
+  pres_titre:      { groupe: 'presentation', libelle: 'Diapositives — titres', valeur: null, suit: 'principal' },
+  pres_texte:      { groupe: 'presentation', libelle: 'Diapositives — texte', valeur: null, suit: 'texte' },
+  pres_tuile:      { groupe: 'presentation', libelle: 'Tuiles des chiffres clés — fond', valeur: null, suit: 'principal' },
+  pres_accent:     { groupe: 'presentation', libelle: 'Accent — repères, filets, chiffres en évidence', valeur: null, suit: 'iip_or' },
 };
 
 /** Les couleurs en vigueur : les défauts, écrasés par ce qui a été réglé. */

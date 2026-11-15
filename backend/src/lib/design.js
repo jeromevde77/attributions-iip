@@ -61,6 +61,7 @@ export const DESIGN_DEFAUT = {
   police:         { groupe: 'texte', libelle: 'Police de l’interface', type: 'choix', choix: ['Inter', 'Aptos', 'Système', 'Arial', 'Georgia'], valeur: 'Inter' },
   texte:          { groupe: 'texte', libelle: 'Taille du texte (%)', type: 'nombre', min: 85, max: 125, valeur: 100 },
   titre_ecran:    { groupe: 'texte', libelle: 'Titre d’un écran', type: 'px', min: 14, max: 26, valeur: 17 },
+  presentation_police: { groupe: 'presentation', libelle: 'Police des diapositives', type: 'choix', choix: ['Inter', 'Aptos', 'Système', 'Arial', 'Helvetica', 'Georgia', 'Times New Roman'], valeur: 'Inter' },
 };
 
 export const COINS = ['hg', 'hd', 'bd', 'bg'];
