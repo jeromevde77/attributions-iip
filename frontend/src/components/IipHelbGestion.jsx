@@ -168,11 +168,13 @@ export function chiffresIipHelb(d, reglages = {}) {
   return { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY };
 }
 
-export default function IipHelbGestion() {
+export default function IipHelbGestion({ sectionFixe = null } = {}) {
   lireCouleurs();
   const memo = useMemo(lire, []);
   const [sections, setSections] = useState([]);
-  const [section, setSection] = useState(memo.section || 'TIM');
+  const [sectionChoisie, setSection] = useState(memo.section || 'TIM');
+  /* DANS LIRE ET COMPARER (3.5.461, Charles : « si co-dip, alors données complémentaires ») : la section est celle de la lecture. */
+  const section = sectionFixe || sectionChoisie;
   const [annees, setAnnees] = useState(memo.annees || null);
   const [reglages, setReglages] = useState(memo.reglages || {});
   const [d, setD] = useState(null);
@@ -183,6 +185,7 @@ export default function IipHelbGestion() {
     fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l =>
       setSections((Array.isArray(l) ? l : []).map(s => s.code || s).filter(Boolean))).catch(() => {});
   }, []);
+  useEffect(() => { if (sectionFixe) setAnnees(null); }, [sectionFixe]);
   useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ section, annees, reglages })); } catch { /* sans mémoire */ } }, [section, annees, reglages]);
   const [tour, setTour] = useState(0);
   const [deplies, setDeplies] = useState(['Santé', 'IIP']);
@@ -224,9 +227,9 @@ export default function IipHelbGestion() {
   return (
     <div className="space-y-3">
       <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-        <select className="controle flex-none" value={section} onChange={e => { setSection(e.target.value); setAnnees(null); }} aria-label="Section">
+        {!sectionFixe && <select className="controle flex-none" value={section} onChange={e => { setSection(e.target.value); setAnnees(null); }} aria-label="Section">
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        </select>}
         <div className="segments flex-none" role="group" aria-label="Années">
           {(d?.toutes || []).map(a => { const on = annees?.includes(a); return (
             <button key={a} type="button" aria-pressed={!!on} onClick={() => setAnnees(x => (on ? (x || []).filter(y => y !== a) : [...(x || []), a].sort()))}

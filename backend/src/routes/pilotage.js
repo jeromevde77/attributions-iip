@@ -10,6 +10,7 @@ import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, CO
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
+import { sectionsCodiplomation } from '../lib/grillePresence.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
 const r = Router();
@@ -355,7 +356,8 @@ r.get('/lecture', authRequired, (req, res) => {
     const perim = getUserSections(req.user);
     const garde = l => (perim ? l.filter(x => perim.includes(x.section)) : l);
     const moy = COMPARAISON_HE.moyennes || {};
-    res.json({ ...d, sections: garde(d.sections), prec: d.prec ? { ...d.prec, sections: garde(d.prec.sections) } : null,
+    // LES CODIPLOMATIONS (3.5.461) : la section choisie dans Lire et comparer porte alors ses données IIP / HELB, année par année.
+    res.json({ ...d, codiplomation: sectionsCodiplomation(), sections: garde(d.sections), prec: d.prec ? { ...d.prec, sections: garde(d.prec.sections) } : null,
       helb: { source: COMPARAISON_HE.source, annee: COMPARAISON_HE.annee, etu_etp: moy['Moyenne HELB'] ?? null, etu_etp_sante: moy['Santé'] ?? null,
         // LE COÛT PAR CRÉDIT DE LA HELB, ENCADREMENT COMPRIS (3.5.449) : les rémunérations de son COR ÷ ses étudiants comptés ÷ 60 —
         // comparable à notre coût complet ; à côté, l'enseignement seul, et les proportions qui l'expliquent.
