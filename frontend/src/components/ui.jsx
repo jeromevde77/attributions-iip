@@ -943,7 +943,7 @@ export function IconeFaveur({ size = 13, className = '' }) {
  * | neutre | fort. Cliquable si `onClick` : elle devient alors un bouton.
  */
 export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, icone: Icone,
-                            onClick, actif = false, sousReserve = false, className = '', title, taille = 'grande' }) {
+                            onClick, actif = false, sousReserve = false, className = '', title, taille = 'grande', aide }) {
   // DEUX TAILLES, UN DESSIN (3.1.252, Charles : « deux types de tuiles — grande et
   // compacte »). La grande pour un tableau de bord : chiffre, libellé dessous,
   // précision. La compacte pour une liste ou une frise : chiffre et libellé sur une
@@ -956,8 +956,12 @@ export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, 
       className={`bloc-etat ${compacte ? 'tuile-compacte' : 'tuile-grande'} ${sousReserve ? 'sous-reserve' : ''} relative text-left min-w-0
         ${onClick ? 'cursor-pointer hover:brightness-[.98] transition' : ''}
         ${actif ? 'ring-2 ring-offset-1 ring-iip-blue/30' : ''} ${className}`}>
-      {Icone && !compacte && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5" style={{ color: 'var(--e)' }} />}
-      <div className="tuile-chiffre font-bold tabular-nums leading-tight">
+      {Icone && !compacte && <Icone size={15} stroke={1.8} className={`absolute ${aide ? 'right-9' : 'right-2.5'} top-2.5`} style={{ color: 'var(--e)' }} />}
+      {/* LE CALCUL SE DIT (3.5.472, Charles : « pour chaque tuile de calcul, un (?) qui explique les calculs, par honnêteté
+          scientifique ») : `aide` = d'où vient le chiffre et comment il se calcule. */}
+      {aide && <span className={`absolute right-2 ${compacte ? 'top-1/2 -translate-y-1/2' : 'top-2'}`} onClick={e => e.stopPropagation()}>
+        <BulleAide titre={typeof libelle === 'string' ? libelle : 'Le calcul'} droite>{aide}</BulleAide></span>}
+      <div className={`tuile-chiffre font-bold tabular-nums leading-tight ${aide ? 'pr-6' : ''}`}>
         {valeur}
         {unite && <span className="text-xs font-normal text-slate-500 ml-1">{unite}</span>}
         {etat === 'faveur' && <IconeFaveur className="ml-1.5 align-[-1px]" />}
@@ -1084,7 +1088,7 @@ export function Mention({ children, ton = 'neutre', className = '' }) {
  * Elle ne dit pas comment cliquer : elle dit ce que la chose EST, et ce qu'elle
  * engage. Expliquer le travail, pas l'informatique.
  */
-export function BulleAide({ titre, children }) {
+export function BulleAide({ titre, children, droite = false }) {
   const [ouvert, setOuvert] = useState(false);
   return (
     <span className="relative inline-flex">
@@ -1103,8 +1107,8 @@ export function BulleAide({ titre, children }) {
               ailleurs. */}
           <span className="fixed inset-0 z-40" onClick={() => setOuvert(false)}
             aria-hidden="true" />
-          <span className="absolute z-50 left-0 top-7 w-[26rem] max-w-[80vw]
-                           carte p-3 shadow-flottant bg-white text-left"
+          <span className={`absolute z-50 ${droite ? 'right-0' : 'left-0'} top-7 w-[26rem] max-w-[80vw]
+                           carte p-3 shadow-flottant bg-white text-left font-normal`}
             role="dialog">
             {titre && (
               <span className="block text-sm font-semibold text-iip-blue mb-1">

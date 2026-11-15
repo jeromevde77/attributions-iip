@@ -218,10 +218,10 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
   const barres = triees.filter(s => s[k0] != null && true).map(s => ({ c: s.section, v: Math.round(s[k0]) }));
   return (<>
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
-      <TuileEtat etat="fort" valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
-      <TuileEtat etat="reussi" valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${Pr?.reussite_finale != null ? ` · ${IND.reussite_finale.f(Pr.reussite_finale)} l’année d’avant` : ''}`} />
-      <TuileEtat etat="disponible" valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · ASBL ${IND.cout_credit.f(d.asbl?.cout_credit)}`} />
-      <TuileEtat valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · ASBL : ${n1(d.asbl?.etc_etp)}`} />
+      <TuileEtat etat="fort" aide={'Les inscrits de l’année choisie (référence au 15 octobre : chacun une fois, archivés exclus). « L’an dernier » : le même compte pour l’année précédente ; croissance = inscrits ÷ inscrits de l’an dernier − 1.'} valeur={n0(I.inscrits)} libelle="inscrits au 15/10" precision={I.inscrits_prec ? `${n0(I.inscrits_prec)} l’an dernier · ${IND.croissance.f(I.croissance)}` : ''} />
+      <TuileEtat etat="reussi" aide={'Les décisions de délibération de l’année de résultats, unité par unité et étudiant par étudiant. Réussite finale = unités réussies ÷ (réussies + refusées), après la seconde session ; les unités encore en attente ne comptent pas. 1re session = unités réussies ÷ décisions de 1re session.'} valeur={IND.reussite_finale.f(I.reussite_finale)} libelle={`réussite finale ${d.resultats_annee || ''}`} precision={`${IND.reussite_s1.f(I.reussite_s1)} en 1re session${Pr?.reussite_finale != null ? ` · ${IND.reussite_finale.f(Pr.reussite_finale)} l’année d’avant` : ''}`} />
+      <TuileEtat etat="disponible" aide={'Coût complet de l’IIP ÷ crédits suivis.\nCoût complet = chaque période attribuée × son prix (circulaire des conventions, selon le niveau et le type CT/PP) + les fonctions (direction, secrétariat, coordinations), réparties au prorata des inscrits.\nCrédits suivis = Σ (inscriptions à chaque UE × ECTS de l’UE).\n180 crédits = coût par crédit × 180. Par période = coût complet ÷ Σ (inscriptions × périodes étudiant de l’UE).\nASBL = (charges de l’ASBL + coût de l’IIP) ÷ (inscrits HELB × 60 + crédits de l’IIP).'} valeur={IND.cout_credit.f(I.cout_credit)} libelle="coût par crédit" precision={`${IND.cout_180.f(I.cout_180)} pour 180 crédits · ${IND.cout_periode.f(I.cout_periode)} par période · ASBL ${IND.cout_credit.f(d.asbl?.cout_credit)}`} />
+      <TuileEtat aide={'Taille moyenne des groupes = Σ (inscriptions à chaque UE × périodes de cours de l’UE) ÷ périodes attribuées. Une période donnée devant 30 étudiants compte 30 périodes suivies.\nÉtudiants temps plein par ETP = (crédits suivis ÷ 60) ÷ ETP enseignant (CT ÷ 800 + PP ÷ 1 000).'} valeur={n1(I.taille_groupes)} libelle="étudiants par groupe, en moyenne" precision={`${n1(I.etc_etp)} étudiants temps plein par ETP · ASBL : ${n1(d.asbl?.etc_etp)}`} />
     </div>
     <div className="grid gap-3 lg:grid-cols-2">
       <section className="carte overflow-hidden">
@@ -350,7 +350,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
         <section className="carte overflow-hidden h-full">
           <EnteteCarte titre="Les finances" sous={`${d.annee} · coût complet, CT ÷ 800 + PP ÷ 1000`} />
           <div className="p-4 grid grid-cols-2 gap-3">
-            {['cout_credit', 'cout_periode', 'taille_groupes', 'recettes_etudiant'].map(k => <TuileEtat key={k} valeur={IND[k].f(S[k])} libelle={IND[k].l} />)}
+            {['cout_credit', 'cout_periode', 'taille_groupes', 'recettes_etudiant'].map(k => <TuileEtat key={k} aide={IND[k].aide} valeur={IND[k].f(S[k])} libelle={IND[k].l} />)}
           </div>
         </section>)}
     </div>

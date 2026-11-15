@@ -5,6 +5,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { EnteteCarte, TuileEtat, Tableau, Th, Td } from './ui.jsx';
+import { Anneau } from './graphiques.jsx';
 import { Tuile } from './statsUi.jsx';
 
 /* L'IIP ET LA HELB, UNE PAGE DE GESTION NATIVE (3.5.432, Charles, 14 novembre 2026 : « le rapport est lent ; je le voudrais en natif,
@@ -284,20 +285,20 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
           const apport = HY.reduce((t, x) => t + (x.y.admin.part || 0) + u95(x.y), 0);
           return (<>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
-              <TuileEtat etat={h.resultat >= 0 ? 'reussi' : 'corriger'} valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
+              <TuileEtat etat={h.resultat >= 0 ? 'reussi' : 'corriger'} aide={`Ce que la section rapporte − ce qu’elle coûte à la HELB et à l’ASBL, pour ${aN.annee}.\nRapporte = allocation de la HELB + droits et frais des inscrits.\nAllocation (décret du 9 septembre 1996, art. 17) : pour chaque année civile, la moyenne des étudiants comptés (${PH.part} % des inscrits) des 3 années académiques précédentes × ${PH.muce} € (unité de charge) × ${PH.ponderation} (pondération) ; une année académique reçoit 4/12 de l’année civile où elle commence et 8/12 de la suivante.\nDroits et frais : au barème de Lucie, sans plafond ni exonération.\nCoûte = enseignants HELB (lignes HELB : heures = périodes × 50/60 ÷ 480 pour la théorie d’un maître-assistant, ÷ 750 sinon ; coordinations comprises) × ${PH.prix === 'titres' ? 'le prix de leur titre au COR' : PH.prix === 'moyenne' ? 'la moyenne du COR' : 'le montant réglé'} + autres services + matériel.\nLes enseignants de l’IIP, payés par la Fédération, n’y sont pas.`} valeur={`${h.resultat >= 0 ? '+' : '−'}${eur(Math.abs(h.resultat))}`} libelle={`Résultat HELB et ASBL ${aN.annee}`}
                 precision={`rapporte ${keur(h.recettes)}, coûte ${keur(h.cout)}`} />
-              <TuileEtat etat="reussi" valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n1(moy)}` : ''} />
-              <TuileEtat etat="fort" valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle={`Coût d’un étudiant ${aN.annee}`}
+              <TuileEtat etat="reussi" aide={'Chiffres de la HELB, non recalculés par Lucie : étudiants comptés de la section ÷ ETP enseignants que la HELB y déclare (comparaison ETP de la HELB, année la plus récente). La moyenne de la HELB = somme des étudiants finançables des quatre départements ÷ somme de leurs ETP (document « ratio par département »).'} valeur={timH ? `${n0(timH.ratio)} étudiants` : '—'} libelle="par ETP enseignant (HELB)" precision={moy ? `moyenne de la HELB : ${n1(moy)}` : ''} />
+              <TuileEtat etat="fort" aide={`(Coût IIP + coût HELB) ÷ inscrits de ${aN.annee}.\nCoût IIP = ${mes.cout === 'cmb' ? 'périodes IIP × coût moyen brut' : 'périodes IIP × prix de la circulaire des conventions'}${mes.coord === 'oui' ? ' + coordinations IIP (ETP × 800 × période CT)' : ''}${mes.admin === 'oui' ? ' + part du cadre administratif (direction et secrétariat × part de la section dans les inscrits de l’IIP)' : ''}.\nCoût HELB = ${mes.cout === 'cmb' ? 'périodes HELB × coût moyen brut' : 'périodes HELB × prix de la circulaire'}${mes.coord === 'oui' ? ' + coordinations HELB' : ''}.\nIIP et HELB : les montants détaillés dans « Le coût de la section ».`} valeur={aN.inscrits ? eur((aN.coutI + aN.coutH) / aN.inscrits) : '—'} libelle={`Coût d’un étudiant ${aN.annee}`}
                 precision={aN.inscrits ? `IIP ${eur(aN.coutI / aN.inscrits)} · HELB ${eur(aN.coutH / aN.inscrits)}` : ''} />
-              <TuileEtat etat="disponible" valeur={eur(apport)} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="0 € de coût supplémentaire : ses propres dotations" />
+              <TuileEtat etat="disponible" aide={'Ce que l’IIP apporte sans que la HELB le paie, sur les années choisies : la part de la section dans le cadre administratif de l’IIP (direction et secrétariat × part de la section dans les inscrits ; structure de la dernière année encodée reprise pour les années sans fonctions) + l’aide à la réussite (UE 95 : périodes × période CT du supérieur × part de la section). Payé sur les dotations de l’IIP : aucun coût supplémentaire.'} valeur={eur(apport)} libelle={`Apport de l’IIP sur ${Y.length} an(s)`} precision="0 € de coût supplémentaire : ses propres dotations" />
             </div>
             <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6 items-stretch">
-              <TuileEtat taille="compacte" etat="fort" valeur={`${fCh(aN.chI + aN.chH)} ${uCh}`} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
-              <TuileEtat taille="compacte" valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignants`} />
-              <TuileEtat taille="compacte" valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignants`} />
-              <TuileEtat taille="compacte" valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
-              <TuileEtat taille="compacte" valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="par étudiant, droits et frais (ASBL)" />
-              <TuileEtat taille="compacte" valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
+              <TuileEtat taille="compacte" etat="fort" aide={'IIP : périodes attribuées, CT ÷ 800 + PP ÷ 1 000 (règle de la dotation). HELB : heures = périodes × 50/60, ÷ 480 pour la théorie d’un maître-assistant, ÷ 750 pour le reste, ÷ 1 400 pour une coordination (titre lu dans la colonne « HELB » de la ligne d’attribution). Coordinations : leur ETP, si elles ne figurent pas déjà dans les attributions. Lignes en congé exclues.'} valeur={`${fCh(aN.chI + aN.chH)} ${uCh}`} libelle={`Charge ${aN.annee}`} precision={mes.coord === 'oui' ? 'enseignement et coordinations' : 'enseignement'} />
+              <TuileEtat taille="compacte" aide={'Charge de l’IIP ÷ charge totale (IIP + HELB), même unité que la tuile « Charge ». Enseignants : ceux qui ont au moins une ligne IIP cette année.'} valeur={pc(aN.chI, aN.chI + aN.chH)} libelle="Part de l’IIP" precision={`${fCh(aN.chI)} ${uCh} · ${aN.profs_iip} enseignants`} />
+              <TuileEtat taille="compacte" aide={'Charge de la HELB ÷ charge totale (IIP + HELB). Enseignants : ceux qui ont au moins une ligne HELB cette année.'} valeur={pc(aN.chH, aN.chI + aN.chH)} libelle="Part de la HELB" precision={`${fCh(aN.chH)} ${uCh} · ${aN.profs_helb} enseignants`} />
+              <TuileEtat taille="compacte" aide={'Somme, sur les années choisies, du coût IIP et du coût HELB de chaque année (méthode choisie : coût convention ou coût moyen brut), coordinations et cadre administratif selon les réglages.'} valeur={eur(totI + totH)} libelle={`Coût sur ${Y.length} an(s)`} precision={`HELB ${pc(totH, totI + totH)} · ${methode}`} />
+              <TuileEtat taille="compacte" aide={'Droits et frais au barème de Lucie, unité par unité : périodes de l’UE × tarif du droit d’inscription + périodes étudiant × frais par période, × inscrits de l’UE ; plus le forfait et les frais fixes par étudiant. Sans plafond ni exonération. ÷ inscrits. Une section dont un tiers perçoit les droits ne rapporte rien à l’ASBL.'} valeur={aN.inscrits && !aN.tiers ? eur(aN.recettes / aN.inscrits) : '—'} libelle="Ce qu’il rapporte" precision="par étudiant, droits et frais (ASBL)" />
+              <TuileEtat taille="compacte" aide={'Les inscrits de la section selon les chiffres clés de Lucie (un étudiant compte une fois), ou le chiffre retenu par la direction dans « Inscrits retenus » quand il est saisi.'} valeur={n0(aN.inscrits)} libelle={`Inscrits ${aN.annee}`} precision={Y.length > 1 ? `${n0(a0.inscrits)} en ${a0.annee}` : ''} />
             </div>
           </>);
         })()}
@@ -353,7 +354,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                       <Td align="droite">{eur(HY.reduce((t, x) => t + u95(x.y), 0))}</Td></tr>
                     {HY.map(({ y, h }) => <tr key={y.annee} className="border-b border-slate-100"><Td className="whitespace-nowrap">{y.annee}</Td>
                       <Td align="droite">{h.base ? n0(h.base) : '—'}</Td>
-                      <Td align="droite">{h.allocation ? eur(h.allocation) : <span className="text-slate-400">en création</span>}</Td>
+                      <Td align="droite">{h.allocation ? eur(h.allocation) : <span className="text-slate-400" title="Aucun étudiant de la section dans les trois années académiques précédentes (décret, art. 17)">0 €</span>}</Td>
                       <Td align="droite">{eur(h.droits)}</Td><Td align="droite">{n2(h.etp)}</Td>
                       <Td align="droite">{eur(h.salaires)}</Td><Td align="droite">{eur(h.autres)}</Td><Td align="droite">{eur(h.fonct)}</Td>
                       <Td align="droite">{eur(h.cout)}</Td>
@@ -573,7 +574,33 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
           </Carte>}
 
           {[['statuts', 'La balance par école : chargés de cours, experts et invités (ETP)'], ['blocs', 'L’enseignement par bloc (ETP)'], ['natures', 'L’enseignement par nature (ETP)']].map(([k, t]) => vu(k) && (
-            <Carte key={k} plat titre={t} onMasquer={masquer(k)}>
+            <Carte key={k} plat large={k === 'statuts'} titre={t} onMasquer={masquer(k)}>
+              {/* LES DISQUES DE LA BALANCE (3.5.472, Charles : « des disques, avec la part de profs invités et experts pour chaque école
+                  sur les années ») : une ligne par école, un disque par année — chargés de cours, experts et invités, en ETP. */}
+              {k === 'statuts' && (() => {
+                const part = (y, cote, re) => Object.entries(y.statuts || {}).filter(([c]) => re.test(c)).reduce((t, [, v]) => t + (v[cote] || 0), 0);
+                const COUL = { cc: 'var(--g-1)', exp: 'var(--g-3)', autre: 'var(--g-vide)' };
+                return (
+                  <div className="p-3 space-y-3 border-b border-slate-100">
+                    {[['iip', 'Institut Ilya Prigogine'], ['helb', 'Haute École (HELB)']].map(([cote, nom]) => (
+                      <div key={cote} className="flex items-center gap-4 flex-wrap">
+                        <div className="w-44 flex-none text-sm font-semibold text-slate-700">{nom}</div>
+                        {Y.map(y => {
+                          const cc = part(y, cote, /^Chargés/), ex = part(y, cote, /^Experts/), au = part(y, cote, /^Autres/), tot = cc + ex + au;
+                          return (
+                            <div key={y.annee} className="flex flex-col items-center gap-1">
+                              <Anneau taille={92} legende={false} centre={tot ? `${Math.round((ex / tot) * 100)} %` : '—'}
+                                parts={[{ nom: 'Chargés de cours', valeur: cc, couleur: COUL.cc }, { nom: 'Experts et invités', valeur: ex, couleur: COUL.exp }, { nom: 'Autres statuts', valeur: au, couleur: COUL.autre }]} />
+                              <span className="text-mention text-slate-500 tabular-nums">{y.lib} · {n2(tot)} ETP</span>
+                            </div>);
+                        })}
+                      </div>))}
+                    <div className="flex flex-wrap gap-4 text-mention text-slate-600">
+                      <span className="inline-flex items-center gap-1.5"><i className="inline-block w-3 h-3 rounded-pastille" style={{ background: COUL.cc }} />Chargés de cours</span>
+                      <span className="inline-flex items-center gap-1.5"><i className="inline-block w-3 h-3 rounded-pastille" style={{ background: COUL.exp }} />Experts et invités (le pourcentage au centre)</span>
+                    </div>
+                  </div>);
+              })()}
               <div className="overflow-x-auto"><Tableau className="!border-0 !rounded-none">
                 <thead><tr className="tab-entete"><Th />{Y.map(y => <Th key={y.annee} align="droite" colSpan={2}>{y.lib}</Th>)}</tr>
                   <tr className="tab-entete"><Th />{Y.map(y => [<Th key={y.annee + 'i'} align="droite" className="font-normal">IIP</Th>, <Th key={y.annee + 'h'} align="droite" className="font-normal">HELB</Th>])}</tr></thead>

@@ -904,15 +904,16 @@ export default function Pilotage({ vue = 'tout' }) {
               {/* KPIs compacts */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 border-b border-gray-100">
                 {[
-                  { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B', etat: 'fort' },
+                  { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B', etat: 'fort', aide: 'La dotation organique de l’année civile, en périodes B, telle que saisie dans Configuration (Gestion → Dotation → Configuration).' },
                   { label: 'Utilisées',     value: fmt(d.usage_organique),
                     sub: d.dot_total > 0 ? `dont ${fmt(d.dot_total)} pér. de dépassement` : 'périodes B',
-                    etat: d.dot_total > 0 ? 'surveiller' : 'neutre' },
-                  { label: 'Charges fixes', value: `−${fmt(charges)}`, sub: `FELSI ${fmt(felsi)} + GIPS 40`, etat: 'surveiller' },
-                  { label: 'Solde réel',    value: `${sign(soldeReel)}${fmt(soldeReel)}`, sub: soldeReel < -200 ? '⚠ Pénalité ×1,5' : 'après FELSI + GIPS', etat: soldeReel < 0 ? 'corriger' : 'reussi' },
-                  { label: 'Taux',          value: pct(d.pct_organique), sub: <ProgressBar pct={d.pct_organique} />, etat: tonDotation(d.pct_organique).etat },
-                ].map(({ label, value, sub, etat }) => (
-                  <TuileEtat key={label} etat={etat} valeur={value} libelle={label} precision={sub} />
+                    etat: d.dot_total > 0 ? 'surveiller' : 'neutre',
+                    aide: 'Les périodes attribuées au contrat IIP, hors congé, pondérées par niveau (supérieur × 1,5 ; secondaire supérieur × 1,25), sur l’année civile : janvier-juin = 2e quadrimestre de l’année scolaire qui finit, septembre-décembre = 1er quadrimestre de celle qui commence (une UE sur deux quadrimestres : 40 % au Q1, 60 % au Q2). S’y ajoutent les dépassements des enveloppes externes (qualité, formation continue, inclusion) : usage − périodes de l’enveloppe. Une année « historique » reprend le chiffre saisi.' },
+                  { label: 'Charges fixes', value: `−${fmt(charges)}`, sub: `FELSI ${fmt(felsi)} + GIPS 40`, etat: 'surveiller', aide: 'FELSI = 1 % de la dotation organique, arrondi ; GIPS = 40 périodes. Retenues sur la dotation avant le solde réel.' },
+                  { label: 'Solde réel',    value: `${sign(soldeReel)}${fmt(soldeReel)}`, sub: soldeReel < -200 ? '⚠ Pénalité ×1,5' : 'après FELSI + GIPS', etat: soldeReel < 0 ? 'corriger' : 'reussi', aide: 'Dotation organique − périodes utilisées − charges fixes (FELSI + GIPS). Au-delà de 200 périodes de dépassement, la pénalité de 1,5 s’applique.' },
+                  { label: 'Taux',          value: pct(d.pct_organique), sub: <ProgressBar pct={d.pct_organique} />, etat: tonDotation(d.pct_organique).etat, aide: 'Périodes utilisées ÷ dotation organique.' },
+                ].map(({ label, value, sub, etat, aide }) => (
+                  <TuileEtat key={label} etat={etat} valeur={value} libelle={label} precision={sub} aide={aide} />
                 ))}
               </div>
 
@@ -930,8 +931,8 @@ export default function Pilotage({ vue = 'tout' }) {
                     L'année civile en deux moitiés
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <TuileEtat etat="neutre" valeur={fmt(d.usage_jan_juin)} libelle={<>Janvier – juin {d.annee_civile}</>} precision={<>Q2 de {d.scolaire_jan_juin} — consommé</>} />
-                    <TuileEtat etat="neutre" valeur={fmt(d.usage_sep_dec)} libelle={<>Septembre – décembre {d.annee_civile}</>} precision={<>Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant</>} />
+                    <TuileEtat etat="neutre" aide="Les périodes pondérées du 2e quadrimestre de l’année scolaire qui se termine en juin (et 60 % des UE sur deux quadrimestres)." valeur={fmt(d.usage_jan_juin)} libelle={<>Janvier – juin {d.annee_civile}</>} precision={<>Q2 de {d.scolaire_jan_juin} — consommé</>} />
+                    <TuileEtat etat="neutre" aide="Les périodes pondérées du 1er quadrimestre de l’année scolaire qui commence en septembre (et 40 % des UE sur deux quadrimestres). Encore mouvant : les attributions peuvent changer." valeur={fmt(d.usage_sep_dec)} libelle={<>Septembre – décembre {d.annee_civile}</>} precision={<>Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant</>} />
                     {/* LA MOITIÉ QUI VIENT — l'année académique en cours ne
                         s'arrête pas en décembre. Son second quadrimestre est
                         déjà attribué : il tombe en janvier-juin de l'année
@@ -939,9 +940,10 @@ export default function Pilotage({ vue = 'tout' }) {
                         celle-ci. Ne montrer que les deux moitiés de l'année
                         civile revenait à couper l'année académique en cours en
                         deux et à n'en regarder que la première moitié. */}
-                    <TuileEtat etat="neutre" valeur={fmt(d.usage_jan_juin_suivant)} libelle={<>Janvier – juin {d.annee_civile + 1}</>} precision={<>Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}</>} />
+                    <TuileEtat etat="neutre" aide="Le 2e quadrimestre de l’année scolaire en cours, déjà attribué : il tombera sur la dotation de l’année civile suivante." valeur={fmt(d.usage_jan_juin_suivant)} libelle={<>Janvier – juin {d.annee_civile + 1}</>} precision={<>Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}</>} />
 
                     <TuileEtat etat={d.solde_apres_jan_juin < 0 ? 'corriger' : 'reussi'}
+                      aide="Dotation organique − périodes pondérées de janvier à juin : ce qu’il reste pour septembre-décembre."
                       valeur={fmt(d.solde_apres_jan_juin)} libelle="Reste pour la rentrée"
                       precision="après décompte de janvier – juin" />
                   </div>
@@ -1192,10 +1194,10 @@ export default function Pilotage({ vue = 'tout' }) {
     return (
       <div>
         <div className="flex flex-wrap gap-3 mb-4">
-          <div className="flex-1 min-w-[170px]"><TuileEtat valeur={ratio(etpCours)} libelle="étudiants par ETP de cours" precision={`${f(etpCours)} ETP · ${pour(etpCours)}`} /></div>
-          <div className="flex-1 min-w-[170px]"><TuileEtat valeur={ratio(etpAdmin)} libelle="étudiants par ETP administratif"
+          <div className="flex-1 min-w-[170px]"><TuileEtat aide="Étudiants inscrits (hors archivés, chacun une fois) ÷ ETP de cours (CT ÷ 800 + PP ÷ 1 000, toutes les attributions de l’année)." valeur={ratio(etpCours)} libelle="étudiants par ETP de cours" precision={`${f(etpCours)} ETP · ${pour(etpCours)}`} /></div>
+          <div className="flex-1 min-w-[170px]"><TuileEtat aide="Étudiants inscrits ÷ ETP des fonctions d’établissement encodées (direction, secrétariat…), à leur ETP." valeur={ratio(etpAdmin)} libelle="étudiants par ETP administratif"
             precision={`${f(etpAdmin)} ETP — ${(R.admin || []).map(a => `${a.fonction} ${String(a.etp).replace('.', ',')}`).join(', ') || 'aucune fonction d’établissement encodée'}`} /></div>
-          <div className="flex-1 min-w-[170px]"><TuileEtat etat="fort" valeur={ratio(etpCours + etpAdmin)} libelle="étudiants par ETP, tout le monde compris" precision={`${f(etpCours + etpAdmin)} ETP · ${pour(etpCours + etpAdmin)}`} /></div>
+          <div className="flex-1 min-w-[170px]"><TuileEtat etat="fort" aide="Étudiants inscrits ÷ (ETP de cours + ETP administratifs)." valeur={ratio(etpCours + etpAdmin)} libelle="étudiants par ETP, tout le monde compris" precision={`${f(etpCours + etpAdmin)} ETP · ${pour(etpCours + etpAdmin)}`} /></div>
           <div className="flex-1 min-w-[140px]"><TuileEtat valeur={nEtu.toLocaleString('fr-BE')} libelle="étudiants inscrits" precision="hors archivés, chacun une fois" /></div>
         </div>
         <div className="mb-4 text-second text-gray-700">
