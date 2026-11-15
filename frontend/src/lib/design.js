@@ -10,7 +10,7 @@ import { authHeaders } from './api.js';
 export const DESIGN_MAISON = {
   rayon_champ: 8, rayon_carte: 14, rayon_fenetre: 22, rayon_panneau: 26, rayon_tuile: 10, tuile_lisere: 4,
   tuile_coins: 'hd,bd', coins_champ: 'hg,hd,bd,bg', coins_carte: 'hg,hd,bd,bg', coins_fenetre: 'hg,hd,bd,bg', coins_panneau: 'hg,hd,bd,bg', coins_pastille: 'hg,hd,bd,bg', rayon_pastille: 4, tuile_chiffre: 17, tuile_espace: 10, tuile_compacte_chiffre: 13, controle_hauteur: 36, bouton_graisse: '600', onglet_trait: 2,
-  ombre: 'normale', voile: 32, titre_carte: 15, titre_graisse: '600', intertitre_taille: 11, intertitre_casse: 'majuscules', intertitre_espace: 60, intertitre_graisse: '600', tableau_densite: 'normale', tableau_zebre: 'non', tableau_filets: 'horizontaux', tableau_entete_taille: 11, graphique_rayon: 3, anneau_epaisseur: 40, etape_taille: 28, barre_hauteur: 12, jauge_hauteur: 6, jauge_forme: 'arrondis', volet_retrait: 24, graphique_grille: 'pointille', graphique_legende: 'bas', voile_flou: 3, police: 'Inter', texte: 100, titre_ecran: 17,
+  ombre: 'normale', voile: 32, titre_carte: 15, titre_graisse: '600', intertitre_taille: 11, intertitre_casse: 'majuscules', intertitre_espace: 60, intertitre_graisse: '600', tableau_densite: 'normale', tableau_zebre: 'non', tableau_filets: 'horizontaux', tableau_entete_taille: 11, graphique_rayon: 3, anneau_epaisseur: 40, etape_taille: 28, barre_hauteur: 12, jauge_hauteur: 6, jauge_forme: 'arrondis', volet_retrait: 24, graphique_grille: 'pointille', graphique_legende: 'bas', voile_flou: 3, police: 'Inter', texte: 100, titre_ecran: 17, presentation_police: 'Inter',
 };
 const POLICES = {
   Inter: "'Inter', 'Aptos', system-ui, Arial, sans-serif",
@@ -18,6 +18,8 @@ const POLICES = {
   'Système': "system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif",
   Arial: "Arial, Helvetica, sans-serif",
   Georgia: "Georgia, 'Times New Roman', serif",
+  Helvetica: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+  'Times New Roman': "'Times New Roman', Times, serif",
 };
 const OMBRES = { aucune: 0, douce: 0.5, normale: 1, marquee: 1.6 };
 
@@ -54,6 +56,7 @@ export function variablesDesign(v = {}) {
     '--d-ombre-dessus': k ? `0 30px 70px -20px rgba(11,21,45,${a(0.45)})` : 'none',
     '--d-voile': String(d.voile / 100), '--d-voile-flou': `${d.voile_flou}px`,
     '--d-police': POLICES[d.police] || POLICES.Inter, '--d-texte': String(d.texte / 100),
+    '--d-pres-police': POLICES[d.presentation_police] || POLICES.Inter, '--d-pres-police-nom': `"${d.presentation_police || 'Inter'}"`,
     '--d-titre-ecran': `${d.titre_ecran}px`, '--d-titre-carte': `${d.titre_carte}px`, '--d-titre-graisse': String(d.titre_graisse),
     '--d-intertitre-taille': `${d.intertitre_taille}px`, '--d-intertitre-casse': d.intertitre_casse === 'normale' ? 'none' : 'uppercase',
     '--d-intertitre-espace': `${d.intertitre_espace / 1000}em`, '--d-intertitre-graisse': String(d.intertitre_graisse),

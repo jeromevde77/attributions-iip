@@ -25,7 +25,7 @@ import { listePays } from '../lib/pays.js';
 const W = 1280, H = 720, M = 72, CW = W - 2 * M;
 const C = { nuit: '#001A70', nuit2: '#0B2A86', bleu: '#2A7DB8', ciel: '#3A97C9', clair: '#BCC6E8', gris: '#5B6B7C', encre: '#1B2B4B',
   pale: '#F5FAFE', filet: '#D8DCE4', or: '#F9B619', iip: '#19537E', helb: '#C2408A', vert: '#3E7D5E', ocre: '#B45309', brique: '#9D4A38',
-  violet: '#6B46C1', blanc: '#FFFFFF' };
+  violet: '#6B46C1', blanc: '#FFFFFF', fondTitre: '#001A70', surTitre: '#FFFFFF', fond: '#FFFFFF', titre: '#001A70', tuile: '#001A70', clairTuile: '#BCC6E8' };
 const SERIE = [C.bleu, C.or, C.helb, C.vert, '#05B7E6', C.ocre, C.violet, '#94A3B8'];
 /* LES DIAPOSITIVES PRENNENT LES COULEURS DE CONFIGURATION (3.5.457, Charles : « il ne prend pas les couleurs depuis le choix dans
    Config, par exemple Maison IIP »). La palette ci-dessus n'est que le repli : à chaque dessin, `lirePalette` la remplace par les
@@ -39,10 +39,19 @@ function lirePalette() {
   Object.assign(C, { nuit: principal, nuit2: meler(principal, 88), bleu: bleuLogo || accent || C.bleu, ciel: accent || C.ciel, clair: meler(principal, 28), encre: v('--c-texte') || principal,
     pale: meler(principal, 5), or: or || C.or, iip: v('--c-iip') || principal, helb: v('--c-helb') || C.helb, vert: v('--c-reussi') || C.vert, ocre: v('--c-attente') || C.ocre,
     brique: v('--c-refuse') || C.brique, violet: v('--c-faveur') || C.violet });
+  /* LES RÉGLAGES PROPRES À LA PRÉSENTATION (3.5.459, Thèmes et couleurs → La présentation d'une section) : pages de titre, fond,
+     titres, texte, tuiles, accent. Sans réglage, chacun suit l'écran. Les tons intermédiaires s'en déduisent. */
+  const versC = (a, b, p) => { const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16); return `#${[16, 8, 0].map(d => Math.round(((x >> d) & 255) * p / 100 + ((y >> d) & 255) * (1 - p / 100)).toString(16).padStart(2, '0')).join('')}`.toUpperCase(); };
+  const fondTitre = v('--c-pres_fond_titre') || principal, surTitre = v('--c-pres_sur_titre') || '#FFFFFF', tuile = v('--c-pres_tuile') || principal;
+  Object.assign(C, { fondTitre, surTitre, nuit2: versC(surTitre, fondTitre, 12), clair: versC(surTitre, fondTitre, 72), fond: v('--c-pres_fond') || '#FFFFFF',
+    titre: v('--c-pres_titre') || principal, encre: v('--c-pres_texte') || C.encre, tuile, clairTuile: versC('#FFFFFF', tuile, 72), or: v('--c-pres_accent') || C.or });
+  const pol = st.getPropertyValue('--d-pres-police').trim(), nomPol = st.getPropertyValue('--d-pres-police-nom').trim().replace(/"/g, '');
+  if (pol) POLICE = pol;
+  POLICE_PPT = { Inter: 'Arial', 'Système': 'Arial' }[nomPol] || nomPol || 'Arial';
   const series = [1, 2, 3, 4, 5, 6].map(i => v(`--c-serie_${i}`)).filter(Boolean);
   if (series.length) SERIE.splice(0, SERIE.length, ...series, '#94A3B8');
 }
-const POLICE = "Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+let POLICE = "Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", POLICE_PPT = 'Arial';
 const n0 = v => Math.round(v || 0).toLocaleString('fr-BE');
 const n1 = v => (v || 0).toLocaleString('fr-BE', { maximumFractionDigits: 1 });
 const eur = v => `${n0(v)} €`;
@@ -157,7 +166,7 @@ function composer(D, T) {
   /* — les blocs communs — */
   const entete = (kicker, titre) => [
     { k: 'texte', x: M, y: 38, w: CW, h: 22, texte: kicker.toUpperCase(), taille: 13, couleur: C.bleu, gras: true, espace: 2 },
-    { k: 'texte', x: M, y: 60, w: CW, h: 50, texte: titre, taille: 32, couleur: C.nuit, gras: true },
+    { k: 'texte', x: M, y: 60, w: CW, h: 50, texte: titre, taille: 32, couleur: C.titre, gras: true },
   ];
   const retenir = (cle, defaut) => {
     const txt = t(`retenir.${cle}`, defaut);
@@ -169,11 +178,11 @@ function composer(D, T) {
       { k: 'texte', x: M + 140, y: 612, w: CW - 160, h: 56, texte: txt, taille: 17, couleur: C.encre, italique: true, vcentre: true, edit: `retenir.${cle}` },
     ];
   };
-  const tuileSombre = (x, y, w, h, valeur, libelle, precision, couleur = C.nuit) => [
+  const tuileSombre = (x, y, w, h, valeur, libelle, precision, couleur = C.tuile) => [
     { k: 'rect', x, y, w, h, fond: couleur, rayon: 10 },
     { k: 'texte', x: x + 24, y: y + 16, w: w - 48, h: 54, texte: valeur, taille: String(valeur).length > 9 ? 31 : String(valeur).length > 7 ? 35 : 40, couleur: C.blanc, gras: true, vcentre: true },
-    { k: 'texte', x: x + 24, y: y + 72, w: w - 48, h: 26, texte: libelle, taille: 15, couleur: C.clair, gras: true },
-    precision ? { k: 'texte', x: x + 24, y: y + 98, w: w - 48, h: h - 106, texte: precision, taille: 12.5, couleur: C.clair } : null,
+    { k: 'texte', x: x + 24, y: y + 72, w: w - 48, h: 26, texte: libelle, taille: 15, couleur: C.clairTuile, gras: true },
+    precision ? { k: 'texte', x: x + 24, y: y + 98, w: w - 48, h: h - 106, texte: precision, taille: 12.5, couleur: C.clairTuile } : null,
   ].filter(Boolean);
   const tuileClaire = (x, y, w, h, valeur, libelle, precision, couleur = C.bleu) => [
     { k: 'rect', x, y, w, h, fond: C.blanc, bord: C.filet, rayon: 10 },
@@ -192,23 +201,23 @@ function composer(D, T) {
   };
   const isoDe = (() => { const m = new Map(listePays().map(p => [nu(p.nom), p.code])); return nom => m.get(nu(nom)); })();
   const parIso = {}; for (const [nomPays, n] of Object.entries(s.pays || {})) { const c = isoDe(nomPays); if (c) parIso[c] = (parIso[c] || 0) + n; }
-  const separateur = (num, titre, sous, icone) => ajouter({ id: `sep${num}`, fond: C.nuit, blocs: [
+  const separateur = (num, titre, sous, icone) => ajouter({ id: `sep${num}`, fond: C.fondTitre, blocs: [
     { k: 'texte', x: 760, y: -40, w: 520, h: 520, texte: String(num), taille: 380, couleur: C.nuit2, gras: true, align: 'right' },
     { k: 'rect', x: M, y: 300, w: 96, h: 96, fond: C.bleu, rayon: 14 },
-    { k: 'texte', x: M, y: 300, w: 96, h: 96, texte: icone, taille: 40, couleur: C.blanc, gras: true, align: 'center', vcentre: true },
+    { k: 'texte', x: M, y: 300, w: 96, h: 96, texte: icone, taille: 40, couleur: C.surTitre, gras: true, align: 'center', vcentre: true },
     { k: 'texte', x: M + 130, y: 288, w: 900, h: 24, texte: `PARTIE ${num}`, taille: 14, couleur: C.ciel, gras: true, espace: 2 },
-    { k: 'texte', x: M + 130, y: 312, w: 1000, h: 64, texte: titre, taille: 46, couleur: C.blanc, gras: true },
+    { k: 'texte', x: M + 130, y: 312, w: 1000, h: 64, texte: titre, taille: 46, couleur: C.surTitre, gras: true },
     { k: 'texte', x: M + 130, y: 384, w: 900, h: 60, texte: sous, taille: 18, couleur: C.clair },
   ], notes: t(`notes.sep${num}`, sous), notesCle: `notes.sep${num}` });
 
   /* 1. COUVERTURE */
-  ajouter({ id: 'couverture', fond: C.nuit, blocs: [
+  ajouter({ id: 'couverture', fond: C.fondTitre, blocs: [
     { k: 'logo', x: M, y: 48, w: 150, h: 64 },
     { k: 'texte', x: 640, y: 54, w: 568, h: 40, texte: 'INSTITUT ILYA PRIGOGINE\nENSEIGNEMENT POUR ADULTES', taille: 11, couleur: C.clair, gras: true, espace: 2, align: 'right' },
     { k: 'icone', section, x: 820, y: 150, w: 340, h: 340 },
     { k: 'vierge', x: W / 2 - 50, y: 606, w: 100, h: 62 },
     { k: 'texte', x: M, y: 232, w: 700, h: 22, texte: t('couv.kicker', 'PRÉSENTATION AU CONSEIL D’ADMINISTRATION'), taille: 13, couleur: C.ciel, gras: true, espace: 2, edit: 'couv.kicker' },
-    { k: 'texte', x: M, y: 262, w: 760, h: 150, texte: t('couv.titre', nom), taille: 60, couleur: C.blanc, gras: true, edit: 'couv.titre' },
+    { k: 'texte', x: M, y: 262, w: 760, h: 150, texte: t('couv.titre', nom), taille: 60, couleur: C.surTitre, gras: true, edit: 'couv.titre' },
     { k: 'rect', x: M, y: 420, w: 150, h: 4, fond: C.ciel },
     { k: 'texte', x: M, y: 444, w: 760, h: 80, texte: t('couv.sous', `La section ${section} sous tous ses angles : sa croissance, ses étudiants, leurs résultats, ce qu’elle coûte et ce qu’elle rapporte.`), taille: 19, couleur: C.clair, edit: 'couv.sous' },
     { k: 'rect', x: M, y: 600, w: CW, h: 1, fond: C.nuit2 },
@@ -227,7 +236,7 @@ function composer(D, T) {
       [rN ? `${n0(rN.sec.total.final.taux_reussite)} %` : '—', `de réussite finale`, rN ? `${rN.annee}, après la seconde session` : ''],
       [LS?.cout_credit != null ? e0(LS.cout_credit) : '—', 'le coût d’un crédit', LA?.cout_credit != null ? `ensemble de l’ASBL : ${e0(LA.cout_credit)}` : LI?.cout_credit != null ? `IIP : ${e0(LI.cout_credit)}` : ''],
     ];
-    cles.forEach((c, i) => bl.push(...tuileSombre(M + i * (w4 + 24), 150, w4, 170, ...c, i === 3 ? C.vert : C.nuit)));
+    cles.forEach((c, i) => bl.push(...tuileSombre(M + i * (w4 + 24), 150, w4, 170, ...c, i === 3 ? C.vert : C.tuile)));
     const parts = [
       ['Population', 'croissance, blocs, place dans l’IIP'], ['Profil', 'sexe, âge, nationalités, domicile, accès'],
       ['Résultats', 'sessions, blocs, unités'], ['Finances', 'coût, efficience, face à l’IIP et à l’ASBL'], ['Bilan', 'forces, faiblesses, demandes'],
@@ -237,7 +246,7 @@ function composer(D, T) {
       const x = M + i * (w5 + 16);
       bl.push({ k: 'rect', x, y: 372, w: 40, h: 40, fond: C.bleu, rayon: 8 },
         { k: 'texte', x, y: 372, w: 40, h: 40, texte: String(i + 1), taille: 18, couleur: C.blanc, gras: true, align: 'center', vcentre: true },
-        { k: 'texte', x, y: 424, w: w5, h: 26, texte: a, taille: 18, couleur: C.nuit, gras: true },
+        { k: 'texte', x, y: 424, w: w5, h: 26, texte: a, taille: 18, couleur: C.titre, gras: true },
         { k: 'texte', x, y: 452, w: w5, h: 60, texte: b, taille: 13.5, couleur: C.gris });
     });
     bl.push(...retenir('regard', fois >= 1.5 ? `En ${evo.length} ans, la section a été multipliée par ${n1(fois)}.` : premiere && derniere && evo.length > 1 ? `De ${n0(premiere.n)} à ${n0(derniere.n)} étudiants en ${evo.length} ans.` : `${n0(derniere?.n || s.n)} étudiants en ${annee}.`));
@@ -402,8 +411,8 @@ function composer(D, T) {
     const face = k => [LI?.[k] != null ? `IIP ${k.startsWith('cout') ? e0(LI[k]) : n1(LI[k])}` : null, LA?.[k] != null ? `ASBL ${k.startsWith('cout') ? e0(LA[k]) : n1(LA[k])}` : null].filter(Boolean).join(' · ');
     const cles = [
       [e0(LS.cout_credit), 'le coût d’un crédit', face('cout_credit'), C.vert],
-      [e0(LS.cout_180), 'une formation de 180 crédits', face('cout_180'), C.nuit],
-      [n1(LS.taille_groupes), 'étudiants par groupe', LI?.taille_groupes != null ? `en moyenne · IIP ${n1(LI.taille_groupes)}` : 'en moyenne', C.nuit],
+      [e0(LS.cout_180), 'une formation de 180 crédits', face('cout_180'), C.tuile],
+      [n1(LS.taille_groupes), 'étudiants par groupe', LI?.taille_groupes != null ? `en moyenne · IIP ${n1(LI.taille_groupes)}` : 'en moyenne', C.tuile],
       [n1(LS.etc_etp), 'étudiants par ETP', `en temps plein · ${face('etc_etp')}`, C.vert],
     ];
     cles.forEach((c, i) => bl.push(...tuileSombre(M + i * (w4 + 24), 140, w4, 190, c[0], c[1], c[2], c[3])));
@@ -490,10 +499,10 @@ function composer(D, T) {
   ], notes: t('notes.demandes', ''), notesCle: 'notes.demandes' });
 
   /* MERCI */
-  ajouter({ id: 'merci', fond: C.nuit, blocs: [
+  ajouter({ id: 'merci', fond: C.fondTitre, blocs: [
     { k: 'icone', section, x: W / 2 - 140, y: 120, w: 280, h: 280 },
     { k: 'vierge', x: W / 2 - 50, y: 612, w: 100, h: 62 },
-    { k: 'texte', x: M, y: 440, w: CW, h: 80, texte: t('merci.titre', 'Merci. Vos questions.'), taille: 50, couleur: C.blanc, gras: true, align: 'center', edit: 'merci.titre' },
+    { k: 'texte', x: M, y: 440, w: CW, h: 80, texte: t('merci.titre', 'Merci. Vos questions.'), taille: 50, couleur: C.surTitre, gras: true, align: 'center', edit: 'merci.titre' },
     { k: 'texte', x: M, y: 530, w: CW, h: 40, texte: t('merci.sous', `${nom} — Institut Ilya Prigogine`), taille: 18, couleur: C.clair, align: 'center', edit: 'merci.sous' },
   ], notes: t('notes.merci', ''), notesCle: 'notes.merci' });
 
@@ -510,7 +519,7 @@ function composer(D, T) {
 
 function Vierge({ w, h, clair = false }) {
   // La figure de la Vierge, celle du logo de Lucie, en grand — le motif de la couverture.
-  const coul = clair ? '#FFFFFF' : C.clair;
+  const coul = clair ? C.surTitre : C.clair;
   return (
     <svg width={w} height={h} viewBox="-14 -8 80 46" preserveAspectRatio="xMidYMid meet">
       <g stroke={coul} strokeOpacity=".28" strokeWidth=".35" fill="none">
@@ -614,9 +623,9 @@ function Scene({ d, largeur, logo, editer, onEditer, cartes, anime = false }) {
     return { animation: `${b.k === 'rect' ? 'lucieFondu' : 'lucieEntree'} .6s cubic-bezier(.2,.7,.2,1) ${delai}ms both` };
   };
   return (
-    <div style={{ width: largeur, height: H * k, position: 'relative', overflow: 'hidden', borderRadius: 6, boxShadow: '0 10px 40px rgba(0,26,112,.18)', background: d.fond || '#fff' }}>
+    <div style={{ width: largeur, height: H * k, position: 'relative', overflow: 'hidden', borderRadius: 6, boxShadow: '0 10px 40px rgba(0,26,112,.18)', background: d.fond || C.fond }}>
       {anime && <style>{STYLE_ANIM}</style>}
-      <div key={d.id} className="scene-lucie" style={{ width: W, height: H, transform: `scale(${k})`, transformOrigin: '0 0', position: 'absolute', fontFamily: POLICE, background: d.fond || '#fff' }}>
+      <div key={d.id} className="scene-lucie" style={{ width: W, height: H, transform: `scale(${k})`, transformOrigin: '0 0', position: 'absolute', fontFamily: POLICE, background: d.fond || C.fond }}>
         {d.blocs.map((b, i) => <Bloc key={i} b={b} logo={logo} editer={editer} onEditer={onEditer} cartes={cartes} anim={anim(b)} />)}
       </div>
     </div>);
@@ -651,10 +660,10 @@ async function exporterPptx(diapos, { titre, logo, logoRatio, nomFichier, cartes
   const p = new PptxGenJS();
   p.layout = 'LAYOUT_WIDE';
   p.title = titre; p.author = 'Institut Ilya Prigogine'; p.company = 'Institut Ilya Prigogine';
-  p.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial' };
+  p.theme = { headFontFace: POLICE_PPT, bodyFontFace: POLICE_PPT };
   for (const d of diapos) {
     const sl = p.addSlide();
-    sl.background = { color: hex(d.fond || '#FFFFFF') };
+    sl.background = { color: hex(d.fond || C.fond) };
     for (const b of d.blocs) {
       const geo = { x: IN(b.x), y: IN(b.y), w: IN(b.w), h: IN(b.h) };
       if (b.k === 'rect') {
@@ -682,15 +691,15 @@ async function exporterPptx(diapos, { titre, logo, logoRatio, nomFichier, cartes
         POINTS_L.forEach((xy, i) => { const [x, y] = P(xy), r = (i === 1 ? 1.9 : 1.6) * s; sl.addShape(p.ShapeType.ellipse, { x: IN(x - r), y: IN(y - r), w: IN(2 * r), h: IN(2 * r), fill: { color: '05B7E6' }, line: { type: 'none' } }); });
       } else if (b.k === 'liste') {
         sl.addText(b.items.map((it, i) => ({ text: it, options: { bullet: { characterCode: '25CF', indent: 18 }, color: hex(b.couleur), paraSpaceAfter: 10, breakLine: i < b.items.length - 1 } })),
-          { ...geo, fontFace: 'Arial', fontSize: PT(b.taille), valign: 'top', margin: 0, isTextBox: true });
+          { ...geo, fontFace: POLICE_PPT, fontSize: PT(b.taille), valign: 'top', margin: 0, isTextBox: true });
       } else if (b.k === 'texte') {
-        sl.addText(b.texte, { ...geo, fontFace: 'Arial', fontSize: PT(b.taille), color: hex(b.couleur), bold: !!b.gras, italic: !!b.italique,
+        sl.addText(b.texte, { ...geo, fontFace: POLICE_PPT, fontSize: PT(b.taille), color: hex(b.couleur), bold: !!b.gras, italic: !!b.italique,
           align: b.align || 'left', valign: b.vcentre ? 'middle' : 'top', margin: 0, charSpacing: b.espace ? b.espace : undefined, isTextBox: true, fit: 'shrink' });
       } else if (b.k === 'graphe') {
         const titreH = b.titre ? 30 : 0;
-        if (b.titre) sl.addText(b.titre, { x: IN(b.x), y: IN(b.y), w: IN(b.w), h: IN(26), fontFace: 'Arial', fontSize: PT(15), bold: true, color: hex(C.encre), margin: 0, isTextBox: true });
+        if (b.titre) sl.addText(b.titre, { x: IN(b.x), y: IN(b.y), w: IN(b.w), h: IN(26), fontFace: POLICE_PPT, fontSize: PT(15), bold: true, color: hex(C.encre), margin: 0, isTextBox: true });
         const g = { x: IN(b.x), y: IN(b.y + titreH), w: IN(b.w), h: IN(b.h - titreH) };
-        const commun = { catAxisLabelFontFace: 'Arial', valAxisLabelFontFace: 'Arial', legendFontFace: 'Arial', dataLabelFontFace: 'Arial', catAxisLabelColor: '5B6B7C', catAxisLabelFontSize: 11, dataLabelFontSize: 11, dataLabelColor: '1B2B4B' };
+        const commun = { catAxisLabelFontFace: POLICE_PPT, valAxisLabelFontFace: POLICE_PPT, legendFontFace: POLICE_PPT, dataLabelFontFace: POLICE_PPT, catAxisLabelColor: '5B6B7C', catAxisLabelFontSize: 11, dataLabelFontSize: 11, dataLabelColor: '1B2B4B' };
         if (b.type === 'donut') {
           const d = b.categories.map((c, i) => ({ c, v: b.series[0].valeurs[i] || 0, col: hex(b.couleurs?.[i] || SERIE[i % SERIE.length]) })).filter(x => x.v > 0);
           sl.addChart(p.ChartType.doughnut, [{ name: b.series[0].nom, labels: d.map(x => x.c), values: d.map(x => x.v) }],

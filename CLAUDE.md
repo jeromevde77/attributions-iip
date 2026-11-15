@@ -4322,6 +4322,13 @@ cadre) ; tout état = `PastilleEtat` / `Encadre` / `TuileEtat` ; aucune couleur 
 « Écrire à mes étudiants » dans Mes étudiants, l'année de l'école une fois (la frise). Rail étroit, info-bulle immédiate, dans les deux.
 **Un écran nouveau n'écrit ni carte, ni liste, ni pastille, ni fenêtre à la main.**
 
+**LA PRÉSENTATION D'UNE SECTION SE RÈGLE DANS CONFIGURATION** (3.5.459, Charles, 15 novembre 2026 : « pouvoir changer les couleurs de
+la présentation — fond, police, couleur — dans config »). Thèmes et couleurs → *La présentation d'une section* (groupe `presentation` de
+`COULEURS_DEFAUT` : `pres_fond_titre`, `pres_sur_titre`, `pres_fond`, `pres_titre`, `pres_texte`, `pres_tuile`, `pres_accent` ; sans
+réglage, chacune suit l'écran) ; Formes et composants → *Présentation d'une section* (`presentation_police`, `--d-pres-police`).
+`lirePalette()` de `PresentationSection.jsx` les lit, écran et PowerPoint ; les graphiques suivent les séries. Lire et comparer :
+marqueurs du positionnement à la couleur du verdict (3.5.458).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
