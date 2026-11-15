@@ -31,6 +31,17 @@ const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, aut
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
   ['debut', 'Allocation à partir de', 'année'], ['lissage', 'Lissage', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
 const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
+/* LE PRIX D'UN ETP DE LA HELB (3.5.463) : au titre (théorie = maître-assistant, TP = maître de formation pratique), à la moyenne du COR,
+   ou au montant réglé — la formule de salairesHelb (lib/rapportIipHelb.js), recopiée : qui change l'une change l'autre. */
+function salairesHelb(y, P, avecCoord) {
+  const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
+  if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
+  if (P.prix === 'titres' && P.prix_ma) {
+    const ma = y.etp_helb_ma || 0, autres = Math.max(0, (y.ens_helb || 0) - ma) + c;
+    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma);
+  }
+  return etp * P.cmbp;
+}
 function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   const comptes = y.inscrits * P.part / 100;
   let base = 0;
@@ -40,7 +51,7 @@ function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
     base /= n;
   }
   const allocation = base * P.muce * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
-  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = etp * P.cmbp, autres = salaires * P.autres / 100;
+  const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = salairesHelb(y, P, avecCoord), autres = salaires * P.autres / 100;
   const fonct = P.mode_fonct === 'forfait' ? allocation * P.fonctionnement / 100 : (materiel || 0);
   const cout = salaires + autres + fonct;
   return { comptes, base, allocation, droits, recettes, etp, salaires, autres, fonct, cout, resultat: recettes - cout, parEtp: etp ? comptes / etp : null };
@@ -142,7 +153,7 @@ function Carte({ titre, sous, forme, onForme, onMasquer, children, large, plat }
 /* LES CHIFFRES DE LA PAGE, SELON LES RÉGLAGES (3.5.446) : une fonction pure, lue par la page et par la présentation d'une section
    (PresentationSection.jsx) — un calcul, deux lecteurs. */
 export function chiffresIipHelb(d, reglages = {}) {
-  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', ...(reglages.mesures || {}) };
+  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', unite_helb: 'periodes', prix_helb: 'titres', ...(reglages.mesures || {}) };
   // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
   const Y = (d?.Y || []).map(y0 => {
     // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
@@ -160,6 +171,7 @@ export function chiffresIipHelb(d, reglages = {}) {
   const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
   const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
   PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
+  PH.prix = mes.prix_helb; PH.prix_ma = d?.prix_helb?.ma; PH.prix_mfp = d?.prix_helb?.mfp; PH.prix_moyen = d?.prix_helb?.moyen;
   const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
   // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
   const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
@@ -192,11 +204,11 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
   const [coordOuv, setCoordOuv] = useState([]);   // les années de coordinations dépliées   // les départements dépliés dans la comparaison   // « Recalculer » : refait le calcul côté serveur
   useEffect(() => {
     let vivant = true; setEnCours(true); setErreur(null);
-    fetch(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}${annees?.length ? `&annees=${encodeURIComponent(annees.join(','))}` : ''}${tour ? '&recalculer=1' : ''}`, { headers: authHeaders() })
+    fetch(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}${annees?.length ? `&annees=${encodeURIComponent(annees.join(','))}` : ''}${tour ? '&recalculer=1' : ''}&unite_helb=${reglages.mesures?.unite_helb === 'heures' ? 'heures' : 'periodes'}`, { headers: authHeaders() })
       .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); if (vivant) { setD(j); if (!annees) setAnnees(j.annees); } })
       .catch(e => vivant && setErreur(e.message)).finally(() => vivant && setEnCours(false));
     return () => { vivant = false; };
-  }, [section, annees, tour]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [section, annees, tour, reglages.mesures?.unite_helb]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const maj = (k, v) => setReglages(r => ({ ...r, [k]: v }));
   const majMes = (k, v) => maj('mesures', { ...(reglages.mesures || {}), [k]: v });
@@ -370,6 +382,20 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                       value={reglages.materiel?.[y.annee] ?? ''} onChange={e => maj('materiel', { ...(reglages.materiel || {}), [y.annee]: e.target.value.replace(',', '.') })} aria-label={`Matériel ${y.annee}`} />
                     <span className="w-6 text-mention text-slate-500">€</span>
                   </label>))}</div>}
+                {/* UN ETP DE LA HELB (3.5.463) : ses heures, et son prix — plusieurs calculs côte à côte. */}
+                <div className="intertitre pt-2">Un ETP de la HELB</div>
+                <p className="text-second text-slate-600 m-0">Un temps plein : 480 h pour la théorie d’un maître-assistant, 750 h pour tout le reste (TP, maîtres de formation pratique, praticiens), 1 400 h pour une coordination. Le titre se lit dans la colonne « HELB » de la ligne d’attribution (à défaut, le statut HELB de la fiche), la théorie ou le TP dans la colonne TH/TP. Les lignes HELB des attributions sont lues :</p>
+                <div className="flex flex-wrap gap-2">
+                  {segm('unite_helb', [['periodes', 'en périodes de 50 min'], ['heures', 'en heures']])}
+                  {segm('prix_helb', [['titres', `Au titre — MA ${eur(d?.prix_helb?.ma)}, MFP ${eur(d?.prix_helb?.mfp)}`], ['moyenne', `Moyenne HELB — ${eur(d?.prix_helb?.moyen)}`], ['fixe', `Montant réglé — ${eur(PH.cmbp)}`]])}
+                </div>
+                {HY.length > 0 && <p className="text-mention text-slate-500 m-0">Salaires HELB {HY[HY.length - 1].y.annee} : au titre {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'titres' }, mes.coord === 'oui'))} · à la moyenne {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'moyenne' }, mes.coord === 'oui'))} · au montant réglé {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'fixe' }, mes.coord === 'oui'))}. Au titre : un maître-assistant au prix du MA, tout le reste au prix d’un MFP.</p>}
+                {HY.length > 0 && <div className="overflow-x-auto"><Tableau className="!w-auto">
+                  <thead><tr><Th>Année</Th><Th align="droite">ETP HELB selon Lucie</Th><Th align="droite">dont maîtres-assistants</Th><Th align="droite">ETP déclaré par la HELB</Th><Th align="droite">Écart</Th></tr></thead>
+                  <tbody>{HY.map(({ y }) => { const dec = d?.etp_declare_helb?.[y.annee]; return (
+                    <tr key={y.annee}><Td>{y.annee}</Td><Td align="droite">{n2(y.ens_helb)}</Td><Td align="droite">{n2(y.etp_helb_ma)}</Td>
+                      <Td align="droite">{dec != null ? n2(dec) : '—'}</Td><Td align="droite">{dec != null ? n2(y.ens_helb - dec) : '—'}</Td></tr>); })}</tbody>
+                </Tableau></div>}
                 <div className="intertitre pt-2">Les paramètres</div>
                 <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-4">
                 <label className="flex items-center gap-2 text-second">

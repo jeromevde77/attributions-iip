@@ -4338,7 +4338,12 @@ aussi dans Dotation → IIP et HELB. **Le bilan de la présentation se déduit d
 conclusions à toutes les sections ») : forces, faiblesses, opportunités, menaces, demandes et « à retenir » ne portent une phrase que
 si les chiffres de CETTE section la justifient (croissance, coût face à l'IIP et à l'ASBL, réussite face à l'IIP, comptes, hors UE,
 taille des groupes) ; métier et matériel par section (`METIER`), codiplomation seulement pour TIM et Orthoptie. Les textes corrigés à
-la main restent ceux de la section.
+la main restent ceux de la section. **Un ETP de la HELB a ses heures et son prix** (3.5.463, Charles : « TP payé en 750 h annuelles,
+théorie (master) en 480 h » ; « plusieurs calculs : moyenne HELB et titres réels ») : LA RÈGLE EXISTAIT (Pilotage → ETP, `calculHELB`) et
+on la reprend (3.5.464, `divHelb`) : titre de la ligne (`type_cours_helb`, à défaut `professeur.statut_helb`), nature TH/TP
+(`helb_nature`), heures = `charge_en_heures` ; ÷ 480 seulement pour la théorie d'un MA, ÷ 750 sinon, ÷ 1 400 pour une coordination ;
+salaires HELB (`salairesHelb`, recopiée à l'écran) au titre (MA au prix du MA, tout le reste au prix du MFP), à la moyenne du COR ou au montant réglé (`prix_helb`) ;
+prix lus du COR déposé (`prix_ma`, `prix_mfp`), repli `COR_HELB`. Méthodologie : `docs/contexte/methodologie-indicateurs-financiers.md`. ETP selon Lucie et ETP déclaré par la HELB (`etp_declare_helb`, comparaison ETP) côte à côte.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

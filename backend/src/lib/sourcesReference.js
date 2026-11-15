@@ -70,6 +70,8 @@ function lireCor(wb, nom) {
     enseignement: r2(enseignementStat + invites), enseignement_statutaire: r2(enseignementStat), invites: r2(invites),
     encadrement: r2(encadrement), total: r2(seul('6.A.3') || enseignementStat + invites + encadrement), allocation: r2(seul('6.A.4')),
     etp_enseignants: r2(n('1.A.') + n('1.B.') + n('1.C.') + n('2.A.') + n('2.B.')),
+    // Le coût d'un ETP par catégorie (3.5.463) : maître-assistant TC, maître de formation pratique.
+    prix_ma: par['1.A.']?.montant || null, prix_mfp: par['1.B.']?.montant || null,
   };
   return { nature: 'helb_cor', libelle: NATURES.helb_cor, date_donnee: dateDuNom(nom), totaux };
 }
