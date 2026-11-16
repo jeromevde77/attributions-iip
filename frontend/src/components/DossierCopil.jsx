@@ -28,6 +28,32 @@ export const PARTIES_COPIL = [
   ['dp', '4', 'Évolution du dossier pédagogique'],
   ['divers', '5', 'Divers'],
 ];
+/* LE TEXTE QUI ACCOMPAGNE CHAQUE PARTIE (3.5.487, Charles : « des propositions de textes, simples, directes, qui mettent la force de la
+   structure en avant » puis « intègre tout cela »). Un texte par partie, plus l'ouverture et la conclusion, gardés pour la section
+   (`copil.<partie>`). Les PROPOSITIONS ne valent que pour la section dont elles citent les chiffres (relevés le 16 novembre 2026) :
+   elles remplissent les cases vides, se corrigent, et ce qui est enregistré l'emporte. */
+export const TEXTES_COPIL = [['intro', 'Ouverture'], ...PARTIES_COPIL.map(([k, num, titre]) => [k, `${num} ${titre}`]), ['conclusion', 'Conclusion']];
+export const PROPOSITIONS_COPIL = {
+  TIM: {
+    intro: 'En trois ans, le TIM est passé d’une ouverture à une section installée. 353 étudiants, deux écoles qui enseignent ensemble, un diplôme de haute école accessible aux adultes. La structure tient : les chiffres qui suivent le montrent.',
+    inscriptions: '353 étudiants, +33 % en un an. Un public d’adultes : 27 ans en moyenne, 62 % de femmes. La section attire, et elle retient : un tiers seulement sont des primo-inscrits, les autres poursuivent leur parcours.',
+    provenance: '57 % des étudiants habitent Bruxelles. 64 % ont une nationalité hors Union européenne. Le TIM ouvre une filière de santé à un public que les voies classiques n’atteignent pas.',
+    attributions: 'De 11 enseignants en 2023-2024 à 32 aujourd’hui ; de 932 à 3 547 périodes. La croissance s’est faite à deux : la HELB porte désormais une part comparable à celle de l’IIP. Chaque école apporte ce qu’elle fait le mieux : la HELB son statut de haute école et ses enseignants, l’IIP son organisation pour adultes et ses praticiens.',
+    positionnement: 'La section est efficiente : un crédit coûte 31 €, contre 118 € pour l’ensemble de l’ASBL. On compte 70 étudiants à temps plein par ETP, contre 21. Un étudiant rapporte 586 € de droits et frais, contre 398. Cette efficience a son revers : 47 étudiants par groupe en moyenne. C’est la limite à surveiller.',
+    reussite: 'La seconde session joue pleinement son rôle : en BA1, la réussite passe de 36 % à 66 % au final ; en BA3, de 53 % à 76 %. Le premier bloc reste le moment fragile ; c’est là que l’encadrement doit porter.',
+    dp: 'Le dossier pédagogique évolue [dans tel sens : nouvelles UE, révision des acquis, stages…]. Objectif : [aligner la formation sur le métier / sur le référentiel de la HELB]. Échéance : [année].',
+    divers: 'Ce que nous proposons au comité : [1. …] [2. …]. Ce qui doit être tranché ensemble : [la capacité d’accueil, le matériel, la répartition des stages…].',
+    conclusion: 'Deux écoles, un diplôme, une section qui grandit sans perdre en efficience. La structure IIP–HELB fonctionne ; la question n’est plus de savoir si elle tient, mais comment l’accompagner dans sa croissance.',
+  },
+};
+/** Le texte d'une partie : l'enregistré (même vide : on l'a vidé exprès), sinon la proposition de la section. Le dossier pédagogique
+    et le divers n'ont qu'un modèle à crochets : il ne s'imprime pas tant qu'on ne l'a pas repris. */
+export const A_COMPLETER = ['dp', 'divers'];
+export const texteCopil = (textes, section, k) => {
+  const v = textes?.[`copil.${k}`];
+  if (v !== undefined && v !== null) return v;
+  return A_COMPLETER.includes(k) ? '' : (PROPOSITIONS_COPIL[section]?.[k] || '');
+};
 const ANNEE_DE = { inscriptions: 'population', provenance: 'population', positionnement: 'positionnement', reussite: 'reussite' };
 const CHAPITRES = { 1: 'Statistiques annuelles de population', 2: 'Évolution des attributions depuis l’ouverture' };
 
@@ -71,10 +97,10 @@ function EnseignantsDepuis({ section }) {
     </section>);
 }
 
-function Texte({ texte }) {
-  return texte?.trim()
-    ? <div className="carte p-4 text-sm leading-relaxed" style={{ whiteSpace: 'pre-line' }}>{texte}</div>
-    : <p className="text-second text-slate-400 m-0">(rien d’écrit)</p>;
+// Le texte d'une partie : une bande pâle, l'accent à gauche ; rien quand il n'y a rien.
+function Texte({ texte, fort = false }) {
+  if (!texte?.trim()) return null;
+  return <div className={`bloc-etat px-4 py-3 leading-relaxed ${fort ? 'text-base' : 'text-sm'}`} data-etat="disponible" style={{ whiteSpace: 'pre-line' }}>{texte}</div>;
 }
 
 /* L'ANNÉE DE CHAQUE PARTIE (3.5.486, Charles : « pour les résultats, je dois pouvoir choisir quelle année ») : `annees.population`,
@@ -86,6 +112,7 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
   let chapitre = null;
   return (
     <div className="space-y-4">
+      {texteCopil(textes, section, 'intro') && <div data-copil-partie="Ouverture"><Texte texte={texteCopil(textes, section, 'intro')} fort /></div>}
       {visibles.map(([k, num, titre], i) => {
         const ch = num.split('.')[0];
         const nouveauChapitre = ch !== chapitre;
@@ -95,14 +122,18 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
             {nouveauChapitre && CHAPITRES[ch] && <h2 className="titre-ecran m-0">{ch}. {CHAPITRES[ch]}</h2>}
             <h3 className={CHAPITRES[ch] ? 'titre-carte m-0' : 'titre-ecran m-0'}>{num}{CHAPITRES[ch] ? '' : '.'} {titre}
               {ANNEE_DE[k] && <span className="text-second font-normal text-slate-500"> · {an(ANNEE_DE[k])}</span>}</h3>
+            <Texte texte={texteCopil(textes, section, k)} />
             {k === 'inscriptions' && <PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" />}
             {k === 'provenance' && <PopulationEcole annee={an('population')} initial={{ section }} partie="provenance" />}
             {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} /></>}
             {k === 'positionnement' && <GestionLecture annee={an('positionnement')} perimFixe="section" sectionFixe={section} sansIipHelb />}
             {k === 'reussite' && <StatsDeliberation annee={an('reussite')} initial={{ section }} />}
-            {k === 'dp' && <Texte texte={textes['copil.dp']} />}
-            {k === 'divers' && <Texte texte={textes['copil.divers']} />}
           </div>);
       })}
+      {texteCopil(textes, section, 'conclusion') && (
+        <div data-copil-partie="Conclusion" className="space-y-3" style={{ breakInside: 'avoid' }}>
+          <h2 className="titre-ecran m-0">En conclusion</h2>
+          <Texte texte={texteCopil(textes, section, 'conclusion')} fort />
+        </div>)}
     </div>);
 }

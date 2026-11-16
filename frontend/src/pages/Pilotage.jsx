@@ -17,7 +17,7 @@ import PresentationSection from '../components/PresentationSection.jsx';
 import GestionLecture from '../components/GestionLecture.jsx';
 import SourcesReference from '../components/SourcesReference.jsx';
 import IipHelbGestion from '../components/IipHelbGestion.jsx';
-import DossierCopil, { PARTIES_COPIL } from '../components/DossierCopil.jsx';
+import DossierCopil, { PARTIES_COPIL, TEXTES_COPIL, PROPOSITIONS_COPIL, texteCopil } from '../components/DossierCopil.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
@@ -1859,12 +1859,24 @@ thead { display: table-header-group; }
               </div>
               <p className="text-mention text-slate-500 m-0 mt-1">Les attributions (2.1) couvrent toujours toutes les années depuis l’ouverture.</p>
             </div>
-            {[['copil.dp', '4. Évolution du dossier pédagogique (à venir)', 'dp'], ['copil.divers', '5. Divers', 'divers']].filter(([, , k]) => copil.parties.includes(k)).map(([cle, lib]) => (
-              <label key={cle} className="block space-y-1">
-                <span className="intertitre">{lib}</span>
-                <textarea className="w-full border border-slate-300 rounded-champ p-2 text-sm" rows={5} data-reponses={cle}
-                  value={copil.textes[cle] || ''} onChange={e => setCopil(c => ({ ...c, textes: { ...c.textes, [cle]: e.target.value } }))} />
-              </label>))}
+            {/* LES TEXTES (3.5.487) : un par partie cochée, plus l'ouverture et la conclusion ; la proposition de la section remplit ce qui
+                est vide, et l'on corrige. Ce qu'on vide reste vide. */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="intertitre flex-1">Les textes</span>
+                {PROPOSITIONS_COPIL[copil.section] && <button type="button" className="bouton text-second"
+                  onClick={() => setCopil(c => ({ ...c, textes: { ...c.textes, ...Object.fromEntries(Object.entries(PROPOSITIONS_COPIL[c.section]).map(([k, v]) => [`copil.${k}`, v])) } }))}>
+                  Reprendre les propositions</button>}
+              </div>
+              {TEXTES_COPIL.filter(([k]) => k === 'intro' || k === 'conclusion' || copil.parties.includes(k)).map(([k, lib]) => (
+                <label key={k} className="block space-y-1">
+                  <span className="text-second font-semibold text-slate-700">{lib}</span>
+                  <textarea className="w-full border border-slate-300 rounded-champ p-2 text-sm" rows={k === 'dp' || k === 'divers' ? 4 : 3} data-reponses={`copil.${k}`}
+                    value={copil.textes[`copil.${k}`] ?? texteCopil({}, copil.section, k)}
+                    placeholder={PROPOSITIONS_COPIL[copil.section]?.[k] || ''}
+                    onChange={e => setCopil(c => ({ ...c, textes: { ...c.textes, [`copil.${k}`]: e.target.value } }))} />
+                </label>))}
+            </div>
             <p className="text-mention text-slate-500 m-0">Les textes sont gardés pour la section (avec ceux de sa présentation). Le dossier se met en pages dans l’aperçu ; « Choisir les blocs » y retire ce qui est de trop, puis « PDF ».</p>
           </div>
         </Fenetre>)}
