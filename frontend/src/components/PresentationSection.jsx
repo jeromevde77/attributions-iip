@@ -987,6 +987,18 @@ export default function PresentationSection() {
     ['Les chiffres seuls', ['forces', 'opportunites', 'demandes', 'sep5'], 'LES CHIFFRES DE LA SECTION'],
   ];
   const d = diapos[Math.min(i, diapos.length - 1)];
+  const appliquerPublic = nom => {
+    const P = PUBLICS.find(x => x[0] === nom); if (!P) return;
+    const [, ids, kicker] = P;
+    poserMasquees(ids.filter(x => catalogue.some(c => c.id === x)), { 'couv.kicker': kicker, 'couv.date': nom === 'Conseil d’administration' ? undefined : '', 'mode.presentation': nom.startsWith('Comité de pilotage') ? 'copil' : '' });
+  };
+  /* LE PUBLIC VENU DU COMPOSEUR DE GESTION (3.5.503) : « Présentation » y pose le public choisi ; il s'applique une fois, au premier
+     chargement de la section. */
+  useEffect(() => {
+    if (!catalogue.length) return;
+    let nom = null; try { nom = localStorage.getItem('lucie.presentation.public'); localStorage.removeItem('lucie.presentation.public'); } catch { /* */ }
+    if (nom) appliquerPublic(nom);
+  }, [catalogue.length]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // La taille de la scène suit la largeur disponible (et l'écran entier en plein écran).
   useEffect(() => {
@@ -1062,7 +1074,7 @@ export default function PresentationSection() {
             <div>
               <div className="intertitre mb-1.5">Pour quel public ?</div>
               <div className="flex flex-wrap gap-2">
-                {PUBLICS.map(([nom, ids, kicker]) => <button key={nom} type="button" className="bouton" onClick={() => poserMasquees(ids.filter(x => catalogue.some(c => c.id === x)), { 'couv.kicker': kicker, 'couv.date': nom === 'Conseil d’administration' ? undefined : '', 'mode.presentation': nom.startsWith('Comité de pilotage') ? 'copil' : '' })}>{nom}</button>)}
+                {PUBLICS.map(([nom]) => <button key={nom} type="button" className="bouton" onClick={() => appliquerPublic(nom)}>{nom}</button>)}
               </div>
               <p className="text-mention text-slate-500 mt-1.5 mb-0">Un public coche un départ et adapte la ligne de couverture ; chaque case et chaque texte se retouchent ensuite.</p>
             </div>

@@ -4478,7 +4478,11 @@ gestion interne dans Lucie) » ; maquette « Gestion repensée » validée : ent
 1 sur quoi (l'école / une section) · 2 quel thème (étudiants, enseignants et personnel, finances, tout) · 3 pour qui (CA, équipe pédagogique,
 CE / CPPT, COPIL, pour moi) ; `BLOCS` (clé, thème, portée, nominatif, direction seule) et `PUBLICS` (thèmes, `sans`, `nominatif: false`) ;
 `blocsProposes()` ; on décoche, « Composer » rend les écrans existants (aucun recalcul). **Un écran de Gestion nouveau s'ajoute à `BLOCS`.**
-À venir (étape 2) : enregistrer en dossier, sortir en dossier imprimé et en présentation.
+3.5.503 — COMPOSER, ÉTAPE 2 : « Mes dossiers » (table `gestion_dossier`, routes `/api/pilotage/dossiers` : chacun les siens, la direction
+tous ; réglages contrôlés par `reglagesDossier`) — rouvrir, mettre à jour, enregistrer comme nouveau, supprimer (la composition, jamais
+les données). Sortir : « Lire à l'écran » ; « Dossier imprimé » = face `composer` de l'aperçu de Gestion (`CompositionBlocs`, mêmes outils :
+choisir les blocs, PDF) — pour COPIL d'une section, le dossier COPIL existant ; « Présentation » (direction, une section) ouvre la
+présentation avec le public correspondant (`lucie.presentation.public`, appliqué une fois par `appliquerPublic`).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
