@@ -567,13 +567,16 @@ export default function Pilotage({ vue = 'tout' }) {
      de la section). `?copil=1` l'ouvre (depuis Éditions → Gestion). */
   const [copilFenetre, setCopilFenetre] = useState(() => new URLSearchParams(window.location.search).get('copil') === '1');
   const [copil, setCopil] = useState(() => { let sec = 'TIM'; try { sec = JSON.parse(localStorage.getItem('lucie.gestionLecture') || '{}').section || 'TIM'; } catch { /* */ }
-    return { section: sec, parties: PARTIES_COPIL.map(p => p[0]), textes: {} }; });
+    return { section: sec, parties: PARTIES_COPIL.map(p => p[0]), textes: {}, annees: {} }; });
   const [copilSections, setCopilSections] = useState([]);
   const [copilEtat, setCopilEtat] = useState('');
   useEffect(() => {
     if (!copilFenetre) return;
     import('../lib/api.js').then(({ api }) => api.sections().then(l => setCopilSections((l || []).map(s => s.code).filter(Boolean))).catch(() => {}));
-  }, [copilFenetre]);
+    // Les résultats : par défaut, l'année d'avant — celle dont les délibérations sont tenues (3.5.486).
+    const prec = `${Number(String(anneeActive).slice(0, 4)) - 1}-${Number(String(anneeActive).slice(5, 9)) - 1}`;
+    setCopil(c => (c.annees.reussite ? c : { ...c, annees: { ...c.annees, reussite: prec } }));
+  }, [copilFenetre]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!copilFenetre || !copil.section) return;
     fetch(`/api/pilotage/presentation/${encodeURIComponent(copil.section)}`, { headers: authHeaders() })
@@ -1611,7 +1614,7 @@ export default function Pilotage({ vue = 'tout' }) {
     /* UNE SECTION, L'ÉCOLE, IIP ET HELB À L'IMPRESSION (3.5.482, Charles : « je veux pouvoir imprimer "une section", où se situe le
        TIM, puis la charge ETP sans coordination, avec coordination, avec admin… à la carte ») : les pages telles qu'à l'écran (même
        section, mêmes réglages, gardés par la page) ; « Choisir les blocs » de l'aperçu retire ce qu'on ne veut pas. */
-    : k === 'copil' ? <DossierCopil annee={anneeActive} section={copil.section} parties={copil.parties} textes={copil.textes} />
+    : k === 'copil' ? <DossierCopil annee={anneeActive} section={copil.section} parties={copil.parties} textes={copil.textes} annees={copil.annees} />
     : k === 'section' ? <GestionLecture annee={anneeActive} perimFixe="section" />
     : k === 'ecole' ? <GestionLecture annee={anneeActive} perimFixe="etab" />
     : k === 'iip-helb' ? <IipHelbGestion />
@@ -1661,7 +1664,8 @@ export default function Pilotage({ vue = 'tout' }) {
           ? (el.querySelector('.titre-carte, .text-base.font-semibold')?.textContent || el.textContent).trim().slice(0, 70)
           : `Tuile · ${(nomTuile || el.textContent.trim()).slice(0, 60)}`;
         // Une tuile DANS une carte se range sous elle, en retrait.
-        out.push({ id: el.dataset.bloc, partie: nomPartie, titre, dans: !el.classList.contains('carte') && !!el.closest('.carte'), exclu: el.classList.contains('exclu-impression') });
+        // Dans le dossier du COPIL, chaque bloc se range sous SA partie (« 1.2 Provenance »), pas sous le titre du dossier (3.5.486).
+        out.push({ id: el.dataset.bloc, partie: el.closest('[data-copil-partie]')?.dataset.copilPartie || nomPartie, titre, dans: !el.classList.contains('carte') && !!el.closest('.carte'), exclu: el.classList.contains('exclu-impression') });
       }
     }
     setElements(out);
@@ -1840,6 +1844,21 @@ thead { display: table-header-group; }
                   <span>{num} {titre}</span>
                 </label>))}
             </div>
+            {/* L'ANNÉE DE CHAQUE PARTIE (3.5.486) : les résultats d'une année close, la population de l'année en cours… */}
+            <div>
+              <div className="intertitre mb-1">Les années</div>
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {[['population', 'Population (1.1, 1.2)', ['inscriptions', 'provenance']], ['positionnement', 'Positionnement (2.2)', ['positionnement']], ['reussite', 'Résultats (3)', ['reussite']]]
+                  .filter(([, , ks]) => ks.some(k => copil.parties.includes(k))).map(([k, lib]) => (
+                    <label key={k} className="flex items-center gap-2 text-sm">
+                      <span>{lib}</span>
+                      <select className="controle" value={copil.annees[k] || anneeActive} onChange={e => setCopil(c => ({ ...c, annees: { ...c.annees, [k]: e.target.value } }))}>
+                        {[...new Set([anneeActive, ...anneesScolaires])].sort().reverse().map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </label>))}
+              </div>
+              <p className="text-mention text-slate-500 m-0 mt-1">Les attributions (2.1) couvrent toujours toutes les années depuis l’ouverture.</p>
+            </div>
             {[['copil.dp', '4. Évolution du dossier pédagogique (à venir)', 'dp'], ['copil.divers', '5. Divers', 'divers']].filter(([, , k]) => copil.parties.includes(k)).map(([cle, lib]) => (
               <label key={cle} className="block space-y-1">
                 <span className="intertitre">{lib}</span>
@@ -1931,7 +1950,9 @@ thead { display: table-header-group; }
               </div>
               {[...new Set(elements.map(x => x.partie))].map(p => (
                 <div key={p} className="mb-2">
-                  <div className="intertitre mb-1">{p}</div>
+                  <div className="flex items-center gap-2 mb-1"><span className="intertitre flex-1 min-w-0">{p}</span>
+                    <button type="button" className="text-iip-blue underline text-mention" onClick={() => elements.filter(x => x.partie === p).forEach(x => cocherElement(x.id, true))}>tous</button>
+                    <button type="button" className="text-iip-blue underline text-mention" onClick={() => elements.filter(x => x.partie === p).forEach(x => cocherElement(x.id, false))}>aucun</button></div>
                   {elements.filter(x => x.partie === p).map(x => (
                     <label key={x.id} className={`flex items-start gap-2 py-0.5 cursor-pointer ${x.dans ? 'pl-5 text-xs' : ''} ${x.exclu ? 'text-slate-400 line-through' : ''}`}>
                       <input type="checkbox" className="mt-0.5" checked={!x.exclu} onChange={e => cocherElement(x.id, e.target.checked)} />
