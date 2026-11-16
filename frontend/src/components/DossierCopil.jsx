@@ -67,7 +67,7 @@ const court = a => `${String(a).slice(0, 4)}-${String(a).slice(7, 9)}`;
 
 /* Les enseignants depuis l'ouverture : les chiffres de GET /api/pilotage/evolution-attributions (ceux de la pièce IIP et HELB et de la
    présentation). */
-function EnseignantsDepuis({ section }) {
+export function EnseignantsDepuis({ section }) {
   const [d, setD] = useState(null);
   useEffect(() => {
     fetch(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}&cout=${(() => { try { const c = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages?.mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })()}`, { headers: authHeaders() })

@@ -35,9 +35,10 @@ export function useBudgetCompare(annees) {
   return c;
 }
 
-function Compare({ section, c }) {
-  const S = c.sections.find(x => x.section === section) || null;
+export function Compare({ section, c }) {
   const M = c.moyenne || {}, A = c.asbl;
+  // Sans section (l'école) : les tuiles portent la moyenne des sections.
+  const S = section ? c.sections.find(x => x.section === section) || null : { ...M, historique: [] };
   const lignes = [...c.sections].filter(x => x.prevu_etudiant != null || x.realise_etudiant != null).sort((a, b) => (b.prevu_etudiant || 0) - (a.prevu_etudiant || 0));
   const max = Math.max(1, ...lignes.map(x => x.prevu_etudiant || 0));
   const comp = (v, m, inverse = false) => (v == null || m == null ? 'neutre' : (inverse ? v <= m : v >= m) ? 'reussi' : 'surveiller');
@@ -133,4 +134,12 @@ export default function BudgetSection({ section, annees = null }) {
           </div>);
       })}
     </div>);
+}
+
+/* LE BUDGET DE L'ÉCOLE (3.5.502) : le tableau comparé de toutes les sections, l'année civile en cours et la suivante. */
+export function BudgetEcole() {
+  const y0 = new Date().getFullYear();
+  const c = useBudgetCompare([y0, y0 + 1]);
+  if (!c[y0] && !c[y0 + 1]) return <p className="text-second text-slate-400">Lecture du budget…</p>;
+  return <div className="space-y-4">{[y0, y0 + 1].filter(a => c[a]).map(a => <div key={a} className="space-y-3"><h3 className="intertitre m-0">{a}</h3><Compare section={null} c={c[a]} /></div>)}</div>;
 }

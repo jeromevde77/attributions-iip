@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette, IconPresentation } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette, IconPresentation, IconWand } from '@tabler/icons-react';
+import ComposerGestion from '../components/ComposerGestion.jsx';
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
@@ -540,7 +541,7 @@ export default function Pilotage({ vue = 'tout' }) {
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
   const [tab, setTab]               = useState(() => (vue === 'reporting' ? 'etp'
-    : ({ lecture: 'ecole' }[new URLSearchParams(window.location.search).get('onglet')] || new URLSearchParams(window.location.search).get('onglet') || 'ecole')));
+    : ({ lecture: 'ecole' }[new URLSearchParams(window.location.search).get('onglet')] || new URLSearchParams(window.location.search).get('onglet') || 'composer')));
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -1576,6 +1577,8 @@ export default function Pilotage({ vue = 'tout' }) {
      section — positionnement, comptes de l'ASBL, enseignants, coûts et financement IIP / HELB. Seule « Budget et frais » garde des
      onglets, trois pages de nature différente. Une face cachée porte un troisième élément : true. */
   const RUBRIQUES = [
+    /* COMPOSER (3.5.502, Charles : « penser à ce que l'on veut faire ») : la porte d'entrée de Gestion. */
+    { key: 'g-composer', label: 'Composer', icon: IconWand, faces: [['composer', 'Composer']] },
     { key: 'g-ecole', label: 'L’école', icon: IconChartInfographic, faces: [
       ['ecole', 'L’école'],
       ['population-ecole', 'Qui sont nos étudiants', true], ['population', 'Places par unité', true], !coord && ['presences-ue', 'Présences par UE', true],
@@ -2101,6 +2104,9 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
+        ) : tab === 'composer' ? (
+          <PageHeader icon={IconWand} titre="Composer"
+            sous="Sur quoi, quel thème, pour qui : Lucie propose ce qu’il faut sortir" />
         ) : tab === 'ecole' || tab === 'lecture' ? (
           <PageHeader icon={IconChartInfographic} titre="L’école"
             sous="L’Institut, section par section, face à l’IIP, l’ASBL ou l’année d’avant ; les tableaux détaillés en bas de page" />
@@ -2189,6 +2195,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             </>}
             {tab === 'section' && <GestionLecture annee={anneeActive} perimFixe="section" onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
             {tab === 'sources' && <SourcesReference />}
+            {tab === 'composer' && <ComposerGestion annee={anneeActive} direction={direction} />}
             {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
             {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} initial={choixDelib} onChoix={setChoixDelib} />}
