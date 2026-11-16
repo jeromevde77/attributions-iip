@@ -1937,9 +1937,9 @@ thead { display: table-header-group; }
             {tab === 'etp-annees' && <EtpPlusieursAnnees />}
             {tab === 'iip-helb' && <IipHelbGestion />}
             {(tab === 'ecole' || tab === 'lecture') && <>
-              <GestionLecture annee={anneeActive} perimFixe="etab" onOuvrirSection={() => setTab('section')} onSources={direction ? () => setTab('sources') : null} />
-              {/* LES TABLEAUX DÉTAILLÉS DE L'ÉCOLE (3.5.474) : ce qui était en sous-menus, ici en sommaire. */}
-              <section className="carte overflow-hidden">
+              {/* LES TABLEAUX DÉTAILLÉS DE L'ÉCOLE (3.5.474) : ce qui était en sous-menus, ici en sommaire —
+                 EN TÊTE de la page depuis 3.5.478 (Charles : « j'ai l'impression de ne pas avoir accès à tout »). */}
+              <section className="carte overflow-hidden mb-4">
                 <EnteteCarte titre="Les tableaux détaillés" sous="Chaque lien ouvre son tableau ; « ← L’école » y ramène" />
                 <div className="grid gap-x-8 gap-y-1 p-4 sm:grid-cols-2 lg:grid-cols-4">
                   {[['Les étudiants', ['population-ecole', 'population', 'presences-ue']], ['La réussite', ['deliberation', 'distributions']],
@@ -1954,6 +1954,7 @@ thead { display: table-header-group; }
                     })}
                 </div>
               </section>
+              <GestionLecture annee={anneeActive} perimFixe="etab" onOuvrirSection={() => setTab('section')} onSources={direction ? () => setTab('sources') : null} />
             </>}
             {tab === 'section' && <GestionLecture annee={anneeActive} perimFixe="section" onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
             {tab === 'sources' && <SourcesReference />}

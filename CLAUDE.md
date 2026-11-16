@@ -4364,7 +4364,7 @@ par école et par année (part des experts et invités). **Gestion sans sous-men
 trois fenêtres » ; maquette A retenue) : six entrées — L'école (`ecole` : Lire et comparer de l'établissement + « Les tableaux
 détaillés », les anciennes faces CACHÉES, troisième élément `true`, avec « ← L'école »), Une section (`section` : la fiche — ancres,
 positionnement, comptes, pistes, enseignants/coûts/financement IIP-HELB pour toute section, direction), Présenter, Budget et frais
-(seule entrée à onglets), Qualité, Les sources. `GestionLecture` prend `perimFixe` et `onOuvrirSection` ; `onglet=lecture` → `ecole`. **La présentation se compose selon le public** (3.5.475, Charles : « choisir via un menu ce qui sera
+(seule entrée à onglets), Qualité, Les sources. `GestionLecture` prend `perimFixe` et `onOuvrirSection` ; `onglet=lecture` → `ecole`. Le sommaire des tableaux détaillés est EN TÊTE de L'école (3.5.478 : en bas de page, on croyait qu'ils avaient disparu). **La présentation se compose selon le public** (3.5.475, Charles : « choisir via un menu ce qui sera
 dans les slides parmi tout ce qui est possible ; adapter en fonction du public ») : « Choisir les diapositives » — une case par
 diapositive (`composer(D, T, { tout: true })` donne le catalogue, chaque diapositive porte `titre`), quatre publics de départ
 (CA, équipe pédagogique, public extérieur, les chiffres seuls) qui adaptent aussi la ligne de couverture ; gardé par section dans
