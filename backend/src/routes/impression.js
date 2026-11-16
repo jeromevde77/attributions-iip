@@ -292,7 +292,7 @@ r.post('/pdf', authRequired, async (req, res) => {
     // Une pièce qui porte sa propre page (le diplôme) n'a ni pied ni marge :
     // c'est son @page qui décide, pas le centre.
     const pageCss = !!page_css && !pied;
-    const pdf = await rendrePdf(html, {
+    let pdf = await rendrePdf(html, {
       pagination: pageCss ? 'jamais' : (pagination || 'si-plusieurs'),
       pied: gabarit,
       orientation: orientation === 'paysage' ? 'paysage' : 'portrait',
@@ -300,6 +300,15 @@ r.post('/pdf', authRequired, async (req, res) => {
       ...(pied ? { marges: { top: '12mm', right: '15mm',
                              bottom: `${margeBasse}mm`, left: '15mm' } } : {}),
     });
+    /* UNE COUVERTURE PLEINE PAGE (3.5.489, dossier du COPIL — Charles : « la première page n'est pas pleine ») : rendue à part,
+       par son propre @page (sans marge ni pied), puis posée devant le document ; la pagination du corps ne la compte pas. */
+    if (req.body?.couverture_html) {
+      const couv = await rendrePdf(String(req.body.couverture_html), { pageCss: true, pagination: 'jamais' });
+      const { PDFDocument } = await import('pdf-lib');
+      const doc = await PDFDocument.create();
+      for (const b of [couv, pdf]) { const d = await PDFDocument.load(b); (await doc.copyPages(d, d.getPageIndices())).forEach(pg => doc.addPage(pg)); }
+      pdf = Buffer.from(await doc.save());
+    }
     const fichier = String(nom || 'document').replace(/[^A-Za-z0-9_.-]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fichier}.pdf"`);
