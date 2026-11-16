@@ -556,6 +556,9 @@ export default function Pilotage({ vue = 'tout' }) {
   const [choixPop, setChoixPop] = useState({ section: '', sle: 'compris', nouveaux: false, sections: [] });
   const [popSections, setPopSections] = useState(null);
   const [sectionsRef, setSectionsRef] = useState([]);
+  // NOTRE PERSONNEL, PAR SECTION (3.5.481) : même règle.
+  const [choixPers, setChoixPers] = useState({ section: '', sections: [] });
+  const [persSections, setPersSections] = useState(null);
   const imprime = k => !!facesImprimees?.includes(k);
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
@@ -1551,7 +1554,14 @@ export default function Pilotage({ vue = 'tout' }) {
             <PopulationEcole annee={anneeActive} initial={{ ...choixPop, section: sec }} />
           </div>))}
       </div>)
-    : k === 'personnel-ecole' ? <PersonnelEcole annee={anneeActive} />
+    : k === 'personnel-ecole' ? (
+      <div className="space-y-4">
+        {(persSections?.length ? persSections : [choixPers.section]).map((sec, i) => (
+          <div key={sec || 'ecole'} className="space-y-3" style={{ breakBefore: i ? 'page' : 'auto' }}>
+            {(persSections?.length || 0) > 1 && <div className="intertitre">{sec ? String(sec).replace(/_/g, ' ') : 'Toute l’école'}</div>}
+            <PersonnelEcole annee={anneeActive} initial={{ section: sec }} />
+          </div>))}
+      </div>)
     : k === 'rapport' ? <RapportStatistique annee={anneeActive} />
     : k === 'repartition' ? <RepartitionPeriodes annee={anneeActive} />
     : k === 'distributions' ? <Distributions annee={anneeActive} />
@@ -1783,27 +1793,30 @@ thead { display: table-header-group; }
                   </div>
                 </div>);
             })}
-            {choixImpression.has('population-ecole') && (() => {
-              const liste = ['', ...(choixPop.sections.length ? choixPop.sections : sectionsRef)];
-              const coches = new Set(popSections || [choixPop.section]);
-              const basculer = k => setPopSections(() => { const n = new Set(coches); n.has(k) ? n.delete(k) : n.add(k); return liste.filter(x => n.has(x)); });
-              return (
-                <div className="border-t border-slate-200 pt-3">
-                  <div className="intertitre">Qui sont nos étudiants : pour qui ?</div>
-                  <p className="text-mention text-slate-500 m-0 mb-1">Une page par choix{choixPop.sle === 'exclus' || choixPop.nouveaux ? ` · ${[choixPop.nouveaux ? 'nouveaux étudiants' : '', choixPop.sle === 'exclus' ? 'SLE exclus' : ''].filter(Boolean).join(' · ')}, comme à l’écran` : ''}.</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    {liste.map(k => (
-                      <label key={k || 'ecole'} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" checked={coches.has(k)} onChange={() => basculer(k)} />
-                        {k ? String(k).replace(/_/g, ' ') : 'Toute l’école'}
-                      </label>))}
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <button type="button" className="bouton" onClick={() => setPopSections(liste.filter(Boolean))}>Chaque section</button>
-                    <button type="button" className="bouton" onClick={() => setPopSections(liste)}>L’école et chaque section</button>
-                  </div>
-                </div>);
-            })()}
+            {[['population-ecole', 'Qui sont nos étudiants', choixPop, popSections, setPopSections,
+                choixPop.sle === 'exclus' || choixPop.nouveaux ? ` · ${[choixPop.nouveaux ? 'nouveaux étudiants' : '', choixPop.sle === 'exclus' ? 'SLE exclus' : ''].filter(Boolean).join(' · ')}, comme à l’écran` : ''],
+              ['personnel-ecole', 'Notre personnel', choixPers, persSections, setPersSections, ' · une section porte sa comparaison à l’IIP et à l’ASBL']]
+              .filter(([face]) => choixImpression.has(face)).map(([face, nomFace, choix, choisies, poser, note]) => {
+                const liste = ['', ...(choix.sections.length ? choix.sections : sectionsRef)];
+                const coches = new Set(choisies || [choix.section]);
+                const basculer = k => { const n = new Set(coches); n.has(k) ? n.delete(k) : n.add(k); poser(liste.filter(x => n.has(x))); };
+                return (
+                  <div key={face} className="border-t border-slate-200 pt-3">
+                    <div className="intertitre">{nomFace} : pour qui ?</div>
+                    <p className="text-mention text-slate-500 m-0 mb-1">Une page par choix{note}.</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {liste.map(k => (
+                        <label key={k || 'ecole'} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input type="checkbox" checked={coches.has(k)} onChange={() => basculer(k)} />
+                          {k ? String(k).replace(/_/g, ' ') : 'Toute l’école'}
+                        </label>))}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <button type="button" className="bouton" onClick={() => poser(liste.filter(Boolean))}>Chaque section</button>
+                      <button type="button" className="bouton" onClick={() => poser(liste)}>L’école et chaque section</button>
+                    </div>
+                  </div>);
+              })}
             <div className="flex gap-2">
               <button type="button" className="bouton" onClick={() => setChoixImpression(new Set(IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k))))}>Tout cocher</button>
               <button type="button" className="bouton" onClick={() => setChoixImpression(new Set())}>Tout décocher</button>
@@ -1872,8 +1885,8 @@ thead { display: table-header-group; }
               </div>)}
             <span className="flex-1" />
             {tab !== 'mes-frais' && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
-              onClick={() => { setPopSections([choixPop.section]); setChoixImpression(new Set([tab].filter(k => k !== 'config')));
-                if (!choixPop.sections.length && !sectionsRef.length) import('../lib/api.js').then(({ api }) => api.sections().then(l => setSectionsRef((l || []).map(s => s.code))).catch(() => {})); }}>
+              onClick={() => { setPopSections([choixPop.section]); setPersSections([choixPers.section]); setChoixImpression(new Set([tab].filter(k => k !== 'config')));
+                if (!(choixPop.sections.length && choixPers.sections.length) && !sectionsRef.length) import('../lib/api.js').then(({ api }) => api.sections().then(l => setSectionsRef((l || []).map(s => s.code))).catch(() => {})); }}>
               <IconPrinter size={15} /> Imprimer des parties…</button>}
             {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
             {tab === 'mes-frais' ? null : ['budget', 'dotation'].includes(tab)
@@ -1938,7 +1951,7 @@ thead { display: table-header-group; }
         {tab === 'population-ecole' ? (
           <PopulationEcole annee={anneeActive} initial={choixPop} onChoix={setChoixPop} />
         ) : tab === 'personnel-ecole' ? (
-          <PersonnelEcole annee={anneeActive} />
+          <PersonnelEcole annee={anneeActive} initial={choixPers} onChoix={setChoixPers} />
         ) : tab === 'rapport' ? (
           <RapportStatistique annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'repartition' ? (

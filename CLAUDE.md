@@ -4389,6 +4389,10 @@ IIP et HELB (Éditions → Gestion) et par deux diapositives de la Présentation
 **Qui sont nos étudiants, par section** (3.5.480, Charles : « je veux pouvoir imprimer par section ») : l'impression suit la section,
 SLE et nouveaux choisis à l'écran (`initial`, `onChoix` de `PopulationEcole`) ; la fenêtre « Imprimer des parties » demande pour qui —
 l'école, une ou plusieurs sections, une page chacune (`popSections` de Pilotage.jsx).
+**Notre personnel, par section et comparé** (3.5.481, Charles : « jeudi je ne vais parler que du TIM, et le comparer aux données de
+l'IIP ou de l'ASBL ») : même impression par section (`persSections`) ; une section choisie porte la carte « comparée à l'IIP et à
+l'ASBL » (`Compare` de `PersonnelEcole.jsx`) — profil face à l'IIP, ASBL seulement pour ce qui se compte en ETP (Lire et comparer) :
+Lucie n'a pas les fiches du personnel de la HELB.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
