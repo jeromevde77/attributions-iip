@@ -74,14 +74,15 @@ const Verdict = ({ etat, children }) => <PastilleEtat etat={etat}>{children}</Pa
    `onOuvrirSection` : un clic sur une section de l'école ouvre sa fiche. En fiche de section, des ancres sautent aux parties, et la
    charge, les coûts, la balance IIP / HELB (la page IIP et HELB) suivent pour TOUTES les sections — direction seule. */
 // `sectionFixe`, `sansIipHelb` (3.5.485, dossier du COPIL) : la section imposée, et sans la page IIP et HELB (le dossier la montre ailleurs).
-export default function GestionLecture({ annee: anneeProp, onPresenter, onSources, perimFixe = null, onOuvrirSection = null, sectionFixe = null, sansIipHelb = false }) {
+export default function GestionLecture({ annee: anneeProp, onPresenter, onSources, perimFixe = null, onOuvrirSection = null, sectionFixe = null, sansIipHelb = false, lentilleFixe = null }) {
   const memo = useMemo(lire, []);
   const annee = anneeProp || getAnnee();
   const [perimChoisi, setPerim] = useState(memo.perim || 'etab');
   const perim = perimFixe || perimChoisi;
   const [sectionMemo, setSection] = useState(memo.section || 'TIM');
   const section = sectionFixe || sectionMemo;
-  const [lentille, setLentille] = useState(memo.lentille || 'tout');
+  // `lentilleFixe` (3.5.502) : le composeur de Gestion ouvre la lecture sur le thème choisi.
+  const [lentille, setLentille] = useState(lentilleFixe || memo.lentille || 'tout');
   const [ref, setRef] = useState(memo.ref === 'HELB' ? 'ASBL' : memo.ref || 'IIP');
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);

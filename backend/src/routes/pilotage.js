@@ -585,6 +585,46 @@ r.delete('/sources/:id', authRequired, (req, res) => {
    menaces, ce qu'on demande au CA, titres retouchés —, gardés par section dans lucie_config « presentation:<section> ». Direction. */
 const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
 const clePresentation = s => `presentation:${String(s || '').slice(0, 40)}`;
+
+/* LES DOSSIERS DE GESTION (3.5.503, Charles : « les deux » — composer par trois questions, et chaque composition s'enregistre comme un
+   dossier qu'on rouvre). Un dossier garde ses réponses et ses blocs retirés ; il se recalcule avec les données du jour. Chacun voit les
+   siens ; la direction voit tous ceux de l'école. */
+db.exec(`CREATE TABLE IF NOT EXISTS gestion_dossier (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, reglages TEXT NOT NULL,
+  cree_par_id INTEGER, cree_par TEXT, cree_le TEXT DEFAULT (datetime('now')), maj_le TEXT DEFAULT (datetime('now')))`);
+const reglagesDossier = b => {
+  const r = b?.reglages || {};
+  const ok = (v, l) => (l.includes(v) ? v : l[0]);
+  return { sur: ok(r.sur, ['section', 'ecole']), section: String(r.section || '').slice(0, 60), theme: ok(r.theme, ['tout', 'etu', 'ens', 'fin']),
+    pub: ok(r.pub, ['moi', 'ca', 'equipe', 'cppt', 'copil']), retires: (Array.isArray(r.retires) ? r.retires : []).map(String).filter(x => /^[a-z-]{1,30}$/.test(x)).slice(0, 40) };
+};
+const dossierPermis = (req, d) => d && (DIRECTION.includes(req.user?.role) || d.cree_par_id === req.user?.id);
+r.get('/dossiers', authRequired, (req, res) => {
+  const L = DIRECTION.includes(req.user?.role)
+    ? db.prepare('SELECT * FROM gestion_dossier ORDER BY maj_le DESC').all()
+    : db.prepare('SELECT * FROM gestion_dossier WHERE cree_par_id = ? ORDER BY maj_le DESC').all(req.user?.id);
+  res.json(L.map(d => ({ ...d, reglages: (() => { try { return JSON.parse(d.reglages); } catch { return {}; } })(), mien: d.cree_par_id === req.user?.id })));
+});
+r.post('/dossiers', authRequired, (req, res) => {
+  const nom = String(req.body?.nom || '').trim().slice(0, 120);
+  if (!nom) return res.status(400).json({ error: 'Donnez un nom au dossier.' });
+  const x = db.prepare('INSERT INTO gestion_dossier (nom, reglages, cree_par_id, cree_par) VALUES (?, ?, ?, ?)')
+    .run(nom, JSON.stringify(reglagesDossier(req.body)), req.user?.id ?? null, req.user?.nom_complet || req.user?.email || null);
+  res.json({ id: x.lastInsertRowid });
+});
+r.put('/dossiers/:id', authRequired, (req, res) => {
+  const d = db.prepare('SELECT * FROM gestion_dossier WHERE id = ?').get(Number(req.params.id));
+  if (!dossierPermis(req, d)) return res.status(404).json({ error: 'Dossier introuvable.' });
+  const nom = String(req.body?.nom || d.nom).trim().slice(0, 120) || d.nom;
+  db.prepare("UPDATE gestion_dossier SET nom = ?, reglages = ?, maj_le = datetime('now') WHERE id = ?").run(nom, JSON.stringify(reglagesDossier(req.body)), d.id);
+  res.json({ ok: true });
+});
+r.delete('/dossiers/:id', authRequired, (req, res) => {
+  const d = db.prepare('SELECT * FROM gestion_dossier WHERE id = ?').get(Number(req.params.id));
+  if (!dossierPermis(req, d)) return res.status(404).json({ error: 'Dossier introuvable.' });
+  db.prepare('DELETE FROM gestion_dossier WHERE id = ?').run(d.id);
+  res.json({ ok: true });
+});
 r.get('/presentation/:section', authRequired, (req, res) => {
   if (!DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
   let v = null;

@@ -4469,6 +4469,20 @@ l'année civile en cours et la suivante ; fiche, COPIL, présentation). `GET /ap
 du module ; enveloppe brute et coussin pour la direction seulement) ; `components/BudgetSection.jsx` (tuiles + lignes, total en tête) monté
 dans Une section (ancre « Budget prévu », direction), partie « 5 Budget prévu » du dossier COPIL (Divers devient 6 ; un modèle enregistré
 avant reçoit la partie d'office — `connues` du modèle), diapositive `budget` de la présentation (masquée pour l'équipe et le public extérieur).
+3.5.501 (Charles : « pour le budget, toujours un indicateur par rapport aux autres sections et l'ASBL, historique et actualisé (bilans,
+gestion interne dans Lucie) » ; maquette « Gestion repensée » validée : entrée en trois questions + dossiers enregistrés, À CONSTRUIRE).
+`lib/budgetCompare.js` (`budgetCompare(annee)`, `GET /api/budget/compare`) : prévu / étudiant (effectif figé du budget), réalisé / étudiant
+(postes de la section dans la synthèse de l'ASBL, dernier exercice réalisé complet, historique), exécution (engagé ÷ prévu), investissements
+/ étudiant ; moyenne des sections Σ ÷ Σ ; ASBL = ses charges ÷ (inscrits HELB + effectifs IIP). Montré en tête de la partie Budget prévu.
+3.5.502 — COMPOSER, ÉTAPE 1 (maquette « Gestion repensée » validée) : Gestion s'ouvre sur « Composer » (`components/ComposerGestion.jsx`) —
+1 sur quoi (l'école / une section) · 2 quel thème (étudiants, enseignants et personnel, finances, tout) · 3 pour qui (CA, équipe pédagogique,
+CE / CPPT, COPIL, pour moi) ; `BLOCS` (clé, thème, portée, nominatif, direction seule) et `PUBLICS` (thèmes, `sans`, `nominatif: false`) ;
+`blocsProposes()` ; on décoche, « Composer » rend les écrans existants (aucun recalcul). **Un écran de Gestion nouveau s'ajoute à `BLOCS`.**
+3.5.503 — COMPOSER, ÉTAPE 2 : « Mes dossiers » (table `gestion_dossier`, routes `/api/pilotage/dossiers` : chacun les siens, la direction
+tous ; réglages contrôlés par `reglagesDossier`) — rouvrir, mettre à jour, enregistrer comme nouveau, supprimer (la composition, jamais
+les données). Sortir : « Lire à l'écran » ; « Dossier imprimé » = face `composer` de l'aperçu de Gestion (`CompositionBlocs`, mêmes outils :
+choisir les blocs, PDF) — pour COPIL d'une section, le dossier COPIL existant ; « Présentation » (direction, une section) ouvre la
+présentation avec le public correspondant (`lucie.presentation.public`, appliqué une fois par `appliquerPublic`).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

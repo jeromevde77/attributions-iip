@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette, IconPresentation } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette, IconPresentation, IconWand } from '@tabler/icons-react';
+import ComposerGestion, { CompositionBlocs } from '../components/ComposerGestion.jsx';
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
@@ -540,7 +541,7 @@ export default function Pilotage({ vue = 'tout' }) {
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
   const [tab, setTab]               = useState(() => (vue === 'reporting' ? 'etp'
-    : ({ lecture: 'ecole' }[new URLSearchParams(window.location.search).get('onglet')] || new URLSearchParams(window.location.search).get('onglet') || 'ecole')));
+    : ({ lecture: 'ecole' }[new URLSearchParams(window.location.search).get('onglet')] || new URLSearchParams(window.location.search).get('onglet') || 'composer')));
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -553,6 +554,7 @@ export default function Pilotage({ vue = 'tout' }) {
   // IMPRIMER DES PARTIES DE LA GESTION (Charles, 14 octobre 2026) : le choix, puis l'aperçu composé.
   const [choixImpression, setChoixImpression] = useState(null);   // Set des faces cochées, fenêtre ouverte
   const [facesImprimees, setFacesImprimees] = useState(null);     // faces de l'aperçu
+  const [compoImprimee, setCompoImprimee] = useState(null);        // la composition du composeur à imprimer (3.5.503)
   // QUI SONT NOS ÉTUDIANTS, PAR SECTION (3.5.480) : ce que l'écran montre, et les sections cochées pour l'impression ('' = l'école).
   const [choixPop, setChoixPop] = useState({ section: '', sle: 'compris', nouveaux: false, sections: [] });
   const [popSections, setPopSections] = useState(null);
@@ -1576,6 +1578,8 @@ export default function Pilotage({ vue = 'tout' }) {
      section — positionnement, comptes de l'ASBL, enseignants, coûts et financement IIP / HELB. Seule « Budget et frais » garde des
      onglets, trois pages de nature différente. Une face cachée porte un troisième élément : true. */
   const RUBRIQUES = [
+    /* COMPOSER (3.5.502, Charles : « penser à ce que l'on veut faire ») : la porte d'entrée de Gestion. */
+    { key: 'g-composer', label: 'Composer', icon: IconWand, faces: [['composer', 'Composer']] },
     { key: 'g-ecole', label: 'L’école', icon: IconChartInfographic, faces: [
       ['ecole', 'L’école'],
       ['population-ecole', 'Qui sont nos étudiants', true], ['population', 'Places par unité', true], !coord && ['presences-ue', 'Présences par UE', true],
@@ -1642,15 +1646,17 @@ export default function Pilotage({ vue = 'tout' }) {
     /* UNE SECTION, L'ÉCOLE, IIP ET HELB À L'IMPRESSION (3.5.482, Charles : « je veux pouvoir imprimer "une section", où se situe le
        TIM, puis la charge ETP sans coordination, avec coordination, avec admin… à la carte ») : les pages telles qu'à l'écran (même
        section, mêmes réglages, gardés par la page) ; « Choisir les blocs » de l'aperçu retire ce qu'on ne veut pas. */
+    : k === 'composer' && compoImprimee ? <CompositionBlocs annee={anneeActive} compo={compoImprimee} direction={direction} />
     : k === 'copil' ? <DossierCopil annee={anneeActive} section={copil.section} parties={copil.parties} textes={copil.textes} annees={copil.annees} />
     : k === 'section' ? <GestionLecture annee={anneeActive} perimFixe="section" />
     : k === 'ecole' ? <GestionLecture annee={anneeActive} perimFixe="etab" />
     : k === 'iip-helb' ? <IipHelbGestion />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'composer' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
   // Le titre d'une partie imprimée : la rubrique, puis la face — une fois si elles portent le même nom ; « Une section » dit laquelle (3.5.483).
   const libelleFace = k => {
+    if (k === 'composer') return compoImprimee?.titre || 'Composition';
     if (k === 'copil') return `Dossier pour le comité de pilotage — ${String(copil.section).replace(/_/g, ' ')}`;
     if (k === 'section') { let sec = ''; try { sec = JSON.parse(localStorage.getItem('lucie.gestionLecture') || '{}').section || ''; } catch { /* */ } return sec ? `Une section — ${String(sec).replace(/_/g, ' ')}` : 'Une section'; }
     for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return r.label === f[1] ? f[1] : `${r.label} — ${f[1]}`; }
@@ -2101,6 +2107,9 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
+        ) : tab === 'composer' ? (
+          <PageHeader icon={IconWand} titre="Composer"
+            sous="Sur quoi, quel thème, pour qui : Lucie propose ce qu’il faut sortir" />
         ) : tab === 'ecole' || tab === 'lecture' ? (
           <PageHeader icon={IconChartInfographic} titre="L’école"
             sous="L’Institut, section par section, face à l’IIP, l’ASBL ou l’année d’avant ; les tableaux détaillés en bas de page" />
@@ -2189,6 +2198,10 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             </>}
             {tab === 'section' && <GestionLecture annee={anneeActive} perimFixe="section" onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
             {tab === 'sources' && <SourcesReference />}
+            {tab === 'composer' && <ComposerGestion annee={anneeActive} direction={direction}
+              onImprimer={c => { setCompoImprimee(c); setFacesImprimees(['composer']); setChoisirBlocs(false); setNbRetires(0); }}
+              onCopil={sec => { setCopil(c => ({ ...c, section: sec })); setCopilFenetre(true); }}
+              onPresenter={(sec, pub) => { try { localStorage.setItem('lucie.presentation', sec); if (pub) localStorage.setItem('lucie.presentation.public', pub); } catch { /* */ } setTab('presentation'); }} />}
             {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
             {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} initial={choixDelib} onChoix={setChoixDelib} />}
