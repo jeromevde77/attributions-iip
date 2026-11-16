@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, couleurSerie } from './graphiques.jsx';
-import { TuileEtat } from './ui.jsx';
+import { TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 import { RatiosEtp } from './RapportStatistique.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -25,11 +25,23 @@ function Carte({ titre, sous, children }) {
     </section>);
 }
 
-export default function PersonnelEcole({ annee: anneeProp }) {
+/* PAR SECTION, ET COMPARÉ (3.5.481, Charles, 16 novembre 2026 : « imprimer aussi le personnel par section ; jeudi je ne vais parler que
+   du TIM, et le comparer aux données de l'IIP ou de l'ASBL »). `initial` / `onChoix` : la section de l'écran, que l'impression suit
+   (comme Qui sont nos étudiants). Une section choisie porte la carte « Comparé à l'IIP et à l'ASBL » : le profil du personnel face à
+   l'IIP (même source) ; l'ASBL seulement pour ce qui se compte en ETP (Lire et comparer : GET /api/pilotage/lecture) — Lucie ne garde
+   pas de fiche nominative du personnel de la HELB. */
+export default function PersonnelEcole({ annee: anneeProp, initial = null, onChoix = null }) {
   const annee = anneeProp || getAnnee();
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
-  const [section, setSection] = useState('');
+  const [section, setSection] = useState(initial?.section ?? '');
+  const [lec, setLec] = useState(null);
+  useEffect(() => { if (onChoix) onChoix({ section, sections: (d?.sections || []).map(s => s.section) }); }, [section, d]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!section || lec) return;
+    fetch(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setLec).catch(() => {});
+  }, [section, annee]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     setErreur(null); setD(null);
     fetch(`/api/pilotage/population-personnel?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -68,6 +80,8 @@ export default function PersonnelEcole({ annee: anneeProp }) {
 
       {/* LE RATIO ÉTUDIANTS PAR ETP, ICI AUSSI (Charles, 16 octobre 2026 : « je ne le vois nulle part ») :
           profs, profs + coordination, tout le personnel ; secrétariat et direction pour l'école. */}
+      {section && <Compare v={v} iip={d.ensemble} section={section} etpVue={etpVue} lec={lec} />}
+
       {!section && (
         <Carte titre="Étudiants par ETP" sous="Étudiants équivalents temps plein pour un ETP : profs, profs + coordination, tout le personnel — par section ; secrétariat et direction pour l'école.">
           <RatiosEtp annee={d.annee} />
@@ -113,4 +127,38 @@ export default function PersonnelEcole({ annee: anneeProp }) {
         </Carte>
       </div>
     </div>);
+}
+
+/* LA SECTION FACE À L'IIP ET À L'ASBL (3.5.481). Parts calculées sur les fiches renseignées, comme les cartes de la page. */
+function Compare({ v, iip, section, etpVue, lec }) {
+  const LS = lec?.sections?.find(x => x.section === section) || null, LI = lec?.iip || null, LA = lec?.asbl || null;
+  const part = (o, k, base) => { const b = base(o); return b ? Math.round(((o[k] || 0) / b) * 100) : null; };
+  const sexe = o => o.F + o.M + o.X, age = o => o.a35 + o.a45 + o.a55 + o.p55, nat = o => o.be + o.ue + o.hors_ue, dom = o => o.bruxelles + o.wallonie + o.flandre, tous = o => o.n;
+  const f1 = x => (x == null ? '—' : x.toLocaleString('fr-BE', { maximumFractionDigits: 1 }));
+  const p = x => (x == null ? '—' : `${x} %`);
+  const lignes = [
+    ['Membres du personnel', k0(v.n), k0(iip.n), '—'],
+    ['ETP', e2(etpVue), e2(iip.etp), LA?.etp != null ? f1(LA.etp) : '—'],
+    ['Étudiants (temps plein) par ETP', f1(LS?.etc_etp), f1(LI?.etc_etp), f1(LA?.etc_etp)],
+    ['Étudiants par groupe, en moyenne', f1(LS?.taille_groupes), f1(LI?.taille_groupes), f1(LA?.taille_groupes)],
+    ['Femmes', p(part(v, 'F', sexe)), p(part(iip, 'F', sexe)), '—'],
+    ['Âge moyen', v.age_moyen != null ? `${Math.round(v.age_moyen)} ans` : '—', iip.age_moyen != null ? `${Math.round(iip.age_moyen)} ans` : '—', '—'],
+    ['55 ans et plus', p(part(v, 'p55', age)), p(part(iip, 'p55', age)), '—'],
+    ['Chargés de cours', p(part(v, 'cc', tous)), p(part(iip, 'cc', tous)), '—'],
+    ['Experts', p(part(v, 'exp', tous)), p(part(iip, 'exp', tous)), '—'],
+    ['Définitifs', p(part(v, 'definitif', tous)), p(part(iip, 'definitif', tous)), '—'],
+    ['Contrat HELB', p(part(v, 'helb', tous)), p(part(iip, 'helb', tous)), '—'],
+    ['CAPAES', p(part(v, 'capaes', tous)), p(part(iip, 'capaes', tous)), '—'],
+    ['Domicile à Bruxelles', p(part(v, 'bruxelles', dom)), p(part(iip, 'bruxelles', dom)), '—'],
+    ['Belges', p(part(v, 'be', nat)), p(part(iip, 'be', nat)), '—'],
+  ];
+  return (
+    <Carte titre={`${NOM(section)} comparée à l’IIP et à l’ASBL`}
+      sous="L’IIP : tout le personnel de l’école, même source. L’ASBL (IIP et HELB réunis) : seulement ce qui se compte en ETP — Lucie n’a pas les fiches du personnel de la HELB.">
+      <Tableau dense>
+        <TableauEntete><Th>Indicateur</Th><Th align="droite">{NOM(section)}</Th><Th align="droite">IIP</Th><Th align="droite">ASBL</Th></TableauEntete>
+        <tbody>{lignes.map(([l, a, b, c]) => <Tr key={l}><Td>{l}</Td><Td align="droite" ton="fort">{a}</Td><Td align="droite">{b}</Td><Td align="droite">{c}</Td></Tr>)}</tbody>
+      </Tableau>
+      {!lec && <div className="text-mention text-slate-400">Les ratios de l’IIP et de l’ASBL se chargent…</div>}
+    </Carte>);
 }
