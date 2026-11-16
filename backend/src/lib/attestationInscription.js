@@ -250,6 +250,7 @@ export function composerAttestationInscription(d, variante = 'inscription') {
     ${f ? 'Elle' : 'Il'} est ${f ? 'inscrite' : 'inscrit'}${d.bloc ? ` en ${esc(d.bloc)}` : ''} et suit un programme de
     <b>${d.ects} ECTS</b> pour l’année académique ${esc(d.annee)}.` : ''}</p>
   <p class="corps">Je déclare avoir rempli correctement la présente déclaration.</p>
+  <div style="display:none"><div class="nom">${nomEtud}</div></div>
   <div class="cloture">
     <div class="sceau"></div><div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(new Date().toISOString().slice(0, 10))}</div>
