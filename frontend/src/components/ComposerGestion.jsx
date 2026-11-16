@@ -192,7 +192,7 @@ export default function ComposerGestion({ annee, direction = false, onImprimer =
             </div>)}
           <div className="intertitre mt-4">5. Sortir</div>
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
-            <button type="button" className="bouton-fort" disabled={!gardes.length} onClick={() => setLu(true)}>Lire à l’écran ({gardes.length} bloc{gardes.length > 1 ? 's' : ''})</button>
+            <button type="button" className="bouton bouton-fort" disabled={!gardes.length} onClick={() => setLu(true)}>Lire à l’écran ({gardes.length} bloc{gardes.length > 1 ? 's' : ''})</button>
             {onImprimer && <button type="button" className="bouton bouton-sortir" disabled={!gardes.length}
               onClick={() => (pub === 'copil' && sur === 'section' && onCopil ? onCopil(section) : onImprimer({ ...compo, titre }))}>
               Dossier imprimé{pub === 'copil' && sur === 'section' ? ' (dossier COPIL)' : ''}</button>}
