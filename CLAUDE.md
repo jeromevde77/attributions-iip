@@ -4417,6 +4417,10 @@ l'aperçu d'impression (face `copil`), où « Choisir les blocs » retire le dé
 3.5.486 (Charles : « choisir les panneaux ; pour les résultats, choisir l'année ») : la liste « Éléments à imprimer » de l'aperçu range
 chaque bloc sous sa partie du dossier (`data-copil-partie`), avec « tous / aucun » par partie ; une année par partie (`annees` :
 population, positionnement, réussite — par défaut l'année d'avant) ; les attributions couvrent toujours toutes les années.
+3.5.487 (« intègre tout cela ») : un texte par partie, plus l'ouverture et la conclusion (`TEXTES_COPIL`, `copil.<partie>`), en bande
+sous le titre de la partie ; `PROPOSITIONS_COPIL.TIM` (chiffres du 16 novembre 2026) remplit ce qui n'est pas enregistré — sauf le
+dossier pédagogique et le divers, modèles à crochets montrés en indication (`A_COMPLETER`) ; un texte vidé reste vide ; « Reprendre
+les propositions » les remet toutes.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
