@@ -27,7 +27,7 @@ const SeancesValorisationLot = lazy(() => import('./SeancesValorisationLot.jsx')
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { demander, saisir } from '../lib/dialogue.jsx';
-import { api, authHeaders, getAnnee } from '../lib/api.js';
+import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { CodePiece, Fenetre, GroupeFenetre, PieceFenetre, Chevron, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
 import InscritsPrevus from './InscritsPrevus.jsx';
@@ -744,6 +744,7 @@ const FAMILLES_RAPPORTS = {
   ],
 };
 function RapportsEnZones({ domaine, debut = 0 }) {
+  const naviguer = useNavigate();
   const [catalogue, setCatalogue] = useState(null);
   const [choisi, setChoisi] = useState(null);      // id d'un rapport, 'schemas' ou 'composer'
   useEffect(() => {
@@ -769,6 +770,15 @@ function RapportsEnZones({ domaine, debut = 0 }) {
         <Etape n={debut + 1} titre="Quelle pièce ?" fait={!!choisi} />
         {!catalogue ? <p className="text-second text-slate-400">Chargement…</p> : (
           <div className="space-y-2">
+            {/* LE DOSSIER DU COPIL (3.5.485) : il se compose dans Gestion (les écrans eux-mêmes) ; la direction seule. */}
+            {domaine === 'gestion' && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && (
+              <div>
+                <div className="intertitre mt-1">Les dossiers</div>
+                <button type="button" className="flex items-start gap-2 py-1 text-sm text-left text-iip-blue hover:underline" onClick={() => naviguer('/gestion?copil=1')}>
+                  Dossier pour le comité de pilotage — une section →
+                </button>
+                <span className="block text-mention text-slate-400">population, attributions, positionnement, réussite, textes ; s’ouvre dans Gestion</span>
+              </div>)}
             {familles.map(([t, rs]) => (
               <div key={t}>
                 <div className="intertitre mt-1">{t}</div>
