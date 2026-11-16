@@ -4446,6 +4446,11 @@ retenir » reprennent les textes `copil.<partie>` tant qu'on ne les réécrit pa
 3.5.495 (Charles : « le 0,6 de Moiny en HELB est MA aussi ») : une coordination HELB se paie au prix du titre de sa personne
 (`titre_helb` des coordinations, `cetp_helb_ma` de `annee()`) — statut HELB de la fiche, à défaut le titre qui porte le plus d'heures
 dans ses lignes HELB de l'année, sinon MFP ; `salairesHelb` (serveur et sa recopie dans `IipHelbGestion.jsx`) l'applique.
+3.5.496 (Charles : « soit tout en convention, soit tout en calcul MA / MFP, avec un bouton de bascule ; sinon ce n'est pas correct ») :
+une seule mesure `cout` — convention · `titres` (coût réel MA / MFP pour la HELB, la convention restant celle de l'IIP) · coût moyen
+brut — pour le coût HELB de la section (cours + coordinations) ET les salaires du résultat de la HELB (`salaires_imposes`, lu en
+premier par `salairesHelb`). Le prix MA / MFP (titres, moyenne, montant réglé) ne se choisit qu'en mode réel. Les comptes réels
+(`enseignantsHelbCivil`) restent au titre.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

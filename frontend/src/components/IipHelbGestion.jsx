@@ -37,6 +37,7 @@ const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) 
 /* LE PRIX D'UN ETP DE LA HELB (3.5.463) : au titre (théorie = maître-assistant, TP = maître de formation pratique), à la moyenne du COR,
    ou au montant réglé — la formule de salairesHelb (lib/rapportIipHelb.js), recopiée : qui change l'une change l'autre. */
 function salairesHelb(y, P, avecCoord) {
+  if (y.salaires_imposes != null) return y.salaires_imposes;   // la mesure choisie fait foi (3.5.496)
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
@@ -160,6 +161,10 @@ function Carte({ titre, sous, forme, onForme, onMasquer, children, large, plat }
    (PresentationSection.jsx) — un calcul, deux lecteurs. */
 export function chiffresIipHelb(d, reglages = {}) {
   const mes = { charge: 'etp', cout: 'convention', admin: 'oui', direction: 'oui', coord: 'oui', unite_helb: 'periodes', prix_helb: 'titres', ...(reglages.mesures || {}) };
+  const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
+  const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
+  PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
+  PH.prix = mes.prix_helb; PH.prix_ma = d?.prix_helb?.ma; PH.prix_mfp = d?.prix_helb?.mfp; PH.prix_moyen = d?.prix_helb?.moyen;
   // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
   const Y = (d?.Y || []).map(y0 => {
     // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
@@ -172,14 +177,13 @@ export function chiffresIipHelb(d, reglages = {}) {
     const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
     const adm = avecA ? y.admin.part : 0;
     const coutI = (cmb ? pcI * d.taux_cmb : y.cout_iip + (avecC ? y.coord_iip : 0)) + adm;
-    const coutH = cmb ? pcH * d.taux_cmb : y.cout_helb + (avecC ? y.coord_helb : 0);
-    return { ...y, lib: court(y.annee), etpI: y.ens_iip + cI, etpH: y.ens_helb + cH, pcI, pcH, coutI, coutH,
+    /* UN SEUL CALCUL POUR LA HELB (3.5.496, Charles : « soit tout en convention, soit tout en calcul MA / MFP, avec un bouton de
+       bascule ; sinon ce n'est pas correct ») : le coût HELB de la section (cours + coordinations) ET les salaires du résultat de la
+       HELB (`salaires_imposes`, lus par helbAnnee) viennent de la même mesure — convention, coût réel MA / MFP, ou coût moyen brut. */
+    const coutH = cmb ? pcH * d.taux_cmb : mes.cout === 'titres' ? salairesHelb(y, PH, avecC) : y.cout_helb + (avecC ? y.coord_helb : 0);
+    return { ...y, salaires_imposes: coutH, lib: court(y.annee), etpI: y.ens_iip + cI, etpH: y.ens_helb + cH, pcI, pcH, coutI, coutH,
       chI: mes.charge === 'periodes' ? pcI : y.ens_iip + cI, chH: mes.charge === 'periodes' ? pcH : y.ens_helb + cH };
   });
-  const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
-  const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
-  PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
-  PH.prix = mes.prix_helb; PH.prix_ma = d?.prix_helb?.ma; PH.prix_mfp = d?.prix_helb?.mfp; PH.prix_moyen = d?.prix_helb?.moyen;
   const materielDe = a => { const v = reglages.materiel?.[a]; return v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : (d?.materiel_defaut?.[a]?.montant ?? 0); };
   // L'aide à la réussite (UE 95), 100 % IIP : son coût × la part de la section (réglable ; à défaut, sa part dans les inscrits de l'IIP).
   const part95 = reglages.helb?.part95 !== undefined && reglages.helb.part95 !== '' && Number.isFinite(Number(reglages.helb.part95)) ? Number(reglages.helb.part95) / 100 : (d?.admin_reference?.ratio || 0);
@@ -242,7 +246,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
   const aN = Y[Y.length - 1], a0 = Y[0];
   const fCh = mes.charge === 'periodes' ? n0 : n2, uCh = mes.charge === 'periodes' ? 'périodes' : 'ETP';
   const totI = Y.reduce((t, y) => t + y.coutI, 0), totH = Y.reduce((t, y) => t + y.coutH, 0);
-  const methode = mes.cout === 'cmb' ? `coût moyen brut (${n2(d?.taux_cmb)} € / période)` : 'coût convention';
+  const methode = mes.cout === 'cmb' ? `coût moyen brut (${n2(d?.taux_cmb)} € / période)` : mes.cout === 'titres' ? 'coût convention pour l’IIP, coût réel MA / MFP pour la HELB' : 'coût convention';
   const segm = (k, opts) => (
     <div className="segments flex-none" role="radiogroup">
       {opts.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={mes[k] === v} onClick={() => majMes(k, v)}
@@ -265,7 +269,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
               className={`whitespace-nowrap ${on ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{court(a)}</button>); })}
         </div>
         {segm('charge', [['etp', 'ETP'], ['periodes', 'Périodes']])}
-        {segm('cout', [['convention', 'Coût convention'], ['cmb', 'Coût moyen brut']])}
+        {segm('cout', [['convention', 'Coût convention'], ['titres', 'Coût réel MA / MFP'], ['cmb', 'Coût moyen brut']])}
         {segm('coord', [['oui', 'Avec coordinations'], ['non', 'Sans']])}
         {segm('admin', [['oui', 'Avec cadre admin.'], ['non', 'Sans']])}
         {mes.admin === 'oui' && segm('direction', [['oui', 'Avec direction'], ['non', 'Secrétariat seul']])}
@@ -426,7 +430,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                 <p className="text-second text-slate-600 m-0">Un temps plein : 480 h pour la théorie d’un maître-assistant, 750 h pour tout le reste (TP, maîtres de formation pratique, praticiens), 1 400 h pour une coordination. Le titre se lit dans la colonne « HELB » de la ligne d’attribution (à défaut, le statut HELB de la fiche), la théorie ou le TP dans la colonne TH/TP. Les lignes HELB des attributions sont lues :</p>
                 <div className="flex flex-wrap gap-2">
                   {segm('unite_helb', [['periodes', 'en périodes de 50 min'], ['heures', 'en heures']])}
-                  {segm('prix_helb', [['titres', `Au titre — MA ${eur(d?.prix_helb?.ma)}, MFP ${eur(d?.prix_helb?.mfp)}`], ['moyenne', `Moyenne HELB — ${eur(d?.prix_helb?.moyen)}`], ['fixe', `Montant réglé — ${eur(PH.cmbp)}`]])}
+                  {mes.cout === 'titres' && segm('prix_helb', [['titres', `Au titre — MA ${eur(d?.prix_helb?.ma)}, MFP ${eur(d?.prix_helb?.mfp)}`], ['moyenne', `Moyenne HELB — ${eur(d?.prix_helb?.moyen)}`], ['fixe', `Montant réglé — ${eur(PH.cmbp)}`]])}
                 </div>
                 {HY.length > 0 && <p className="text-mention text-slate-500 m-0">Salaires HELB {HY[HY.length - 1].y.annee} : au titre {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'titres' }, mes.coord === 'oui'))} · à la moyenne {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'moyenne' }, mes.coord === 'oui'))} · au montant réglé {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'fixe' }, mes.coord === 'oui'))}. Au titre : un maître-assistant au prix du MA (cours et coordinations), tout le reste au prix d’un MFP.</p>}
                 {HY.length > 0 && <div className="overflow-x-auto"><Tableau className="!w-auto">

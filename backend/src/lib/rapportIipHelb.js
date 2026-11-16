@@ -222,7 +222,7 @@ export const PARTIES = [
 ];
 export const MESURES = {
   charge: [['etp', 'En ETP'], ['periodes', 'En périodes']],
-  cout: [['convention', 'Coût convention'], ['cmb', 'Coût moyen brut (HE)']],
+  cout: [['convention', 'Coût convention'], ['titres', 'Coût réel HELB (MA / MFP)'], ['cmb', 'Coût moyen brut (HE)']],
   admin: [['oui', 'Avec le cadre administratif'], ['non', 'Sans le cadre administratif']],
   direction: [['oui', 'Avec la direction'], ['non', 'Sans la direction (secrétariat seul)']],
   coord: [['oui', 'Avec les coordinations'], ['non', 'Enseignement seul']],
@@ -397,6 +397,7 @@ export const COMPARAISON_HE = {
 /** L'année « 2024-2025 » décalée de k ans. */
 export const anneeDecalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
 export function salairesHelb(y, P, avecCoord = true) {
+  if (y.salaires_imposes != null) return y.salaires_imposes;   // la mesure choisie fait foi (3.5.496)
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
@@ -486,10 +487,15 @@ export function documentIipHelb(p) {
     const adm = avecAdmin ? y.admin.part : 0;
     // Le coût de chacun, selon la méthode choisie : convention (barème) ou coût moyen brut (un montant par période).
     y.c_iip = (cmb ? y.pc_iip * taux : y.cout_iip + y.coord_iip) + adm;
-    y.c_helb = cmb ? y.pc_helb * taux : y.cout_helb + y.coord_helb;
+    // Un seul calcul pour la HELB (3.5.496) : la même mesure pour son coût et pour les salaires de son résultat.
+    const Hp = { ...R.helb, ...Object.fromEntries(Object.entries(prixHelb(p.cor)).map(([k, v]) => [`prix_${k}`, v])), prix: R.mesures.prix_helb };
+    y.c_helb = cmb ? y.pc_helb * taux : R.mesures.cout === 'titres'
+      ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, cetp_helb_ma: y.cetp_helb_ma }, Hp, avecCoord)
+      : y.cout_helb + y.coord_helb;
+    y.salaires_imposes = y.c_helb;
     y.tout_iip = y.cout_iip + y.coord_iip + adm; y.tout_helb = y.cout_helb + y.coord_helb;
   }
-  const methode = cmb ? `coût moyen brut (${n2(taux)} € la période)` : 'coût convention';
+  const methode = cmb ? `coût moyen brut (${n2(taux)} € la période)` : R.mesures.cout === 'titres' ? 'coût convention pour l’IIP, coût réel MA / MFP pour la HELB' : 'coût convention';
   const premiere = toutes[0];
   const a0 = Y[0], aN = Y[Y.length - 1];
   const evol = (k) => (a0[k] ? `${aN[k] >= a0[k] ? '+' : '−'}${Math.round(Math.abs((aN[k] - a0[k]) / a0[k]) * 100)} %` : '—');
