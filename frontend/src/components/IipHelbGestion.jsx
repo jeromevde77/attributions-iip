@@ -8,7 +8,6 @@ import { EnteteCarte, TuileEtat, Tableau, Th, Td } from './ui.jsx';
 import { Anneau } from './graphiques.jsx';
 import ChargeParBloc from './ChargeParBloc.jsx';
 import { Tuile } from './statsUi.jsx';
-import { BoutonFiltres, PastillesFiltres } from './PanneauFiltres.jsx';
 
 /* L'IIP ET LA HELB, UNE PAGE DE GESTION NATIVE (3.5.432, Charles, 14 novembre 2026 : « le rapport est lent ; je le voudrais en natif,
    comme le rapport finances ou les nationalités ; beaucoup plus précis avec les coordinations ; tout en accès direct »). Gestion →
@@ -291,19 +290,6 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
         className={`whitespace-nowrap ${mes[k] === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>)}
     </div>);
 
-  // Les autres mesures, derrière « Filtres » ; actif = s'écarte du défaut.
-  const selMes = (k, opts) => (
-    <select className="controle w-full" value={mes[k]} onChange={e => majMes(k, e.target.value)}>
-      {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-    </select>);
-  const filtresMes = [
-    { k: 'charge', libelle: 'Charge en', champ: selMes('charge', [['etp', 'ETP'], ['periodes', 'Périodes']]), actif: mes.charge === 'periodes', etiquette: 'Charge en périodes', off: () => majMes('charge', 'etp') },
-    { k: 'coord', libelle: 'Coordinations', champ: selMes('coord', [['oui', 'Comprises'], ['non', 'Sans']]), actif: mes.coord === 'non', etiquette: 'Sans coordinations', off: () => majMes('coord', 'oui') },
-    { k: 'admin', libelle: 'Cadre admin.', champ: selMes('admin', [['oui', 'Compris'], ['non', 'Sans']]), actif: mes.admin === 'non', etiquette: 'Sans cadre administratif', off: () => majMes('admin', 'oui') },
-    ...(mes.admin === 'oui' ? [{ k: 'direction', libelle: 'Direction', champ: selMes('direction', [['oui', 'Avec direction'], ['non', 'Secrétariat seul']]), actif: mes.direction === 'non', etiquette: 'Secrétariat seul', off: () => majMes('direction', 'oui') }] : []),
-  ];
-  const effacerMes = () => maj('mesures', { ...(reglages.mesures || {}), charge: 'etp', coord: 'oui', admin: 'oui', direction: 'oui' });
-
   return (
     <div ref={racine} className="space-y-3">
       {enImpression && d?.Y?.length > 0 && (
@@ -311,7 +297,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
           {' '}{methode} · {mes.coord === 'oui' ? 'avec' : 'sans'} coordinations · {mes.admin === 'oui' ? 'avec' : 'sans'} cadre administratif
           {Object.keys(reglages.inscrits || {}).filter(a => reglages.inscrits[a]).length ? ` · inscrits retenus : ${Object.entries(reglages.inscrits).filter(([, v]) => v).map(([a, v]) => `${court(a)} ${v}`).join(', ')}` : ''}</p>)}
       {/* LA BASCULE EN TÊTE (3.5.509, Charles : « je ne vois plus le choix entre convention et MA/MFP ») : elle passait hors de vue au bout
-          d'une barre trop longue. Convention / coûts réels vient d'abord ; les autres mesures vont derrière « Filtres » (règle 3.1.468). */}
+          d'une barre trop longue. Convention / coûts réels vient d'abord ; ce qui est compté suit, visible, sur la ligne d'en dessous. */}
       <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 sans-impression">
         {segm('cout', [['convention', 'Convention (MA = CT, MFP = PP)'], ['reel', 'Coûts réels']])}
         {!sectionFixe && <select className="controle flex-none" value={section} onChange={e => { setSection(e.target.value); setAnnees(null); }} aria-label="Section">
@@ -322,13 +308,19 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
             <button key={a} type="button" aria-pressed={!!on} onClick={() => setAnnees(x => (on ? (x || []).filter(y => y !== a) : [...(x || []), a].sort()))}
               className={`whitespace-nowrap ${on ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{court(a)}</button>); })}
         </div>
-        <BoutonFiltres filtres={filtresMes} toutEffacer={effacerMes} />
         <button type="button" className="bouton ml-auto inline-flex items-center gap-1.5 whitespace-nowrap" disabled={enCours} onClick={() => setTour(t => t + 1)}
           title="Refaire le calcul avec les dernières données encodées"><IconRefresh size={15} />{enCours ? 'Calcul…' : 'Recalculer'}</button>
         <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5 whitespace-nowrap" onClick={imprimer} disabled={!Y.length}>
           <IconSend size={15} />Imprimer</button>
       </div>
-      <div className="sans-impression"><PastillesFiltres filtres={filtresMes} toutEffacer={effacerMes} /></div>
+      {/* Ce qui est compté, en clair sur une seconde ligne (3.5.510, Charles : « ce n'est pas clair » derrière Filtres). */}
+      <div className="flex flex-wrap items-center gap-2 text-second text-slate-600 sans-impression">
+        <span className="font-semibold">Ce qui est compté :</span>
+        {segm('charge', [['etp', 'ETP'], ['periodes', 'Périodes']])}
+        {segm('coord', [['oui', 'Avec coordinations'], ['non', 'Sans coordinations']])}
+        {segm('admin', [['oui', 'Avec cadre admin.'], ['non', 'Sans cadre admin.']])}
+        {mes.admin === 'oui' && segm('direction', [['oui', 'Avec direction'], ['non', 'Secrétariat seul']])}
+      </div>
       {masques.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 text-second text-slate-500 sans-impression">
           <IconEye size={14} /> Parties masquées :
