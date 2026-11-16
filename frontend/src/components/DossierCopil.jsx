@@ -28,6 +28,7 @@ export const PARTIES_COPIL = [
   ['dp', '4', 'Évolution du dossier pédagogique'],
   ['divers', '5', 'Divers'],
 ];
+const ANNEE_DE = { inscriptions: 'population', provenance: 'population', positionnement: 'positionnement', reussite: 'reussite' };
 const CHAPITRES = { 1: 'Statistiques annuelles de population', 2: 'Évolution des attributions depuis l’ouverture' };
 
 const n0 = v => Math.round(v || 0).toLocaleString('fr-BE');
@@ -76,7 +77,10 @@ function Texte({ texte }) {
     : <p className="text-second text-slate-400 m-0">(rien d’écrit)</p>;
 }
 
-export default function DossierCopil({ annee, section, parties, textes = {} }) {
+/* L'ANNÉE DE CHAQUE PARTIE (3.5.486, Charles : « pour les résultats, je dois pouvoir choisir quelle année ») : `annees.population`,
+   `annees.positionnement`, `annees.reussite` ; à défaut, l'année de la Gestion. */
+export default function DossierCopil({ annee, section, parties, textes = {}, annees = {} }) {
+  const an = k => annees[k] || annee;
   const voir = new Set(parties?.length ? parties : PARTIES_COPIL.map(p => p[0]));
   const visibles = PARTIES_COPIL.filter(([k]) => voir.has(k));
   let chapitre = null;
@@ -87,14 +91,15 @@ export default function DossierCopil({ annee, section, parties, textes = {} }) {
         const nouveauChapitre = ch !== chapitre;
         chapitre = ch;
         return (
-          <div key={k} className="space-y-3" style={{ breakBefore: i && nouveauChapitre ? 'page' : 'auto' }}>
+          <div key={k} data-copil-partie={`${num} ${titre}`} className="space-y-3" style={{ breakBefore: i && nouveauChapitre ? 'page' : 'auto' }}>
             {nouveauChapitre && CHAPITRES[ch] && <h2 className="titre-ecran m-0">{ch}. {CHAPITRES[ch]}</h2>}
-            <h3 className={CHAPITRES[ch] ? 'titre-carte m-0' : 'titre-ecran m-0'}>{num}{CHAPITRES[ch] ? '' : '.'} {titre}</h3>
-            {k === 'inscriptions' && <PopulationEcole annee={annee} initial={{ section }} partie="inscriptions" />}
-            {k === 'provenance' && <PopulationEcole annee={annee} initial={{ section }} partie="provenance" />}
+            <h3 className={CHAPITRES[ch] ? 'titre-carte m-0' : 'titre-ecran m-0'}>{num}{CHAPITRES[ch] ? '' : '.'} {titre}
+              {ANNEE_DE[k] && <span className="text-second font-normal text-slate-500"> · {an(ANNEE_DE[k])}</span>}</h3>
+            {k === 'inscriptions' && <PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" />}
+            {k === 'provenance' && <PopulationEcole annee={an('population')} initial={{ section }} partie="provenance" />}
             {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} /></>}
-            {k === 'positionnement' && <GestionLecture annee={annee} perimFixe="section" sectionFixe={section} sansIipHelb />}
-            {k === 'reussite' && <StatsDeliberation annee={annee} initial={{ section }} />}
+            {k === 'positionnement' && <GestionLecture annee={an('positionnement')} perimFixe="section" sectionFixe={section} sansIipHelb />}
+            {k === 'reussite' && <StatsDeliberation annee={an('reussite')} initial={{ section }} />}
             {k === 'dp' && <Texte texte={textes['copil.dp']} />}
             {k === 'divers' && <Texte texte={textes['copil.divers']} />}
           </div>);
