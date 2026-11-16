@@ -13,6 +13,9 @@ import db from '../db/index.js';
 import { donneesCout, tarifs, niveauDeSection } from './coutFormation.js';
 import { getParamNum } from '../routes/parametres.js';
 import { sourcesEnVigueur } from './sourcesReference.js';
+import { readFileSync } from 'node:fs';
+let BAREMES = { baremes: {} };
+try { BAREMES = JSON.parse(readFileSync(new URL('../donnees/baremes.json', import.meta.url), 'utf-8')); } catch (e) { console.error('[barèmes]', e.message); }
 
 const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -131,7 +134,7 @@ function annee(section, a, unite = 'periodes', mode = 'reel') {
     const etpHelb = Number(m.etp_helb) || 0;
     const etpTot = Math.max(Number(m.etp) || 0, etpHelb);
     const etpIip = coordEnAttribution.has(m.professeur_id) ? 0 : Math.max(0, etpTot - etpHelb);
-    return { fonction: m.fonction, personne: `${String(m.nom || '').toUpperCase()} ${m.prenom || ''}`.trim(),
+    return { fonction: m.fonction, professeur_id: m.professeur_id, personne: `${String(m.nom || '').toUpperCase()} ${m.prenom || ''}`.trim(),
       etp: etpTot, etp_helb: etpHelb, etp_iip: etpIip, deja: coordEnAttribution.has(m.professeur_id), titre_helb: etpHelb ? titreCoord(m.professeur_id) : null,
       cout_iip: etpIip * 800 * tCT, cout_helb: etpHelb * 800 * tCT,
       cout_helb_conv: etpHelb * (titreCoord(m.professeur_id) === 'MA' ? 800 * tCT : 1000 * tPP) };
@@ -145,6 +148,16 @@ function annee(section, a, unite = 'periodes', mode = 'reel') {
     per_iip: som(l => l.periodes, l => !l.helb), per_helb: som(l => l.periodes, l => l.helb),
     etp_iip: som(l => l.etp, l => !l.helb), etp_helb: som(l => l.etp, l => l.helb),
     etp_helb_ma: som(l => l.etp, l => l.helb && l.titre_helb === 'MA'), etp_helb_mfp: som(l => l.etp, l => l.helb && l.titre_helb !== 'MA'),
+    // LE BARÈME DE CHACUN (3.5.508) : les personnes dont la fiche porte un barème HELB, leurs ETP (cours hors invités, puis
+    // coordinations) et le titre qui aurait fixé leur prix ; `salairesHelb` corrige d'après leur barème.
+    baremes_personnes: (() => {
+      const P = new Map(db.prepare("SELECT id, bareme_helb, echelon_helb FROM professeur WHERE COALESCE(bareme_helb, '') != ''").all().map(p => [p.id, p]));
+      if (!P.size) return [];
+      const out = [];
+      for (const l of L) if (l.helb && l.statut !== 'EXP' && P.has(l.professeur_id)) out.push({ etp: l.etp, titre: l.titre_helb === 'MA' ? 'MA' : 'MFP', coord: false, bareme: P.get(l.professeur_id).bareme_helb, echelon: P.get(l.professeur_id).echelon_helb });
+      for (const c of coord) if (c.etp_helb && P.has(c.professeur_id)) out.push({ etp: c.etp_helb, titre: c.titre_helb === 'MA' ? 'MA' : 'MFP', coord: true, bareme: P.get(c.professeur_id).bareme_helb, echelon: P.get(c.professeur_id).echelon_helb });
+      return out;
+    })(),
     // Les invités de la HELB (statut EXP) : à leur propre prix en coûts réels (3.5.506), titre ou non.
     etp_helb_inv: som(l => l.etp, l => l.helb && l.statut === 'EXP'), etp_helb_ma_inv: som(l => l.etp, l => l.helb && l.statut === 'EXP' && l.titre_helb === 'MA'),
     etp_helb_480: som(l => l.etp, l => l.helb && divHelb(l.titre_helb, l.nature_helb) === 480),
@@ -420,6 +433,25 @@ export const COMPARAISON_HE = {
 
 /** L'année « 2024-2025 » décalée de k ans. */
 export const anneeDecalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
+/* LE PRIX D'UNE PERSONNE À SON BARÈME (3.5.508, Charles : « le 501 c'est pas le 502 » ; tranché : prix proportionnel). Le prix du COR
+   de la catégorie (un barème 5xx se lit contre le 502 et le prix MA, tout autre contre le 849 et le prix MFP) × (barème de la personne ÷
+   barème de la catégorie), à l'échelon de la fiche, 10 à défaut. La correction = ce prix − celui que son titre lui aurait donné. */
+export const TABLE_BAREMES = BAREMES.baremes;
+export function prixBareme(bareme, echelon, P, B = TABLE_BAREMES) {
+  const e = Math.max(0, Math.min(27, Number.isFinite(Number(echelon)) && echelon !== null && echelon !== '' ? Number(echelon) : 10));
+  const ref = String(bareme).startsWith('5') ? '502' : '849', prixRef = ref === '502' ? P.prix_ma : (P.prix_mfp || P.prix_ma);
+  if (!B?.[bareme]?.[e] || !B?.[ref]?.[e] || !prixRef) return null;
+  return prixRef * B[bareme][e] / B[ref][e];
+}
+export function correctionBaremes(y, P, avecCoord = true, B = TABLE_BAREMES) {
+  let t = 0;
+  for (const x of y.baremes_personnes || []) {
+    if (x.coord && !avecCoord) continue;
+    const pb = prixBareme(x.bareme, x.echelon, P, B); if (pb == null) continue;
+    t += x.etp * (pb - (x.titre === 'MA' ? P.prix_ma : (P.prix_mfp || P.prix_ma)));
+  }
+  return t;
+}
 export function salairesHelb(y, P, avecCoord = true) {
   if (y.salaires_imposes != null) return y.salaires_imposes;   // la mesure choisie fait foi (3.5.496)
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
@@ -430,7 +462,7 @@ export function salairesHelb(y, P, avecCoord = true) {
     const cma = avecCoord ? Math.min(c, y.cetp_helb_ma || 0) : 0;
     const inv = P.prix_invite ? (y.etp_helb_inv || 0) : 0, maInv = P.prix_invite ? (y.etp_helb_ma_inv || 0) : 0;
     const ma = (y.etp_helb_ma || 0) - maInv + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0) - (inv - maInv)) + (c - cma);
-    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma) + inv * (P.prix_invite || 0);
+    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma) + inv * (P.prix_invite || 0) + correctionBaremes(y, P, avecCoord);
   }
   return etp * P.cmbp;
 }
@@ -519,11 +551,11 @@ export function documentIipHelb(p) {
     // Un seul calcul pour la HELB (3.5.496) : la même mesure pour son coût et pour les salaires de son résultat.
     const Hp = { ...R.helb, ...Object.fromEntries(Object.entries(prixHelb(p.cor)).map(([k, v]) => [`prix_${k}`, v])), prix: R.mesures.prix_helb };
     y.c_helb = reel
-      ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: y.cetp_helb_ma }, Hp, avecCoord)
+      ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, baremes_personnes: y.baremes_personnes, cetp_helb_ma: y.cetp_helb_ma }, Hp, avecCoord)
       : y.cout_helb_conv + y.coord_helb_conv;
     y.salaires_imposes = y.c_helb;
     // Le coût HELB en deux postes, selon la même lecture : les cours, puis les coordinations.
-    y.cours_helb_m = reel ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: 0, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: 0 }, Hp, false) : y.cout_helb_conv;
+    y.cours_helb_m = reel ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: 0, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, baremes_personnes: y.baremes_personnes, cetp_helb_ma: 0 }, Hp, false) : y.cout_helb_conv;
     y.coord_helb_m = y.c_helb - y.cours_helb_m;
     y.tout_iip = y.cout_iip + y.coord_iip + adm; y.tout_helb = y.c_helb;
   }
@@ -938,7 +970,7 @@ export function donneesIipHelb(section, anneesDemandees, { unite = 'periodes', c
   const cursusHe = COMPARAISON_HE.cursus.find(c => c.dept !== 'IIP' && c.tim && section === 'TIM');
   const etp_declare_helb = Object.fromEntries(Object.entries(cursusHe?.series || {}).map(([a, v]) => [a, v[1]]));
   return { etp_declare_helb, section, annees, toutes, premiere: toutes[0] || null, inscrits_annees, materiel_defaut: MATERIEL_HELB, admin_reference: refAdm, comparaison: { ...COMPARAISON_HE, departements: departementsHe() }, niveau: niv, taux_cmb: getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0),
-    tarif_ct: tarifs()[niv]?.CT || 0, prix_helb: prixHelb(cor), heures_helb: HEURES_HELB, unite_helb: unite, Y, enseignants: [...ens.values()] };
+    tarif_ct: tarifs()[niv]?.CT || 0, prix_helb: prixHelb(cor), baremes: TABLE_BAREMES, heures_helb: HEURES_HELB, unite_helb: unite, Y, enseignants: [...ens.values()] };
 }
 
 /** Pour l'aperçu en tableau et le tableur : une ligne par année. */
@@ -950,7 +982,7 @@ export function lignesIipHelb(p) {
     const y = annee(section, a, unite, mode);
     return { annee: a, section, etp_iip: Math.round((y.etp_iip + y.cetp_iip) * 100) / 100, etp_helb: Math.round((y.etp_helb + y.cetp_helb) * 100) / 100,
       per_iip: Math.round(y.per_iip), per_helb: Math.round(y.per_helb), cout_iip: Math.round(y.cout_iip + y.coord_iip + y.admin.part),
-      cout_helb: Math.round(mode === 'reel' ? salairesHelb({ ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: y.cetp_helb_ma }, { ...PARAM_HELB, prix: 'titres', ...Object.fromEntries(Object.entries(prixHelb()).map(([k, v]) => [`prix_${k}`, v])) }, true) : y.cout_helb_conv + y.coord_helb_conv), inscrits: y.inscrits,
+      cout_helb: Math.round(mode === 'reel' ? salairesHelb({ ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, baremes_personnes: y.baremes_personnes, cetp_helb_ma: y.cetp_helb_ma }, { ...PARAM_HELB, prix: 'titres', ...Object.fromEntries(Object.entries(prixHelb()).map(([k, v]) => [`prix_${k}`, v])) }, true) : y.cout_helb_conv + y.coord_helb_conv), inscrits: y.inscrits,
       recettes: Math.round(y.recettes), par_etudiant: y.inscrits ? Math.round(y.recettes / y.inscrits) : null };
   });
 }
@@ -965,7 +997,7 @@ export function enseignantsHelbCivil(section, anneeCivile) {
   const part = (a, poids) => {
     if (!toutes.has(a)) return { cout: 0, etp: 0, poids: 0 };
     const y = annee(section, a);
-    const yy = { ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: y.cetp_helb_ma };
+    const yy = { ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, baremes_personnes: y.baremes_personnes, cetp_helb_ma: y.cetp_helb_ma };
     return { cout: salairesHelb(yy, P, true) * poids, etp: (y.etp_helb + y.cetp_helb) * poids, poids };
   };
   const a = part(`${Y - 1}-${Y}`, 8 / 12), b = part(`${Y}-${Y + 1}`, 4 / 12);

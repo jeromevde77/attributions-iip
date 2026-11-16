@@ -36,6 +36,22 @@ const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de 
 const decalee = (a, k) => `${Number(a.slice(0, 4)) - k}-${Number(a.slice(5, 9)) - k}`;
 /* LE PRIX D'UN ETP DE LA HELB (3.5.463) : au titre (théorie = maître-assistant, TP = maître de formation pratique), à la moyenne du COR,
    ou au montant réglé — la formule de salairesHelb (lib/rapportIipHelb.js), recopiée : qui change l'une change l'autre. */
+/* Le barème de chacun (3.5.508) — recopie de prixBareme / correctionBaremes de lib/rapportIipHelb.js ; la table vient du serveur (P.baremes). */
+function prixBareme(bareme, echelon, P) {
+  const B = P.baremes, e = Math.max(0, Math.min(27, echelon !== null && echelon !== '' && Number.isFinite(Number(echelon)) ? Number(echelon) : 10));
+  const ref = String(bareme).startsWith('5') ? '502' : '849', prixRef = ref === '502' ? P.prix_ma : (P.prix_mfp || P.prix_ma);
+  if (!B?.[bareme]?.[e] || !B?.[ref]?.[e] || !prixRef) return null;
+  return prixRef * B[bareme][e] / B[ref][e];
+}
+function correctionBaremes(y, P, avecCoord = true) {
+  let t = 0;
+  for (const x of y.baremes_personnes || []) {
+    if (x.coord && !avecCoord) continue;
+    const pb = prixBareme(x.bareme, x.echelon, P); if (pb == null) continue;
+    t += x.etp * (pb - (x.titre === 'MA' ? P.prix_ma : (P.prix_mfp || P.prix_ma)));
+  }
+  return t;
+}
 function salairesHelb(y, P, avecCoord) {
   if (y.salaires_imposes != null) return y.salaires_imposes;   // la mesure choisie fait foi (3.5.496)
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
@@ -46,7 +62,7 @@ function salairesHelb(y, P, avecCoord) {
     const cma = avecCoord ? Math.min(c, y.cetp_helb_ma || 0) : 0;
     const inv = P.prix_invite ? (y.etp_helb_inv || 0) : 0, maInv = P.prix_invite ? (y.etp_helb_ma_inv || 0) : 0;
     const ma = (y.etp_helb_ma || 0) - maInv + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0) - (inv - maInv)) + (c - cma);
-    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma) + inv * (P.prix_invite || 0);
+    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma) + inv * (P.prix_invite || 0) + correctionBaremes(y, P, avecCoord);
   }
   return etp * P.cmbp;
 }
@@ -168,7 +184,7 @@ export function chiffresIipHelb(d, reglages = {}) {
   const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
   const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
   PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
-  PH.prix = mes.prix_helb; PH.prix_ma = d?.prix_helb?.ma; PH.prix_mfp = d?.prix_helb?.mfp; PH.prix_moyen = d?.prix_helb?.moyen; PH.prix_invite = d?.prix_helb?.invite || null;
+  PH.prix = mes.prix_helb; PH.prix_ma = d?.prix_helb?.ma; PH.prix_mfp = d?.prix_helb?.mfp; PH.prix_moyen = d?.prix_helb?.moyen; PH.prix_invite = d?.prix_helb?.invite || null; PH.baremes = d?.baremes || null;
   // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
   const Y = (d?.Y || []).map(y0 => {
     // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.

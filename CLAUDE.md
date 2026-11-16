@@ -4496,6 +4496,11 @@ et l'écran le dit. `salairesHelb` (serveur et recopie) l'applique.
 groupe = fonctionnement ; sans catégorie, fonctionnement sauf plusieurs unités au-dessus du seuil. Budget comparé : indicateur principal =
 prévu TOTAL par étudiant (`prevu_total_etudiant`, une décimale sous 100 €), « dont fonctionnement » à côté ; sans dépense encodée,
 « aucune dépense encodée » au lieu de 0 %. Gestion → la carte « Les finances » prend la place libre de sa rangée, ses tuiles sur une ligne.
+3.5.508 (Charles : « Marie Lambert est au barème 501 — le 501 c'est pas le 502 » ; tranché : barème sur la fiche, prix proportionnel).
+`professeur.bareme_helb`, `echelon_helb` (fiche → Statut HELB) ; table des barèmes FWB `backend/src/donnees/baremes.json` (Barèmes.xlsx,
+indexés au 1er janvier 2024, échelons 0-27). `prixBareme` : prix du COR de la catégorie (5xx contre le 502 et le prix MA, sinon contre le 849
+et le prix MFP) × barème de la personne ÷ barème de la catégorie, à son échelon (10 à défaut) ; `correctionBaremes` (serveur et recopie)
+ajoute la différence à `salairesHelb` en coûts réels, cours (hors invités) et coordinations (`annee().baremes_personnes`).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

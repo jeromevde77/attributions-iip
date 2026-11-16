@@ -795,6 +795,19 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                     <option value="COORD">Coordination</option>
                   </select>
                 </label>
+                {/* LE BARÈME HELB (3.5.508, Charles : « le 501 c'est pas le 502 ») : il fixe le prix réel de la personne dans IIP et HELB. */}
+                <label className="block">
+                  <span className="text-xs text-slate-500">Barème HELB</span>
+                  <select value={form.bareme_helb || ''} onChange={v => set('bareme_helb', v.target.value || null)} className="controle w-full max-w-xs">
+                    <option value="">— celui du titre (502 pour un MA, 849 sinon) —</option>
+                    {['501', '502', '849', '301', '346', '382', '151', '182'].map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs text-slate-500">Échelon (années d’ancienneté barémique)</span>
+                  <input type="number" min="0" max="27" value={form.echelon_helb ?? ''} placeholder="10 si inconnu"
+                    onChange={v => set('echelon_helb', v.target.value === '' ? null : Math.max(0, Math.min(27, Number(v.target.value))))} className="controle w-full max-w-xs" />
+                </label>
               </div>
               <NominationsPanel profId={prof?.id} />
             </Section>
