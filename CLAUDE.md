@@ -4504,7 +4504,8 @@ ajoute la différence à `salairesHelb` en coûts réels, cours (hors invités) 
 
 **LA BASCULE CONVENTION / COÛTS RÉELS EN TÊTE** (3.5.509, Charles : « je ne vois plus le choix entre convention et MA/MFP ») : dans IIP et HELB
 (`IipHelbGestion.jsx`), elle passait hors de vue au bout d'une barre trop longue (neuf années de TIM). Elle ouvre la barre ; charge, coordinations,
-cadre administratif et direction vont derrière « Filtres » (`BoutonFiltres`, pastilles dessous quand ils s'écartent du défaut).
+cadre administratif et direction sont sur une seconde ligne « Ce qui est compté », en boutons visibles (3.5.510, Charles : derrière
+« Filtres », « ce n'est pas clair » ; exception voulue à la règle d'une seule ligne).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
