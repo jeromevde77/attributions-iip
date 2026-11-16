@@ -73,6 +73,8 @@ function lireCor(wb, nom) {
     etp_enseignants: r2(n('1.A.') + n('1.B.') + n('1.C.') + n('2.A.') + n('2.B.')),
     // Le coût d'un ETP par catégorie (3.5.463) : maître-assistant TC, maître de formation pratique.
     prix_ma: par['1.A.']?.montant || null, prix_mfp: par['1.B.']?.montant || null,
+    // Les ETP des professeurs invités quand le COR les porte (3.5.506) ; à défaut, ceux du fichier d'attributions.
+    etp_invites: r2(n('5.A.') + n('5.B.')) || null,
   };
   return { nature: 'helb_cor', libelle: NATURES.helb_cor, date_donnee: dateDuNom(nom), totaux };
 }
@@ -89,11 +91,12 @@ function lireAttributions(wb, nom) {
   if (iPI < 0 || iD < 0 || iC < 0) return null;
   // Les heures données : toutes les colonnes d'heures de la ligne (maîtres-assistants, maîtres de formation pratique, invités).
   const iH = h.map((x, i) => (/^nbh|^heures PI /.test(String(x || '').trim()) ? i : -1)).filter(i => i >= 0);
-  const parCursus = {}, departements = {}; let ens = 0, fct = 0, dep = 0, adm = 0, annee = null, heures = 0;
+  const parCursus = {}, departements = {}; let ens = 0, fct = 0, dep = 0, adm = 0, annee = null, heures = 0, pi = 0;
   for (const l of L.slice(1)) {
     const D = String(l[iD] || ''), Cu = String(l[iC] || ''), cr = String(l[iCr] || '');
     if (!annee && l[iA]) annee = String(l[iA]);
     if (/^Absence/.test(cr)) continue;
+    pi += num(l[iPI]);   // les dixièmes des professeurs invités, toute la HELB (3.5.506 : le prix moyen d'un invité)
     const d = (num(l[iPI]) + num(l[iSt]) + (iSal >= 0 ? num(l[iSal]) : 0)) / 10;
     if (!d) continue;
     if (!DEPTS.includes(D)) { adm += d; continue; }
@@ -104,7 +107,7 @@ function lireAttributions(wb, nom) {
   if (!ens) return null;
   const cursus = Object.values(parCursus).map(c => ({ ...c, enseignement: r2(c.enseignement), fonctions: r2(c.fonctions) })).sort((a, b) => a.dept.localeCompare(b.dept) || a.cursus.localeCompare(b.cursus));
   return { nature: 'helb_attributions', libelle: NATURES.helb_attributions, annee: annee ? `20${annee.slice(0, 2)}-20${annee.slice(3, 5)}` : null, date_donnee: dateDuNom(nom),
-    totaux: { heures_enseignement: Math.round(heures), enseignement: r2(ens), fonctions: r2(fct), departements: r2(dep), administration: r2(adm), etp_cursus: r2(ens + fct),
+    totaux: { etp_pi: r2(pi / 10), heures_enseignement: Math.round(heures), enseignement: r2(ens), fonctions: r2(fct), departements: r2(dep), administration: r2(adm), etp_cursus: r2(ens + fct),
       fonctions_sur_enseignement: r2(fct / ens), par_departement: Object.fromEntries(Object.entries(departements).map(([k, v]) => [k, r2(v)])), cursus } };
 }
 

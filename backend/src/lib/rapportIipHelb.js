@@ -145,6 +145,8 @@ function annee(section, a, unite = 'periodes', mode = 'reel') {
     per_iip: som(l => l.periodes, l => !l.helb), per_helb: som(l => l.periodes, l => l.helb),
     etp_iip: som(l => l.etp, l => !l.helb), etp_helb: som(l => l.etp, l => l.helb),
     etp_helb_ma: som(l => l.etp, l => l.helb && l.titre_helb === 'MA'), etp_helb_mfp: som(l => l.etp, l => l.helb && l.titre_helb !== 'MA'),
+    // Les invités de la HELB (statut EXP) : à leur propre prix en coûts réels (3.5.506), titre ou non.
+    etp_helb_inv: som(l => l.etp, l => l.helb && l.statut === 'EXP'), etp_helb_ma_inv: som(l => l.etp, l => l.helb && l.statut === 'EXP' && l.titre_helb === 'MA'),
     etp_helb_480: som(l => l.etp, l => l.helb && divHelb(l.titre_helb, l.nature_helb) === 480),
     profs_iip: new Set(L.filter(l => !l.helb && l.professeur_id).map(l => l.professeur_id)).size,
     profs_helb: new Set(L.filter(l => l.helb && l.professeur_id).map(l => l.professeur_id)).size,
@@ -252,7 +254,13 @@ export function prixHelb(cor = null) {
   let c = cor;
   if (!c) { try { c = sourcesEnVigueur().helb_cor?.totaux || {}; } catch { c = {}; } }
   const moyen = c.enseignement_statutaire && c.etp_enseignants ? c.enseignement_statutaire / c.etp_enseignants : null;
-  return { ma: c.prix_ma || COR_HELB.prix_ma, mfp: c.prix_mfp || COR_HELB.prix_mfp, moyen: Math.round(moyen || COR_HELB.prix_moyen) };
+  /* LE PRIX D'UN PROFESSEUR INVITÉ (3.5.506, Charles : « calculons bien aussi le prix des professeurs invités ? » ; tranché : le prix
+     moyen d'un invité du COR). La ligne « professeurs invités » du COR ÷ les ETP des invités — ceux du COR s'il les porte, sinon ceux du
+     fichier d'attributions de la HELB (« total dix PI » ÷ 10, gardé au dépôt depuis 3.5.506). Sans l'un ou l'autre : inconnu (null). */
+  let etpPi = c.etp_invites || null;
+  if (!etpPi) { try { etpPi = sourcesEnVigueur().helb_attributions?.totaux?.etp_pi || null; } catch { etpPi = null; } }
+  const invite = c.invites && etpPi ? Math.round(c.invites / etpPi) : null;
+  return { ma: c.prix_ma || COR_HELB.prix_ma, mfp: c.prix_mfp || COR_HELB.prix_mfp, moyen: Math.round(moyen || COR_HELB.prix_moyen), invite };
 }
 /* POUR LA HELB : CE QUE COÛTE ET RAPPORTE LA SECTION (3.5.433, Charles, 14 novembre 2026 : « calculer les coûts et bénéfices des
    étudiants pour la HELB ; montrer que la section est très peu coûteuse mais rapporte beaucoup » ; tranché : la HELB compte 50 % des
@@ -417,10 +425,12 @@ export function salairesHelb(y, P, avecCoord = true) {
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
-    // Au titre : un maître-assistant au prix du MA (cours et coordinations) ; tout le reste au prix du MFP.
+    // Au titre : un maître-assistant au prix du MA (cours et coordinations) ; tout le reste au prix du MFP. Un invité (statut EXP), au
+    // prix moyen d'un invité du COR quand il est connu (3.5.506), quel que soit son titre.
     const cma = avecCoord ? Math.min(c, y.cetp_helb_ma || 0) : 0;
-    const ma = (y.etp_helb_ma || 0) + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0)) + (c - cma);
-    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma);
+    const inv = P.prix_invite ? (y.etp_helb_inv || 0) : 0, maInv = P.prix_invite ? (y.etp_helb_ma_inv || 0) : 0;
+    const ma = (y.etp_helb_ma || 0) - maInv + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0) - (inv - maInv)) + (c - cma);
+    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma) + inv * (P.prix_invite || 0);
   }
   return etp * P.cmbp;
 }
@@ -509,11 +519,11 @@ export function documentIipHelb(p) {
     // Un seul calcul pour la HELB (3.5.496) : la même mesure pour son coût et pour les salaires de son résultat.
     const Hp = { ...R.helb, ...Object.fromEntries(Object.entries(prixHelb(p.cor)).map(([k, v]) => [`prix_${k}`, v])), prix: R.mesures.prix_helb };
     y.c_helb = reel
-      ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, cetp_helb_ma: y.cetp_helb_ma }, Hp, avecCoord)
+      ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: y.cetp_helb_ma }, Hp, avecCoord)
       : y.cout_helb_conv + y.coord_helb_conv;
     y.salaires_imposes = y.c_helb;
     // Le coût HELB en deux postes, selon la même lecture : les cours, puis les coordinations.
-    y.cours_helb_m = reel ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: 0, etp_helb_ma: y.etp_helb_ma, cetp_helb_ma: 0 }, Hp, false) : y.cout_helb_conv;
+    y.cours_helb_m = reel ? salairesHelb({ ens_helb: y.ens_helb, cetp_helb: 0, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: 0 }, Hp, false) : y.cout_helb_conv;
     y.coord_helb_m = y.c_helb - y.cours_helb_m;
     y.tout_iip = y.cout_iip + y.coord_iip + adm; y.tout_helb = y.c_helb;
   }
@@ -697,7 +707,7 @@ export function documentIipHelb(p) {
     <p class="fin">Allocation (décret du 9 septembre 1996, art. 17) : pour chaque année civile, la moyenne des étudiants comptés
       (${n0(H.part)} % des inscrits) des ${n0(H.lissage)} années académiques précédentes ; une année académique reçoit 4/12 de l'année civile où elle commence et 8/12 de la suivante × ${n2(H.muce)} € (unité de charge d'enseignement) × ${n2(H.ponderation)}
       (pondération santé). Droits : les droits d'inscription et frais des étudiants de la section, au barème, versés à l'ASBL, qui alimentent
-      les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : ${!reel ? `les enseignants HELB${avecCoord ? ' (enseignement et coordinations)' : ''} en convention — un maître-assistant comme un CT, tout autre comme un PP, au prix de la circulaire —, ` : `les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × `}${!reel ? '' : H.prix === 'titres' ? `le coût de leur titre au COR (maître-assistant ${n0(H.prix_ma)} € par ETP, les autres au prix d'un maître de formation pratique, ${n0(H.prix_mfp)} € ; ETP comptés à 480 h pour la théorie d'un maître-assistant, 750 h pour le reste)` : H.prix === 'moyenne' ? `${n0(H.prix_moyen)} € (moyenne du COR de la HELB)` : `${n0(H.cmbp)} € (coût moyen brut pondéré)`}, plus ${n2(H.autres)} %
+      les moyens de la Haute École. L'IIP, lui, a financé sa part sur ses propres dotations (périodes de la Fédération) : aucun coût supplémentaire, une optimisation des moyens existants. Coût : ${!reel ? `les enseignants HELB${avecCoord ? ' (enseignement et coordinations)' : ''} en convention — un maître-assistant comme un CT, tout autre comme un PP, au prix de la circulaire —, ` : `les ETP HELB${avecCoord ? ' (enseignement et coordinations)' : ''} × `}${!reel ? '' : H.prix === 'titres' ? `le coût de leur titre au COR (maître-assistant ${n0(H.prix_ma)} € par ETP, les autres au prix d'un maître de formation pratique, ${n0(H.prix_mfp)} €${H.prix_invite ? `, les professeurs invités au prix moyen d'un invité du COR, ${n0(H.prix_invite)} €` : ''} ; ETP comptés à 480 h pour la théorie d'un maître-assistant, 750 h pour le reste)` : H.prix === 'moyenne' ? `${n0(H.prix_moyen)} € (moyenne du COR de la HELB)` : `${n0(H.cmbp)} € (coût moyen brut pondéré)`}, plus ${n2(H.autres)} %
       pour les autres services, et ${H.mode_fonct === 'forfait' ? `${n2(H.fonctionnement)} % de l'allocation pour le fonctionnement (forfait)`
         : `le matériel et le fonctionnement de la section : ${L.map(({ y }) => `${esc(y.annee)} ${R.materiel[y.annee] != null ? 'posé par la direction' : esc(MATERIEL_HELB[y.annee]?.source || 'inconnu')}`).join(' ; ')}`}.
       Apport de l'IIP : le cadre administratif de l'école (direction, secrétariat), 100 % IIP, × la part de ${esc(section)} dans les inscrits de
@@ -940,7 +950,7 @@ export function lignesIipHelb(p) {
     const y = annee(section, a, unite, mode);
     return { annee: a, section, etp_iip: Math.round((y.etp_iip + y.cetp_iip) * 100) / 100, etp_helb: Math.round((y.etp_helb + y.cetp_helb) * 100) / 100,
       per_iip: Math.round(y.per_iip), per_helb: Math.round(y.per_helb), cout_iip: Math.round(y.cout_iip + y.coord_iip + y.admin.part),
-      cout_helb: Math.round(mode === 'reel' ? salairesHelb({ ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, cetp_helb_ma: y.cetp_helb_ma }, { ...PARAM_HELB, prix: 'titres', ...Object.fromEntries(Object.entries(prixHelb()).map(([k, v]) => [`prix_${k}`, v])) }, true) : y.cout_helb_conv + y.coord_helb_conv), inscrits: y.inscrits,
+      cout_helb: Math.round(mode === 'reel' ? salairesHelb({ ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: y.cetp_helb_ma }, { ...PARAM_HELB, prix: 'titres', ...Object.fromEntries(Object.entries(prixHelb()).map(([k, v]) => [`prix_${k}`, v])) }, true) : y.cout_helb_conv + y.coord_helb_conv), inscrits: y.inscrits,
       recettes: Math.round(y.recettes), par_etudiant: y.inscrits ? Math.round(y.recettes / y.inscrits) : null };
   });
 }
@@ -955,7 +965,7 @@ export function enseignantsHelbCivil(section, anneeCivile) {
   const part = (a, poids) => {
     if (!toutes.has(a)) return { cout: 0, etp: 0, poids: 0 };
     const y = annee(section, a);
-    const yy = { ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, cetp_helb_ma: y.cetp_helb_ma };
+    const yy = { ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, etp_helb_inv: y.etp_helb_inv, etp_helb_ma_inv: y.etp_helb_ma_inv, cetp_helb_ma: y.cetp_helb_ma };
     return { cout: salairesHelb(yy, P, true) * poids, etp: (y.etp_helb + y.cetp_helb) * poids, poids };
   };
   const a = part(`${Y - 1}-${Y}`, 8 / 12), b = part(`${Y}-${Y + 1}`, 4 / 12);
