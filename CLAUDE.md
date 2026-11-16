@@ -4451,6 +4451,8 @@ une seule mesure `cout` — convention · `titres` (coût réel MA / MFP pour la
 brut — pour le coût HELB de la section (cours + coordinations) ET les salaires du résultat de la HELB (`salaires_imposes`, lu en
 premier par `salairesHelb`). Le prix MA / MFP (titres, moyenne, montant réglé) ne se choisit qu'en mode réel. Les comptes réels
 (`enseignantsHelbCivil`) restent au titre.
+3.5.497 (Charles : « je veux la moyenne ASBL ») : la tuile « par ETP enseignant (HELB) » porte aussi la moyenne de l'ASBL — `asbl.etu_etp` de
+`GET /api/pilotage/lecture` = (inscrits HELB + IIP) ÷ (ETP des cursus HELB + ETP enseignants IIP), dernière année choisie.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
