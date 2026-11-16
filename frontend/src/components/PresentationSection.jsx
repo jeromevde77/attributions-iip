@@ -498,6 +498,34 @@ function composer(D, T, opts = {}) {
     ajouter({ id: 'equipe', blocs: bl2, notes: t('notes.equipe', 'Une personne qui enseigne pour les deux écoles compte dans chacune. Arrivée : jamais vue dans la section les années d’avant. Le statut de chargé de cours ou d’expert est celui de la fiche ; le statut de nomination n’a pas d’historique : c’est celui d’aujourd’hui.'), notesCle: 'notes.equipe' });
   }
 
+  /* LA CHARGE BLOC PAR BLOC ET LES COORDINATIONS HELB (3.5.494, Charles : « le modèle de présentation doit représenter le document que
+     je vais présenter ») : GET /api/pilotage/etp, les chiffres du rapport de charge ETP et de la carte « Détail par bloc » de Gestion. */
+  const SE = D.etp || null;
+  if (SE?.ues?.length) {
+    const n2 = v => (v || 0).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const blocDe = u => { const m = String(u.ue_niv || '').match(/\d+/); return m ? `Bloc ${m[0]}` : 'Hors bloc'; };
+    const noms = [...new Set(SE.ues.map(blocDe))].sort();
+    const somme = (b, k) => SE.ues.filter(u => blocDe(u) === b).reduce((t, u) => t + (u[k] || 0), 0);
+    const coord = SE.etp_coord_helb || 0, cours = SE.etp_total || 0;
+    const bl = [...entete('Les enseignants', `La charge ${SE.annee || annee}, bloc par bloc`)];
+    bl.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: CW - 380, h: 450, categories: noms, unite: '',
+      series: [{ nom: 'IIP', valeurs: noms.map(b => Math.round(somme(b, 'etp_iip') * 100) / 100), couleur: C.iip },
+        { nom: 'HELB', valeurs: noms.map(b => Math.round(somme(b, 'etp_helb') * 100) / 100), couleur: C.helb }],
+      titre: 'ETP d’enseignement par bloc, IIP et HELB' });
+    bl.push(...tuileSombre(W - M - 350, 150, 350, 190, n2(cours + coord), 'ETP au total', `${n2(cours)} de cours${coord ? ` · ${n2(coord)} de coordination HELB` : ''}`));
+    if (SE.nb_etudiants && cours + coord) bl.push(...tuileClaire(W - M - 350, 360, 350, 110, (SE.nb_etudiants / (cours + coord)).toLocaleString('fr-BE', { maximumFractionDigits: 1 }), 'étudiants par ETP', `${n0(SE.nb_etudiants)} étudiants`, C.vert));
+    bl.push(...retenir('chargeblocs', `${noms.map(b => `${b} : ${n2(somme(b, 'etp_total'))} ETP`).join(' · ')}.`));
+    ajouter({ id: 'chargeblocs', blocs: bl, notes: t('notes.chargeblocs', 'Le détail unité par unité est dans le dossier imprimé (2.1 Attributions). ETP : CT ÷ 800, PP ÷ 1 000.'), notesCle: 'notes.chargeblocs' });
+    if ((SE.coord_helb || []).length) {
+      const bl2 = [...entete('Les enseignants', 'Les coordinations, portées par la HELB')];
+      bl2.push({ k: 'liste', x: M, y: 150, w: CW - 400, h: 430, taille: 20, couleur: C.encre, puce: C.helb,
+        items: SE.coord_helb.map(m => `${String(m.prof_nom || '').toUpperCase()} ${m.prof_prenom || ''} — ${m.fonction} · ${n2(m.etp_helb)} ETP`) });
+      bl2.push(...tuileSombre(W - M - 350, 150, 350, 190, n2(coord), 'ETP de coordination', `${SE.coord_helb.length} poste(s), financés par la HELB, hors dotation IIP`, C.helb));
+      bl2.push(...retenir('coordhelb', `La HELB finance ${n2(coord)} ETP de coordination : pédagogie, cursus, stages et TFE.`));
+      ajouter({ id: 'coordhelb', blocs: bl2, notes: t('notes.coordhelb', 'Postes financés directement par la HELB : ils ne sont pas prélevés sur la dotation de périodes de l’IIP.'), notesCle: 'notes.coordhelb' });
+    }
+  }
+
   /* PARTIE 5 — LE BILAN */
   separateur(5, 'Le bilan', 'Ce qui fait la force de la section, ce qui la fragilise, ce que nous vous demandons.', '★');
   /* LE BILAN SE DÉDUIT DES CHIFFRES DE LA SECTION (3.5.462, Charles : « tu mets les mêmes conclusions à toutes les sections ») :
@@ -593,6 +621,44 @@ function composer(D, T, opts = {}) {
     { k: 'texte', x: M, y: 440, w: CW, h: 80, texte: t('merci.titre', 'Merci. Vos questions.'), taille: 50, couleur: C.surTitre, gras: true, align: 'center', edit: 'merci.titre' },
     { k: 'texte', x: M, y: 530, w: CW, h: 40, texte: t('merci.sous', `${nom} — Institut Ilya Prigogine`), taille: 18, couleur: C.clair, align: 'center', edit: 'merci.sous' },
   ], notes: t('notes.merci', ''), notesCle: 'notes.merci' });
+
+  /* LE PLAN DU DOSSIER DU COPIL (3.5.494, Charles : « modifier le modèle de présentation visuel pour qu'il représente bien le document
+     que je vais présenter »). Le public « Comité de pilotage » (`mode.presentation` = copil) range les diapositives dans les cinq parties
+     du dossier imprimé (Gestion → Dossier COPIL), avec ses textes : chaque « À retenir » reprend, tant qu'on ne l'a pas réécrit ici, le
+     texte de la partie du dossier (`copil.<partie>`) ; le dossier pédagogique, le divers et la conclusion ont leur diapositive. */
+  if (T['mode.presentation'] === 'copil') {
+    const par = Object.fromEntries(diapos.map(d => [d.id, d]));
+    const neuf = [par.couverture];
+    const sep = (num, titre, sous, icone) => { separateur(num, titre, sous, icone); neuf.push(diapos.pop()); };
+    const prendre = (...ids) => ids.forEach(id => par[id] && neuf.push(par[id]));
+    const texteCopilT = k => (T[`copil.${k}`] !== undefined && T[`copil.${k}`] !== null ? T[`copil.${k}`] : '');
+    const reprendre = (id, k) => {
+      const d = par[id]; if (!d || T[`retenir.${id}`]) return;
+      const b = d.blocs.find(x => x.edit === `retenir.${id}`); const v = texteCopilT(k);
+      if (b && v) b.texte = v.length > 230 ? `${v.slice(0, 227)}…` : v;
+    };
+    reprendre('croissance', 'inscriptions'); reprendre('nationalites', 'provenance'); reprendre('attributions', 'attributions');
+    reprendre('finances', 'positionnement'); reprendre('decisions', 'reussite');
+    const page = (id, kicker, titre, k) => {
+      const v = texteCopilT(k);
+      neuf.push({ id, blocs: [...entete(kicker, titre),
+        { k: 'texte', x: M, y: 150, w: CW, h: 440, texte: v || 'À compléter.', taille: v.length > 500 ? 19 : 23, couleur: C.encre, edit: `copil.${k}` }],
+        notes: t(`notes.${id}`, ''), notesCle: `notes.${id}` });
+    };
+    sep(1, 'Statistiques annuelles de population', 'Les inscriptions, puis la provenance des étudiants.', '◎');
+    prendre('croissance', 'place', 'sexe', 'acces', 'nationalites', 'europe', 'domicile');
+    sep(2, 'Évolution des attributions depuis l’ouverture', 'Qui enseigne, la charge de chaque école, puis où se situe la section.', '⇄');
+    prendre('attributions', 'equipe', 'chargeblocs', 'coordhelb', 'finances', 'comptes');
+    sep(3, 'Statistiques de réussite', 'Première session, seconde session, et ce qui reste au final.', '✓');
+    prendre('decisions', 'blocs', 'unites');
+    sep(4, 'Évolution du dossier pédagogique', '', '✎');
+    page('copil-dp', 'Le dossier pédagogique', 'Évolution du dossier pédagogique', 'dp');
+    sep(5, 'Divers', '', '★');
+    page('copil-divers', 'Divers', 'Divers', 'divers');
+    page('copil-conclusion', 'En conclusion', 'En conclusion', 'conclusion');
+    prendre('merci');
+    diapos.length = 0; diapos.push(...neuf);
+  }
 
   /* CHOISIR CE QUI PASSE, SELON LE PUBLIC (3.5.475, Charles : « choisir via un menu ce qui sera dans les slides parmi tout ce qui est
      possible ; cela permet d'adapter en fonction du public »). Les diapositives retirées sont gardées par section (`choix.masquees`,
@@ -863,11 +929,12 @@ export default function PresentationSection() {
     let vivant = true; setD(null); setErreur(null);
     const j = u => fetch(u, { headers: authHeaders() }).then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.error || `Erreur ${r.status}`); return x; });
     (async () => {
-      const [pop, lec, txt, attr] = await Promise.all([
+      const [pop, lec, txt, attr, etpTout] = await Promise.all([
         j(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`),
         j(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`).catch(() => null),
         j(`/api/pilotage/presentation/${encodeURIComponent(section)}`).catch(() => ({ textes: {} })),
         j(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}`).catch(() => null),
+        j(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`).catch(() => null),
       ]);
       const evo = (pop.evolution || []).filter(e => (e.par_section?.[section] || 0) > 0).map(e => e.annee);
       const anneesRes = [...new Set(evo)].filter(a => a <= annee).sort();
@@ -877,7 +944,8 @@ export default function PresentationSection() {
       }));
       if (!vivant) return;
       setTextes(txt.textes || {});
-      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee, attr });
+      const etp = (etpTout?.sections || []).find(x => x.section === section) || null;
+      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee, attr, etp: etp ? { ...etp, annee } : null });
     })().catch(e => vivant && setErreur(e.message));
     return () => { vivant = false; };
   }, [section, annee, tour]);
@@ -890,6 +958,7 @@ export default function PresentationSection() {
   /* LES PUBLICS (3.5.475) : un départ, qu'on retouche ensuite case par case. */
   const PUBLICS = [
     // [nom, diapositives retirées, la ligne de couverture] — la couverture dit à qui l'on parle.
+    ['Comité de pilotage — le plan du dossier', [], 'COMITÉ DE PILOTAGE · IIP – HELB'],
     ['Conseil d’administration', [], 'PRÉSENTATION AU CONSEIL D’ADMINISTRATION'],
     ['Équipe pédagogique', ['sep4', 'finances', 'comptes', 'demandes'], 'PRÉSENTATION À L’ÉQUIPE PÉDAGOGIQUE'],
     ['Public extérieur (salon, partenaires)', ['sep4', 'finances', 'comptes', 'unites', 'forces', 'opportunites', 'demandes', 'sep5'], 'PRÉSENTATION DE LA SECTION'],
@@ -971,7 +1040,7 @@ export default function PresentationSection() {
             <div>
               <div className="intertitre mb-1.5">Pour quel public ?</div>
               <div className="flex flex-wrap gap-2">
-                {PUBLICS.map(([nom, ids, kicker]) => <button key={nom} type="button" className="bouton" onClick={() => poserMasquees(ids.filter(x => catalogue.some(c => c.id === x)), { 'couv.kicker': kicker, 'couv.date': nom === 'Conseil d’administration' ? undefined : '' })}>{nom}</button>)}
+                {PUBLICS.map(([nom, ids, kicker]) => <button key={nom} type="button" className="bouton" onClick={() => poserMasquees(ids.filter(x => catalogue.some(c => c.id === x)), { 'couv.kicker': kicker, 'couv.date': nom === 'Conseil d’administration' ? undefined : '', 'mode.presentation': nom.startsWith('Comité de pilotage') ? 'copil' : '' })}>{nom}</button>)}
               </div>
               <p className="text-mention text-slate-500 mt-1.5 mb-0">Un public coche un départ et adapte la ligne de couverture ; chaque case et chaque texte se retouchent ensuite.</p>
             </div>

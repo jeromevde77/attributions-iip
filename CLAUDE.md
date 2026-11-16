@@ -4438,6 +4438,11 @@ IIP et HELB (cartes `blocs_ue`, `coord_helb`, dernière année choisie) — donc
 section = coût (et ETP) des fonctions d'établissement × périodes de la section ÷ périodes de l'école (`ratio`, `per_section`,
 `per_ecole` de `annee()` dans `lib/rapportIipHelb.js`) ; `part_secr` toujours, `part_dir` (fonction « Direct… ») selon la mesure
 `direction` (« Avec direction / Secrétariat seul ») ; aucune part HELB.
+3.5.494 (« modifier le modèle de présentation visuel pour qu'il représente bien le document que je vais présenter ») : public
+« Comité de pilotage — le plan du dossier » de la Présentation (`mode.presentation` = copil) : couverture, puis les cinq parties du dossier
+dans son ordre (population · attributions et positionnement · réussite · dossier pédagogique · divers et conclusion) ; les « À
+retenir » reprennent les textes `copil.<partie>` tant qu'on ne les réécrit pas ; diapositives `chargeblocs` et `coordhelb` (GET
+/api/pilotage/etp) ; `copil-dp`, `copil-divers`, `copil-conclusion` écrivent les mêmes textes que le dossier.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
