@@ -6,6 +6,7 @@ import { couleursGraphique } from '../lib/couleurs.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { EnteteCarte, TuileEtat, Tableau, Th, Td } from './ui.jsx';
 import { Anneau } from './graphiques.jsx';
+import ChargeParBloc from './ChargeParBloc.jsx';
 import { Tuile } from './statsUi.jsx';
 
 /* L'IIP ET LA HELB, UNE PAGE DE GESTION NATIVE (3.5.432, Charles, 14 novembre 2026 : « le rapport est lent ; je le voudrais en natif,
@@ -71,7 +72,7 @@ function Volet({ titre, ouvert = false, droite = null, children }) {
       {o && <div className="mt-2">{children}</div>}
     </div>);
 }
-const CARTES = [['charge', 'La charge'], ['charge_ens', 'Charge : enseignement seul'], ['charge_coord', 'Charge : avec coordinations'], ['charge_admin', 'Charge : avec cadre administratif'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
+const CARTES = [['blocs_ue', 'Détail par bloc et par UE'], ['coord_helb', 'Postes de coordination HELB'], ['charge', 'La charge'], ['charge_ens', 'Charge : enseignement seul'], ['charge_coord', 'Charge : avec coordinations'], ['charge_admin', 'Charge : avec cadre administratif'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['statuts', 'Chargés de cours et experts'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
 /* LA VALEUR DANS UN BADGE DE LA COULEUR DE SA SÉRIE (3.5.443, Charles : « que les points soient connectés à la légende — le montant,
@@ -320,6 +321,10 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
             forme={forme('charge', 'empile')} onForme={majForme('charge')} onMasquer={masquer('charge')}>
             <Graphe forme={forme('charge', 'empile')} fmt={fCh} donnees={Y.map(y => ({ lib: y.lib, iip: y.chI, helb: y.chH }))} />
           </Carte>}
+          {/* LE DÉTAIL PAR BLOC ET LES COORDINATIONS HELB (3.5.491, Charles : « intégrer la partie bloc 1, 2 et 3, ainsi que la partie
+              coordination — dans la gestion, important ») : la dernière année choisie, comme le rapport de charge ETP d'une section. */}
+          {(vu('blocs_ue') || vu('coord_helb')) && Y.length > 0 && (
+            <ChargeParBloc annee={Y[Y.length - 1].annee} section={section} voir={{ blocs: vu('blocs_ue'), coord: vu('coord_helb') }} />)}
           {/* LA CHARGE EN TROIS LECTURES (3.5.482, Charles : « la charge ETP sans coordination, avec coordination et avec admin — à la
               carte ») : trois cartes, chacune son graphique, quelles que soient les mesures choisies — on garde à l'impression celles qu'on
               veut. Le cadre administratif (direction, secrétariat : IIP) en ETP, au prorata des inscrits de la section. */}

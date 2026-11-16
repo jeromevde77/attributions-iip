@@ -4429,6 +4429,10 @@ annees, exclus} pour la section ; un bloc retiré se reconnaît à `partie|titre
 la composition suivante.
 3.5.489 (« la première page n'est pas pleine ») : la couverture part à part (`couverture_html` de `POST /api/impression/pdf`), rendue
 par son propre @page (A4, sans marge ni pied) puis posée devant le corps par pdf-lib ; la pagination du corps ne la compte pas.
+3.5.491 (Charles : « intégrer la partie bloc 1, 2 et 3, ainsi que la partie coordination — dans la gestion, important ») :
+`components/ChargeParBloc.jsx` — le détail du rapport de charge ETP d'une section (GET /api/pilotage/etp : un tableau par bloc, contrat,
+inscrits, CT / PP, part, ETP, « dont IIP / HELB », sous-total ; puis les postes de coordination HELB, hors dotation IIP), monté dans
+IIP et HELB (cartes `blocs_ue`, `coord_helb`, dernière année choisie) — donc dans Une section et le dossier du COPIL (2.1).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
