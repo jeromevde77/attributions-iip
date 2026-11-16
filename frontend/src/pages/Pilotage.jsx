@@ -1573,9 +1573,15 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'dotation' ? <DotationComparaison civil={civil} />
     : k === 'deliberation' ? <StatsDeliberation annee={anneeActive} />
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
+    /* UNE SECTION, L'ÉCOLE, IIP ET HELB À L'IMPRESSION (3.5.482, Charles : « je veux pouvoir imprimer "une section", où se situe le
+       TIM, puis la charge ETP sans coordination, avec coordination, avec admin… à la carte ») : les pages telles qu'à l'écran (même
+       section, mêmes réglages, gardés par la page) ; « Choisir les blocs » de l'aperçu retire ce qu'on ne veut pas. */
+    : k === 'section' ? <GestionLecture annee={anneeActive} perimFixe="section" />
+    : k === 'ecole' ? <GestionLecture annee={anneeActive} perimFixe="etab" />
+    : k === 'iip-helb' ? <IipHelbGestion />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
-  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'iip-helb' && k !== 'presentation' && k !== 'lecture' && k !== 'ecole' && k !== 'section' && k !== 'sources') })).filter(r => r.faces.length);
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
@@ -1626,8 +1632,9 @@ export default function Pilotage({ vue = 'tout' }) {
   }
   useEffect(() => {
     if (!facesImprimees) { setElements([]); return undefined; }
-    const t1 = setTimeout(recenser, 1500), t2 = setTimeout(recenser, 4000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // Les pages lourdes (une section, IIP et HELB) se calculent en plusieurs secondes : on relit encore à 10 et 30 s.
+    const t = [1500, 4000, 10000, 30000].map(ms => setTimeout(recenser, ms));
+    return () => t.forEach(clearTimeout);
   }, [facesImprimees]);   // eslint-disable-line react-hooks/exhaustive-deps
   const BLOCS_IMPRIMABLES = '.carte, .bloc-etat';
   function basculerBloc(e) {

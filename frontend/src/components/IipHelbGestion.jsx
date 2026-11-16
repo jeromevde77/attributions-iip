@@ -68,7 +68,7 @@ function Volet({ titre, ouvert = false, droite = null, children }) {
       {o && <div className="mt-2">{children}</div>}
     </div>);
 }
-const CARTES = [['charge', 'La charge'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
+const CARTES = [['charge', 'La charge'], ['charge_ens', 'Charge : enseignement seul'], ['charge_coord', 'Charge : avec coordinations'], ['charge_admin', 'Charge : avec cadre administratif'], ['couts', 'Le coût de la section'], ['etudiant', 'Le coût d’un étudiant'], ['recettes', 'Ce qu’un étudiant rapporte'], ['helb', 'Pour la HELB'], ['vrio', 'La lecture VRIO'], ['comparaison', 'Les cursus de la HE'],
   ['fonctions', 'Les coordinations'], ['admin', 'Le cadre administratif'], ['statuts', 'Chargés de cours et experts'], ['blocs', 'Par bloc'], ['natures', 'Par nature'], ['enseignants', 'Par enseignant']];
 
 /* LA VALEUR DANS UN BADGE DE LA COULEUR DE SA SÉRIE (3.5.443, Charles : « que les points soient connectés à la légende — le montant,
@@ -308,6 +308,21 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
             forme={forme('charge', 'empile')} onForme={majForme('charge')} onMasquer={masquer('charge')}>
             <Graphe forme={forme('charge', 'empile')} fmt={fCh} donnees={Y.map(y => ({ lib: y.lib, iip: y.chI, helb: y.chH }))} />
           </Carte>}
+          {/* LA CHARGE EN TROIS LECTURES (3.5.482, Charles : « la charge ETP sans coordination, avec coordination et avec admin — à la
+              carte ») : trois cartes, chacune son graphique, quelles que soient les mesures choisies — on garde à l'impression celles qu'on
+              veut. Le cadre administratif (direction, secrétariat : IIP) en ETP, au prorata des inscrits de la section. */}
+          {(() => {
+            const admEtp = y => { const f = (y.admin?.fonctions || []).reduce((t, x) => t + (x.etp || 0), 0); return y.admin?.base ? f * y.inscrits / y.admin.base : 0; };
+            const sansAdm = Y.some(y => !(y.admin?.fonctions || []).length);
+            return [
+              ['charge_ens', 'La charge en ETP : enseignement seul', 'Attributions de la section, hors congés', y => ({ iip: y.ens_iip, helb: y.ens_helb })],
+              ['charge_coord', 'La charge en ETP : avec les coordinations', 'Enseignement + coordinations de la section (part IIP et part HELB)', y => ({ iip: y.ens_iip + (y.cetp_iip || 0), helb: y.ens_helb + (y.cetp_helb || 0) })],
+              ['charge_admin', 'La charge en ETP : avec le cadre administratif', `Enseignement + coordinations + part de la direction et du secrétariat (IIP), au prorata des inscrits${sansAdm ? ' · fonctions non encodées pour certaines années : 0' : ''}`, y => ({ iip: y.ens_iip + (y.cetp_iip || 0) + admEtp(y), helb: y.ens_helb + (y.cetp_helb || 0) })],
+            ].filter(([k]) => vu(k)).map(([k, titre, sous, f]) => (
+              <Carte key={k} titre={titre} sous={sous} forme={forme(k, 'empile')} onForme={majForme(k)} onMasquer={masquer(k)}>
+                <Graphe forme={forme(k, 'empile')} fmt={n2} donnees={Y.map(y => ({ lib: y.lib, ...f(y) }))} />
+              </Carte>));
+          })()}
           {vu('couts') && <Carte titre="Le coût de la section" sous={`${methode}${mes.coord === 'oui' ? ', coordinations' : ''}${mes.admin === 'oui' ? ', cadre administratif' : ''}`}
             forme={forme('couts', 'empile')} onForme={majForme('couts')} onMasquer={masquer('couts')}>
             <Graphe forme={forme('couts', 'empile')} fmt={keur} donnees={Y.map(y => ({ lib: y.lib, iip: y.coutI, helb: y.coutH }))} />
