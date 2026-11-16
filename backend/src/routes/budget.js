@@ -15,6 +15,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { budgetCompare } from '../lib/budgetCompare.js';
 import { migrerBudgetSections, assurerAnnee, syntheseBudget, nature, effectifsLucie, PRIORITES, ETATS_INVENTAIRE } from '../lib/budgetSections.js';
 
 const r = Router();
@@ -220,6 +221,13 @@ r.get('/', authRequired, (req, res) => {
     peut_ecrire: section ? peutEcrire(req.user, section) : (autorisees === null),
     peut_arbitrer: estDirection(req.user), seuil,
   });
+});
+
+// ── Le budget comparé : chaque section face aux autres et à l'ASBL (3.5.501) ─────────────────────────────
+/* Des montants par étudiant, des taux : rien d'une ligne d'une autre section ne sort (« compter sans énumérer »). */
+r.get('/compare', authRequired, (req, res) => {
+  const annee = Number(req.query.annee) || new Date().getFullYear();
+  try { res.json(budgetCompare(annee)); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Le budget prévu d'UNE section, pour sa fiche, le dossier COPIL et la présentation (3.5.500) ──────────
