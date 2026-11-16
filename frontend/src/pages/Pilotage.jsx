@@ -1667,6 +1667,8 @@ export default function Pilotage({ vue = 'tout' }) {
      graphique sexe, graphique âge, tableau… »). Recensée dans l'aperçu une fois les parties dessinées :
      chaque carte (par son titre) et chaque rangée de tuiles. Décocher retire l'élément de l'impression. */
   const [elements, setElements] = useState([]);
+  // LE PANNEAU DES ÉLÉMENTS SE REPLIE (3.5.490, Charles : « je ne sais pas l'enlever ») : il couvrait l'aperçu portrait.
+  const [panneauReplie, setPanneauReplie] = useState(false);
   function recenser() {
     const zone = document.querySelector('.zone-impression .page-impression');
     if (!zone) return;
@@ -2004,11 +2006,15 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => window.print()} title="Impression du navigateur, sans bas de page garanti">Imprimer (navigateur)</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setFacesImprimees(null)}><IconX size={15} /> Fermer</button>
           </div>
-          {elements.length > 0 && (
+          {elements.length > 0 && panneauReplie && (
+            <button type="button" className="sans-impression fixed right-4 top-20 z-20 bouton shadow-flottant" onClick={() => setPanneauReplie(false)}>
+              Éléments à imprimer{nbRetires ? ` · ${nbRetires} retiré(s)` : ''}</button>)}
+          {elements.length > 0 && !panneauReplie && (
             <aside className="sans-impression fixed right-4 top-20 z-20 w-72 max-h-[75vh] overflow-y-auto rounded-carte border border-slate-200 shadow-flottant p-3 text-second"
               style={{ background: 'var(--page-fond, #fff)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <b className="flex-1">Éléments à imprimer</b>
+                <button type="button" className="text-slate-500 hover:text-slate-800" onClick={() => setPanneauReplie(true)} title="Replier ce panneau" aria-label="Replier ce panneau"><IconX size={15} /></button>
                 <button type="button" className="text-iip-blue underline" onClick={() => elements.forEach(x => cocherElement(x.id, true))}>tous</button>
                 <button type="button" className="text-iip-blue underline" onClick={() => elements.forEach(x => cocherElement(x.id, false))}>aucun</button>
                 <button type="button" className="text-slate-500 underline" title="Relire l'aperçu (si une partie a fini de se charger)" onClick={recenser}>relire</button>
