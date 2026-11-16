@@ -4502,6 +4502,10 @@ indexés au 1er janvier 2024, échelons 0-27). `prixBareme` : prix du COR de la 
 et le prix MFP) × barème de la personne ÷ barème de la catégorie, à son échelon (10 à défaut) ; `correctionBaremes` (serveur et recopie)
 ajoute la différence à `salairesHelb` en coûts réels, cours (hors invités) et coordinations (`annee().baremes_personnes`).
 
+**LA BASCULE CONVENTION / COÛTS RÉELS EN TÊTE** (3.5.509, Charles : « je ne vois plus le choix entre convention et MA/MFP ») : dans IIP et HELB
+(`IipHelbGestion.jsx`), elle passait hors de vue au bout d'une barre trop longue (neuf années de TIM). Elle ouvre la barre ; charge, coordinations,
+cadre administratif et direction vont derrière « Filtres » (`BoutonFiltres`, pastilles dessous quand ils s'écartent du défaut).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
