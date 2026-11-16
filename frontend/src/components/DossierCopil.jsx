@@ -18,6 +18,7 @@ import IipHelbGestion from './IipHelbGestion.jsx';
 import GestionLecture from './GestionLecture.jsx';
 import StatsDeliberation from './StatsDeliberation.jsx';
 import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
+import { useIdentite } from '../lib/identite.js';
 
 export const PARTIES_COPIL = [
   ['inscriptions', '1.1', 'Inscriptions'],
@@ -97,10 +98,40 @@ function EnseignantsDepuis({ section }) {
     </section>);
 }
 
-// Le texte d'une partie : une bande pâle, l'accent à gauche ; rien quand il n'y a rien.
+// Le texte d'une partie : une bande pâle, au dessin du kit ; rien quand il n'y a rien.
 function Texte({ texte, fort = false }) {
   if (!texte?.trim()) return null;
-  return <div className={`bloc-etat px-4 py-3 leading-relaxed ${fort ? 'text-base' : 'text-sm'}`} data-etat="disponible" style={{ whiteSpace: 'pre-line' }}>{texte}</div>;
+  return <div className={`kit-texte ${fort ? 'kit-texte-fort' : ''}`} style={{ whiteSpace: 'pre-line' }}>{texte}</div>;
+}
+
+/* LA COUVERTURE AU MODÈLE DU KIT (3.5.488, Charles : « modèle sur base de Micro certif ; format portrait ») : bleu nuit, logo blanc,
+   le nom de la section en grand, le trait, l'ouverture, les parties au pied. Une page à elle. */
+export function CouvertureCopil({ section, annee, parties, textes }) {
+  const id = useIdentite();
+  const visibles = PARTIES_COPIL.filter(([k]) => !parties?.length || parties.includes(k));
+  const chapitres = [...new Set(visibles.map(([, n]) => n.split('.')[0]))];
+  const nomCh = c => CHAPITRES[c] || PARTIES_COPIL.find(([, n]) => n === c)?.[2] || '';
+  return (
+    <div className="kit-couverture">
+      <div className="flex items-start justify-between gap-6">
+        {id.logo_blanc ? <img src={id.logo_blanc} alt="" style={{ height: 54 }} /> : <span className="font-bold text-lg">Institut Ilya Prigogine</span>}
+        <div className="kit-kicker text-right">Institut Ilya Prigogine · HELB<br />Comité de pilotage</div>
+      </div>
+      <div className="mt-auto">
+        <div className="kit-kicker">Dossier de la section · {annee}</div>
+        <div className="kit-couv-titre">{String(section).replace(/_/g, ' ')}</div>
+        <div className="kit-couv-trait" />
+        <div className="kit-couv-sous">Bilan de la section pour le comité de pilotage : population, attributions, positionnement et réussite.</div>
+        {texteCopil(textes, section, 'intro') && <p className="kit-couv-intro">{texteCopil(textes, section, 'intro')}</p>}
+      </div>
+      <div className="mt-auto pt-6">
+        <div className="kit-couv-parties">{chapitres.map(c => `${c}. ${nomCh(c)}`).join(' · ')}</div>
+        <div className="kit-couv-pied">
+          <span>Institut Ilya Prigogine · Campus Erasme</span>
+          <span>{new Date().toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+        </div>
+      </div>
+    </div>);
 }
 
 /* L'ANNÉE DE CHAQUE PARTIE (3.5.486, Charles : « pour les résultats, je dois pouvoir choisir quelle année ») : `annees.population`,
@@ -110,18 +141,26 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
   const voir = new Set(parties?.length ? parties : PARTIES_COPIL.map(p => p[0]));
   const visibles = PARTIES_COPIL.filter(([k]) => voir.has(k));
   let chapitre = null;
+  /* PAS DE SAUT DE PAGE FORCÉ (3.5.488, Charles : « pas de pages blanches ou peu remplies ») : un chapitre ouvre par son bandeau, là
+     où la page en est ; seule la couverture a sa page. */
   return (
-    <div className="space-y-4">
-      {texteCopil(textes, section, 'intro') && <div data-copil-partie="Ouverture"><Texte texte={texteCopil(textes, section, 'intro')} fort /></div>}
-      {visibles.map(([k, num, titre], i) => {
+    <div className="kit-copil space-y-4">
+      {visibles.map(([k, num, titre]) => {
         const ch = num.split('.')[0];
         const nouveauChapitre = ch !== chapitre;
         chapitre = ch;
+        const titreCh = CHAPITRES[ch] || titre;
         return (
-          <div key={k} data-copil-partie={`${num} ${titre}`} className="space-y-3" style={{ breakBefore: i && nouveauChapitre ? 'page' : 'auto' }}>
-            {nouveauChapitre && CHAPITRES[ch] && <h2 className="titre-ecran m-0">{ch}. {CHAPITRES[ch]}</h2>}
-            <h3 className={CHAPITRES[ch] ? 'titre-carte m-0' : 'titre-ecran m-0'}>{num}{CHAPITRES[ch] ? '' : '.'} {titre}
-              {ANNEE_DE[k] && <span className="text-second font-normal text-slate-500"> · {an(ANNEE_DE[k])}</span>}</h3>
+          <div key={k} data-copil-partie={`${num} ${titre}`} className="space-y-3">
+            {nouveauChapitre && (
+              <div className="kit-bandeau">
+                <div className="kit-bandeau-num" aria-hidden="true">{ch}</div>
+                <div className="kit-kicker">Partie {ch}</div>
+                <div className="kit-bandeau-titre">{titreCh}</div>
+                {!CHAPITRES[ch] && ANNEE_DE[k] && <div className="kit-bandeau-sous">{an(ANNEE_DE[k])}</div>}
+              </div>)}
+            {CHAPITRES[ch] && <h3 className="kit-titre-partie">{num} {titre}
+              {ANNEE_DE[k] && <span className="kit-annee"> · {an(ANNEE_DE[k])}</span>}</h3>}
             <Texte texte={texteCopil(textes, section, k)} />
             {k === 'inscriptions' && <PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" />}
             {k === 'provenance' && <PopulationEcole annee={an('population')} initial={{ section }} partie="provenance" />}
@@ -132,7 +171,7 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
       })}
       {texteCopil(textes, section, 'conclusion') && (
         <div data-copil-partie="Conclusion" className="space-y-3" style={{ breakInside: 'avoid' }}>
-          <h2 className="titre-ecran m-0">En conclusion</h2>
+          <div className="kit-bandeau kit-bandeau-court"><div className="kit-bandeau-titre">En conclusion</div></div>
           <Texte texte={texteCopil(textes, section, 'conclusion')} fort />
         </div>)}
     </div>);

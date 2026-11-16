@@ -17,7 +17,7 @@ import PresentationSection from '../components/PresentationSection.jsx';
 import GestionLecture from '../components/GestionLecture.jsx';
 import SourcesReference from '../components/SourcesReference.jsx';
 import IipHelbGestion from '../components/IipHelbGestion.jsx';
-import DossierCopil, { PARTIES_COPIL, TEXTES_COPIL, PROPOSITIONS_COPIL, texteCopil } from '../components/DossierCopil.jsx';
+import DossierCopil, { CouvertureCopil, PARTIES_COPIL, TEXTES_COPIL, PROPOSITIONS_COPIL, texteCopil } from '../components/DossierCopil.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
@@ -580,8 +580,32 @@ export default function Pilotage({ vue = 'tout' }) {
   useEffect(() => {
     if (!copilFenetre || !copil.section) return;
     fetch(`/api/pilotage/presentation/${encodeURIComponent(copil.section)}`, { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : { textes: {} })).then(j => setCopil(c => ({ ...c, textes: j.textes || {} }))).catch(() => {});
+      .then(r => (r.ok ? r.json() : { textes: {} })).then(j => setCopil(c => {
+        let m = null; try { m = JSON.parse(j.textes?.['copil.modele'] || 'null'); } catch { /* */ }
+        return { ...c, textes: j.textes || {}, ...(m?.parties?.length ? { parties: m.parties } : {}), ...(m?.annees ? { annees: { ...c.annees, ...m.annees } } : {}) };
+      })).catch(() => {});
   }, [copilFenetre, copil.section]);   // eslint-disable-line react-hooks/exhaustive-deps
+  /* LE DOSSIER DU COPIL EN PORTRAIT (3.5.488) : l'aperçu se dessine à 760 px — la largeur utile d'une A4 portrait, ramenée par
+     `zoom` à l'impression — pour que les graphiques s'y mesurent. Et LE MODÈLE (« peux-tu sauver ce modèle ? ») : parties, années
+     et blocs retirés, gardés pour la section (`copil.modele`), reposés à la composition suivante. Un bloc se reconnaît à sa partie et
+     à son titre, chiffres ôtés (une tuile « 353 inscrits » reste « inscrits » l'an prochain). */
+  const LARGEUR_PORTRAIT = 760;
+  const copilPortrait = facesImprimees?.length === 1 && facesImprimees[0] === 'copil';
+  const cleBloc = x => `${x.partie}|${String(x.titre).replace(/[0-9][0-9\s.,%€+−\-/:]*/g, '').replace(/\s+/g, ' ').trim()}`.slice(0, 90);
+  const modeleCopil = (() => { try { return JSON.parse(copil.textes['copil.modele'] || 'null'); } catch { return null; } })();
+  const modeleApplique = useRef(new Set());
+  useEffect(() => { modeleApplique.current = new Set(); }, [facesImprimees]);
+  const [modeleEtat, setModeleEtat] = useState('');
+  async function enregistrerModele() {
+    const exclus = elements.filter(x => x.exclu).map(cleBloc);
+    const textes = { ...copil.textes, 'copil.modele': JSON.stringify({ parties: copil.parties, annees: copil.annees, exclus }) };
+    setModeleEtat('Enregistrement…');
+    try {
+      const r = await fetch(`/api/pilotage/presentation/${encodeURIComponent(copil.section)}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ textes }) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
+      setCopil(c => ({ ...c, textes })); setModeleEtat(`Modèle enregistré · ${exclus.length} bloc(s) retiré(s)`);
+    } catch (e) { setModeleEtat(`Modèle non enregistré : ${e.message}`); }
+  }
   async function composerCopil() {
     setCopilEtat('Enregistrement des textes…');
     try {
@@ -1670,6 +1694,14 @@ export default function Pilotage({ vue = 'tout' }) {
     }
     setElements(out);
     setNbRetires(out.filter(x => x.exclu).length);
+    // Le modèle du dossier : chaque bloc qu'il retire l'est une fois, à sa première apparition (on peut le remettre ensuite).
+    if (copilPortrait && modeleCopil?.exclus?.length) {
+      const retirer = new Set(modeleCopil.exclus);
+      for (const x of out) {
+        const k = cleBloc(x);
+        if (retirer.has(k) && !modeleApplique.current.has(k)) { modeleApplique.current.add(k); cocherElement(x.id, false); }
+      }
+    }
   }
   function cocherElement(id, garder) {
     const el = document.querySelector(`.zone-impression [data-bloc="${id}"]`);
@@ -1705,6 +1737,10 @@ export default function Pilotage({ vue = 'tout' }) {
         .map(l => `<link rel="stylesheet" href="${l.href}">`).join('');
       const racine = document.documentElement;
       const attrs = [...racine.attributes].filter(a => a.name !== 'class' || a.value).map(a => `${a.name}="${String(a.value).replace(/"/g, '&quot;')}"`).join(' ');
+      /* UNE CARTE PLUS HAUTE QU'UNE DEMI-PAGE PEUT SE COUPER (3.5.488, « pas de pages blanches ou peu remplies ») : gardée entière, elle
+         passe à la page suivante et laisse une demi-page vide ; ses lignes, elles, ne se coupent jamais. */
+      const demiPage = copilPortrait ? 520 : 330;
+      zone.querySelectorAll('.carte').forEach(c => c.classList.toggle('peut-couper', c.getBoundingClientRect().height > demiPage));
       const clone = zone.cloneNode(true);
       clone.querySelectorAll('.exclu-impression').forEach(n => n.remove());
       clone.querySelectorAll('.sans-impression, button, select').forEach(n => { if (n.tagName === 'SELECT') { const t = document.createElement('span'); t.textContent = n.options[n.selectedIndex]?.text || ''; n.replaceWith(t); } else if (n.classList.contains('sans-impression')) n.remove(); });
@@ -1722,7 +1758,7 @@ export default function Pilotage({ vue = 'tout' }) {
       clone.querySelectorAll('button, input, textarea, details:not([open])').forEach(n => { if (n.parentElement) parents.add(n.parentElement); n.remove(); });
       for (let p of parents) { while (p && p !== clone && !p.textContent.trim() && !p.children.length) { const up = p.parentElement; p.remove(); p = up; } }
       const html = `<!doctype html><html ${attrs}><head><meta charset="utf-8">${liens}<style>${css}</style>
-<style>@page { size: A4 landscape; } body { background: #fff !important; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+<style>@page { size: A4 ${copilPortrait ? 'portrait' : 'landscape'}; } body { background: #fff !important; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .page-impression { width: 1000px !important; margin: 0 auto !important; padding: 0 !important; }
 .carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, section section, [class*="rounded-carte"], .grid > * { break-inside: avoid; }
 table { width: 100% !important; font-size: 8.5pt !important; } th, td { white-space: normal !important; padding: 3px 4px !important; }
@@ -1734,11 +1770,13 @@ table, .overflow-x-auto, .overflow-auto, .recharts-responsive-container { break-
 .titre-carte, .intertitre, .titre-ecran, h2, h3, h4 { break-after: avoid; }
 thead { display: table-header-group; }
 .overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
-.partie-impression + .partie-impression { break-before: page; }</style></head>
+.partie-impression + .partie-impression { break-before: page; }
+.carte.peut-couper { break-inside: auto !important; page-break-inside: auto !important; }
+${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; zoom: 0.86; } .kit-couverture { min-height: 1080px; }` : ''}</style></head>
 <body class="impression-gestion"><div class="zone-impression">${clone.outerHTML}</div></body></html>`;
       const nom = `Gestion_${String(anneeActive).replace(/\W/g, '')}_${facesImprimees.length === 1 ? facesImprimees[0] : 'parties'}`;
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ html, nom, orientation: 'paysage', pagination: 'toujours' }) });
+        body: JSON.stringify({ html, nom, orientation: copilPortrait ? 'portrait' : 'paysage', pagination: 'toujours' }) });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
       const url = URL.createObjectURL(await r.blob());
       const a = document.createElement('a'); a.href = url; a.download = `${nom}.pdf`;
@@ -1946,6 +1984,10 @@ thead { display: table-header-group; }
             <button type="button" className={`bouton inline-flex items-center gap-1.5 ${choisirBlocs ? 'bouton-fort' : ''}`} onClick={() => setChoisirBlocs(v => !v)}
               title="Un clic sur une carte ou une tuile la retire de l'impression ; un second clic la remet">
               {choisirBlocs ? 'Terminer le choix' : 'Choisir les blocs'}{nbRetires ? ` · ${nbRetires} retiré(s)` : ''}</button>
+            {copilPortrait && <>
+              {modeleEtat && <span className="text-second text-slate-500">{modeleEtat}</span>}
+              <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={enregistrerModele}
+                title="Garder pour cette section les parties, les années et les blocs retirés : le prochain dossier s'ouvre ainsi">Enregistrer ce modèle</button></>}
             <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={pdfGestion} onClick={pdfDeLAperçu}>
               <IconPrinter size={15} /> {pdfGestion ? 'PDF en cours…' : 'PDF'}</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => window.print()} title="Impression du navigateur, sans bas de page garanti">Imprimer (navigateur)</button>
@@ -1974,15 +2016,17 @@ thead { display: table-header-group; }
             </aside>)}
           {choisirBlocs && <div className="sans-impression mx-auto my-2" style={{ width: 1000 }}><Encadre etat="disponible">
             <b>Choix des blocs</b> : cliquez une carte ou une tuile pour la retirer de l'impression — elle se grise ; recliquez pour la remettre. « Terminer le choix » quand c'est prêt.</Encadre></div>}
-          <div className={`page-impression mx-auto px-0 py-5 space-y-6 ${choisirBlocs ? 'choix-blocs' : ''}`} onClickCapture={basculerBloc}>
+          <div className={`page-impression mx-auto px-0 py-5 space-y-6 ${choisirBlocs ? 'choix-blocs' : ''}`} onClickCapture={basculerBloc}
+            style={copilPortrait ? { width: LARGEUR_PORTRAIT } : undefined}>
+            {copilPortrait ? <CouvertureCopil section={copil.section} annee={anneeActive} parties={copil.parties} textes={copil.textes} /> : (
             <div className="border-b-2 pb-2" style={{ borderColor: '#C9A84C' }}>
               <div className="text-mention uppercase tracking-wide text-slate-500">Institut Ilya Prigogine · Gestion — données de l'établissement</div>
               <div className="titre-ecran">{facesImprimees.length === 1 ? libelleFace(facesImprimees[0]) : 'Données de l’établissement'} · {anneeActive}</div>
               <div className="text-second text-slate-500">Produit par {getUser()?.nom || '—'} le {new Date().toLocaleDateString('fr-BE')} à {new Date().toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}</div>
-            </div>
+            </div>)}
             {facesImprimees.map((k, i) => (
               <section key={k} className="partie-impression space-y-3" style={{ breakBefore: i ? 'page' : 'auto' }}>
-                <div className="titre-carte border-b border-slate-200 pb-1">{libelleFace(k)}</div>
+                {k !== 'copil' && <div className="titre-carte border-b border-slate-200 pb-1">{libelleFace(k)}</div>}
                 {renduFace(k)}
               </section>))}
           </div>
