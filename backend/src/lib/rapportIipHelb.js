@@ -941,6 +941,19 @@ export function enseignantsHelbCivil(section, anneeCivile) {
   return { cout: Math.round(a.cout + b.cout), etp: Math.round((a.etp + b.etp) * 100) / 100 };
 }
 
+/* LES ENSEIGNANTS DE L'IIP D'UNE SECTION, PAYÉS PAR LA FÉDÉRATION (3.5.498, Charles : « les charges prennent-elles en compte la dotation
+   de l'IIP ? si pas, une colonne en plus avec les charges en MDP »). Ils ne sont pas dans les comptes de l'ASBL. Coût au prix de la
+   circulaire des conventions (périodes IIP + coordinations IIP, comme la page IIP et HELB) ; une année civile = 8/12 de l'année scolaire
+   qui finit + 4/12 de celle qui commence ; une année scolaire (« 2026-2027 ») se prend telle quelle. */
+export function enseignantsIipCivil(section, periode) {
+  const toutes = new Set(db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution WHERE section = ?').all(section).map(r => r.a));
+  const de = a => { if (!toutes.has(a)) return null; const y = annee(section, a); return { cout: y.cout_iip + y.coord_iip, etp: y.etp_iip + (y.cetp_iip || 0) }; };
+  if (/^\d{4}-\d{4}$/.test(String(periode))) { const x = de(periode); return x ? { cout: Math.round(x.cout), etp: Math.round(x.etp * 100) / 100 } : null; }
+  const Y = Number(periode), a = de(`${Y - 1}-${Y}`), b = de(`${Y}-${Y + 1}`);
+  if (!a && !b) return null;
+  return { cout: Math.round((a?.cout || 0) * 8 / 12 + (b?.cout || 0) * 4 / 12), etp: Math.round(((a?.etp || 0) * 8 / 12 + (b?.etp || 0) * 4 / 12) * 100) / 100 };
+}
+
 /* L'ESTIMATION D'UNE ANNÉE SCOLAIRE POUR TOUTE L'ASBL (3.5.468, Charles : « je veux une estimation sur 2026 et 26-27 en fonction des
    inscrits ; tu sais combien ils paient, et les attributions tu les as »). Le calcul de la page IIP et HELB (`helbAnnee`) : produits
    = allocation de la HELB (50 % des inscrits, MUCE × 1,5, lissée sur 3 ans, dès 2026-2027) + droits et frais des inscrits (barème de

@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee, allocationCivile, evolutionAttributions } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, enseignantsIipCivil, estimationAnnee, allocationCivile, evolutionAttributions } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
@@ -534,7 +534,10 @@ r.get('/lecture', authRequired, (req, res) => {
             const estimees = new Set(helb.filter(v => v.estimation).map(v => v.annee));
             if (iip) iip = iip.filter(v => !estimees.has(v.annee));
           }
-          if (h || i) par[code] = { helb, iip };
+          // Les enseignants de l'IIP (Fédération), hors comptes de l'ASBL, année par année (3.5.498).
+          const mdp = {};
+          for (const v of [...(helb || []), ...(iip || [])]) { if (mdp[v.annee] !== undefined) continue; try { mdp[v.annee] = enseignantsIipCivil(code, v.annee); } catch { mdp[v.annee] = null; } }
+          if (h || i) par[code] = { helb, iip, mdp };
         }
         return { fichier: S.fichier, date: S.date_donnee, sections: par };
       })(),

@@ -165,7 +165,7 @@ function composer(D, T, opts = {}) {
     // Une estimation : le financement de la HELB au niveau des subsides réels (la lecture prudente) ; les UCE en note (3.5.469).
     const prodH = h?.estimation && h.produits_subsides != null ? h.produits_subsides : (h?.produits || 0);
     return { annee: a, nature: (h || i).nature, estimation: !!h?.estimation, uce: h?.estimation ? h.resultat_reel + (i?.resultat || 0) : null, charges: (h?.charges || 0) + (i?.charges || 0) + ajout, produits: prodH + (i?.produits || 0),
-      resultat: (h?.estimation && h.resultat_subsides != null ? h.resultat_subsides : (h?.resultat || 0)) + (i?.resultat || 0) - ajout, resultat_comptable: (h?.resultat || 0) + (i?.resultat || 0), ajout };
+      resultat: (h?.estimation && h.resultat_subsides != null ? h.resultat_subsides : (h?.resultat || 0)) + (i?.resultat || 0) - ajout, resultat_comptable: (h?.resultat || 0) + (i?.resultat || 0), ajout, mdp: CP.mdp?.[a]?.cout ?? null };
   }) : [];
   const dernierCompte = [...comptes].reverse().find(x => x.nature === 'réalisé') || null;
   const e0 = v => (v == null ? '—' : `${n0(v)} €`);
@@ -436,17 +436,20 @@ function composer(D, T, opts = {}) {
       const avecReel = comptes.some(x => x.ajout);
       const bl2 = [...entete('Finances', avecReel ? 'Ce que la section coûte et rapporte vraiment à l’ASBL' : 'Dans les comptes de l’ASBL')];
       bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : x.estimation ? ' (estimation)' : ' (budget)'}`), unite: ' k€',
-        series: [{ nom: 'Charges', valeurs: comptes.map(x => Math.round(x.charges / 1000)), couleur: C.brique }, { nom: 'Produits', valeurs: comptes.map(x => Math.round(x.produits / 1000)), couleur: C.vert }],
-        titre: avecReel ? 'Charges (enseignants HELB compris) et produits, en milliers d’euros' : 'Charges et produits de la section, en milliers d’euros' });
+        series: [{ nom: 'Charges ASBL', valeurs: comptes.map(x => Math.round(x.charges / 1000)), couleur: C.brique }, { nom: 'Produits', valeurs: comptes.map(x => Math.round(x.produits / 1000)), couleur: C.vert },
+          // Les enseignants de l'IIP, payés par la Fédération, hors comptes de l'ASBL (3.5.498) : une colonne à part, jamais dans le résultat.
+          ...(comptes.some(x => x.mdp) ? [{ nom: 'Enseignants IIP (Fédération)', valeurs: comptes.map(x => Math.round((x.mdp || 0) / 1000)), couleur: C.iip }] : [])],
+        titre: avecReel ? 'Charges ASBL (enseignants HELB compris), produits, et à part les enseignants IIP payés par la Fédération — en k€' : 'Charges et produits de la section, en milliers d’euros' });
       if (dernierCompte) {
         bl2.push(...tuileSombre(W - M - 350, 150, 350, 200, `${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))}`, `résultat ${avecReel ? 'réel ' : ''}${dernierCompte.annee}`, avecReel ? `comptable ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))} · enseignants HELB imputés ailleurs −${e0(dernierCompte.ajout)}` : `produits ${e0(dernierCompte.produits)} · charges ${e0(dernierCompte.charges)}`, dernierCompte.resultat >= 0 ? C.vert : C.brique));
         const cumul = comptes.filter(x => x.nature === 'réalisé').reduce((a, x) => a + x.resultat, 0);
+        if (dernierCompte.mdp) bl2.push(...tuileClaire(W - M - 350, 520, 350, 110, e0(dernierCompte.mdp), `enseignants IIP ${dernierCompte.annee}, hors ASBL`, 'payés par la Fédération (dotation de l’IIP)', C.iip));
         bl2.push(...tuileClaire(W - M - 350, 370, 350, 130, `${cumul >= 0 ? '+' : '−'}${e0(Math.abs(cumul))}`, avecReel ? 'résultat réel cumulé, exercices réalisés' : 'résultat cumulé, exercices réalisés', comptes.filter(x => x.nature === 'réalisé').map(x => x.annee).join(' · '), C.vert));
       }
       bl2.push(...retenir('comptes', dernierCompte ? (avecReel
         ? `En ${dernierCompte.annee}, enseignants HELB compris, la section ${dernierCompte.resultat >= 0 ? `dégage ${e0(dernierCompte.resultat)}` : `coûte ${e0(-dernierCompte.resultat)} de plus qu’elle ne rapporte`} à l’ASBL (résultat comptable : ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))}).`
         : `En ${dernierCompte.annee}, la section a dégagé ${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))} dans les comptes de l’ASBL.`) : 'Une section qui rapporte plus qu’elle ne coûte.'));
-      ajouter({ id: 'comptes', blocs: bl2, notes: t('notes.comptes', avecReel ? `Source : la synthèse des budgets et comptes de l’ASBL. Les comptes n’imputent à la section qu’une petite part de ses enseignants HELB : Lucie ajoute leur coût (ETP de Lucie, coordinations comprises, au prix de leur titre au COR), moins le personnel déjà imputé.${comptes.filter(x => x.estimation && x.uce != null).map(x => ` ${x.annee} est une estimation : financement de la HELB au niveau des subsides réels (résultat ${x.resultat >= 0 ? '+' : '−'}${e0(Math.abs(x.resultat))}) ; aux UCE, le résultat serait de ${x.uce >= 0 ? '+' : '−'}${e0(Math.abs(x.uce))}.`).join('')}` : 'Source : la synthèse des budgets et comptes de l’ASBL, tous les postes de la section réunis.'), notesCle: 'notes.comptes' });
+      ajouter({ id: 'comptes', blocs: bl2, notes: t('notes.comptes', avecReel ? `Source : la synthèse des budgets et comptes de l’ASBL. Les comptes n’imputent à la section qu’une petite part de ses enseignants HELB : Lucie ajoute leur coût (ETP de Lucie, coordinations comprises, au prix de leur titre au COR), moins le personnel déjà imputé. Produits : ce que les comptes portent (subsides de la HELB attribués à la section, droits et frais des étudiants). Les enseignants de l’IIP, payés par la Fédération sur la dotation de l’IIP, ne sont pas dans les comptes de l’ASBL : colonne à part, au prix de la circulaire des conventions, hors résultat.${comptes.filter(x => x.estimation && x.uce != null).map(x => ` ${x.annee} est une estimation : financement de la HELB au niveau des subsides réels (résultat ${x.resultat >= 0 ? '+' : '−'}${e0(Math.abs(x.resultat))}) ; aux UCE, le résultat serait de ${x.uce >= 0 ? '+' : '−'}${e0(Math.abs(x.uce))}.`).join('')}` : 'Source : la synthèse des budgets et comptes de l’ASBL, tous les postes de la section réunis.'), notesCle: 'notes.comptes' });
     }
   }
 
@@ -508,7 +511,7 @@ function composer(D, T, opts = {}) {
     const somme = (b, k) => SE.ues.filter(u => blocDe(u) === b).reduce((t, u) => t + (u[k] || 0), 0);
     const coord = SE.etp_coord_helb || 0, cours = SE.etp_total || 0;
     const bl = [...entete('Les enseignants', `La charge ${SE.annee || annee}, bloc par bloc`)];
-    bl.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: CW - 380, h: 450, categories: noms, unite: '',
+    bl.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: CW - 380, h: 450, categories: noms, unite: '', decimales: 2,
       series: [{ nom: 'IIP', valeurs: noms.map(b => Math.round(somme(b, 'etp_iip') * 100) / 100), couleur: C.iip },
         { nom: 'HELB', valeurs: noms.map(b => Math.round(somme(b, 'etp_helb') * 100) / 100), couleur: C.helb }],
       titre: 'ETP d’enseignement par bloc, IIP et HELB' });
@@ -698,7 +701,7 @@ function Vierge({ w, h, clair = false }) {
     </svg>);
 }
 
-const fmtVal = (b) => v => (v === 0 || v == null ? '' : `${b.decimales ? n1(v) : n0(v)}${b.unite || ''}`);
+const fmtVal = (b) => v => (v === 0 || v == null ? '' : `${b.decimales === 2 ? v.toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : b.decimales ? n1(v) : n0(v)}${b.unite || ''}`);
 
 function Graphe({ b }) {
   const titreH = b.titre ? 30 : 0, gh = b.h - titreH;
@@ -885,7 +888,7 @@ async function exporterPptx(diapos, { titre, logo, logoRatio, nomFichier, cartes
           const cats = horiz ? [...b.categories].reverse() : b.categories;
           if (horiz) series = series.map(s => ({ ...s, labels: cats, values: [...s.values].reverse() }));
           sl.addChart(p.ChartType.bar, series, { ...g, ...commun, barDir: horiz ? 'bar' : 'col', barGrouping: grouping, chartColors: couleurs, barGapWidthPct: horiz ? 40 : 60,
-            showValue: true, dataLabelPosition: grouping === 'stacked' ? 'ctr' : 'outEnd', dataLabelFormatCode: b.decimales ? '#,##0.0;;;' : '#,##0;;;', dataLabelColor: grouping === 'stacked' && !b.couleursPoints ? 'FFFFFF' : '1B2B4B', dataLabelFontBold: true,
+            showValue: true, dataLabelPosition: grouping === 'stacked' ? 'ctr' : 'outEnd', dataLabelFormatCode: b.decimales === 2 ? '#,##0.00;;;' : b.decimales ? '#,##0.0;;;' : '#,##0;;;', dataLabelColor: grouping === 'stacked' && !b.couleursPoints ? 'FFFFFF' : '1B2B4B', dataLabelFontBold: true,
             valAxisHidden: true, valGridLine: { style: 'none' }, catGridLine: { style: 'none' }, catAxisLineShow: false,
             showLegend: b.series.length > 1 && !b.couleursPoints, legendPos: 't', legendFontSize: 12, legendColor: '1B2B4B' });
         }

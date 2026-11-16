@@ -4453,6 +4453,10 @@ premier par `salairesHelb`). Le prix MA / MFP (titres, moyenne, montant réglé)
 (`enseignantsHelbCivil`) restent au titre.
 3.5.497 (Charles : « je veux la moyenne ASBL ») : la tuile « par ETP enseignant (HELB) » porte aussi la moyenne de l'ASBL — `asbl.etu_etp` de
 `GET /api/pilotage/lecture` = (inscrits HELB + IIP) ÷ (ETP des cursus HELB + ETP enseignants IIP), dernière année choisie.
+3.5.498 (Charles : « les charges prennent-elles en compte la dotation de l'IIP ? si pas, une colonne en plus avec les charges en MDP ») :
+`enseignantsIipCivil(section, période)` (rapportIipHelb.js : périodes et coordinations IIP au prix de la circulaire, 8/12 + 4/12 pour une
+année civile) → `compta.sections[s].mdp` de `/lecture` ; diapositive « Finances » : troisième colonne « Enseignants IIP (Fédération) »,
+hors résultat de l'ASBL, et sa tuile. Charge par bloc : étiquettes à deux décimales (`decimales: 2`).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
