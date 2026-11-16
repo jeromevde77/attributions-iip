@@ -164,7 +164,7 @@ export function Investissements({ annee }) {
   }
   if (erreur) return <Encadre etat="corriger">{erreur}</Encadre>;
   if (!d) return <p className="text-sm text-slate-400">Chargement…</p>;
-  if (!d.investissements.length) return <Encadre etat="neutre">Aucun investissement demandé pour {annee} (un prix unitaire d'au moins {eur2(d.parametres.seuil_invest)} HT).</Encadre>;
+  if (!d.investissements.length) return <Encadre etat="neutre">Aucun investissement demandé pour {annee} (un équipement — mobilier, informatique, équipement spécifique — d'au moins {eur2(d.parametres.seuil_invest)} HT l'unité).</Encadre>;
   return (
     <div className="space-y-2">
       <p className="text-second text-slate-600">Arbitrés au niveau de l'école, hors enveloppe, dans l'ordre : sécurité et conformité · remplacement d'un matériel hors service · indispensable aux acquis d'apprentissage · qualité · confort et projets nouveaux (guide A.7).</p>
