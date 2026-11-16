@@ -4443,6 +4443,9 @@ section = coût (et ETP) des fonctions d'établissement × périodes de la secti
 dans son ordre (population · attributions et positionnement · réussite · dossier pédagogique · divers et conclusion) ; les « À
 retenir » reprennent les textes `copil.<partie>` tant qu'on ne les réécrit pas ; diapositives `chargeblocs` et `coordhelb` (GET
 /api/pilotage/etp) ; `copil-dp`, `copil-divers`, `copil-conclusion` écrivent les mêmes textes que le dossier.
+3.5.495 (Charles : « le 0,6 de Moiny en HELB est MA aussi ») : une coordination HELB se paie au prix du titre de sa personne
+(`titre_helb` des coordinations, `cetp_helb_ma` de `annee()`) — statut HELB de la fiche, à défaut le titre qui porte le plus d'heures
+dans ses lignes HELB de l'année, sinon MFP ; `salairesHelb` (serveur et sa recopie dans `IipHelbGestion.jsx`) l'applique.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
