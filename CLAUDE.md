@@ -4483,6 +4483,8 @@ tous ; réglages contrôlés par `reglagesDossier`) — rouvrir, mettre à jour,
 les données). Sortir : « Lire à l'écran » ; « Dossier imprimé » = face `composer` de l'aperçu de Gestion (`CompositionBlocs`, mêmes outils :
 choisir les blocs, PDF) — pour COPIL d'une section, le dossier COPIL existant ; « Présentation » (direction, une section) ouvre la
 présentation avec le public correspondant (`lucie.presentation.public`, appliqué une fois par `appliquerPublic`).
+3.5.505 (Charles : « choisir les années pour résultats ») : `annees_resultats` de la composition (l'année d'avant par défaut, plusieurs
+possibles, gardée dans le dossier) ; le bloc Réussite rend une partie par année.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

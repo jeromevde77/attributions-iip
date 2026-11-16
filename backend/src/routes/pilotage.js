@@ -596,7 +596,8 @@ const reglagesDossier = b => {
   const r = b?.reglages || {};
   const ok = (v, l) => (l.includes(v) ? v : l[0]);
   return { sur: ok(r.sur, ['section', 'ecole']), section: String(r.section || '').slice(0, 60), theme: ok(r.theme, ['tout', 'etu', 'ens', 'fin']),
-    pub: ok(r.pub, ['moi', 'ca', 'equipe', 'cppt', 'copil']), retires: (Array.isArray(r.retires) ? r.retires : []).map(String).filter(x => /^[a-z-]{1,30}$/.test(x)).slice(0, 40) };
+    pub: ok(r.pub, ['moi', 'ca', 'equipe', 'cppt', 'copil']), retires: (Array.isArray(r.retires) ? r.retires : []).map(String).filter(x => /^[a-z-]{1,30}$/.test(x)).slice(0, 40),
+    annees_resultats: (Array.isArray(r.annees_resultats) ? r.annees_resultats : []).map(String).filter(x => /^\d{4}-\d{4}$/.test(x)).slice(0, 10) };
 };
 const dossierPermis = (req, d) => d && (DIRECTION.includes(req.user?.role) || d.cree_par_id === req.user?.id);
 r.get('/dossiers', authRequired, (req, res) => {
