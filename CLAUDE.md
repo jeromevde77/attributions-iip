@@ -4421,6 +4421,12 @@ population, positionnement, réussite — par défaut l'année d'avant) ; les at
 sous le titre de la partie ; `PROPOSITIONS_COPIL.TIM` (chiffres du 16 novembre 2026) remplit ce qui n'est pas enregistré — sauf le
 dossier pédagogique et le divers, modèles à crochets montrés en indication (`A_COMPLETER`) ; un texte vidé reste vide ; « Reprendre
 les propositions » les remet toutes.
+3.5.488 (Charles : « peux-tu sauver ce modèle ? pas de pages blanches ou peu remplies ; modèle sur base de Micro certif ; format
+portrait ») : l'aperçu du dossier se dessine à 760 px et sort en A4 PORTRAIT (`zoom: 0.86`) ; `CouvertureCopil` (bleu nuit, logo blanc,
+section en grand, parties au pied) a sa page ; chaque partie ouvre par un bandeau du kit (`.kit-*` d'index.css), sans saut de page
+forcé ; une carte plus haute qu'une demi-page peut se couper (`peut-couper`). « Enregistrer ce modèle » garde `copil.modele` {parties,
+annees, exclus} pour la section ; un bloc retiré se reconnaît à `partie|titre` chiffres ôtés (`cleBloc`) et se retire une fois à
+la composition suivante.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
