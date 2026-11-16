@@ -72,12 +72,14 @@ const Verdict = ({ etat, children }) => <PastilleEtat etat={etat}>{children}</Pa
    `perimFixe` : la page « L'école » (etab) ou « Une section » (section) de Gestion — plus de choix « Lire » dans la barre.
    `onOuvrirSection` : un clic sur une section de l'école ouvre sa fiche. En fiche de section, des ancres sautent aux parties, et la
    charge, les coûts, la balance IIP / HELB (la page IIP et HELB) suivent pour TOUTES les sections — direction seule. */
-export default function GestionLecture({ annee: anneeProp, onPresenter, onSources, perimFixe = null, onOuvrirSection = null }) {
+// `sectionFixe`, `sansIipHelb` (3.5.485, dossier du COPIL) : la section imposée, et sans la page IIP et HELB (le dossier la montre ailleurs).
+export default function GestionLecture({ annee: anneeProp, onPresenter, onSources, perimFixe = null, onOuvrirSection = null, sectionFixe = null, sansIipHelb = false }) {
   const memo = useMemo(lire, []);
   const annee = anneeProp || getAnnee();
   const [perimChoisi, setPerim] = useState(memo.perim || 'etab');
   const perim = perimFixe || perimChoisi;
-  const [section, setSection] = useState(memo.section || 'TIM');
+  const [sectionMemo, setSection] = useState(memo.section || 'TIM');
+  const section = sectionFixe || sectionMemo;
   const [lentille, setLentille] = useState(memo.lentille || 'tout');
   const [ref, setRef] = useState(memo.ref === 'HELB' ? 'ASBL' : memo.ref || 'IIP');
   const [d, setD] = useState(null);
@@ -93,7 +95,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     document.addEventListener('fullscreenchange', f); return () => document.removeEventListener('fullscreenchange', f);
   }, []);
 
-  useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ perim, section, lentille, ref })); } catch { /* sans mémoire */ } }, [perim, section, lentille, ref]);
+  useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ perim: perimChoisi, section: sectionMemo, lentille, ref })); } catch { /* sans mémoire */ } }, [perimChoisi, sectionMemo, lentille, ref]);
   useEffect(() => {
     let vivant = true; setErreur(null);
     fetch(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`, { headers: authHeaders() })
@@ -215,7 +217,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
               <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
               {/* UNE CODIPLOMATION PORTE SES DONNÉES IIP / HELB (3.5.461, Charles : « dans le choix du TIM, ces données en plus ; si co-dip,
                   alors données complémentaires ») : la page IIP et HELB, années au choix, pour la section lue — direction seule (la route l'est). */}
-              {estDirection && (perimFixe === 'section' || (d.codiplomation || []).includes(String(S.section).toLowerCase()))
+              {estDirection && !sansIipHelb && (perimFixe === 'section' || (d.codiplomation || []).includes(String(S.section).toLowerCase()))
                 && (lentille === 'tout' || lentille === 'fin') && <>
                   <h2 id="fiche-iiphelb" className="titre-ecran !mt-6 !mb-0 scroll-mt-24">{(d.codiplomation || []).includes(String(S.section).toLowerCase()) ? 'Enseignants, coûts et financement — IIP et HELB, année par année' : 'Enseignants et coûts, année par année'}</h2>
                   <p className="text-mention text-slate-500 m-0">{(d.codiplomation || []).includes(String(S.section).toLowerCase()) ? `${S.section} est organisée avec la HELB : charge, coût, part de chacun, financement, balance chargés de cours et experts, coordinations et enseignants.` : `Charge, coût, balance chargés de cours et experts, coordinations et enseignants de ${S.section}.`}</p>

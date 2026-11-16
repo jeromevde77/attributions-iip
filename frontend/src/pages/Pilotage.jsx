@@ -17,6 +17,7 @@ import PresentationSection from '../components/PresentationSection.jsx';
 import GestionLecture from '../components/GestionLecture.jsx';
 import SourcesReference from '../components/SourcesReference.jsx';
 import IipHelbGestion from '../components/IipHelbGestion.jsx';
+import DossierCopil, { PARTIES_COPIL } from '../components/DossierCopil.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
@@ -559,6 +560,33 @@ export default function Pilotage({ vue = 'tout' }) {
   // NOTRE PERSONNEL, PAR SECTION (3.5.481) : même règle.
   const [choixPers, setChoixPers] = useState({ section: '', sections: [] });
   const [persSections, setPersSections] = useState(null);
+  // LES RÉSULTATS PAR UE, PAR SECTION (3.5.484) : même règle.
+  const [choixDelib, setChoixDelib] = useState({ section: '', sections: [] });
+  const [delibSections, setDelibSections] = useState(null);
+  /* LE DOSSIER DU COMITÉ DE PILOTAGE (3.5.485) : une section, les parties cochées, les deux textes (gardés avec ceux de la présentation
+     de la section). `?copil=1` l'ouvre (depuis Éditions → Gestion). */
+  const [copilFenetre, setCopilFenetre] = useState(() => new URLSearchParams(window.location.search).get('copil') === '1');
+  const [copil, setCopil] = useState(() => { let sec = 'TIM'; try { sec = JSON.parse(localStorage.getItem('lucie.gestionLecture') || '{}').section || 'TIM'; } catch { /* */ }
+    return { section: sec, parties: PARTIES_COPIL.map(p => p[0]), textes: {} }; });
+  const [copilSections, setCopilSections] = useState([]);
+  const [copilEtat, setCopilEtat] = useState('');
+  useEffect(() => {
+    if (!copilFenetre) return;
+    import('../lib/api.js').then(({ api }) => api.sections().then(l => setCopilSections((l || []).map(s => s.code).filter(Boolean))).catch(() => {}));
+  }, [copilFenetre]);
+  useEffect(() => {
+    if (!copilFenetre || !copil.section) return;
+    fetch(`/api/pilotage/presentation/${encodeURIComponent(copil.section)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : { textes: {} })).then(j => setCopil(c => ({ ...c, textes: j.textes || {} }))).catch(() => {});
+  }, [copilFenetre, copil.section]);   // eslint-disable-line react-hooks/exhaustive-deps
+  async function composerCopil() {
+    setCopilEtat('Enregistrement des textes…');
+    try {
+      const r = await fetch(`/api/pilotage/presentation/${encodeURIComponent(copil.section)}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ textes: copil.textes }) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
+      setCopilEtat(''); setCopilFenetre(false); setFacesImprimees(['copil']); setChoisirBlocs(false); setNbRetires(0);
+    } catch (e) { setCopilEtat(`Textes non enregistrés : ${e.message}`); }
+  }
   const imprime = k => !!facesImprimees?.includes(k);
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
@@ -1571,11 +1599,19 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'synthese' ? renderSynthese()
     : k === 'etp' ? (etpData ? renderETP() : <div className="text-gray-400 py-4">Chargement…</div>)
     : k === 'dotation' ? <DotationComparaison civil={civil} />
-    : k === 'deliberation' ? <StatsDeliberation annee={anneeActive} />
+    : k === 'deliberation' ? (
+      <div className="space-y-4">
+        {(delibSections?.length ? delibSections : [choixDelib.section]).map((sec, i) => (
+          <div key={sec || 'ecole'} className="space-y-3" style={{ breakBefore: i ? 'page' : 'auto' }}>
+            {(delibSections?.length || 0) > 1 && <div className="intertitre">{sec ? String(sec).replace(/_/g, ' ') : 'Toutes les sections'}</div>}
+            <StatsDeliberation annee={anneeActive} initial={{ section: sec }} />
+          </div>))}
+      </div>)
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     /* UNE SECTION, L'ÉCOLE, IIP ET HELB À L'IMPRESSION (3.5.482, Charles : « je veux pouvoir imprimer "une section", où se situe le
        TIM, puis la charge ETP sans coordination, avec coordination, avec admin… à la carte ») : les pages telles qu'à l'écran (même
        section, mêmes réglages, gardés par la page) ; « Choisir les blocs » de l'aperçu retire ce qu'on ne veut pas. */
+    : k === 'copil' ? <DossierCopil annee={anneeActive} section={copil.section} parties={copil.parties} textes={copil.textes} />
     : k === 'section' ? <GestionLecture annee={anneeActive} perimFixe="section" />
     : k === 'ecole' ? <GestionLecture annee={anneeActive} perimFixe="etab" />
     : k === 'iip-helb' ? <IipHelbGestion />
@@ -1584,6 +1620,7 @@ export default function Pilotage({ vue = 'tout' }) {
   const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
   // Le titre d'une partie imprimée : la rubrique, puis la face — une fois si elles portent le même nom ; « Une section » dit laquelle (3.5.483).
   const libelleFace = k => {
+    if (k === 'copil') return `Dossier pour le comité de pilotage — ${String(copil.section).replace(/_/g, ' ')}`;
     if (k === 'section') { let sec = ''; try { sec = JSON.parse(localStorage.getItem('lucie.gestionLecture') || '{}').section || ''; } catch { /* */ } return sec ? `Une section — ${String(sec).replace(/_/g, ' ')}` : 'Une section'; }
     for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return r.label === f[1] ? f[1] : `${r.label} — ${f[1]}`; }
     return k;
@@ -1779,6 +1816,39 @@ thead { display: table-header-group; }
         ] }]}
       />
 
+      {copilFenetre && (
+        <Fenetre icone={IconPrinter} titre="Dossier pour le comité de pilotage" large="moyenne" onFermer={() => setCopilFenetre(false)}
+          sous={`Année scolaire ${anneeActive} — une section ; cochez les parties, écrivez les textes, puis composez : l’aperçu permet encore de retirer des blocs`}
+          outils={<OutilFenetre Icone={IconEye} titre="Composer le dossier" disabled={!copil.parties.length} onClick={composerCopil} />}
+          pied={<>
+            <span className="text-second text-slate-500 flex-1 min-w-0">{copilEtat || `${copil.parties.length} partie(s) · ${copil.section}`}</span>
+            <button type="button" className="bouton bouton-fort" disabled={!copil.parties.length} onClick={composerCopil}>Composer le dossier</button>
+          </>}>
+          <div className="space-y-4">
+            <label className="flex items-center gap-2 text-sm">
+              <span className="intertitre">Section</span>
+              <select className="controle" value={copil.section} onChange={e => setCopil(c => ({ ...c, section: e.target.value, textes: {} }))}>
+                {[...new Set([copil.section, ...copilSections])].map(s => <option key={s} value={s}>{String(s).replace(/_/g, ' ')}</option>)}
+              </select>
+            </label>
+            <div>
+              <div className="intertitre mb-1">Les parties</div>
+              {PARTIES_COPIL.map(([k, num, titre]) => (
+                <label key={k} className={`flex items-center gap-2 text-sm cursor-pointer py-0.5 ${num.includes('.') ? 'pl-5' : ''}`}>
+                  <input type="checkbox" checked={copil.parties.includes(k)}
+                    onChange={() => setCopil(c => ({ ...c, parties: c.parties.includes(k) ? c.parties.filter(x => x !== k) : PARTIES_COPIL.map(p => p[0]).filter(x => x === k || c.parties.includes(x)) }))} />
+                  <span>{num} {titre}</span>
+                </label>))}
+            </div>
+            {[['copil.dp', '4. Évolution du dossier pédagogique (à venir)', 'dp'], ['copil.divers', '5. Divers', 'divers']].filter(([, , k]) => copil.parties.includes(k)).map(([cle, lib]) => (
+              <label key={cle} className="block space-y-1">
+                <span className="intertitre">{lib}</span>
+                <textarea className="w-full border border-slate-300 rounded-champ p-2 text-sm" rows={5} data-reponses={cle}
+                  value={copil.textes[cle] || ''} onChange={e => setCopil(c => ({ ...c, textes: { ...c.textes, [cle]: e.target.value } }))} />
+              </label>))}
+            <p className="text-mention text-slate-500 m-0">Les textes sont gardés pour la section (avec ceux de sa présentation). Le dossier se met en pages dans l’aperçu ; « Choisir les blocs » y retire ce qui est de trop, puis « PDF ».</p>
+          </div>
+        </Fenetre>)}
       {choixImpression && (
         <Fenetre icone={IconPrinter} titre="Imprimer des parties de la Gestion" large="moyenne" onFermer={() => setChoixImpression(null)}
           sous={`Année scolaire ${anneeActive} — cochez les parties ; elles se suivent dans une seule pièce, chacune sur sa page`}
@@ -1807,7 +1877,8 @@ thead { display: table-header-group; }
             })}
             {[['population-ecole', 'Qui sont nos étudiants', choixPop, popSections, setPopSections,
                 choixPop.sle === 'exclus' || choixPop.nouveaux ? ` · ${[choixPop.nouveaux ? 'nouveaux étudiants' : '', choixPop.sle === 'exclus' ? 'SLE exclus' : ''].filter(Boolean).join(' · ')}, comme à l’écran` : ''],
-              ['personnel-ecole', 'Notre personnel', choixPers, persSections, setPersSections, ' · une section porte sa comparaison à l’IIP et à l’ASBL']]
+              ['personnel-ecole', 'Notre personnel', choixPers, persSections, setPersSections, ' · une section porte sa comparaison à l’IIP et à l’ASBL'],
+              ['deliberation', 'Décisions et taux de réussite', choixDelib, delibSections, setDelibSections, ' · par unité, par bloc et par section']]
               .filter(([face]) => choixImpression.has(face)).map(([face, nomFace, choix, choisies, poser, note]) => {
                 const liste = ['', ...(choix.sections.length ? choix.sections : sectionsRef)];
                 const coches = new Set(choisies || [choix.section]);
@@ -1897,9 +1968,12 @@ thead { display: table-header-group; }
               </div>)}
             <span className="flex-1" />
             {tab !== 'mes-frais' && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
-              onClick={() => { setPopSections([choixPop.section]); setPersSections([choixPers.section]); setChoixImpression(new Set([tab].filter(k => k !== 'config')));
+              onClick={() => { setPopSections([choixPop.section]); setPersSections([choixPers.section]); setDelibSections([choixDelib.section]); setChoixImpression(new Set([tab].filter(k => k !== 'config')));
                 if (!(choixPop.sections.length && choixPers.sections.length) && !sectionsRef.length) import('../lib/api.js').then(({ api }) => api.sections().then(l => setSectionsRef((l || []).map(s => s.code))).catch(() => {})); }}>
               <IconPrinter size={15} /> Imprimer des parties…</button>}
+            {direction && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5" onClick={() => setCopilFenetre(true)}
+              title="Le dossier d'une section pour le comité de pilotage : population, attributions, positionnement, réussite, textes">
+              <IconPrinter size={15} /> Dossier COPIL…</button>}
             {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
             {tab === 'mes-frais' ? null : ['budget', 'dotation'].includes(tab)
               ? <span className="text-second text-slate-500">{tab === 'budget' ? 'Année civile : dans la page' : 'Toutes les années civiles'}</span>
@@ -2018,7 +2092,7 @@ thead { display: table-header-group; }
             {tab === 'sources' && <SourcesReference />}
             {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
-            {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} />}
+            {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} initial={choixDelib} onChoix={setChoixDelib} />}
             {tab === 'config'   && renderConfig()}
           </>
         )}

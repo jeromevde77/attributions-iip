@@ -29,7 +29,10 @@ function Carte({ titre, sous, children, className = '' }) {
 /* IMPRIMER PAR SECTION (3.5.480, Charles : « je veux pouvoir imprimer par section »). `initial` pose la section, SLE et nouveaux
    (l'aperçu d'impression en monte une par section choisie) ; `onChoix` dit à la Gestion ce que l'écran montre, pour que l'impression
    le suive. */
-export default function PopulationEcole({ annee: anneeProp, initial = null, onChoix = null }) {
+/* `partie` (3.5.485, dossier du COPIL) : 'inscriptions' (chiffres, sexe, âge, blocs, évolution, titres d'accès) ou 'provenance'
+   (domicile, nationalité, cartes, Bruxelles sur trois ans) ; sans elle, toute la page. */
+export default function PopulationEcole({ annee: anneeProp, initial = null, onChoix = null, partie = null }) {
+  const ins = !partie || partie === 'inscriptions', prov = !partie || partie === 'provenance';
   const annee = anneeProp || getAnnee();
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -107,7 +110,7 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
         <span className="text-second text-slate-400 ml-auto">{d.annee} · inscrits au {d.ref.split('-').reverse().join('/')}, hors archivés{d.sle_nombre ? ` · ${k0(d.sle_nombre)} SLE ${sle === 'exclus' ? 'exclus' : 'compris'}` : ''}</span>
       </div>
 
-      {eff && !section && (
+      {ins && eff && !section && (
         <div className="flex flex-wrap gap-3">
           <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" aide="Les étudiants (chacun une fois, archivés exclus) dont une inscription de l’année est datée au plus tard du 15 octobre. À partir de 2027-2028, ce chiffre est gelé le 15 octobre et ne bouge plus ; avant, il est reconstruit à partir des dates d’inscription (indicatif)." valeur={k0(eff.au_15_10.total)} libelle="inscrits au 15/10"
             precision={eff.au_15_10.fige ? 'référence de l’année, gelée' : 'reconstruit, indicatif — gelé d’office à partir de 2027-2028'} /></div>
@@ -118,20 +121,21 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
           <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(eff.en_parcours)} libelle="encore en parcours"
             precision={`une UE encore ouverte · ${k0(eff.inscrits)} inscrits non archivés${eff.sortis ? `, dont ${eff.sortis} sorti(s)` : ''}`} /></div>
         </div>)}
-      <div className="flex flex-wrap gap-3">
+      {ins && <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" valeur={k0(v.n)} libelle="inscrits" precision={section ? NOM_SECTION(section) : `${d.sections.length} sections`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat aide="Aucune inscription ni valorisation dans une année antérieure (règle du badge « primo », lib/primo.js) ÷ inscrits." valeur={k0(v.primo)} libelle="nouveaux étudiants" precision={`${pc(v.primo, v.n)} — aucune inscription avant ${d.annee}`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat aide="Les étudiants dont le niveau de l’année, tel que Lucie le calcule pour la fiche, est le bloc 3." valeur={k0(v.ba3)} libelle="en année diplômante" precision={`${pc(v.ba3, v.n)} — bloc 3, niveau principal`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={pc(v.F, sexeConnu)} libelle="de femmes" precision={`${k0(v.F)} F · ${k0(v.M)} M${v.X ? ` · ${k0(v.X)} X` : ''}`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={v.age_moyen != null ? `${Math.round(v.age_moyen)} ans` : '—'} libelle="âge moyen" precision={`${k0(v.m25)} de moins de 25 ans`} /></div>
-      </div>
+      </div>}
 
-      {!section && (
+      {ins && !section && (
         <Carte titre="Les inscrits par section" sous="Un étudiant inscrit dans deux sections compte dans chacune ; le total de l'école le compte une fois.">
           <Barres format={k0} lignes={d.sections.map((s, i) => ({ nom: NOM_SECTION(s.section), valeur: s.n, couleur: couleurSerie(i) }))} />
         </Carte>)}
 
       <div className="grid gap-4 lg:grid-cols-2">
+        {ins && <>
         <Carte titre="Sexe" sous={`Sur ${k0(sexeConnu)} fiches renseignées${v.sexe_inconnu ? ` · ${k0(v.sexe_inconnu)} sans sexe` : ''}`}>
           <Anneau centre={k0(sexeConnu)} parts={[{ nom: 'Femmes', valeur: v.F, couleur: 'var(--g-3)' }, { nom: 'Hommes', valeur: v.M, couleur: 'var(--g-1)' }, { nom: 'X', valeur: v.X, couleur: 'var(--g-2)' }]} />
         </Carte>
@@ -139,7 +143,8 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
           <Barres format={n => `${k0(n)} · ${pc(n, ageConnu)}`} lignes={[
             { nom: 'moins de 25 ans', valeur: v.m25 }, { nom: '25 à 34 ans', valeur: v.m35 },
             { nom: '35 à 44 ans', valeur: v.m45 }, { nom: '45 ans et plus', valeur: v.p45 }]} />
-        </Carte>
+        </Carte></>}
+        {prov && <>
         <Carte titre="Domicile" sous={`Région du code postal · sur ${k0(domConnu)} adresses belges${dom.inconnu ? ` · ${k0(dom.inconnu)} sans code postal belge` : ''}`}>
           <Anneau centre={k0(domConnu)} parts={[{ nom: 'Bruxelles', valeur: dom.bruxelles, couleur: 'var(--g-1)' }, { nom: 'Wallonie', valeur: dom.wallonie, couleur: 'var(--g-2)' }, { nom: 'Flandre', valeur: dom.flandre, couleur: 'var(--g-3)' }]} />
           <div className="intertitre pt-1">Les communes les plus représentées</div>
@@ -151,15 +156,16 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
             <div className="intertitre pt-1">Les autres nationalités</div>
             <Barres format={n => `${k0(n)} · ${pc(n, natConnue)}`} lignes={pays.map(([nom, n]) => ({ nom, valeur: n }))} />
           </>}
-        </Carte>
+        </Carte></>}
       </div>
 
       {/* LA CARTE DES COMMUNES (3.5.289) : où habitent les étudiants — l'école ou la section choisie. */}
       {/* LES CARTES EN TUILES (3.5.291, proposition A) : un clic ouvre la carte en grand. */}
-      <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />
+      {prov && <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />}
       {/* BRUXELLES SUR TROIS ANNÉES (3.5.292, d'après la page de la HELB). */}
-      <BruxellesTroisAns parAnnee={d.par_annee || []} titreFiltre={[nouveaux ? 'nouveaux étudiants' : '', section ? NOM_SECTION(section) : '', sle === 'exclus' ? 'SLE exclus' : ''].filter(Boolean).join(' · ')} />
+      {prov && <BruxellesTroisAns parAnnee={d.par_annee || []} titreFiltre={[nouveaux ? 'nouveaux étudiants' : '', section ? NOM_SECTION(section) : '', sle === 'exclus' ? 'SLE exclus' : ''].filter(Boolean).join(' · ')} />}
 
+      {ins && <>
       {/* LE TITRE D'ACCÈS ET LA SITUATION PROFESSIONNELLE (3.5.287, Charles : « le type de titre d'entrée par section — CESS,
           etc. — et aussi si chômeur, travailleur… »). Le titre se lit sur la fiche (Identité) ; la situation, celle de l'année. */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -255,5 +261,6 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
               </p>
             </div>)}
         </Carte>)}
+      </>}
     </div>);
 }
