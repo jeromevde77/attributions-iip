@@ -40,7 +40,9 @@ function salairesHelb(y, P, avecCoord) {
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
-    const ma = y.etp_helb_ma || 0, autres = Math.max(0, (y.ens_helb || 0) - ma) + c;
+    // Une coordination portée par un MA se paie au prix du MA (3.5.495, recopie de lib/rapportIipHelb.js).
+    const cma = avecCoord ? Math.min(c, y.cetp_helb_ma || 0) : 0;
+    const ma = (y.etp_helb_ma || 0) + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0)) + (c - cma);
     return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma);
   }
   return etp * P.cmbp;
@@ -426,7 +428,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                   {segm('unite_helb', [['periodes', 'en périodes de 50 min'], ['heures', 'en heures']])}
                   {segm('prix_helb', [['titres', `Au titre — MA ${eur(d?.prix_helb?.ma)}, MFP ${eur(d?.prix_helb?.mfp)}`], ['moyenne', `Moyenne HELB — ${eur(d?.prix_helb?.moyen)}`], ['fixe', `Montant réglé — ${eur(PH.cmbp)}`]])}
                 </div>
-                {HY.length > 0 && <p className="text-mention text-slate-500 m-0">Salaires HELB {HY[HY.length - 1].y.annee} : au titre {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'titres' }, mes.coord === 'oui'))} · à la moyenne {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'moyenne' }, mes.coord === 'oui'))} · au montant réglé {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'fixe' }, mes.coord === 'oui'))}. Au titre : un maître-assistant au prix du MA, tout le reste au prix d’un MFP.</p>}
+                {HY.length > 0 && <p className="text-mention text-slate-500 m-0">Salaires HELB {HY[HY.length - 1].y.annee} : au titre {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'titres' }, mes.coord === 'oui'))} · à la moyenne {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'moyenne' }, mes.coord === 'oui'))} · au montant réglé {eur(salairesHelb(HY[HY.length - 1].y, { ...PH, prix: 'fixe' }, mes.coord === 'oui'))}. Au titre : un maître-assistant au prix du MA (cours et coordinations), tout le reste au prix d’un MFP.</p>}
                 {HY.length > 0 && <div className="overflow-x-auto"><Tableau className="!w-auto">
                   <thead><tr><Th>Année</Th><Th align="droite">ETP HELB selon Lucie</Th><Th align="droite">dont maîtres-assistants</Th><Th align="droite">ETP déclaré par la HELB</Th><Th align="droite">Écart</Th></tr></thead>
                   <tbody>{HY.map(({ y }) => { const dec = d?.etp_declare_helb?.[y.annee]; return (
@@ -592,7 +594,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                       <Td align="droite">{eur(somme('cout_iip'))}</Td><Td align="droite">{eur(somme('cout_helb'))}</Td></tr>,
                     ...(ouvert ? y.coord.map((c, i) => (
                   <tr key={y.annee + i} className="border-b border-slate-100"><Td />
-                    <Td>{c.fonction}</Td><Td>{c.personne}</Td>
+                    <Td>{c.fonction}{c.titre_helb ? <span className="text-mention text-slate-500"> · HELB {c.titre_helb}</span> : null}</Td><Td>{c.personne}</Td>
                     <Td align="droite">{c.etp ? n2(c.etp) : <span style={{ color: 'var(--c-attente)' }} title="Personnel → fiche → Fonctions">ETP à renseigner</span>}</Td><Td align="droite">{c.deja ? <span className="text-slate-400" title="Déjà dans ses attributions">dans ses cours</span> : n2(c.etp_iip)}</Td>
                     <Td align="droite">{n2(c.etp_helb)}</Td><Td align="droite">{c.cout_iip ? eur(c.cout_iip) : '—'}</Td><Td align="droite">{c.cout_helb ? eur(c.cout_helb) : '—'}</Td></tr>)) : [])];
                 })}

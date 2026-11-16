@@ -110,12 +110,21 @@ function annee(section, a, unite = 'periodes') {
   const tCT = tarifs()[niveauDeSection(section)]?.CT || 0;
   // Les codes de coordination de Lucie (COCUR, COSTA, COTFE, COSEC…) — en capitales : « Cours » n'en est pas un (3.5.432).
   const coordEnAttribution = new Set(L.filter(l => /^CO[A-Z]{2,4}$/.test(String(l.nature || ''))).map(l => l.professeur_id));
+  /* LE TITRE D'UNE COORDINATION HELB (3.5.495, Charles : « le 0,6 de Moiny en HELB est MA aussi ») : celui de la fiche (statut HELB),
+     à défaut le titre qui porte le plus d'heures parmi ses lignes HELB de l'année ; sans rien, MFP. Le prix « au titre » le suit. */
+  const titreCoord = (profId) => {
+    const f = profId ? String(db.prepare('SELECT statut_helb s FROM professeur WHERE id = ?').get(profId)?.s || '').toUpperCase() : '';
+    if (f === 'MA' || f === 'MFP') return f;
+    const h = {}; for (const l of L) if (l.helb && l.professeur_id === profId && l.titre_helb) h[l.titre_helb] = (h[l.titre_helb] || 0) + (l.heures || l.periodes || 0);
+    const meilleur = Object.entries(h).sort((x, y) => y[1] - x[1])[0]?.[0];
+    return meilleur === 'MA' ? 'MA' : 'MFP';
+  };
   const coord = missions.filter(m => !m.pncc && m.section_code === section).map(m => {
     const etpHelb = Number(m.etp_helb) || 0;
     const etpTot = Math.max(Number(m.etp) || 0, etpHelb);
     const etpIip = coordEnAttribution.has(m.professeur_id) ? 0 : Math.max(0, etpTot - etpHelb);
     return { fonction: m.fonction, personne: `${String(m.nom || '').toUpperCase()} ${m.prenom || ''}`.trim(),
-      etp: etpTot, etp_helb: etpHelb, etp_iip: etpIip, deja: coordEnAttribution.has(m.professeur_id),
+      etp: etpTot, etp_helb: etpHelb, etp_iip: etpIip, deja: coordEnAttribution.has(m.professeur_id), titre_helb: etpHelb ? titreCoord(m.professeur_id) : null,
       cout_iip: etpIip * 800 * tCT, cout_helb: etpHelb * 800 * tCT };
   });
   /* CE QUE LA SECTION RAPPORTE (3.5.429, Charles : « le revenu par étudiant sur base des inscrits et de nos formules ») : le droit
@@ -139,6 +148,7 @@ function annee(section, a, unite = 'periodes') {
     coord_iip: coord.reduce((t, c) => t + c.cout_iip, 0),
     cetp_iip: coord.reduce((t, c) => t + c.etp_iip, 0),
     cetp_helb: coord.reduce((t, c) => t + c.etp_helb, 0),
+    cetp_helb_ma: coord.filter(c => c.titre_helb === 'MA').reduce((t, c) => t + c.etp_helb, 0),
   };
 }
 
@@ -390,8 +400,9 @@ export function salairesHelb(y, P, avecCoord = true) {
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
-    // Au titre : un maître-assistant au prix du MA ; tout le reste (MFP, praticiens, coordinations) au prix du MFP.
-    const ma = y.etp_helb_ma || 0, autres = Math.max(0, (y.ens_helb || 0) - ma) + c;
+    // Au titre : un maître-assistant au prix du MA (cours et coordinations) ; tout le reste au prix du MFP.
+    const cma = avecCoord ? Math.min(c, y.cetp_helb_ma || 0) : 0;
+    const ma = (y.etp_helb_ma || 0) + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0)) + (c - cma);
     return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma);
   }
   return etp * P.cmbp;
@@ -916,7 +927,7 @@ export function enseignantsHelbCivil(section, anneeCivile) {
   const part = (a, poids) => {
     if (!toutes.has(a)) return { cout: 0, etp: 0, poids: 0 };
     const y = annee(section, a);
-    const yy = { ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma };
+    const yy = { ens_helb: y.etp_helb, cetp_helb: y.cetp_helb, etp_helb_ma: y.etp_helb_ma, cetp_helb_ma: y.cetp_helb_ma };
     return { cout: salairesHelb(yy, P, true) * poids, etp: (y.etp_helb + y.cetp_helb) * poids, poids };
   };
   const a = part(`${Y - 1}-${Y}`, 8 / 12), b = part(`${Y}-${Y + 1}`, 4 / 12);
