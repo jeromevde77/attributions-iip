@@ -26,13 +26,17 @@ function Carte({ titre, sous, children, className = '' }) {
     </section>);
 }
 
-export default function PopulationEcole({ annee: anneeProp }) {
+/* IMPRIMER PAR SECTION (3.5.480, Charles : « je veux pouvoir imprimer par section »). `initial` pose la section, SLE et nouveaux
+   (l'aperçu d'impression en monte une par section choisie) ; `onChoix` dit à la Gestion ce que l'écran montre, pour que l'impression
+   le suive. */
+export default function PopulationEcole({ annee: anneeProp, initial = null, onChoix = null }) {
   const annee = anneeProp || getAnnee();
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
-  const [section, setSection] = useState('');   // '' = toute l'école
-  const [sle, setSle] = useState('compris');      // SLE compris ou exclus (3.5.290)
-  const [nouveaux, setNouveaux] = useState(false); // tous ou nouveaux étudiants seulement (3.5.292)
+  const [section, setSection] = useState(initial?.section ?? '');   // '' = toute l'école
+  const [sle, setSle] = useState(initial?.sle ?? 'compris');      // SLE compris ou exclus (3.5.290)
+  const [nouveaux, setNouveaux] = useState(!!initial?.nouveaux); // tous ou nouveaux étudiants seulement (3.5.292)
+  useEffect(() => { if (onChoix) onChoix({ section, sle, nouveaux, sections: (d?.sections || []).map(s => s.section) }); }, [section, sle, nouveaux, d]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [tour, setTour] = useState(0);
   // LES EFFECTIFS DE L'ANNÉE (3.5.196) : la même source que la liste des étudiants.
   const [eff, setEff] = useState(null);

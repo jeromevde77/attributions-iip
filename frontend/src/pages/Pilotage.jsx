@@ -552,6 +552,10 @@ export default function Pilotage({ vue = 'tout' }) {
   // IMPRIMER DES PARTIES DE LA GESTION (Charles, 14 octobre 2026) : le choix, puis l'aperçu composé.
   const [choixImpression, setChoixImpression] = useState(null);   // Set des faces cochées, fenêtre ouverte
   const [facesImprimees, setFacesImprimees] = useState(null);     // faces de l'aperçu
+  // QUI SONT NOS ÉTUDIANTS, PAR SECTION (3.5.480) : ce que l'écran montre, et les sections cochées pour l'impression ('' = l'école).
+  const [choixPop, setChoixPop] = useState({ section: '', sle: 'compris', nouveaux: false, sections: [] });
+  const [popSections, setPopSections] = useState(null);
+  const [sectionsRef, setSectionsRef] = useState([]);
   const imprime = k => !!facesImprimees?.includes(k);
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
@@ -1539,7 +1543,14 @@ export default function Pilotage({ vue = 'tout' }) {
   /* UNE FACE, OÙ QU'ELLE S'AFFICHE — à l'écran comme dans l'aperçu d'impression : un seul rendu, deux
      usages, l'écran et le papier ne peuvent pas différer. */
   const renduFace = k => (
-    k === 'population-ecole' ? <PopulationEcole annee={anneeActive} />
+    k === 'population-ecole' ? (
+      <div className="space-y-4">
+        {(popSections?.length ? popSections : [choixPop.section]).map((sec, i) => (
+          <div key={sec || 'ecole'} className="space-y-3" style={{ breakBefore: i ? 'page' : 'auto' }}>
+            {(popSections?.length || 0) > 1 && <div className="intertitre">{sec ? String(sec).replace(/_/g, ' ') : 'Toute l’école'}</div>}
+            <PopulationEcole annee={anneeActive} initial={{ ...choixPop, section: sec }} />
+          </div>))}
+      </div>)
     : k === 'personnel-ecole' ? <PersonnelEcole annee={anneeActive} />
     : k === 'rapport' ? <RapportStatistique annee={anneeActive} />
     : k === 'repartition' ? <RepartitionPeriodes annee={anneeActive} />
@@ -1772,6 +1783,27 @@ thead { display: table-header-group; }
                   </div>
                 </div>);
             })}
+            {choixImpression.has('population-ecole') && (() => {
+              const liste = ['', ...(choixPop.sections.length ? choixPop.sections : sectionsRef)];
+              const coches = new Set(popSections || [choixPop.section]);
+              const basculer = k => setPopSections(() => { const n = new Set(coches); n.has(k) ? n.delete(k) : n.add(k); return liste.filter(x => n.has(x)); });
+              return (
+                <div className="border-t border-slate-200 pt-3">
+                  <div className="intertitre">Qui sont nos étudiants : pour qui ?</div>
+                  <p className="text-mention text-slate-500 m-0 mb-1">Une page par choix{choixPop.sle === 'exclus' || choixPop.nouveaux ? ` · ${[choixPop.nouveaux ? 'nouveaux étudiants' : '', choixPop.sle === 'exclus' ? 'SLE exclus' : ''].filter(Boolean).join(' · ')}, comme à l’écran` : ''}.</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {liste.map(k => (
+                      <label key={k || 'ecole'} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={coches.has(k)} onChange={() => basculer(k)} />
+                        {k ? String(k).replace(/_/g, ' ') : 'Toute l’école'}
+                      </label>))}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button type="button" className="bouton" onClick={() => setPopSections(liste.filter(Boolean))}>Chaque section</button>
+                    <button type="button" className="bouton" onClick={() => setPopSections(liste)}>L’école et chaque section</button>
+                  </div>
+                </div>);
+            })()}
             <div className="flex gap-2">
               <button type="button" className="bouton" onClick={() => setChoixImpression(new Set(IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k))))}>Tout cocher</button>
               <button type="button" className="bouton" onClick={() => setChoixImpression(new Set())}>Tout décocher</button>
@@ -1840,7 +1872,8 @@ thead { display: table-header-group; }
               </div>)}
             <span className="flex-1" />
             {tab !== 'mes-frais' && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
-              onClick={() => setChoixImpression(new Set([tab].filter(k => k !== 'config')))}>
+              onClick={() => { setPopSections([choixPop.section]); setChoixImpression(new Set([tab].filter(k => k !== 'config')));
+                if (!choixPop.sections.length && !sectionsRef.length) import('../lib/api.js').then(({ api }) => api.sections().then(l => setSectionsRef((l || []).map(s => s.code))).catch(() => {})); }}>
               <IconPrinter size={15} /> Imprimer des parties…</button>}
             {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
             {tab === 'mes-frais' ? null : ['budget', 'dotation'].includes(tab)
@@ -1903,7 +1936,7 @@ thead { display: table-header-group; }
         )}
 
         {tab === 'population-ecole' ? (
-          <PopulationEcole annee={anneeActive} />
+          <PopulationEcole annee={anneeActive} initial={choixPop} onChoix={setChoixPop} />
         ) : tab === 'personnel-ecole' ? (
           <PersonnelEcole annee={anneeActive} />
         ) : tab === 'rapport' ? (
