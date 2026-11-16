@@ -4393,6 +4393,11 @@ l'école, une ou plusieurs sections, une page chacune (`popSections` de Pilotage
 l'IIP ou de l'ASBL ») : même impression par section (`persSections`) ; une section choisie porte la carte « comparée à l'IIP et à
 l'ASBL » (`Compare` de `PersonnelEcole.jsx`) — profil face à l'IIP, ASBL seulement pour ce qui se compte en ETP (Lire et comparer) :
 Lucie n'a pas les fiches du personnel de la HELB.
+**À la carte** (3.5.482, Charles : « imprimer "une section", où se situe le TIM, puis la charge ETP sans coordination, avec coordination
+et avec admin — à la carte ») : Une section, L'école et IIP et HELB sont des parties de « Imprimer des parties » (`renduFace`) ; « Choisir
+les blocs » de l'aperçu garde les cartes voulues (relu à 1,5 · 4 · 10 · 30 s, ces pages se calculent lentement). IIP et HELB porte trois
+cartes de charge en ETP, quelles que soient les mesures : `charge_ens`, `charge_coord`, `charge_admin` (direction et secrétariat au
+prorata des inscrits).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
