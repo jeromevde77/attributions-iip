@@ -4386,6 +4386,9 @@ et par statut (chargé de cours, expert : celui de la FICHE), arrivées (jamais 
 d'historique : celui des enseignants IIP de la dernière année. Lu par la partie « Les enseignants depuis la création » (`equipe`) de la pièce
 IIP et HELB (Éditions → Gestion) et par deux diapositives de la Présentation (`attributions`, `equipe`), via `GET
 /api/pilotage/evolution-attributions` (direction).
+**Qui sont nos étudiants, par section** (3.5.480, Charles : « je veux pouvoir imprimer par section ») : l'impression suit la section,
+SLE et nouveaux choisis à l'écran (`initial`, `onChoix` de `PopulationEcole`) ; la fenêtre « Imprimer des parties » demande pour qui —
+l'école, une ou plusieurs sections, une page chacune (`popSections` de Pilotage.jsx).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
