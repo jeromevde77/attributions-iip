@@ -1710,3 +1710,13 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    pour toutes les pages qui rangent des tuiles dans une enveloppe souple. */
 .tuile-grande { height: 100%; }
 .flex-wrap > .flex-1:has(> .tuile-grande) { max-width: 22rem; }
+
+/* L'APERÇU D'IMPRESSION DE LA GESTION (3.5.483, Charles : « un peu déçu de la présentation quand on imprime »). Valable à l'écran de
+   l'aperçu ET dans le PDF du serveur (qui reçoit ces feuilles de style) : les réglages de l'écran disparaissent, une ligne qui les nomme
+   (`seulement-impression`) paraît ; les cartes vont deux par rangée, quelle que soit la largeur de la page qui rend le PDF — un graphique
+   garde la largeur de sa colonne et la page ne reste pas à moitié vide. */
+.seulement-impression { display: none !important; }
+.zone-impression .partie-impression .seulement-impression { display: block !important; }
+.zone-impression .partie-impression .sans-impression { display: none !important; }
+.zone-impression .partie-impression .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.zone-impression .partie-impression .lg\:col-span-2 { grid-column: span 2 / span 2 !important; }

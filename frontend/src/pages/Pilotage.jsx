@@ -1582,7 +1582,12 @@ export default function Pilotage({ vue = 'tout' }) {
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
   const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
-  const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
+  // Le titre d'une partie imprimée : la rubrique, puis la face — une fois si elles portent le même nom ; « Une section » dit laquelle (3.5.483).
+  const libelleFace = k => {
+    if (k === 'section') { let sec = ''; try { sec = JSON.parse(localStorage.getItem('lucie.gestionLecture') || '{}').section || ''; } catch { /* */ } return sec ? `Une section — ${String(sec).replace(/_/g, ' ')}` : 'Une section'; }
+    for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return r.label === f[1] ? f[1] : `${r.label} — ${f[1]}`; }
+    return k;
+  };
   /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
      navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
      serveur la page TELLE QU'ELLE EST DESSINÉE — son HTML, les feuilles de style de Lucie et les réglages

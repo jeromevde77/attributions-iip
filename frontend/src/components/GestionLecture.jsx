@@ -159,7 +159,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   }, [S, d, lentille, ref, blocs]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const barre = (
-    <div className="flex flex-nowrap items-center gap-x-4 overflow-x-auto pb-1">
+    <div className="flex flex-nowrap items-center gap-x-4 overflow-x-auto pb-1 sans-impression">
       <div className="flex items-center gap-2 flex-none">{!perimFixe && <><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Lire</span>
         <Segments label="Lire" valeur={perim} onChange={setPerim} options={[['etab', 'L’établissement'], ['section', 'Une section']]} /></>}
         {perim === 'section' && (
@@ -191,7 +191,13 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
             <h1 className="titre-ecran m-0 mt-1">{perim === 'etab' ? 'L’Institut, section par section' : section}</h1>
           </div>
           <button type="button" className="bouton inline-flex items-center flex-none" onClick={presenter} aria-label="Quitter le plein écran" title="Quitter le plein écran"><IconMinimize size={15} /></button>
-        </div>) : barre}
+        </div>) : <>
+          {/* À L'IMPRESSION (3.5.483) : le nom de ce qu'on lit, au lieu des boutons. */}
+          <div className="seulement-impression">
+            <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{d?.annee} · {LENTILLES.find(l => l[0] === lentille)?.[1]} · comparé à {nomRef}</div>
+            <h2 className="titre-ecran m-0 mt-1">{perim === 'etab' ? 'L’Institut, section par section' : section}</h2>
+          </div>
+          {barre}</>}
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
       {!d ? <p className="text-second text-slate-400">Calcul des indicateurs de toutes les sections… (quelques secondes la première fois)</p> : (<>
         {!plein && <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}

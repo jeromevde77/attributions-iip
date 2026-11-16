@@ -4398,6 +4398,12 @@ et avec admin — à la carte ») : Une section, L'école et IIP et HELB sont de
 les blocs » de l'aperçu garde les cartes voulues (relu à 1,5 · 4 · 10 · 30 s, ces pages se calculent lentement). IIP et HELB porte trois
 cartes de charge en ETP, quelles que soient les mesures : `charge_ens`, `charge_coord`, `charge_admin` (direction et secrétariat au
 prorata des inscrits).
+**L'aperçu se lit comme une pièce** (3.5.483, PDF de Charles : « un peu déçu de la présentation quand on imprime ») : dans
+`.zone-impression .partie-impression`, `sans-impression` cache les réglages (barres, « Parties masquées », inscrits retenus, formes
+de graphique, croix), `seulement-impression` montre la ligne qui les nomme ; les grilles `lg:grid-cols-2` restent à deux colonnes (le
+PDF se rend plus étroit que `lg` : graphiques à demi-largeur dans des cartes pleine largeur) ; volets et années de coordinations
+dépliés ; « Une section — TIM » au lieu de « Une section — Une section ». **Un réglage d'écran nouveau d'une page de Gestion porte
+`sans-impression`.**
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

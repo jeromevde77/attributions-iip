@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconSend, IconX, IconEye, IconRefresh, IconChevronRight } from '@tabler/icons-react';
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
@@ -60,8 +60,11 @@ const COULEUR_DEPT = { 'Santé': '#5DADE2', 'COMAV': '#9F7AEA', 'Technoeco': '#1
 /* UN VOLET QUI SE REPLIE (3.5.442, Charles : « des volets à refermer là où cela rend la lecture plus fine »). */
 function Volet({ titre, ouvert = false, droite = null, children }) {
   const [o, setO] = useState(ouvert);
+  // À l'impression, tout volet est ouvert (3.5.483) : une page imprimée ne se déplie pas.
+  const rac = useRef(null);
+  useEffect(() => { if (rac.current?.closest('.zone-impression')) setO(true); }, []);
   return (
-    <div className="border-t border-slate-100 pt-2 mt-2">
+    <div ref={rac} className="border-t border-slate-100 pt-2 mt-2">
       <button type="button" onClick={() => setO(x => !x)} aria-expanded={o} className="w-full flex items-center gap-1.5 text-second font-semibold text-slate-700 hover:text-iip-blue">
         <IconChevronRight size={14} className={`transition-transform ${o ? 'rotate-90' : ''}`} /> <span className="flex-1 text-left">{titre}</span>{droite}
       </button>
@@ -139,11 +142,11 @@ function Carte({ titre, sous, forme, onForme, onMasquer, children, large, plat }
     <section className={`carte overflow-hidden ${large ? 'lg:col-span-2' : ''}`}>
       <EnteteCarte titre={titre} sous={sous}>
         {onForme && (
-          <div className="segments flex-none" role="radiogroup" aria-label="Forme du graphique">
+          <div className="segments flex-none sans-impression" role="radiogroup" aria-label="Forme du graphique">
             {FORMES.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={forme === v} onClick={() => onForme(v)}
               className={`!px-2 text-mention whitespace-nowrap ${forme === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>)}
           </div>)}
-        <button type="button" className="text-slate-400 hover:text-slate-700" onClick={onMasquer} aria-label={`Masquer « ${titre} »`} title="Masquer cette partie"><IconX size={15} /></button>
+        <button type="button" className="text-slate-400 hover:text-slate-700 sans-impression" onClick={onMasquer} aria-label={`Masquer « ${titre} »`} title="Masquer cette partie"><IconX size={15} /></button>
       </EnteteCarte>
       {/* `plat` : une carte qui n'est qu'un tableau — il va d'un bord à l'autre, sans cadre dans le cadre (3.5.452). */}
       <div className={plat ? '' : 'p-3'}>{children}</div>
@@ -192,6 +195,11 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  /* À L'IMPRESSION (3.5.483, Charles, PDF du 16 novembre : « un peu déçu de la présentation quand on imprime ») : les réglages de l'écran
+     cèdent la place à une ligne qui les dit ; les années de coordinations sont dépliées. */
+  const racine = useRef(null);
+  const [enImpression, setEnImpression] = useState(false);
+  useEffect(() => { if (racine.current?.closest('.zone-impression')) setEnImpression(true); }, []);
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l =>
@@ -237,8 +245,12 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
     </div>);
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+    <div ref={racine} className="space-y-3">
+      {enImpression && d?.Y?.length > 0 && (
+        <p className="text-second text-slate-600 m-0">{section} · {(annees?.length ? annees : d.annees || []).map(court).join(', ')} · charge en {mes.charge === 'periodes' ? 'périodes' : 'ETP'} ·
+          {' '}{mes.cout === 'cmb' ? 'coût moyen brut' : 'coût convention'} · {mes.coord === 'oui' ? 'avec' : 'sans'} coordinations · {mes.admin === 'oui' ? 'avec' : 'sans'} cadre administratif
+          {Object.keys(reglages.inscrits || {}).filter(a => reglages.inscrits[a]).length ? ` · inscrits retenus : ${Object.entries(reglages.inscrits).filter(([, v]) => v).map(([a, v]) => `${court(a)} ${v}`).join(', ')}` : ''}</p>)}
+      <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 sans-impression">
         {!sectionFixe && <select className="controle flex-none" value={section} onChange={e => { setSection(e.target.value); setAnnees(null); }} aria-label="Section">
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
         </select>}
@@ -257,13 +269,13 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
           <IconSend size={15} />Imprimer</button>
       </div>
       {masques.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 text-second text-slate-500">
+        <div className="flex flex-wrap items-center gap-1.5 text-second text-slate-500 sans-impression">
           <IconEye size={14} /> Parties masquées :
           {masques.map(k => <button key={k} type="button" className="bouton !py-0.5 !px-2 text-mention" onClick={() => maj('masques', masques.filter(x => x !== k))}>{CARTES.find(c => c[0] === k)?.[1] || k}</button>)}
         </div>)}
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
       {d?.Y?.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
+        <div className="flex flex-wrap items-center gap-2 text-second text-slate-600 sans-impression">
           <span>Inscrits retenus :</span>
           {d.Y.map(y => (
             <label key={y.annee} className="flex items-center gap-1" title={`Lucie en compte ${y.inscrits}`}>
@@ -534,7 +546,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                       {ligneT(d.comparaison.cursus, 'Ensemble de la HELB', '#94A3B8', true, 'tout', null, false, a => ratioHe(a))}
                       {[...depts, 'IIP'].flatMap(dp => {
                         const cs = dp === 'IIP' ? (d.comparaison.iip || []) : d.comparaison.cursus.filter(c => c.dept === dp), coul = COULEUR_DEPT[dp] || '#94A3B8';
-                        const ouvert = deplies.includes(dp);
+                        const ouvert = enImpression || deplies.includes(dp);
                         return [ligneT(cs, dp === 'IIP' ? 'Institut Ilya Prigogine' : `Département ${dp}`, coul, true, dp, () => setDeplies(x => (x.includes(dp) ? x.filter(y => y !== dp) : [...x, dp])), ouvert, dp === 'IIP' ? undefined : a => ratioDep(dp, a)),
                           ...(ouvert ? cs.map(c => (
                             <tr key={dp + c.cursus} className={`border-b border-slate-100 ${c.tim ? 'font-semibold' : ''}`} style={{ boxShadow: `inset 5px 0 0 ${coul}`, ...(c.tim ? { color: PERCU } : {}) }}>
@@ -560,7 +572,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                   <Td align="droite">{eur(Y.reduce((t, y) => t + y.coord_iip, 0))}</Td><Td align="droite">{eur(Y.reduce((t, y) => t + y.coord_helb, 0))}</Td></tr>
                 {Y.flatMap(y => {
                   // UNE ANNÉE, UN VOLET (3.5.442) : le sous-total de l'année, un clic déplie ses fonctions.
-                  const ouvert = coordOuv.includes(y.annee), bascule = () => setCoordOuv(x => (x.includes(y.annee) ? x.filter(a => a !== y.annee) : [...x, y.annee]));
+                  const ouvert = enImpression || coordOuv.includes(y.annee), bascule = () => setCoordOuv(x => (x.includes(y.annee) ? x.filter(a => a !== y.annee) : [...x, y.annee]));
                   if (!y.coord.length) return [<tr key={y.annee} className="border-b border-slate-100"><Td>{y.annee}</Td><Td className="text-slate-400" colSpan={7}>Aucune coordination encodée (Personnel → fiche → Fonctions, année {y.annee}).</Td></tr>];
                   const somme = k => y.coord.reduce((t, c) => t + (c[k] || 0), 0);
                   return [
