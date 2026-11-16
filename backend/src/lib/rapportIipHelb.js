@@ -91,7 +91,19 @@ function annee(section, a, unite = 'periodes') {
   const coutPncc = pncc.reduce((t, m) => t + (m.cout || 0), 0);
   const inscrits = S?.inscrits || 0;
   const base = d?.base_inscrits || 0;
-  const partAdmin = base ? coutPncc * inscrits / base : 0;
+  /* LA PART DU CADRE ADMINISTRATIF SUIT LES PÉRIODES (3.5.493, Charles : « pour chez nous c'est simple, on sait faire un rapport en
+     périodes ÷ périodes totales de l'IIP » ; « secrétariat (base) + postes de direction que je pourrais enlever » ; « on ne compte pas
+     direction ni RH côté HE, et le secrétariat étudiant est 100 % chez nous : une charge pure IIP »). Part = périodes de la section ÷
+     toutes les périodes de l'école (attributions hors congés, IIP et HELB) ; le secrétariat toujours, la direction au choix (`direction`
+     des mesures) ; aucune part de la HELB. */
+  const perEcole = db.prepare(`SELECT COALESCE(SUM(total_attribue_professeur), 0) p FROM v_attribution_complete
+    WHERE annee_scolaire = ? AND COALESCE(en_conge, 0) = 0`).get(a)?.p || 0;
+  const perSection = L.reduce((t, l) => t + (l.periodes || 0), 0);
+  const ratioPer = perEcole ? perSection / perEcole : 0;
+  const estDirection = m => /direct/i.test(String(m.fonction || ''));
+  const coutDir = pncc.filter(estDirection).reduce((t, m) => t + (m.cout || 0), 0), coutSecr = coutPncc - coutDir;
+  const etpDir = pncc.filter(estDirection).reduce((t, m) => t + (Number(m.etp) || 0), 0), etpSecr = pncc.reduce((t, m) => t + (Number(m.etp) || 0), 0) - etpDir;
+  const partAdmin = coutPncc * ratioPer;
   /* LES COORDINATIONS COMPTENT (3.5.429, Charles : « on doit compter les coordinations ») : chaque fonction de coordination de la
      section, part IIP et part HELB, en ETP × 800 × la période CT du niveau de la section — même quand la personne a des périodes de
      cours. Seule exception : sa coordination figure déjà en lignes d'attribution (codes CO…) — elle est alors dans la charge. */
@@ -119,7 +131,9 @@ function annee(section, a, unite = 'periodes') {
     profs_iip: new Set(L.filter(l => !l.helb && l.professeur_id).map(l => l.professeur_id)).size,
     profs_helb: new Set(L.filter(l => l.helb && l.professeur_id).map(l => l.professeur_id)).size,
     cout_iip: S?.cout_iip || 0, cout_helb: S?.cout_helb || 0, inscrits,
-    admin: { fonctions: pncc.map(m => ({ fonction: m.fonction, etp: Number(m.etp) || 0, cout: m.cout || 0 })), cout: coutPncc, part: partAdmin, base },
+    admin: { fonctions: pncc.map(m => ({ fonction: m.fonction, etp: Number(m.etp) || 0, cout: m.cout || 0, direction: estDirection(m) })), cout: coutPncc,
+      part: partAdmin, part_secr: coutSecr * ratioPer, part_dir: coutDir * ratioPer, etp_secr: etpSecr * ratioPer, etp_dir: etpDir * ratioPer,
+      ratio: ratioPer, per_section: perSection, per_ecole: perEcole, base },
     coord, recettes, tiers: S?.tiers || null,
     coord_helb: coord.reduce((t, c) => t + c.cout_helb, 0),
     coord_iip: coord.reduce((t, c) => t + c.cout_iip, 0),
@@ -200,6 +214,7 @@ export const MESURES = {
   charge: [['etp', 'En ETP'], ['periodes', 'En périodes']],
   cout: [['convention', 'Coût convention'], ['cmb', 'Coût moyen brut (HE)']],
   admin: [['oui', 'Avec le cadre administratif'], ['non', 'Sans le cadre administratif']],
+  direction: [['oui', 'Avec la direction'], ['non', 'Sans la direction (secrétariat seul)']],
   coord: [['oui', 'Avec les coordinations'], ['non', 'Enseignement seul']],
   // 3.5.463 : l'unité des lignes HELB, et le prix d'un ETP de la HELB.
   unite_helb: [['periodes', 'Lignes HELB en périodes'], ['heures', 'Lignes HELB en heures']],
@@ -447,6 +462,7 @@ export function documentIipHelb(p) {
   for (const y of Y) {
     // Le cadre administratif d'une année sans fonctions encodées : la structure de référence (3.5.437).
     if (!(y.admin.cout > 0) && refAdmin) y.admin = { ...y.admin, part: refAdmin.cout * refAdmin.ratio, reprise: refAdmin.annee };
+    else if (R.mesures.direction === 'non') y.admin = { ...y.admin, part: y.admin.part_secr || 0 };
     y.ue95 = aideReussite(y.annee);
     // Les droits et frais suivent les inscrits retenus : le montant moyen par étudiant de Lucie × le nombre retenu.
     if (R.inscrits[y.annee]) { y.inscrits_lucie = y.inscrits; y.inscrits = R.inscrits[y.annee]; if (y.inscrits_lucie) y.recettes = y.recettes * y.inscrits / y.inscrits_lucie; }
@@ -742,7 +758,7 @@ export function documentIipHelb(p) {
         <td class="n">${c.cout_helb ? eur(c.cout_helb) : '—'}</td></tr>`).join('')}
       ${y.admin.fonctions.length ? `<tr class="repere"><td colspan="2">Cadre administratif de l'établissement (${y.admin.fonctions.map(f => esc(f.fonction)).filter((v, i, t) => t.indexOf(v) === i).join(', ')})</td>
         <td class="n">${n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0))}</td><td class="n">—</td><td class="n">${eur(y.admin.cout)}</td><td class="n">—</td></tr>
-        <tr><td colspan="4">— part de ${esc(section)} : ${n0(y.inscrits)} inscrits sur ${n0(y.admin.base)} (${pc(y.inscrits, y.admin.base)})</td>
+        <tr><td colspan="4">— part de ${esc(section)} : ${n0(y.admin.per_section)} périodes sur ${n0(y.admin.per_ecole)} (${pc(y.admin.per_section, y.admin.per_ecole)})${R.mesures.direction === 'non' ? ', secrétariat seul' : ''}</td>
         <td class="n g">${y.admin.cout ? eur(y.admin.part) : 'ETP à régler'}</td><td class="n">—</td></tr>` : ''}
       </tbody></table>`}`).join('')}`;
 

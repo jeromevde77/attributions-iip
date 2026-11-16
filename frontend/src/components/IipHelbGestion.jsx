@@ -157,12 +157,14 @@ function Carte({ titre, sous, forme, onForme, onMasquer, children, large, plat }
 /* LES CHIFFRES DE LA PAGE, SELON LES RÉGLAGES (3.5.446) : une fonction pure, lue par la page et par la présentation d'une section
    (PresentationSection.jsx) — un calcul, deux lecteurs. */
 export function chiffresIipHelb(d, reglages = {}) {
-  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', coord: 'oui', unite_helb: 'periodes', prix_helb: 'titres', ...(reglages.mesures || {}) };
+  const mes = { charge: 'etp', cout: 'convention', admin: 'oui', direction: 'oui', coord: 'oui', unite_helb: 'periodes', prix_helb: 'titres', ...(reglages.mesures || {}) };
   // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
   const Y = (d?.Y || []).map(y0 => {
     // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
     const ret = Number(reglages.inscrits?.[y0.annee]);
-    const y = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits, recettes: y0.inscrits ? y0.recettes * Math.round(ret) / y0.inscrits : y0.recettes } : y0;
+    const y1 = ret > 0 ? { ...y0, inscrits: Math.round(ret), inscrits_lucie: y0.inscrits, recettes: y0.inscrits ? y0.recettes * Math.round(ret) / y0.inscrits : y0.recettes } : y0;
+    // La direction au choix (3.5.493) : le secrétariat reste toujours compté.
+    const y = mes.direction === 'non' && y1.admin?.part_secr != null && !y1.admin.reprise ? { ...y1, admin: { ...y1.admin, part: y1.admin.part_secr } } : y1;
     const avecC = mes.coord === 'oui', avecA = mes.admin === 'oui', cmb = mes.cout === 'cmb' && d.taux_cmb;
     const cI = avecC ? y.cetp_iip : 0, cH = avecC ? y.cetp_helb : 0;
     const pcI = y.per_iip + cI * 800, pcH = y.per_helb + cH * 800;
@@ -264,6 +266,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
         {segm('cout', [['convention', 'Coût convention'], ['cmb', 'Coût moyen brut']])}
         {segm('coord', [['oui', 'Avec coordinations'], ['non', 'Sans']])}
         {segm('admin', [['oui', 'Avec cadre admin.'], ['non', 'Sans']])}
+        {mes.admin === 'oui' && segm('direction', [['oui', 'Avec direction'], ['non', 'Secrétariat seul']])}
         <button type="button" className="bouton ml-auto inline-flex items-center gap-1.5 whitespace-nowrap" disabled={enCours} onClick={() => setTour(t => t + 1)}
           title="Refaire le calcul avec les dernières données encodées"><IconRefresh size={15} />{enCours ? 'Calcul…' : 'Recalculer'}</button>
         <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5 whitespace-nowrap" onClick={imprimer} disabled={!Y.length}>
@@ -329,12 +332,13 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
               carte ») : trois cartes, chacune son graphique, quelles que soient les mesures choisies — on garde à l'impression celles qu'on
               veut. Le cadre administratif (direction, secrétariat : IIP) en ETP, au prorata des inscrits de la section. */}
           {(() => {
-            const admEtp = y => { const f = (y.admin?.fonctions || []).reduce((t, x) => t + (x.etp || 0), 0); return y.admin?.base ? f * y.inscrits / y.admin.base : 0; };
+            // Le secrétariat toujours, la direction si elle est comptée ; au prorata des périodes de la section (3.5.493).
+            const admEtp = y => (y.admin?.etp_secr != null ? y.admin.etp_secr + (mes.direction === 'non' ? 0 : y.admin.etp_dir || 0) : 0);
             const sansAdm = Y.some(y => !(y.admin?.fonctions || []).length);
             return [
               ['charge_ens', 'La charge en ETP : enseignement seul', 'Attributions de la section, hors congés', y => ({ iip: y.ens_iip, helb: y.ens_helb })],
               ['charge_coord', 'La charge en ETP : avec les coordinations', 'Enseignement + coordinations de la section (part IIP et part HELB)', y => ({ iip: y.ens_iip + (y.cetp_iip || 0), helb: y.ens_helb + (y.cetp_helb || 0) })],
-              ['charge_admin', 'La charge en ETP : avec le cadre administratif', `Enseignement + coordinations + part de la direction et du secrétariat (IIP), au prorata des inscrits${sansAdm ? ' · fonctions non encodées pour certaines années : 0' : ''}`, y => ({ iip: y.ens_iip + (y.cetp_iip || 0) + admEtp(y), helb: y.ens_helb + (y.cetp_helb || 0) })],
+              ['charge_admin', 'La charge en ETP : avec le cadre administratif', `Enseignement + coordinations + part ${mes.direction === 'non' ? 'du secrétariat' : 'du secrétariat et de la direction'} (IIP seule), au prorata des périodes de la section${sansAdm ? ' · fonctions non encodées pour certaines années : 0' : ''}`, y => ({ iip: y.ens_iip + (y.cetp_iip || 0) + admEtp(y), helb: y.ens_helb + (y.cetp_helb || 0) })],
             ].filter(([k]) => vu(k)).map(([k, titre, sous, f]) => (
               <Carte key={k} titre={titre} sous={sous} forme={forme(k, 'empile')} onForme={majForme(k)} onMasquer={masquer(k)}>
                 <Graphe forme={forme(k, 'empile')} fmt={n2} donnees={Y.map(y => ({ lib: y.lib, ...f(y) }))} />
@@ -595,13 +599,13 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
               </tbody></Tableau></div>
           </Carte>}
 
-          {vu('admin') && <Carte plat titre="Le cadre administratif" sous="Direction et secrétariat, partagés au prorata des inscrits" onMasquer={masquer('admin')}>
+          {vu('admin') && <Carte plat titre="Le cadre administratif" sous={`${mes.direction === 'non' ? 'Secrétariat seul' : 'Secrétariat et direction'}, charge 100 % IIP, partagés au prorata des périodes (section ÷ école)`} onMasquer={masquer('admin')}>
             <Tableau className="!border-0 !rounded-none"><thead><tr className="tab-entete"><Th>Année</Th><Th align="droite">ETP de l’école</Th>
               <Th align="droite">Coût de l’école</Th><Th align="droite">Part de {section}</Th><Th align="droite">Montant</Th></tr></thead>
               <tbody>{Y.map(y => <tr key={y.annee} className="border-b border-slate-100"><Td>{y.annee}</Td>
                 <Td align="droite">{y.admin.fonctions.length ? n2(y.admin.fonctions.reduce((t, f) => t + f.etp, 0)) : '—'}</Td>
                 <Td align="droite">{y.admin.cout ? eur(y.admin.cout) : y.admin.fonctions.length ? 'ETP à régler' : '—'}</Td>
-                <Td align="droite">{y.admin.reprise ? `${Math.round((d.admin_reference?.ratio || 0) * 100)} %` : pc(y.inscrits, y.admin.base)}</Td><Td align="droite" className="font-semibold" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</Td></tr>)}</tbody></Tableau>
+                <Td align="droite" title={y.admin.per_ecole ? `${Math.round(y.admin.per_section)} périodes sur ${Math.round(y.admin.per_ecole)}` : ''}>{y.admin.reprise ? `${Math.round((d.admin_reference?.ratio || 0) * 100)} %` : pc(y.admin.per_section, y.admin.per_ecole)}</Td><Td align="droite" className="font-semibold" title={y.admin.reprise ? `Structure de ${y.admin.reprise} reprise` : ''}>{y.admin.part ? `${eur(y.admin.part)}${y.admin.reprise ? ' *' : ''}` : '—'}</Td></tr>)}</tbody></Tableau>
             {Y.some(y => y.admin.reprise) && <p className="text-mention text-slate-500 px-4 py-2 m-0">* Fonctions non encodées cette année : la structure de {d.admin_reference?.annee} est reprise, partagée selon la part de {section}.</p>}
           </Carte>}
 
