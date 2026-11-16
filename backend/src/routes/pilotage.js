@@ -255,14 +255,15 @@ r.get('/iip-helb', authRequired, (req, res) => {
   const annees = String(req.query.annees || '').split(',').map(a => a.trim()).filter(a => /^\d{4}-\d{4}$/.test(a)).slice(0, 10);
   if (req.query.recalculer) viderMemoCout();
   const unite = req.query.unite_helb === 'heures' ? 'heures' : 'periodes';
-  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, cor: sourcesEnVigueur().helb_cor?.totaux || null })); }
+  const mode = req.query.cout === 'reel' || req.query.cout === 'titres' ? 'reel' : 'convention';   // la bascule de la section (3.5.499)
+  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, mode, cor: sourcesEnVigueur().helb_cor?.totaux || null })); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // LES ATTRIBUTIONS DEPUIS LA CRÉATION (3.5.479) : léger (les attributions seules), pour la présentation d'une section ; direction.
 r.get('/evolution-attributions', authRequired, (req, res) => {
   if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
-  try { res.json(evolutionAttributions(String(req.query.section || 'TIM'))); }
+  try { res.json(evolutionAttributions(String(req.query.section || 'TIM'), 'periodes', req.query.cout === 'reel' ? 'reel' : 'convention')); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 

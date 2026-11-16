@@ -936,7 +936,7 @@ export default function PresentationSection() {
         j(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`),
         j(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`).catch(() => null),
         j(`/api/pilotage/presentation/${encodeURIComponent(section)}`).catch(() => ({ textes: {} })),
-        j(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}`).catch(() => null),
+        j(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}&cout=${(() => { try { const c = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages?.mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })()}`).catch(() => null),
         j(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`).catch(() => null),
       ]);
       const evo = (pop.evolution || []).filter(e => (e.par_section?.[section] || 0) > 0).map(e => e.annee);

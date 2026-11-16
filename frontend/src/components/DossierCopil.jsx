@@ -68,7 +68,7 @@ const court = a => `${String(a).slice(0, 4)}-${String(a).slice(7, 9)}`;
 function EnseignantsDepuis({ section }) {
   const [d, setD] = useState(null);
   useEffect(() => {
-    fetch(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+    fetch(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}&cout=${(() => { try { const c = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages?.mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })()}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD(null));
   }, [section]);
   if (!d?.annees?.length) return null;

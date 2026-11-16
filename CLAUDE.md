@@ -4457,6 +4457,13 @@ premier par `salairesHelb`). Le prix MA / MFP (titres, moyenne, montant réglé)
 `enseignantsIipCivil(section, période)` (rapportIipHelb.js : périodes et coordinations IIP au prix de la circulaire, 8/12 + 4/12 pour une
 année civile) → `compta.sections[s].mdp` de `/lecture` ; diapositive « Finances » : troisième colonne « Enseignants IIP (Fédération) »,
 hors résultat de l'ASBL, et sa tuile. Charge par bloc : étiquettes à deux décimales (`decimales: 2`).
+3.5.499 (Charles : « convention ou coûts réels ? un bouton de bascule pour TOUTE la section ; si convention, MA = CC = CT et MFP = CC = PP,
+tout en périodes ; si pas, tout en argent » ; tranché : l'IIP au prix de la circulaire dans les deux lectures, deux choix seulement, une
+coordination HELB selon son titre). Mesure `cout` = `convention` | `reel` (anciens « titres » → reel, « cmb » → convention). Le mode
+descend jusqu'aux lignes (`etpLigne`, `attributions`, `annee`, `evolutionAttributions`, `donneesIipHelb`, paramètre `cout` des routes
+`/iip-helb` et `/evolution-attributions`) : en convention une ligne HELB MA = périodes ÷ 800 au prix CT, toute autre ÷ 1 000 au prix PP
+(`cout_helb_conv`, `coord_helb_conv`, `cper_helb_conv`) ; en réel, `divHelb` et le COR. Graphiques de charge, coûts, enseignants,
+coordinations, résultat de la HELB, présentation et dossier COPIL suivent. Le coût moyen brut n'est plus un choix.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
