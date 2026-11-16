@@ -1757,6 +1757,17 @@ export default function Pilotage({ vue = 'tout' }) {
       const parents = new Set();
       clone.querySelectorAll('button, input, textarea, details:not([open])').forEach(n => { if (n.parentElement) parents.add(n.parentElement); n.remove(); });
       for (let p of parents) { while (p && p !== clone && !p.textContent.trim() && !p.children.length) { const up = p.parentElement; p.remove(); p = up; } }
+      // La couverture du dossier du COPIL part à part, pour être rendue pleine page, sans marge ni pied (3.5.489).
+      let couverture_html = null;
+      const couv = copilPortrait ? clone.querySelector('.kit-couverture') : null;
+      if (couv) {
+        couv.remove();
+        couverture_html = `<!doctype html><html ${attrs}><head><meta charset="utf-8">${liens}<style>${css}</style>
+<style>@page { size: A4 portrait; margin: 0; } html, body { margin: 0; padding: 0; background: #0E2A4F !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.kit-couverture { box-sizing: border-box; width: 210mm !important; height: 296mm !important; min-height: 0 !important; break-after: auto !important; page-break-after: auto !important; overflow: hidden; border-radius: 0 !important; padding: 24mm 20mm 18mm !important; margin: 0 !important; }
+.kit-couv-titre { font-size: 72px; } .kit-couv-intro { max-width: 140mm; font-size: 15px; }</style></head>
+<body class="impression-gestion"><div class="zone-impression">${couv.outerHTML}</div></body></html>`;
+      }
       const html = `<!doctype html><html ${attrs}><head><meta charset="utf-8">${liens}<style>${css}</style>
 <style>@page { size: A4 ${copilPortrait ? 'portrait' : 'landscape'}; } body { background: #fff !important; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .page-impression { width: 1000px !important; margin: 0 auto !important; padding: 0 !important; }
@@ -1776,7 +1787,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
 <body class="impression-gestion"><div class="zone-impression">${clone.outerHTML}</div></body></html>`;
       const nom = `Gestion_${String(anneeActive).replace(/\W/g, '')}_${facesImprimees.length === 1 ? facesImprimees[0] : 'parties'}`;
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ html, nom, orientation: copilPortrait ? 'portrait' : 'paysage', pagination: 'toujours' }) });
+        body: JSON.stringify({ html, nom, orientation: copilPortrait ? 'portrait' : 'paysage', pagination: 'toujours', couverture_html }) });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
       const url = URL.createObjectURL(await r.blob());
       const a = document.createElement('a'); a.href = url; a.download = `${nom}.pdf`;

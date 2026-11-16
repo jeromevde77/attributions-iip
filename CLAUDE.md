@@ -4427,6 +4427,8 @@ section en grand, parties au pied) a sa page ; chaque partie ouvre par un bandea
 forcé ; une carte plus haute qu'une demi-page peut se couper (`peut-couper`). « Enregistrer ce modèle » garde `copil.modele` {parties,
 annees, exclus} pour la section ; un bloc retiré se reconnaît à `partie|titre` chiffres ôtés (`cleBloc`) et se retire une fois à
 la composition suivante.
+3.5.489 (« la première page n'est pas pleine ») : la couverture part à part (`couverture_html` de `POST /api/impression/pdf`), rendue
+par son propre @page (A4, sans marge ni pied) puis posée devant le corps par pdf-lib ; la pagination du corps ne la compte pas.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
