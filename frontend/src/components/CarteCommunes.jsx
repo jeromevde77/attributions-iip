@@ -6,9 +6,9 @@
  * campus (public/carte/communes-be.json) ; des pays : Natural Earth 1:110 M, domaine public (public/carte/monde.json). Chiffres :
  * `domicile.par_nis` (code postal → commune par la liste bpost) et `pays` (nationalité → code ISO par la liste des pays de Lucie).
  * Couleurs dans `style`, jamais en attribut SVG. */
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { listePays } from '../lib/pays.js';
-import { Fenetre, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
+import { Fenetre, EnteteCarte, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 
 const CACHE = {};
 const charger = f => (CACHE[f] ||= fetch(`/carte/${f}`).then(r => (r.ok ? r.json() : null)).catch(() => null));
@@ -80,6 +80,11 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
   const [ouverte, setOuverte] = useState(null);   // 'bruxelles' | 'belgique' | 'monde'
   const [vu, setVu] = useState(null);
   const [avecBelgique, setAvecBelgique] = useState(false);
+  /* À L'IMPRESSION, LES CARTES EN GRAND (3.5.484, Charles : « j'aimerais les cartes de Belgique, d'Europe et du monde aussi ») : une
+     tuile ne s'ouvre pas sur papier ; l'aperçu d'impression montre Bruxelles, la Belgique, l'Europe et le monde, chacune avec sa légende. */
+  const racine = useRef(null);
+  const [enImpression, setEnImpression] = useState(false);
+  useEffect(() => { if (racine.current?.closest('.zone-impression')) setEnImpression(true); }, []);
   const parIso = useMemo(() => {
     const code = new Map(listePays().map(p => [nu(p.nom), p.code]));
     const r = {}; let hors = 0;
@@ -108,6 +113,15 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
     return `${Math.round(x0)} ${Math.round(y0)} ${Math.round(x1 - x0)} ${Math.round(y1 - y0)}`;
   }, [monde, boites, comptesMonde]);
 
+  // L'Europe : le cadre des pays européens (sans l'Islande, la Turquie, Chypre, la Norvège ni la France, qui l'étireraient).
+  const cadreEurope = useMemo(() => {
+    if (!monde) return null;
+    const EU = ['PT', 'ES', 'IE', 'GB', 'SE', 'FI', 'DK', 'DE', 'PL', 'IT', 'GR', 'RO', 'BG', 'HU', 'AT', 'CZ', 'SK', 'NL', 'BE', 'CH', 'EE', 'LV', 'LT', 'HR', 'RS', 'BA', 'AL', 'MK', 'SI', 'UA', 'BY', 'MD', 'LU', 'ME', 'XK'];
+    let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const p of monde.pays.filter(q => EU.includes(q.iso))) { const b = boites[`${p.iso}-${p.fr}`]; x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
+    if (!Number.isFinite(x0)) return null;
+    const m = 6; return `${Math.round(x0 - m)} ${Math.round(y0 - m)} ${Math.round(x1 - x0 + 2 * m)} ${Math.round(y1 - y0 + 2 * m)}`;
+  }, [monde, boites]);
   const svgMonde = (vif, cadre) => monde && (
     <svg viewBox={cadre || `0 0 ${monde.largeur} ${monde.hauteur}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet" role={vif ? 'img' : undefined} aria-label={vif ? 'Le monde : étudiants par nationalité' : undefined}>
       {monde.pays.map(p => { const n = comptesMonde[p.iso] || 0; return (
@@ -128,9 +142,31 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
       <div className={`${large ? 'flex-1 min-w-0' : 'w-20 ml-auto'} h-[76px]`} aria-hidden="true">{mini}</div>
     </button>);
 
+  const legendeMonde = (
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-mention text-slate-500">
+      {Object.entries(comptesMonde).sort((x, y) => y[1] - x[1]).slice(0, 12).map(([c, n]) => <span key={c}>{(listePays().find(p => p.code === c)?.nom) || c} {k0(n)}</span>)}
+    </div>);
+  const grande = (titre, sous, svg, legende) => (
+    <section className="carte overflow-hidden min-w-0" style={{ breakInside: 'avoid' }}>
+      <EnteteCarte titre={titre} sous={sous} />
+      <div className="p-3 space-y-2">
+        <div className="w-full" style={{ height: 300 }}>{svg}</div>
+        {legende}
+      </div>
+    </section>);
+  const imprimees = enImpression && be && monde ? (
+    <div className="grid gap-3 grid-cols-2 mt-3">
+      {grande('Bruxelles — domicile des étudiants', `${k0(nBxl)} Bruxellois · ${cBxl} commune(s) · part de chaque commune`, <CarteDomicile be={be} parNis={parNis} base={nBxl} quelle="bruxelles" />, <LegendeClasses />)}
+      {grande('Belgique — domicile des étudiants', `${k0(total)} adresses belges · ${k0(Object.keys(parNis).length)} commune(s)`, <CarteDomicile be={be} parNis={parNis} base={total} quelle="belgique" />, <LegendeClasses />)}
+      {grande('Europe — nationalité des étudiants', 'Nationalités hors Belgique', svgMonde(false, cadreEurope), <LegendeClasses campus={false} />)}
+      {grande('Le monde — nationalité des étudiants', `${k0(nationalites)} nationalité(s) hors Belgique · ${k0(horsBe)} étudiant(s)`, svgMonde(false, cadreMonde), <>{legendeMonde}<LegendeClasses campus={false} /></>)}
+    </div>) : null;
+
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div ref={racine} />
+      {imprimees}
+      <div className={`grid gap-3 md:grid-cols-3 ${enImpression ? 'sans-impression' : ''}`}>
         {tuile('bruxelles', k0(nBxl), 'à Bruxelles', `${pc(nBxl, total)} des adresses belges · ${cBxl} commune(s)`, <CarteDomicile be={be} parNis={parNis} base={nBxl} quelle="bruxelles" />)}
         {tuile('belgique', k0(total), 'adresses belges', `${k0(Object.keys(parNis).length)} commune(s) concernée(s)`, <CarteDomicile be={be} parNis={parNis} base={total} quelle="belgique" />)}
         {tuile('monde', k0(nationalites), 'nationalités hors Belgique', `${k0(horsBe)} étudiant(s)`, svgMonde(false, cadreMonde), true)}

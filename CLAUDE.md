@@ -4404,6 +4404,9 @@ de graphique, croix), `seulement-impression` montre la ligne qui les nomme ; les
 PDF se rend plus étroit que `lg` : graphiques à demi-largeur dans des cartes pleine largeur) ; volets et années de coordinations
 dépliés ; « Une section — TIM » au lieu de « Une section — Une section ». **Un réglage d'écran nouveau d'une page de Gestion porte
 `sans-impression`.**
+**Les cartes et les résultats à l'impression** (3.5.484) : dans l'aperçu, `CarteCommunes` montre en grand Bruxelles, la Belgique,
+l'Europe (cadre des pays européens) et le monde ; Décisions et taux de réussite suit la section choisie (`initial`, `onChoix`,
+`delibSections`).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

@@ -559,6 +559,9 @@ export default function Pilotage({ vue = 'tout' }) {
   // NOTRE PERSONNEL, PAR SECTION (3.5.481) : même règle.
   const [choixPers, setChoixPers] = useState({ section: '', sections: [] });
   const [persSections, setPersSections] = useState(null);
+  // LES RÉSULTATS PAR UE, PAR SECTION (3.5.484) : même règle.
+  const [choixDelib, setChoixDelib] = useState({ section: '', sections: [] });
+  const [delibSections, setDelibSections] = useState(null);
   const imprime = k => !!facesImprimees?.includes(k);
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
@@ -1571,7 +1574,14 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'synthese' ? renderSynthese()
     : k === 'etp' ? (etpData ? renderETP() : <div className="text-gray-400 py-4">Chargement…</div>)
     : k === 'dotation' ? <DotationComparaison civil={civil} />
-    : k === 'deliberation' ? <StatsDeliberation annee={anneeActive} />
+    : k === 'deliberation' ? (
+      <div className="space-y-4">
+        {(delibSections?.length ? delibSections : [choixDelib.section]).map((sec, i) => (
+          <div key={sec || 'ecole'} className="space-y-3" style={{ breakBefore: i ? 'page' : 'auto' }}>
+            {(delibSections?.length || 0) > 1 && <div className="intertitre">{sec ? String(sec).replace(/_/g, ' ') : 'Toutes les sections'}</div>}
+            <StatsDeliberation annee={anneeActive} initial={{ section: sec }} />
+          </div>))}
+      </div>)
     : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     /* UNE SECTION, L'ÉCOLE, IIP ET HELB À L'IMPRESSION (3.5.482, Charles : « je veux pouvoir imprimer "une section", où se situe le
        TIM, puis la charge ETP sans coordination, avec coordination, avec admin… à la carte ») : les pages telles qu'à l'écran (même
@@ -1807,7 +1817,8 @@ thead { display: table-header-group; }
             })}
             {[['population-ecole', 'Qui sont nos étudiants', choixPop, popSections, setPopSections,
                 choixPop.sle === 'exclus' || choixPop.nouveaux ? ` · ${[choixPop.nouveaux ? 'nouveaux étudiants' : '', choixPop.sle === 'exclus' ? 'SLE exclus' : ''].filter(Boolean).join(' · ')}, comme à l’écran` : ''],
-              ['personnel-ecole', 'Notre personnel', choixPers, persSections, setPersSections, ' · une section porte sa comparaison à l’IIP et à l’ASBL']]
+              ['personnel-ecole', 'Notre personnel', choixPers, persSections, setPersSections, ' · une section porte sa comparaison à l’IIP et à l’ASBL'],
+              ['deliberation', 'Décisions et taux de réussite', choixDelib, delibSections, setDelibSections, ' · par unité, par bloc et par section']]
               .filter(([face]) => choixImpression.has(face)).map(([face, nomFace, choix, choisies, poser, note]) => {
                 const liste = ['', ...(choix.sections.length ? choix.sections : sectionsRef)];
                 const coches = new Set(choisies || [choix.section]);
@@ -1897,7 +1908,7 @@ thead { display: table-header-group; }
               </div>)}
             <span className="flex-1" />
             {tab !== 'mes-frais' && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
-              onClick={() => { setPopSections([choixPop.section]); setPersSections([choixPers.section]); setChoixImpression(new Set([tab].filter(k => k !== 'config')));
+              onClick={() => { setPopSections([choixPop.section]); setPersSections([choixPers.section]); setDelibSections([choixDelib.section]); setChoixImpression(new Set([tab].filter(k => k !== 'config')));
                 if (!(choixPop.sections.length && choixPers.sections.length) && !sectionsRef.length) import('../lib/api.js').then(({ api }) => api.sections().then(l => setSectionsRef((l || []).map(s => s.code))).catch(() => {})); }}>
               <IconPrinter size={15} /> Imprimer des parties…</button>}
             {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
@@ -2018,7 +2029,7 @@ thead { display: table-header-group; }
             {tab === 'sources' && <SourcesReference />}
             {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
-            {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} />}
+            {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} initial={choixDelib} onChoix={setChoixDelib} />}
             {tab === 'config'   && renderConfig()}
           </>
         )}

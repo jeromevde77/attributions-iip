@@ -88,9 +88,11 @@ function Tableau({ titre, sous, lignes, colonne = 'Groupe' }) {
   );
 }
 
-export default function StatsDeliberation({ annee }) {
+/* PAR SECTION À L'IMPRESSION (3.5.484, Charles : « et les résultats par UE et section ») : `initial` pose la section (l'aperçu
+   d'impression en monte une par section choisie), `onChoix` dit à la Gestion ce que l'écran montre. */
+export default function StatsDeliberation({ annee, initial = null, onChoix = null }) {
   const [data, setData] = useState(null);
-  const [section, setSection] = useState('');
+  const [section, setSection] = useState(initial?.section ?? '');
   const [sections, setSections] = useState([]);
   const [erreur, setErreur] = useState('');
   const [enCours, setEnCours] = useState(false);
@@ -115,6 +117,7 @@ export default function StatsDeliberation({ annee }) {
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee, section]);
+  useEffect(() => { if (onChoix) onChoix({ section, sections: sections.map(s => s.code).filter(Boolean) }); }, [section, sections]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // LA FORME SE CALCULE ICI, à partir de ce qui est déjà chargé : redemander
   // au serveur la distribution des taux serait une seconde source pour un même
