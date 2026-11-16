@@ -4464,6 +4464,11 @@ descend jusqu'aux lignes (`etpLigne`, `attributions`, `annee`, `evolutionAttribu
 `/iip-helb` et `/evolution-attributions`) : en convention une ligne HELB MA = périodes ÷ 800 au prix CT, toute autre ÷ 1 000 au prix PP
 (`cout_helb_conv`, `coord_helb_conv`, `cper_helb_conv`) ; en réel, `divHelb` et le COR. Graphiques de charge, coûts, enseignants,
 coordinations, résultat de la HELB, présentation et dossier COPIL suivent. Le coût moyen brut n'est plus un choix.
+3.5.500 (Charles : « une partie budget qui va chercher dans nos budgets ce qui a été prévu » ; tranché : le module Budget des sections,
+l'année civile en cours et la suivante ; fiche, COPIL, présentation). `GET /api/budget/section?section=&annees=` (routes/budget.js, périmètre
+du module ; enveloppe brute et coussin pour la direction seulement) ; `components/BudgetSection.jsx` (tuiles + lignes, total en tête) monté
+dans Une section (ancre « Budget prévu », direction), partie « 5 Budget prévu » du dossier COPIL (Divers devient 6 ; un modèle enregistré
+avant reçoit la partie d'office — `connues` du modèle), diapositive `budget` de la présentation (masquée pour l'équipe et le public extérieur).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

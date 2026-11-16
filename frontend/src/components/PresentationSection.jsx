@@ -453,6 +453,23 @@ function composer(D, T, opts = {}) {
     }
   }
 
+  /* LE BUDGET PRÉVU (3.5.500, Charles : « une partie budget qui va chercher dans nos budgets ce qui a été prévu ») : le module Budget
+     des sections (GET /api/budget/section), l'année civile en cours et la suivante — les chiffres de la fiche de la section. */
+  const BU = D.budget?.annees?.filter(a => !a.hors_budget || a.lignes.length) || [];
+  if (BU.length) {
+    const k = v => Math.round((v || 0) / 100) / 10;
+    const bl = [...entete('Finances', `Le budget prévu pour ${BU.map(a => a.annee).join(' et ')}`)];
+    bl.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: BU.map(a => String(a.annee)), unite: ' k€', decimales: true,
+      series: [{ nom: 'Enveloppe disponible', valeurs: BU.map(a => k(a.enveloppe)), couleur: C.nuit }, { nom: 'Fonctionnement prévu', valeurs: BU.map(a => k(a.fonctionnement)), couleur: C.bleu },
+        { nom: 'Investissements prévus', valeurs: BU.map(a => k(a.investissements)), couleur: C.or }, { nom: 'Engagé', valeurs: BU.map(a => k(a.engage)), couleur: C.vert }],
+      titre: 'Budget des sections, en milliers d’euros HTVA' });
+    const der = BU[BU.length - 1];
+    bl.push(...tuileSombre(W - M - 350, 150, 350, 190, e0(der.fonctionnement + der.investissements), `prévu pour ${der.annee}`, `${der.lignes.filter(l => l.statut !== 'refuse').length} ligne(s) · fonctionnement ${e0(der.fonctionnement)}`));
+    if (der.enveloppe) bl.push(...tuileClaire(W - M - 350, 360, 350, 110, `${Math.round((der.fonctionnement / der.enveloppe) * 100)} %`, 'de l’enveloppe engagés en prévisions', `enveloppe ${e0(der.enveloppe)}`, der.fonctionnement > der.enveloppe ? C.ocre : C.vert));
+    bl.push(...retenir('budget', `${D.nom || section} prévoit ${e0(der.fonctionnement)} de fonctionnement${der.investissements ? ` et ${e0(der.investissements)} d’investissements` : ''} en ${der.annee}${der.enveloppe ? `, pour une enveloppe de ${e0(der.enveloppe)}` : ''}.`));
+    ajouter({ id: 'budget', blocs: bl, notes: t('notes.budget', 'Source : Gestion → Budget (module Budget des sections). Montants HTVA, lignes refusées hors totaux. Fonctionnement et investissement se distinguent au prix unitaire HT (seuil du module).'), notesCle: 'notes.budget' });
+  }
+
   /* LES ATTRIBUTIONS DEPUIS LA CRÉATION (3.5.479, Charles, 16 novembre 2026 : « présenter au COPIL l'évolution des attributions depuis
      la création »). GET /api/pilotage/evolution-attributions : les attributions seules, année par année — la charge par école, les
      enseignants, leurs arrivées et départs, chargés de cours et experts. Les mêmes chiffres que la partie « Les enseignants depuis la
@@ -656,7 +673,8 @@ function composer(D, T, opts = {}) {
     prendre('decisions', 'blocs', 'unites');
     sep(4, 'Évolution du dossier pédagogique', '', '✎');
     page('copil-dp', 'Le dossier pédagogique', 'Évolution du dossier pédagogique', 'dp');
-    sep(5, 'Divers', '', '★');
+    if (BU.length) { sep(5, 'Budget prévu', 'Ce que le budget des sections prévoit pour la section.', '€'); prendre('budget'); }
+    sep(BU.length ? 6 : 5, 'Divers', '', '★');
     page('copil-divers', 'Divers', 'Divers', 'divers');
     page('copil-conclusion', 'En conclusion', 'En conclusion', 'conclusion');
     prendre('merci');
@@ -932,12 +950,13 @@ export default function PresentationSection() {
     let vivant = true; setD(null); setErreur(null);
     const j = u => fetch(u, { headers: authHeaders() }).then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.error || `Erreur ${r.status}`); return x; });
     (async () => {
-      const [pop, lec, txt, attr, etpTout] = await Promise.all([
+      const [pop, lec, txt, attr, etpTout, budget] = await Promise.all([
         j(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`),
         j(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`).catch(() => null),
         j(`/api/pilotage/presentation/${encodeURIComponent(section)}`).catch(() => ({ textes: {} })),
         j(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}&cout=${(() => { try { const c = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages?.mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })()}`).catch(() => null),
         j(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`).catch(() => null),
+        j(`/api/budget/section?section=${encodeURIComponent(section)}`).catch(() => null),
       ]);
       const evo = (pop.evolution || []).filter(e => (e.par_section?.[section] || 0) > 0).map(e => e.annee);
       const anneesRes = [...new Set(evo)].filter(a => a <= annee).sort();
@@ -948,7 +967,7 @@ export default function PresentationSection() {
       if (!vivant) return;
       setTextes(txt.textes || {});
       const etp = (etpTout?.sections || []).find(x => x.section === section) || null;
-      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee, attr, etp: etp ? { ...etp, annee } : null });
+      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee, attr, budget, etp: etp ? { ...etp, annee } : null });
     })().catch(e => vivant && setErreur(e.message));
     return () => { vivant = false; };
   }, [section, annee, tour]);
@@ -963,8 +982,8 @@ export default function PresentationSection() {
     // [nom, diapositives retirées, la ligne de couverture] — la couverture dit à qui l'on parle.
     ['Comité de pilotage — le plan du dossier', [], 'COMITÉ DE PILOTAGE · IIP – HELB'],
     ['Conseil d’administration', [], 'PRÉSENTATION AU CONSEIL D’ADMINISTRATION'],
-    ['Équipe pédagogique', ['sep4', 'finances', 'comptes', 'demandes'], 'PRÉSENTATION À L’ÉQUIPE PÉDAGOGIQUE'],
-    ['Public extérieur (salon, partenaires)', ['sep4', 'finances', 'comptes', 'unites', 'forces', 'opportunites', 'demandes', 'sep5'], 'PRÉSENTATION DE LA SECTION'],
+    ['Équipe pédagogique', ['sep4', 'finances', 'comptes', 'budget', 'demandes'], 'PRÉSENTATION À L’ÉQUIPE PÉDAGOGIQUE'],
+    ['Public extérieur (salon, partenaires)', ['sep4', 'finances', 'comptes', 'budget', 'unites', 'forces', 'opportunites', 'demandes', 'sep5'], 'PRÉSENTATION DE LA SECTION'],
     ['Les chiffres seuls', ['forces', 'opportunites', 'demandes', 'sep5'], 'LES CHIFFRES DE LA SECTION'],
   ];
   const d = diapos[Math.min(i, diapos.length - 1)];

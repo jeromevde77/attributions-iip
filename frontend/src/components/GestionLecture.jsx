@@ -3,6 +3,7 @@ import { IconPresentation, IconRefresh, IconMaximize, IconMinimize } from '@tabl
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid, Legend } from 'recharts';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import IipHelbGestion from './IipHelbGestion.jsx';
+import BudgetSection from './BudgetSection.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
 
@@ -211,7 +212,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
               {perimFixe === 'section' && !plein && (
                 <nav aria-label="Parties de la fiche" className="flex gap-5 border-b border-slate-200 overflow-x-auto">
                   {[['fiche-position', 'Où se situe la section'], ['fiche-comptes', 'Comptes de l’ASBL'], ['fiche-pistes', 'Ce qu’on peut améliorer'],
-                    ...(estDirection ? [['fiche-iiphelb', 'Enseignants, coûts et financement']] : [])].map(([id, l]) => (
+                    ...(estDirection ? [['fiche-iiphelb', 'Enseignants, coûts et financement'], ['fiche-budget', 'Budget prévu']] : [])].map(([id, l]) => (
                     <button key={id} type="button" className="onglet-page whitespace-nowrap" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>{l}</button>))}
                 </nav>)}
               <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
@@ -223,6 +224,13 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                   <p className="text-mention text-slate-500 m-0">{(d.codiplomation || []).includes(String(S.section).toLowerCase()) ? `${S.section} est organisée avec la HELB : charge, coût, part de chacun, financement, balance chargés de cours et experts, coordinations et enseignants.` : `Charge, coût, balance chargés de cours et experts, coordinations et enseignants de ${S.section}.`}</p>
                   <IipHelbGestion sectionFixe={S.section} />
                 </>}
+              {/* LE BUDGET PRÉVU (3.5.500, Charles : « une partie budget qui va chercher dans nos budgets ce qui a été prévu ») : le module
+                  Budget des sections, l'année civile en cours et la suivante. */}
+              {estDirection && perimFixe === 'section' && !sansIipHelb && (lentille === 'tout' || lentille === 'fin') && <>
+                <h2 id="fiche-budget" className="titre-ecran !mt-6 !mb-0 scroll-mt-24">Budget prévu</h2>
+                <p className="text-mention text-slate-500 m-0">Ce que le budget des sections prévoit pour {S.section} (Gestion → Budget) : l’enveloppe, le fonctionnement, les investissements et ce qui est déjà engagé.</p>
+                <BudgetSection section={S.section} />
+              </>}
             </>}
       </>)}
     </div>);
