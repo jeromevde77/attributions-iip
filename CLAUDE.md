@@ -4379,6 +4379,14 @@ s'inscrivaient au registre sans nom d'étudiant — ou avec celui du directeur d
 avant le bloc de clôture). Un `.nom` invisible de l'étudiant précède désormais leur bloc (`nomPourRegistre`, `piecesCep.js`). **Toute
 pièce nominative nouvelle à bloc de clôture porte le nom de la personne dans un `<div class="nom">` avant ce bloc.**
 
+**LES ATTRIBUTIONS DEPUIS LA CRÉATION** (3.5.479, Charles, 16 novembre 2026 : « présenter au COPIL — la collaboration IIP / HELB pour
+le TIM — l'évolution des attributions depuis la création, et un bilan à imprimer »). `evolutionAttributions(section)` (`lib/rapportIipHelb.js`) :
+toutes les années de la section, des attributions seules (hors congés, sans coordinations) — périodes et ETP par école, personnes par école
+et par statut (chargé de cours, expert : celui de la FICHE), arrivées (jamais vues avant), départs ; le statut de nomination n'a pas
+d'historique : celui des enseignants IIP de la dernière année. Lu par la partie « Les enseignants depuis la création » (`equipe`) de la pièce
+IIP et HELB (Éditions → Gestion) et par deux diapositives de la Présentation (`attributions`, `equipe`), via `GET
+/api/pilotage/evolution-attributions` (direction).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -184,6 +184,7 @@ export const PARTIES = [
   { cle: 'synthese', titre: 'Synthèse : chiffres clés et en bref' },
   { cle: 'vrio', titre: 'Une section porteuse : la lecture VRIO' },
   { cle: 'charge', titre: 'La charge (ETP ou périodes)', graphe: 'empile' },
+  { cle: 'equipe', titre: 'Les enseignants depuis la création', graphe: 'empile' },
   { cle: 'couts', titre: 'Les coûts, poste par poste', graphe: 'empile' },
   { cle: 'etudiant', titre: 'Le coût d’un étudiant, deux méthodes', graphe: 'empile' },
   { cle: 'recettes', titre: 'Ce que la section rapporte', graphe: 'cote' },
@@ -497,6 +498,46 @@ export function documentIipHelb(p) {
         ${Y.filter(y => y.admin.fonctions.length).map(y => esc(y.annee)).join(', ') || 'aucune année'}.` : '',
     ].filter(Boolean).map(x => `<li>${x}</li>`).join('')}</ul></div>`;
 
+  /* LES ENSEIGNANTS DEPUIS LA CRÉATION (3.5.479) : toutes les années de la section, quelle que soit la sélection. */
+  P.equipe = () => {
+    const E = evolutionAttributions(section, R.mesures.unite_helb);
+    if (!E.annees.length) return '';
+    const st = (y, k, c) => y.statuts[k]?.[c] || 0;
+    const ligne = (lib, f, cls = '') => `<tr${cls ? ` class="${cls}"` : ''}><td>${lib}</td>${E.annees.map(y => `<td class="n">${f(y)}</td>`).join('')}</tr>`;
+    const e0 = E.annees[0], eN = E.annees[E.annees.length - 1];
+    const partExp = y => { const t = y.etp_iip + y.etp_helb; return pc(st(y, 'EXP', 'etp_iip') + st(y, 'EXP', 'etp_helb'), t); };
+    const nm = E.nomination;
+    return `<h2>Les enseignants depuis la création (${esc(E.premiere)})</h2>
+    ${graphe(R.graphes.equipe, E.annees, y => y.personnes_iip, y => y.personnes_helb, n0, 'Le nombre d’enseignants, par école')}
+    <table class="annees"><thead><tr><th></th>${E.annees.map(y => `<th class="n">${esc(court(y.annee))}</th>`).join('')}</tr></thead><tbody>
+      ${ligne('<b>Enseignants (personnes)</b>', y => `<b>${n0(y.personnes)}</b>`, 'repere')}
+      ${ligne('— à l’IIP', y => n0(y.personnes_iip))}
+      ${ligne('— à la HELB', y => n0(y.personnes_helb))}
+      ${ligne('Arrivées dans la section', y => (y === e0 ? '—' : n0(y.arrivees)))}
+      ${ligne('Départs de la section', y => (y === e0 ? '—' : n0(y.departs)))}
+      ${ligne('<b>Chargés de cours</b> (IIP · HELB)', y => `${n0(st(y, 'CC', 'iip'))} · ${n0(st(y, 'CC', 'helb'))}`, 'repere')}
+      ${ligne('— en ETP', y => `${n2(st(y, 'CC', 'etp_iip'))} · ${n2(st(y, 'CC', 'etp_helb'))}`)}
+      ${ligne('<b>Experts et invités</b> (IIP · HELB)', y => `${n0(st(y, 'EXP', 'iip'))} · ${n0(st(y, 'EXP', 'helb'))}`, 'repere')}
+      ${ligne('— en ETP', y => `${n2(st(y, 'EXP', 'etp_iip'))} · ${n2(st(y, 'EXP', 'etp_helb'))}`)}
+      ${ligne('Part des experts dans la charge', partExp)}
+      ${ligne('<b>Charge</b> (périodes)', y => `<b>${n0(y.per_iip + y.per_helb)}</b>`, 'repere')}
+      ${ligne('— ETP IIP · HELB', y => `${n2(y.etp_iip)} · ${n2(y.etp_helb)}`)}
+      ${ligne('— part de la HELB', y => pc(y.etp_helb, y.etp_iip + y.etp_helb))}
+      ${E.annees.some(y => y.a_designer) ? ligne('— périodes encore à désigner', y => (y.a_designer ? n0(y.a_designer) : '—')) : ''}
+    </tbody></table>
+    <div class="en-bref"><h3>En bref</h3><ul>${[
+      E.annees.length > 1 ? `De ${esc(e0.annee)} à ${esc(eN.annee)}, la section passe de <b>${n0(e0.personnes)}</b> à <b>${n0(eN.personnes)}</b> enseignants
+        et de <b>${n2(e0.etp_iip + e0.etp_helb)}</b> à <b>${n2(eN.etp_iip + eN.etp_helb)}</b> ETP d’enseignement.` : '',
+      `En ${esc(eN.annee)} : ${n0(eN.personnes_iip)} enseignant(s) à l’IIP, ${n0(eN.personnes_helb)} à la HELB ; la HELB porte ${pc(eN.etp_helb, eN.etp_iip + eN.etp_helb)} de la charge,
+        les experts et invités ${partExp(eN)}.`,
+      E.annees.length > 1 ? `En ${esc(eN.annee)}, ${n0(eN.arrivees)} arrivée(s) et ${n0(eN.departs)} départ(s) par rapport à ${esc(E.annees[E.annees.length - 2].annee)}.` : '',
+      nm ? `Statut de nomination des enseignants IIP de ${esc(nm.annee)} (la fiche, au présent) : ${n0(nm.definitif)} définitif(s), ${n0(nm.temporaire_prioritaire)} temporaire(s) prioritaire(s), ${n0(nm.temporaire)} temporaire(s).` : '',
+    ].filter(Boolean).map(x => `<li>${x}</li>`).join('')}</ul></div>
+    <p class="fin">Attributions de la section, hors congés ; coordinations non comprises (voir « Les coordinations »). Une personne qui enseigne
+      pour les deux écoles compte une fois dans le total et une fois dans chaque école. Arrivée : jamais vue dans la section les années d’avant.
+      Statut de chargé de cours ou d’expert : celui de la fiche. Le statut de nomination n’a pas d’historique dans Lucie.</p>`;
+  };
+
   P.charge = () => `<h2>La charge, année par année</h2>
     ${graphe(R.graphes.charge, Y, chargeI, chargeH, fmtCharge, `La charge en ${uCharge} — ${avecCoord ? 'enseignement et coordinations' : 'enseignement'}`)}
     <table class="annees"><thead><tr><th>Année</th><th class="n">Pér. IIP</th><th class="n">Pér. HELB</th><th class="n">Ens. IIP</th><th class="n">Ens. HELB</th>
@@ -746,6 +787,57 @@ export function documentIipHelb(p) {
     nom: `IIP-HELB-${section}-${annees.map(court).join('_')}.html`,
     entete: { titre: `IIP et HELB : la charge et le coût de ${section}`, sous: `${annees.join(' · ')} · ${methode}${quoiTxt}` },
   };
+}
+
+/* LES ATTRIBUTIONS DEPUIS LA CRÉATION (3.5.479, Charles, 16 novembre 2026 : « présenter au COPIL l'évolution des attributions depuis
+   la création » ; tranché : périodes et ETP, nombre d'enseignants, part IIP / HELB et experts, statuts ; une pièce dans Éditions et des
+   diapositives). Une ligne par année de la section, lue des attributions seules (hors congés, coordinations non comprises) : périodes et
+   ETP par école, personnes par école et par statut (chargé de cours, expert ou invité), arrivées (jamais vues dans la section avant) et
+   départs (présentes l'année d'avant, plus cette année). Le statut de nomination (définitif, temporaire prioritaire, temporaire) n'existe
+   qu'au présent, sur la fiche : il se lit pour les enseignants de la dernière année seulement. */
+export function evolutionAttributions(section, unite = 'periodes') {
+  const toutes = db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution WHERE section = ? ORDER BY 1').all(section).map(r => r.a);
+  const vus = new Set();
+  let avant = null;
+  const annees = toutes.map(a => {
+    const L = attributions(section, a, unite);
+    const som = (f, filtre) => L.filter(filtre).reduce((t, l) => t + (f(l) || 0), 0);
+    const ids = h => new Set(L.filter(l => l.professeur_id && (h == null || l.helb === h)).map(l => l.professeur_id));
+    const tous = ids(null);
+    const parStatut = {};
+    for (const st of ['CC', 'EXP', 'AUTRE']) {
+      parStatut[st] = {
+        iip: new Set(L.filter(l => l.professeur_id && !l.helb && l.statut === st).map(l => l.professeur_id)).size,
+        helb: new Set(L.filter(l => l.professeur_id && l.helb && l.statut === st).map(l => l.professeur_id)).size,
+        etp_iip: som(l => l.etp, l => !l.helb && l.statut === st), etp_helb: som(l => l.etp, l => l.helb && l.statut === st),
+        per_iip: som(l => l.periodes, l => !l.helb && l.statut === st), per_helb: som(l => l.periodes, l => l.helb && l.statut === st),
+      };
+    }
+    const arrivees = [...tous].filter(id => !vus.has(id)).length;
+    const departs = avant ? [...avant].filter(id => !tous.has(id)).length : 0;
+    for (const id of tous) vus.add(id);
+    avant = tous;
+    return {
+      annee: a,
+      per_iip: som(l => l.periodes, l => !l.helb), per_helb: som(l => l.periodes, l => l.helb),
+      etp_iip: som(l => l.etp, l => !l.helb), etp_helb: som(l => l.etp, l => l.helb),
+      a_designer: som(l => l.periodes, l => !l.professeur_id),
+      personnes: tous.size, personnes_iip: ids(false).size, personnes_helb: ids(true).size,
+      arrivees, departs, statuts: parStatut,
+    };
+  });
+  // Le statut de nomination, au présent : les enseignants de la dernière année.
+  let nomination = null;
+  const derniere = toutes[toutes.length - 1];
+  if (derniere) {
+    const ids = [...new Set(attributions(section, derniere, unite).filter(l => l.professeur_id && !l.helb).map(l => l.professeur_id))];
+    if (ids.length) {
+      const r = db.prepare(`SELECT COALESCE(NULLIF(statut_nomination, ''), 'temporaire') sn, COUNT(*) n FROM professeur WHERE id IN (${ids.map(() => '?').join(',')}) GROUP BY 1`).all(...ids);
+      nomination = { annee: derniere, definitif: 0, temporaire_prioritaire: 0, temporaire: 0 };
+      for (const x of r) nomination[x.sn in nomination ? x.sn : 'temporaire'] += x.n;
+    }
+  }
+  return { section, premiere: toutes[0] || null, annees, nomination };
 }
 
 /* LES DONNÉES, POUR LA PAGE DE GESTION (3.5.432, Charles : « en natif, comme le rapport finances ; plus précis avec les coordinations ;

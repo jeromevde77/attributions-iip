@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee, allocationCivile } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee, allocationCivile, evolutionAttributions } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
@@ -256,6 +256,13 @@ r.get('/iip-helb', authRequired, (req, res) => {
   if (req.query.recalculer) viderMemoCout();
   const unite = req.query.unite_helb === 'heures' ? 'heures' : 'periodes';
   try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, cor: sourcesEnVigueur().helb_cor?.totaux || null })); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// LES ATTRIBUTIONS DEPUIS LA CRÉATION (3.5.479) : léger (les attributions seules), pour la présentation d'une section ; direction.
+r.get('/evolution-attributions', authRequired, (req, res) => {
+  if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  try { res.json(evolutionAttributions(String(req.query.section || 'TIM'))); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -450,6 +450,54 @@ function composer(D, T, opts = {}) {
     }
   }
 
+  /* LES ATTRIBUTIONS DEPUIS LA CRÉATION (3.5.479, Charles, 16 novembre 2026 : « présenter au COPIL l'évolution des attributions depuis
+     la création »). GET /api/pilotage/evolution-attributions : les attributions seules, année par année — la charge par école, les
+     enseignants, leurs arrivées et départs, chargés de cours et experts. Les mêmes chiffres que la partie « Les enseignants depuis la
+     création » de la pièce IIP et HELB (Éditions). */
+  const AT = D.attr?.annees?.length ? D.attr : null;
+  if (AT) {
+    const Ya = AT.annees, a0 = Ya[0], aN = Ya[Ya.length - 1];
+    const cat = Ya.map(y => `${y.annee.slice(0, 4)}-${y.annee.slice(7, 9)}`);
+    const avecHelb = Ya.some(y => y.etp_helb > 0);
+    const n2 = v => (v || 0).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const etp = y => y.etp_iip + y.etp_helb;
+    const bl = [...entete('Les enseignants', `La charge d’enseignement depuis ${AT.premiere}`)];
+    bl.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: CW - 380, h: 450, categories: cat, unite: '',
+      series: [{ nom: 'IIP', valeurs: Ya.map(y => Math.round(y.etp_iip * 10) / 10), couleur: C.iip },
+        ...(avecHelb ? [{ nom: 'HELB', valeurs: Ya.map(y => Math.round(y.etp_helb * 10) / 10), couleur: C.helb }] : [])],
+      titre: avecHelb ? 'ETP d’enseignement, IIP et HELB' : 'ETP d’enseignement' });
+    bl.push(...tuileSombre(W - M - 350, 150, 350, 190, n2(etp(aN)), `ETP en ${aN.annee}`, `${n0(aN.per_iip + aN.per_helb)} périodes attribuées${Ya.length > 1 ? ` · ${n2(etp(a0))} ETP en ${a0.annee}` : ''}`));
+    if (avecHelb) bl.push(...tuileClaire(W - M - 350, 360, 350, 110, `${pc(aN.etp_helb, etp(aN))} %`, 'portés par la HELB', `${n2(aN.etp_helb)} ETP en ${aN.annee}${Ya.length > 1 ? ` · ${pc(a0.etp_helb, etp(a0))} % en ${a0.annee}` : ''}`, C.helb));
+    if (Ya.length > 1 && etp(a0)) bl.push(...tuileClaire(W - M - 350, avecHelb ? 486 : 360, 350, 110, `${etp(aN) >= etp(a0) ? '+' : '−'}${Math.abs(Math.round((etp(aN) / etp(a0) - 1) * 100))} %`, `depuis ${a0.annee}`, 'la charge d’enseignement', C.vert));
+    bl.push(...retenir('attributions', Ya.length > 1
+      ? `De ${n2(etp(a0))} à ${n2(etp(aN))} ETP d’enseignement entre ${a0.annee} et ${aN.annee}${avecHelb ? ` ; la HELB en porte ${pc(aN.etp_helb, etp(aN))} %.` : '.'}`
+      : `${n2(etp(aN))} ETP d’enseignement en ${aN.annee}.`));
+    ajouter({ id: 'attributions', blocs: bl, notes: t('notes.attributions', 'Source : les attributions de Lucie, hors congés ; coordinations non comprises. ETP de l’IIP : CT ÷ 800 + PP ÷ 1 000 ; ETP de la HELB : ses heures, au titre et à la nature du cours (480 h la théorie d’un MA, 750 h le reste). Les années avant 2025-2026 sont reprises des fichiers d’attributions de la direction.'), notesCle: 'notes.attributions' });
+
+    const st = (y, k, c) => y.statuts?.[k]?.[c] || 0;
+    const partExp = y => pc(st(y, 'EXP', 'etp_iip') + st(y, 'EXP', 'etp_helb'), etp(y));
+    const bl2 = [...entete('Les enseignants', `Qui enseigne, depuis ${AT.premiere}`)];
+    const gw = (CW - 32) / 2;
+    bl2.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: gw, h: 300, categories: cat, unite: '',
+      series: [{ nom: 'IIP', valeurs: Ya.map(y => y.personnes_iip), couleur: C.iip }, ...(avecHelb ? [{ nom: 'HELB', valeurs: Ya.map(y => y.personnes_helb), couleur: C.helb }] : [])],
+      titre: 'Le nombre d’enseignants' });
+    bl2.push({ k: 'graphe', type: 'empile', x: M + gw + 32, y: 140, w: gw, h: 300, categories: cat, unite: '',
+      series: [{ nom: 'Chargés de cours', valeurs: Ya.map(y => Math.round((st(y, 'CC', 'etp_iip') + st(y, 'CC', 'etp_helb')) * 10) / 10), couleur: C.bleu },
+        { nom: 'Experts et invités', valeurs: Ya.map(y => Math.round((st(y, 'EXP', 'etp_iip') + st(y, 'EXP', 'etp_helb')) * 10) / 10), couleur: C.or }],
+      titre: 'La charge, chargés de cours et experts (ETP)' });
+    const w4 = (CW - 3 * 24) / 4;
+    const nm = AT.nomination;
+    [[n0(aN.personnes), `enseignants en ${aN.annee}`, Ya.length > 1 ? `${n0(a0.personnes)} en ${a0.annee}` : '', C.bleu],
+      [Ya.length > 1 ? `+${n0(aN.arrivees)} / −${n0(aN.departs)}` : n0(aN.arrivees), Ya.length > 1 ? 'arrivées / départs' : 'arrivées', Ya.length > 1 ? `par rapport à ${Ya[Ya.length - 2].annee}` : '', C.vert],
+      [`${partExp(aN)} %`, 'de la charge aux experts', `${n0(st(aN, 'EXP', 'iip') + st(aN, 'EXP', 'helb'))} experts et invités`, C.or],
+      nm ? [n0(nm.definitif), 'définitif(s) à l’IIP', `${n0(nm.temporaire_prioritaire)} temporaire(s) prioritaire(s) · ${n0(nm.temporaire)} temporaire(s)`, C.iip] : null]
+      .filter(Boolean).forEach((c, i) => bl2.push(...tuileClaire(M + i * (w4 + 24), 462, w4, 130, c[0], c[1], c[2], c[3])));
+    bl2.push(...retenir('equipe', Ya.length > 1
+      ? `De ${n0(a0.personnes)} à ${n0(aN.personnes)} enseignants depuis ${a0.annee} ; les experts portent ${partExp(aN)} % de la charge en ${aN.annee}.`
+      : `${n0(aN.personnes)} enseignants en ${aN.annee}.`));
+    ajouter({ id: 'equipe', blocs: bl2, notes: t('notes.equipe', 'Une personne qui enseigne pour les deux écoles compte dans chacune. Arrivée : jamais vue dans la section les années d’avant. Le statut de chargé de cours ou d’expert est celui de la fiche ; le statut de nomination n’a pas d’historique : c’est celui d’aujourd’hui.'), notesCle: 'notes.equipe' });
+  }
+
   /* PARTIE 5 — LE BILAN */
   separateur(5, 'Le bilan', 'Ce qui fait la force de la section, ce qui la fragilise, ce que nous vous demandons.', '★');
   /* LE BILAN SE DÉDUIT DES CHIFFRES DE LA SECTION (3.5.462, Charles : « tu mets les mêmes conclusions à toutes les sections ») :
@@ -815,10 +863,11 @@ export default function PresentationSection() {
     let vivant = true; setD(null); setErreur(null);
     const j = u => fetch(u, { headers: authHeaders() }).then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.error || `Erreur ${r.status}`); return x; });
     (async () => {
-      const [pop, lec, txt] = await Promise.all([
+      const [pop, lec, txt, attr] = await Promise.all([
         j(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`),
         j(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`).catch(() => null),
         j(`/api/pilotage/presentation/${encodeURIComponent(section)}`).catch(() => ({ textes: {} })),
+        j(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}`).catch(() => null),
       ]);
       const evo = (pop.evolution || []).filter(e => (e.par_section?.[section] || 0) > 0).map(e => e.annee);
       const anneesRes = [...new Set(evo)].filter(a => a <= annee).sort();
@@ -828,7 +877,7 @@ export default function PresentationSection() {
       }));
       if (!vivant) return;
       setTextes(txt.textes || {});
-      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee });
+      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee, attr });
     })().catch(e => vivant && setErreur(e.message));
     return () => { vivant = false; };
   }, [section, annee, tour]);
