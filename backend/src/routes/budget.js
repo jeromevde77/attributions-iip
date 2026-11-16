@@ -222,6 +222,42 @@ r.get('/', authRequired, (req, res) => {
   });
 });
 
+// ── Le budget prévu d'UNE section, pour sa fiche, le dossier COPIL et la présentation (3.5.500) ──────────
+/* Charles, 16 novembre 2026 : « une partie budget qui va chercher dans nos budgets ce qui a été prévu » ; tranché : le module Budget des
+   sections, l'année civile en cours et la suivante. Par année : l'enveloppe disponible, le fonctionnement et les investissements prévus,
+   l'engagé, la répartition par catégorie, puis les lignes (refusées comprises, marquées). Le coussin et l'enveloppe brute ne partent que
+   vers la direction (la coordination ne voit que le disponible, règle du module). */
+r.get('/section', authRequired, (req, res) => {
+  const section = String(req.query.section || '');
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  const autorisees = sectionsAutorisees(req.user);
+  if (autorisees && !autorisees.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  const y0 = new Date().getFullYear();
+  const annees = String(req.query.annees || `${y0},${y0 + 1}`).split(',').map(Number).filter(a => a > 2000 && a < 2100).slice(0, 6);
+  const cats = new Map(db.prepare('SELECT * FROM budget_categorie').all().map(c => [c.id, c]));
+  try {
+    res.json({ section, annees: annees.map(annee => {
+      const S = syntheseBudget(annee, [section]);
+      const x = S.sections.find(z => z.section === section) || null;
+      const seuil = S.parametres?.seuil_invest ?? 500;
+      const lignes = db.prepare('SELECT * FROM budget_ligne WHERE annee_civile = ? AND section = ? ORDER BY id').all(annee, section).map(l => {
+        const c = cats.get(l.categorie_id);
+        return { id: l.id, details: l.details, categorie: c ? `${c.groupe} — ${c.libelle}` : null, groupe: c?.groupe || null,
+          quantite: l.quantite, prix_unitaire: l.prix_unitaire, total_ht: Math.round(htva(l) * 100) / 100, nature: nature(l.prix_unitaire, seuil),
+          priorite: l.priorite, statut: l.statut, mois: l.mois, a_charge: l.a_charge };
+      });
+      const engage = db.prepare('SELECT COALESCE(SUM(montant_htva), 0) t FROM budget_depense WHERE annee_civile = ? AND section = ?').get(annee, section).t;
+      const garde = l => l.statut !== 'refuse';
+      const dir = estDirection(req.user);
+      return { annee, hors_budget: !x, enveloppe: x?.enveloppe ?? null, reserve_invest: x?.reserve_invest ?? 0,
+        ...(dir && x ? { enveloppe_brute: x.enveloppe_brute, coussin: x.coussin } : {}),
+        fonctionnement: Math.round(lignes.filter(l => garde(l) && l.nature === 'fonctionnement').reduce((t, l) => t + l.total_ht, 0) * 100) / 100,
+        investissements: Math.round(lignes.filter(l => garde(l) && l.nature === 'investissement').reduce((t, l) => t + l.total_ht, 0) * 100) / 100,
+        engage: Math.round(engage * 100) / 100, par_categorie: x?.par_categorie || [], seuil, lignes };
+    }) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Synthèse par section ───────────────────────────────────────────────────
 r.get('/synthese', authRequired, (req, res) => {
   const annee = Number(req.query.annee);

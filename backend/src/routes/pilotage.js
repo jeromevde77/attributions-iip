@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, estimationAnnee, allocationCivile, evolutionAttributions } from '../lib/rapportIipHelb.js';
+import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, enseignantsIipCivil, estimationAnnee, allocationCivile, evolutionAttributions } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
 import db from '../db/index.js';
@@ -255,14 +255,15 @@ r.get('/iip-helb', authRequired, (req, res) => {
   const annees = String(req.query.annees || '').split(',').map(a => a.trim()).filter(a => /^\d{4}-\d{4}$/.test(a)).slice(0, 10);
   if (req.query.recalculer) viderMemoCout();
   const unite = req.query.unite_helb === 'heures' ? 'heures' : 'periodes';
-  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, cor: sourcesEnVigueur().helb_cor?.totaux || null })); }
+  const mode = req.query.cout === 'reel' || req.query.cout === 'titres' ? 'reel' : 'convention';   // la bascule de la section (3.5.499)
+  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, mode, cor: sourcesEnVigueur().helb_cor?.totaux || null })); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // LES ATTRIBUTIONS DEPUIS LA CRÉATION (3.5.479) : léger (les attributions seules), pour la présentation d'une section ; direction.
 r.get('/evolution-attributions', authRequired, (req, res) => {
   if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
-  try { res.json(evolutionAttributions(String(req.query.section || 'TIM'))); }
+  try { res.json(evolutionAttributions(String(req.query.section || 'TIM'), 'periodes', req.query.cout === 'reel' ? 'reel' : 'convention')); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -447,6 +448,8 @@ r.get('/lecture', authRequired, (req, res) => {
           cout_etudiant: Math.round(coutCumul / n), cout_credit: credits ? Math.round((coutCumul / credits) * 10) / 10 : null,
           cout_180: credits ? Math.round((coutCumul / credits) * 180) : null,
           etc_etp: etp ? Math.round((etc / etp) * 10) / 10 : null, etp: Math.round(etp * 10) / 10,
+          // Étudiants (inscrits des deux établissements) par ETP enseignant (3.5.497, Charles : « je veux la moyenne ASBL » à côté de celle de la HELB).
+          etu_etp: etp ? Math.round((n / etp) * 10) / 10 : null,
           taille_groupes: tailleGroupes, periodes_par_etudiant: Math.round(parEtc), heures_helb: Math.round(heuresH),
           fonctionnement_etudiant: A?.totaux?.fonctionnement ? Math.round(A.totaux.fonctionnement / n) : null,
           helb: helbTot, iip: iipTot, administration: infra, fichier: (S || A).fichier };
@@ -532,7 +535,10 @@ r.get('/lecture', authRequired, (req, res) => {
             const estimees = new Set(helb.filter(v => v.estimation).map(v => v.annee));
             if (iip) iip = iip.filter(v => !estimees.has(v.annee));
           }
-          if (h || i) par[code] = { helb, iip };
+          // Les enseignants de l'IIP (Fédération), hors comptes de l'ASBL, année par année (3.5.498).
+          const mdp = {};
+          for (const v of [...(helb || []), ...(iip || [])]) { if (mdp[v.annee] !== undefined) continue; try { mdp[v.annee] = enseignantsIipCivil(code, v.annee); } catch { mdp[v.annee] = null; } }
+          if (h || i) par[code] = { helb, iip, mdp };
         }
         return { fichier: S.fichier, date: S.date_donnee, sections: par };
       })(),

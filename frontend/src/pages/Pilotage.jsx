@@ -582,7 +582,11 @@ export default function Pilotage({ vue = 'tout' }) {
     fetch(`/api/pilotage/presentation/${encodeURIComponent(copil.section)}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : { textes: {} })).then(j => setCopil(c => {
         let m = null; try { m = JSON.parse(j.textes?.['copil.modele'] || 'null'); } catch { /* */ }
-        return { ...c, textes: j.textes || {}, ...(m?.parties?.length ? { parties: m.parties } : {}), ...(m?.annees ? { annees: { ...c.annees, ...m.annees } } : {}) };
+        /* Une partie ajoutée après l'enregistrement du modèle (3.5.500 : le budget) entre d'office : le modèle garde les parties qu'il
+           connaissait (`connues`), celles d'avant le budget sinon. */
+        const connues = m?.connues || ['inscriptions', 'provenance', 'attributions', 'positionnement', 'reussite', 'dp', 'divers'];
+        const parties = m?.parties?.length ? PARTIES_COPIL.map(p => p[0]).filter(k => m.parties.includes(k) || !connues.includes(k)) : null;
+        return { ...c, textes: j.textes || {}, ...(parties ? { parties } : {}), ...(m?.annees ? { annees: { ...c.annees, ...m.annees } } : {}) };
       })).catch(() => {});
   }, [copilFenetre, copil.section]);   // eslint-disable-line react-hooks/exhaustive-deps
   /* LE DOSSIER DU COPIL EN PORTRAIT (3.5.488) : l'aperçu se dessine à 760 px — la largeur utile d'une A4 portrait, ramenée par
@@ -598,7 +602,7 @@ export default function Pilotage({ vue = 'tout' }) {
   const [modeleEtat, setModeleEtat] = useState('');
   async function enregistrerModele() {
     const exclus = elements.filter(x => x.exclu).map(cleBloc);
-    const textes = { ...copil.textes, 'copil.modele': JSON.stringify({ parties: copil.parties, annees: copil.annees, exclus }) };
+    const textes = { ...copil.textes, 'copil.modele': JSON.stringify({ parties: copil.parties, connues: PARTIES_COPIL.map(p => p[0]), annees: copil.annees, exclus }) };
     setModeleEtat('Enregistrement…');
     try {
       const r = await fetch(`/api/pilotage/presentation/${encodeURIComponent(copil.section)}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ textes }) });

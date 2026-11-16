@@ -11,6 +11,7 @@
  * Décisions et taux de réussite), bornée à la section. L'aperçu d'impression de la Gestion le met en pages ; « Choisir les blocs » y
  * retire le détail. Les textes 4 et 5 vivent avec les textes de la présentation de la section (`copil.dp`, `copil.divers`).
  */
+import BudgetSection from './BudgetSection.jsx';
 import { useEffect, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import PopulationEcole from './PopulationEcole.jsx';
@@ -27,7 +28,8 @@ export const PARTIES_COPIL = [
   ['positionnement', '2.2', 'Positionnement de la section — face à l’IIP et à l’ASBL'],
   ['reussite', '3', 'Statistiques de réussite'],
   ['dp', '4', 'Évolution du dossier pédagogique'],
-  ['divers', '5', 'Divers'],
+  ['budget', '5', 'Budget prévu'],   // 3.5.500 : le module Budget des sections
+  ['divers', '6', 'Divers'],
 ];
 /* LE TEXTE QUI ACCOMPAGNE CHAQUE PARTIE (3.5.487, Charles : « des propositions de textes, simples, directes, qui mettent la force de la
    structure en avant » puis « intègre tout cela »). Un texte par partie, plus l'ouverture et la conclusion, gardés pour la section
@@ -68,7 +70,7 @@ const court = a => `${String(a).slice(0, 4)}-${String(a).slice(7, 9)}`;
 function EnseignantsDepuis({ section }) {
   const [d, setD] = useState(null);
   useEffect(() => {
-    fetch(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+    fetch(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}&cout=${(() => { try { const c = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages?.mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })()}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD(null));
   }, [section]);
   if (!d?.annees?.length) return null;
@@ -167,6 +169,7 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
             {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} /></>}
             {k === 'positionnement' && <GestionLecture annee={an('positionnement')} perimFixe="section" sectionFixe={section} sansIipHelb />}
             {k === 'reussite' && <StatsDeliberation annee={an('reussite')} initial={{ section }} />}
+            {k === 'budget' && <BudgetSection section={section} />}
           </div>);
       })}
       {texteCopil(textes, section, 'conclusion') && (
