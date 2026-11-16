@@ -1997,6 +1997,10 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             <button type="button" className={`bouton inline-flex items-center gap-1.5 ${choisirBlocs ? 'bouton-fort' : ''}`} onClick={() => setChoisirBlocs(v => !v)}
               title="Un clic sur une carte ou une tuile la retire de l'impression ; un second clic la remet">
               {choisirBlocs ? 'Terminer le choix' : 'Choisir les blocs'}{nbRetires ? ` · ${nbRetires} retiré(s)` : ''}</button>
+            {/* Le panneau replié se rouvre depuis la barre (3.5.492 : posé en flottant, il couvrait PDF et Fermer). */}
+            {elements.length > 0 && panneauReplie && (
+              <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setPanneauReplie(false)}>
+                Éléments à imprimer{nbRetires ? ` · ${nbRetires} retiré(s)` : ''}</button>)}
             {copilPortrait && <>
               {modeleEtat && <span className="text-second text-slate-500">{modeleEtat}</span>}
               <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={enregistrerModele}
@@ -2006,9 +2010,6 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => window.print()} title="Impression du navigateur, sans bas de page garanti">Imprimer (navigateur)</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setFacesImprimees(null)}><IconX size={15} /> Fermer</button>
           </div>
-          {elements.length > 0 && panneauReplie && (
-            <button type="button" className="sans-impression fixed right-4 top-20 z-20 bouton shadow-flottant" onClick={() => setPanneauReplie(false)}>
-              Éléments à imprimer{nbRetires ? ` · ${nbRetires} retiré(s)` : ''}</button>)}
           {elements.length > 0 && !panneauReplie && (
             <aside className="sans-impression fixed right-4 top-20 z-20 w-72 max-h-[75vh] overflow-y-auto rounded-carte border border-slate-200 shadow-flottant p-3 text-second"
               style={{ background: 'var(--page-fond, #fff)' }}>
