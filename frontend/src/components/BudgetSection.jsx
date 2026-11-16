@@ -9,6 +9,8 @@ import { authHeaders } from '../lib/api.js';
 import { EnteteCarte, PastilleEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal, TuileEtat } from './ui.jsx';
 
 const eur = v => `${Math.round(v || 0).toLocaleString('fr-BE')} €`;
+// Un montant par étudiant : une décimale sous 100 € (3.5.507, Charles : « on ne peut pas être à zéro, il faut une décimale »).
+const eurEt = v => `${(v || 0).toLocaleString('fr-BE', { minimumFractionDigits: Math.abs(v || 0) < 100 ? 1 : 0, maximumFractionDigits: Math.abs(v || 0) < 100 ? 1 : 0 })} €`;
 const STATUT = { prevu: ['disponible', 'Prévu'], arbitre: ['reussi', 'Accordé'], refuse: ['corriger', 'Refusé'] };
 const PRIORITE = { indispensable: 'Indispensable', souhaitable: 'Souhaitable', si_possible: 'Si possible' };
 
@@ -39,43 +41,46 @@ export function Compare({ section, c }) {
   const M = c.moyenne || {}, A = c.asbl;
   // Sans section (l'école) : les tuiles portent la moyenne des sections.
   const S = section ? c.sections.find(x => x.section === section) || null : { ...M, historique: [] };
-  const lignes = [...c.sections].filter(x => x.prevu_etudiant != null || x.realise_etudiant != null).sort((a, b) => (b.prevu_etudiant || 0) - (a.prevu_etudiant || 0));
-  const max = Math.max(1, ...lignes.map(x => x.prevu_etudiant || 0));
+  const lignes = [...c.sections].filter(x => x.prevu_total_etudiant != null || x.realise_etudiant != null).sort((a, b) => (b.prevu_total_etudiant || 0) - (a.prevu_total_etudiant || 0));
+  const max = Math.max(1, ...lignes.map(x => x.prevu_total_etudiant || 0));
+  const exec = v => (!c.depenses ? 'aucune dépense' : v != null ? `${v} %` : '—');
   const comp = (v, m, inverse = false) => (v == null || m == null ? 'neutre' : (inverse ? v <= m : v >= m) ? 'reussi' : 'surveiller');
   const ex = c.exercice_realise;
   return (<>
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
-      <TuileEtat etat="disponible" valeur={S?.prevu_etudiant != null ? eur(S.prevu_etudiant) : '—'} libelle="budget prévu par étudiant"
-        precision={M.prevu_etudiant != null ? `moyenne des sections : ${eur(M.prevu_etudiant)}` : ''}
-        aide={`Fonctionnement prévu (module Budget, lignes non refusées, HTVA) ÷ effectif du budget ${c.annee} (figé au 01/11 de l’année précédente). Moyenne des sections = Σ fonctionnement ÷ Σ effectifs.`} />
+      <TuileEtat etat="disponible" valeur={S?.prevu_total_etudiant != null ? eurEt(S.prevu_total_etudiant) : '—'} libelle="budget prévu par étudiant"
+        precision={[M.prevu_total_etudiant != null ? `moyenne des sections : ${eurEt(M.prevu_total_etudiant)}` : '', S?.prevu_etudiant != null ? `dont fonctionnement ${eurEt(S.prevu_etudiant)}` : ''].filter(Boolean).join(' · ')}
+        aide={`Tout ce qui est prévu (module Budget, lignes non refusées, HTVA) ÷ effectif du budget ${c.annee} (figé au 01/11 de l’année précédente). Moyenne des sections = Σ prévu ÷ Σ effectifs. Fonctionnement / investissement : la catégorie de la ligne décide (équipement, informatique, mobilier d’au moins ${eur(c.seuil)} HT l’unité = investissement) ; une ligne sans catégorie est du fonctionnement.`} />
       <TuileEtat etat="fort" valeur={S?.realise_etudiant != null ? eur(S.realise_etudiant) : '—'} libelle={`réalisé par étudiant${ex ? ` (bilans ${ex})` : ''}`}
         precision={[M.realise_etudiant != null ? `sections : ${eur(M.realise_etudiant)}` : '', A?.realise_etudiant != null ? `ASBL : ${eur(A.realise_etudiant)}` : ''].filter(Boolean).join(' · ') || 'pas de poste propre dans les comptes'}
         aide={`Charges de la section dans la synthèse des budgets et comptes de l’ASBL (côté HELB et côté IIP), dernier exercice réalisé complet${ex ? ` (${ex})` : ''}, ÷ effectif de cet exercice. ASBL = toutes ses charges ÷ (inscrits de la HELB + effectifs de l’IIP). Les enseignants de l’IIP, payés par la Fédération, n’y sont pas.`} />
-      <TuileEtat etat={comp(S?.execution, M.execution)} valeur={S?.execution != null ? `${S.execution} %` : '—'} libelle="exécution du budget"
-        precision={M.execution != null ? `toutes les sections : ${M.execution} %` : ''}
+      <TuileEtat etat={comp(S?.execution, M.execution)} valeur={!c.depenses ? '—' : S?.execution != null ? `${S.execution} %` : '—'} libelle="exécution du budget"
+        precision={!c.depenses ? 'aucune dépense encodée' : M.execution != null ? `toutes les sections : ${M.execution} %` : ''}
         aide="Engagé (dépenses encodées dans Lucie, HTVA) ÷ prévu (fonctionnement et investissements non refusés). Mis à jour à chaque dépense encodée." />
-      <TuileEtat etat="disponible" valeur={S?.investissements_etudiant != null ? eur(S.investissements_etudiant) : '—'} libelle="investissements par étudiant"
-        precision={M.investissements_etudiant != null ? `moyenne des sections : ${eur(M.investissements_etudiant)}` : ''}
-        aide={`Investissements prévus (prix unitaire HT ≥ ${eur(c.seuil)}, non refusés) ÷ effectif du budget.`} />
+      <TuileEtat etat="disponible" valeur={S?.investissements_etudiant != null ? eurEt(S.investissements_etudiant) : '—'} libelle="investissements par étudiant"
+        precision={M.investissements_etudiant != null ? `moyenne des sections : ${eurEt(M.investissements_etudiant)}` : ''}
+        aide={`Investissements prévus (équipement, informatique, mobilier d’au moins ${eur(c.seuil)} HT l’unité ; non refusés) ÷ effectif du budget.`} />
     </div>
     <section className="carte overflow-hidden">
       <EnteteCarte titre={`Face aux autres sections et à l’ASBL — ${c.annee}`} sous={`Par étudiant, HTVA · réalisé : bilans ${ex || '—'}`} />
       <Tableau dense className="!border-0 !rounded-none">
-        <TableauEntete><Th>Section</Th><Th align="droite">Effectif</Th><Th align="droite">Prévu / étudiant</Th><Th align="droite">Réalisé / étudiant</Th><Th align="droite">Exécution</Th><Th align="droite">Investissements / étudiant</Th></TableauEntete>
+        <TableauEntete><Th>Section</Th><Th align="droite">Effectif</Th><Th align="droite">Prévu / étudiant</Th><Th align="droite">dont fonctionnement</Th><Th align="droite">Réalisé / étudiant</Th><Th align="droite">Exécution</Th><Th align="droite">Investissements / étudiant</Th></TableauEntete>
         <tbody>
-          <TrTotal><Td>Moyenne des sections</Td><Td align="droite">—</Td><Td align="droite">{M.prevu_etudiant != null ? eur(M.prevu_etudiant) : '—'}</Td>
-            <Td align="droite">{M.realise_etudiant != null ? eur(M.realise_etudiant) : '—'}</Td><Td align="droite">{M.execution != null ? `${M.execution} %` : '—'}</Td>
-            <Td align="droite">{M.investissements_etudiant != null ? eur(M.investissements_etudiant) : '—'}</Td></TrTotal>
-          {A && <Tr><Td ton="secondaire">ASBL (IIP + HELB)</Td><Td align="droite" ton="secondaire">{A.etudiants}</Td><Td align="droite" ton="secondaire">—</Td>
+          <TrTotal><Td>Moyenne des sections</Td><Td align="droite">—</Td><Td align="droite">{M.prevu_total_etudiant != null ? eurEt(M.prevu_total_etudiant) : '—'}</Td>
+            <Td align="droite">{M.prevu_etudiant != null ? eurEt(M.prevu_etudiant) : '—'}</Td>
+            <Td align="droite">{M.realise_etudiant != null ? eur(M.realise_etudiant) : '—'}</Td><Td align="droite">{exec(M.execution)}</Td>
+            <Td align="droite">{M.investissements_etudiant != null ? eurEt(M.investissements_etudiant) : '—'}</Td></TrTotal>
+          {A && <Tr><Td ton="secondaire">ASBL (IIP + HELB)</Td><Td align="droite" ton="secondaire">{A.etudiants}</Td><Td align="droite" ton="secondaire">—</Td><Td align="droite" ton="secondaire">—</Td>
             <Td align="droite" ton="secondaire">{A.realise_etudiant != null ? eur(A.realise_etudiant) : '—'}</Td><Td align="droite" ton="secondaire">—</Td><Td align="droite" ton="secondaire">—</Td></Tr>}
           {lignes.map(x => (
             <Tr key={x.section} actif={x.section === section}>
               <Td className={x.section === section ? 'font-semibold' : ''}>{String(x.section).replace(/_/g, ' ')}</Td>
               <Td align="droite">{x.effectif ?? '—'}</Td>
-              <Td align="droite" className="whitespace-nowrap">{x.prevu_etudiant != null ? <><span className="inline-block align-middle mr-1.5 rounded" style={{ width: Math.round((x.prevu_etudiant / max) * 60), height: 7, background: x.section === section ? 'var(--c-accent, #F9B619)' : 'var(--c-principal, #19537E)' }} />{eur(x.prevu_etudiant)}</> : '—'}</Td>
+              <Td align="droite" className="whitespace-nowrap">{x.prevu_total_etudiant != null ? <><span className="inline-block align-middle mr-1.5 rounded" style={{ width: Math.round((x.prevu_total_etudiant / max) * 60), height: 7, background: x.section === section ? 'var(--c-accent, #F9B619)' : 'var(--c-principal, #19537E)' }} />{eurEt(x.prevu_total_etudiant)}</> : '—'}</Td>
+              <Td align="droite">{x.prevu_etudiant != null ? eurEt(x.prevu_etudiant) : '—'}</Td>
               <Td align="droite">{x.realise_etudiant != null ? eur(x.realise_etudiant) : '—'}</Td>
-              <Td align="droite">{x.execution != null ? `${x.execution} %` : '—'}</Td>
-              <Td align="droite">{x.investissements_etudiant != null ? eur(x.investissements_etudiant) : '—'}</Td>
+              <Td align="droite">{exec(x.execution)}</Td>
+              <Td align="droite">{x.investissements_etudiant != null ? eurEt(x.investissements_etudiant) : '—'}</Td>
             </Tr>))}
         </tbody>
       </Tableau>

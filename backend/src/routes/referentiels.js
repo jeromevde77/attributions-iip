@@ -1432,7 +1432,7 @@ r.patch('/professeurs/:id', authRequired, (req, res, next) => {
 r.patch('/professeurs/:id', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
-                   'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po','statut_nomination','statut_helb',
+                   'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po','statut_nomination','statut_helb','bareme_helb','echelon_helb',
                    // Fiche signalétique — identité civile
                    'sexe','niss','nationalite','lieu_naissance_ville','lieu_naissance_pays',
                    'iban','bic','compte_titulaire','tel_gsm','date_naissance','photo',

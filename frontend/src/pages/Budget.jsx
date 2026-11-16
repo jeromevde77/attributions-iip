@@ -533,11 +533,15 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
 }
 
 // ── Formulaire de prévision ────────────────────────────────────────────────
+// Les groupes de catégories qui portent l'investissement (recopie de GROUPES_INVEST, lib/budgetSections.js).
+const GROUPES_INVEST = ['Équipements spécifiques', 'Matériel informatique et audiovisuel', 'Mobilier et bureaux'];
 function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, categories = [], seuil = 500, onEnregistrer, onAnnuler }) {
   const total = Number(form.prix_unitaire || 0) * Number(form.quantite || 0);
   const maj = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  // LA NATURE SE CALCULE (guide A.6) : le prix UNITAIRE HT contre le seuil de l'année — jamais saisie.
-  const invest = Math.round(Number(form.prix_unitaire || 0) * 100) >= Math.round(Number(seuil) * 100);
+  // LA NATURE SE CALCULE, jamais saisie (3.5.507 : la catégorie décide — recopie de `nature` de lib/budgetSections.js).
+  const groupeForm = categories.find(c => Number(c.id) === Number(form.categorie_id))?.groupe || null;
+  const atteint = Math.round(Number(form.prix_unitaire || 0) * 100) >= Math.round(Number(seuil) * 100);
+  const invest = groupeForm ? GROUPES_INVEST.includes(groupeForm) && atteint : atteint && Number(form.quantite || 1) > 1;
   const groupes = [...new Set(categories.map(c => c.groupe))];
   return (
     <div className="border border-iip-turquoise/40 rounded-xl p-4 bg-iip-turquoise/5 space-y-3">
@@ -641,7 +645,7 @@ function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, cat
         <div className="text-sm text-slate-600">
           <span className="pastille-etat mr-2" style={{ color: '#fff', background: invest ? 'var(--c-disponible)' : '#64748b' }}>
             {invest ? 'Investissement' : 'Fonctionnement'}</span>
-          {invest && <span className="text-second mr-2">(prix unitaire ≥ {eur(seuil)} HT : arbitré par la direction, hors enveloppe)</span>}
+          {invest && <span className="text-second mr-2">(équipement d’au moins {eur(seuil)} HT l’unité : arbitré par la direction, hors enveloppe)</span>}
           Total HTVA <b className="text-iip-blue">{eur(total)}</b> ·
           TVAC <b>{eur(total * (1 + Number(form.taux_tva ?? 0.21)))}</b>
         </div>

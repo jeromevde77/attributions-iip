@@ -227,9 +227,15 @@ export function coussin(env, P) {
   return Math.round(Math.min(e, s1) * t1 + Math.max(0, Math.min(e, s2) - s1) * t2 + Math.max(0, e - s2) * t3);
 }
 
-/** La nature d'une ligne : investissement dès que le prix UNITAIRE HT atteint le seuil (A.6). */
-export function nature(prixUnitaireHT, seuil) {
-  return Math.round(Number(prixUnitaireHT || 0) * 100) >= Math.round(Number(seuil ?? 500) * 100) ? 'investissement' : 'fonctionnement';
+/* LA NATURE D'UNE LIGNE (3.5.507, Charles, 16 novembre 2026 : les lignes sont des FORFAITS — quantité 1, montant global — et la seule
+   règle du prix unitaire les classait presque toutes en investissement ; tranché : « la catégorie décide »). Une ligne catégorisée suit sa
+   catégorie : les groupes d'équipement (`GROUPES_INVEST`) sont de l'investissement dès que l'unité atteint le seuil (A.6), tout autre
+   groupe est du fonctionnement. Une ligne sans catégorie est du fonctionnement, sauf plusieurs unités qui atteignent chacune le seuil. */
+export const GROUPES_INVEST = ['Équipements spécifiques', 'Matériel informatique et audiovisuel', 'Mobilier et bureaux'];
+export function nature(prixUnitaireHT, seuil, { groupe = null, quantite = 1 } = {}) {
+  const atteint = Math.round(Number(prixUnitaireHT || 0) * 100) >= Math.round(Number(seuil ?? 500) * 100);
+  if (groupe) return GROUPES_INVEST.includes(groupe) && atteint ? 'investissement' : 'fonctionnement';
+  return atteint && Number(quantite || 1) > 1 ? 'investissement' : 'fonctionnement';
 }
 
 const r2 = n => Math.round(Number(n || 0) * 100) / 100;
@@ -245,7 +251,7 @@ export function syntheseBudget(annee, sections = null) {
   const params = db.prepare('SELECT * FROM budget_section_param WHERE annee_civile = ? ORDER BY section').all(annee);
   const cats = new Map(db.prepare('SELECT * FROM budget_categorie').all().map(c => [c.id, c]));
   const lignes = db.prepare('SELECT * FROM budget_ligne WHERE annee_civile = ?').all(annee)
-    .map(l => ({ ...l, total_ht: r2(l.prix_unitaire * l.quantite), nature: nature(l.prix_unitaire, P.seuil_invest) }));
+    .map(l => ({ ...l, total_ht: r2(l.prix_unitaire * l.quantite), nature: nature(l.prix_unitaire, P.seuil_invest, { groupe: cats.get(l.categorie_id)?.groupe, quantite: l.quantite }) }));
   const depenses = db.prepare('SELECT section, SUM(montant_htva) t FROM budget_depense WHERE annee_civile = ? GROUP BY section').all(annee);
   const engage = new Map(depenses.map(d => [d.section, r2(d.t)]));
   const voit = s => !sections || sections.includes(s);

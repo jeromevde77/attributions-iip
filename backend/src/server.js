@@ -628,6 +628,8 @@ try {
       db.exec(`ALTER TABLE professeur ADD COLUMN statut_helb TEXT`); // MA / MFP / PI / COORD
       console.log('[migration] professeur.statut_helb ajouté');
     }
+  // LE BARÈME HELB D'UNE PERSONNE (3.5.508, Charles : « le 501 c'est pas le 502 ») : son barème (501, 502, 849…) et son échelon.
+  for (const c of ['bareme_helb TEXT', 'echelon_helb INTEGER']) { try { db.exec(`ALTER TABLE professeur ADD COLUMN ${c}`); } catch { /* déjà là */ } }
     const ac = db.prepare('PRAGMA table_info(activite_type)').all();
     if (ac.length && !ac.find(c => c.name === 'helb_nature')) {
       db.exec(`ALTER TABLE activite_type ADD COLUMN helb_nature TEXT`); // 'COURS' | 'TP'

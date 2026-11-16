@@ -8,13 +8,14 @@
    — INVESTISSEMENTS PAR ÉTUDIANT : lignes d'investissement non refusées ÷ effectif.
    Références : la moyenne des sections (Σ ÷ Σ, pas une moyenne de moyennes) et l'ASBL (toutes ses charges ÷ étudiants HELB + IIP). */
 import db from '../db/index.js';
-import { syntheseBudget, effectifsLucie } from './budgetSections.js';
+import { syntheseBudget, effectifsLucie, nature } from './budgetSections.js';
 import { syntheseAsbl, dernierRealise, sourcesEnVigueur } from './sourcesReference.js';
 import { COR_HELB } from './rapportIipHelb.js';
 
 // Les postes de la synthèse de l'ASBL qui portent une section (les mêmes que Gestion → Lire et comparer).
 const POSTES = { TIM: /imagerie/i, Optométrie: /^Optom/i, Psychomotricité: /^Psychomot/i, Orthoptie: /^Orthoptie/i };
 const r0 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v));
+const r1 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 10) / 10);
 
 function effectifDe(section, annee) {
   const p = db.prepare('SELECT effectif FROM budget_section_param WHERE annee_civile = ? AND section = ?').get(annee, section);
@@ -43,29 +44,34 @@ export function budgetCompare(annee) {
   const SB = syntheseBudget(annee);
   const R = realisesParSection();
   const exR = R?.dernier ? Number(R.dernier) : null;
-  const lignes = db.prepare("SELECT section, prix_unitaire, quantite, statut FROM budget_ligne WHERE annee_civile = ? AND statut != 'refuse'").all(annee);
+  const groupeDe = new Map(db.prepare('SELECT id, groupe FROM budget_categorie').all().map(c => [c.id, c.groupe]));
+  const lignes = db.prepare("SELECT section, prix_unitaire, quantite, statut, categorie_id FROM budget_ligne WHERE annee_civile = ? AND statut != 'refuse'").all(annee);
   const seuil = SB.parametres?.seuil_invest ?? 500;
+  // Sans aucune dépense encodée dans le module, l'exécution ne dit rien : « aucune dépense encodée » (3.5.507).
+  const aDesDepenses = !!db.prepare('SELECT 1 FROM budget_depense WHERE annee_civile = ? LIMIT 1').get(annee);
   const engageDe = new Map(db.prepare('SELECT section, SUM(montant_htva) t FROM budget_depense WHERE annee_civile = ? GROUP BY section').all(annee).map(x => [x.section, x.t || 0]));
   const sections = SB.sections.filter(x => x.effectif > 0 || lignes.some(l => l.section === x.section)).map(x => {
     const ls = lignes.filter(l => l.section === x.section);
-    const fonct = ls.filter(l => l.prix_unitaire < seuil).reduce((t, l) => t + l.prix_unitaire * l.quantite, 0);
-    const inv = ls.filter(l => l.prix_unitaire >= seuil).reduce((t, l) => t + l.prix_unitaire * l.quantite, 0);
+    const nat = l => nature(l.prix_unitaire, seuil, { groupe: groupeDe.get(l.categorie_id), quantite: l.quantite });
+    const fonct = ls.filter(l => nat(l) === 'fonctionnement').reduce((t, l) => t + l.prix_unitaire * l.quantite, 0);
+    const inv = ls.filter(l => nat(l) === 'investissement').reduce((t, l) => t + l.prix_unitaire * l.quantite, 0);
     const prevu = fonct + inv, engage = engageDe.get(x.section) || 0, eff = x.effectif || null;
     const realise = exR ? R.par[x.section]?.[String(exR)] ?? null : null;
     const effR = realise != null ? effectifDe(x.section, exR) : null;
     return { section: x.section, effectif: eff, enveloppe: x.enveloppe, prevu: r0(prevu), fonctionnement: r0(fonct), investissements: r0(inv), engage: r0(engage),
-      prevu_etudiant: eff ? r0(fonct / eff) : null, investissements_etudiant: eff ? r0(inv / eff) : null,
-      execution: prevu ? Math.round((engage / prevu) * 100) : null,
+      // Le prévu TOTAL par étudiant (3.5.507, tranché : l'indicateur principal) ; le fonctionnement et les investissements à côté.
+      prevu_total_etudiant: eff ? r1(prevu / eff) : null, prevu_etudiant: eff ? r1(fonct / eff) : null, investissements_etudiant: eff ? r1(inv / eff) : null,
+      execution: prevu && aDesDepenses ? Math.round((engage / prevu) * 100) : null,
       realise, effectif_realise: effR, realise_etudiant: realise != null && effR ? r0(realise / effR) : null,
       historique: R?.par[x.section] ? Object.entries(R.par[x.section]).map(([a, v]) => ({ annee: a, charges: r0(v), effectif: effectifDe(x.section, Number(a)), par_etudiant: effectifDe(x.section, Number(a)) ? r0(v / effectifDe(x.section, Number(a))) : null })) : [] };
   });
   // La moyenne des sections : Σ ÷ Σ, sur les sections qui ont la donnée.
-  const somme = (k, kd) => { const s = sections.filter(x => x[k] != null && x[kd] > 0); const n = s.reduce((t, x) => t + x[kd], 0); return n ? r0(s.reduce((t, x) => t + x[k], 0) / n) : null; };
+  const somme = (k, kd) => { const s = sections.filter(x => x[k] != null && x[kd] > 0); const n = s.reduce((t, x) => t + x[kd], 0); return n ? r1(s.reduce((t, x) => t + x[k], 0) / n) : null; };
   const avecPrevu = sections.filter(x => x.prevu > 0);
   const moyenne = {
-    prevu_etudiant: somme('fonctionnement', 'effectif'), investissements_etudiant: somme('investissements', 'effectif'),
+    prevu_total_etudiant: somme('prevu', 'effectif'), prevu_etudiant: somme('fonctionnement', 'effectif'), investissements_etudiant: somme('investissements', 'effectif'),
     realise_etudiant: somme('realise', 'effectif_realise'),
-    execution: avecPrevu.length ? Math.round((avecPrevu.reduce((t, x) => t + x.engage, 0) / avecPrevu.reduce((t, x) => t + x.prevu, 0)) * 100) : null,
+    execution: avecPrevu.length && aDesDepenses ? Math.round((avecPrevu.reduce((t, x) => t + x.engage, 0) / avecPrevu.reduce((t, x) => t + x.prevu, 0)) * 100) : null,
   };
   // L'ASBL : ses charges du dernier exercice réalisé ÷ (inscrits de la HELB + effectifs de l'IIP au 01/11 précédent).
   let asbl = null;
@@ -76,5 +82,5 @@ export function budgetCompare(annee) {
     const n = insH + insI;
     asbl = { exercice: exR, charges: r0(R.asbl[String(exR)]), etudiants: n, realise_etudiant: n ? r0(R.asbl[String(exR)] / n) : null, etudiants_helb: insH, etudiants_iip: insI };
   }
-  return { annee, seuil, exercice_realise: exR, source_comptes: R?.fichier || null, sections, moyenne, asbl };
+  return { annee, seuil, depenses: aDesDepenses, exercice_realise: exR, source_comptes: R?.fichier || null, sections, moyenne, asbl };
 }

@@ -343,6 +343,8 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
     </section>
 
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 items-stretch">
+      {/* LES FINANCES PRENNENT LA PLACE QUI RESTE (3.5.507, Charles : « pourquoi ne pas adapter en une ligne ? sois malin sur l'affichage ») :
+          seule sur sa rangée, la carte s'étend et ses quatre tuiles tiennent sur une ligne. */}
       {voir('etu') && (
         <section className="carte overflow-hidden h-full">
           <EnteteCarte titre="Les étudiants" sous={`${n0(S.inscrits)} au 15/10 · ${IND.croissance.f(S.croissance)} sur un an`} />
@@ -376,9 +378,9 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
           </div>
         </section>)}
       {voir('fin') && (
-        <section className="carte overflow-hidden h-full">
+        <section className={`carte overflow-hidden h-full ${[voir('etu'), voir('res')].filter(Boolean).length === 2 ? 'md:col-span-2 xl:col-span-1' : [voir('etu'), voir('res')].filter(Boolean).length === 1 ? 'xl:col-span-2' : 'md:col-span-2 xl:col-span-3'}`}>
           <EnteteCarte titre="Les finances" sous={`${d.annee} · coût complet, CT ÷ 800 + PP ÷ 1000`} />
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <div className={`p-4 grid gap-3 ${[voir('etu'), voir('res')].filter(Boolean).length === 2 ? 'grid-cols-2 md:grid-cols-4 xl:grid-cols-2' : [voir('etu'), voir('res')].filter(Boolean).length === 1 ? 'grid-cols-2 xl:grid-cols-4' : 'grid-cols-2 lg:grid-cols-4'}`}>
             {['cout_credit', 'cout_periode', 'taille_groupes', 'recettes_etudiant'].map(k => <TuileEtat key={k} aide={IND[k].aide} valeur={IND[k].f(S[k])} libelle={IND[k].l} />)}
           </div>
         </section>)}

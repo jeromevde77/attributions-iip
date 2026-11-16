@@ -190,6 +190,7 @@ r.get('/', authRequired, (req, res) => {
   }
 
   const seuil = db.prepare('SELECT seuil_invest FROM budget_parametre WHERE annee_civile = ?').get(annee)?.seuil_invest ?? 500;
+  const groupeDe = new Map(db.prepare('SELECT id, groupe FROM budget_categorie').all().map(c => [c.id, c.groupe]));
   const enrichies = lignes.map(l => {
     const prevu = Math.round(htva(l) * 100) / 100;
     const engage = Math.round((parLigne[l.id] || 0) * 100) / 100;
@@ -201,7 +202,7 @@ r.get('/', authRequired, (req, res) => {
       engage,
       solde: Math.round((prevu - engage) * 100) / 100,
       depasse: engage > prevu,
-      nature: nature(l.prix_unitaire, seuil),
+      nature: nature(l.prix_unitaire, seuil, { groupe: groupeDe.get(l.categorie_id), quantite: l.quantite }),
     };
   });
 
@@ -251,7 +252,7 @@ r.get('/section', authRequired, (req, res) => {
       const lignes = db.prepare('SELECT * FROM budget_ligne WHERE annee_civile = ? AND section = ? ORDER BY id').all(annee, section).map(l => {
         const c = cats.get(l.categorie_id);
         return { id: l.id, details: l.details, categorie: c ? `${c.groupe} — ${c.libelle}` : null, groupe: c?.groupe || null,
-          quantite: l.quantite, prix_unitaire: l.prix_unitaire, total_ht: Math.round(htva(l) * 100) / 100, nature: nature(l.prix_unitaire, seuil),
+          quantite: l.quantite, prix_unitaire: l.prix_unitaire, total_ht: Math.round(htva(l) * 100) / 100, nature: nature(l.prix_unitaire, seuil, { groupe: c?.groupe, quantite: l.quantite }),
           priorite: l.priorite, statut: l.statut, mois: l.mois, a_charge: l.a_charge };
       });
       const engage = db.prepare('SELECT COALESCE(SUM(montant_htva), 0) t FROM budget_depense WHERE annee_civile = ? AND section = ?').get(annee, section).t;
