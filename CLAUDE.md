@@ -4483,6 +4483,13 @@ tous ; réglages contrôlés par `reglagesDossier`) — rouvrir, mettre à jour,
 les données). Sortir : « Lire à l'écran » ; « Dossier imprimé » = face `composer` de l'aperçu de Gestion (`CompositionBlocs`, mêmes outils :
 choisir les blocs, PDF) — pour COPIL d'une section, le dossier COPIL existant ; « Présentation » (direction, une section) ouvre la
 présentation avec le public correspondant (`lucie.presentation.public`, appliqué une fois par `appliquerPublic`).
+3.5.505 (Charles : « choisir les années pour résultats ») : `annees_resultats` de la composition (l'année d'avant par défaut, plusieurs
+possibles, gardée dans le dossier) ; le bloc Réussite rend une partie par année.
+3.5.506 (Charles : « calculons bien aussi le prix des professeurs invités ? » ; tranché : prix moyen d'un invité du COR, titre ou non).
+En coûts réels, une ligne HELB au statut EXP = invité : `etp_helb_inv`, `etp_helb_ma_inv` (annee()), payés `prix_invite` = ligne « professeurs
+invités » du COR ÷ ETP des invités (`etp_invites` du COR s'il les porte, sinon `etp_pi` du fichier d'attributions — « total dix PI » ÷ 10, lu
+au dépôt depuis 3.5.506). Sans ce prix (aucun fichier d'attributions déposé en production au 16/11/2026), l'invité garde le prix de son titre
+et l'écran le dit. `salairesHelb` (serveur et recopie) l'applique.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

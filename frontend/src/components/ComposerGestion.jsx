@@ -72,13 +72,15 @@ function Choix({ valeurs, valeur, onChoisir }) {
 /* LES BLOCS D'UNE COMPOSITION, à l'écran comme à l'impression : un seul rendu (3.5.503). */
 export function CompositionBlocs({ annee, compo, direction = false }) {
   const { sur, section, theme, pub, retires = [] } = compo;
+  // LES ANNÉES DES RÉSULTATS (3.5.505, Charles : « je dois pouvoir choisir les années pour résultats ») : une partie par année cochée.
+  const anneesRes = compo.annees_resultats?.length ? [...compo.annees_resultats].sort() : [annee];
   const gardes = blocsProposes({ sur, theme, pub, direction }).filter(k => !retires.includes(k));
   const sec = sur === 'section' ? section : '';
   const nom = sur === 'section' ? String(section).replace(/_/g, ' ') : 'L’école';
   const rendu = k => (
     k === 'inscriptions' ? <PopulationEcole annee={annee} initial={{ section: sec }} partie="inscriptions" />
     : k === 'provenance' ? <PopulationEcole annee={annee} initial={{ section: sec }} partie="provenance" />
-    : k === 'reussite' ? <StatsDeliberation annee={annee} initial={{ section: sec }} />
+    : k === 'reussite' ? <div className="space-y-4">{anneesRes.map(a => <div key={a} className="space-y-2">{anneesRes.length > 1 && <div className="intertitre">{a}</div>}<StatsDeliberation annee={a} initial={{ section: sec }} /></div>)}</div>
     : k === 'presences' ? <PilotagePresences annee={annee} />
     : k === 'lecture-etu' ? <GestionLecture annee={annee} perimFixe={sur === 'section' ? 'section' : 'etab'} sectionFixe={sec || null} sansIipHelb lentilleFixe="etu" />
     : k === 'lecture-fin' ? <GestionLecture annee={annee} perimFixe={sur === 'section' ? 'section' : 'etab'} sectionFixe={sec || null} sansIipHelb lentilleFixe="fin" />
@@ -101,13 +103,16 @@ export function CompositionBlocs({ annee, compo, direction = false }) {
 /* LE PUBLIC DE LA PRÉSENTATION qui correspond à celui du composeur (PresentationSection, `PUBLICS`). */
 const PUBLIC_PRESENTATION = { ca: 'Conseil d’administration', equipe: 'Équipe pédagogique', copil: 'Comité de pilotage — le plan du dossier', cppt: 'Les chiffres seuls' };
 
-export default function ComposerGestion({ annee, direction = false, onImprimer = null, onCopil = null, onPresenter = null }) {
+export default function ComposerGestion({ annee, annees = [], direction = false, onImprimer = null, onCopil = null, onPresenter = null }) {
   const m = useMemo(lire, []);
   const [sur, setSur] = useState(m.sur || 'section');
   const [section, setSection] = useState(m.section || 'TIM');
   const [theme, setTheme] = useState(m.theme || 'tout');
   const [pub, setPub] = useState(m.pub || 'moi');
   const [retires, setRetires] = useState(m.retires || []);
+  // Les résultats : l'année d'avant par défaut (la dernière dont les délibérations sont closes), comme le dossier COPIL.
+  const prec = `${Number(String(annee).slice(0, 4)) - 1}-${Number(String(annee).slice(5, 9)) - 1}`;
+  const [anneesRes, setAnneesRes] = useState(m.anneesRes?.length ? m.anneesRes : [prec]);
   const [sections, setSections] = useState([]);
   const [lu, setLu] = useState(false);
   const [dossiers, setDossiers] = useState([]);
@@ -121,10 +126,10 @@ export default function ComposerGestion({ annee, direction = false, onImprimer =
   }, []);
   // Changer une réponse recompose : on repart de ce que Lucie propose.
   const changer = f => v => { f(v); setRetires([]); setLu(false); };
-  useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ sur, section, theme, pub, retires, ouvert })); } catch { /* sans mémoire */ } }, [sur, section, theme, pub, retires, ouvert]);
-  const compo = { sur, section, theme, pub, retires };
+  useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ sur, section, theme, pub, retires, ouvert, anneesRes })); } catch { /* sans mémoire */ } }, [sur, section, theme, pub, retires, ouvert, anneesRes]);
+  const compo = { sur, section, theme, pub, retires, annees_resultats: anneesRes };
   const rouvrir = d => { const r = d.reglages || {}; setSur(r.sur || 'section'); if (r.section) setSection(r.section); setTheme(r.theme || 'tout'); setPub(r.pub || 'moi');
-    setRetires(r.retires || []); setOuvert({ id: d.id, nom: d.nom }); setLu(true); setEtat(''); };
+    setRetires(r.retires || []); if (r.annees_resultats?.length) setAnneesRes(r.annees_resultats); setOuvert({ id: d.id, nom: d.nom }); setLu(true); setEtat(''); };
   const ecrire = async (id, nom) => {
     const r = await fetch(id ? `/api/pilotage/dossiers/${id}` : '/api/pilotage/dossiers', { method: id ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify({ nom, reglages: compo }) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); return j;
@@ -190,9 +195,16 @@ export default function ComposerGestion({ annee, direction = false, onImprimer =
                   <span>{b[2]}<span className="text-mention text-slate-500"> · {THEMES.find(t => t[0] === b[1])?.[1].replace(/^Les /, '')}</span></span>
                 </label>); })}
             </div>)}
+          {proposes.includes('reussite') && !retires.includes('reussite') && (<>
+            <div className="intertitre mt-4">Années des résultats</div>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {(annees.length ? annees : [annee, prec]).slice(0, 8).map(a => { const pris = anneesRes.includes(a); return (
+                <button key={a} type="button" aria-pressed={pris} className={`controle !h-auto py-1.5 ${pris ? 'controle-fort' : ''}`}
+                  onClick={() => setAnneesRes(x => (pris ? (x.length > 1 ? x.filter(y => y !== a) : x) : [...x, a]))}>{a}</button>); })}
+            </div></>)}
           <div className="intertitre mt-4">5. Sortir</div>
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
-            <button type="button" className="bouton-fort" disabled={!gardes.length} onClick={() => setLu(true)}>Lire à l’écran ({gardes.length} bloc{gardes.length > 1 ? 's' : ''})</button>
+            <button type="button" className="bouton bouton-fort" disabled={!gardes.length} onClick={() => setLu(true)}>Lire à l’écran ({gardes.length} bloc{gardes.length > 1 ? 's' : ''})</button>
             {onImprimer && <button type="button" className="bouton bouton-sortir" disabled={!gardes.length}
               onClick={() => (pub === 'copil' && sur === 'section' && onCopil ? onCopil(section) : onImprimer({ ...compo, titre }))}>
               Dossier imprimé{pub === 'copil' && sur === 'section' ? ' (dossier COPIL)' : ''}</button>}

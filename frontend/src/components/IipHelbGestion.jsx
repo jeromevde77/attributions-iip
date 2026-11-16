@@ -41,10 +41,12 @@ function salairesHelb(y, P, avecCoord) {
   const c = avecCoord ? (y.cetp_helb || 0) : 0, etp = (y.ens_helb || 0) + c;
   if (P.prix === 'moyenne' && P.prix_moyen) return etp * P.prix_moyen;
   if (P.prix === 'titres' && P.prix_ma) {
-    // Une coordination portée par un MA se paie au prix du MA (3.5.495, recopie de lib/rapportIipHelb.js).
+    // (Recopie de lib/rapportIipHelb.js.) Au titre : un maître-assistant au prix du MA (cours et coordinations) ; tout le reste au prix du MFP. Un invité (statut EXP), au
+    // prix moyen d'un invité du COR quand il est connu (3.5.506), quel que soit son titre.
     const cma = avecCoord ? Math.min(c, y.cetp_helb_ma || 0) : 0;
-    const ma = (y.etp_helb_ma || 0) + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0)) + (c - cma);
-    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma);
+    const inv = P.prix_invite ? (y.etp_helb_inv || 0) : 0, maInv = P.prix_invite ? (y.etp_helb_ma_inv || 0) : 0;
+    const ma = (y.etp_helb_ma || 0) - maInv + cma, autres = Math.max(0, (y.ens_helb || 0) - (y.etp_helb_ma || 0) - (inv - maInv)) + (c - cma);
+    return ma * P.prix_ma + autres * (P.prix_mfp || P.prix_ma) + inv * (P.prix_invite || 0);
   }
   return etp * P.cmbp;
 }
@@ -166,7 +168,7 @@ export function chiffresIipHelb(d, reglages = {}) {
   const PH = { ...PARAM_HELB, ...Object.fromEntries(Object.entries(reglages.helb || {}).filter(([, v]) => v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])) };
   const inscritsDe = a => { const r = Number(reglages.inscrits?.[a]); return r > 0 ? r : (d?.inscrits_annees?.[a] || 0); };
   PH.mode_fonct = reglages.helb?.mode_fonct === 'forfait' ? 'forfait' : 'reel';
-  PH.prix = mes.prix_helb; PH.prix_ma = d?.prix_helb?.ma; PH.prix_mfp = d?.prix_helb?.mfp; PH.prix_moyen = d?.prix_helb?.moyen;
+  PH.prix = mes.prix_helb; PH.prix_ma = d?.prix_helb?.ma; PH.prix_mfp = d?.prix_helb?.mfp; PH.prix_moyen = d?.prix_helb?.moyen; PH.prix_invite = d?.prix_helb?.invite || null;
   // Les chiffres de chaque année selon les mesures choisies — les mêmes formules que la pièce (lib/rapportIipHelb.js).
   const Y = (d?.Y || []).map(y0 => {
     // Les inscrits retenus par la direction, année par année (3.5.434) — la pièce applique les mêmes.
@@ -445,8 +447,11 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                 <p className="text-second text-slate-600 m-0">Un temps plein : 480 h pour la théorie d’un maître-assistant, 750 h pour tout le reste (TP, maîtres de formation pratique, praticiens), 1 400 h pour une coordination. Le titre se lit dans la colonne « HELB » de la ligne d’attribution (à défaut, le statut HELB de la fiche), la théorie ou le TP dans la colonne TH/TP. Les lignes HELB des attributions sont lues :</p>
                 <div className="flex flex-wrap gap-2">
                   {segm('unite_helb', [['periodes', 'en périodes de 50 min'], ['heures', 'en heures']])}
-                  {mes.cout === 'reel' && segm('prix_helb', [['titres', `Au titre — MA ${eur(d?.prix_helb?.ma)}, MFP ${eur(d?.prix_helb?.mfp)}`], ['moyenne', `Moyenne HELB — ${eur(d?.prix_helb?.moyen)}`], ['fixe', `Montant réglé — ${eur(PH.cmbp)}`]])}
+                  {mes.cout === 'reel' && segm('prix_helb', [['titres', `Au titre — MA ${eur(d?.prix_helb?.ma)}, MFP ${eur(d?.prix_helb?.mfp)}, invité ${d?.prix_helb?.invite ? eur(d.prix_helb.invite) : 'au titre'}`], ['moyenne', `Moyenne HELB — ${eur(d?.prix_helb?.moyen)}`], ['fixe', `Montant réglé — ${eur(PH.cmbp)}`]])}
                 </div>
+                {mes.cout === 'reel' && <p className="text-mention text-slate-500 m-0">Professeurs invités de la HELB (lignes au statut expert) : {d?.prix_helb?.invite
+                  ? `au prix moyen d’un invité du COR, ${eur(d.prix_helb.invite)} par ETP (ligne « professeurs invités » ÷ ETP des invités), quel que soit leur titre.`
+                  : 'prix moyen d’un invité inconnu — déposez à nouveau le fichier d’attributions de la HELB dans Les sources (Lucie y lit désormais les ETP des invités) ; en attendant, ils comptent au prix de leur titre.'}</p>}
                 {HY.length > 0 && mes.cout === 'reel' && <p className="text-mention text-slate-500 m-0">Salaires HELB {HY[HY.length - 1].y.annee} : au titre {eur(salairesHelb({ ...HY[HY.length - 1].y, salaires_imposes: null }, { ...PH, prix: 'titres' }, mes.coord === 'oui'))} · à la moyenne {eur(salairesHelb({ ...HY[HY.length - 1].y, salaires_imposes: null }, { ...PH, prix: 'moyenne' }, mes.coord === 'oui'))} · au montant réglé {eur(salairesHelb({ ...HY[HY.length - 1].y, salaires_imposes: null }, { ...PH, prix: 'fixe' }, mes.coord === 'oui'))}. Au titre : un maître-assistant au prix du MA (cours et coordinations), tout le reste au prix d’un MFP.</p>}
                 {HY.length > 0 && mes.cout === 'reel' && <div className="overflow-x-auto"><Tableau className="!w-auto">
                   <thead><tr><Th>Année</Th><Th align="droite">ETP HELB selon Lucie</Th><Th align="droite">dont maîtres-assistants</Th><Th align="droite">ETP déclaré par la HELB</Th><Th align="droite">Écart</Th></tr></thead>

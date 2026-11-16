@@ -2198,7 +2198,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             </>}
             {tab === 'section' && <GestionLecture annee={anneeActive} perimFixe="section" onPresenter={sec => { try { localStorage.setItem('lucie.presentation', sec); } catch { /* */ } setTab('presentation'); }} onSources={direction ? () => setTab('sources') : null} />}
             {tab === 'sources' && <SourcesReference />}
-            {tab === 'composer' && <ComposerGestion annee={anneeActive} direction={direction}
+            {tab === 'composer' && <ComposerGestion annee={anneeActive} annees={anneesScolaires} direction={direction}
               onImprimer={c => { setCompoImprimee(c); setFacesImprimees(['composer']); setChoisirBlocs(false); setNbRetires(0); }}
               onCopil={sec => { setCopil(c => ({ ...c, section: sec })); setCopilFenetre(true); }}
               onPresenter={(sec, pub) => { try { localStorage.setItem('lucie.presentation', sec); if (pub) localStorage.setItem('lucie.presentation.public', pub); } catch { /* */ } setTab('presentation'); }} />}
