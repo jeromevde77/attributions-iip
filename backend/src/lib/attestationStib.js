@@ -140,14 +140,14 @@ export async function remplirStibDocx(modele, v) {
 }
 
 /** Pose sur le PDF la référence (registre des pièces authentiques), le QR de vérification et le code de pièce. */
-async function referencer(pdf, { nature, objet, personne, date, apercu = false }) {
+async function referencer(pdf, { nature, objet, personne, date, apercu = false, specimen = false }) {
   const { nouvelleReference } = await import('../services/filigrane.js');
   const { enregistrerPiece, urlVerification } = await import('./authentique.js');
   const QR = (await import('qrcode')).default;
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const ref = nouvelleReference();
   // UN APERÇU N'ENTRE PAS AU REGISTRE (la règle des spécimens, 3.5.047) : la référence se voit, mais ne se vérifierait pas.
-  if (!apercu) enregistrerPiece({ reference: ref, nature, objet, personne, date });
+  if (!apercu && !specimen) enregistrerPiece({ reference: ref, nature, objet, personne, date });
   const doc = await PDFDocument.load(pdf);
   const page = doc.getPages()[0];
   const { width } = page.getSize();
@@ -156,14 +156,25 @@ async function referencer(pdf, { nature, objet, personne, date, apercu = false }
   page.drawImage(png, { x, y, width: t, height: t });
   const f = await doc.embedFont(StandardFonts.Helvetica);
   const gris = rgb(0.39, 0.45, 0.55);
-  const ligne1 = apercu ? `APERÇU — non enregistrée · réf. ${ref}` : `Pièce authentifiable · réf. ${ref}`;
+  const ligne1 = specimen ? 'SPÉCIMEN — ESSAI · pièce sans valeur' : apercu ? `APERÇU — non enregistrée · réf. ${ref}` : `Pièce authentifiable · réf. ${ref}`;
+  // « SPÉCIMEN — ESSAI » en travers de chaque page (3.5.540).
+  if (specimen) {
+    const fb = await doc.embedFont(StandardFonts.HelveticaBold);
+    for (const pg of doc.getPages()) {
+      const { width: w, height: hh } = pg.getSize();
+      const t = 'SPÉCIMEN — ESSAI', taille = 58;
+      const lw = fb.widthOfTextAtSize(t, taille);
+      const { degrees } = await import('pdf-lib');
+      pg.drawText(t, { x: (w - lw * Math.cos(Math.PI / 6)) / 2, y: hh / 2 - (lw * Math.sin(Math.PI / 6)) / 2, size: taille, font: fb, color: rgb(0.11, 0.17, 0.29), opacity: 0.1, rotate: degrees(30) });
+    }
+  }
   page.drawText(ligne1, { x: x - 4 - f.widthOfTextAtSize(ligne1, 6.5), y: y + 24, size: 6.5, font: f, color: gris });
   page.drawText('Scannez le code pour vérifier · I-06', { x: x - 4 - f.widthOfTextAtSize('Scannez le code pour vérifier · I-06', 6.5), y: y + 14, size: 6.5, font: f, color: gris });
   return Buffer.from(await doc.save());
 }
 
 /** Compose le PDF. Rend { pdf, nom } ou { erreur, code }. `force` : le secrétariat passe outre les seuils. */
-export async function composerStib(etudId, annee, { force = false, apercu = false, mobib = '', jour = new Date().toISOString().slice(0, 10) } = {}) {
+export async function composerStib(etudId, annee, { force = false, apercu = false, specimen = false, mobib = '', jour = new Date().toISOString().slice(0, 10) } = {}) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
   if (!e) return { code: 404, erreur: 'étudiant introuvable' };
   const el = eligibiliteStib(e.id, annee, jour);
@@ -178,7 +189,7 @@ export async function composerStib(etudId, annee, { force = false, apercu = fals
      code de pièce (I-06), posés en bas de la première page. */
   const pdf = await referencer(await docxToPdf(docx), {
     nature: 'Attestation de fréquentation scolaire — STIB', objet: `Année académique ${annee}`,
-    personne: `${e.prenom || ''} ${String(e.nom || '').toUpperCase()}`.trim(), date: jour, apercu });
+    personne: `${e.prenom || ''} ${String(e.nom || '').toUpperCase()}`.trim(), date: jour, apercu, specimen });
   const nom = `Attestation_STIB_${String(e.nom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(e.prenom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(annee).replace('-', '')}.pdf`;
   return { pdf, nom, eligibilite: el };
 }

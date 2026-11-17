@@ -13,6 +13,12 @@ import { optionsPdfPiece } from './document.js';
 import { PIECES as PIECES_CODEES } from './codesPieces.js';
 import { cepDe } from './cep.js';
 import { eligibiliteStib } from './attestationStib.js';
+import { poserSpecimen } from './filigraneDocument.js';
+/** Un étudiant d'essai (Mise en service) : ses pièces portent « SPÉCIMEN — ESSAI ». */
+function etudiantDEssai(id) {
+  try { return (JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'fonctions'").get()?.valeur || '{}').etudiants_essai || []).map(Number).includes(Number(id)); }
+  catch { return false; }
+}
 
 const MAX = 2;
 const essai = (f, d) => { try { return f(); } catch { return d; } };
@@ -109,10 +115,16 @@ export async function composerCentre(id, code, { apercu = false, donnees = null 
   const { signServiceToken } = await import('../middleware/auth.js');
   const port = process.env.PORT || 3001;
   const h = { Authorization: `Bearer ${signServiceToken()}` };
+  /* LES PIÈCES D'UN ÉTUDIANT D'ESSAI (3.5.540, Charles : « mettre sur chaque document produit pour ce test : Spécimen — Essai ») : la
+     route compose sans rien inscrire au registre des pièces authentiques (en-tête X-Lucie-Specimen), et la pièce porte « SPÉCIMEN — ESSAI »
+     en travers de chaque page. */
+  const pieceEssai = etudiantDEssai(id);
+  if (pieceEssai) h['X-Lucie-Specimen'] = '1';
   if (x.methode === 'POST') h['Content-Type'] = 'application/json';
   // Ce que l'étudiant a tapé pour la pièce (le numéro MOBIB de la STIB, 3.5.533).
   let chemin = x.chemin;
   if (x.cle === 'attestation_stib' && /^\d{19}$/.test(String(donnees?.mobib || ''))) chemin += `&mobib=${donnees.mobib}`;
+  if (pieceEssai && x.pdf) chemin += `${chemin.includes('?') ? '&' : '?'}specimen=1`;
   const rep = await fetch(`http://127.0.0.1:${port}${chemin}`, { method: x.methode || 'GET', headers: h,
     body: x.methode === 'POST' ? JSON.stringify(x.corps) : undefined, signal: AbortSignal.timeout(40000) });
   const type = rep.headers.get('content-type') || '';
@@ -131,6 +143,7 @@ export async function composerCentre(id, code, { apercu = false, donnees = null 
     html = await rep.text();
     if (!rep.ok) return { statut: rep.status, erreur: 'La pièce n’a pas pu être composée. Adressez-vous au secrétariat.' };
   }
+  if (pieceEssai && html) html = poserSpecimen(html, 'SPÉCIMEN — ESSAI');
   const pdf = pdfDirect || await rendrePdf(html, optionsPdfPiece(html, x.orientation ? { orientation: x.orientation } : {}));
   const reference = (/réf\.\s*<b>([^<]+)<\/b>/.exec(html) || /(IIP-[A-Z0-9]{4}-[A-Z0-9]{4})/.exec(html) || [])[1] || null;
   const nom = `${code}_${x.nom}`.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').slice(0, 90) + '.pdf';

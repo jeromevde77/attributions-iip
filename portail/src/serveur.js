@@ -53,6 +53,8 @@ db.pragma('journal_mode = WAL');
 try { db.exec('ALTER TABLE resultat ADD COLUMN detail TEXT'); } catch { /* déjà là, ou table à naître ci-dessous */ }
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là, ou table à naître ci-dessous */ }
 try { db.exec('ALTER TABLE etudiant ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là, ou table à naître ci-dessous */ }
+// L'étudiant d'essai (3.5.540) : son espace porte le bandeau « Version d'essai ».
+try { db.exec('ALTER TABLE etudiant ADD COLUMN essai INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là, ou table à naître */ }
 db.exec(`
   CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, email_ecole TEXT NOT NULL, maj_le TEXT);
   CREATE TABLE IF NOT EXISTS matricule (code TEXT PRIMARY KEY, etudiant_id INTEGER NOT NULL);
@@ -567,7 +569,7 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
   const o = f.has('pae') ? offrePAEde(e.id) : null;
   const signeEnCours = !!db.prepare("SELECT 1 FROM pae_geste WHERE etudiant_id = ? AND type = 'signer' AND releve_le IS NULL").get(e.id);
   const paeAValider = !req.candidat && !!(o?.programme?.length) && !(o.signature?.a_jour) && !signeEnCours;
-  res.json({ fonctions: [...f], apercu: req.apercu || null, pae_a_valider: paeAValider ? { annee: o.annee } : null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
+  res.json({ fonctions: [...f], apercu: req.apercu || null, essai: !!e.essai, pae_a_valider: paeAValider ? { annee: o.annee } : null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
     resultats: !f.has('resultats') ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })),
     documents: f.has('documents') ? documents : [], reglements: !f.has('reglements') ? [] : reglements });
@@ -1053,13 +1055,14 @@ int.post('/interne/etudiants', (req, res) => {
   const l = Array.isArray(req.body?.etudiants) ? req.body.etudiants : [];
   db.transaction(() => {
     db.exec('DELETE FROM matricule; DELETE FROM etudiant;');
-    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, fonctions, apercu_seul, maj_le) VALUES (?,?,?,?,?,?, datetime('now'))");
+    try { db.exec('ALTER TABLE etudiant ADD COLUMN essai INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, fonctions, apercu_seul, maj_le, essai) VALUES (?,?,?,?,?,?, datetime('now'), ?)");
     const fx = x => JSON.stringify(Array.isArray(x.fonctions) ? x.fonctions.map(String) : []);
     const im = db.prepare('INSERT OR IGNORE INTO matricule (code, etudiant_id) VALUES (?,?)');
     for (const e of l) {
       // Sans adresse d'institut, seul l'aperçu de la direction entre (apercu_seul) : l'étudiant, lui, n'a aucune porte.
       if (!Number(e.id) || (!String(e.email_ecole || '').includes('@') && !e.apercu_seul)) continue;
-      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole || ''), fx(e), e.apercu_seul ? 1 : 0);
+      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole || ''), fx(e), e.apercu_seul ? 1 : 0, e.essai ? 1 : 0);
       for (const m of e.matricules || []) if (m) im.run(String(m).trim(), Number(e.id));
     }
     // Les candidats : sans adresse d'institut ; ils n'entrent que par leur code.
@@ -1068,7 +1071,7 @@ int.post('/interne/etudiants', (req, res) => {
     for (const c of Array.isArray(req.body?.candidats) ? req.body.candidats : []) {
       if (!Number(c.id) || !String(c.email_prive || '').includes('@') || !String(c.code_hash || '').startsWith('scrypt$')) continue;
       if (db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(Number(c.id))) db.prepare('DELETE FROM etudiant WHERE id = ?').run(Number(c.id));
-      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '', fx(c), 0);
+      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '', fx(c), 0, 0);
       ic.run(Number(c.id), String(c.email_prive), String(c.code_hash), String(c.jusqu_au || ''));
     }
   })();

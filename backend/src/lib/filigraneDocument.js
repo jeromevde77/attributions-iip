@@ -20,6 +20,7 @@
  * leur bloc `.cloture` — ce serait autant d'occasions d'en oublier un.
  */
 import { nouvelleReference } from '../services/filigrane.js';
+import { requeteCourante } from './contexteRequete.js';
 import { enregistrerPiece, blocAuthenticite, STYLE_AUTHENTICITE, dateDeLaPiece } from './authentique.js';
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -101,13 +102,13 @@ export function enSpecimen(fn) { const avant = SPECIMEN; SPECIMEN = true; try { 
    `data-specimen="1"` que `filigraner` lit : une pièce marquée n'entre jamais au registre des pièces authentiques, même si
    elle part par courriel. */
 export const MARQUE_SPECIMEN = 'data-specimen="1"';
-export function poserSpecimen(html) {
+export function poserSpecimen(html, texte = 'SPÉCIMEN') {
   const h = String(html || '');
   if (!h || h.includes(MARQUE_SPECIMEN)) return h;
   const div = `<div ${MARQUE_SPECIMEN} aria-hidden="true" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;`
     + 'pointer-events:none;z-index:9999;"><div style="transform:rotate(-30deg);font:700 96pt/1 Helvetica,Arial,sans-serif;'
     // Discret (3.5.122, Charles : « un peu flagrant et rouge ») : gris-bleu très pâle, sans cadre ; lisible, mais le texte passe devant.
-    + 'letter-spacing:10pt;color:rgba(27,43,75,0.08);white-space:nowrap">SPÉCIMEN</div></div>';
+    + `letter-spacing:10pt;color:rgba(27,43,75,0.08);white-space:nowrap">${texte}</div></div>`;
   const m = h.match(/<body[^>]*>/i);
   return m ? h.slice(0, m.index + m[0].length) + div + h.slice(m.index + m[0].length) : div + h;
 }
@@ -140,7 +141,8 @@ export function filigraner(html, o = {}) {
   while ((m = re.exec(doc))) {
     const page = doc.slice(dernier, m.index);
     const refBloc = k++ === 0 ? ref : nouvelleReference();
-    if (SPECIMEN || doc.includes(MARQUE_SPECIMEN)) { sortie += page + '<div class="authenticite"><div class="authenticite-t"><b>SPÉCIMEN</b> — ' + (SPECIMEN ? 'données fictives, ' : '') + 'pièce sans valeur</div></div>' + m[0] + fondCloture({ ref: 'SPÉCIMEN', texte: 'Spécimen — sans valeur' }); dernier = re.lastIndex; continue; }
+    // Une pièce d'essai, demandée par le centre de documents pour un étudiant d'essai (3.5.540, en-tête X-Lucie-Specimen).
+    if (SPECIMEN || doc.includes(MARQUE_SPECIMEN) || requeteCourante()?.headers?.['x-lucie-specimen'] === '1') { sortie += page + '<div class="authenticite"><div class="authenticite-t"><b>SPÉCIMEN</b> — ' + (SPECIMEN ? 'données fictives, ' : '') + 'pièce sans valeur</div></div>' + m[0] + fondCloture({ ref: 'SPÉCIMEN', texte: 'Spécimen — sans valeur' }); dernier = re.lastIndex; continue; }
     // La date du bloc : son « lieu » (« Fait à …, le 30 juin 2027 »), lu dans la suite du document après l'ouverture du bloc.
     const lieu = (doc.slice(re.lastIndex, re.lastIndex + 2000).match(/<div class="lieu">([\s\S]*?)<\/div>/) || [])[1] || '';
     enregistrerPiece({ reference: refBloc, nature: dernierTexte(page, 'doc-cadre-t') || o.texte,
