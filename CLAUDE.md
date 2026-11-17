@@ -4616,6 +4616,11 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LE BLOCAGE HORS DE BELGIQUE EST LEVÉ** (3.5.543, Charles, 17 novembre 2026 : « enlève ce blocage, je sens que ça va nous faire
+des soucis » — une étudiante d'essai refusée en Belgique). `PORTAIL_GEO` vaut « constat » par défaut : l'accès étranger ou par VPN est
+NOTÉ dans le journal du portail, jamais refusé (espaces étudiant et enseignant). `PORTAIL_GEO=bloquer` le rétablit ; les listes, le
+Relais d'Apple et les exceptions restent en place. Le courriel d'invitation et l'aide ne parlent plus de la Belgique.
+
 **LE RELAIS PRIVÉ D'APPLE SITUÉ EN BELGIQUE PASSE** (3.5.542, Charles sur son iPhone en 5G, refusé en Belgique ; tranché :
 laisser passer le Relais situé en Belgique). Safari sort par les serveurs d'Apple (enregistrés aux États-Unis, dans la liste des
 hébergeurs). `portail/src/geo.js` lit `relais.cidr` AVANT tout contrôle : les sorties qu'Apple publie marquées « BE »
