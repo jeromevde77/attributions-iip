@@ -2187,9 +2187,9 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
                  EN TÊTE de la page depuis 3.5.478 (Charles : « j'ai l'impression de ne pas avoir accès à tout »). */}
               <section className="carte overflow-hidden mb-4">
                 <EnteteCarte titre="Les tableaux détaillés" sous="Chaque lien ouvre son tableau ; « ← L’école » y ramène" />
-                <div className="grid gap-x-8 gap-y-1 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-x-8 gap-y-1 p-4 sm:grid-cols-2 lg:grid-cols-5">
                   {[['Les étudiants', ['population-ecole', 'population', 'presences-ue']], ['La réussite', ['deliberation', 'distributions']],
-                    ['Le personnel', ['personnel-ecole', 'etp', 'etp-annees', 'repartition', 'qui-fait-quoi']], ['La dotation', ['synthese', 'dotation', 'iip-helb', 'config']]]
+                    ['Le personnel', ['personnel-ecole', 'etp', 'etp-annees', 'repartition', 'qui-fait-quoi']], ['La dotation', ['synthese', 'dotation', 'iip-helb', 'config']], ['Les finances', ['financements']]]
                     .map(([titre, cles]) => {
                       const faces = RUBRIQUES[0].faces.filter(([k]) => cles.includes(k));
                       return faces.length ? (
