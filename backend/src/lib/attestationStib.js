@@ -62,14 +62,21 @@ export function eligibiliteStib(etudId, annee, jour = new Date().toISOString().s
   else if (age > SEUILS_STIB.age_max) raisons.push(`la STIB réserve le tarif scolaire aux moins de 25 ans (${age} ans)`);
   const inscrit = essai(() => db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? LIMIT 1').get(e.id, annee), null);
   if (!inscrit) raisons.push(`aucune inscription en ${annee}`);
+  /* UN PAE À TEMPS PLEIN SUFFIT (3.5.530, Charles : « si le PAE est complet, les documents allocations et STIB, on donne » ;
+     tranché : 60 ECTS au moins ; sinon, le calcul de l'horaire). */
+  const ects = essai(() => db.prepare(`SELECT COALESCE(SUM((SELECT ects FROM ue x WHERE x.ue_num = i.ue_num AND x.ects IS NOT NULL
+      ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1)), 0) n FROM etudiant_inscription i
+      WHERE i.etudiant_id = ? AND i.annee_scolaire = ?`).get(annee, e.id, annee).n, 0);
+  const tempsPlein = ects >= 60;
   const r = rythmeEtudiant(e.id, annee);
   const S = r.soir ? SEUILS_STIB.soir : SEUILS_STIB.jour;
-  const mode = r.soir ? 'soir' : 'jour';
-  if (r.heures == null || r.jours == null) raisons.push('horaire de l’année inconnu');
+  const mode = tempsPlein ? 'temps_plein' : r.soir ? 'soir' : 'jour';
+  if (tempsPlein) { /* rien d'autre à vérifier que l'âge et l'inscription */ }
+  else if (r.heures == null || r.jours == null) raisons.push(`horaire de l’année inconnu (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
   else if (r.heures < S.heures || r.jours < S.jours) {
-    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins`);
+    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
   }
-  return { ok: !raisons.length, raisons, age, rythme: r, mode };
+  return { ok: !raisons.length, raisons, age, rythme: r, mode, ects, temps_plein: tempsPlein };
 }
 
 const T = p => [...p.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map(m => m[1]).join('');
@@ -114,13 +121,14 @@ export async function remplirStibDocx(modele, v) {
 }
 
 /** Pose sur le PDF la référence (registre des pièces authentiques), le QR de vérification et le code de pièce. */
-async function referencer(pdf, { nature, objet, personne, date }) {
+async function referencer(pdf, { nature, objet, personne, date, apercu = false }) {
   const { nouvelleReference } = await import('../services/filigrane.js');
   const { enregistrerPiece, urlVerification } = await import('./authentique.js');
   const QR = (await import('qrcode')).default;
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const ref = nouvelleReference();
-  enregistrerPiece({ reference: ref, nature, objet, personne, date });
+  // UN APERÇU N'ENTRE PAS AU REGISTRE (la règle des spécimens, 3.5.047) : la référence se voit, mais ne se vérifierait pas.
+  if (!apercu) enregistrerPiece({ reference: ref, nature, objet, personne, date });
   const doc = await PDFDocument.load(pdf);
   const page = doc.getPages()[0];
   const { width } = page.getSize();
@@ -129,13 +137,14 @@ async function referencer(pdf, { nature, objet, personne, date }) {
   page.drawImage(png, { x, y, width: t, height: t });
   const f = await doc.embedFont(StandardFonts.Helvetica);
   const gris = rgb(0.39, 0.45, 0.55);
-  page.drawText(`Pièce authentifiable · réf. ${ref}`, { x: x - 4 - f.widthOfTextAtSize(`Pièce authentifiable · réf. ${ref}`, 6.5), y: y + 24, size: 6.5, font: f, color: gris });
+  const ligne1 = apercu ? `APERÇU — non enregistrée · réf. ${ref}` : `Pièce authentifiable · réf. ${ref}`;
+  page.drawText(ligne1, { x: x - 4 - f.widthOfTextAtSize(ligne1, 6.5), y: y + 24, size: 6.5, font: f, color: gris });
   page.drawText('Scannez le code pour vérifier · I-06', { x: x - 4 - f.widthOfTextAtSize('Scannez le code pour vérifier · I-06', 6.5), y: y + 14, size: 6.5, font: f, color: gris });
   return Buffer.from(await doc.save());
 }
 
 /** Compose le PDF. Rend { pdf, nom } ou { erreur, code }. `force` : le secrétariat passe outre les seuils. */
-export async function composerStib(etudId, annee, { force = false, jour = new Date().toISOString().slice(0, 10) } = {}) {
+export async function composerStib(etudId, annee, { force = false, apercu = false, jour = new Date().toISOString().slice(0, 10) } = {}) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
   if (!e) return { code: 404, erreur: 'étudiant introuvable' };
   const el = eligibiliteStib(e.id, annee, jour);
@@ -150,7 +159,7 @@ export async function composerStib(etudId, annee, { force = false, jour = new Da
      code de pièce (I-06), posés en bas de la première page. */
   const pdf = await referencer(await docxToPdf(docx), {
     nature: 'Attestation de fréquentation scolaire — STIB', objet: `Année académique ${annee}`,
-    personne: `${e.prenom || ''} ${String(e.nom || '').toUpperCase()}`.trim(), date: jour });
+    personne: `${e.prenom || ''} ${String(e.nom || '').toUpperCase()}`.trim(), date: jour, apercu });
   const nom = `Attestation_STIB_${String(e.nom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(e.prenom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(annee).replace('-', '')}.pdf`;
   return { pdf, nom, eligibilite: el };
 }
