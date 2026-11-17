@@ -22,7 +22,9 @@ import net from 'net';
 import path from 'path';
 
 const DIR = process.env.PORTAIL_GEO_DIR || '/app/data/geo';
-export const MODE = ['bloquer', 'constat', 'non'].includes(process.env.PORTAIL_GEO) ? process.env.PORTAIL_GEO : 'bloquer';
+// LE BLOCAGE EST LEVÉ (3.5.543, Charles : « enlève ce blocage, je sens que ça va nous faire des soucis ») : par défaut on NOTE
+// les accès hors de Belgique dans le journal, on ne les refuse plus. `PORTAIL_GEO=bloquer` le rétablit.
+export const MODE = ['bloquer', 'constat', 'non'].includes(process.env.PORTAIL_GEO) ? process.env.PORTAIL_GEO : 'constat';
 
 function v6EnBig(ip) {
   let [g, d = ''] = ip.split('::');

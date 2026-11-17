@@ -1015,7 +1015,7 @@ function MesFrais({ onErreur }) {
 
 /** AIDE ET RÈGLES (3.1.517) : un petit mode d'emploi, la grille de lecture des résultats, puis les règlements. */
 const GUIDE = [
-  ['Entrer', "Votre adresse de l'institut et votre mot de passe. Sur un appareil que vous n'avez pas fait reconnaître, un code reçu par courriel est demandé en plus. Mot de passe oublié : « Première visite, ou mot de passe oublié ? ». L'espace s'ouvre depuis la Belgique ; en stage ou en Erasmus à l'étranger, le secrétariat peut vous l'ouvrir pour la durée du séjour."],
+  ['Entrer', "Votre adresse de l'institut et votre mot de passe. Sur un appareil que vous n'avez pas fait reconnaître, un code reçu par courriel est demandé en plus. Mot de passe oublié : « Première visite, ou mot de passe oublié ? »."],
   ['Aujourd’hui', "Ce qui vous attend : documents et règlements à signer, messages non lus, et les raccourcis vers votre PAE, vos résultats, vos frais."],
   ['Mon parcours', "Trois onglets. « Schéma et unités » : votre schéma de capitalisation, puis chaque unité, ses cours, sa DUE et son dossier pédagogique. « Mes résultats » : les décisions du Conseil des études, une fois la délibération close (la grille ci-dessous dit comment les lire). « Mon PAE » : pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige ; une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
   ['Mes documents', "Vos attestations, les décisions qui vous concernent et les règlements de l'école. Ouvrez-les, puis signez l'accusé de réception (un code reçu par courriel). Téléchargement libre pendant 90 jours ; ensuite, un code est demandé."],

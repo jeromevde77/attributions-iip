@@ -69,7 +69,7 @@ export async function inviter({ ids = [], section = null, ue = null, simulation 
         <ol><li>rendez-vous sur <b>${url.replace(/^https?:\/\//, '')}</b> ;</li>
           <li>indiquez votre adresse d’institut (<b>${p.email}</b>) ;</li>
           <li>ouvrez le lien que vous recevez par courriel (valable 30 minutes) et choisissez votre mot de passe.</li></ol>
-        <p>L’espace n’est accessible que depuis la Belgique. Pour toute question, adressez-vous au secrétariat.</p>`,
+        <p>Pour toute question, adressez-vous au secrétariat.</p>`,
       lien: '/', lienTexte: 'Ouvrir mon espace étudiant', base: url });
     const r = await envoyerEmail({ to: p.email, subject: 'Votre espace étudiant — Institut Ilya Prigogine', html }).catch(err => ({ ok: false, erreur: err.message }));
     const statut = r?.ok === false ? 'echec' : (r?.simule ? 'simule' : 'envoye');
