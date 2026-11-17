@@ -52,6 +52,7 @@ import horaireRoutes, { migrerHoraire } from './routes/horaire.js';
 import statsDeliberationRoutes from './routes/statsDeliberation.js';
 import droitInscriptionRoutes, { migrerDroitInscription } from './routes/droitInscription.js';
 import importHistoriqueRoutes, { migrerHistorique } from './routes/importHistorique.js';
+import repriseSectionRoutes from './routes/repriseSection.js';
 import budgetRoutes, { migrerBudget } from './routes/budget.js';
 import demandesRoutes, { migrerDemandes } from './routes/demandes.js';
 import sauvegardesRoutes, { migrerSauvegardes, demarrerPlanificateur } from './routes/sauvegardes.js';
@@ -71,7 +72,7 @@ import fichesEvaluationRoutes, { migrerFiches } from './routes/fichesEvaluation.
 import conventionsRoutes, { migrerConventions } from './routes/conventions.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
-import diplomesRoutes, { migrerSectionDiplome } from './routes/diplomes.js';
+import diplomesRoutes, { migrerSectionDiplome, poserModelesDeSection } from './routes/diplomes.js';
 import annexe2Routes from './routes/annexe2.js';
 import annexe1Routes from './routes/annexe1.js';
 import sleRoutes, { migrerSLE } from './routes/sle.js';
@@ -3022,6 +3023,7 @@ try { db.exec('ALTER TABLE attribution ADD COLUMN fonds_propres INTEGER NOT NULL
 // La coordination qui supervise un groupe du tronc commun (3.5.109) : `lib/supervisionGroupes.js`.
 (await import('./lib/supervisionGroupes.js')).migrerSupervision();
 try { migrerSectionDiplome(db); } catch (e) { console.error('[migration] données du titre :', e.message); }
+poserModelesDeSection();
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
 try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }
@@ -3276,6 +3278,7 @@ app.use('/api/stats-deliberation', garderModule('stats-deliberation'), statsDeli
 app.use('/api/due', garderModule('due'), dueRoutes);
 app.use('/api/diplomes', garderModule('diplomes'), diplomesRoutes);
 app.use('/api/droit-inscription', garderModule('droit-inscription'), droitInscriptionRoutes);
+app.use('/api/import-historique/reprise-section', garderModule('import-historique'), repriseSectionRoutes);
 app.use('/api/import-historique', garderModule('import-historique'), importHistoriqueRoutes);
 app.use('/api/budget', garderModule('budget'), budgetRoutes);
 app.use('/api/demandes', garderModule('demandes'), demandesRoutes);

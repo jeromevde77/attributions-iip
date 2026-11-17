@@ -74,6 +74,7 @@ import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
 import ImportListe from '../components/ImportListe.jsx';
+import RepriseSection from '../components/RepriseSection.jsx';
 import DroitInscription from '../components/DroitInscription.jsx';
 import FraisScolarite from '../components/FraisScolarite.jsx';
 import ImportHistorique from '../components/ImportHistorique.jsx';
@@ -3058,6 +3059,7 @@ export default function Etudiants() {
   const [visitesStage, setVisitesStage] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
+  const [repriseSection, setRepriseSection] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
   const [tableauPlat, setTableauPlat] = useState(false);
   const [lieuxStage, setLieuxStage] = useState(false);
@@ -4293,6 +4295,11 @@ export default function Etudiants() {
               quoi: 'Créer ou compléter les dossiers depuis la liste officielle.',
               attend: "l'export eCampus (.xlsx)",
               onClick: () => setImportListe(true) },
+            /* REPRENDRE UNE SECTION D'UNE ANNÉE PASSÉE (3.5.514, ATNUP 2025-2026) : la liste des inscrits et celle des diplômés. */
+            { cle: 'reprise', ok: peutImporter, titre: 'Reprendre une section d’une année passée',
+              quoi: 'Créer ou compléter les dossiers, les inscrire aux unités de la section et poser le résultat global des diplômés (la même cote dans chaque unité).',
+              attend: 'la liste des inscrits et la liste des diplômés (.xlsx)',
+              onClick: () => setRepriseSection(true) },
             { cle: 'pae', ok: peutImporter && !transfertsFermes.pae_classeur, titre: 'Classeur PAE',
               quoi: 'Reprendre les programmes annuels déjà composés ailleurs.',
               attend: 'un classeur PAE (.xlsx)',
@@ -4394,6 +4401,7 @@ export default function Etudiants() {
       {importListe && (
         <ImportListe annee={annee} onClose={() => setImportListe(false)} onImporte={charger} />
       )}
+      {repriseSection && <RepriseSection onClose={() => setRepriseSection(false)} onImporte={charger} />}
 
       {rapportPAE && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAE(false)} />

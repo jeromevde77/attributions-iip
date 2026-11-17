@@ -436,6 +436,14 @@ function seanceClose(ueNum, annee, session) {
  * divergent un jour — et ce jour-là, c'est un diplôme qui porte une mention
  * que personne n'a vue.
  */
+/* « FRUIT » DANS LE SECONDAIRE (3.5.514, certificat ATNUP 2025-2026 : 56 %, mention « Fruit »). La dernière mention se dit « Fruit »
+   dans l'enseignement secondaire — le procès-verbal (MENTIONS_PV) la connaissait déjà, le calcul rendait « Réussite » : aucune ligne ne
+   tombait dans son alinéa. */
+function mentionDuNiveau(mention, niveau) {
+  const n = String(niveau || '').toLowerCase();
+  return mention === 'Réussite' && (/^(ds|di)$/.test(n) || /secondaire/.test(n)) ? 'Fruit' : mention;
+}
+
 export function dossierDiplomation(section, annee) {
   const sec = db.prepare(`SELECT code, libelle, niveau, code_fwb, domaine,
     type_enseignement FROM section WHERE code = ?`).get(section) || { code: section };
@@ -486,6 +494,7 @@ export function dossierDiplomation(section, annee) {
       if (cEI) cEI.close = seanceClose(ei, cEI.annee, cEI.session);
 
     const m = calculerMention(lignes, cEI?.cote ?? null, regles);
+    m.mention = mentionDuNiveau(m.mention, sec.niveau);
 
     // CE QUI EMPÊCHERAIT LA PIÈCE D'ÊTRE JUSTE, dit avant de l'imprimer.
     const reserves = [];
@@ -714,6 +723,24 @@ function poserLogos(modele, logos) {
    section et de l'étudiant, le logo si co-diplomation, les signatures »). Ce
    qui diffère d'une section à l'autre passe par un champ, jamais par une copie
    du modèle : deux modèles finissent par dire deux choses. */
+/* LE MODÈLE PROPRE D'UNE SECTION (3.5.514, certificat ATNUP) : lucie_config « diplome_template_section » = { section: html }. Une section
+   qui en a un sort sur SON modèle — texte, signatures et mise en page compris ; les autres gardent le diplôme commun. Le certificat ATNUP
+   (modèle Word du secrétariat) y est posé une fois, au démarrage. */
+function modeleDeSection(code) {
+  try { const m = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_template_section'").get()?.valeur || '{}'); return m?.[code] || null; }
+  catch { return null; }
+}
+export async function poserModelesDeSection() {
+  try {
+    if (db.prepare("SELECT 1 FROM lucie_config WHERE cle = 'diplome_template_atnup_pose'").get()) return;
+    const { certificatAtnup } = await import('../services/certificat_atnup.js');
+    let m = {}; try { m = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_template_section'").get()?.valeur || '{}') || {}; } catch { m = {}; }
+    if (!m.ATNUP) m.ATNUP = certificatAtnup();
+    db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES ('diplome_template_section', ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(JSON.stringify(m));
+    db.prepare("INSERT INTO lucie_config (cle, valeur) VALUES ('diplome_template_atnup_pose', '1') ON CONFLICT(cle) DO NOTHING").run();
+  } catch (e) { console.error('[diplômes] modèle ATNUP :', e.message); }
+}
+
 async function modeleDiplome() {
   try {
     const row = db.prepare(
@@ -1354,7 +1381,27 @@ r.post('/pieces', authRequired,
   const styles = new Set();
   const manques = [];
 
-  if (veut.includes('diplome')) {
+  const modeleSection = veut.includes('diplome') ? modeleDeSection(sec.code) : null;
+  if (veut.includes('diplome') && modeleSection) {
+    // Le modèle propre de la section porte son texte et ses signatures : ni bloc de signataires, ni logos, ni président à demander.
+    const nomDirecteur = (() => { const t = String(ident.directeur || '').trim().split(/\s+/); return t.length > 1 ? `${t.slice(1).join(' ').toUpperCase()} ${t[0]}` : String(ident.directeur || ''); })();
+    for (const d of choisis) {
+      const f = d.genre === 'F';
+      const { html, manques: m } = remplir(modeleSection, {
+        nom_etudiant: d.nom, prenom_etudiant: d.prenom, nom_majuscules: String(d.nom || '').toUpperCase(),
+        genre: d.genre === 'F' ? 'F' : d.genre === 'H' ? 'H' : '',
+        ne_e: d.genre ? (f ? 'Née' : 'Né') : '', qu_il_elle: d.genre ? (f ? 'qu’elle' : 'qu’il') : '',
+        lieu_naissance: d.lieu_naissance, date_naissance: dateLongue(d.date_naissance),
+        annee: anneeDe(d), annee_slash: String(anneeDe(d)).replace('-', '/'), mention: d.mention.mention,
+        pourcent: d.mention.pourcent != null ? String(d.mention.pourcent) : '',
+        date_deliberation: dateLongue(dateDelib), ville_etab: ident.ville, directeur: ident.directeur, directeur_nom: nomDirecteur,
+        article_titulaire: d.genre ? (f ? 'La' : 'Le') : '',
+      });
+      pages.push({ t: `Certificat — ${d.nom} ${d.prenom}`, h: html, entier: true });
+      if (m.length) manques.push(`Certificat de ${d.nom} ${d.prenom} : ${m.join(', ')}`);
+    }
+  }
+  if (veut.includes('diplome') && !modeleSection) {
     const modele = await modeleDiplome();
     const ectsTotal = ectsDesUnites(dossier.requises);
 
@@ -1861,6 +1908,7 @@ r.post('/pv-section', authRequired,
     return res.status(403).json({ error: 'section hors de votre périmètre' });
   }
 
+  const niveauSection = db.prepare('SELECT niveau FROM section WHERE code = ?').get(section)?.niveau;
   const requises = unitesDeLaSection(section, an);
   const ei = epreuveIntegreeDe(requises);
   const marques = ids.map(() => '?').join(',');
@@ -1884,6 +1932,7 @@ r.post('/pv-section', authRequired,
     }));
     const coteEI = ei ? coteArretee(e.id, ei).cote : null;
     const m = calculerMention(determinantes, coteEI);
+    m.mention = mentionDuNiveau(m.mention, niveauSection);
     const resEI = ei ? resultatUE.get(e.id, ei)?.resultat : null;
     return {
       ...e,
