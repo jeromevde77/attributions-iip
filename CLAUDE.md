@@ -4577,7 +4577,12 @@ seuils ; le formulaire officiel rempli). `lib/attestationStib.js` : `eligibilite
 année, nom, prénom, naissance, date, cachet et signature sous « Sceau et signature… »), `composerStib` (PDF par LibreOffice, `docxToPdf`).
 Routes `GET /api/etudiants/:id/attestation-stib[/eligibilite]` (direction, secrétariat ; `force=1` passe outre les seuils). Fiche →
 Imprimer ou envoyer → Inscription ; espace de l'étudiant : centre de documents, code I-06, seulement s'il remplit les seuils
-(`composerCentre` délivre tel quel une pièce qui arrive déjà en PDF).
+(`composerCentre` délivre tel quel une pièce qui arrive déjà en PDF). **Dans Éditions** (3.5.527, Charles : « je ne le vois déjà pas dans Éditions ») : pièce `stib` de `PIECES_DOSSIER` (colonne
+Inscription, `pdfLot`) — `POST /api/etudiants/attestation-stib/lot` réunit en UN PDF (pdf-lib) les attestations des étudiants cochés qui
+remplissent les seuils, ouvert dans un onglet ; les écartés sont nommés dans les avis (en-tête `X-Lucie-Ecartes`). Pas encore par courriel. **Référencée comme toute pièce** (3.5.528, Charles : « il faut bien vérifier le référencement de toutes les pièces ») : `referencer()`
+pose sur la première page (pdf-lib) la référence inscrite au registre des pièces authentiques, le QR de vérification et le code I-06 ;
+déclarée au catalogue (`lib/documents.js`, `attestation_stib`). Le contrôle du référencement a trouvé deux pièces codées sans déclaration :
+le parcours (R-05) et le PAE (I-05), ajoutés.
 
 **L'ESPACE DE L'ÉTUDIANT : APERÇU SANS ADRESSE, COURS DISPENSÉS** (3.5.525-3.5.526, Charles, étudiante de test HURET Sophie). (1) Le
 portail n'admet un étudiant sans adresse d'institut que marqué `apercu_seul` ; Lucie ne posait la marque qu'à un étudiant sans fonction —
