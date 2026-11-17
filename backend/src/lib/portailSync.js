@@ -98,6 +98,8 @@ const fonctionsDonnees = (id, apercus = enApercu()) => (apercus.has(Number(id)) 
 /** Les étudiants que le portail connaît : actifs, non archivés, avec une adresse d'école. */
 function etudiantsVisibles() {
   const apercus = enApercu();
+  // Les étudiants d'essai (3.5.540) : leur espace porte le bandeau « Version d'essai ».
+  let essais = new Set(); try { essais = new Set((JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'fonctions'").get()?.valeur || '{}').etudiants_essai || []).map(Number)); } catch { /* */ }
   const l = db.prepare(`SELECT id, nom, prenom, email_ecole, id_ecampus FROM etudiant
     WHERE COALESCE(actif, 1) = 1 AND COALESCE(sortie_statut, '') <> 'archive'
       AND (email_ecole LIKE '%@%' OR id IN (SELECT value FROM json_each(?)))`).all(JSON.stringify([...apercus]));
@@ -114,7 +116,7 @@ function etudiantsVisibles() {
       // « Aperçu seulement » aussi pour un étudiant SANS adresse d'institut (3.5.525, HURET Sophie, étudiante de test) : le portail
       // n'admet un étudiant sans adresse que sous cette marque — il la rejetait, et l'aperçu répondait « le portail n'a pas reçu ».
       fonctions, donnees: apercu ? TOUTES_FONCTIONS : fonctions, apercu_seul: apercu && (!fonctions.length || !String(e.email_ecole || '').includes('@')),
-      matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))] };
+      matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))], essai: essais.has(Number(e.id)) };
   }).filter(e => e.fonctions.length || e.apercu_seul);
 }
 

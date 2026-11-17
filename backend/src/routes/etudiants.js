@@ -10732,7 +10732,7 @@ r.get('/:id/attestation-stib', authRequired, roleRequired('admin', 'editeur'), a
   try {
     const { composerStib } = await import('../lib/attestationStib.js');
     const forcer = req.query.force === '1' && req.user?.role !== 'service';
-    const d = await composerStib(Number(req.params.id), String(req.query.annee || anneeDeTravail(req)), { force: forcer, apercu: req.query.apercu === '1', mobib: String(req.query.mobib || '').replace(/\D/g, '').slice(0, 19) });
+    const d = await composerStib(Number(req.params.id), String(req.query.annee || anneeDeTravail(req)), { force: forcer, apercu: req.query.apercu === '1', specimen: req.query.specimen === '1', mobib: String(req.query.mobib || '').replace(/\D/g, '').slice(0, 19) });
     if (d.erreur) return res.status(d.code || 409).json({ error: d.erreur, raisons: d.raisons || [] });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${d.nom}"`);

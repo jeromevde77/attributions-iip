@@ -4616,6 +4616,17 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LE BOUTON DU COURRIEL D'INVITATION MENAIT NULLE PART** (3.5.541, Charles sur iPhone : « Safari ne peut pas ouvrir la page »,
+adresse `…lucie-iip.behttps…`). `templateNotif` colle `base` + `lien` ; l'invitation passait l'adresse complète en `lien`. Elle passe
+`'/'`, et `templateNotif` prend tel quel un `lien` qui commence par `http`.
+
+**LES ÉTUDIANTS D'ESSAI : « SPÉCIMEN — ESSAI »** (3.5.540, Charles : « mettre sur chaque document produit pour ce test : Spécimen —
+Essai » ; « que les écrans aient aussi cette mention »). Pour un étudiant d'essai (`fonctions.etudiants_essai`) : `composerCentre` appelle la
+route avec l'en-tête `X-Lucie-Specimen: 1` — `filigraner` (requête courante) n'inscrit rien au registre des pièces authentiques et écrit
+« SPÉCIMEN — pièce sans valeur » à la place du QR — puis `poserSpecimen(html, 'SPÉCIMEN — ESSAI')` en travers de chaque page ; une pièce
+déjà en PDF (STIB) reçoit `specimen=1` (`referencer` : pas d'inscription, mention en travers). Les écrans : `essai` déposé avec l'étudiant
+(`etudiantsVisibles`, colonne `etudiant.essai` du portail, `/moi`) et un bandeau « Version d'essai » en tête de l'espace.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

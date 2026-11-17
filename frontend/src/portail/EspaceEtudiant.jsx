@@ -1671,6 +1671,9 @@ function Espace() {
         }} />)}
       <div className="space-y-4" data-visite="contenu">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
+        {/* LA VERSION D'ESSAI (3.5.540, Charles : « je veux que les écrans aient aussi cette mention ») : un étudiant d'essai le lit sur
+            chaque page ; ses documents portent « SPÉCIMEN — ESSAI ». */}
+        {d?.essai && <Encadre etat="surveiller"><b>Version d’essai</b> — vous testez l’espace étudiant en avant-première. Les documents que vous obtenez ici portent la mention « SPÉCIMEN — ESSAI » et n’ont pas de valeur officielle. Vos remarques : Messages → Écrire à la direction.</Encadre>}
         {d?.apercu && <Encadre etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</Encadre>}
         {d?.candidat && <Encadre etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou jusqu’à votre adresse de l’institut.</Encadre>}
