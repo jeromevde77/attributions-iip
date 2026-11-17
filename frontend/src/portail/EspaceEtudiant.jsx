@@ -1062,7 +1062,6 @@ function MesMessages({ onErreur, onLus }) {
   // Une réponse en route : on regarde vite ; sinon toutes les trente secondes (une réponse de l'école arrive).
   useEffect(() => { const t = setTimeout(charger, enCoursFil ? 5000 : 30000); return () => clearTimeout(t); }, [enCoursFil, l, charger]);
   if (!l) return <ChargementLucie />;
-  if (!l.length) return <p className="text-sm text-slate-500">Aucun message pour l’instant. Les messages du secrétariat, de votre coordination et de vos enseignants paraîtront ici.</p>;
   const ouvrir = async m => {
     setOuvert(o => (o === m.id ? null : m.id)); setTexte('');
     if (!m.lu) { try { await appel('POST', `/messages/${m.id}/lu`); charger(); } catch (e) { onErreur(e); } }
@@ -1073,8 +1072,10 @@ function MesMessages({ onErreur, onLus }) {
   };
   /* LA LISTE STANDARD (3.5.331, audit) : une ligne par message (`LigneEtat`), comme les textes et documents de l'enseignant ; non lu
      = liseré bleu ; le message et son fil se déplient sous la ligne. */
-  return (
-    <ListeEtats>
+  return (<div className="space-y-3">
+    <EcrireDirection onEnvoye={charger} onErreur={onErreur} />
+    {!l.length && <p className="text-sm text-slate-500">Aucun message pour l’instant. Les messages du secrétariat, de votre coordination et de vos enseignants paraîtront ici.</p>}
+    {l.length > 0 && <ListeEtats>
       {l.map(m => (
         <LigneEtat key={m.id} etat={m.lu ? 'neutre' : 'disponible'} icone={IconMessages} titre={m.objet}
           meta={!m.lu ? <PastilleEtat etat="disponible">non lu</PastilleEtat> : null}
@@ -1087,12 +1088,44 @@ function MesMessages({ onErreur, onLus }) {
                 style={{ borderColor: f.de === 'etudiant' ? 'rgb(var(--gris-300))' : 'var(--c-disponible)' }}>
                 <div className="text-second text-slate-500 mb-0.5">{f.de === 'etudiant' ? 'Vous' : f.auteur} · {jourFr(f.le)}{f.en_cours ? ' · envoi en cours…' : ''}</div>{f.corps}
               </div>))}
+            {m.en_cours ? <p className="text-second text-slate-500">Envoi en cours… La direction le recevra dans un instant ; sa réponse paraîtra ici.</p> : <>
             <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3} placeholder={`Répondre à ${m.auteur}…`} className="controle w-full !h-auto py-2" />
-            <button type="button" className="bouton bouton-fort" disabled={!texte.trim() || enCours} onClick={() => envoyer(m)}>Répondre</button>
+            <button type="button" className="bouton bouton-fort" disabled={!texte.trim() || enCours} onClick={() => envoyer(m)}>Répondre</button></>}
           </div>}
         </LigneEtat>))}
-    </ListeEtats>
-  );
+    </ListeEtats>}
+  </div>);
+}
+
+/* ÉCRIRE À LA DIRECTION (3.5.538, Charles : « ajoute le bouton Écrire à la direction ») : un message de l'étudiant sans message de départ ;
+   il arrive à la direction, pas à la coordination, et la réponse revient dans ses messages. */
+function EcrireDirection({ onEnvoye, onErreur }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [objet, setObjet] = useState('');
+  const [corps, setCorps] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const [fait, setFait] = useState(false);
+  const envoyer = async () => {
+    setEnCours(true);
+    try { await appel('POST', '/messages/nouveau', { objet, corps }); setFait(true); setObjet(''); setCorps(''); setOuvert(false); onEnvoye?.(); }
+    catch (e) { onErreur(e); } finally { setEnCours(false); }
+  };
+  return (<>
+    <div className="flex items-center gap-3">
+      <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => { setFait(false); setOuvert(true); }}><IconMessages size={15} /> Écrire à la direction</button>
+      {fait && <span className="text-second text-slate-500">Message envoyé : la réponse paraîtra dans vos messages.</span>}
+    </div>
+    {ouvert && (
+      <FenetreEspace titre="Écrire à la direction" sous="Votre message arrive directement à la direction de l’Institut" onFermer={() => setOuvert(false)}
+        pied={<div className="flex gap-2 justify-end w-full">
+          <button type="button" className="bouton" onClick={() => setOuvert(false)}>Annuler</button>
+          <button type="button" className="bouton bouton-fort" disabled={!corps.trim() || enCours} onClick={envoyer}>Envoyer</button></div>}>
+        <div className="space-y-2">
+          <input className="controle w-full" placeholder="Objet (facultatif)" value={objet} maxLength={150} onChange={e => setObjet(e.target.value)} />
+          <textarea className="controle w-full !h-auto py-2" rows={8} placeholder="Votre message…" value={corps} maxLength={5000} onChange={e => setCorps(e.target.value)} />
+        </div>
+      </FenetreEspace>)}
+  </>);
 }
 
 /** LES FRAIS ESTIMÉS (3.1.526) : la formule de Lucie (backend/src/lib/fraisEstimes.js, `estimerFrais`), recopiée telle

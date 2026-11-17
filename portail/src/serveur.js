@@ -909,8 +909,13 @@ pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const enAttente = db.prepare(`SELECT r.corps, r.le FROM message_reponse r WHERE r.message_id = ? AND r.etudiant_id = ?
     AND NOT EXISTS (SELECT 1 FROM message_fil f WHERE f.message_id = r.message_id AND f.etudiant_id = r.etudiant_id AND f.de = 'etudiant' AND f.le = r.le AND f.corps = r.corps)
     ORDER BY r.id`);
-  res.json(l.map(m => ({ id: m.id, objet: m.objet, corps: m.corps, auteur: m.auteur, envoye_le: m.envoye_le, lu: !!(m.lu_lucie || m.lu_ici),
-    fil: [...fil.all(m.id, id), ...enAttente.all(m.id, id).map(r => ({ de: 'etudiant', corps: r.corps, le: r.le, en_cours: true }))] })));
+  // Ses messages à la direction pas encore ouverts en fil par Lucie (3.5.538) : montrés « en cours d'envoi ».
+  const nouveaux = db.prepare(`SELECT id, objet, corps, le FROM message_reponse WHERE message_id = 0 AND etudiant_id = ?
+    AND (releve_le IS NULL OR releve_le > datetime('now', '-10 minutes')) ORDER BY id DESC`).all(id)
+    .filter(r => !l.some(m => m.objet && r.objet && m.objet.endsWith(r.objet) && m.envoye_le >= r.le.slice(0, 10)));
+  res.json([...nouveaux.map(r => ({ id: `n${r.id}`, objet: r.objet, corps: r.corps, auteur: 'Vous → la direction', envoye_le: r.le, lu: true, fil: [], en_cours: true })),
+    ...l.map(m => ({ id: m.id, objet: m.objet, corps: m.corps, auteur: m.auteur, envoye_le: m.envoye_le, lu: !!(m.lu_lucie || m.lu_ici),
+    fil: [...fil.all(m.id, id), ...enAttente.all(m.id, id).map(r => ({ de: 'etudiant', corps: r.corps, le: r.le, en_cours: true }))] }))]);
 });
 const monMessage = (req, res) => {
   const ok = db.prepare('SELECT 1 FROM message_dest WHERE message_id = ? AND etudiant_id = ?').get(Number(req.params.id), req.etudiant.id);
@@ -920,6 +925,20 @@ const monMessage = (req, res) => {
 pub.post('/api/portail/messages/:id/lu', connecte, exige('messages'), (req, res) => {
   if (!monMessage(req, res)) return;
   db.prepare('INSERT OR IGNORE INTO message_lu (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
+  res.json({ ok: true });
+});
+/* ÉCRIRE À LA DIRECTION (3.5.538, Charles : « ajoute le bouton Écrire à la direction ») : un message de l'étudiant SANS message de
+   départ. Noté ici (message_id = 0, avec son objet) ; Lucie le relève, l'ouvre comme un fil adressé à la direction, et le redépose. */
+try { db.exec('ALTER TABLE message_reponse ADD COLUMN objet TEXT'); } catch { /* déjà là */ }
+pub.post('/api/portail/messages/nouveau', connecte, exige('messages'), (req, res) => {
+  const objet = String(req.body?.objet || '').trim().slice(0, 150);
+  const corps = String(req.body?.corps || '').trim();
+  if (!corps) return res.status(400).json({ error: 'Écrivez votre message.' });
+  if (corps.length > 5000) return res.status(400).json({ error: 'Cinq mille caractères au plus.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM message_reponse WHERE etudiant_id = ? AND le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 20) {
+    return res.status(429).json({ error: 'Trop de messages en une heure. Réessayez plus tard.' });
+  }
+  db.prepare('INSERT INTO message_reponse (message_id, etudiant_id, corps, objet) VALUES (0,?,?,?)').run(req.etudiant.id, corps, objet || 'Message à la direction');
   res.json({ ok: true });
 });
 pub.post('/api/portail/messages/:id/repondre', connecte, exige('messages'), (req, res) => {
@@ -1261,7 +1280,7 @@ int.get('/interne/releve', (req, res) => {
     cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
-    messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
+    messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le, objet FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
   });
 });
 int.post('/interne/acquitter', (req, res) => {
