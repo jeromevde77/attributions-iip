@@ -10693,6 +10693,23 @@ r.post('/attestation-inscription/heures', authRequired, roleRequired('admin', 'e
   });
   res.json({ lignes });
 });
+/* L'ATTESTATION DE FRÉQUENTATION SCOLAIRE DE LA STIB (3.5.524, lib/attestationStib.js) : le formulaire officiel rempli, en PDF.
+   Direction et secrétariat ; `force=1` passe outre les seuils de la STIB (âge, heures et jours par semaine), le reste de Lucie non. */
+r.get('/:id/attestation-stib/eligibilite', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  const { eligibiliteStib } = await import('../lib/attestationStib.js');
+  res.json(eligibiliteStib(Number(req.params.id), String(req.query.annee || anneeDeTravail(req))));
+});
+r.get('/:id/attestation-stib', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  try {
+    const { composerStib } = await import('../lib/attestationStib.js');
+    const forcer = req.query.force === '1' && req.user?.role !== 'service';
+    const d = await composerStib(Number(req.params.id), String(req.query.annee || anneeDeTravail(req)), { force: forcer });
+    if (d.erreur) return res.status(d.code || 409).json({ error: d.erreur, raisons: d.raisons || [] });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${d.nom}"`);
+    res.send(d.pdf);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 r.get('/:id/attestation-inscription', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });

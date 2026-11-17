@@ -4569,6 +4569,16 @@ peuvent rendre d'avis »). `avantDepart` (`mes_cours_depuis`, 12 octobre 2026) c
 avant cette date — 18 des 21 en instruction (appelés du 3 au 9 octobre) — et les VA déclarées recevables avant elle. Désormais seul un
 dossier déjà DÉCIDÉ d'avant la date reste caché (`/mes-cours/amenagements`, `/mes-cours/valorisations`).
 
+**L'ATTESTATION STIB** (3.5.524, Charles, 17 novembre 2026 : « je dois produire cela et cela doit être disponible dans l'espace
+étudiant » ; tranché : pas de SNCB — son formulaire exclut « les étudiants de l'enseignement pour adultes » ; la STIB si Lucie vérifie ses
+seuils ; le formulaire officiel rempli). `lib/attestationStib.js` : `eligibiliteStib` (moins de 25 ans ; horaire de l'année :
+`calculDixSept` pour les heures, moyenne des jours de cours distincts par semaine, « soir » = la moitié des minutes à 17 h ou après ;
+20 h / 4 jours le jour, 9 h / 3 jours le soir), `remplirStibDocx` (le Word de la STIB, `backend/assets/formulaires-transport/stib.docx` :
+année, nom, prénom, naissance, date, cachet et signature sous « Sceau et signature… »), `composerStib` (PDF par LibreOffice, `docxToPdf`).
+Routes `GET /api/etudiants/:id/attestation-stib[/eligibilite]` (direction, secrétariat ; `force=1` passe outre les seuils). Fiche →
+Imprimer ou envoyer → Inscription ; espace de l'étudiant : centre de documents, code I-06, seulement s'il remplit les seuils
+(`composerCentre` délivre tel quel une pièce qui arrive déjà en PDF).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

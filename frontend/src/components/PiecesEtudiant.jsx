@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IconSend, IconFileText, IconFileZip, IconCertificate, IconWorld, IconBriefcase, IconAccessible } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 import SuiviEspace from './SuiviEspace.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { GroupeFenetre, PieceFenetre } from './ui.jsx';
@@ -124,6 +125,26 @@ export default function PiecesEtudiant({ etud, annee }) {
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
 
+  /* L'ATTESTATION STIB (3.5.524) : le formulaire officiel rempli, déjà en PDF. Lucie vérifie les seuils de la STIB ; s'ils ne sont pas
+     atteints, elle dit pourquoi et le secrétariat peut la produire quand même (c'est l'école qui certifie). */
+  const stib = async () => {
+    setEnCours('stib'); setErreur(null);
+    try {
+      const base = `/api/etudiants/${id}/attestation-stib?annee=${encodeURIComponent(annee)}`;
+      const el = await fetch(`/api/etudiants/${id}/attestation-stib/eligibilite?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() }).then(r => r.json()).catch(() => ({}));
+      let url = base;
+      if (!el.ok) {
+        if (!(await demander({ titre: 'Attestation STIB', ton: 'alerte', confirmer: 'Produire quand même', annuler: 'Annuler',
+          message: `Lucie ne la délivrerait pas à l’étudiant : ${(el.raisons || ['seuils non vérifiés']).join(' ; ')}.\n\nLa STIB demande que l’établissement certifie 20 h sur 4 jours (jour) ou 9 h sur 3 jours (soir) par semaine, pour un étudiant de moins de 25 ans.` }))) return;
+        url = `${base}&force=1`;
+      }
+      const r = await fetch(url, { headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
+      const nom = (r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'Attestation_STIB.pdf';
+      telecharger(await r.blob(), nom);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+
   const a = encodeURIComponent(annee);
   const groupes = [
     ['Résultats', [
@@ -147,6 +168,7 @@ export default function PiecesEtudiant({ etud, annee }) {
         clic: () => apercu('att-ins', `/api/etudiants/${id}/attestation-inscription?annee=${a}`, "Attestation d'inscription", 'attestation_inscription') },
       { cle: 'att-af', icone: IconFileText, titre: "Attestation d'inscription — allocations familiales", sous: annee,
         clic: () => apercu('att-af', `/api/etudiants/${id}/attestation-inscription?variante=allocations&annee=${a}`, "Attestation — allocations familiales", 'attestation_allocations') },
+      { cle: 'stib', icone: IconFileText, titre: 'Attestation de fréquentation scolaire — STIB', sous: `${annee} — abonnement scolaire, moins de 25 ans`, clic: stib },
       { cle: 'frais', icone: IconFileText, titre: 'Frais de scolarité', sous: annee,
         clic: () => apercu('frais', `/api/frais-scolarite/etudiant/${id}/document?annee=${a}`, 'Frais de scolarité', 'frais_scolarite') },
     ]],
