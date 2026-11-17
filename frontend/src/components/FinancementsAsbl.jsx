@@ -69,6 +69,8 @@ export default function FinancementsAsbl() {
       <Td align="droite">{n1(par(v?.etudiants, v?.etp))}</Td>
       <Td align="droite">{eur(v?.charges)}</Td>
       <Td align="droite">{eur(v?.produits)}</Td>
+      {avecDecret && <Td align="droite" title={v?.decret_detail ? `Moyenne des étudiants comptés ${v.decret_detail.annees.map(([a, n]) => `${a} : ${n}`).join(', ')} = ${v.decret_detail.moyenne} × MUCE ${eur(v.decret_detail.muce)} × ${v.decret_detail.ponderation}` : undefined}>
+        {v?.decret != null ? <>{eur(v.decret)}<span className={`block text-mention ${v.decret - (v.produits || 0) >= 0 ? 'text-[var(--c-reussi)]' : 'text-[var(--c-refuse)]'}`}>{v.decret - (v.produits || 0) >= 0 ? '+' : '−'}{eur(Math.abs(v.decret - (v.produits || 0)))} / comptes</span></> : '—'}</Td>}
       <Td align="droite" className={v?.resultat < 0 ? '!text-[var(--c-refuse)]' : ''}>{eur(v?.resultat)}</Td>
       <Td align="droite" title={v?.estime ? 'ETP × coût moyen d’un ETP statutaire du COR — estimation, déjà comprise dans les charges' : v?.federation ? 'Payés par la Fédération, hors des comptes de l’ASBL' : undefined}>
         {ens != null ? <>{v?.estime ? '≈ ' : ''}{eur(ens)}{v?.federation && <span className="text-mention text-slate-400"> FWB</span>}</> : '—'}</Td>
@@ -78,6 +80,7 @@ export default function FinancementsAsbl() {
     </>);
   };
   const M = METRIQUES.find(m => m[0] === metrique);
+  const avecDecret = lignes.some(l => Object.values(l.par).some(v => v?.decret != null));
 
   return (
     <div className="space-y-4">
@@ -113,12 +116,13 @@ export default function FinancementsAsbl() {
             <p><b>Étudiants et ETP</b> : l’année académique qui finit dans l’exercice. HELB : étudiants finançables et ETP par département, et par cursus quand la HELB les publie. IIP : inscrits et ETP de Lucie.</p>
             <p><b>Enseignants</b> : HELB = ETP × {eur(d.prix_etp_helb)} (coût moyen d’un ETP statutaire du COR) — une estimation, déjà comprise dans les charges. IIP (FWB) = coût des enseignants payés par la Fédération, au prix de la convention — hors des comptes.</p>
             <p><b>Coût complet</b> = charges + enseignants payés par la Fédération.</p>
+            <p><b>Selon le décret</b> : la HELB répartit son allocation dans les comptes au même montant par étudiant (« un étudiant vaut un étudiant »). Le décret du 9 septembre 1996 (art. 17) finance chaque cursus en UCE : étudiants comptés, en moyenne sur les trois années académiques précédentes, × MUCE × la pondération du groupe du cursus. Calculé pour les cursus dont la pondération est réglée (en bas de page). L’écart se lit face aux produits des comptes.</p>
           </BulleAide>
         </EnteteCarte>
         <Tableau className="!border-0 !rounded-none" dense>
           <TableauEntete>
             <Th>Poste</Th><Th align="droite">Étudiants</Th><Th align="droite">ETP ens.</Th><Th align="droite">Étud. / ETP</Th>
-            <Th align="droite">Charges</Th><Th align="droite">Produits</Th><Th align="droite">Résultat</Th>
+            <Th align="droite">Charges</Th><Th align="droite">Produits</Th>{avecDecret && <Th align="droite">Selon le décret</Th>}<Th align="droite">Résultat</Th>
             <Th align="droite">Enseignants</Th><Th align="droite">Coût complet</Th><Th align="droite">Coût / étud.</Th><Th align="droite">Produits / étud.</Th>
           </TableauEntete>
           <tbody>
@@ -160,5 +164,42 @@ export default function FinancementsAsbl() {
           </tbody>
         </Tableau>
       </div>
+      <Ponderations d={d} onFait={() => { setEssai(0); setD(null); setTour(t => t + 1); }} />
+    </div>);
+}
+
+/* LA PONDÉRATION DU DÉCRET, CURSUS PAR CURSUS (3.5.512, Charles : « chaque cursus, son groupe »). Seule celle de TIM (1,5, paramédical)
+   est connue d'office ; la direction règle les autres. Un cursus sans pondération n'est pas calculé. */
+function Ponderations({ d, onFait }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [val, setVal] = useState(() => Object.fromEntries(Object.entries(d.ponderations || {}).map(([k, v]) => [k, String(v).replace('.', ',')])));
+  const [msg, setMsg] = useState(null);
+  const enregistrer = async () => {
+    setMsg(null);
+    const r = await fetch('/api/pilotage/financements/ponderations', { method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ponderations: val }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return setMsg(j.error || `Erreur ${r.status}`);
+    onFait();
+  };
+  return (
+    <div className="carte overflow-hidden sans-impression">
+      <EnteteCarte titre="La pondération du décret, cursus par cursus" sous="Le groupe de chaque cursus de la HELB fixe sa pondération (TIM : 1,5, paramédical). Vide : pas calculé.">
+        <button type="button" className="bouton" onClick={() => setOuvert(o => !o)}>{ouvert ? 'Fermer' : 'Régler'}</button>
+      </EnteteCarte>
+      {ouvert && (
+        <div className="p-3 space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {(d.cursus_helb || []).map(c => (
+              <label key={c} className="flex items-center justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate" title={c}>{c}</span>
+                <input className="controle !h-8 w-20 text-right" inputMode="decimal" placeholder="—" value={val[c] ?? ''}
+                  onChange={e => setVal(x => ({ ...x, [c]: e.target.value }))} />
+              </label>))}
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="button" className="bouton bouton-fort" onClick={enregistrer}>Enregistrer et recalculer</button>
+            {msg && <span className="text-second text-[var(--c-refuse)]">{msg}</span>}
+          </div>
+        </div>)}
     </div>);
 }

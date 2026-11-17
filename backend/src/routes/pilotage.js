@@ -6,7 +6,8 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { financementsAsbl, financementsPret, viderFinancements } from '../lib/financementsAsbl.js';
+import { financementsAsbl, financementsPret, viderFinancements, CURSUS } from '../lib/financementsAsbl.js';
+import { poserPonderations, ponderationsCursus, financementDecret } from '../lib/financementDecret.js';
 import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, enseignantsIipCivil, estimationAnnee, allocationCivile, evolutionAttributions } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
@@ -488,6 +489,24 @@ r.get('/lecture', authRequired, (req, res) => {
               non_impute: ajout, charges_reelles: v.charges + ajout, resultat_reel: v.resultat - ajout };
           });
           let helb = h ? reelle(serie(h)) : null, iip = i ? serie(i) : null;
+          /* LE FINANCEMENT SELON LE DÉCRET, À CÔTÉ DES SUBSIDES DES COMPTES (3.5.512, Charles : « à la HELB, un étudiant vaut un
+             étudiant […] mais un étudiant TIM est financé via les UCE avec le facteur 1,5 »). Pour un exercice réalisé : subsides des
+             comptes = produits − quote-part des frais généraux (= charges hors personnel imputé, la paire neutre) ; financement selon le
+             décret = étudiants comptés par la HELB, lissés sur trois ans × MUCE × pondération du cursus ; résultat selon le décret =
+             résultat réel − subsides des comptes + financement selon le décret. Sans pondération réglée, rien n'est calculé. */
+          const pondH = h ? ponderationsCursus()[h.poste] : null;
+          const serieH = h ? COMPARAISON_HE.cursus.find(c => c.cursus === CURSUS[h.poste])?.series : null;
+          if (helb && pondH && serieH) {
+            const etu = Object.fromEntries(Object.entries(serieH).map(([a, v]) => [a, v[0]]));
+            const anneesC = new Set(S.totaux.exercices.map(e => e.annee));
+            const existe = a => { const deb = a.slice(0, 4); if (!anneesC.has(deb)) return true; const r = h.ex[`${deb}|realise`]; return !!(r && (r.charges || r.produits)); };
+            helb = helb.map(v => {
+              if (v.nature !== 'réalisé' || v.deja_impute == null) return v;
+              const dec = financementDecret(etu, Number(v.annee), pondH, existe); if (!dec) return v;
+              const fg = Math.max(0, v.charges - v.deja_impute), subsides = Math.max(0, v.produits - fg);
+              return { ...v, subsides_comptes: subsides, allocation_decret: dec.montant, decret_detail: dec, resultat_decret: (v.resultat_reel ?? v.resultat) - subsides + dec.montant };
+            });
+          }
           /* UN BUDGET NE DIT PAS LE RÉEL ; LUCIE ESTIME (3.5.468, Charles : « une estimation sur 2026 et 26-27 en fonction des inscrits ;
              tu sais combien ils paient ; les attributions tu les as »). Pour une codiplomation, un exercice seulement budgété est remplacé
              par l'estimation de Lucie, pour toute l'ASBL (côté HELB et côté IIP réunis) : une année civile = 8/12 de l'année scolaire qui
@@ -548,6 +567,12 @@ r.get('/lecture', authRequired, (req, res) => {
 });
 
 /* LES FINANCEMENTS PAR SECTION ET DÉPARTEMENT DE L'ASBL (3.5.511) : lib/financementsAsbl.js. Direction seule (les comptes). */
+/* LA PONDÉRATION DU DÉCRET PAR CURSUS (3.5.512) : réglée par la direction, lue par les financements et la page d'une section. */
+r.put('/financements/ponderations', authRequired, (req, res) => {
+  if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  try { const p = poserPonderations(req.body?.ponderations || {}); viderFinancements(); MEMO_LECTURE.clear(); res.json({ ok: true, ponderations: p }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
 let EN_COURS_FIN = false, ERREUR_FIN = null;
 r.get('/financements', authRequired, (req, res) => {
   if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });

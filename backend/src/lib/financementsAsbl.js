@@ -11,11 +11,12 @@
    Rien d'une personne : des totaux. */
 import db from '../db/index.js';
 import { syntheseAsbl, realiseComplet } from './sourcesReference.js';
+import { ponderationsCursus, financementDecret } from './financementDecret.js';
 import { departementsHe, COMPARAISON_HE, prixHelb, coutMemo, enseignantsIipCivil } from './rapportIipHelb.js';
 
 const DEPT = { 'Technologies et Economie': 'Technoeco', 'Santé': 'Santé', 'Social': 'Social', 'Communication et Médias audiovisuels': 'COMAV' };
 // Le cursus des comptes → celui de la comparaison ETP de la HELB (les intitulés diffèrent).
-const CURSUS = {
+export const CURSUS = {
   'Informatique : Développement d\'applications': 'Informatique de gestion', 'Informatique de gestion': 'Informatique de gestion', 'Cyber sécurité': 'Cybersécurité', 'Electronique': 'Électronique appliquée',
   'Facility management': 'Facility management', 'Ergothérapie': 'Ergothérapie (CEB)', 'Podologie': 'Podologie', 'Sage-femme': 'Sage-femme',
   'Soins infirmiers': 'Soins infirmiers', 'Hygiéniste bucco-dentaire': 'Hygiéniste bucco-dentaire', 'Orthoptie': 'Orthoptie',
@@ -39,6 +40,7 @@ export function financementsAsbl() {
   if (!S) return null;
   const annees = [...new Set(S.totaux.exercices.filter(e => e.nature === 'realise').map(e => e.annee))].filter(a => realiseComplet(S.totaux, a)).sort();
   const D = departementsHe();
+  const POND = ponderationsCursus();
   const prix = prixHelb().moyen;
   const acad = A => `${Number(A) - 1}-${A}`;
   // Les chiffres de Lucie, par année académique (lourds : une fois chacun).
@@ -96,7 +98,14 @@ export function financementsAsbl() {
         const c = cursusHe.get(CURSUS[p.poste]);
         // Un cursus sans charge ni produit au dernier exercice (pas encore ouvert) ne s'affiche pas.
         if (!(p.ex[`${der}|realise`]?.charges || p.ex[`${der}|realise`]?.produits)) continue;
-        ajouter(p, 2, A => { const v = c?.series?.[acad(A)]; return v ? { etudiants: r0(v[0]), etp: r2(v[1]), enseignants: ens(v[1]), estime: true } : {}; });
+        // Le financement selon le décret (3.5.512) : étudiants comptés lissés × MUCE × pondération du cursus. Une année académique
+        // compte zéro si le cursus n'avait aucune activité dans les comptes l'année civile où elle commence (il n'existait pas).
+        const pond = POND[p.poste];
+        const serie = c?.series ? Object.fromEntries(Object.entries(c.series).map(([a, v]) => [a, v[0]])) : null;
+        const existe = a => { const deb = a.slice(0, 4); if (!annees.includes(deb)) return true; const r = p.ex[`${deb}|realise`]; return !!(r && (r.charges || r.produits)); };
+        ajouter(p, 2, A => { const v = c?.series?.[acad(A)]; const dec = pond ? financementDecret(serie, Number(A), pond, existe) : null;
+          return { ...(v ? { etudiants: r0(v[0]), etp: r2(v[1]), enseignants: ens(v[1]), estime: true } : {}),
+            ...(pond ? { ponderation: pond } : {}), ...(dec ? { decret: dec.montant, decret_detail: dec } : {}) }; });
       } else ajouter(p, 1);   // l'administration de la HELB
     } else if (p.bloc === 'Institut Ilya Prigogine') {
       if (p.niveau === 0) {
@@ -107,6 +116,11 @@ export function financementsAsbl() {
         ajouter(p, 1, A => { const x = code && deLucie(acad(A))?.get(code); return x ? { etudiants: x.inscrits, etp: x.etp, enseignants: x.cout, federation: true } : {}; });
       }
     } else ajouter(p, p.niveau === 0 ? 0 : 1);
+  }
+  // Un département porte le financement selon le décret quand chacun de ses cursus en a un.
+  for (const l of lignes.filter(x => x.bloc === 'HELB' && x.niveau === 1 && /^Département /.test(x.libelle))) {
+    const dep = l.libelle.replace(/^Département /, ''), cs = lignes.filter(x => x.bloc === 'HELB' && x.niveau === 2 && x.dept === dep);
+    for (const A of annees) if (l.par[A] && cs.length && cs.every(x => x.par[A]?.decret != null)) l.par[A].decret = cs.reduce((t, x) => t + x.par[A].decret, 0);
   }
   // Les formations de l'IIP qui n'ont pas de poste dans les comptes (AeSI, ATNUP, FID…) : leurs étudiants et leurs enseignants.
   const iip = lignes.find(l => l.bloc === 'Institut Ilya Prigogine' && l.niveau === 0);
@@ -135,7 +149,8 @@ export function financementsAsbl() {
     const fed = v.federation ? (v.enseignants || 0) : (v.federation_part || 0);
     v.cout_complet = (v.charges || 0) + fed;
   }
-  const d = { annees, dernier: annees[annees.length - 1] || null, prix_etp_helb: prix, fichier: S.fichier, source_he: D.source, lignes };
+  const d = { annees, dernier: annees[annees.length - 1] || null, prix_etp_helb: prix, ponderations: POND,
+    cursus_helb: lignes.filter(l => l.bloc === 'HELB' && l.niveau === 2).map(l => l.libelle), fichier: S.fichier, source_he: D.source, lignes };
   MEMO = { t: Date.now(), d };
   return d;
 }
