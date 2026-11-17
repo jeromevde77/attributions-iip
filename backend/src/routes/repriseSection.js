@@ -96,4 +96,39 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   res.json({ ...rapport, simulation: false, ecrit: true });
 });
 
+/* RETIRER DES UNITÉS POSÉES PAR ERREUR (3.5.515 — ATNUP 2025-2026 : les UE 225 et 226, formations complémentaires, cochées avec les
+   autres). Les mêmes fichiers ; pour chaque étudiant retrouvé, l'inscription de l'année aux unités choisies est retirée — SEULEMENT si
+   elle vient de la reprise (date d'inscription du 1er septembre de l'année, posée par elle) et ne porte ni note détaillée, ni décision de
+   séance. Le reste est nommé, jamais touché. Simulation d'abord ; le journal des modifications garde chaque retrait. */
+r.post('/retirer', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, ues = [], etudiants = [], simulation = true } = req.body || {};
+  if (!/^\d{4}-\d{4}$/.test(String(annee || ''))) return res.status(400).json({ error: 'Année requise.' });
+  const act = anneeActive();
+  if (act && String(annee) >= String(act)) return res.status(409).json({ error: `L'année ${annee} n'est pas une année passée.` });
+  const nums = [...new Set((ues || []).map(Number).filter(Number.isFinite))];
+  if (!nums.length || !Array.isArray(etudiants) || !etudiants.length) return res.status(400).json({ error: 'Unités et étudiants requis.' });
+  const debut = `${String(annee).slice(0, 4)}-09-01`;
+  const aRetirer = [], gardes = [];
+  for (const e of etudiants) {
+    const t = rapprocher({ num_national: txt(e.num_national), id_ecampus: txt(e.id_ecampus), nom: txt(e.nom), prenom: txt(e.prenom), date_naissance: normDate(txt(e.date_naissance)) });
+    if (!t) continue;
+    for (const u of nums) {
+      const i = db.prepare('SELECT id, date_inscription FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').get(t.id, annee, u);
+      if (!i) continue;
+      const qui = `${txt(e.nom).toUpperCase()} ${txt(e.prenom)}, UE ${u}`;
+      const notes = db.prepare('SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? LIMIT 1').get(t.id, annee, u);
+      let seance = null; try { seance = db.prepare('SELECT 1 FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? LIMIT 1').get(t.id, annee, u); } catch { seance = null; }
+      if (i.date_inscription !== debut) gardes.push(`${qui} : inscription d'une autre origine`);
+      else if (notes) gardes.push(`${qui} : porte des notes`);
+      else if (seance) gardes.push(`${qui} : décidée en séance`);
+      else aRetirer.push({ id: i.id, qui });
+    }
+  }
+  if (!simulation) {
+    try { db.transaction(() => { for (const x of aRetirer) db.prepare('DELETE FROM etudiant_inscription WHERE id = ?').run(x.id); })(); }
+    catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+  res.json({ simulation: !!simulation, retirees: aRetirer.length, gardes, detail: aRetirer.map(x => x.qui) });
+});
+
 export default r;

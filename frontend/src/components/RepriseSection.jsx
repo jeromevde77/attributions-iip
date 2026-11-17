@@ -92,6 +92,18 @@ export default function RepriseSection({ onClose, onImporte }) {
       if (j.ecrit) onImporte?.();
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
+  // RETIRER DES UNITÉS POSÉES PAR ERREUR (3.5.515) : les unités cochées, pour les étudiants des fichiers ; simulation d'abord.
+  const [retrait, setRetrait] = useState(null);
+  const retirer = async simulation => {
+    setErreur(null); setEnCours(true);
+    try {
+      const r = await fetch('/api/import-historique/reprise-section/retirer', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ annee, ues: choisies, etudiants, simulation }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      setRetrait(j); if (!simulation) onImporte?.();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
   const pret = section && choisies.length && etudiants.length;
   const bloque = rapport && (rapport.refus?.length || rapport.conflits?.length);
 
@@ -132,6 +144,17 @@ export default function RepriseSection({ onClose, onImporte }) {
         </div>
         {sansInscription.length > 0 && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">Diplômés absents de la liste des inscrits (non importés) : {sansInscription.join(', ')}.</div>}
         {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
+        {pret ? (
+          <div className="border-t pt-3 space-y-2">
+            <div className="intertitre">Une unité cochée par erreur lors d’une reprise ?</div>
+            <p className="text-second text-slate-600 m-0">Coche seulement les unités à retirer, puis simule : Lucie retire l’inscription de l’année des étudiants des fichiers — seulement celle posée par la reprise, sans note encodée ni décision de séance.</p>
+            <div className="flex items-center gap-2">
+              <button type="button" className="bouton" disabled={enCours} onClick={() => retirer(true)}>Simuler le retrait des unités cochées ({choisies.join(', ')})</button>
+              {retrait?.simulation && retrait.retirees > 0 && <button type="button" className="bouton bouton-detruire" disabled={enCours} onClick={() => retirer(false)}>Retirer {retrait.retirees} inscriptions</button>}
+            </div>
+            {retrait && <div className="text-second">{retrait.simulation ? 'Simulation' : 'Fait'} : {retrait.retirees} inscription(s) {retrait.simulation ? 'à retirer' : 'retirée(s)'}.
+              {retrait.gardes?.length ? ` Gardées : ${retrait.gardes.join(' · ')}.` : ''}</div>}
+          </div>) : null}
         {rapport && (<>
           <div className="text-sm">{rapport.ecrit ? 'Écrit : ' : 'Simulation : '}<b>{rapport.etudiants.length}</b> étudiants — {rapport.existants} déjà dans Lucie, {rapport.nouveaux} à créer ; <b>{rapport.reussis}</b> diplômés (« réussi » et la même cote dans les {rapport.ues.length} unités), les autres inscrits sans résultat.</div>
           {[...(rapport.refus || []), ...(rapport.conflits || [])].length > 0 && (
