@@ -589,3 +589,38 @@ export function sigleVA(v) {
   if (porte === 'VAE' || porte === 'VA') return porte;
   return ['D', 'E'].includes(String(v?.base_code || '').toUpperCase()) ? 'VAE' : 'VA';
 }
+
+
+/* LE RATTRAPAGE DES NOTIFICATIONS DÉJÀ ENVOYÉES (3.5.523, Charles : « je ne vois pas si les décisions VA ont été envoyées ; il me propose
+   35 étudiants TIM »). Les pièces de VA envoyées depuis Éditions → Valorisation → Par étudiant (registre : `valorisation_etudiant`) ne
+   posaient pas `notifie_le`. Une fois, au démarrage : chaque envoi parti vers un étudiant marque notifiées ses décisions de l'année du
+   fichier (VA_NOM_Prénom_AAAAAAAA) validées avant l'envoi et pas encore notifiées — à la date et au nom de l'envoi, avec une ligne de
+   journal qui dit d'où vient la date. */
+export function rattraperNotificationsVA(dbx = db) {
+  try {
+    if (dbx.prepare("SELECT 1 FROM lucie_config WHERE cle = 'va_notif_rattrapage'").get()) return 0;
+    const envois = dbx.prepare(`SELECT destinataire_id id, nom_fichier, envoye_le, envoye_par FROM envoi_mail
+      WHERE type_doc IN ('valorisation_etudiant', 'valorisation_notification') AND statut = 'envoye'
+        AND destinataire_type = 'etudiant' AND destinataire_id IS NOT NULL AND envoye_le IS NOT NULL ORDER BY envoye_le`).all();
+    let n = 0;
+    dbx.transaction(() => {
+      for (const e of envois) {
+        const m = /(\d{4})(\d{4})(?:\.pdf)?$/.exec(String(e.nom_fichier || ''));
+        const annee = m ? `${m[1]}-${m[2]}` : null;
+        const dossiers = dbx.prepare(`SELECT id FROM etudiant_valorisation WHERE etudiant_id = ? ${annee ? 'AND annee_scolaire = ?' : ''}
+          AND notifie_le IS NULL AND ((decision_le IS NOT NULL AND valide_le IS NOT NULL AND valide_le <= ?) OR (recevable = 0 AND decision_le IS NULL))`)
+          .all(...(annee ? [e.id, annee, e.envoye_le] : [e.id, e.envoye_le]));
+        for (const d of dossiers) {
+          dbx.prepare('UPDATE etudiant_valorisation SET notifie_le = ?, notifie_par = ? WHERE id = ?').run(e.envoye_le, String(e.envoye_par || '').trim() || null, d.id);
+          dbx.prepare(`INSERT INTO valorisation_journal (valorisation_id, etape, acteur_nom, detail) VALUES (?, 'notifiee', ?, ?)`)
+            .run(d.id, String(e.envoye_par || '').trim() || null, `notification rattrapée d'après le registre des envois (${e.nom_fichier}, envoyé le ${e.envoye_le})`);
+          try { rafraichirEtat(d.id); } catch { /* */ }
+          n++;
+        }
+      }
+      dbx.prepare("INSERT INTO lucie_config (cle, valeur) VALUES ('va_notif_rattrapage', ?) ON CONFLICT(cle) DO NOTHING").run(String(n));
+    })();
+    if (n) console.log(`[valorisation] ${n} notification(s) rattrapée(s) d'après le registre des envois`);
+    return n;
+  } catch (e) { console.error('[valorisation] rattrapage des notifications :', e.message); return 0; }
+}

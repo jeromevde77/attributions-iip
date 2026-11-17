@@ -3024,6 +3024,8 @@ try { db.exec('ALTER TABLE attribution ADD COLUMN fonds_propres INTEGER NOT NULL
 (await import('./lib/supervisionGroupes.js')).migrerSupervision();
 try { migrerSectionDiplome(db); } catch (e) { console.error('[migration] données du titre :', e.message); }
 poserModelesDeSection();
+// Les notifications de VA déjà envoyées depuis Éditions (3.5.523) : une fois, quand toutes les tables sont là.
+setTimeout(() => { import('./lib/valorisation.js').then(m => m.rattraperNotificationsVA()).catch(e => console.error('[valorisation] rattrapage :', e.message)); }, 8000);
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
 try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }
