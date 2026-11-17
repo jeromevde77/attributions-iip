@@ -114,13 +114,14 @@ export async function remplirStibDocx(modele, v) {
 }
 
 /** Pose sur le PDF la référence (registre des pièces authentiques), le QR de vérification et le code de pièce. */
-async function referencer(pdf, { nature, objet, personne, date }) {
+async function referencer(pdf, { nature, objet, personne, date, apercu = false }) {
   const { nouvelleReference } = await import('../services/filigrane.js');
   const { enregistrerPiece, urlVerification } = await import('./authentique.js');
   const QR = (await import('qrcode')).default;
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const ref = nouvelleReference();
-  enregistrerPiece({ reference: ref, nature, objet, personne, date });
+  // UN APERÇU N'ENTRE PAS AU REGISTRE (la règle des spécimens, 3.5.047) : la référence se voit, mais ne se vérifierait pas.
+  if (!apercu) enregistrerPiece({ reference: ref, nature, objet, personne, date });
   const doc = await PDFDocument.load(pdf);
   const page = doc.getPages()[0];
   const { width } = page.getSize();
@@ -129,13 +130,14 @@ async function referencer(pdf, { nature, objet, personne, date }) {
   page.drawImage(png, { x, y, width: t, height: t });
   const f = await doc.embedFont(StandardFonts.Helvetica);
   const gris = rgb(0.39, 0.45, 0.55);
-  page.drawText(`Pièce authentifiable · réf. ${ref}`, { x: x - 4 - f.widthOfTextAtSize(`Pièce authentifiable · réf. ${ref}`, 6.5), y: y + 24, size: 6.5, font: f, color: gris });
+  const ligne1 = apercu ? `APERÇU — non enregistrée · réf. ${ref}` : `Pièce authentifiable · réf. ${ref}`;
+  page.drawText(ligne1, { x: x - 4 - f.widthOfTextAtSize(ligne1, 6.5), y: y + 24, size: 6.5, font: f, color: gris });
   page.drawText('Scannez le code pour vérifier · I-06', { x: x - 4 - f.widthOfTextAtSize('Scannez le code pour vérifier · I-06', 6.5), y: y + 14, size: 6.5, font: f, color: gris });
   return Buffer.from(await doc.save());
 }
 
 /** Compose le PDF. Rend { pdf, nom } ou { erreur, code }. `force` : le secrétariat passe outre les seuils. */
-export async function composerStib(etudId, annee, { force = false, jour = new Date().toISOString().slice(0, 10) } = {}) {
+export async function composerStib(etudId, annee, { force = false, apercu = false, jour = new Date().toISOString().slice(0, 10) } = {}) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
   if (!e) return { code: 404, erreur: 'étudiant introuvable' };
   const el = eligibiliteStib(e.id, annee, jour);
@@ -150,7 +152,7 @@ export async function composerStib(etudId, annee, { force = false, jour = new Da
      code de pièce (I-06), posés en bas de la première page. */
   const pdf = await referencer(await docxToPdf(docx), {
     nature: 'Attestation de fréquentation scolaire — STIB', objet: `Année académique ${annee}`,
-    personne: `${e.prenom || ''} ${String(e.nom || '').toUpperCase()}`.trim(), date: jour });
+    personne: `${e.prenom || ''} ${String(e.nom || '').toUpperCase()}`.trim(), date: jour, apercu });
   const nom = `Attestation_STIB_${String(e.nom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(e.prenom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(annee).replace('-', '')}.pdf`;
   return { pdf, nom, eligibilite: el };
 }

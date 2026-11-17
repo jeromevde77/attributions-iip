@@ -88,6 +88,15 @@ function entrees() {
     appel: { methode: 'POST', chemin: '/api/etudiants/revue-pae/document', corps: { annee: '{annee}', ids: ['{etudiant}'] } } });
   E({ id: 'fiche_inscription', domaine: 'Étudiants', libelle: "Fiche d'inscription", params: ['annee', 'etudiant'], exemple: 'etudiant',
     appel: { methode: 'GET', chemin: '/api/etudiants/{etudiant}/fiche-inscription', query: { annee: '{annee}' } } });
+  /* LES ATTESTATIONS D'INSCRIPTION ET DE LA STIB (3.5.529, Charles : « ici pas référencé par pièce » — la galerie n'avait ni l'attestation
+     d'inscription (I-02), ni celle des allocations familiales (I-03), ni la STIB (I-06)). */
+  E({ id: 'attestation_inscription', domaine: 'Étudiants', libelle: 'Attestation d’inscription', params: ['annee', 'etudiant'], exemple: 'etudiant',
+    appel: { methode: 'GET', chemin: '/api/etudiants/{etudiant}/attestation-inscription', query: { annee: '{annee}', dixsept: 'non' } } });
+  E({ id: 'attestation_allocations', domaine: 'Étudiants', libelle: 'Attestation d’inscription — allocations familiales', params: ['annee', 'etudiant'], exemple: 'etudiant',
+    appel: { methode: 'GET', chemin: '/api/etudiants/{etudiant}/attestation-inscription', query: { annee: '{annee}', variante: 'allocations', dixsept: 'non' } } });
+  E({ id: 'attestation_stib', domaine: 'Étudiants', libelle: 'Attestation de fréquentation scolaire — STIB (formulaire officiel)', params: ['annee', 'etudiant'], exemple: 'etudiant', format: 'pdf',
+    note: "Le formulaire de la STIB, rempli et référencé ; l'aperçu passe outre les seuils (âge, heures par semaine).",
+    appel: { methode: 'GET', chemin: '/api/etudiants/{etudiant}/attestation-stib', query: { annee: '{annee}', force: '1', apercu: '1' } } });
   E({ id: 'frais', domaine: 'Étudiants', libelle: 'Frais de scolarité (droit d’inscription et frais)', params: ['annee', 'etudiant'], exemple: 'etudiant',
     appel: { methode: 'GET', chemin: '/api/frais-scolarite/etudiant/{etudiant}/document', query: { annee: '{annee}' } } });
   E({ id: 'annexe1', domaine: 'Étudiants', libelle: 'Annexe 1 — visa ou titre de séjour étudiant', params: ['annee', 'etudiant'], exemple: 'etudiant',

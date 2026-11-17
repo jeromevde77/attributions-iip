@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CodePiece } from './ui.jsx';
+/* LE CODE DE CHAQUE PIÈCE DANS LA GALERIE (3.5.529, Charles : « ici pas référencé par pièce ») : l'identifiant de la galerie vers la clé
+   de la table des codes (lib/codesPieces.js) quand ils diffèrent. */
+const CLE_PIECE = { fiche_parcours: 'parcours', revue_pae: 'pae', frais: 'frais_scolarite', va_notification: 'valorisation_notification',
+  va_pv: 'valorisation_ue', delib_ajournement: 'motivation_ajournement', delib_refus: 'motivation_refus' };
 import { useNavigate } from 'react-router-dom';
 import { IconFileText, IconAlertTriangle, IconSearch, IconArrowRight, IconEye, IconFileTypePdf } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
@@ -233,7 +238,7 @@ export default function ApercuDocuments({ onClose }) {
                 {docs.map(d => (
                   <button key={d.id} onClick={() => choisir(d)}
                     className={`w-full text-left px-2.5 py-1.5 rounded-champ border text-sm ${choisi?.id === d.id ? 'border-iip-blue bg-white' : 'border-transparent hover:bg-slate-50'}`}>
-                    {d.libelle}
+                    <span className="flex items-start gap-2"><CodePiece cle={CLE_PIECE[d.id] || d.id} /><span className="min-w-0">{d.libelle}</span></span>
                   </button>))}
               </div>))}
             {!!g?.a_l_ecran?.length && !filtre && (
