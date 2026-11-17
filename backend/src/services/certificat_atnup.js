@@ -6,18 +6,18 @@ export function certificatAtnup() {
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><style>
   *{box-sizing:border-box;}
-  body{margin:0;font-family:"Times New Roman",Times,serif;font-size:11pt;line-height:1.35;color:#111;}
-  .page{width:210mm;height:297mm;padding:22mm 20mm 20mm;position:relative;}
+  body{margin:0;font-family:"Times New Roman",Times,serif;font-size:10.5pt;line-height:1.3;color:#111;}
+  .page{width:210mm;height:297mm;padding:16mm 20mm 14mm;overflow:hidden;position:relative;}
   .centre{text-align:center;}
   .tete div{margin:0 0 2.5mm;}
-  .etab{margin:9mm 0 7mm;}
+  .etab{margin:7mm 0 6mm;}
   .titre{font-weight:700;font-size:13pt;text-align:center;margin:0;}
   .soustitre{text-align:center;margin:1mm 0 0;}
-  .code{text-align:center;margin:3mm 0 7mm;}
+  .code{text-align:center;margin:3mm 0 6mm;}
   p{margin:0 0 2.2mm;text-align:justify;}
   .nom{font-weight:700;margin-top:3mm;}
-  .sig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6mm;margin-top:10mm;}
-  .sig2{display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:34mm;}
+  .sig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6mm;margin-top:8mm;}
+  .sig2{display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:24mm;}
   .droite{text-align:right;}
   @page{size:A4 portrait;margin:0;}
   @media print{.page{width:210mm;height:297mm;}}
