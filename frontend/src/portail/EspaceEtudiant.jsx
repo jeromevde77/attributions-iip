@@ -468,8 +468,10 @@ const ATTENDU = {
   va: ['Le diplôme, le certificat, l’attestation de réussite ou le bulletin', 'Ce qu’ils couvrent : programme, contenu des cours, acquis, crédits, fiche ECTS', 'Si utile : grille horaire, heures de cours, relevé d’heures de stage'],
   vae: ['Le contrat de travail, la description de fonction, une attestation de service ou des tâches réalisées', 'Un projet, un portfolio, des réalisations', 'Ce qui vient de votre vie personnelle : bénévolat, loisirs, langues, autoformation'],
 };
-function Etapes({ faits }) {
+function Etapes({ faits: brut }) {
   const noms = ['Ma demande', 'Mes documents', 'Ma motivation', 'Envoyer'];
+  // Une étape n'est faite que si les précédentes le sont (3.5.531 : le trait après « Ma motivation » passait au vert alors qu'elle restait à faire).
+  const faits = brut.map((f, i) => !!f && brut.slice(0, i).every(Boolean));
   const courant = faits.findIndex(f => !f);
   return (
     <div className="flex">
