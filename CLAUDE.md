@@ -4507,6 +4507,16 @@ ajoute la différence à `salairesHelb` en coûts réels, cours (hors invités) 
 cadre administratif et direction sont sur une seconde ligne « Ce qui est compté », en boutons visibles (3.5.510, Charles : derrière
 « Filtres », « ce n'est pas clair » ; exception voulue à la règle d'une seule ligne).
 
+**LES FINANCEMENTS DE L'ASBL, DÉPARTEMENT PAR DÉPARTEMENT ET SECTION PAR SECTION** (3.5.511, Charles, 17 novembre 2026 : « un tableau
+des financements de chaque section et département de l'ASBL : salaires, financements, nombre d'étudiants » ; tranché : dans Gestion,
+étudiants + financement + salaires et ETP + ratios, la dernière année et l'évolution). `lib/financementsAsbl.js` (`financementsAsbl`, mémoire
+10 min, vidée au dépôt d'une source), `GET /api/pilotage/financements` (direction), `components/FinancementsAsbl.jsx` : Gestion → L'école →
+tableaux détaillés → « Financements de l'ASBL », et bloc `financements` de Composer (l'école, finances). Par exercice réalisé complet :
+charges, produits, résultat des postes de la synthèse de l'ASBL ; étudiants et ETP de l'année académique qui finit dans l'exercice (HELB :
+ratios par département, comparaison ETP par cursus — table `CURSUS` des intitulés ; IIP : inscrits de `coutMemo`, ETP et coût de
+`enseignantsIipCivil`) ; enseignants HELB = ETP × coût moyen statutaire du COR (estimation, déjà dans les charges), IIP = Fédération (hors
+comptes) ; coût complet = charges + Fédération. Une ligne « Autres formations » porte les sections de Lucie sans poste dans les comptes.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

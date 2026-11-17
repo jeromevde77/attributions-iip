@@ -18,6 +18,7 @@ import PresentationSection from '../components/PresentationSection.jsx';
 import GestionLecture from '../components/GestionLecture.jsx';
 import SourcesReference from '../components/SourcesReference.jsx';
 import IipHelbGestion from '../components/IipHelbGestion.jsx';
+import FinancementsAsbl from '../components/FinancementsAsbl.jsx';
 import DossierCopil, { CouvertureCopil, PARTIES_COPIL, TEXTES_COPIL, PROPOSITIONS_COPIL, texteCopil } from '../components/DossierCopil.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
@@ -1586,7 +1587,7 @@ export default function Pilotage({ vue = 'tout' }) {
       ['deliberation', 'Décisions et taux de réussite', true], ['distributions', 'Distributions des cotes', true],
       !coord && ['personnel-ecole', 'Notre personnel', true], ['etp', 'ETP', true], ['etp-annees', 'ETP sur plusieurs années', true],
       !coord && lit('repartition') && ['repartition', 'Répartition des périodes', true], direction && ['qui-fait-quoi', 'Qui fait quoi', true],
-      lit('dotation') && ['synthese', 'Dotation', true], ['dotation', 'Dotation : comparaison des années', true], direction && ['iip-helb', 'IIP et HELB', true],
+      lit('dotation') && ['synthese', 'Dotation', true], ['dotation', 'Dotation : comparaison des années', true], direction && ['iip-helb', 'IIP et HELB', true], direction && ['financements', 'Financements de l’ASBL', true],
       lit('dotation') && ['config', 'Dotation : configuration', true]] },
     { key: 'g-section', label: 'Une section', icon: IconUsersGroup, faces: [['section', 'Une section']] },
     { key: 'g-presenter', label: 'Présentation', icon: IconPresentation, faces: [direction && ['presentation', 'Présentation d’une section']] },
@@ -1651,6 +1652,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'section' ? <GestionLecture annee={anneeActive} perimFixe="section" />
     : k === 'ecole' ? <GestionLecture annee={anneeActive} perimFixe="etab" />
     : k === 'iip-helb' ? <IipHelbGestion />
+    : k === 'financements' ? <FinancementsAsbl />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
   const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config' && k !== 'composer' && k !== 'mes-frais' && k !== 'etp-annees' && k !== 'presentation' && k !== 'lecture' && k !== 'sources') })).filter(r => r.faces.length);
@@ -2122,6 +2124,9 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
         ) : tab === 'presentation' ? (
           <PageHeader icon={IconPresentation} titre="Présentation d’une section"
             sous="Les chiffres de Lucie en diapositives, en plein écran — sur iPad ou grand écran" />
+        ) : tab === 'financements' ? (
+          <PageHeader icon={IconBuildingBank} titre="Les financements de l’ASBL"
+            sous="Chaque département de la HELB et chaque section de l’IIP : étudiants, enseignants, charges, produits, coût par étudiant" />
         ) : tab === 'iip-helb' ? (
           <PageHeader icon={IconBuildingBank} titre="L’IIP et la HELB"
             sous="Charge, coût et ce qu’une section rapporte, des deux côtés de la codiplomation" />
@@ -2176,6 +2181,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             {tab === 'etp'      && renderETP()}
             {tab === 'etp-annees' && <EtpPlusieursAnnees />}
             {tab === 'iip-helb' && <IipHelbGestion />}
+            {tab === 'financements' && <FinancementsAsbl />}
             {(tab === 'ecole' || tab === 'lecture') && <>
               {/* LES TABLEAUX DÉTAILLÉS DE L'ÉCOLE (3.5.474) : ce qui était en sous-menus, ici en sommaire —
                  EN TÊTE de la page depuis 3.5.478 (Charles : « j'ai l'impression de ne pas avoir accès à tout »). */}
