@@ -4538,7 +4538,10 @@ PROPRE à une section : `lucie_config` « diplome_template_section » { section:
 démarrage pose le certificat ATNUP, `services/certificat_atnup.js`) ; il porte texte, signatures et mise en page (A4 portrait) — ni bloc de
 signataires, ni logos, ni président demandé ; variables en plus : `annee_slash`, `nom_majuscules`, `ne_e`, `qu_il_elle`, `pourcent`,
 `directeur_nom`. (3) Dans le secondaire (niveau DS, DI), la dernière mention se dit « Fruit » (`mentionDuNiveau`) — le PV la connaissait,
-le calcul rendait « Réussite ». **À régler à l'écran pour ATNUP** : UE 224 cochée épreuve intégrée.
+le calcul rendait « Réussite ». **À régler à l'écran pour ATNUP** : UE 224 cochée épreuve intégrée. **Version Institut** (3.5.519, Charles : « le modèle ne me plaît pas ; une version Institut avec toutes les données ») : le
+certificat ATNUP prend le dessin du diplôme commun (A4 paysage, logo, exergue, `{{signatures}}`) avec code, 288 périodes, activités,
+pourcentage et mention ; le modèle propre d'une section passe désormais par la même mécanique que le diplôme commun (signataires, logos,
+président du jury demandé). `diplome_template_atnup_pose` = « 2 » remplace la version portrait au démarrage.
 (4) **Retirer des unités cochées par erreur** (3.5.515, ATNUP : 225 et 226 importées avec les autres) : `POST
 /api/import-historique/reprise-section/retirer`, même fenêtre — ne retire que l'inscription posée par la reprise (date du 1er septembre de
 l'année), sans note détaillée ni décision de séance ; le reste est nommé.

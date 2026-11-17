@@ -732,12 +732,13 @@ function modeleDeSection(code) {
 }
 export async function poserModelesDeSection() {
   try {
-    if (db.prepare("SELECT 1 FROM lucie_config WHERE cle = 'diplome_template_atnup_pose'").get()) return;
+    // Version 2 (3.5.519) : le dessin du diplôme de l'Institut remplace la copie du Word.
+    if (db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_template_atnup_pose'").get()?.valeur === '2') return;
     const { certificatAtnup } = await import('../services/certificat_atnup.js');
     let m = {}; try { m = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_template_section'").get()?.valeur || '{}') || {}; } catch { m = {}; }
-    if (!m.ATNUP) m.ATNUP = certificatAtnup();
+    m.ATNUP = certificatAtnup();
     db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES ('diplome_template_section', ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(JSON.stringify(m));
-    db.prepare("INSERT INTO lucie_config (cle, valeur) VALUES ('diplome_template_atnup_pose', '1') ON CONFLICT(cle) DO NOTHING").run();
+    db.prepare("INSERT INTO lucie_config (cle, valeur) VALUES ('diplome_template_atnup_pose', '2') ON CONFLICT(cle) DO UPDATE SET valeur = '2'").run();
   } catch (e) { console.error('[diplômes] modèle ATNUP :', e.message); }
 }
 
@@ -1382,27 +1383,9 @@ r.post('/pieces', authRequired,
   const manques = [];
 
   const modeleSection = veut.includes('diplome') ? modeleDeSection(sec.code) : null;
-  if (veut.includes('diplome') && modeleSection) {
-    // Le modèle propre de la section porte son texte et ses signatures : ni bloc de signataires, ni logos, ni président à demander.
-    const nomDirecteur = (() => { const t = String(ident.directeur || '').trim().split(/\s+/); return t.length > 1 ? `${t.slice(1).join(' ').toUpperCase()} ${t[0]}` : String(ident.directeur || ''); })();
-    for (const d of choisis) {
-      const f = d.genre === 'F';
-      const { html, manques: m } = remplir(modeleSection, {
-        nom_etudiant: d.nom, prenom_etudiant: d.prenom, nom_majuscules: String(d.nom || '').toUpperCase(),
-        genre: d.genre === 'F' ? 'F' : d.genre === 'H' ? 'H' : '',
-        ne_e: d.genre ? (f ? 'Née' : 'Né') : '', qu_il_elle: d.genre ? (f ? 'qu’elle' : 'qu’il') : '',
-        lieu_naissance: d.lieu_naissance, date_naissance: dateLongue(d.date_naissance),
-        annee: anneeDe(d), annee_slash: String(anneeDe(d)).replace('-', '/'), mention: d.mention.mention,
-        pourcent: d.mention.pourcent != null ? String(d.mention.pourcent) : '',
-        date_deliberation: dateLongue(dateDelib), ville_etab: ident.ville, directeur: ident.directeur, directeur_nom: nomDirecteur,
-        article_titulaire: d.genre ? (f ? 'La' : 'Le') : '',
-      });
-      pages.push({ t: `Certificat — ${d.nom} ${d.prenom}`, h: html, entier: true });
-      if (m.length) manques.push(`Certificat de ${d.nom} ${d.prenom} : ${m.join(', ')}`);
-    }
-  }
-  if (veut.includes('diplome') && !modeleSection) {
-    const modele = await modeleDiplome();
+  if (veut.includes('diplome')) {
+    // Le modèle propre de la section (3.5.514), s'il existe, passe par la même mécanique que le diplôme commun (3.5.519).
+    const modele = modeleSection || await modeleDiplome();
     const ectsTotal = ectsDesUnites(dossier.requises);
 
     const sig = await signatairesDe(sec.code);
@@ -1482,6 +1465,9 @@ r.post('/pieces', authRequired,
         // LE TITULAIRE EST LE DIPLÔMÉ, qui signe son diplôme — et non la présidence.
         titulaire_nom: `${d.prenom || ''} ${String(d.nom || '').toUpperCase()}`.trim(),
         article_titulaire: d.genre === 'F' ? 'La' : 'Le', date_approbation: ds.date_approbation,
+        // Les variables des modèles propres d'une section (certificat ATNUP, 3.5.514).
+        nom_majuscules: String(d.nom || '').toUpperCase(), ne_e: d.genre === 'F' ? 'née' : 'né',
+        annee_slash: String(anneeDe(d)).replace('-', '/'), pourcent: d.mention?.pourcent != null ? String(d.mention.pourcent) : '',
         // Posés par poserLogos() ; ces jetons restent pour un modèle qui les
         // citerait ailleurs, et ne doivent jamais partir vides.
         logo_helb: ' ', logo_iip: ' ',
