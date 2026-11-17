@@ -4584,7 +4584,7 @@ portail n'admet un étudiant sans adresse d'institut que marqué `apercu_seul` ;
 une étudiante de test (fonctions « essai ») sans adresse était rejetée et l'aperçu répondait « le portail n'a pas reçu cet étudiant ».
 `etudiantsVisibles` la pose aussi quand l'adresse manque. (2) « Mon parcours » : chaque cours porte `dispense` (« VA » : VA partielle
 accordée et décidée sur ce cours ; « report » : `dispenses` de lib/cep.js) et l'unité `va_partielle` (nombre de cours dispensés) —
-pastille « dispensé (VA) » et mention « VA partielle » dans l'espace.
+pastille « dispensé » et mention « dispense partielle » dans l’espace (Charles : « ce n’est pas une VA sur le cours, c’est une dispense » — circulaire Sanction des études).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
