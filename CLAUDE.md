@@ -4558,7 +4558,11 @@ de 3.5.097). Restent : une VA du circuit (validée ou notifiée) se corrige dans
 **UNE DÉCISION DE VA NE SE NOTIFIE QU'UNE FOIS** (3.5.521, Charles : « comment je sais que je ne renvoie pas des choses déjà envoyées ? » ;
 tranché : seulement les nouvelles). `dossiersNotifiables` ne met dans `pretes` que les dossiers validés sans `notifie_le` (`deja` les
 nomme) ; `composerNotificationVA` répond 409 « rien de nouveau à notifier : déjà notifiée le … » quand tout est parti. La copie de
-l'étudiant (centre de documents) garde toutes ses décisions : `?toutes=1`.
+l'étudiant (centre de documents) garde toutes ses décisions : `?toutes=1`. **Et l'envoi depuis Éditions la consigne** (3.5.523, Charles : « je ne vois pas si les décisions VA ont été envoyées ; il me propose 35
+étudiants TIM ») : Éditions → Valorisation → Par étudiant n'appelait pas `/valorisations/notifier` — 37 envois, 24 décisions notifiées.
+Désormais : chaque unité dit « notifiée le … » ou « à notifier », la case « Seulement les décisions pas encore notifiées » (cochée par défaut)
+filtre la liste, et `onEnvoye` consigne la notification des étudiants dont l'envoi est parti. `rattraperNotificationsVA()` (une fois,
+`lucie_config` « va_notif_rattrapage ») marque notifiées les décisions validées avant chaque envoi du registre, à sa date et à son nom.
 
 **UN DOSSIER QUI ATTEND UN AVIS SE VOIT, QUELLE QUE SOIT SA DATE** (3.5.522, Charles : « les dossiers d'AR sont bloqués, les profs ne
 peuvent rendre d'avis »). `avantDepart` (`mes_cours_depuis`, 12 octobre 2026) cachait aux enseignants les dossiers d'aménagement appelés

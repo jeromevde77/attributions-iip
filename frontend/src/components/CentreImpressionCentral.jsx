@@ -428,6 +428,9 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   const [coches, setCoches] = useState(() => new Set());
   const [choix, setChoix] = useState({ notification: true, attestation: true });
   const [q, setQ] = useState('');
+  /* CE QUI A DÉJÀ ÉTÉ NOTIFIÉ SE VOIT (3.5.523, Charles : « je ne vois pas si les décisions VA ont été ou pas envoyées ; il me propose
+     35 étudiants TIM »). Par défaut, seuls les étudiants qui ont une décision validée PAS ENCORE notifiée sont proposés. */
+  const [aNotifierSeul, setANotifierSeul] = useState(true);
   const [enCours, setEnCours] = useState(false);
   const [avis, setAvis] = useState([]);
   const [produits, setProduits] = useState(null);   // [{ etudiant_id, etudiant, html, nom }]
@@ -442,10 +445,13 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
       if (sec) m.get(d.etudiant_id).sections.add(sec);
     }
     const n = s0 => String(s0 || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const pret = d => (d.decision_le && d.valide_le) || (d.recevable === 0 && !d.decision_le);
+    for (const e of m.values()) { e.a_notifier = e.unites.filter(d => pret(d) && !d.notifie_le).length; e.notifiees = e.unites.filter(d => d.notifie_le).length; }
     return [...m.values()]
+      .filter(e => !aNotifierSeul || e.a_notifier > 0)
       .filter(e => !q.trim() || n(`${e.nom} ${e.prenom}`).includes(n(q)))
       .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
-  }, [dossiers, q]);
+  }, [dossiers, q, aNotifierSeul]);
   useEffect(() => { setProduits(null); }, [annee, coches, choix]);
 
   const tous = etudiants.length > 0 && etudiants.every(e => coches.has(e.id));
@@ -462,14 +468,16 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
     return n;
   });
   const basculer = id => setCoches(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const etat = d => d.decision === 'refusee' ? 'refusée'
+  const frD = x => String(x || '').slice(0, 10).split('-').reverse().join('/');
+  const etat = d => (d.decision === 'refusee' ? 'refusée'
     : !d.decision_le ? 'à décider' : !d.valide_le ? 'non validée'
-    : d.type === 'complete' ? 'accordée' : 'partielle';
+    : d.type === 'complete' ? 'accordée' : 'partielle') + (d.notifie_le ? ` — notifiée le ${frD(d.notifie_le)}` : (d.decision_le && d.valide_le ? ' — à notifier' : ''));
 
   async function produire() {
     setEnCours(true); setAvis([]); setProduits(null);
     const ids = etudiants.filter(e => coches.has(e.id)).map(e => e.id);
     const parEtud = new Map(ids.map(id => [id, []]));
+    const notifIds = new Map();   // les dossiers que porte la notification de chacun, pour les marquer notifiés après l'envoi
     const remarques = [];
     try {
       if (choix.notification) {
@@ -478,7 +486,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
           const j = await r.json().catch(() => ({}));
           const e = etudiants.find(x => x.id === id);
           if (!r.ok || !j.html) remarques.push(`${String(e?.nom || '').toUpperCase()} ${e?.prenom || ''} — notification : ${j.error || 'non produite'}`);
-          else parEtud.get(id).push(j.html);
+          else { parEtud.get(id).push(j.html); notifIds.set(id, j.ids || []); }
         }
       }
       if (choix.attestation) {
@@ -497,7 +505,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
       for (const [id, docs] of parEtud) {
         if (!docs.length) continue;
         const e = etudiants.find(x => x.id === id);
-        out.push({ etudiant_id: id, etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
+        out.push({ etudiant_id: id, notif_ids: notifIds.get(id) || [], etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
           html: docs.length === 1 ? docs[0] : fusionnerHtml(docs),
           nom: `VA_${String(e.nom || '').replace(/\s+/g, '-')}_${String(e.prenom || '').replace(/\s+/g, '-')}_${String(annee).replace(/\W/g, '')}` });
       }
@@ -527,6 +535,10 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
             <input type="checkbox" checked={!!choix[p0.cle]} onChange={() => setChoix(c => ({ ...c, [p0.cle]: !c[p0.cle] }))} />
             {p0.label}
           </label>))}
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer" title="Les étudiants dont toutes les décisions validées ont déjà été notifiées n’apparaissent pas">
+          <input type="checkbox" checked={aNotifierSeul} onChange={() => { setANotifierSeul(v => !v); setCoches(new Set()); }} />
+          Seulement les décisions pas encore notifiées
+        </label>
       </div>
       {/* LES BOUTONS EN HAUT, TOUJOURS (Charles, 9 octobre 2026) : on ne
           déroule pas la liste des étudiants pour trouver de quoi produire. */}
@@ -601,6 +613,15 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
           contenu={`Pièces de valorisation — ${annee}`}
           pieces={produits.map(p0 => ({ html: p0.html, nom_fichier: p0.nom,
             destinataire: { type: 'etudiant', id: p0.etudiant_id, nom: p0.etudiant } }))}
+          onEnvoye={async j => {
+            // La notification partie se consigne, dossier par dossier, au nom de qui a envoyé (3.5.523).
+            const partis = new Set((j?.resultats || []).filter(x => x.statut === 'envoye' || x.statut === 'simule').map(x => Number(x.destinataire_id)));
+            for (const p0 of produits) {
+              if (!p0.notif_ids?.length || !partis.has(Number(p0.etudiant_id))) continue;
+              await fetch(`/api/etudiants/${p0.etudiant_id}/valorisations/notifier`, { method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ ids: p0.notif_ids, detail: 'notification envoyée par courriel (Éditions)' }) }).catch(() => {});
+            }
+          }}
           onClose={() => setEnvoi(false)} />)}
     </div>
   );
