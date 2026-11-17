@@ -4587,7 +4587,9 @@ le parcours (R-05) et le PAE (I-05), ajoutés. **La galerie des pièces dit le c
 d'inscription (I-02), celle des allocations familiales (I-03) et la STIB (I-06, `format: 'pdf'`). Un aperçu de la STIB (`apercu=1`)
 n'entre pas au registre des pièces authentiques et porte « APERÇU — non enregistrée ». **Un PAE à temps plein suffit** (3.5.530, Charles : « si le PAE est complet, on donne » ; tranché : 60 ECTS au moins) :
 `eligibiliteStib` ne regarde plus l'horaire quand le PAE de l'année compte 60 ECTS ou plus (l'âge reste) ; en dessous, le calcul de
-l'horaire, et le refus cite les ECTS du PAE.
+l'horaire, et le refus cite les ECTS du PAE. **Le numéro de carte MOBIB** (3.5.533, Charles : « il peut l'encoder à l'impression ? ») : l'espace le demande avant la STIB
+(I-06, 19 chiffres, « Sans numéro » possible) ; le portail le passe dans `donnees` de `centre_requete`, `composerCentre` l'ajoute à la
+route (`mobib=`), `remplirStibDocx` l'imprime par groupes de quatre dans sa case. Signature et cachet côte à côte : une seule page (3.5.532).
 
 **L'ESPACE DE L'ÉTUDIANT : APERÇU SANS ADRESSE, COURS DISPENSÉS** (3.5.525-3.5.526, Charles, étudiante de test HURET Sophie). (1) Le
 portail n'admet un étudiant sans adresse d'institut que marqué `apercu_seul` ; Lucie ne posait la marque qu'à un étudiant sans fonction —

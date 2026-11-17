@@ -61,11 +61,16 @@ function CentreDocuments({ onErreur }) {
   useEffect(() => { if (!enCours) { setSecondes(0); return undefined; } const t = setInterval(() => setSecondes(x => x + 1), 1000); return () => clearInterval(t); }, [enCours]);
   const charger = useCallback(() => appel('GET', '/centre?liste=1')   /* 3.5.405 : autre adresse — les navigateurs gardaient le renvoi 301 de la 3.5.403 */.then(setC).catch(e => { setC({ pieces: [], erreur: e.message }); }), []);
   useEffect(() => { charger(); }, [charger]);
-  const obtenir = async p => {
+  /* LE NUMÉRO DE CARTE MOBIB (3.5.533, Charles : « il manque le numéro de carte ; il peut l'encoder à l'impression ? ») : demandé avant
+     l'attestation STIB (I-06), imprimé dans sa case ; laissé vide, la case se remplit à la main. */
+  const [mobib, setMobib] = useState(null);   // { p, valeur }
+  const obtenir = async (p, extra = '') => {
+    if (p.code === 'I-06' && extra === '' && !mobib) { setMobib({ p, valeur: '' }); return; }
+    setMobib(null);
     setMsg(null); setEnCours(p.code);
     const w = ouvrirOngletAttente();
     try {
-      const r = await appel('GET', `/centre/piece/${encodeURIComponent(p.code)}`, null, true);
+      const r = await appel('GET', `/centre/piece/${encodeURIComponent(p.code)}${extra}`, null, true);
       const url = URL.createObjectURL(await r.blob());
       if (w) w.location = url; else window.location.href = url;
       charger();
@@ -85,6 +90,16 @@ function CentreDocuments({ onErreur }) {
           <ChargementLucie texte="" />
           <p className="text-sm text-center max-w-md mx-auto -mt-6 px-4">Vos documents sont en chargement. Ceci peut prendre quelques secondes ou plusieurs minutes selon les demandes. Ne quittez pas cette fenêtre.</p>
           {secondes >= 20 && <p className="text-second text-center text-slate-500 mt-2">Lucie compose toujours votre pièce ({secondes} s)… Elle s’ouvrira dans un nouvel onglet.</p>}
+        </FenetreEspace>)}
+      {mobib && (
+        <FenetreEspace titre="Votre carte MOBIB" sous="Attestation de fréquentation scolaire — STIB" onFermer={() => setMobib(null)}
+          pied={<div className="flex gap-2 justify-end w-full">
+            <button type="button" className="bouton" onClick={() => obtenir(mobib.p, '?mobib=')}>Sans numéro</button>
+            <button type="button" className="bouton bouton-fort" disabled={mobib.valeur.replace(/\D/g, '').length !== 19}
+              onClick={() => obtenir(mobib.p, `?mobib=${mobib.valeur.replace(/\D/g, '')}`)}>Obtenir l’attestation</button></div>}>
+          <p className="text-sm m-0 mb-2">Le numéro à 19 chiffres de votre carte MOBIB (STIB ou autre opérateur) est imprimé au dos de la carte. Il sera écrit sur l’attestation ; sans numéro, vous le compléterez à la main.</p>
+          <input className="controle w-full" inputMode="numeric" autoFocus placeholder="19 chiffres" value={mobib.valeur}
+            onChange={e => setMobib(m => ({ ...m, valeur: e.target.value.replace(/[^\d ]/g, '').slice(0, 30) }))} />
         </FenetreEspace>)}
       {c?.erreur && <p className="text-sm text-slate-500">{c.erreur}</p>}
       {msg && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{msg}</p>}
