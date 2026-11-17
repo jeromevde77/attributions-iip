@@ -4616,6 +4616,10 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LE BOUTON DU COURRIEL D'INVITATION MENAIT NULLE PART** (3.5.541, Charles sur iPhone : « Safari ne peut pas ouvrir la page »,
+adresse `…lucie-iip.behttps…`). `templateNotif` colle `base` + `lien` ; l'invitation passait l'adresse complète en `lien`. Elle passe
+`'/'`, et `templateNotif` prend tel quel un `lien` qui commence par `http`.
+
 **LES ÉTUDIANTS D'ESSAI : « SPÉCIMEN — ESSAI »** (3.5.540, Charles : « mettre sur chaque document produit pour ce test : Spécimen —
 Essai » ; « que les écrans aient aussi cette mention »). Pour un étudiant d'essai (`fonctions.etudiants_essai`) : `composerCentre` appelle la
 route avec l'en-tête `X-Lucie-Specimen: 1` — `filigraner` (requête courante) n'inscrit rien au registre des pièces authentiques et écrit

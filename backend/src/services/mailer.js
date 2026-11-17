@@ -300,7 +300,7 @@ export function templateNotif({ titre, corps, lien, lienTexte = 'Voir dans Lucie
   <div style="border:1px solid #e2e8f0;border-top:none;padding:20px;border-radius:0 0 8px 8px">
     <h2 style="color:#1B2B4B;margin-top:0">${titre}</h2>
     <div style="line-height:1.6">${corps}</div>
-    ${lien ? `<p><a href="${BASE_URL}${lien}" style="display:inline-block;background:#00AACC;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">${lienTexte}</a></p>` : ''}
+    ${lien ? `<p><a href="${/^https?:\/\//.test(String(lien)) ? lien : BASE_URL + lien}" style="display:inline-block;background:#00AACC;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">${lienTexte}</a></p>` : ''}
   </div>
   <p style="color:#94A3B8;font-size:11px;text-align:center;margin-top:12px">Lucie · Institut Ilya Prigogine · Bruxelles</p>
 </body></html>`;
