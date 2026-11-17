@@ -21,6 +21,7 @@ import { cachetCourant, signatureCourante } from './identite.js';
 const DOSSIER = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/formulaires-transport');
 const essai = (f, d) => { try { return f(); } catch { return d; } };
 const lundiDe = d => { const x = new Date(`${String(d).slice(0, 10)}T12:00:00Z`); const j = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - j); return x.toISOString().slice(0, 10); };
+export const ECTS_SUFFISANTS = 40;
 export const SEUILS_STIB = { age_max: 24, jour: { heures: 20, jours: 4 }, soir: { heures: 9, jours: 3 }, soir_des: '17:00' };
 
 function ageAu(naissance, jour) {
@@ -67,14 +68,15 @@ export function eligibiliteStib(etudId, annee, jour = new Date().toISOString().s
   const ects = essai(() => db.prepare(`SELECT COALESCE(SUM((SELECT ects FROM ue x WHERE x.ue_num = i.ue_num AND x.ects IS NOT NULL
       ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1)), 0) n FROM etudiant_inscription i
       WHERE i.etudiant_id = ? AND i.annee_scolaire = ?`).get(annee, e.id, annee).n, 0);
-  const tempsPlein = ects >= 60;
+  // 40 ECTS AU MOINS (3.5.535, Charles : « sortir les documents pour tout étudiant qui a au moins 40 ECTS » ; c'était 60).
+  const tempsPlein = ects >= ECTS_SUFFISANTS;
   const r = rythmeEtudiant(e.id, annee);
   const S = r.soir ? SEUILS_STIB.soir : SEUILS_STIB.jour;
   const mode = tempsPlein ? 'temps_plein' : r.soir ? 'soir' : 'jour';
   if (tempsPlein) { /* rien d'autre à vérifier que l'âge et l'inscription */ }
-  else if (r.heures == null || r.jours == null) raisons.push(`horaire de l’année inconnu (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
+  else if (r.heures == null || r.jours == null) raisons.push(`horaire de l’année inconnu (PAE de ${ects} ECTS, sous les ${ECTS_SUFFISANTS} qui suffisent)`);
   else if (r.heures < S.heures || r.jours < S.jours) {
-    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
+    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins (PAE de ${ects} ECTS, sous les ${ECTS_SUFFISANTS} qui suffisent)`);
   }
   return { ok: !raisons.length, raisons, age, rythme: r, mode, ects, temps_plein: tempsPlein };
 }
