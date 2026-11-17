@@ -890,7 +890,7 @@ function MonParcours({ onErreur }) {
             <LigneEtat key={u.ue_num} id={`ue-${u.ue_num}`} etat={faveur ? 'faveur' : etat}
               titre={<>UE {u.ue_num} {u.epreuve && <IconStar size={12} className="inline align-[-1px]" />} <span className="font-normal">{u.ue_nom}</span></>}
               sous={[u.bloc !== '—' ? u.bloc : null, u.ects ? `${u.ects} ECTS` : null, faveur ? 'acquise par faveur' : lib,
-                u.va ? (u.va === true ? 'VA' : u.va) : null, u.raison, u.cours?.length ? `${u.cours.length} cours` : null].filter(Boolean).join(' · ')}
+                u.va ? (u.va === true ? 'VA' : u.va) : null, u.va_partielle ? `dispense partielle — ${u.va_partielle} cours dispensé${u.va_partielle > 1 ? 's' : ''}` : null, u.raison, u.cours?.length ? `${u.cours.length} cours` : null].filter(Boolean).join(' · ')}
               meta={nouveaux ? <PastilleEtat etat="disponible">{nouveaux} nouveau{nouveaux > 1 ? 'x' : ''}</PastilleEtat> : null}
               onClick={() => setOuverte(ouv ? null : u.ue_num)} ouverte={ouv}>
               {ouv && (
@@ -902,6 +902,7 @@ function MonParcours({ onErreur }) {
                           <div className="flex items-center gap-2 text-sm">
                             <span className="tabular-nums text-slate-500 w-14 flex-none">{k.code}</span>
                             <span className="min-w-0 flex-1 truncate text-iip-texte">{k.nom}</span>
+                            {k.dispense && <PastilleEtat etat="reussi">{k.dispense === 'report' ? 'dispensé (notes reportées)' : 'dispensé'}</PastilleEtat>}
                             <span className="text-second text-slate-500 flex-none">{k.autonomie ? 'travail personnel' : k.per ? `${k.per} p.` : ''}</span>
                           </div>
                           {supports.filter(sp => sp.cours_code === k.code).map(sp => (

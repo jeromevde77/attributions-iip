@@ -13,6 +13,7 @@ import { calculerFrais } from '../routes/fraisScolarite.js';
 import { qrSvg } from './banque.js';
 import { placer } from './passages.js';
 import { aRepresenterParCours } from '../routes/acquis.js';
+import { dispenses } from './cep.js';
 
 /** Le parcours de l'année : chaque unité de ses sections, son état, ses crédits ; les crédits acquis. */
 export function parcoursPortail(e, annee) {
@@ -27,12 +28,19 @@ export function parcoursPortail(e, annee) {
   // LES COURS DE CHAQUE UNITÉ (3.5.194, Charles : « il faudrait que les cours apparaissent »).
   const coursDe = db.prepare(`SELECT cours_code AS code, MAX(cours_nom) AS nom, MAX(cours_per) AS per, MAX(ct_pp) AS ct_pp, MIN(cours_num) AS n
     FROM cours WHERE ue_num = ? AND annee_scolaire = ? GROUP BY cours_code ORDER BY n, cours_code`);
+  /* LES COURS DISPENSÉS (3.5.526, Charles, HURET Sophie : « je ne vois pas la VA partielle en physique ») : une VA accordée sur des
+     cours, ou un report de notes, se lit cours par cours (`dispenses` de lib/cep.js) ; la VA vient d'une décision validée. */
+  const vaCours = db.prepare(`SELECT cible_detail FROM etudiant_valorisation WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+    AND type = 'partielle' AND COALESCE(decision, 'accordee') = 'accordee' AND decision_le IS NOT NULL AND cible = 'cours'`);
+  const dispensesDe = n => { const s0 = new Map(); for (const v of vaCours.all(e.id, n, annee)) for (const k of String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean)) s0.set(k, 'VA');
+    try { for (const k of dispenses(e.id, n, annee).cours) if (!s0.has(k)) s0.set(k, 'report'); } catch { /* */ } return s0; };
   const unites = (c.pae || []).map(u => {
     const acquise = !!(u.deja_reussie || u.va_complete);
     const etat = acquise ? 'acquise' : u.inscrite ? 'programme' : u.en_attente ? 'attente' : u.accessible ? 'accessible' : 'pas_encore';
     return { ue_num: u.ue_num, ue_nom: u.ue_nom, bloc: u.ue_niv || '—', ects: Number(ects.get(u.ue_num, annee)?.ects) || 0, etat,
       va: u.va_complete ? sigle(u.ue_num) : null, epreuve: !!u.epreuve_integree,
-      cours: coursDe.all(u.ue_num, annee).map(k => ({ code: k.code, nom: String(k.nom || '').replace(/^\d+(\.\d+)*\.\s*/, ''), per: Number(k.per) || null, autonomie: k.ct_pp === 'Z' })),
+      cours: (() => { const dp = dispensesDe(u.ue_num); return coursDe.all(u.ue_num, annee).map(k => ({ code: k.code, nom: String(k.nom || '').replace(/^\d+(\.\d+)*\.\s*/, ''), per: Number(k.per) || null, autonomie: k.ct_pp === 'Z', dispense: dp.get(k.code) || null })); })(),
+      va_partielle: (() => { const dp = dispensesDe(u.ue_num); const n = [...dp.values()].filter(x => x === 'VA').length; return u.va_complete ? 0 : n; })(),
       raison: etat === 'pas_encore' ? (u.prereq_manquants?.length ? `prérequis : UE ${u.prereq_manquants.join(', ')}` : u.epreuve_integree ? 'tout le reste d’abord' : null) : null };
   });
   const total = unites.reduce((s, u) => s + u.ects, 0);
