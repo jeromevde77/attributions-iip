@@ -4616,6 +4616,13 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LE RELAIS PRIVÉ D'APPLE SITUÉ EN BELGIQUE PASSE** (3.5.542, Charles sur son iPhone en 5G, refusé en Belgique ; tranché :
+laisser passer le Relais situé en Belgique). Safari sort par les serveurs d'Apple (enregistrés aux États-Unis, dans la liste des
+hébergeurs). `portail/src/geo.js` lit `relais.cidr` AVANT tout contrôle : les sorties qu'Apple publie marquées « BE »
+(mask-api.icloud.com/egress-ip-ranges.csv) ; le portail la retélécharge lui-même (`majRelais`, au démarrage puis chaque semaine) et
+`geo-portail.sh` la pose aussi (**à recopier sur le VPS par Jérôme**). Les autres sorties d'Apple restent refusées. `/api/portail/sante`
+dit le nombre de blocs (`relais`).
+
 **LE BOUTON DU COURRIEL D'INVITATION MENAIT NULLE PART** (3.5.541, Charles sur iPhone : « Safari ne peut pas ouvrir la page »,
 adresse `…lucie-iip.behttps…`). `templateNotif` colle `base` + `lien` ; l'invitation passait l'adresse complète en `lien`. Elle passe
 `'/'`, et `templateNotif` prend tel quel un `lien` qui commence par `http`.
