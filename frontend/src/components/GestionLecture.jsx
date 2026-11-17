@@ -406,7 +406,13 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
                       if (v.estimation && v.resultat_subsides != null) return (<span className="inline-flex flex-col items-end leading-tight">
                         <b style={{ color: coul(v.resultat_subsides) }} title={`Financement HELB au niveau des subsides réels : ${n0(v.par_inscrit)} € par inscrit, soit ${n0(v.allocation_subsides)} €`}>{f(v.resultat_subsides)} <span className="font-normal text-mention text-slate-500">subsides réels</span></b>
                         <b style={{ color: coul(v.resultat_reel) }} title={`Financement HELB aux UCE : ${n0(v.allocation)} €`}>{f(v.resultat_reel)} <span className="font-normal text-mention text-slate-500">UCE</span></b></span>);
-                      const r = v.resultat_reel ?? v.resultat; return <b style={{ color: coul(r) }}>{f(r)}</b>; })()}</Td></>}</Tr>);
+                      const r = v.resultat_reel ?? v.resultat;
+                      /* Selon le décret (3.5.512) : la HELB répartit son allocation au même montant par étudiant ; le décret finance le cursus en
+                         UCE × MUCE × pondération, lissé sur trois ans. Les deux lectures, l'une sous l'autre. */
+                      if (v.resultat_decret != null) return (<span className="inline-flex flex-col items-end leading-tight">
+                        <b style={{ color: coul(r) }} title={`Subsides des comptes : ${n0(v.subsides_comptes)} € (la HELB répartit son allocation au même montant par étudiant)`}>{f(r)} <span className="font-normal text-mention text-slate-500">comptes</span></b>
+                        <b style={{ color: coul(v.resultat_decret) }} title={`Financement selon le décret : ${n0(v.allocation_decret)} € = moyenne des étudiants comptés ${(v.decret_detail?.annees || []).map(([a, n]) => `${a} : ${n}`).join(', ')} (${v.decret_detail?.moyenne}) × MUCE ${n0(v.decret_detail?.muce)} € × ${v.decret_detail?.ponderation}`}>{f(v.resultat_decret)} <span className="font-normal text-mention text-slate-500">décret</span></b></span>);
+                      return <b style={{ color: coul(r) }}>{f(r)}</b>; })()}</Td></>}</Tr>);
               }))}
             </tbody>
           </Tableau>

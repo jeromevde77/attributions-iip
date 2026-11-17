@@ -4517,6 +4517,16 @@ ratios par département, comparaison ETP par cursus — table `CURSUS` des intit
 `enseignantsIipCivil`) ; enseignants HELB = ETP × coût moyen statutaire du COR (estimation, déjà dans les charges), IIP = Fédération (hors
 comptes) ; coût complet = charges + Fédération. Une ligne « Autres formations » porte les sections de Lucie sans poste dans les comptes.
 
+**UN ÉTUDIANT TIM EST FINANCÉ EN UCE × 1,5, PAS AU MONTANT MOYEN DES COMPTES** (3.5.512, Charles d'après la comptable : « à la HELB,
+un étudiant vaut un étudiant » — l'allocation est répartie dans les comptes au même montant par étudiant ; tranché : chaque cursus avec sa
+pondération, lissé comme le décret). `lib/financementDecret.js` : `ponderationsCursus()` (`lucie_config` « ponderations_cursus », défaut
+TIM 1,5 ; réglée par la direction, `PUT /api/pilotage/financements/ponderations`), `financementDecret(serie, C, pond, existe)` = moyenne des
+étudiants comptés (C−4)-(C−3) à (C−2)-(C−1) × MUCE × pondération ; une année absente compte zéro seulement si le cursus n'avait aucune
+activité dans les comptes l'année civile où elle commence, sinon null. Lu par : Financements de l'ASBL (colonne « Selon le décret » et écart
+aux produits, carte des pondérations), Une section → comptes (résultat « décret » sous le résultat « comptes » : subsides des comptes =
+produits − quote-part des frais généraux, remplacés par le financement du décret), Présentation (À retenir et notes de la diapositive
+« comptes »). TIM 2025 : 112 238 € selon le décret (58,5 étudiants 2023-2024 ÷ 3) contre 401 079 € de produits — le lissage paie avec retard.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
