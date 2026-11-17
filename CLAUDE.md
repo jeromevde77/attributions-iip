@@ -4543,6 +4543,12 @@ le calcul rendait « Réussite ». **À régler à l'écran pour ATNUP** : UE 22
 /api/import-historique/reprise-section/retirer`, même fenêtre — ne retire que l'inscription posée par la reprise (date du 1er septembre de
 l'année), sans note détaillée ni décision de séance ; le reste est nommé.
 
+**LES ANNÉES PASSÉES SE CORRIGENT DANS LA GRILLE DU PARCOURS** (3.5.518, Charles, 17 novembre 2026 : « permettre de changer les notes des
+années précédentes pour mettre des VA ; j'avais interdit, mais les dossiers ne sont pas terminés » ; « ni moi ni le secrétariat ne savons
+supprimer »). `PUT /api/etudiants/:id/grille` (direction et secrétariat) : pour une année ANTÉRIEURE à l'année de travail, ni la séance close
+(années reprises clôturées) ni `refusResultat` n'arrêtent plus l'écriture — `note_force` est posée pour la requête et levée à la fin (la règle
+de 3.5.097). Restent : une VA du circuit (validée ou notifiée) se corrige dans Valorisation ; la purge d'une année délibérée reste refusée.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
