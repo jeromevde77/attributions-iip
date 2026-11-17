@@ -116,12 +116,23 @@ export async function remplirStibDocx(modele, v) {
   // La date de l'établissement : le PREMIER « ........../........../20....... » (le second est celui du bénéficiaire).
   x = x.replace('<w:t>........../........../20.......</w:t>', `<w:t xml:space="preserve">${v.date}</w:t>`);
   const { insererImageSous } = await import('../services/formulairesFWB.js');
-  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 2.3, 'cachet');
-  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 3.0, 'signature');
+  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 2.1, 'cachet');
+  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 2.8, 'signature');
   /* CÔTE À CÔTE, SUR UNE SEULE PAGE (3.5.532, capture de Charles : l'un sous l'autre, ils repoussaient « Réservé au bénéficiaire »
      sur une deuxième page) : les deux images se réunissent dans un même paragraphe, signature puis cachet. */
   x = x.replace(/<w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p>/,
     (m, r1, r2) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="right"/></w:pPr>${r1}<w:r><w:t xml:space="preserve">    </w:t></w:r>${r2}</w:p>`);
+  /* LES IMAGES PRENNENT LA PLACE DES LIGNES VIDES (3.5.534, Charles : « ne tient pas sur une page ») : le formulaire réserve cinq
+     paragraphes vides sous « Sceau et signature » ; posées EN PLUS, les images poussaient la suite sur une seconde page. On retire
+     les paragraphes vides qui suivent immédiatement les images (cinq au plus). */
+  { const k = x.indexOf('name="cachet"');
+    const fin = k < 0 ? -1 : x.indexOf('</w:p>', k) + 6;
+    if (fin > 5) {
+      let reste = x.slice(fin), n = 0;
+      const vide = /^<w:p>(?:<w:pPr>(?:(?!<\/w:pPr>)[\s\S])*<\/w:pPr>)?<\/w:p>/;
+      while (n < 5) { const m = vide.exec(reste); if (!m) break; reste = reste.slice(m[0].length); n++; }
+      x = x.slice(0, fin) + reste;
+    } }
   zip.file('word/document.xml', x);
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
