@@ -58,7 +58,7 @@ function catalogue(id, annee) {
   /* LES VALORISATIONS ET LES AMÉNAGEMENTS (3.5.396, Charles : « il manque les demandes de VA. AR aussi ? ») : ce qui a été
      décidé et notifié — jamais une décision avant sa notification. */
   const vaNotifiee = essai(() => db.prepare('SELECT 1 FROM etudiant_valorisation WHERE etudiant_id = ? AND annee_scolaire = ? AND notifie_le IS NOT NULL LIMIT 1').get(id, annee), null);
-  if (vaNotifiee) l.push({ cle: 'valorisation_notification', chemin: `/api/etudiants/${id}/valorisations/notification?annee=${a}`, nom: 'Notification des décisions de valorisation' });
+  if (vaNotifiee) l.push({ cle: 'valorisation_notification', chemin: `/api/etudiants/${id}/valorisations/notification?annee=${a}&toutes=1`, nom: 'Notification des décisions de valorisation' });
   const vaRetenue = essai(() => db.prepare(`SELECT 1 FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND ue_num > 0 AND archive_le IS NULL
     AND decision_le IS NOT NULL AND COALESCE(decision, 'accordee') <> 'refusee' LIMIT 1`).get(id), null);
   if (vaRetenue) l.push({ cle: 'valorisation_ue', chemin: `/api/attestations/etudiant/${id}/valorisations/document`, nom: 'Attestations de réussite par valorisation — toutes les années' });
