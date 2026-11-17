@@ -3,6 +3,7 @@ import { IconPresentation, IconRefresh, IconMaximize, IconMinimize } from '@tabl
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, ReferenceLine, CartesianGrid, Legend } from 'recharts';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import IipHelbGestion from './IipHelbGestion.jsx';
+import FinancementsAsbl from './FinancementsAsbl.jsx';
 import BudgetSection from './BudgetSection.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
@@ -206,6 +207,10 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
       {!d ? <p className="text-second text-slate-400">Calcul des indicateurs de toutes les sections… (quelques secondes la première fois)</p> : (<>
         {!plein && <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}
           {onSources && <button type="button" className="text-iip-blue underline" onClick={onSources}>Les sources</button>}</p>}
+        {/* LES FINANCEMENTS DE L'ASBL, DÉPARTEMENT PAR DÉPARTEMENT ET SECTION PAR SECTION, SOUS « FINANCES » (3.5.516, Charles : « je ne
+            vois pas la partie finance ASBL et toutes les sections ») — direction seule (les comptes). */}
+        {perim === 'etab' && estDirection && (lentille === 'fin' || lentille === 'tout') && !sansIipHelb && (
+          <section className="space-y-2"><div className="intertitre">Les financements de l’ASBL — chaque département de la HELB et chaque section de l’IIP</div><FinancementsAsbl /></section>)}
         {perim === 'etab' ? <Etablissement d={d} lentille={lentille} refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef}
           ouvrir={s => { setSection(s); try { localStorage.setItem(MEMO, JSON.stringify({ ...lire(), section: s })); } catch { /* */ } if (onOuvrirSection) onOuvrirSection(s); else setPerim('section'); }} />
           : !S ? <p className="text-second text-slate-500">Section introuvable pour {d.annee}.</p>

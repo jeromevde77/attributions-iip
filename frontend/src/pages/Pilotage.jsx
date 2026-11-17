@@ -2191,7 +2191,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
                   {[['Les étudiants', ['population-ecole', 'population', 'presences-ue']], ['La réussite', ['deliberation', 'distributions']],
                     ['Le personnel', ['personnel-ecole', 'etp', 'etp-annees', 'repartition', 'qui-fait-quoi']], ['La dotation', ['synthese', 'dotation', 'iip-helb', 'config']], ['Les finances', ['financements']]]
                     .map(([titre, cles]) => {
-                      const faces = RUBRIQUES[0].faces.filter(([k]) => cles.includes(k));
+                      const faces = (RUBRIQUES.find(x => x.key === 'g-ecole')?.faces || []).filter(([k]) => cles.includes(k));
                       return faces.length ? (
                         <div key={titre} className="min-w-0">
                           <div className="intertitre mb-1">{titre}</div>
