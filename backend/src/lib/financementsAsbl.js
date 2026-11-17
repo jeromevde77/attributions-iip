@@ -46,15 +46,27 @@ export function financementsAsbl() {
   // Les chiffres de Lucie, par année académique (lourds : une fois chacun).
   const lucie = new Map();
   const anneesLucie = new Set(db.prepare('SELECT DISTINCT annee_scolaire a FROM attribution').all().map(r => r.a));
+  /* LES INSCRITS DE RÉFÉRENCE FONT FOI (3.5.520, Charles : « on a les vrais chiffres dans Lucie ») : la table des inscrits de référence
+     (Evolution_chiffres.xlsx de la direction, corrigée dans Lucie — Gestion → Population) porte les inscrits réels de chaque section et
+     de chaque année ; les dossiers de Lucie, eux, ne sont complets que depuis 2025-2026 (109 en 2023-2024, 402 en 2024-2025). Ils
+     l'emportent donc ; Lucie ne compte elle-même qu'une section que la référence ne porte pas. */
+  const reference = a => {
+    try { return new Map(db.prepare('SELECT section, total FROM inscrits_reference WHERE annee_scolaire = ? AND total IS NOT NULL').all(a).map(r => [r.section, r.total])); }
+    catch { return new Map(); }
+  };
   const deLucie = a => {
     if (lucie.has(a)) return lucie.get(a);
-    if (!anneesLucie.has(a)) { lucie.set(a, null); return null; }   // pas d'attributions cette année-là : rien à calculer
-    let c = null; try { c = coutMemo(a); } catch { c = null; }
+    const ref = reference(a);
     const secs = new Map();
-    for (const x of c?.sections || []) {
-      let e = null; try { e = enseignantsIipCivil(x.section, a); } catch { e = null; }
-      secs.set(x.section, { inscrits: x.inscrits || 0, etp: e?.etp ?? null, cout: e?.cout ?? null });
+    if (anneesLucie.has(a)) {
+      let c = null; try { c = coutMemo(a); } catch { c = null; }
+      for (const x of c?.sections || []) {
+        let e = null; try { e = enseignantsIipCivil(x.section, a); } catch { e = null; }
+        secs.set(x.section, { inscrits: ref.has(x.section) ? ref.get(x.section) : (x.inscrits || 0), reference: ref.has(x.section), etp: e?.etp ?? null, cout: e?.cout ?? null });
+      }
     }
+    // Les sections de la référence sans attribution dans Lucie cette année-là : leurs inscrits, sans coût d'enseignants connu.
+    for (const [sec, n] of ref) if (!secs.has(sec)) secs.set(sec, { inscrits: n, reference: true, etp: null, cout: null, sans_attributions: true });
     const v = secs.size ? secs : null; lucie.set(a, v); return v;
   };
   const cursusHe = new Map(COMPARAISON_HE.cursus.map(c => [c.cursus, c]));
@@ -110,10 +122,10 @@ export function financementsAsbl() {
     } else if (p.bloc === 'Institut Ilya Prigogine') {
       if (p.niveau === 0) {
         ajouter(p, 0, A => { const L = deLucie(acad(A)); if (!L) return {};
-          const v = [...L.values()]; return { etudiants: v.reduce((t, x) => t + x.inscrits, 0), etp: r2(v.reduce((t, x) => t + (x.etp || 0), 0)), enseignants: r0(v.reduce((t, x) => t + (x.cout || 0), 0)), federation: true }; });
+          const v = [...L.values()]; return { etudiants: v.reduce((t, x) => t + x.inscrits, 0), etp: r2(v.reduce((t, x) => t + (x.etp || 0), 0)), enseignants: r0(v.reduce((t, x) => t + (x.cout || 0), 0)), federation: true, incomplet: v.some(x => x.cout == null && x.inscrits > 0) }; });
       } else {
         const code = SECTION_IIP[p.poste];
-        ajouter(p, 1, A => { const x = code && deLucie(acad(A))?.get(code); return x ? { etudiants: x.inscrits, etp: x.etp, enseignants: x.cout, federation: true } : {}; });
+        ajouter(p, 1, A => { const x = code && deLucie(acad(A))?.get(code); return x ? { etudiants: x.inscrits, etp: x.etp, enseignants: x.cout, federation: true, incomplet: x.cout == null } : {}; });
       }
     } else ajouter(p, p.niveau === 0 ? 0 : 1);
   }
@@ -130,7 +142,7 @@ export function financementsAsbl() {
       const L = deLucie(acad(A)); if (!L) continue;
       const autres = [...L.entries()].filter(([k]) => !Object.values(SECTION_IIP).includes(k));
       if (autres.length) par[A] = { etudiants: autres.reduce((t, [, x]) => t + x.inscrits, 0), etp: r2(autres.reduce((t, [, x]) => t + (x.etp || 0), 0)),
-        enseignants: r0(autres.reduce((t, [, x]) => t + (x.cout || 0), 0)), federation: true, sans_comptes: true, sections: autres.map(([k]) => k) };
+        enseignants: r0(autres.reduce((t, [, x]) => t + (x.cout || 0), 0)), federation: true, sans_comptes: true, incomplet: autres.some(([, x]) => x.cout == null && x.inscrits > 0), sections: autres.map(([k]) => k) };
     }
     if (Object.keys(par).length) {
       const i = lignes.reduce((k, l, j) => (l.bloc === 'Institut Ilya Prigogine' ? j : k), -1);
@@ -142,7 +154,7 @@ export function financementsAsbl() {
     const h = lignes.find(l => l.bloc === 'HELB' && l.niveau === 0)?.par[A], i = iip?.par[A];
     if (!ligneTotal.par[A]) continue;
     if (h?.etudiants || i?.etudiants) Object.assign(ligneTotal.par[A], { etudiants: (h?.etudiants || 0) + (i?.etudiants || 0), etp: r2((h?.etp || 0) + (i?.etp || 0)),
-      enseignants: (h?.enseignants || 0) + (i?.enseignants || 0), federation_part: i?.enseignants || 0 });
+      enseignants: (h?.enseignants || 0) + (i?.enseignants || 0), federation_part: i?.enseignants || 0, incomplet: !!i?.incomplet });
   }
   // Le coût complet : les charges des comptes + les enseignants payés par la Fédération (hors comptes).
   for (const l of lignes) for (const v of Object.values(l.par)) {

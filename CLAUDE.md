@@ -4515,7 +4515,10 @@ tableaux détaillés → « Financements de l'ASBL », et bloc `financements` de
 charges, produits, résultat des postes de la synthèse de l'ASBL ; étudiants et ETP de l'année académique qui finit dans l'exercice (HELB :
 ratios par département, comparaison ETP par cursus — table `CURSUS` des intitulés ; IIP : inscrits de `coutMemo`, ETP et coût de
 `enseignantsIipCivil`) ; enseignants HELB = ETP × coût moyen statutaire du COR (estimation, déjà dans les charges), IIP = Fédération (hors
-comptes) ; coût complet = charges + Fédération. Une ligne « Autres formations » porte les sections de Lucie sans poste dans les comptes.
+comptes) ; coût complet = charges + Fédération. Une ligne « Autres formations » porte les sections de Lucie sans poste dans les comptes. **Les inscrits de référence font foi** (3.5.520, Charles : « un étudiant IIP coûte plus cher que HELB, cela n'a pas de sens » ; « on a
+les vrais chiffres dans Lucie ») : les étudiants de l'IIP sont ceux d'`inscrits_reference` (Gestion → Population), à défaut ceux de Lucie
+(complets seulement depuis 2025-2026) ; une année dont une section n'a pas d'attributions dans Lucie (coût des enseignants inconnu) est
+marquée `incomplet` et n'a pas de coût par étudiant.
 
 **UN ÉTUDIANT TIM EST FINANCÉ EN UCE × 1,5, PAS AU MONTANT MOYEN DES COMPTES** (3.5.512, Charles d'après la comptable : « à la HELB,
 un étudiant vaut un étudiant » — l'allocation est répartie dans les comptes au même montant par étudiant ; tranché : chaque cursus avec sa
