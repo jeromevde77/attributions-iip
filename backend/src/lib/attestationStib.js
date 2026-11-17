@@ -114,8 +114,12 @@ export async function remplirStibDocx(modele, v) {
   // La date de l'établissement : le PREMIER « ........../........../20....... » (le second est celui du bénéficiaire).
   x = x.replace('<w:t>........../........../20.......</w:t>', `<w:t xml:space="preserve">${v.date}</w:t>`);
   const { insererImageSous } = await import('../services/formulairesFWB.js');
-  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 3.0, 'cachet');
-  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 4.0, 'signature');
+  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 2.3, 'cachet');
+  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 3.0, 'signature');
+  /* CÔTE À CÔTE, SUR UNE SEULE PAGE (3.5.532, capture de Charles : l'un sous l'autre, ils repoussaient « Réservé au bénéficiaire »
+     sur une deuxième page) : les deux images se réunissent dans un même paragraphe, signature puis cachet. */
+  x = x.replace(/<w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p>/,
+    (m, r1, r2) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="right"/></w:pPr>${r1}<w:r><w:t xml:space="preserve">    </w:t></w:r>${r2}</w:p>`);
   zip.file('word/document.xml', x);
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
