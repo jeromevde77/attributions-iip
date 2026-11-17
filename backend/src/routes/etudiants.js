@@ -7798,6 +7798,20 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
 
   const ueN = Number(ue_num);
 
+  /* LES ANNÉES PASSÉES SE CORRIGENT DANS LA GRILLE (3.5.518, Charles, 17 novembre 2026 : « permettre de changer les notes des années
+     précédentes pour mettre des VA ; j'avais interdit, mais ils en ont besoin, les dossiers ne sont pas terminés » ; « ni moi ni le
+     secrétariat ne savons supprimer »). Les années reprises ont été clôturées (reprise d'archives) : leur séance close verrouillait toute
+     la grille. Pour une année ANTÉRIEURE à l'année de travail, direction et secrétariat (la route est déjà réservée à eux) écrivent sans
+     rouvrir la séance — note_force, comme la correction de la direction (3.5.097) ; le journal des modifications garde chaque geste.
+     L'année de travail garde la règle : une séance close se rouvre. */
+  const courantePourGrille = anneeDeTravail(req);
+  const passee = !!courantePourGrille && String(annee) < String(courantePourGrille);
+  if (passee) {
+    db.prepare('INSERT OR IGNORE INTO note_force (etudiant_id, annee_scolaire, ue_num) VALUES (?,?,?)').run(etudId, annee, ueN);
+    const lever = () => { try { db.prepare('DELETE FROM note_force WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').run(etudId, annee, ueN); } catch { /* */ } };
+    res.on('finish', lever); res.on('close', lever);
+  }
+
   /* LA FAVEUR S'ENCODE AUSSI DANS LE PARCOURS (Charles, 5 octobre 2026 : « je
      dois aussi pouvoir encoder une faveur dans cet écran — en 247 cet étudiant
      a une faveur »). Elle s'écrit comme la délibération l'écrit : un
@@ -7833,7 +7847,7 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
     }
   }
   if (kind === 'faveur') {
-    { const pourquoi = refusResultat(req, etudId, annee, ueN);
+    { const pourquoi = passee ? null : refusResultat(req, etudId, annee, ueN);
       if (pourquoi) return res.status(409).json({ error: pourquoi }); }
     let session = 1;
     try {
@@ -7870,7 +7884,7 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   ).run(etudId, annee, ueN);
 
   // Une séance close garde ses notes : ni « effacer le résultat », ni « effacer » (3.1.432).
-  if (kind === 'effacer_resultat' || kind === 'effacer') {
+  if (!passee && (kind === 'effacer_resultat' || kind === 'effacer')) {
     const v = noteVerrouillee(etudId, annee, ueN, 's1|') || noteVerrouillee(etudId, annee, ueN, 's2|');
     if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueN, v.session), seance_close: true });
   }
@@ -7952,7 +7966,7 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   }
   // inscrit / reussi / ajourne / absent → etudiant_inscription. La marque de
   // réinscription forcée n'est pas touchée : ré-encoder un résultat l'effaçait.
-  { const pourquoi = refusResultat(req, etudId, annee, ueN);
+  { const pourquoi = passee ? null : refusResultat(req, etudId, annee, ueN);
     if (pourquoi) return res.status(409).json({ error: pourquoi }); }
   delVa();
   db.prepare(`
