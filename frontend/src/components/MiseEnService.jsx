@@ -146,6 +146,47 @@ export default function MiseEnService() {
           onAjouter={id => regler({ comptes_essai: [...r.comptes_essai, id] })}
           onRetirer={id => regler({ comptes_essai: r.comptes_essai.filter(x => x !== id) })} />
       </section>
+      <InvitationLot />
     </div>
   );
+}
+
+/* INVITER TOUTE UNE SECTION À SON ESPACE (3.5.536) : simulation d'abord (qui sera invité, qui est écarté et pourquoi, qui l'est déjà),
+   puis l'envoi. Un étudiant n'est invité que s'il a une adresse d'institut et au moins une fonction de l'espace ouverte pour lui. */
+function InvitationLot() {
+  const [sections, setSections] = useState([]);
+  const [section, setSection] = useState('');
+  const [deja, setDeja] = useState(false);
+  const [sim, setSim] = useState(null);
+  const [fait, setFait] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  useEffect(() => { fetch('/api/ref/sections', { headers: authHeaders() }).then(x => x.json()).then(l => Array.isArray(l) && setSections(l)).catch(() => {}); }, []);
+  const appel = simulation => fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section, simulation, deja }) }).then(x => x.json());
+  const simuler = async () => { setFait(null); setEnCours(true); try { setSim(await appel(true)); } finally { setEnCours(false); } };
+  const envoyer = async () => {
+    if (!(await demander({ titre: 'Inviter à l’espace étudiant', confirmer: `Inviter ${sim.a_inviter.length} étudiant(s)`, annuler: 'Annuler',
+      message: `Un courriel part à l’adresse d’institut de chacun : l’adresse de l’espace et la marche à suivre.` }))) return;
+    setEnCours(true); try { setFait(await appel(false)); setSim(null); } finally { setEnCours(false); }
+  };
+  return (
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Inviter les étudiants à leur espace" sous="Un courriel à l’adresse d’institut : l’adresse de l’espace et la marche à suivre. Chaque invitation se lit dans la fiche (Suivi)." />
+      <div className="px-4 py-3 space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="controle" value={section} onChange={e => { setSection(e.target.value); setSim(null); setFait(null); }}>
+            <option value="">— choisir une section —</option>{sections.map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
+          </select>
+          <label className="flex items-center gap-1.5"><input type="checkbox" checked={deja} onChange={e => { setDeja(e.target.checked); setSim(null); }} /> réinviter aussi ceux déjà invités</label>
+          <button type="button" className="bouton" disabled={!section || enCours} onClick={simuler}>Simuler</button>
+          {sim?.a_inviter?.length > 0 && <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={envoyer}>Inviter {sim.a_inviter.length} étudiant(s)</button>}
+        </div>
+        {sim && <div className="space-y-1">
+          <div><b>{sim.a_inviter.length}</b> à inviter{sim.deja_invites?.length ? ` · ${sim.deja_invites.length} déjà invité(s), laissés de côté` : ''}{sim.ecartes?.length ? ` · ${sim.ecartes.length} écarté(s)` : ''}.</div>
+          {sim.ecartes?.length > 0 && <details><summary className="cursor-pointer text-slate-600">Les écartés et pourquoi</summary>
+            <ul className="mt-1 text-second text-slate-600">{sim.ecartes.map(e => <li key={e.id}>{e.nom} — {e.raison}</li>)}</ul></details>}
+        </div>}
+        {fait && <div className="bloc-etat px-3 py-2" data-etat={fait.echecs?.length ? 'surveiller' : 'reussi'}>
+          {fait.invites?.length || 0} invitation(s) envoyée(s){fait.echecs?.length ? `, ${fait.echecs.length} en échec (${fait.echecs.map(e => e.nom).join(', ')})` : ''}.</div>}
+      </div>
+    </section>);
 }

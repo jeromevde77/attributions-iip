@@ -3184,6 +3184,15 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
   const { authRequired: exigerCompte, roleRequired: exigerRole } = await import('./middleware/auth.js');
   const { nomEcranDuCompte } = await import('./lib/nom.js');
   const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
+  // L'INVITATION À L'ESPACE (3.5.536, lib/invitationEspace.js) : secrétariat et direction ; simulation d'abord.
+  {
+    const { inviter, etatInvitation } = await import('./lib/invitationEspace.js');
+    app.post('/api/portail-suivi/inviter', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {
+      try { res.json(await inviter({ ids: req.body?.ids, section: req.body?.section || null, simulation: req.body?.simulation !== false, deja: !!req.body?.deja }, qui(req))); }
+      catch (e) { res.status(500).json({ error: e.message }); }
+    });
+    app.get('/api/portail-suivi/:id/invitation', exigerCompte, (req, res) => res.json(etatInvitation(Number(req.params.id))));
+  }
   app.get('/api/portail-suivi/:id', exigerCompte, (req, res) => res.json(suiviPortail(Number(req.params.id))));
   // L'accès hors de Belgique : secrétariat et direction (la coordination ne l'ouvre pas).
   app.post('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {

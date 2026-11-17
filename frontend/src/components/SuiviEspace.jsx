@@ -1,6 +1,7 @@
 import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { useCallback, useEffect, useState } from 'react';
-import { IconWorld, IconKey, IconEye } from '@tabler/icons-react';
+import { IconWorld, IconKey, IconEye, IconMail } from '@tabler/icons-react';
+import { demander } from '../lib/dialogue.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 
@@ -32,6 +33,23 @@ export default function SuiviEspace({ id }) {
       if (w) w.location = j.url; else window.location.href = j.url;
     } catch (e) { w?.close(); setErreurApercu(e.message); }
   };
+  /* L'INVITATION (3.5.536) : « invité le … », et si une connexion a suivi ; inviter (secrétariat, direction) après une simulation. */
+  const [inv, setInv] = useState(null);
+  const [msgInv, setMsgInv] = useState(null);
+  const chargerInv = useCallback(() => { if (id) fetch(`/api/portail-suivi/${id}/invitation`, { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setInv).catch(() => {}); }, [id]);
+  useEffect(() => { chargerInv(); }, [chargerInv]);
+  const peutInviter = passe('admin', 'editeur');
+  const inviter = async () => {
+    setMsgInv(null);
+    const sim = await fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ids: [id], simulation: true, deja: true }) }).then(r => r.json()).catch(() => ({}));
+    if (sim.ecartes?.length) { setMsgInv(`Pas d’invitation : ${sim.ecartes[0].raison}.`); return; }
+    if (!sim.a_inviter?.length) { setMsgInv('Rien à envoyer.'); return; }
+    if (!(await demander({ titre: 'Inviter à l’espace étudiant', confirmer: 'Envoyer l’invitation', annuler: 'Annuler',
+      message: `Un courriel part à ${sim.a_inviter[0].email} : l’adresse de l’espace et la marche à suivre pour y entrer.${inv?.derniere ? `\n\nDéjà invité le ${String(inv.derniere.le).slice(0, 10).split('-').reverse().join('/')}.` : ''}` }))) return;
+    const r = await fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ids: [id], simulation: false, deja: true }) }).then(x => x.json()).catch(() => ({}));
+    setMsgInv(r.invites?.length ? 'Invitation envoyée.' : `Invitation non envoyée${r.echecs?.[0]?.erreur ? ` : ${r.echecs[0].erreur}` : '.'}`);
+    chargerInv();
+  };
   if (!espace) return null;
   const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
   /* UNE SECTION, DES FILETS (3.5.020, Charles : « trop de cadres, des erreurs d'alignement ») : l'espace, l'accès hors de
@@ -48,6 +66,14 @@ export default function SuiviEspace({ id }) {
           {direction && espace.actif && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={voirComme}><IconEye size={15} /> Voir son espace</button>}
         </div>
         {erreurApercu && <div className="text-red-700">{erreurApercu}</div>}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex-1 min-w-0">{inv?.derniere
+            ? <>Invité le {jour(inv.derniere.le)}{inv.derniere.par ? ` par ${inv.derniere.par}` : ''}{inv.derniere.statut === 'echec' ? ' — envoi en échec' : ''}{inv.nombre > 1 ? ` (${inv.nombre} invitations)` : ''}
+              {' · '}{inv.premiere_connexion ? <span className="text-emerald-700">connecté depuis, le {jour(inv.premiere_connexion)}</span> : <span className="text-amber-700">pas encore connecté</span>}</>
+            : <span className="text-slate-500">Jamais invité à son espace</span>}</span>
+          {peutInviter && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={inviter}><IconMail size={15} /> {inv?.derniere ? 'Réinviter' : 'Inviter'}</button>}
+        </div>
+        {msgInv && <div className="text-slate-600">{msgInv}</div>}
       {espace.pae && <div className="flex flex-wrap gap-x-2">
         <span className="min-w-0 flex-1">PAE {espace.pae.annee}</span>
         <span className={espace.pae.a_jour ? 'text-emerald-700' : 'text-amber-700'}>{espace.pae.a_jour
