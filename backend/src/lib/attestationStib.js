@@ -62,14 +62,21 @@ export function eligibiliteStib(etudId, annee, jour = new Date().toISOString().s
   else if (age > SEUILS_STIB.age_max) raisons.push(`la STIB réserve le tarif scolaire aux moins de 25 ans (${age} ans)`);
   const inscrit = essai(() => db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? LIMIT 1').get(e.id, annee), null);
   if (!inscrit) raisons.push(`aucune inscription en ${annee}`);
+  /* UN PAE À TEMPS PLEIN SUFFIT (3.5.530, Charles : « si le PAE est complet, les documents allocations et STIB, on donne » ;
+     tranché : 60 ECTS au moins ; sinon, le calcul de l'horaire). */
+  const ects = essai(() => db.prepare(`SELECT COALESCE(SUM((SELECT ects FROM ue x WHERE x.ue_num = i.ue_num AND x.ects IS NOT NULL
+      ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1)), 0) n FROM etudiant_inscription i
+      WHERE i.etudiant_id = ? AND i.annee_scolaire = ?`).get(annee, e.id, annee).n, 0);
+  const tempsPlein = ects >= 60;
   const r = rythmeEtudiant(e.id, annee);
   const S = r.soir ? SEUILS_STIB.soir : SEUILS_STIB.jour;
-  const mode = r.soir ? 'soir' : 'jour';
-  if (r.heures == null || r.jours == null) raisons.push('horaire de l’année inconnu');
+  const mode = tempsPlein ? 'temps_plein' : r.soir ? 'soir' : 'jour';
+  if (tempsPlein) { /* rien d'autre à vérifier que l'âge et l'inscription */ }
+  else if (r.heures == null || r.jours == null) raisons.push(`horaire de l’année inconnu (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
   else if (r.heures < S.heures || r.jours < S.jours) {
-    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins`);
+    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
   }
-  return { ok: !raisons.length, raisons, age, rythme: r, mode };
+  return { ok: !raisons.length, raisons, age, rythme: r, mode, ects, temps_plein: tempsPlein };
 }
 
 const T = p => [...p.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map(m => m[1]).join('');
