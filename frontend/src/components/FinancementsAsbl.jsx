@@ -25,17 +25,18 @@ export default function FinancementsAsbl() {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [tour, setTour] = useState(0);
+  const [essai, setEssai] = useState(0);   // le calcul tourne au serveur : on redemande (202)
   const [annee, setAnnee] = useState(null);
   const [ouverts, setOuverts] = useState([]);
   const [metrique, setMetrique] = useState('charges');
   useEffect(() => {
     let vivant = true; setErreur(null);
-    fetch(`/api/pilotage/financements${tour ? '?recalculer=1' : ''}`, { headers: authHeaders() })
+    fetch(`/api/pilotage/financements${tour && !essai ? '?recalculer=1' : ''}`, { headers: authHeaders() })
       .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); return j; })
-      .then(j => { if (vivant) { setD(j); setAnnee(a => a || j.dernier); } })
+      .then(j => { if (!vivant) return; if (j.en_cours) { setTimeout(() => vivant && setEssai(n => n + 1), 4000); return; } setD(j); setAnnee(a => a || j.dernier); })
       .catch(e => vivant && setErreur(e.message));
     return () => { vivant = false; };
-  }, [tour]);
+  }, [tour, essai]);
 
   const lignes = d?.lignes || [];
   // Une ligne de cursus ne se montre que sous son département ouvert.
@@ -86,7 +87,7 @@ export default function FinancementsAsbl() {
             <button key={a} type="button" aria-pressed={a === A} onClick={() => setAnnee(a)}
               className={`whitespace-nowrap ${a === A ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{a}</button>))}
         </div>
-        <button type="button" className="bouton ml-auto inline-flex items-center gap-1.5 whitespace-nowrap" onClick={() => setTour(t => t + 1)}
+        <button type="button" className="bouton ml-auto inline-flex items-center gap-1.5 whitespace-nowrap" onClick={() => { setEssai(0); setD(null); setTour(t => t + 1); }}
           title="Refaire le calcul avec les dernières données"><IconRefresh size={15} />Recalculer</button>
       </div>
 

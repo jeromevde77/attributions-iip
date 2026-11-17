@@ -16,7 +16,7 @@ import { departementsHe, COMPARAISON_HE, prixHelb, coutMemo, enseignantsIipCivil
 const DEPT = { 'Technologies et Economie': 'Technoeco', 'Santé': 'Santé', 'Social': 'Social', 'Communication et Médias audiovisuels': 'COMAV' };
 // Le cursus des comptes → celui de la comparaison ETP de la HELB (les intitulés diffèrent).
 const CURSUS = {
-  'Informatique : Développement d\'applications': 'Informatique de gestion', 'Cyber sécurité': 'Cybersécurité', 'Electronique': 'Électronique appliquée',
+  'Informatique : Développement d\'applications': 'Informatique de gestion', 'Informatique de gestion': 'Informatique de gestion', 'Cyber sécurité': 'Cybersécurité', 'Electronique': 'Électronique appliquée',
   'Facility management': 'Facility management', 'Ergothérapie': 'Ergothérapie (CEB)', 'Podologie': 'Podologie', 'Sage-femme': 'Sage-femme',
   'Soins infirmiers': 'Soins infirmiers', 'Hygiéniste bucco-dentaire': 'Hygiéniste bucco-dentaire', 'Orthoptie': 'Orthoptie',
   'Technologue en imagerie médicale': 'Technologue en imagerie médicale', 'Accueil et éducation du jeune enfant': 'AEJE', 'Kinésithérapie': 'Kinésithérapie',
@@ -30,6 +30,8 @@ const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) /
 
 let MEMO = null;
 export function viderFinancements() { MEMO = null; }
+/** Le calcul s'il est déjà fait (sinon null) : la route ne bloque pas. Sans synthèse, un tableau vide. */
+export function financementsPret() { if (MEMO && Date.now() - MEMO.t < 600e3) return MEMO.d; return syntheseAsbl() ? null : { annees: [], lignes: [] }; }
 
 export function financementsAsbl() {
   if (MEMO && Date.now() - MEMO.t < 600e3) return MEMO.d;
@@ -62,7 +64,17 @@ export function financementsAsbl() {
     lignes.push({ cle: `${p.bloc}|${p.dept || ''}|${p.poste}`, bloc: p.bloc, dept: p.dept || null, libelle: p.poste, niveau, par });
     return lignes[lignes.length - 1];
   };
-  const P = S.totaux.postes;
+  // Les postes de l'exercice le plus récent seulement (les anciens classeurs rangeaient autrement : « Catégorie paramédicale »…),
+  // dans l'ordre des blocs, chaque département suivi de ses cursus.
+  const der = annees[annees.length - 1];
+  const ORDRE = ['ASBL', 'HELB', 'Institut Ilya Prigogine', 'ASBL Administration', 'CREA Formations continues', 'International Relations Office (IRO)', 'Unité de Recherches (UDR)', 'HELB Conseil social'];
+  const brut = S.totaux.postes.filter(p => p.ex[`${der}|realise`]);
+  const rang = p => { const b = ORDRE.indexOf(p.bloc); return b < 0 ? 99 : b; };
+  const deptDe = p => (p.niveau === 1 && /^Département /.test(p.poste) ? p.poste.replace(/^Département /, '') : p.dept);
+  const ordreDept = [...new Set(brut.filter(p => p.bloc === 'HELB').map(deptDe).filter(Boolean))];
+  const P = brut.map((p, i) => ({ p, i })).sort((x, y) => rang(x.p) - rang(y.p)
+    || (ordreDept.indexOf(deptDe(x.p)) + 1 || 0) - (ordreDept.indexOf(deptDe(y.p)) + 1 || 0)
+    || x.p.niveau - y.p.niveau || x.i - y.i).map(x => x.p);
   const helbDept = A => {   // { dept: [étudiants, ETP] } de l'année académique
     const o = {}; for (const [d, s] of Object.entries(D.departements)) if (s[acad(A)]) o[d] = s[acad(A)]; return o;
   };
@@ -82,8 +94,8 @@ export function financementsAsbl() {
         ajouter(p, 1, A => { const v = d && helbDept(A)[d]; return v ? { etudiants: r0(v[0]), etp: r2(v[1]), enseignants: ens(v[1]), estime: true } : {}; });
       } else if (p.niveau === 2 && p.dept) {
         const c = cursusHe.get(CURSUS[p.poste]);
-        // Une ligne vide partout (cursus pas encore ouvert) ne s'affiche pas.
-        if (!annees.some(A => p.ex[`${A}|realise`]?.charges || p.ex[`${A}|realise`]?.produits)) continue;
+        // Un cursus sans charge ni produit au dernier exercice (pas encore ouvert) ne s'affiche pas.
+        if (!(p.ex[`${der}|realise`]?.charges || p.ex[`${der}|realise`]?.produits)) continue;
         ajouter(p, 2, A => { const v = c?.series?.[acad(A)]; return v ? { etudiants: r0(v[0]), etp: r2(v[1]), enseignants: ens(v[1]), estime: true } : {}; });
       } else ajouter(p, 1);   // l'administration de la HELB
     } else if (p.bloc === 'Institut Ilya Prigogine') {

@@ -6,7 +6,7 @@ import { getParamNum } from './parametres.js';
 import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
-import { financementsAsbl, viderFinancements } from '../lib/financementsAsbl.js';
+import { financementsAsbl, financementsPret, viderFinancements } from '../lib/financementsAsbl.js';
 import { donneesIipHelb, viderMemoCout, coutMemo, COMPARAISON_HE, PARAM_HELB, COR_HELB, enseignantsHelbCivil, enseignantsIipCivil, estimationAnnee, allocationCivile, evolutionAttributions } from '../lib/rapportIipHelb.js';
 import { reussiteParSection } from './statsDeliberation.js';
 import { lireSource, enregistrerSource, listerSources, retirerSource, sourcesEnVigueur, dernierRealise, realiseComplet, syntheseAsbl, NATURES } from '../lib/sourcesReference.js';
@@ -548,10 +548,18 @@ r.get('/lecture', authRequired, (req, res) => {
 });
 
 /* LES FINANCEMENTS PAR SECTION ET DÉPARTEMENT DE L'ASBL (3.5.511) : lib/financementsAsbl.js. Direction seule (les comptes). */
+let EN_COURS_FIN = false, ERREUR_FIN = null;
 r.get('/financements', authRequired, (req, res) => {
   if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
-  try { if (req.query.recalculer) viderFinancements(); res.json(financementsAsbl() || { annees: [], lignes: [] }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  // Le premier calcul est long (les coûts de Lucie, année par année) : il part en arrière-plan, l'écran redemande (202).
+  try {
+    if (req.query.recalculer) viderFinancements();
+    const d = financementsPret();
+    if (d) return res.json(d);
+    if (ERREUR_FIN) { const e = ERREUR_FIN; ERREUR_FIN = null; return res.status(500).json({ error: e }); }
+    if (!EN_COURS_FIN) { EN_COURS_FIN = true; setTimeout(() => { try { financementsAsbl(); } catch (e) { ERREUR_FIN = e.message; } finally { EN_COURS_FIN = false; } }, 10); }
+    res.status(202).json({ en_cours: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 /* LES SOURCES DES RÉFÉRENTIELS (3.5.450) : la direction dépose, Lucie lit et ne garde que les totaux (lib/sourcesReference.js). */
