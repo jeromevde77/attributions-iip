@@ -1051,7 +1051,7 @@ function AideRegles({ onRevoir }) {
 }
 
 /** LES MESSAGES DE L'ÉCOLE (3.1.516) : les lire (l'auteur voit ✓ lu), y répondre — la réponse va à l'auteur. */
-function MesMessages({ onErreur, onLus }) {
+function MesMessages({ onErreur, onLus, signature = '' }) {
   const [l, setL] = useState(null);
   const [ouvert, setOuvert] = useState(null);
   const [texte, setTexte] = useState('');
@@ -1073,7 +1073,7 @@ function MesMessages({ onErreur, onLus }) {
   /* LA LISTE STANDARD (3.5.331, audit) : une ligne par message (`LigneEtat`), comme les textes et documents de l'enseignant ; non lu
      = liseré bleu ; le message et son fil se déplient sous la ligne. */
   return (<div className="space-y-3">
-    <EcrireDirection onEnvoye={charger} onErreur={onErreur} />
+    <EcrireDirection onEnvoye={charger} onErreur={onErreur} signature={signature} />
     {!l.length && <p className="text-sm text-slate-500">Aucun message pour l’instant. Les messages du secrétariat, de votre coordination et de vos enseignants paraîtront ici.</p>}
     {l.length > 0 && <ListeEtats>
       {l.map(m => (
@@ -1099,7 +1099,7 @@ function MesMessages({ onErreur, onLus }) {
 
 /* ÉCRIRE À LA DIRECTION (3.5.538, Charles : « ajoute le bouton Écrire à la direction ») : un message de l'étudiant sans message de départ ;
    il arrive à la direction, pas à la coordination, et la réponse revient dans ses messages. */
-function EcrireDirection({ onEnvoye, onErreur }) {
+function EcrireDirection({ onEnvoye, onErreur, signature = '' }) {
   const [ouvert, setOuvert] = useState(false);
   const [objet, setObjet] = useState('');
   const [corps, setCorps] = useState('');
@@ -1122,7 +1122,10 @@ function EcrireDirection({ onEnvoye, onErreur }) {
           <button type="button" className="bouton bouton-fort" disabled={!corps.trim() || enCours} onClick={envoyer}>Envoyer</button></div>}>
         <div className="space-y-2">
           <input className="controle w-full" placeholder="Objet (facultatif)" value={objet} maxLength={150} onChange={e => setObjet(e.target.value)} />
-          <textarea className="controle w-full !h-auto py-2" rows={8} placeholder="Votre message…" value={corps} maxLength={5000} onChange={e => setCorps(e.target.value)} />
+          {/* Le brouillon en gris clair (3.5.539, Charles : « Cher Monsieur le Directeur, … et tu termines par nom et prénom ») :
+              il disparaît dès que l'étudiant écrit. */}
+          <textarea className="controle w-full !h-auto py-2" rows={10} value={corps} maxLength={5000} onChange={e => setCorps(e.target.value)}
+            placeholder={`Cher Monsieur le Directeur,\n\n…\n\nVeuillez agréer, Monsieur le Directeur, l’expression de mes salutations distinguées.\n\n${signature || 'Prénom NOM'}`} />
         </div>
       </FenetreEspace>)}
   </>);
@@ -1742,7 +1745,7 @@ function Espace() {
             </ListeEtats></>)}
         </>)}
 
-        {face === 'messages' && <MesMessages onErreur={echec} onLus={setNonLus} />}
+        {face === 'messages' && <MesMessages onErreur={echec} onLus={setNonLus} signature={d?.etudiant ? `${d.etudiant.prenom || ''} ${String(d.etudiant.nom || '').toUpperCase()}`.trim() : ''} />}
 
         {/* MES DÉMARCHES : valorisation, TFE, stage, absences. */}
         {face === 'demarches' && <Onglets f="demarches" />}
