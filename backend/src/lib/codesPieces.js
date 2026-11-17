@@ -26,6 +26,7 @@ export const PIECES = [
   { code: 'I-03', cle: 'attestation_allocations', nom: 'Attestation d’inscription — allocations familiales', usage: 'Pour la caisse d’allocations familiales.', alias: ['att_allocations', 'att-af'] },
   { code: 'I-04', cle: 'frais_scolarite', nom: 'Frais de scolarité', usage: 'Ce qui est dû, versé, et le QR de paiement.', alias: ['frais'] },
   { code: 'I-05', cle: 'pae', nom: 'Programme annuel de l’étudiant (PAE)', usage: 'Les unités de l’année et leurs crédits.', alias: [] },
+  { code: 'I-06', cle: 'attestation_stib', nom: 'Attestation de fréquentation scolaire — STIB', usage: 'Pour l’abonnement scolaire STIB (moins de 25 ans, selon l’horaire).', alias: ['stib'] },
   { code: 'A-01', cle: 'annexe1', nom: 'Visa ou titre de séjour étudiant (annexe 1)', usage: 'Ressortissant d’un pays tiers, séjour limité aux études.', alias: [] },
   { code: 'A-02', cle: 'annexe2', nom: 'Progrès des études (annexe 2)', usage: 'Crédits de l’année et progression, pour l’Office des Étrangers.', alias: [] },
   { code: 'C-01', cle: 'cep_inscription', nom: 'Congé-éducation — attestation d’inscription régulière', usage: 'À l’employeur, au plus tard le 31 octobre.', alias: ['cep-i'] },

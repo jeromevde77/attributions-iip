@@ -1,0 +1,130 @@
+/* L'ATTESTATION DE FRÉQUENTATION SCOLAIRE DE LA STIB (3.5.524, Charles, 17 novembre 2026 : « je dois produire cela et cela doit être
+   disponible dans l'espace étudiant » ; tranché : pas de SNCB — son formulaire exclut « les étudiants de l'enseignement pour adultes » ;
+   la STIB si Lucie vérifie ses seuils ; le formulaire officiel rempli).
+   La STIB accorde le tarif scolaire aux moins de 25 ans inscrits en cours du jour (20 h sur 4 jours au moins par semaine) ou du soir
+   (9 h sur 3 jours au moins par semaine). Lucie le vérifie sur l'horaire de l'année de l'étudiant :
+   — heures par semaine : `calculDixSept` (la règle de l'attestation d'inscription : horaire, semaines où il a cours, congés retirés) ;
+   — jours par semaine : la moyenne des jours de cours distincts sur les semaines où il a cours ;
+   — du soir : la moitié au moins de ses minutes commence à 17 h ou plus tard.
+   Le formulaire (assets/formulaires-transport/stib.docx, le Word de la STIB) est rempli — année, nom, prénom, naissance, date — puis
+   signé et cacheté (signature de la direction et cachet de l'établissement), et rendu en PDF par LibreOffice. Le numéro MOBIB et la
+   signature du bénéficiaire restent à l'étudiant. */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import JSZip from 'jszip';
+import db from '../db/index.js';
+import { calculDixSept, datesDeLAnnee, congesDeLAnnee } from './attestationInscription.js';
+import { unitesInscrites, seancesEtudiant } from './cep.js';
+import { cachetCourant, signatureCourante } from './identite.js';
+
+const DOSSIER = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/formulaires-transport');
+const essai = (f, d) => { try { return f(); } catch { return d; } };
+const lundiDe = d => { const x = new Date(`${String(d).slice(0, 10)}T12:00:00Z`); const j = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - j); return x.toISOString().slice(0, 10); };
+export const SEUILS_STIB = { age_max: 24, jour: { heures: 20, jours: 4 }, soir: { heures: 9, jours: 3 }, soir_des: '17:00' };
+
+function ageAu(naissance, jour) {
+  const n = String(naissance || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(n)) return null;
+  let a = Number(jour.slice(0, 4)) - Number(n.slice(0, 4));
+  if (jour.slice(5) < n.slice(5)) a--;
+  return a;
+}
+
+/** Le rythme de l'étudiant pour l'année : heures et jours par semaine, part du soir. */
+export function rythmeEtudiant(etudId, annee) {
+  const { debut, fin } = datesDeLAnnee(annee);
+  const conges = essai(() => congesDeLAnnee(annee, debut, fin), []);
+  const dix = essai(() => calculDixSept(etudId, annee, { debut, fin, conges }), {});
+  const jours = new Map(); let min = 0, minSoir = 0;
+  for (const u of essai(() => unitesInscrites(etudId, annee), [])) {
+    if (u.epreuve_integree) continue;
+    for (const s of essai(() => seancesEtudiant(etudId, u.ue_num, annee).seances, [])) {
+      if (s.annule || s.dispense || !s.date) continue;
+      const l = lundiDe(s.date);
+      if (!jours.has(l)) jours.set(l, new Set());
+      jours.get(l).add(s.date);
+      const m = Number(s.min) || 0; min += m;
+      if (String(s.heure_debut || '') >= SEUILS_STIB.soir_des) minSoir += m;
+    }
+  }
+  const semaines = [...jours.values()];
+  const joursSemaine = semaines.length ? Math.round((semaines.reduce((t, x) => t + x.size, 0) / semaines.length) * 10) / 10 : null;
+  return { heures: dix.heures ?? null, source: dix.source || null, jours: joursSemaine, soir: min ? minSoir / min >= 0.5 : false, semaines: semaines.length };
+}
+
+/** Peut-il l'obtenir ? { ok, raisons[], age, rythme, mode } */
+export function eligibiliteStib(etudId, annee, jour = new Date().toISOString().slice(0, 10)) {
+  const e = db.prepare('SELECT id, date_naissance FROM etudiant WHERE id = ?').get(Number(etudId));
+  if (!e) return { ok: false, raisons: ['étudiant introuvable'] };
+  const raisons = [];
+  const age = ageAu(e.date_naissance, jour);
+  if (age == null) raisons.push('date de naissance inconnue');
+  else if (age > SEUILS_STIB.age_max) raisons.push(`la STIB réserve le tarif scolaire aux moins de 25 ans (${age} ans)`);
+  const inscrit = essai(() => db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? LIMIT 1').get(e.id, annee), null);
+  if (!inscrit) raisons.push(`aucune inscription en ${annee}`);
+  const r = rythmeEtudiant(e.id, annee);
+  const S = r.soir ? SEUILS_STIB.soir : SEUILS_STIB.jour;
+  const mode = r.soir ? 'soir' : 'jour';
+  if (r.heures == null || r.jours == null) raisons.push('horaire de l’année inconnu');
+  else if (r.heures < S.heures || r.jours < S.jours) {
+    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins`);
+  }
+  return { ok: !raisons.length, raisons, age, rythme: r, mode };
+}
+
+const T = p => [...p.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map(m => m[1]).join('');
+const run = t => `<w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</w:t></w:r>`;
+
+/** Écrit `texte` dans la cellule de valeur qui suit la cellule dont le texte est `libelle` (tableau du bénéficiaire). */
+function remplirCellule(x, libelle, texte) {
+  const cellules = [...x.matchAll(/<w:tc>[\s\S]*?<\/w:tc>/g)];
+  const i = cellules.findIndex(c => libelle.test(T(c[0]).trim()));
+  if (i < 0 || !cellules[i + 1]) return x;
+  const c = cellules[i + 1];
+  const k = c[0].lastIndexOf('</w:p>');
+  const neuf = c[0].slice(0, k) + run(texte) + c[0].slice(k);
+  return x.slice(0, c.index) + neuf + x.slice(c.index + c[0].length);
+}
+
+/** Remplit le Word de la STIB : année, nom, prénom, naissance, date de l'établissement, cachet et signature. Rend le .docx. */
+export async function remplirStibDocx(modele, v) {
+  const zip = await JSZip.loadAsync(modele);
+  let x = await zip.file('word/document.xml').async('string');
+  // L'année académique : les quatre « _ » du paragraphe « Année Académique 20 _ _ - 20 _ _ ».
+  const [a1, a2] = String(v.annee).split('-');
+  const paras = [...x.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)];
+  const pa = paras.find(p => /Académique/.test(T(p[0])));
+  if (pa) {
+    // Après « Académique », le reste du paragraphe (« 20 _ _ - 20 _ _ », en petits morceaux) devient l'année écrite d'un seul tenant.
+    const k = pa[0].indexOf('Académique</w:t></w:r>');
+    const neuf = k < 0 ? pa[0] : pa[0].slice(0, k + 'Académique</w:t></w:r>'.length)
+      + `<w:r><w:rPr><w:b/><w:color w:val="0E4660"/></w:rPr><w:t xml:space="preserve"> ${a1} - ${a2}</w:t></w:r></w:p>`;
+    x = x.slice(0, pa.index) + neuf + x.slice(pa.index + pa[0].length);
+  }
+  x = remplirCellule(x, /^Nom$/, v.nom);
+  x = remplirCellule(x, /^Prénom$/, v.prenom);
+  x = remplirCellule(x, /^Date de naissance/, v.naissance);
+  // La date de l'établissement : le PREMIER « ........../........../20....... » (le second est celui du bénéficiaire).
+  x = x.replace('<w:t>........../........../20.......</w:t>', `<w:t xml:space="preserve">${v.date}</w:t>`);
+  const { insererImageSous } = await import('../services/formulairesFWB.js');
+  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 3.0, 'cachet');
+  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 4.0, 'signature');
+  zip.file('word/document.xml', x);
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
+/** Compose le PDF. Rend { pdf, nom } ou { erreur, code }. `force` : le secrétariat passe outre les seuils. */
+export async function composerStib(etudId, annee, { force = false, jour = new Date().toISOString().slice(0, 10) } = {}) {
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
+  if (!e) return { code: 404, erreur: 'étudiant introuvable' };
+  const el = eligibiliteStib(e.id, annee, jour);
+  if (!el.ok && !force) return { code: 409, erreur: `L’attestation STIB ne peut pas être délivrée : ${el.raisons.join(' ; ')}.`, raisons: el.raisons };
+  const docx = await remplirStibDocx(fs.readFileSync(path.join(DOSSIER, 'stib.docx')), {
+    annee, nom: String(e.nom || '').toUpperCase(), prenom: e.prenom || '',
+    naissance: String(e.date_naissance || '').slice(0, 10).split('-').reverse().join('-'),
+    date: jour.split('-').reverse().join('/'), cachet: cachetCourant(), signature: signatureCourante() });
+  const { docxToPdf } = await import('../services/docx-to-pdf.js');
+  const pdf = await docxToPdf(docx);
+  const nom = `Attestation_STIB_${String(e.nom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(e.prenom || '').replace(/[^A-Za-z0-9]+/g, '-')}_${String(annee).replace('-', '')}.pdf`;
+  return { pdf, nom, eligibilite: el };
+}

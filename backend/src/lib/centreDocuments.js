@@ -12,6 +12,7 @@ import { rendrePdf } from '../services/pdf.js';
 import { optionsPdfPiece } from './document.js';
 import { PIECES as PIECES_CODEES } from './codesPieces.js';
 import { cepDe } from './cep.js';
+import { eligibiliteStib } from './attestationStib.js';
 
 const MAX = 2;
 const essai = (f, d) => { try { return f(); } catch { return d; } };
@@ -40,6 +41,8 @@ function catalogue(id, annee) {
     l.push({ cle: 'attestation_allocations', chemin: `/api/etudiants/${id}/attestation-inscription?annee=${a}&variante=allocations` });
     l.push({ cle: 'fiche_inscription', chemin: `/api/etudiants/${id}/fiche-inscription?annee=${a}` });
     l.push({ cle: 'frais_scolarite', chemin: `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` });
+    // L'attestation STIB (3.5.524) : seulement si Lucie vérifie les seuils de la STIB (moins de 25 ans, heures et jours par semaine).
+    if (essai(() => eligibiliteStib(id, annee).ok, false)) l.push({ cle: 'attestation_stib', chemin: `/api/etudiants/${id}/attestation-stib?annee=${a}`, pdf: true });
   }
   if (parcours) {
     l.push({ cle: 'bulletin', chemin: `/api/etudiants/${id}/bulletin/document?annee=${a}` });
@@ -111,6 +114,12 @@ export async function composerCentre(id, code, { apercu = false } = {}) {
     body: x.methode === 'POST' ? JSON.stringify(x.corps) : undefined, signal: AbortSignal.timeout(40000) });
   const type = rep.headers.get('content-type') || '';
   let html = '';
+  // UNE PIÈCE QUI ARRIVE DÉJÀ EN PDF (un formulaire officiel rempli, 3.5.524) se délivre telle quelle.
+  let pdfDirect = null;
+  if (type.includes('application/pdf')) {
+    if (!rep.ok) return { statut: rep.status, erreur: 'La pièce n’a pas pu être composée. Adressez-vous au secrétariat.' };
+    pdfDirect = Buffer.from(await rep.arrayBuffer());
+  } else
   if (type.includes('json')) {
     const j = await rep.json().catch(() => ({}));
     if (!rep.ok || !j.html) return { statut: rep.ok ? 409 : rep.status, erreur: j.error || j.erreur || 'La pièce n’a pas pu être composée. Adressez-vous au secrétariat.' };
@@ -119,7 +128,7 @@ export async function composerCentre(id, code, { apercu = false } = {}) {
     html = await rep.text();
     if (!rep.ok) return { statut: rep.status, erreur: 'La pièce n’a pas pu être composée. Adressez-vous au secrétariat.' };
   }
-  const pdf = await rendrePdf(html, optionsPdfPiece(html, x.orientation ? { orientation: x.orientation } : {}));
+  const pdf = pdfDirect || await rendrePdf(html, optionsPdfPiece(html, x.orientation ? { orientation: x.orientation } : {}));
   const reference = (/réf\.\s*<b>([^<]+)<\/b>/.exec(html) || /(IIP-[A-Z0-9]{4}-[A-Z0-9]{4})/.exec(html) || [])[1] || null;
   const nom = `${code}_${x.nom}`.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').slice(0, 90) + '.pdf';
   if (!apercu) {

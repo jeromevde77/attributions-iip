@@ -447,7 +447,7 @@ function remplirA1ter(x, d) {
  * l'établissement de la section (`cachetCourant`, le sceau doré de l'IIP par défaut) sous « Cachet de l'établissement », la
  * signature du chef d'établissement (`signatureCourante`) sous « Signature du chef de l'établissement ». */
 function dimsPng(buf) { return buf.length > 24 && buf.readUInt32BE(12) === 0x49484452 ? { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) } : { w: 1, h: 1 }; }
-async function insererImageSous(zip, x, libelle, dataUrl, largeurCm, nom) {
+export async function insererImageSous(zip, x, libelle, dataUrl, largeurCm, nom) {
   const m = /^data:image\/(png|jpe?g);base64,(.*)$/.exec(String(dataUrl || ''));
   if (!m) return x;
   const ext = m[1] === 'png' ? 'png' : 'jpeg';

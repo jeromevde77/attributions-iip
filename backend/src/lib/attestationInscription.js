@@ -28,7 +28,7 @@ const essai = (f, defaut) => { try { return f(); } catch { return defaut; } };
 const feminin = e => /^(mme|madame|mlle|mademoiselle|m\.?me|f)\b/i.test(String(e.titre || e.sexe || '').trim());
 
 /** Les dates de l'année des cours : de la première semaine du calendrier à la dernière (hors congés). */
-function datesDeLAnnee(annee) {
+export function datesDeLAnnee(annee) {
   const l = essai(() => db.prepare(`SELECT date_debut, date_fin, type FROM annee_calendrier WHERE annee_scolaire = ?
     ORDER BY date_debut`).all(annee), []).filter(w => w.type !== 'vacances');
   if (!l.length) return { debut: null, fin: null };
