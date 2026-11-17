@@ -371,7 +371,8 @@ r.get('/valorisations', authRequired, (req, res) => {
   for (const id of ids) {
     const v = dossierVA(id);
     if (!v || !profConcerne(v, pid)) continue;
-    if (avantDepart(v.recevabilite_le)) continue;          // soumis avant la date de départ
+    // Soumis avant la date de départ : caché seulement s'il est déjà décidé (3.5.522, la règle des aménagements).
+    if (avantDepart(v.recevabilite_le) && (v.decision_le || v.valide_le)) continue;
     const avis = db.prepare('SELECT professeur_id, auteur, sens, texte, rendu_le FROM valorisation_avis WHERE valorisation_id = ? ORDER BY rendu_le').all(id);
     const mien = avis.find(a => a.professeur_id === pid) || null;
     dossiers.push({
@@ -437,7 +438,10 @@ r.get('/amenagements', authRequired, (req, res) => {
   const pid = profDe(req);
   if (!pid) return res.json({ dossiers: [] });
   const annee = req.query.annee || anneeDeTravail(req);
-  const dossiers = arDuProf(pid, annee).filter(({ d }) => !avantDepart(d.avis_demande_le || d.valide_b_le)).map(({ d, ues }) => {
+  /* UN DOSSIER QUI ATTEND UN AVIS SE VOIT, QUELLE QUE SOIT SA DATE (3.5.522, Charles : « les dossiers d'AR sont bloqués, les profs ne
+     peuvent rendre d'avis »). La date de mise en service de Mes cours (12 octobre) cachait les dossiers appelés avant elle — 18 sur 21
+     en instruction, appelés du 3 au 9 octobre. Seul un dossier déjà DÉCIDÉ d'avant cette date reste hors de la liste. */
+  const dossiers = arDuProf(pid, annee).filter(({ d }) => !(DECIDE.includes(d.statut) || d.cde_date) || !avantDepart(d.avis_demande_le || d.valide_b_le)).map(({ d, ues }) => {
     const mesures = d.mesures.filter(m => !m.ue_num || ues.includes(m.ue_num));
     const avis = db.prepare('SELECT mesure_id, professeur_id, auteur, sens, motif, rendu_le FROM amenagement_avis WHERE dossier_id = ?').all(d.id);
     return {

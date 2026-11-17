@@ -4560,6 +4560,11 @@ tranché : seulement les nouvelles). `dossiersNotifiables` ne met dans `pretes` 
 nomme) ; `composerNotificationVA` répond 409 « rien de nouveau à notifier : déjà notifiée le … » quand tout est parti. La copie de
 l'étudiant (centre de documents) garde toutes ses décisions : `?toutes=1`.
 
+**UN DOSSIER QUI ATTEND UN AVIS SE VOIT, QUELLE QUE SOIT SA DATE** (3.5.522, Charles : « les dossiers d'AR sont bloqués, les profs ne
+peuvent rendre d'avis »). `avantDepart` (`mes_cours_depuis`, 12 octobre 2026) cachait aux enseignants les dossiers d'aménagement appelés
+avant cette date — 18 des 21 en instruction (appelés du 3 au 9 octobre) — et les VA déclarées recevables avant elle. Désormais seul un
+dossier déjà DÉCIDÉ d'avant la date reste caché (`/mes-cours/amenagements`, `/mes-cours/valorisations`).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
