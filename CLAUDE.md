@@ -4608,6 +4608,14 @@ bouton Inviter / Réinviter) ; Configuration → Accès → Mise en service → 
 ma part ») : une UE à la place de la section (`inscritsUE`, année active, hors archivés et sortis) ; « Ajouter ses inscrits aux étudiants
 d'essai » (`GET /api/portail-suivi/ue/:ue/inscrits`) ; un mot facultatif en tête du courriel, signé du nom de celui qui invite.
 
+**ÉCRIRE À LA DIRECTION, DEPUIS L'ESPACE DE L'ÉTUDIANT** (3.5.538, Charles : « n'hésitez pas à me revenir personnellement sans passer par
+vos coordinations » ; « ajoute le bouton »). Messages → « Écrire à la direction » (`EcrireDirection`, EspaceEtudiant.jsx) : objet facultatif,
+texte. Le portail le note dans `message_reponse` avec `message_id = 0` et son `objet` (`POST /api/portail/messages/nouveau`, 20 par heure) et
+le montre « envoi en cours » ; Lucie le relève (`recevoir` de lib/messagesEtudiants.js) et ouvre un fil : un `message_etudiant` dont l'auteur
+est le compte de direction (`directionDestinataire` : `lucie_config` « messages_direction », sinon le premier compte actif directeur puis
+admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
+la coordination ne le voit pas.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -176,6 +176,16 @@ export function aDeposer(idsConnus) {
   return { messages: messages.filter(m => utiles.has(m.id)), destinations, fils };
 }
 
+/** Le compte qui reçoit les messages « à la direction » : celui réglé, sinon le premier compte actif de direction. */
+export function directionDestinataire() {
+  try {
+    const id = Number(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'messages_direction'").get()?.valeur || 0);
+    if (id) { const u = db.prepare('SELECT id, role FROM utilisateur WHERE id = ? AND actif = 1').get(id); if (u) return u; }
+    return db.prepare(`SELECT id, role FROM utilisateur WHERE actif = 1 AND role IN ('directeur', 'admin')
+      ORDER BY CASE role WHEN 'directeur' THEN 0 ELSE 1 END, id LIMIT 1`).get() || null;
+  } catch { return null; }
+}
+
 /** Relevé : un message ouvert (✓ lu), une réponse de l'étudiant (au fil, et l'auteur prévenu). */
 export function recevoir({ lus = [], reponses = [] }) {
   migrerMessages();
@@ -187,6 +197,27 @@ export function recevoir({ lus = [], reponses = [] }) {
   }
   for (const r of reponses) {
     ok.reponses.push(r.id);
+    /* UN MESSAGE DE L'ÉTUDIANT À LA DIRECTION (3.5.538) : sans message de départ (message_id = 0). Lucie ouvre un fil adressé à la
+       direction — le compte réglé (lucie_config « messages_direction »), sinon le premier compte actif de direction — dont le message de
+       départ dit qu'il vient de l'étudiant ; sa phrase entre au fil. La direction le lit comme une réponse, et répond dans le même fil. */
+    if (!Number(r.message_id)) {
+      const e = db.prepare('SELECT id, nom, prenom FROM etudiant WHERE id = ?').get(Number(r.etudiant_id));
+      if (!e || db.prepare('SELECT 1 FROM message_etudiant_fil WHERE ref_portail = ?').get(Number(r.id))) continue;
+      const nom = `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
+      const dir = directionDestinataire();
+      const annee = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'annee_active'").get()?.valeur || null;
+      db.transaction(() => {
+        const m = db.prepare(`INSERT INTO message_etudiant (objet, corps, auteur_id, auteur_nom, auteur_role, annee_scolaire, resume)
+          VALUES (?,?,?,?,?,?,?)`).run(`${String(r.objet || 'Message à la direction').slice(0, 150)}`, `Message de ${nom} à la direction, écrit depuis son espace.`,
+            dir?.id || null, 'La direction', dir?.role || null, annee, `${nom} → la direction`);
+        db.prepare('INSERT OR IGNORE INTO message_etudiant_dest (message_id, etudiant_id, lu_le) VALUES (?,?, datetime(\'now\'))').run(m.lastInsertRowid, e.id);
+        db.prepare(`INSERT OR IGNORE INTO message_etudiant_fil (message_id, etudiant_id, de, auteur, corps, le, ref_portail)
+          VALUES (?,?, 'etudiant', ?, ?, ?, ?)`).run(m.lastInsertRowid, e.id, nom, String(r.corps || '').slice(0, 10000), String(r.le || ''), Number(r.id));
+        if (dir?.id) db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_user_id, cree_par)
+          VALUES ('reponse_etudiant', ?, ?, NULL, ?, 'Lucie')`).run(`Message de ${nom}`, `« ${String(r.objet || 'Message à la direction').slice(0, 100)} » — écrit depuis son espace étudiant.`, dir.id);
+      })();
+      continue;
+    }
     const m = db.prepare('SELECT * FROM message_etudiant WHERE id = ?').get(Number(r.message_id));
     const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(Number(r.etudiant_id));
     if (!m || !e || !db.prepare('SELECT 1 FROM message_etudiant_dest WHERE message_id = ? AND etudiant_id = ?').get(m.id, Number(r.etudiant_id))) continue;
