@@ -111,7 +111,9 @@ function etudiantsVisibles() {
     const fonctions = fonctionsEspace(e.id);
     const apercu = apercus.has(e.id);
     return { id: e.id, nom: e.nom, prenom: e.prenom, email_ecole: String(e.email_ecole || '').includes('@') ? e.email_ecole : '',
-      fonctions, donnees: apercu ? TOUTES_FONCTIONS : fonctions, apercu_seul: !fonctions.length && apercu,
+      // « Aperçu seulement » aussi pour un étudiant SANS adresse d'institut (3.5.525, HURET Sophie, étudiante de test) : le portail
+      // n'admet un étudiant sans adresse que sous cette marque — il la rejetait, et l'aperçu répondait « le portail n'a pas reçu ».
+      fonctions, donnees: apercu ? TOUTES_FONCTIONS : fonctions, apercu_seul: apercu && (!fonctions.length || !String(e.email_ecole || '').includes('@')),
       matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))] };
   }).filter(e => e.fonctions.length || e.apercu_seul);
 }
