@@ -108,14 +108,20 @@ export async function remplirStibDocx(modele, v) {
       + `<w:r><w:rPr><w:b/><w:color w:val="0E4660"/></w:rPr><w:t xml:space="preserve"> ${a1} - ${a2}</w:t></w:r></w:p>`;
     x = x.slice(0, pa.index) + neuf + x.slice(pa.index + pa[0].length);
   }
+  // Le numéro de carte MOBIB, s'il est donné (3.5.533) : par groupes de quatre, comme sur la carte.
+  if (/^\d{19}$/.test(String(v.mobib || ''))) x = remplirCellule(x, /^Numéro de carte MOBIB/, String(v.mobib).replace(/(\d{4})(?=\d)/g, '$1 '));
   x = remplirCellule(x, /^Nom$/, v.nom);
   x = remplirCellule(x, /^Prénom$/, v.prenom);
   x = remplirCellule(x, /^Date de naissance/, v.naissance);
   // La date de l'établissement : le PREMIER « ........../........../20....... » (le second est celui du bénéficiaire).
   x = x.replace('<w:t>........../........../20.......</w:t>', `<w:t xml:space="preserve">${v.date}</w:t>`);
   const { insererImageSous } = await import('../services/formulairesFWB.js');
-  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 3.0, 'cachet');
-  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 4.0, 'signature');
+  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 2.3, 'cachet');
+  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 3.0, 'signature');
+  /* CÔTE À CÔTE, SUR UNE SEULE PAGE (3.5.532, capture de Charles : l'un sous l'autre, ils repoussaient « Réservé au bénéficiaire »
+     sur une deuxième page) : les deux images se réunissent dans un même paragraphe, signature puis cachet. */
+  x = x.replace(/<w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p>/,
+    (m, r1, r2) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="right"/></w:pPr>${r1}<w:r><w:t xml:space="preserve">    </w:t></w:r>${r2}</w:p>`);
   zip.file('word/document.xml', x);
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
@@ -144,7 +150,7 @@ async function referencer(pdf, { nature, objet, personne, date, apercu = false }
 }
 
 /** Compose le PDF. Rend { pdf, nom } ou { erreur, code }. `force` : le secrétariat passe outre les seuils. */
-export async function composerStib(etudId, annee, { force = false, apercu = false, jour = new Date().toISOString().slice(0, 10) } = {}) {
+export async function composerStib(etudId, annee, { force = false, apercu = false, mobib = '', jour = new Date().toISOString().slice(0, 10) } = {}) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
   if (!e) return { code: 404, erreur: 'étudiant introuvable' };
   const el = eligibiliteStib(e.id, annee, jour);
@@ -152,7 +158,7 @@ export async function composerStib(etudId, annee, { force = false, apercu = fals
   const docx = await remplirStibDocx(fs.readFileSync(path.join(DOSSIER, 'stib.docx')), {
     annee, nom: String(e.nom || '').toUpperCase(), prenom: e.prenom || '',
     naissance: String(e.date_naissance || '').slice(0, 10).split('-').reverse().join('-'),
-    date: jour.split('-').reverse().join('/'), cachet: cachetCourant(), signature: signatureCourante() });
+    date: jour.split('-').reverse().join('/'), cachet: cachetCourant(), signature: signatureCourante(), mobib });
   const { docxToPdf } = await import('../services/docx-to-pdf.js');
   /* LE RÉFÉRENCEMENT (3.5.528, Charles : « il faut bien vérifier le référencement de toutes les pièces ») : comme toute pièce de
      Lucie, l'attestation porte une référence inscrite au registre des pièces authentiques (le QR que la STIB peut scanner) et son

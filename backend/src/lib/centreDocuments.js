@@ -98,7 +98,7 @@ export function offreCentre(id) {
 }
 
 /** Compose une pièce. Rend { pdf, nom } ou { statut, erreur }. `apercu` : la direction regarde, rien ne compte ni ne s'inscrit. */
-export async function composerCentre(id, code, { apercu = false } = {}) {
+export async function composerCentre(id, code, { apercu = false, donnees = null } = {}) {
   migrerCentre();
   const annee = anneeActive();
   const x = catalogue(id, annee).find(p => p.code === code);
@@ -110,7 +110,10 @@ export async function composerCentre(id, code, { apercu = false } = {}) {
   const port = process.env.PORT || 3001;
   const h = { Authorization: `Bearer ${signServiceToken()}` };
   if (x.methode === 'POST') h['Content-Type'] = 'application/json';
-  const rep = await fetch(`http://127.0.0.1:${port}${x.chemin}`, { method: x.methode || 'GET', headers: h,
+  // Ce que l'étudiant a tapé pour la pièce (le numéro MOBIB de la STIB, 3.5.533).
+  let chemin = x.chemin;
+  if (x.cle === 'attestation_stib' && /^\d{19}$/.test(String(donnees?.mobib || ''))) chemin += `&mobib=${donnees.mobib}`;
+  const rep = await fetch(`http://127.0.0.1:${port}${chemin}`, { method: x.methode || 'GET', headers: h,
     body: x.methode === 'POST' ? JSON.stringify(x.corps) : undefined, signal: AbortSignal.timeout(40000) });
   const type = rep.headers.get('content-type') || '';
   let html = '';
@@ -196,7 +199,8 @@ export async function relayerCentre(appel) {
       if (q.action === 'liste') reponses.push(json(q.id, 200, offreCentre(Number(q.etudiant_id))));
       else if (q.action === 'desins_etat' || q.action === 'desins_demande') reponses.push(await desinscriptionEnLigne(q, json));
       else {
-        const c = await composerCentre(Number(q.etudiant_id), String(q.code || ''), { apercu: !!q.apercu });
+        let donnees = null; try { donnees = q.donnees ? JSON.parse(q.donnees) : null; } catch { donnees = null; }
+        const c = await composerCentre(Number(q.etudiant_id), String(q.code || ''), { apercu: !!q.apercu, donnees });
         reponses.push(c.pdf ? { id: q.id, statut: 200, type: 'application/pdf', nom: c.nom, corps: Buffer.from(c.pdf).toString('base64') }
           : json(q.id, c.statut || 409, { error: c.erreur }));
       }
