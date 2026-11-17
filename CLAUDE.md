@@ -4587,7 +4587,7 @@ le parcours (R-05) et le PAE (I-05), ajoutés. **La galerie des pièces dit le c
 d'inscription (I-02), celle des allocations familiales (I-03) et la STIB (I-06, `format: 'pdf'`). Un aperçu de la STIB (`apercu=1`)
 n'entre pas au registre des pièces authentiques et porte « APERÇU — non enregistrée ». **Un PAE à temps plein suffit** (3.5.530, Charles : « si le PAE est complet, on donne » ; tranché : 60 ECTS au moins) :
 `eligibiliteStib` ne regarde plus l'horaire quand le PAE de l'année compte 60 ECTS ou plus (l'âge reste) ; en dessous, le calcul de
-l'horaire, et le refus cite les ECTS du PAE. **Le numéro de carte MOBIB** (3.5.533, Charles : « il peut l'encoder à l'impression ? ») : l'espace le demande avant la STIB
+l'horaire, et le refus cite les ECTS du PAE. **40 ECTS suffisent** (3.5.535, Charles : « tout étudiant qui a au moins 40 ECTS » ; `ECTS_SUFFISANTS`). Signature et cachet à la place des cinq lignes vides du formulaire (3.5.534). **Le numéro de carte MOBIB** (3.5.533, Charles : « il peut l'encoder à l'impression ? ») : l'espace le demande avant la STIB
 (I-06, 19 chiffres, « Sans numéro » possible) ; le portail le passe dans `donnees` de `centre_requete`, `composerCentre` l'ajoute à la
 route (`mobib=`), `remplirStibDocx` l'imprime par groupes de quatre dans sa case. Signature et cachet côte à côte : une seule page (3.5.532).
 

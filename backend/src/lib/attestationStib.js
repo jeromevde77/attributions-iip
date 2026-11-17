@@ -21,6 +21,7 @@ import { cachetCourant, signatureCourante } from './identite.js';
 const DOSSIER = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/formulaires-transport');
 const essai = (f, d) => { try { return f(); } catch { return d; } };
 const lundiDe = d => { const x = new Date(`${String(d).slice(0, 10)}T12:00:00Z`); const j = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - j); return x.toISOString().slice(0, 10); };
+export const ECTS_SUFFISANTS = 40;
 export const SEUILS_STIB = { age_max: 24, jour: { heures: 20, jours: 4 }, soir: { heures: 9, jours: 3 }, soir_des: '17:00' };
 
 function ageAu(naissance, jour) {
@@ -67,14 +68,15 @@ export function eligibiliteStib(etudId, annee, jour = new Date().toISOString().s
   const ects = essai(() => db.prepare(`SELECT COALESCE(SUM((SELECT ects FROM ue x WHERE x.ue_num = i.ue_num AND x.ects IS NOT NULL
       ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1)), 0) n FROM etudiant_inscription i
       WHERE i.etudiant_id = ? AND i.annee_scolaire = ?`).get(annee, e.id, annee).n, 0);
-  const tempsPlein = ects >= 60;
+  // 40 ECTS AU MOINS (3.5.535, Charles : « sortir les documents pour tout étudiant qui a au moins 40 ECTS » ; c'était 60).
+  const tempsPlein = ects >= ECTS_SUFFISANTS;
   const r = rythmeEtudiant(e.id, annee);
   const S = r.soir ? SEUILS_STIB.soir : SEUILS_STIB.jour;
   const mode = tempsPlein ? 'temps_plein' : r.soir ? 'soir' : 'jour';
   if (tempsPlein) { /* rien d'autre à vérifier que l'âge et l'inscription */ }
-  else if (r.heures == null || r.jours == null) raisons.push(`horaire de l’année inconnu (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
+  else if (r.heures == null || r.jours == null) raisons.push(`horaire de l’année inconnu (PAE de ${ects} ECTS, sous les ${ECTS_SUFFISANTS} qui suffisent)`);
   else if (r.heures < S.heures || r.jours < S.jours) {
-    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins (PAE de ${ects} ECTS, sous les 60 d’un temps plein)`);
+    raisons.push(`cours ${mode === 'soir' ? 'du soir' : 'du jour'} : ${String(r.heures).replace('.', ',')} h sur ${String(r.jours).replace('.', ',')} jour(s) par semaine en moyenne, pour ${S.heures} h sur ${S.jours} jours au moins (PAE de ${ects} ECTS, sous les ${ECTS_SUFFISANTS} qui suffisent)`);
   }
   return { ok: !raisons.length, raisons, age, rythme: r, mode, ects, temps_plein: tempsPlein };
 }
@@ -116,12 +118,23 @@ export async function remplirStibDocx(modele, v) {
   // La date de l'établissement : le PREMIER « ........../........../20....... » (le second est celui du bénéficiaire).
   x = x.replace('<w:t>........../........../20.......</w:t>', `<w:t xml:space="preserve">${v.date}</w:t>`);
   const { insererImageSous } = await import('../services/formulairesFWB.js');
-  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 2.3, 'cachet');
-  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 3.0, 'signature');
+  if (v.cachet) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.cachet, 2.1, 'cachet');
+  if (v.signature) x = await insererImageSous(zip, x, /^Sceau et signature de la direction/, v.signature, 2.8, 'signature');
   /* CÔTE À CÔTE, SUR UNE SEULE PAGE (3.5.532, capture de Charles : l'un sous l'autre, ils repoussaient « Réservé au bénéficiaire »
      sur une deuxième page) : les deux images se réunissent dans un même paragraphe, signature puis cachet. */
   x = x.replace(/<w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr>(<w:r><w:drawing>[\s\S]*?<\/w:drawing><\/w:r>)<\/w:p>/,
     (m, r1, r2) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="right"/></w:pPr>${r1}<w:r><w:t xml:space="preserve">    </w:t></w:r>${r2}</w:p>`);
+  /* LES IMAGES PRENNENT LA PLACE DES LIGNES VIDES (3.5.534, Charles : « ne tient pas sur une page ») : le formulaire réserve cinq
+     paragraphes vides sous « Sceau et signature » ; posées EN PLUS, les images poussaient la suite sur une seconde page. On retire
+     les paragraphes vides qui suivent immédiatement les images (cinq au plus). */
+  { const k = x.indexOf('name="cachet"');
+    const fin = k < 0 ? -1 : x.indexOf('</w:p>', k) + 6;
+    if (fin > 5) {
+      let reste = x.slice(fin), n = 0;
+      const vide = /^<w:p>(?:<w:pPr>(?:(?!<\/w:pPr>)[\s\S])*<\/w:pPr>)?<\/w:p>/;
+      while (n < 5) { const m = vide.exec(reste); if (!m) break; reste = reste.slice(m[0].length); n++; }
+      x = x.slice(0, fin) + reste;
+    } }
   zip.file('word/document.xml', x);
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
