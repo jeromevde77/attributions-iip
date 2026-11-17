@@ -8,6 +8,12 @@
 // Une adresse passe si elle est belge ET absente de la seconde liste. Une liste ne voit pas TOUS les VPN : elle en
 // arrête la plupart ; c'est un frein, pas une preuve. Le roaming passe (l'adresse reste celle de l'opérateur belge).
 //
+// LE RELAIS PRIVÉ D'APPLE (3.5.542, Charles sur son iPhone en 5G : refusé alors qu'il est en Belgique). Safari fait
+// sortir la connexion par les serveurs d'Apple, enregistrés aux États-Unis : ni belge, ni hors de la liste des
+// hébergeurs. Apple publie ses sorties AVEC LEUR PAYS (mask-api.icloud.com/egress-ip-ranges.csv) : celles marquées
+// « BE » passent (relais.cidr), avant tout autre contrôle ; les autres restent refusées. Le portail retélécharge la
+// liste lui-même chaque semaine (`majRelais`), et le script des listes la pose aussi.
+//
 // PORTAIL_GEO : « bloquer » (défaut), « constat » (on note, on laisse passer), « non ». Sans liste sur disque, rien
 // n'est bloqué — et le journal le dit — : une installation incomplète ne doit pas fermer l'espace à tout le monde.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,11 +86,11 @@ const PRIVES = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8', 
   .map(lireBloc);
 const prive = a => PRIVES.some(b => b.v6 === a.v6 && a.n >= b.debut && a.n <= b.fin);
 
-let listes = { be: null, vpn: null }, lu = 0, averti = false;
+let listes = { be: null, vpn: null, relais: null }, lu = 0, averti = false;
 function aJour() {
   if (Date.now() - lu < 60_000) return;
   lu = Date.now();
-  for (const [k, f] of [['be', 'be.cidr'], ['vpn', 'vpn.cidr']]) {
+  for (const [k, f] of [['be', 'be.cidr'], ['vpn', 'vpn.cidr'], ['relais', 'relais.cidr']]) {
     let mt = null; try { mt = fs.statSync(path.join(DIR, f)).mtimeMs; } catch { /* absent */ }
     if (mt === null) listes[k] = null;
     else if (!listes[k] || listes[k].mtime !== mt) listes[k] = charger(f);
@@ -102,6 +108,7 @@ export function provenance(ip) {
   if (prive(a)) return 'local';
   aJour();
   if (!listes.be) return 'sans-liste';
+  if (contient(listes.relais, a)) return 'belgique';
   if (contient(listes.vpn, a)) return 'vpn';
   return contient(listes.be, a) ? 'belgique' : 'etranger';
 }
@@ -115,4 +122,25 @@ export function autorise(ip, exception = false) {
   return false;
 }
 
-export const etatGeo = () => { aJour(); return { mode: MODE, belgique: listes.be?.n || 0, vpn: listes.vpn?.n || 0 }; };
+export const etatGeo = () => { aJour(); return { mode: MODE, belgique: listes.be?.n || 0, vpn: listes.vpn?.n || 0, relais: listes.relais?.n || 0 }; };
+
+const URL_RELAIS = 'https://mask-api.icloud.com/egress-ip-ranges.csv';
+/** Les sorties belges du Relais privé d'Apple, écrites dans relais.cidr. Une liste trop courte n'est pas posée. */
+export async function majRelais() {
+  try {
+    const r = await fetch(URL_RELAIS, { signal: AbortSignal.timeout(120_000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const lignes = (await r.text()).split(/\r?\n/).filter(l => l.split(',')[1] === 'BE').map(l => l.split(',')[0]);
+    if (lignes.length < 20) throw new Error(`${lignes.length} blocs belges seulement`);
+    fs.mkdirSync(DIR, { recursive: true });
+    const p = path.join(DIR, 'relais.cidr');
+    fs.writeFileSync(p + '.nouveau', `# Relais privé d'Apple, sorties belges (${new Date().toISOString()})\n${lignes.join('\n')}\n`);
+    fs.renameSync(p + '.nouveau', p);
+    lu = 0;
+    console.log(`[portail] Relais privé d'Apple : ${lignes.length} blocs belges posés.`);
+  } catch (e) { console.error(`[portail] Relais privé d'Apple : liste non mise à jour (${e.message}).`); }
+}
+if (MODE !== 'non' && process.env.NODE_ENV !== 'test') {
+  setTimeout(majRelais, 5_000).unref?.();
+  setInterval(majRelais, 7 * 24 * 3600_000).unref?.();
+}

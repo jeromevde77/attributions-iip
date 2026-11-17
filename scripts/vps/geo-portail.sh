@@ -20,6 +20,8 @@ prendre https://www.ipdeny.com/ipblocks/data/aggregated/be-aggregated.zone "$T/b
 prendre https://www.ipdeny.com/ipv6/ipaddresses/aggregated/be-aggregated.zone "$T/be.cidr"
 prendre https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv4.txt "$T/vpn.cidr"
 prendre https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt "$T/vpn.cidr"
+# Le Relais privé d'Apple : ses sorties marquées Belgique passent (3.5.542). Le portail la retélécharge aussi lui-même.
+curl -fsS --max-time 120 https://mask-api.icloud.com/egress-ip-ranges.csv | awk -F, '$2=="BE"{print $1}' > "$T/relais.cidr" || true
 
 [ "$(wc -l < "$T/be.cidr")" -ge 500 ] || { echo "$(date) liste belge trop courte : rien n'est changé"; exit 1; }
 [ "$(wc -l < "$T/vpn.cidr")" -ge 1000 ] || { echo "$(date) liste VPN trop courte : rien n'est changé"; exit 1; }
@@ -27,6 +29,7 @@ prendre https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacente
 for d in "$BASE/portail/data" "$BASE/portail-dev/data"; do
   [ -d "$d" ] || continue
   mkdir -p "$d/geo"
+  [ "$(wc -l < "$T/relais.cidr")" -ge 20 ] && cp "$T/relais.cidr" "$d/geo/relais.cidr"
   for f in be.cidr vpn.cidr; do cp "$T/$f" "$d/geo/$f.nouveau" && mv "$d/geo/$f.nouveau" "$d/geo/$f"; done
   chown -R 1000:1000 "$d/geo"
 done
