@@ -33,12 +33,14 @@ function invitable(e) {
 }
 
 /** Invite (ou simule). `ids` : les étudiants ; `section` : toute une section à la place. `deja` : réinviter aussi ceux déjà invités. */
-export async function inviter({ ids = [], section = null, simulation = true, deja = false }, par) {
+export async function inviter({ ids = [], section = null, ue = null, simulation = true, deja = false, message = '' }, par) {
   migrerInvitation();
   let liste = (Array.isArray(ids) ? ids : []).map(Number).filter(Boolean);
   if (!liste.length && section) {
     liste = db.prepare(`SELECT id FROM etudiant WHERE section_rattachement = ? AND COALESCE(actif, 1) = 1`).all(String(section)).map(x => x.id);
   }
+  // Les inscrits d'une UE pour l'année active (3.5.537, Charles : « sélectionner les étudiants de l'UE 250 pour un test »).
+  if (!liste.length && ue) liste = inscritsUE(ue);
   liste = [...new Set(liste)].slice(0, 2000);
   const prets = [], ecartes = [], dejaInvites = [];
   for (const id of liste) {
@@ -58,7 +60,10 @@ export async function inviter({ ids = [], section = null, simulation = true, dej
   for (const p of prets) {
     const html = templateNotif({
       titre: 'Votre espace étudiant est ouvert',
+      /* UN MOT DE CELUI QUI INVITE (3.5.537, Charles : « je souhaite qu'ils reçoivent un mail de ma part ») : son texte en tête, signé de son
+         nom ; la marche à suivre suit. */
       corps: `<p>Bonjour ${p.prenom},</p>
+        ${String(message || '').trim() ? `${String(message).trim().split(/\n{2,}/).map(x => `<p>${x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('')}<p style="color:#555">${String(par || '').replace(/</g, '&lt;')}</p><hr style="border:0;border-top:1px solid #ddd">` : ''}
         <p>L’Institut Ilya Prigogine ouvre votre <b>espace étudiant</b> : vos documents, vos résultats, vos démarches et les messages de l’école, au même endroit.</p>
         <p><b>Pour y entrer la première fois :</b></p>
         <ol><li>rendez-vous sur <b>${url.replace(/^https?:\/\//, '')}</b> ;</li>
@@ -77,4 +82,12 @@ export async function inviter({ ids = [], section = null, simulation = true, dej
     (statut === 'echec' ? echecs : faits).push({ id: p.id, nom: p.nom, erreur: r?.erreur || null });
   }
   return { simulation: false, invites: faits, echecs, ecartes, deja_invites: dejaInvites };
+}
+
+/** Les inscrits d'une UE pour l'année active (ou l'année donnée). */
+export function inscritsUE(ue, annee = null) {
+  const a = annee || db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'annee_active'").get()?.valeur
+    || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  return db.prepare(`SELECT DISTINCT i.etudiant_id id FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num = ? AND i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') NOT IN ('archive', 'sorti')`).all(Number(ue), a).map(x => x.id);
 }

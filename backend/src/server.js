@@ -3186,9 +3186,10 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
   const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
   // L'INVITATION À L'ESPACE (3.5.536, lib/invitationEspace.js) : secrétariat et direction ; simulation d'abord.
   {
-    const { inviter, etatInvitation } = await import('./lib/invitationEspace.js');
+    const { inviter, etatInvitation, inscritsUE } = await import('./lib/invitationEspace.js');
+    app.get('/api/portail-suivi/ue/:ue/inscrits', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => res.json({ ids: inscritsUE(Number(req.params.ue)) }));
     app.post('/api/portail-suivi/inviter', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {
-      try { res.json(await inviter({ ids: req.body?.ids, section: req.body?.section || null, simulation: req.body?.simulation !== false, deja: !!req.body?.deja }, qui(req))); }
+      try { res.json(await inviter({ ids: req.body?.ids, section: req.body?.section || null, ue: req.body?.ue || null, message: String(req.body?.message || '').slice(0, 3000), simulation: req.body?.simulation !== false, deja: !!req.body?.deja }, qui(req))); }
       catch (e) { res.status(500).json({ error: e.message }); }
     });
     app.get('/api/portail-suivi/:id/invitation', exigerCompte, (req, res) => res.json(etatInvitation(Number(req.params.id))));

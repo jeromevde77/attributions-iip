@@ -4604,7 +4604,9 @@ suivre), seulement pour qui a une adresse d'institut, n'est ni archivé ni sorti
 (`fonctionsEspace`) ; `portail_invitation` (qui, quand, statut) et une ligne au registre des envois (`invitation_espace`) ;
 `etatInvitation` (dernière invitation, première connexion). Routes `POST /api/portail-suivi/inviter` (secrétariat, direction ; simulation
 par défaut), `GET /api/portail-suivi/:id/invitation`. Écrans : fiche → Suivi (« Invité le … · connecté depuis / pas encore connecté »,
-bouton Inviter / Réinviter) ; Configuration → Accès → Mise en service → « Inviter les étudiants à leur espace » (par section).
+bouton Inviter / Réinviter) ; Configuration → Accès → Mise en service → « Inviter les étudiants à leur espace » (par section). **Par UE et avec un mot** (3.5.537, Charles : « sélectionner les étudiants de l'UE 250 pour un test » ; « qu'ils reçoivent un mail de
+ma part ») : une UE à la place de la section (`inscritsUE`, année active, hors archivés et sortis) ; « Ajouter ses inscrits aux étudiants
+d'essai » (`GET /api/portail-suivi/ue/:ue/inscrits`) ; un mot facultatif en tête du courriel, signé du nom de celui qui invite.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
