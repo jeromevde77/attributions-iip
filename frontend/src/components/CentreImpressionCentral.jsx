@@ -155,6 +155,9 @@ const PIECES_DOSSIER = [
   // L'ATTESTATION D'INSCRIPTION (3.5.352) : la « Lettre 1 » du secrétariat — allocations familiales, mutuelle, CPAS…
   { cle: 'att_inscription', label: 'Attestation d’inscription', dixSept: true, route: (id, a) => `/api/etudiants/${id}/attestation-inscription?annee=${a}` },
   { cle: 'att_allocations', label: 'Attestation d’inscription (allocations familiales)', dixSept: true, route: (id, a) => `/api/etudiants/${id}/attestation-inscription?variante=allocations&annee=${a}` },
+  /* L'ATTESTATION STIB (3.5.527) : le formulaire officiel rempli, déjà en PDF — il sort à part, en un PDF qui réunit les étudiants
+     cochés qui remplissent les seuils de la STIB ; les autres sont nommés. */
+  { cle: 'stib', label: 'Attestation de fréquentation scolaire — STIB', pdfLot: true },
   { cle: 'annexe1', label: 'Annexe 1 — visa ou titre de séjour', sle: true },
   { cle: 'annexe2', label: 'Annexe 2 — progrès des études', sle: true },
   /* LE CONGÉ-ÉDUCATION PAYÉ (3 octobre 2026) : même logique que les SLE —
@@ -2096,6 +2099,21 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   async function piecesDossier(seulement = null) {
     const toutes = PIECES_DOSSIER.filter(p => choix[p.cle] && (!seulement || seulement.includes(p.cle)));
     if (!toutes.length) return { documents: [], avis: [] };
+    // L'ATTESTATION STIB (3.5.527) : un PDF à part, ouvert dans un onglet ; les étudiants écartés sont nommés dans les avis.
+    const avisStib = [];
+    if (toutes.some(p => p.pdfLot) && coches.size) {
+      const r = await fetch('/api/etudiants/attestation-stib/lot', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee: anneeDossier, ids: [...coches] }) });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        avisStib.push(`Attestation STIB : ${j.error || 'non produite'}`, ...(j.ecartes || []).map(x => `STIB — ${x}`));
+      } else {
+        const ecartes = (() => { try { return JSON.parse(decodeURIComponent(r.headers.get('X-Lucie-Ecartes') || '%5B%5D')); } catch { return []; } })();
+        window.open(URL.createObjectURL(await r.blob()), '_blank');
+        avisStib.push(`Attestation STIB : ${r.headers.get('X-Lucie-Produites') || '?'} attestation(s) dans un PDF ouvert à part.`, ...ecartes.map(x => `STIB — non produite pour ${x}`));
+      }
+      if (toutes.every(p => p.pdfLot)) return { documents: [], avis: avisStib };
+    }
     // Les pièces à route propre : une requête par étudiant, en série courte.
     const avecRoute = toutes.filter(p => p.route);
     const docsPAE = [];
@@ -2133,8 +2151,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     };
     await Promise.all(Array.from({ length: Math.min(4, taches.length) }, ouvrier));
     docsRoute.push(...docsPAE);
-    const demandees = toutes.filter(p => !p.route && !p.pae);
-    if (!demandees.length) return { documents: docsRoute, avis: avisRoute };
+    const demandees = toutes.filter(p => !p.route && !p.pae && !p.pdfLot);
+    if (!demandees.length) return { documents: docsRoute, avis: [...avisStib, ...avisRoute] };
     const rep = await fetch('/api/etudiants/pieces-dossier-lot', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee: anneeDossier, etudiants: [...coches], ...Object.fromEntries(demandees.map(p => [p.cle, true])) }),
@@ -2143,7 +2161,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     if (!rep.ok) throw new Error(j.error || `Erreur ${rep.status}`);
     const avis = [...(j.manques || [])];
     if (j.hors_sle?.length) avis.push(`annexes non produites — pas en séjour limité aux études : ${j.hors_sle.slice(0, 6).join(', ')}${j.hors_sle.length > 6 ? ` et ${j.hors_sle.length - 6} autre(s)` : ''}`);
-    return { documents: [...(j.documents || []), ...docsRoute], avis: [...avis, ...avisRoute] };
+    return { documents: [...(j.documents || []), ...docsRoute], avis: [...avisStib, ...avis, ...avisRoute] };
   }
 
   /* L'APERÇU AVANT DE PRODUIRE (Charles, 5 octobre 2026 : « pour chaque

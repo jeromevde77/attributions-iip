@@ -10699,6 +10699,35 @@ r.get('/:id/attestation-stib/eligibilite', authRequired, roleRequired('admin', '
   const { eligibiliteStib } = await import('../lib/attestationStib.js');
   res.json(eligibiliteStib(Number(req.params.id), String(req.query.annee || anneeDeTravail(req))));
 });
+/* EN LOT, POUR ÉDITIONS (3.5.527) : les attestations des étudiants choisis, réunies en UN PDF ; ceux qui ne remplissent pas les seuils
+   de la STIB sont nommés et laissés de côté (sauf `force`). Spécifique avant paramétrique. */
+r.post('/attestation-stib/lot', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  try {
+    const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean).slice(0, 300);
+    if (!ids.length) return res.status(400).json({ error: 'Aucun étudiant.' });
+    const annee = String(req.body?.annee || anneeDeTravail(req));
+    const { composerStib } = await import('../lib/attestationStib.js');
+    const { PDFDocument } = await import('pdf-lib');
+    const tout = await PDFDocument.create();
+    const ecartes = [];
+    let n = 0;
+    for (const id of ids) {
+      const d = await composerStib(id, annee, { force: !!req.body?.force });
+      const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
+      if (d.erreur) { ecartes.push(`${String(e.nom || '').toUpperCase()} ${e.prenom || ''} : ${(d.raisons || [d.erreur]).join(' ; ')}`); continue; }
+      const src = await PDFDocument.load(d.pdf);
+      for (const pg of await tout.copyPages(src, src.getPageIndices())) tout.addPage(pg);
+      n++;
+    }
+    if (!n) return res.status(409).json({ error: 'Aucune attestation STIB : aucun étudiant choisi ne remplit les seuils.', ecartes });
+    const pdf = Buffer.from(await tout.save());
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Attestations_STIB_${annee.replace('-', '')}.pdf"`);
+    res.setHeader('X-Lucie-Produites', String(n));
+    res.setHeader('X-Lucie-Ecartes', encodeURIComponent(JSON.stringify(ecartes)));
+    res.send(pdf);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 r.get('/:id/attestation-stib', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   try {
     const { composerStib } = await import('../lib/attestationStib.js');
