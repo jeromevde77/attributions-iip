@@ -146,22 +146,35 @@ export default function MiseEnService() {
           onAjouter={id => regler({ comptes_essai: [...r.comptes_essai, id] })}
           onRetirer={id => regler({ comptes_essai: r.comptes_essai.filter(x => x !== id) })} />
       </section>
-      <InvitationLot />
+      <InvitationLot ajouterEssai={ids => regler({ etudiants_essai: [...new Set([...r.etudiants_essai, ...ids])] })} />
     </div>
   );
 }
 
 /* INVITER TOUTE UNE SECTION À SON ESPACE (3.5.536) : simulation d'abord (qui sera invité, qui est écarté et pourquoi, qui l'est déjà),
    puis l'envoi. Un étudiant n'est invité que s'il a une adresse d'institut et au moins une fonction de l'espace ouverte pour lui. */
-function InvitationLot() {
+function InvitationLot({ ajouterEssai }) {
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [deja, setDeja] = useState(false);
+  // PAR UNE UE (3.5.537, Charles : « sélectionner les étudiants de l'UE 250 pour un test » ; « qu'ils reçoivent un mail de ma part »).
+  const [ue, setUe] = useState('');
+  const [message, setMessage] = useState('');
+  const [msgEssai, setMsgEssai] = useState(null);
   const [sim, setSim] = useState(null);
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
   useEffect(() => { fetch('/api/ref/sections', { headers: authHeaders() }).then(x => x.json()).then(l => Array.isArray(l) && setSections(l)).catch(() => {}); }, []);
-  const appel = simulation => fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section, simulation, deja }) }).then(x => x.json());
+  const cible = ue.trim() ? { ue: Number(ue) } : { section };
+  const appel = simulation => fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...cible, simulation, deja, message }) }).then(x => x.json());
+  const essai = async () => {
+    setMsgEssai(null);
+    const j = await fetch(`/api/portail-suivi/ue/${Number(ue)}/inscrits`, { headers: authHeaders() }).then(x => x.json()).catch(() => ({}));
+    if (!j.ids?.length) { setMsgEssai(`Aucun inscrit à l’UE ${ue} cette année.`); return; }
+    if (!(await demander({ titre: 'Étudiants d’essai', confirmer: `Ajouter ${j.ids.length} étudiant(s)`, annuler: 'Annuler',
+      message: `Les ${j.ids.length} inscrits de l’UE ${ue} verront les fonctions « à l’essai » de leur espace.` }))) return;
+    await ajouterEssai(j.ids); setMsgEssai(`${j.ids.length} étudiant(s) de l’UE ${ue} ajoutés aux étudiants d’essai.`); setSim(null);
+  };
   const simuler = async () => { setFait(null); setEnCours(true); try { setSim(await appel(true)); } finally { setEnCours(false); } };
   const envoyer = async () => {
     if (!(await demander({ titre: 'Inviter à l’espace étudiant', confirmer: `Inviter ${sim.a_inviter.length} étudiant(s)`, annuler: 'Annuler',
@@ -173,13 +186,22 @@ function InvitationLot() {
       <EnteteCarte titre="Inviter les étudiants à leur espace" sous="Un courriel à l’adresse d’institut : l’adresse de l’espace et la marche à suivre. Chaque invitation se lit dans la fiche (Suivi)." />
       <div className="px-4 py-3 space-y-3 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <select className="controle" value={section} onChange={e => { setSection(e.target.value); setSim(null); setFait(null); }}>
-            <option value="">— choisir une section —</option>{sections.map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
+          <select className="controle" value={section} onChange={e => { setSection(e.target.value); setUe(''); setSim(null); setFait(null); }}>
+            <option value="">— une section —</option>{sections.map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
           </select>
+          <span className="text-slate-500">ou l’UE</span>
+          <input className="controle w-20" inputMode="numeric" placeholder="n°" value={ue} onChange={e => { setUe(e.target.value.replace(/\D/g, '')); setSection(''); setSim(null); setFait(null); }} />
+          {ue && <button type="button" className="bouton" onClick={essai}>Ajouter ses inscrits aux étudiants d’essai</button>}
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={deja} onChange={e => { setDeja(e.target.checked); setSim(null); }} /> réinviter aussi ceux déjà invités</label>
-          <button type="button" className="bouton" disabled={!section || enCours} onClick={simuler}>Simuler</button>
+          <button type="button" className="bouton" disabled={(!section && !ue) || enCours} onClick={simuler}>Simuler</button>
           {sim?.a_inviter?.length > 0 && <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={envoyer}>Inviter {sim.a_inviter.length} étudiant(s)</button>}
         </div>
+        {msgEssai && <div className="text-slate-600">{msgEssai}</div>}
+        <label className="block">
+          <span className="text-second text-slate-600">Votre mot, en tête du courriel (facultatif) — il sera signé de votre nom :</span>
+          <textarea className="controle w-full !h-auto mt-1" rows={4} value={message} data-reponses="invitation_espace"
+            placeholder="Chers étudiants, nous ouvrons votre espace étudiant…" onChange={e => setMessage(e.target.value)} />
+        </label>
         {sim && <div className="space-y-1">
           <div><b>{sim.a_inviter.length}</b> à inviter{sim.deja_invites?.length ? ` · ${sim.deja_invites.length} déjà invité(s), laissés de côté` : ''}{sim.ecartes?.length ? ` · ${sim.ecartes.length} écarté(s)` : ''}.</div>
           {sim.ecartes?.length > 0 && <details><summary className="cursor-pointer text-slate-600">Les écartés et pourquoi</summary>
