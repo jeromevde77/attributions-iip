@@ -4527,6 +4527,19 @@ aux produits, carte des pondérations), Une section → comptes (résultat « d�
 produits − quote-part des frais généraux, remplacés par le financement du décret), Présentation (À retenir et notes de la diapositive
 « comptes »). TIM 2025 : 112 238 € selon le décret (58,5 étudiants 2023-2024 ÷ 3) contre 401 079 € de produits — le lissage paie avec retard.
 
+**REPRENDRE UNE SECTION D'UNE ANNÉE PASSÉE, ET LE CERTIFICAT ATNUP** (3.5.514, Charles, 17 novembre 2026 : « importer en 25-26 les
+étudiants d'ATNUP, leurs notes, et créer un diplôme » ; tranché : les 39 inscrits de l'organisation 1, la note globale du jury dans chaque
+UE, le certificat sur le modèle Word du secrétariat). (1) Étudiants → Import → « Reprendre une section d'une année passée »
+(`components/RepriseSection.jsx`, `POST /api/import-historique/reprise-section`, `routes/repriseSection.js`) : liste des inscrits + liste des
+diplômés (colonnes reconnues à l'intitulé) ; `trouverOuCreerEtudiant`, section de rattachement posée si vide, inscription aux UE choisies dans
+l'organisation choisie ; diplômé = « réussi » et la même cote (global sur 20) partout, les autres sans résultat ; simulation, tout ou rien,
+refus nommés (doublon, inscription déjà décidée autrement) ; années ANTÉRIEURES à l'année de travail seulement. (2) Un modèle de diplôme
+PROPRE à une section : `lucie_config` « diplome_template_section » { section: html } (`modeleDeSection`, `poserModelesDeSection` au
+démarrage pose le certificat ATNUP, `services/certificat_atnup.js`) ; il porte texte, signatures et mise en page (A4 portrait) — ni bloc de
+signataires, ni logos, ni président demandé ; variables en plus : `annee_slash`, `nom_majuscules`, `ne_e`, `qu_il_elle`, `pourcent`,
+`directeur_nom`. (3) Dans le secondaire (niveau DS, DI), la dernière mention se dit « Fruit » (`mentionDuNiveau`) — le PV la connaissait,
+le calcul rendait « Réussite ». **À régler à l'écran pour ATNUP** : UE 224 cochée épreuve intégrée.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
