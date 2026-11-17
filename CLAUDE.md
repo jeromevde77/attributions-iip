@@ -4598,6 +4598,14 @@ une étudiante de test (fonctions « essai ») sans adresse était rejetée et l
 accordée et décidée sur ce cours ; « report » : `dispenses` de lib/cep.js) et l'unité `va_partielle` (nombre de cours dispensés) —
 pastille « dispensé » et mention « dispense partielle » dans l’espace (Charles : « ce n’est pas une VA sur le cours, c’est une dispense » — circulaire Sanction des études).
 
+**L'INVITATION À L'ESPACE DE L'ÉTUDIANT** (3.5.536, Charles : « comment savoir si elle a reçu l'invitation ? » ; « fais l'invitation »).
+`lib/invitationEspace.js` : `inviter({ ids | section, simulation, deja })` — un courriel à l'adresse d'institut (adresse du site, marche à
+suivre), seulement pour qui a une adresse d'institut, n'est ni archivé ni sorti, et a au moins une fonction de l'espace ouverte
+(`fonctionsEspace`) ; `portail_invitation` (qui, quand, statut) et une ligne au registre des envois (`invitation_espace`) ;
+`etatInvitation` (dernière invitation, première connexion). Routes `POST /api/portail-suivi/inviter` (secrétariat, direction ; simulation
+par défaut), `GET /api/portail-suivi/:id/invitation`. Écrans : fiche → Suivi (« Invité le … · connecté depuis / pas encore connecté »,
+bouton Inviter / Réinviter) ; Configuration → Accès → Mise en service → « Inviter les étudiants à leur espace » (par section).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
