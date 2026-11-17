@@ -29,7 +29,7 @@ const jour = d => (d ? frDate(String(d).slice(0, 10)) : '……………');
 const PORTE = { va: 'VA', vae: 'VAE', admission: 'Admission' };
 
 /** Les dossiers d'un étudiant pour une année, rangés : notifiables / en cours. */
-export function dossiersNotifiables(etudId, annee) {
+export function dossiersNotifiables(etudId, annee, { toutes = false } = {}) {
   const tous = db.prepare(`SELECT v.*,
       (SELECT ue_nom FROM ue u WHERE u.ue_num = v.ue_num AND u.ue_nom IS NOT NULL
         ORDER BY (u.annee_scolaire = ?) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom
@@ -40,9 +40,14 @@ export function dossiersNotifiables(etudId, annee) {
      englobante (« no such column: v.annee_scolaire ») — le banc local, plus
      récent, l'acceptait. */
   const irrecevable = v => v.recevable === 0 && !v.decision_le;
+  /* SEULES LES DÉCISIONS PAS ENCORE NOTIFIÉES PARTENT (3.5.521, Charles : « je viens d'en valider d'autres en TIM ; comment je sais
+     que je ne renvoie pas des choses déjà envoyées ? » ; tranché : seulement les nouvelles). Une décision notifiée (notifie_le) ne
+     revient plus dans la pièce ; elle reste nommée dans `deja`. */
+  const prete = v => (v.decision_le && v.valide_le) || irrecevable(v);
   return {
-    pretes: tous.filter(v => (v.decision_le && v.valide_le) || irrecevable(v)),
-    en_cours: tous.filter(v => !((v.decision_le && v.valide_le) || irrecevable(v))),
+    pretes: tous.filter(v => prete(v) && (toutes || !v.notifie_le)),
+    deja: toutes ? [] : tous.filter(v => prete(v) && v.notifie_le),
+    en_cours: tous.filter(v => !prete(v)),
   };
 }
 
@@ -106,10 +111,15 @@ export function manquesNotification(pretes, enCours = []) {
 }
 
 /** Compose la pièce. Rend { html, nom, ids } ou { erreur, manques, code }. */
-export function composerNotificationVA(etudId, annee) {
+/** `toutes` : la copie de l'étudiant (centre de documents) reprend aussi les décisions déjà notifiées. */
+export function composerNotificationVA(etudId, annee, { toutes = false } = {}) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return { code: 404, erreur: 'Étudiant introuvable.' };
-  const { pretes, en_cours } = dossiersNotifiables(etudId, annee);
+  const { pretes, en_cours, deja } = dossiersNotifiables(etudId, annee, { toutes });
+  if (!pretes.length && deja.length) {
+    const quand = [...new Set(deja.map(v => String(v.notifie_le).slice(0, 10)))].map(d => d.split('-').reverse().join('/')).join(', ');
+    return { code: 409, deja_notifie: true, erreur: `Rien de nouveau à notifier : ${deja.length > 1 ? 'les décisions' : 'la décision'} (${deja.map(v => `UE ${v.ue_num}`).join(', ')}) ${deja.length > 1 ? 'ont déjà été notifiées' : 'a déjà été notifiée'} le ${quand}.` };
+  }
   const manques = manquesNotification(pretes, en_cours);
   if (manques.length) {
     return { code: 409, manques, erreur: `La notification ne peut pas sortir : il manque ${manques.join(', ')}.` };

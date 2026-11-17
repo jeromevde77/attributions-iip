@@ -4555,6 +4555,11 @@ supprimer »). `PUT /api/etudiants/:id/grille` (direction et secrétariat) : pou
 (années reprises clôturées) ni `refusResultat` n'arrêtent plus l'écriture — `note_force` est posée pour la requête et levée à la fin (la règle
 de 3.5.097). Restent : une VA du circuit (validée ou notifiée) se corrige dans Valorisation ; la purge d'une année délibérée reste refusée.
 
+**UNE DÉCISION DE VA NE SE NOTIFIE QU'UNE FOIS** (3.5.521, Charles : « comment je sais que je ne renvoie pas des choses déjà envoyées ? » ;
+tranché : seulement les nouvelles). `dossiersNotifiables` ne met dans `pretes` que les dossiers validés sans `notifie_le` (`deja` les
+nomme) ; `composerNotificationVA` répond 409 « rien de nouveau à notifier : déjà notifiée le … » quand tout est parti. La copie de
+l'étudiant (centre de documents) garde toutes ses décisions : `?toutes=1`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

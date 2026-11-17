@@ -2519,7 +2519,7 @@ r.get('/:id/valorisations/notification', authRequired,
     const etudId = Number(req.params.id);
     if (!etudiantPermis(req, res, etudId)) return;
     const annee = String(req.query.annee || anneeDeTravail(req) || '');
-    const p = composerNotificationVA(etudId, annee);
+    const p = composerNotificationVA(etudId, annee, { toutes: req.query.toutes === '1' });
     if (p.erreur) return res.status(p.code || 400).json({ error: p.erreur, manques: p.manques || [] });
     res.json({ html: p.html, nom: p.nom, titre: 'Notification des décisions de valorisation',
                ids: p.ids, en_cours: p.en_cours, etudiant_id: etudId });
