@@ -20,6 +20,7 @@ import StatsDeliberation from './StatsDeliberation.jsx';
 import PilotagePresences from './PilotagePresences.jsx';
 import GestionLecture from './GestionLecture.jsx';
 import IipHelbGestion from './IipHelbGestion.jsx';
+import FinancementsAsbl from './FinancementsAsbl.jsx';
 import ChargeParBloc from './ChargeParBloc.jsx';
 import BudgetSection, { BudgetEcole } from './BudgetSection.jsx';
 import { EnseignantsDepuis } from './DossierCopil.jsx';
@@ -41,6 +42,7 @@ export const BLOCS = [
   ['blocs', 'ens', 'La charge bloc par bloc et les coordinations', 'section', true, false],
   ['budget', 'fin', 'Le budget, comparé aux autres sections et à l’ASBL', 'les deux', false, false],
   ['lecture-fin', 'fin', 'Où se situe la section : coûts, comptes, efficience', 'les deux', false, true],
+  ['financements', 'fin', 'Les financements de l’ASBL : départements et sections', 'ecole', false, true],
 ];
 /* LES PUBLICS : ce qu'ils reçoivent d'office. `sans` retire un bloc, `nominatif: false` écarte tout bloc qui nomme des personnes. */
 export const PUBLICS = [
@@ -88,6 +90,7 @@ export function CompositionBlocs({ annee, compo, direction = false }) {
     : k === 'enseignants' ? <EnseignantsDepuis section={section} />
     : k === 'iiphelb' ? <IipHelbGestion sectionFixe={section} />
     : k === 'blocs' ? <div className="grid gap-3 lg:grid-cols-2"><ChargeParBloc annee={annee} section={section} /></div>
+    : k === 'financements' ? <FinancementsAsbl />
     : k === 'budget' ? (sur === 'section' ? <BudgetSection section={section} /> : <BudgetEcole />)
     : null);
   return (
