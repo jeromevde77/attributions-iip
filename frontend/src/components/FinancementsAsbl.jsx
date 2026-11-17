@@ -11,13 +11,15 @@ const n0 = v => (v == null ? '—' : Math.round(v).toLocaleString('fr-BE'));
 const n1 = v => (v == null ? '—' : (Math.round(v * 10) / 10).toLocaleString('fr-BE'));
 const n2 = v => (v == null ? '—' : v.toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const par = (a, b) => (a != null && b ? a / b : null);
+// Le coût complet par étudiant, sauf quand le coût des enseignants de l'IIP manque pour l'année (3.5.520).
+const cpe = v => (v?.incomplet ? null : par(v?.cout_complet, v?.etudiants));
 
 const METRIQUES = [
   ['etudiants', 'Étudiants', v => v?.etudiants, n0],
   ['charges', 'Charges', v => v?.charges, eur],
   ['produits', 'Produits', v => v?.produits, eur],
   ['resultat', 'Résultat', v => v?.resultat, eur],
-  ['cout_etu', 'Coût complet / étudiant', v => par(v?.cout_complet, v?.etudiants), eur],
+  ['cout_etu', 'Coût complet / étudiant', v => (v?.incomplet ? null : par(v?.cout_complet, v?.etudiants)), eur],
   ['etu_etp', 'Étudiants / ETP', v => par(v?.etudiants, v?.etp), n1],
 ];
 
@@ -75,7 +77,7 @@ export default function FinancementsAsbl() {
       <Td align="droite" title={v?.estime ? 'ETP × coût moyen d’un ETP statutaire du COR — estimation, déjà comprise dans les charges' : v?.federation ? 'Payés par la Fédération, hors des comptes de l’ASBL' : undefined}>
         {ens != null ? <>{v?.estime ? '≈ ' : ''}{eur(ens)}{v?.federation && <span className="text-mention text-slate-400"> FWB</span>}</> : '—'}</Td>
       <Td align="droite" className={fort ? 'font-semibold' : ''}>{eur(v?.cout_complet)}</Td>
-      <Td align="droite">{eur(par(v?.cout_complet, v?.etudiants))}</Td>
+      <Td align="droite" title={v?.incomplet ? 'Coût des enseignants de l’IIP inconnu pour une partie des sections cette année-là (pas d’attributions dans Lucie) : pas de coût par étudiant.' : undefined}>{v?.incomplet ? '—' : eur(par(v?.cout_complet, v?.etudiants))}</Td>
       <Td align="droite">{eur(par(v?.produits, v?.etudiants))}</Td>
     </>);
   };
@@ -100,8 +102,8 @@ export default function FinancementsAsbl() {
           aide="HELB : étudiants finançables du document « ratio par département ». IIP : inscrits de Lucie (chiffres clés). L’année académique qui finit dans l’exercice." />
         <TuileEtat etat="neutre" valeur={eur(tot?.charges)} libelle={`charges de l’ASBL (${A})`} precision={`produits ${eur(tot?.produits)} · résultat ${eur(tot?.resultat)}`}
           aide="Les comptes réalisés de l’exercice, tels que la synthèse des budgets et comptes de l’ASBL les porte." />
-        <TuileEtat etat="neutre" valeur={eur(par(tot?.cout_complet, tot?.etudiants))} libelle="coût complet par étudiant"
-          precision={`HELB ${eur(par(helb?.cout_complet, helb?.etudiants))} · IIP ${eur(par(iip?.cout_complet, iip?.etudiants))}`}
+        <TuileEtat etat="neutre" valeur={eur(cpe(tot))} libelle="coût complet par étudiant"
+          precision={`HELB ${eur(cpe(helb))} · IIP ${eur(cpe(iip))}`}
           aide="Coût complet = charges des comptes + enseignants de l’IIP payés par la Fédération (convention), hors des comptes. ÷ étudiants." />
         <TuileEtat etat="neutre" valeur={n1(par(tot?.etudiants, tot?.etp))} libelle="étudiants par ETP enseignant"
           precision={`HELB ${n1(par(helb?.etudiants, helb?.etp))} · IIP ${n1(par(iip?.etudiants, iip?.etp))}`}
@@ -113,7 +115,8 @@ export default function FinancementsAsbl() {
           sous={`Comptes : ${d.fichier || 'synthèse de l’ASBL'} · étudiants et ETP de ${Number(A) - 1}-${A}`}>
           <BulleAide titre="Comment c’est calculé" droite>
             <p><b>Charges, produits, résultat</b> : les comptes réalisés de l’exercice (synthèse des budgets et comptes de l’ASBL), tels quels.</p>
-            <p><b>Étudiants et ETP</b> : l’année académique qui finit dans l’exercice. HELB : étudiants finançables et ETP par département, et par cursus quand la HELB les publie. IIP : inscrits et ETP de Lucie.</p>
+            <p><b>Étudiants et ETP</b> : l’année académique qui finit dans l’exercice. HELB : étudiants finançables et ETP par département, et par cursus quand la HELB les publie. IIP : les inscrits de référence (Gestion → Population : la direction, corrigés dans Lucie), à défaut ceux de Lucie ; ETP des attributions de Lucie.</p>
+            <p><b>Attention</b> : un étudiant finançable de la HELB est à peu près un temps plein ; un inscrit de l’IIP, un adulte qui suit souvent une partie du programme. Le coût par étudiant de l’IIP est donc un coût par inscrit.</p>
             <p><b>Enseignants</b> : HELB = ETP × {eur(d.prix_etp_helb)} (coût moyen d’un ETP statutaire du COR) — une estimation, déjà comprise dans les charges. IIP (FWB) = coût des enseignants payés par la Fédération, au prix de la convention — hors des comptes.</p>
             <p><b>Coût complet</b> = charges + enseignants payés par la Fédération.</p>
             <p><b>Selon le décret</b> : la HELB répartit son allocation dans les comptes au même montant par étudiant (« un étudiant vaut un étudiant »). Le décret du 9 septembre 1996 (art. 17) finance chaque cursus en UCE : étudiants comptés, en moyenne sur les trois années académiques précédentes, × MUCE × la pondération du groupe du cursus. Calculé pour les cursus dont la pondération est réglée (en bas de page). L’écart se lit face aux produits des comptes.</p>
