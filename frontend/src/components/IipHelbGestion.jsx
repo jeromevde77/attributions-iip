@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconSend, IconX, IconEye, IconRefresh, IconChevronRight } from '@tabler/icons-react';
+import { IconSend, IconX, IconEye, IconRefresh, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Legend } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { couleursGraphique } from '../lib/couleurs.js';
@@ -21,6 +21,8 @@ let IIP = '#19537E', HELB = '#C2408A', PERCU = '#3E7D5E';
 function lireCouleurs() { const G = couleursGraphique(); IIP = G.iip || IIP; HELB = G.helb || HELB; PERCU = G.reussi || PERCU; }
 const MEMO = 'lucie.iipHelb';
 const lire = () => { try { return JSON.parse(localStorage.getItem(MEMO) || '{}'); } catch { return {}; } };
+/** Les réglages de la page IIP et HELB mémorisés (filtres de l'étape 2), lus par l'étape « frais et coûts » (3.5.552). */
+export const reglagesIipHelb = () => lire().reglages || {};
 const n0 = v => Math.round(v || 0).toLocaleString('fr-BE');
 const n2 = v => (v || 0).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const n1 = v => (v || 0).toLocaleString('fr-BE', { maximumFractionDigits: 1 });
@@ -278,8 +280,10 @@ export default function IipHelbGestion({ sectionFixe = null, dernieres = null, f
   const majForme = k => v => maj('graphes', { ...(reglages.graphes || {}), [k]: v });
   const masques = reglages.masques || [];
   const masquer = k => () => maj('masques', [...masques, k]);
-  // `focus` (3.5.551) : la fiche d'une section ne montre ni les cursus de la HE ni le rang parmi eux (VRIO).
-  const vu = k => !masques.includes(k) && !(focus && ['comparaison', 'vrio'].includes(k));
+  // `focus` (3.5.551) : la fiche d'une section ne montre ni les cursus de la HE ni le rang parmi eux (VRIO). À l'étape « attributions »
+  // (3.5.552), ni l'argent : il est à l'étape « frais et coûts ».
+  const vu = k => !masques.includes(k) && !(focus && ['comparaison', 'vrio', 'couts', 'etudiant', 'recettes', 'helb', 'admin'].includes(k));
+  const [filtresOuverts, setFiltresOuverts] = useState(false);
 
   const { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY } = useMemo(() => chiffresIipHelb(d, reglages), [d, reglages]);
 
@@ -310,7 +314,44 @@ export default function IipHelbGestion({ sectionFixe = null, dernieres = null, f
           {Object.keys(reglages.inscrits || {}).filter(a => reglages.inscrits[a]).length ? ` · inscrits retenus : ${Object.entries(reglages.inscrits).filter(([, v]) => v).map(([a, v]) => `${court(a)} ${v}`).join(', ')}` : ''}</p>)}
       {/* LA BASCULE EN TÊTE (3.5.509, Charles : « je ne vois plus le choix entre convention et MA/MFP ») : elle passait hors de vue au bout
           d'une barre trop longue. Convention / coûts réels vient d'abord ; ce qui est compté suit, visible, sur la ligne d'en dessous. */}
-      <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 sans-impression">
+      {/* LES FILTRES DANS UN PANNEAU (3.5.552, maquette validée : « ce sont des filtres ; un menu qui apparaît, avec des options à cocher,
+          pour gagner de la place ») : en fiche de section, tous les réglages derrière un bouton ; les choix actifs en pastilles. */}
+      {focus && (
+        <div className="relative flex flex-nowrap items-center gap-2 sans-impression">
+          <button type="button" className="controle inline-flex items-center gap-2 font-semibold flex-none" aria-expanded={filtresOuverts} onClick={() => setFiltresOuverts(o => !o)}>
+            <IconAdjustmentsHorizontal size={16} /> Filtres</button>
+          <div className="flex flex-nowrap gap-1.5 overflow-x-auto">
+            {[mes.cout === 'reel' ? 'Coûts réels' : 'Convention', (annees || []).map(court).join(' · '), mes.charge === 'periodes' ? 'En périodes' : 'En ETP',
+              mes.coord === 'oui' ? 'Avec coordinations' : 'Sans coordinations', mes.admin === 'oui' ? (mes.direction === 'non' ? 'Secrétariat' : 'Cadre admin. et direction') : 'Sans cadre admin.',
+              ...Object.entries(reglages.inscrits || {}).filter(([, v]) => v).map(([a, v]) => `${court(a)} : ${v} inscrits`)].filter(Boolean).map(t => (
+              <span key={t} className="px-2.5 py-1 rounded-full text-second whitespace-nowrap" style={{ background: 'color-mix(in srgb, var(--c-principal) 9%, white)' }}>{t}</span>))}
+          </div>
+          <button type="button" className="bouton ml-auto inline-flex items-center gap-1.5 whitespace-nowrap flex-none" disabled={enCours} onClick={() => setTour(t => t + 1)}><IconRefresh size={15} />{enCours ? 'Calcul…' : 'Recalculer'}</button>
+          {filtresOuverts && (<>
+            <div className="fixed inset-0 z-30" onClick={() => setFiltresOuverts(false)} />
+            <div className="absolute left-0 top-11 z-40 w-[560px] max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-carte shadow-flottant p-4 grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+              <fieldset className="space-y-1.5"><legend className="text-mention font-bold uppercase tracking-wider text-slate-500 mb-1">Lecture des coûts</legend>
+                {[['convention', 'Convention (MA = CT, MFP = PP)'], ['reel', 'Coûts réels (COR)']].map(([v, l]) => (
+                  <label key={v} className="flex items-center gap-2"><input type="radio" checked={mes.cout === v} onChange={() => majMes('cout', v)} />{l}</label>))}</fieldset>
+              <fieldset className="space-y-1.5"><legend className="text-mention font-bold uppercase tracking-wider text-slate-500 mb-1">Années</legend>
+                {(d?.toutes || []).map(a => { const on = !!annees?.includes(a); return (
+                  <label key={a} className="flex items-center gap-2"><input type="checkbox" checked={on} onChange={() => setAnnees(x => (on ? (x || []).filter(y => y !== a) : [...(x || []), a].sort()))} />{a}</label>); })}</fieldset>
+              <fieldset className="space-y-1.5"><legend className="text-mention font-bold uppercase tracking-wider text-slate-500 mb-1">Ce qui est compté</legend>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={mes.coord === 'oui'} onChange={e => majMes('coord', e.target.checked ? 'oui' : 'non')} />Coordinations</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={mes.admin === 'oui'} onChange={e => majMes('admin', e.target.checked ? 'oui' : 'non')} />Cadre administratif</label>
+                <label className={`flex items-center gap-2 ${mes.admin === 'oui' ? '' : 'opacity-50'}`}><input type="checkbox" disabled={mes.admin !== 'oui'} checked={mes.direction !== 'non'} onChange={e => majMes('direction', e.target.checked ? 'oui' : 'non')} />Direction</label></fieldset>
+              <fieldset className="space-y-1.5"><legend className="text-mention font-bold uppercase tracking-wider text-slate-500 mb-1">Unité · inscrits retenus</legend>
+                {[['etp', 'En ETP'], ['periodes', 'En périodes']].map(([v, l]) => (
+                  <label key={v} className="flex items-center gap-2"><input type="radio" checked={mes.charge === v} onChange={() => majMes('charge', v)} />{l}</label>))}
+                <div className="flex flex-wrap gap-2 pt-1">{(d?.Y || []).map(y => (
+                  <label key={y.annee} className="flex items-center gap-1" title={`Lucie en compte ${y.inscrits}`}><span className="text-slate-500">{court(y.annee)}</span>
+                    <input className="controle !h-7 w-16 text-right" inputMode="numeric" placeholder={String(y.inscrits)} value={reglages.inscrits?.[y.annee] ?? ''}
+                      onChange={e => maj('inscrits', { ...(reglages.inscrits || {}), [y.annee]: e.target.value.replace(/\D/g, '') })} aria-label={`Inscrits ${y.annee}`} /></label>))}</div>
+              </fieldset>
+              <div className="col-span-2 flex justify-end border-t border-slate-100 pt-2"><button type="button" className="bouton" onClick={() => setFiltresOuverts(false)}>Fermer</button></div>
+            </div></>)}
+        </div>)}
+      {!focus && <><div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 sans-impression">
         {segm('cout', [['convention', 'Convention (MA = CT, MFP = PP)'], ['reel', 'Coûts réels']])}
         {!sectionFixe && <select className="controle flex-none" value={section} onChange={e => { setSection(e.target.value); setAnnees(null); }} aria-label="Section">
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
@@ -332,14 +373,14 @@ export default function IipHelbGestion({ sectionFixe = null, dernieres = null, f
         {segm('coord', [['oui', 'Avec coordinations'], ['non', 'Sans coordinations']])}
         {segm('admin', [['oui', 'Avec cadre admin.'], ['non', 'Sans cadre admin.']])}
         {mes.admin === 'oui' && segm('direction', [['oui', 'Avec direction'], ['non', 'Secrétariat seul']])}
-      </div>
+      </div></>}
       {masques.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 text-second text-slate-500 sans-impression">
           <IconEye size={14} /> Parties masquées :
           {masques.map(k => <button key={k} type="button" className="bouton !py-0.5 !px-2 text-mention" onClick={() => maj('masques', masques.filter(x => x !== k))}>{CARTES.find(c => c[0] === k)?.[1] || k}</button>)}
         </div>)}
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
-      {d?.Y?.length > 0 && (
+      {!focus && d?.Y?.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-second text-slate-600 sans-impression">
           <span>Inscrits retenus :</span>
           {d.Y.map(y => (
@@ -352,7 +393,7 @@ export default function IipHelbGestion({ sectionFixe = null, dernieres = null, f
         </div>)}
       {!d ? <p className="text-second text-slate-400">{enCours ? 'Calcul… (quelques secondes la première fois)' : ''}</p> : !Y.length
         ? <p className="text-second text-slate-500">Aucune attribution en {section} pour ces années.</p> : (<>
-        {(() => {
+        {!focus && (() => {
           /* DES CARTES DE MÊME TAILLE, LES INDICATEURS CLÉS EN ÉVIDENCE (3.5.445, Charles : « des cartes de même taille, un peu de
              couleurs, mettre en évidence les indicateurs clés »). Quatre clés, grandes, liseré et chiffre de couleur ; six autres, petites,
              dans une grille régulière. */

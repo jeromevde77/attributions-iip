@@ -8,6 +8,7 @@ import { authHeaders } from '../lib/api.js';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, TuileEtat, Encadre } from './ui.jsx';
 import ChargementLucie from './ChargementLucie.jsx';
+import { ComparerA } from './Disques.jsx';
 
 const avant = (a, k) => { const x = Number(String(a).slice(0, 4)) - k; return `${x}-${x + 1}`; };
 const pc = v => (v == null ? '—' : `${Math.round(v)} %`);
@@ -22,8 +23,9 @@ function Carte({ titre, sous, hauteur = 260, children }) {
     </section>);
 }
 
-export default function ReussiteSection({ section, annee }) {
+export default function ReussiteSection({ section, annee, refs = null }) {
   const [annees, setAnnees] = useState(null);
+  const [ref, setRef] = useState('IIP');
   useEffect(() => {
     let vivant = true; setAnnees(null);
     const l = [avant(annee, 2), avant(annee, 1), annee];
@@ -46,14 +48,17 @@ export default function ReussiteSection({ section, annee }) {
     moyenne: Number(c.moyenne), seuil: c.taux_au_seuil, notes: c.notes, ue: c.ue_num })).sort((a, b) => a.moyenne - b.moyenne);
   const hUe = Math.max(220, ues.length * 26 + 60), hCours = Math.max(220, Math.min(cours.length, 60) * 22 + 60);
   const court = s => (String(s).length > 46 ? `${String(s).slice(0, 45)}…` : s);
+  const R = refs?.[ref] || {};
+  const parRef = v => `${ref} : ${v == null ? 'non disponible' : pc(v)}`;
   return (
     <div className="space-y-3">
+      {refs && <div className="flex justify-end"><ComparerA valeur={ref} onChange={setRef} /></div>}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <TuileEtat taille="grande" etat="neutre" valeur={T.s1.decides} libelle="décisions de 1re session" precision={`${T.inscrits} inscriptions en ${annee}`} />
-        <TuileEtat taille="grande" etat={T.s1.taux_reussite >= 70 ? 'reussi' : T.s1.taux_reussite >= 50 ? 'surveiller' : 'corriger'} valeur={pc(T.s1.taux_reussite)} libelle="réussite en 1re session"
+        <TuileEtat taille="grande" etat={T.s1.taux_reussite >= 70 ? 'reussi' : T.s1.taux_reussite >= 50 ? 'surveiller' : 'corriger'} valeur={pc(T.s1.taux_reussite)} libelle="réussite en 1re session" precision={refs ? parRef(R.s1) : null}
           aide="Unités réussies ÷ unités décidées en 1re session (une inscription à une UE = une décision)." />
         <TuileEtat taille="grande" etat={T.final.taux_reussite >= 70 ? 'reussi' : T.final.taux_reussite >= 50 ? 'surveiller' : 'corriger'} valeur={pc(T.final.taux_reussite)} libelle="réussite après les deux sessions"
-          precision={T.s2.attendus ? `${T.s2.decides} / ${T.s2.attendus} ajournés revenus en 2e` : null} />
+          precision={[refs ? parRef(R.final) : '', T.s2.attendus ? `${T.s2.decides} / ${T.s2.attendus} ajournés revenus en 2e` : ''].filter(Boolean).join(' · ') || null} />
         <TuileEtat taille="grande" etat={cur.dossiers_ouverts ? 'surveiller' : 'neutre'} valeur={cur.dossiers_ouverts || 0} libelle="inscriptions sans décision"
           precision={cur.dossiers_ouverts ? 'hors des taux' : 'année complète'} />
       </div>

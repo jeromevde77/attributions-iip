@@ -4628,6 +4628,16 @@ le financier on reste sur la section, on compare juste à l'IIP et l'ASBL, on ne
 `components/ReussiteSection.jsx` (évolution sur trois ans, décisions par bloc, réussite unité par unité, moyenne cours par cours avec le
 seuil de 10 ; données de `/api/stats-deliberation`), puis les tableaux. `focus` : `BudgetSection` ne liste plus les autres sections
 (moyenne de l'IIP et ASBL seulement), `IipHelbGestion` masque les cursus de la HE et la lecture VRIO (rang parmi eux).
+**La fiche repensée** (3.5.552, maquette validée par Charles : « c'est brouillon ; repense toute la feuille »). En-tête : le nom complet
+de la section (`section.libelle`). « Comparer à » se règle PAR PARTIE (`ComparerA`, interrupteur coulissant IIP / ASBL,
+`components/Disques.jsx` avec `Disque` et `Partie`) ; le « Comparer à » et le « Voir » globaux disparaissent en étapes. 1 : les étudiants
+en disques (femmes, primo, Bruxelles, hors UE, réussite S1 ; anneau = la section, trait intérieur = la référence) puis
+`PersonnelEcole`, dont la comparaison devient quatre tuiles et des disques RANGÉS PAR TYPE (profil, statut, contrat et qualification,
+origine). 2 : `IipHelbGestion focus` — tous les réglages derrière un bouton « Filtres » (panneau à cases), les choix en pastilles ;
+ni tuiles d'argent ni cartes financières (elles sont à l'étape 3) ; le doublon `ChargeParBloc` retiré. 3 : `FinancementUCE` resserré
+(quatre tuiles dont « ce que l'IIP apporte », huit colonnes groupées « rapporte / coûte », `whitespace-nowrap`, ligne d'ensemble en
+tête, ses filtres = ceux de l'étape 2 via `reglagesIipHelb()`), comptes et budget repliés (`<details>`). 4 : `ReussiteSection refs`
+(interrupteur), position réussite et pistes, tableaux repliés.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,

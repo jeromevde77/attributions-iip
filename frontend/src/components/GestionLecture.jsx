@@ -10,6 +10,7 @@ import PopulationEcole from './PopulationEcole.jsx';
 import PersonnelEcole from './PersonnelEcole.jsx';
 import StatsDeliberation from './StatsDeliberation.jsx';
 import ReussiteSection from './ReussiteSection.jsx';
+import { Disque, ComparerA, Partie } from './Disques.jsx';
 import ChargeParBloc from './ChargeParBloc.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
@@ -92,6 +93,12 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   const [lentille, setLentille] = useState(lentilleFixe || memo.lentille || 'tout');
   const [ref, setRef] = useState(memo.ref === 'HELB' ? 'ASBL' : memo.ref || 'IIP');
   const [etape, setEtape] = useState(Number(memo.etape) || 1);
+  const [refEtu, setRefEtu] = useState('IIP');
+  const [libelles, setLibelles] = useState({});
+  useEffect(() => {
+    fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setLibelles(Object.fromEntries((Array.isArray(l) ? l : []).map(x => [x.code, x.libelle]))))
+      .catch(() => {});
+  }, []);
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [tour, setTour] = useState(0);
@@ -183,8 +190,8 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
       </div>
       {!enEtapes && <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Voir</span>
         <Segments label="Voir" valeur={lentille} onChange={setLentille} options={LENTILLES} /></div>}
-      <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Comparer à</span>
-        <Segments label="Comparer à" valeur={ref} onChange={setRef} options={REFS} /></div>
+      {!enEtapes && <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Comparer à</span>
+        <Segments label="Comparer à" valeur={ref} onChange={setRef} options={REFS} /></div>}
       <button type="button" className="bouton ml-auto inline-flex items-center flex-none" onClick={() => setTour(t => t + 1)} title="Recalculer avec les dernières données" aria-label="Recalculer"><IconRefresh size={15} /></button>
       <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5 whitespace-nowrap flex-none" onClick={presenter} disabled={!d}>
         {perim === 'section' ? <IconPresentation size={15} /> : <IconMaximize size={15} />}Présenter</button>
@@ -211,10 +218,15 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
             <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{d?.annee} · {LENTILLES.find(l => l[0] === lentille)?.[1]} · comparé à {nomRef}</div>
             <h2 className="titre-ecran m-0 mt-1">{perim === 'etab' ? 'L’Institut, section par section' : section}</h2>
           </div>
+          {enEtapes && (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-mention font-bold uppercase tracking-wider text-slate-500">Gestion · Une section · {d?.annee || annee}</span>
+              <h1 className="titre-ecran m-0">{libelles[section] || section}{libelles[section] ? <span className="text-slate-400 font-normal"> ({section})</span> : null}</h1>
+            </div>)}
           {barre}</>}
       {erreur && <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>}
       {!d ? <p className="text-second text-slate-400">Calcul des indicateurs de toutes les sections… (quelques secondes la première fois)</p> : (<>
-        {!plein && <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}
+        {!plein && !enEtapes && <p className="text-mention text-slate-500 m-0">Année {d.annee} · résultats {d.resultats_annee || '—'} · comparé à {nomRef} — {noteRef}{' '}
           {onSources && <button type="button" className="text-iip-blue underline" onClick={onSources}>Les sources</button>}</p>}
         {/* LES FINANCEMENTS DE L'ASBL, DÉPARTEMENT PAR DÉPARTEMENT ET SECTION PAR SECTION, SOUS « FINANCES » (3.5.516, Charles : « je ne
             vois pas la partie finance ASBL et toutes les sections ») — direction seule (les comptes). */}
@@ -227,27 +239,46 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
               {enEtapes ? (<>
                 {!plein && <BarreEtapes etape={etape} onEtape={setEtape} />}
                 {etape === 1 && <div className="space-y-4">
-                  <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="etu" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} sansPistes />
-                  <div className="intertitre">Les inscriptions</div>
-                  <PopulationEcole annee={annee} initial={{ section: S.section }} partie="inscriptions" />
-                  <div className="intertitre">Les enseignants et le personnel</div>
+                  {(() => {
+                    /* LES ÉTUDIANTS EN DISQUES (3.5.552, maquette validée) : la section, et la référence choisie pour cette partie. */
+                    const R = refEtu === 'ASBL' ? (d.asbl || {}) : (d.iip || {});
+                    const D = [['Femmes', 'femmes', 'var(--c-principal)'], ['Primo-inscrits', 'primo', 'var(--c-helb, #05B7E6)'],
+                      ['Domicile à Bruxelles', 'bruxelles', 'var(--c-accent, #19537E)'], ['Hors Union européenne', 'hors_ue', 'var(--c-attente)'],
+                      ['Réussite en 1re session', 'reussite_s1', 'var(--c-reussi)']];
+                    return (
+                      <Partie titre="Les étudiants" sous={`${n0(S.inscrits)} inscrits au 15/10 · ${IND.croissance.f(S.croissance)} sur un an · âge moyen ${IND.age.f(S.age)}`}
+                        droite={<ComparerA valeur={refEtu} onChange={setRefEtu} />}>
+                        <div className="p-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+                          {D.map(([nom, k, c]) => <Disque key={k} nom={nom} valeur={S[k]} reference={R[k] ?? null} nomRef={refEtu} couleur={c} />)}
+                        </div>
+                        <div className="px-4 pb-3 text-mention text-slate-500">Anneau plein : {S.section} · fin trait gris intérieur : {refEtu === 'ASBL' ? 'l’ASBL (quand la HELB publie le chiffre)' : 'l’IIP'}.</div>
+                      </Partie>);
+                  })()}
                   <PersonnelEcole annee={annee} initial={{ section: S.section }} />
                 </div>}
                 {etape === 2 && <div className="space-y-4">
-                  {estDirection && <IipHelbGestion sectionFixe={S.section} dernieres={3} focus />}
-                  <div className="intertitre">La charge bloc par bloc et les coordinations de {annee}</div>
-                  <div className="grid gap-3 lg:grid-cols-2"><ChargeParBloc annee={annee} section={S.section} /></div>
+                  {estDirection ? <IipHelbGestion sectionFixe={S.section} dernieres={3} focus />
+                    : <div className="grid gap-3 lg:grid-cols-2"><ChargeParBloc annee={annee} section={S.section} /></div>}
                 </div>}
                 {etape === 3 && <div className="space-y-4">
-                  {estDirection && <><div className="intertitre">Ce que la section engage, coûte et rapporte (en UCE)</div><FinancementUCE section={S.section} /></>}
-                  <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille="fin" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} sansPistes />
-                  {estDirection && <><div className="intertitre">Budget prévu</div><BudgetSection section={S.section} focus /></>}
+                  {estDirection && <FinancementUCE section={S.section} refsEtp={{ IIP: d.iip?.etc_etp ?? null, ASBL: d.asbl?.etu_etp ?? d.asbl?.etc_etp ?? null }} />}
+                  <details className="carte px-4 py-3">
+                    <summary className="cursor-pointer font-semibold" style={{ color: 'var(--c-principal)' }}>Les comptes de l’ASBL et les indicateurs de coût de {S.section} (pour information)</summary>
+                    <div className="pt-3 space-y-3"><Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille="fin" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} sansPistes /></div>
+                  </details>
+                  {estDirection && <details className="carte px-4 py-3">
+                    <summary className="cursor-pointer font-semibold" style={{ color: 'var(--c-principal)' }}>Le budget prévu</summary>
+                    <div className="pt-3"><BudgetSection section={S.section} focus /></div>
+                  </details>}
                 </div>}
                 {etape === 4 && <div className="space-y-4">
+                  <ReussiteSection section={S.section} annee={d.resultats_annee || annee}
+                    refs={{ IIP: { s1: d.iip?.reussite_s1 ?? null, final: d.iip?.reussite_finale ?? null }, ASBL: { s1: d.asbl?.reussite_s1 ?? null, final: d.asbl?.reussite_finale ?? null } }} />
                   <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="res" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
-                  <ReussiteSection section={S.section} annee={d.resultats_annee || annee} />
-                  <div className="intertitre">Le détail, en tableaux</div>
-                  <StatsDeliberation annee={d.resultats_annee || annee} initial={{ section: S.section }} />
+                  <details className="carte px-4 py-3">
+                    <summary className="cursor-pointer font-semibold" style={{ color: 'var(--c-principal)' }}>Le détail, en tableaux</summary>
+                    <div className="pt-3"><StatsDeliberation annee={d.resultats_annee || annee} initial={{ section: S.section }} /></div>
+                  </details>
                 </div>}
                 <div className="flex justify-between sans-impression">
                   {etape > 1 ? <button type="button" className="bouton" onClick={() => { setEtape(etape - 1); racine.current?.scrollIntoView({ block: 'start' }); }}>← {ETAPES_SECTION[etape - 2][1]}</button> : <span />}
