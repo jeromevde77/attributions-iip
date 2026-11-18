@@ -1505,6 +1505,8 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
   body.impression-gestion .zone-impression table { width: 100% !important; font-size: 8.5pt !important; }
   body.impression-gestion .zone-impression :is(table, .overflow-x-auto, .overflow-auto, .recharts-responsive-container) { break-inside: avoid; }
   body.impression-gestion .zone-impression :is(th, td) { white-space: normal !important; padding: 3px 4px !important; }
+  /* Un nombre ne se coupe pas sur deux lignes (3.5.568, « 623 169 / € ») : seule la première colonne, le libellé, passe à la ligne. */
+  body.impression-gestion .zone-impression td:not(:first-child) { white-space: nowrap !important; }
   body.impression-gestion .zone-impression :is(.titre-carte, .intertitre, .titre-ecran, h2, h3, h4) { break-after: avoid; }
   body.impression-gestion .zone-impression thead { display: table-header-group; }
   body.impression-gestion .zone-impression :is(.overflow-x-auto, .overflow-y-auto, .overflow-auto) { overflow: visible !important; }

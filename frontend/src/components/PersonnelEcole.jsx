@@ -161,9 +161,11 @@ function Compare({ v, iip, section, etpVue, lec }) {
     <Partie titre="Les enseignants" sous={`${k0(v.n)} membres · ${e2(etpVue)} ETP · rangés par type`} droite={<ComparerA valeur={ref} onChange={setRef} />}>
       {/* SANS CADRE DANS LE CADRE (3.5.556) : les chiffres en ligne, puis les groupes séparés par un filet. */}
       <Chiffres items={tuiles.map(([val, lib, r]) => [val, lib, `${ref} : ${r == null ? 'non disponible' : typeof r === 'number' ? f1(r) : r}`])} />
-      <div className="grid border-t border-slate-100 divide-x divide-slate-100 grid-cols-1 lg:[grid-template-columns:1fr_1.5fr_1fr_1fr]">
+      {/* DEUX COLONNES TANT QUE LA PLACE MANQUE (3.5.568, capture de Charles : « Origine » coupée) : neuf disques ne tiennent sur une
+          rangée qu'en très grand écran. */}
+      <div className="grid border-t border-slate-100 grid-cols-1 sm:grid-cols-2 2xl:[grid-template-columns:1fr_1.5fr_1fr_1fr]">
         {GROUPES.map(([titre, ds]) => (
-          <div key={titre} className="px-3.5 py-3 space-y-2">
+          <div key={titre} className="px-3.5 py-3 space-y-2 border-b border-slate-100 min-w-0">
             <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{titre}</div>
             <div className="flex justify-around gap-1.5">{ds.map(x => <Disque key={x.nom} {...x} nomRef={ref} taille={84} />)}</div>
           </div>))}
