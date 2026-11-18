@@ -153,7 +153,7 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
     <section className="carte overflow-hidden min-w-0" style={{ breakInside: 'avoid' }}>
       <EnteteCarte titre={titre} sous={sous} />
       <div className="p-3 space-y-2">
-        <div className="w-full" style={{ height: 300 }}>{svg}</div>
+        <div className="w-full overflow-hidden [&_svg]:overflow-hidden" style={{ height: 260 }}>{svg}</div>
         {legende}
       </div>
     </section>);

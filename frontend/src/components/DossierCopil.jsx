@@ -152,6 +152,8 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
   return (
     <div className="kit-copil space-y-4">
       {visibles.map(([k, num, titre]) => {
+        // UNE PARTIE VIDE NE S'IMPRIME PAS (3.5.564) : le dossier pédagogique et le divers n'ont que leur texte.
+        if (A_COMPLETER.includes(k) && !texteCopil(textes, section, k)?.trim()) return null;
         const ch = num.split('.')[0];
         const nouveauChapitre = ch !== chapitre;
         chapitre = ch;
@@ -171,8 +173,8 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
             {/* LES NOUVEAUX GRAPHIQUES ET TABLEAUX (3.5.562, Charles : « revois le dossier COPIL avec les nouveaux graphiques et tableaux,
                 tout en gardant la structure et mes notes ») : les parties, leur ordre et leurs textes ne changent pas ; leurs dessins sont ceux
                 de la fiche d'une section (Gestion → Une section). */}
-            {k === 'inscriptions' && <><EtudiantsSection annee={an('population')} section={section} /><PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" /></>}
-            {k === 'provenance' && <PopulationEcole annee={an('population')} initial={{ section }} partie="provenance" />}
+            {k === 'inscriptions' && <><EtudiantsSection annee={an('population')} section={section} /><PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" compact /></>}
+            {k === 'provenance' && <PopulationEcole annee={an('population')} initial={{ section }} partie="provenance" compact />}
             {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} dernieres={3} focus /><PersonnelEcole annee={an('population')} initial={{ section }} seulCompare /></>}
             {k === 'positionnement' && <><GestionLecture annee={an('positionnement')} perimFixe="section" sectionFixe={section} sansIipHelb /><FinancementUCE section={section} /></>}
             {k === 'reussite' && <ReussiteSection section={section} annee={an('reussite')} />}
