@@ -10,7 +10,7 @@
      des enseignants payés par la Fédération (convention), HORS des comptes de l'ASBL — le coût complet les ajoute.
    Rien d'une personne : des totaux. */
 import db from '../db/index.js';
-import { syntheseAsbl, realiseComplet } from './sourcesReference.js';
+import { syntheseAsbl, realiseComplet, sourcesEnVigueur } from './sourcesReference.js';
 import { ponderationsCursus, financementDecret } from './financementDecret.js';
 import { departementsHe, COMPARAISON_HE, prixHelb, coutMemo, enseignantsIipCivil } from './rapportIipHelb.js';
 
@@ -28,6 +28,47 @@ export const CURSUS = {
 const SECTION_IIP = { 'Optométrie': 'Optométrie', 'Psychomotricité': 'Psychomotricité', 'Orthoptie': 'Orthoptie', 'Technologue en imagerie médicale': 'TIM' };
 const r0 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v));
 const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100);
+
+/* LES INSCRITS DE LA HELB, CURSUS PAR CURSUS (3.5.571, Charles : « à intégrer dans Lucie, pour avoir de vrais chiffres des
+   départements » — le fichier des dossiers inscrits avec cohorte, déposé dans Gestion → Les sources). L'intitulé du fichier
+   (« Bachelier : sage-femme ») est rangé dans son département et rattaché au cursus de la comparaison ETP (« Sage-femme ») ; ce
+   sont des DOSSIERS INSCRITS à une date, pas des étudiants comptés pour le financement. */
+const INSCRITS_CURSUS = [
+  [/développement d.applications|informatique/i, 'Technoeco', 'Informatique de gestion'], [/facility/i, 'Technoeco', 'Facility management'],
+  [/cyber/i, 'Technoeco', 'Cybersécurité'], [/[ée]lectronique/i, 'Technoeco', 'Électronique appliquée'],
+  [/p[ée]diatrie/i, 'Santé', 'Pédiatrie'], [/sant[ée] communautaire/i, 'Santé', 'Santé communautaire'], [/siamu/i, 'Santé', 'SIAMU'],
+  [/art.th[ée]rapie/i, 'Santé', 'Art-thérapie'], [/oncologie/i, 'Santé', 'Oncologie'], [/hygi[ée]niste/i, 'Santé', 'Hygiéniste bucco-dentaire'],
+  [/master.*sciences infirmi/i, 'Santé', 'MSI'], [/infirmier|soins infirmiers/i, 'Santé', 'Soins infirmiers'], [/sage.femme/i, 'Santé', 'Sage-femme'],
+  [/ergoth[ée]rapie/i, 'Santé', 'Ergothérapie (CEB)'], [/kin[ée]sith[ée]rapie/i, 'Santé', 'Kinésithérapie'], [/orthoptie/i, 'Santé', 'Orthoptie'],
+  [/podologie/i, 'Santé', 'Podologie'], [/imagerie m[ée]dicale/i, 'Santé', 'Technologue en imagerie médicale'], [/jeune enfant|aeje/i, 'Santé', 'AEJE'],
+  [/cin[ée]matographie/i, 'COMAV', 'Cinéma'], [/photographie/i, 'COMAV', 'Photographie'], [/relations publiques/i, 'COMAV', 'Relations publiques'],
+  [/assistant social/i, 'Social', 'Assistant social'], [/[ée]cologie sociale/i, 'Social', 'Écologie sociale'],
+];
+export function inscritsHelbParDepartement() {
+  let src = null; try { src = sourcesEnVigueur().helb_inscrits; } catch { src = null; }
+  const t = src?.totaux; if (!t?.cursus?.length) return null;
+  const date = t.date_feuille || src.date_donnee || null;
+  const y = date ? (Number(date.slice(5, 7)) >= 8 ? Number(date.slice(0, 4)) : Number(date.slice(0, 4)) - 1) : null;
+  const annee = y ? `${y}-${y + 1}` : null, avant = y ? `${y - 1}-${y}` : null;
+  const comptes = new Map(COMPARAISON_HE.cursus.map(c => [c.cursus, c]));
+  const depts = new Map();
+  for (const c of t.cursus) {
+    const m = INSCRITS_CURSUS.find(([re]) => re.test(c.cursus)); const dept = m?.[1] || 'Autres', nom = m?.[2] || c.cursus;
+    if (!depts.has(dept)) depts.set(dept, { dept, inscrits: 0, cohortes: {}, cursus: [] });
+    const D = depts.get(dept); D.inscrits += c.inscrits;
+    for (const [k, n] of Object.entries(c.cohortes || {})) D.cohortes[k] = (D.cohortes[k] || 0) + n;
+    // Un cursus sous plusieurs intitulés (bachelier, master et « réadaptation » en kinésithérapie ; assistant social de jour et du soir) :
+    // une ligne, les intitulés réunis.
+    let C = D.cursus.find(x => x.cursus === nom);
+    if (!C) { const cmp = comptes.get(nom); C = { libelles: [], cursus: nom, inscrits: 0, cohortes: {}, comptes_avant: cmp?.series?.[avant]?.[0] ?? null }; D.cursus.push(C); }
+    C.libelles.push(c.cursus); C.inscrits += c.inscrits;
+    for (const [k, n] of Object.entries(c.cohortes || {})) C.cohortes[k] = (C.cohortes[k] || 0) + n;
+  }
+  for (const D of depts.values()) D.cursus.sort((a, b) => b.inscrits - a.inscrits);
+  for (const D of depts.values()) D.comptes_avant = D.cursus.some(c => c.comptes_avant != null) ? D.cursus.reduce((s, c) => s + (c.comptes_avant || 0), 0) : null;
+  return { annee, avant, date, total: t.total, cohortes: t.cohortes || {}, departements: [...depts.values()].sort((a, b) => b.inscrits - a.inscrits),
+    detail: t.cursus.some(c => c.cohortes && Object.keys(c.cohortes).length) };
+}
 
 let MEMO = null;
 export function viderFinancements() { MEMO = null; }
@@ -161,7 +202,7 @@ export function financementsAsbl() {
     const fed = v.federation ? (v.enseignants || 0) : (v.federation_part || 0);
     v.cout_complet = (v.charges || 0) + fed;
   }
-  const d = { annees, dernier: annees[annees.length - 1] || null, prix_etp_helb: prix, ponderations: POND,
+  const d = { annees, dernier: annees[annees.length - 1] || null, prix_etp_helb: prix, ponderations: POND, inscrits_helb: inscritsHelbParDepartement(),
     cursus_helb: lignes.filter(l => l.bloc === 'HELB' && l.niveau === 2).map(l => l.libelle), fichier: S.fichier, source_he: D.source, lignes };
   MEMO = { t: Date.now(), d };
   return d;

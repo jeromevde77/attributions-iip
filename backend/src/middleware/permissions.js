@@ -172,6 +172,17 @@ export function migrerPlafonds(dbx) {
       })();
       console.log('[migration] plafonds : dotation, répartition et budget réservés (27/09/2026)');
     }
+    /* LA COORDINATION ÉCRIT LA PLANIFICATION (3.5.570, Charles, 18 novembre 2026 : « Écrire » — horaires, laboratoire, disponibilités
+       de leurs enseignants ; le plafond était « rien », et toute coordination était refusée sur l'horaire). Une fois, marquée. */
+    const marquePlanif = 'plafond_coordination_planification_2026_11_18';
+    if (!dbx.prepare('SELECT 1 FROM migration_faite WHERE cle = ?').get(marquePlanif)) {
+      dbx.transaction(() => {
+        dbx.prepare(`INSERT INTO role_plafond (role, module, niveau) VALUES ('coordination', 'planification', 'ecrit')
+          ON CONFLICT(role, module) DO UPDATE SET niveau = 'ecrit', maj_le = datetime('now')`).run();
+        dbx.prepare('INSERT INTO migration_faite (cle) VALUES (?)').run(marquePlanif);
+      })();
+      console.log('[migration] plafonds : la coordination écrit la planification (18/11/2026)');
+    }
   } catch (e) { console.error('[migration] plafonds :', e.message); }
 }
 

@@ -4655,6 +4655,12 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.571** : (1) la coordination ÉCRIT la planification (Charles : « Écrire » ; migration marquée `plafond_coordination_planification_2026_11_18`,
+réglable ensuite dans Configuration → Accès). (2) LES INSCRITS DE LA HELB PAR DÉPARTEMENT (Charles : « pour avoir de vrais chiffres des
+départements ») : `lireInscrits` garde les cohortes de chaque cursus ; `inscritsHelbParDepartement()` (`lib/financementsAsbl.js`,
+`INSCRITS_CURSUS` : intitulé du fichier → département et cursus de la comparaison ETP, plusieurs intitulés réunis) ; carte « Les inscrits
+de la HELB en <année>, par département » de Financements de l'ASBL (dossiers, débutants, intermédiaires, diplômants, et pour repère les
+étudiants comptés l'année d'avant). Le fichier se dépose dans Gestion → Les sources (aucun n'était déposé en prod au 18/11/2026).
 **3.5.570 — qui est bloqué, et pourquoi** (Charles : « le secrétariat et la coordination encore bloqués »). Lu dans
 `permission_constat` (les refus de module, en prod) : (1) `/api/grille` (la grille d'organisation) était rangée sous Personnel → Organisation ;
 (2) `/api/nominations/(verrous|alertes-cours|pertes-charge)`, lus par la grille des attributions → module Attributions (affinement) ;
