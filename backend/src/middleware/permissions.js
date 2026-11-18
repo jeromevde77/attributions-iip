@@ -183,6 +183,30 @@ export function migrerPlafonds(dbx) {
       })();
       console.log('[migration] plafonds : la coordination écrit la planification (18/11/2026)');
     }
+    /* LE RÔLE DÉCIDE (3.5.578, Charles, 18 novembre 2026, après le bilan de « Ce que le contrôle a vu ») : les cases personnelles des
+       coordinations et du secrétariat fermaient ce que leur rôle ouvre (Mati, Florian, Véronique Moiny, Audrey Perez…) — elles
+       s'effacent, sauf l'octroi nominatif (aménagements). La conseillère qualité LIT tout ce que son rôle ouvre et écrit la
+       Configuration ; l'atelier de l'unité s'écrit par ses propres portes (droitsSurLUE). Une fois, marquée. */
+    const marqueRole = 'acces_role_decide_2026_11_18';
+    if (!dbx.prepare('SELECT 1 FROM migration_faite WHERE cle = ?').get(marqueRole)) {
+      const maj = dbx.prepare('UPDATE utilisateur SET permissions_json = ? WHERE id = ?');
+      let n = 0;
+      dbx.transaction(() => {
+        for (const u of dbx.prepare(`SELECT id, role, permissions_json FROM utilisateur WHERE role IN ('coordination', 'secretariat', 'conseiller_qualite')`).all()) {
+          let p = {}; try { p = JSON.parse(u.permissions_json || '{}') || {}; } catch { p = {}; }
+          const garde = Object.fromEntries(MODULES_SUR_OCTROI.filter(m => p[m]).map(m => [m, p[m]]));
+          if (u.role === 'conseiller_qualite') {
+            for (const m of MODULES.map(x => (typeof x === 'string' ? x : x.cle || x.key || x.id)).filter(Boolean)) {
+              if (MODULES_SUR_OCTROI.includes(m)) continue;
+              garde[m] = m === 'configuration' ? { lire: true, ecrire: true } : { lire: true, ecrire: false };
+            }
+          }
+          maj.run(JSON.stringify(garde), u.id); n++;
+        }
+        dbx.prepare('INSERT INTO migration_faite (cle) VALUES (?)').run(marqueRole);
+      })();
+      console.log(`[migration] accès : le rôle décide pour ${n} compte(s) — coordination, secrétariat, qualité (18/11/2026)`);
+    }
   } catch (e) { console.error('[migration] plafonds :', e.message); }
 }
 

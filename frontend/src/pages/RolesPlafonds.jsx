@@ -97,7 +97,7 @@ function Constat() {
               <div key={p.email} className="text-second flex items-baseline gap-2 flex-wrap">
                 <span className="font-medium">{p.email}</span>
                 <span className="text-slate-400 text-xs">{p.role}</span>
-                <span className="text-slate-600">perdrait : {p.modules.join(', ')}</span>
+                <span className="text-slate-600">{strict ? 'refusé sur' : 'perdrait'} : {p.modules.join(', ')}</span>
                 <span className="text-slate-400 text-xs">({p.total} accès)</span>
               </div>
             ))}
