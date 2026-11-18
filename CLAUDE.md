@@ -4616,6 +4616,14 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LA FICHE D'UNE SECTION EN QUATRE ÉTAPES** (3.5.550, Charles, 18 novembre 2026 : « en étapes 1, 2, 3… sur une ligne »). Gestion →
+Une section (`GestionLecture`, `enEtapes` = fiche sans `sectionFixe` ni `lentilleFixe`) : `BarreEtapes` / `ETAPES_SECTION`, une étape à
+la fois, « Étape suivante » en pied. 1 Population et enseignants (où se situe la section — lentille étudiants, face à l'IIP ou l'ASBL —,
+inscriptions `PopulationEcole`, personnel `PersonnelEcole`) · 2 Attributions et coordination (`IipHelbGestion dernieres={3}`, direction ;
+`ChargeParBloc`) · 3 Frais et coûts (`FinancementUCE`, comptes de l'ASBL, budget prévu ; direction pour l'argent) · 4 Réussite et
+pédagogie (position réussite, ce qu'on peut améliorer, `StatsDeliberation`). Le « Voir » disparaît en étapes ; l'impression et le
+composeur gardent la lecture d'avant (`lentilleFixe="tout"`).
+
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
 pondération, financement, salaires HELB, salaires IIP pour info, matériel et investissements, DI et FI rapportés par l'IIP, solde ASBL).

@@ -5,6 +5,11 @@ import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import IipHelbGestion from './IipHelbGestion.jsx';
 import FinancementsAsbl from './FinancementsAsbl.jsx';
 import BudgetSection from './BudgetSection.jsx';
+import FinancementUCE from './FinancementUCE.jsx';
+import PopulationEcole from './PopulationEcole.jsx';
+import PersonnelEcole from './PersonnelEcole.jsx';
+import StatsDeliberation from './StatsDeliberation.jsx';
+import ChargeParBloc from './ChargeParBloc.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
 
@@ -85,6 +90,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   // `lentilleFixe` (3.5.502) : le composeur de Gestion ouvre la lecture sur le thème choisi.
   const [lentille, setLentille] = useState(lentilleFixe || memo.lentille || 'tout');
   const [ref, setRef] = useState(memo.ref === 'HELB' ? 'ASBL' : memo.ref || 'IIP');
+  const [etape, setEtape] = useState(Number(memo.etape) || 1);
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [tour, setTour] = useState(0);
@@ -98,7 +104,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     document.addEventListener('fullscreenchange', f); return () => document.removeEventListener('fullscreenchange', f);
   }, []);
 
-  useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ perim: perimChoisi, section: sectionMemo, lentille, ref })); } catch { /* sans mémoire */ } }, [perimChoisi, sectionMemo, lentille, ref]);
+  useEffect(() => { try { localStorage.setItem(MEMO, JSON.stringify({ perim: perimChoisi, section: sectionMemo, lentille, ref, etape })); } catch { /* sans mémoire */ } }, [perimChoisi, sectionMemo, lentille, ref, etape]);
   useEffect(() => {
     let vivant = true; setErreur(null);
     fetch(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`, { headers: authHeaders() })
@@ -163,6 +169,8 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
     return [...r.filter(x => !x.bien).sort((a, b) => b.ampleur - a.ampleur), ...r.filter(x => x.bien).sort((a, b) => b.ampleur - a.ampleur)];
   }, [S, d, lentille, ref, blocs]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // La fiche « Une section » de Gestion se lit par étapes (3.5.550) ; le composeur et le dossier gardent leur lecture.
+  const enEtapes = perimFixe === 'section' && !sectionFixe && !lentilleFixe;
   const barre = (
     <div className="flex flex-nowrap items-center gap-x-4 overflow-x-auto pb-1 sans-impression">
       <div className="flex items-center gap-2 flex-none">{!perimFixe && <><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Lire</span>
@@ -172,8 +180,8 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
             {sections.map(x => <option key={x.section} value={x.section}>{x.section}</option>)}
           </select>)}
       </div>
-      <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Voir</span>
-        <Segments label="Voir" valeur={lentille} onChange={setLentille} options={LENTILLES} /></div>
+      {!enEtapes && <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Voir</span>
+        <Segments label="Voir" valeur={lentille} onChange={setLentille} options={LENTILLES} /></div>}
       <div className="flex items-center gap-2 flex-none"><span className="text-mention font-bold uppercase tracking-wider text-slate-500">Comparer à</span>
         <Segments label="Comparer à" valeur={ref} onChange={setRef} options={REFS} /></div>
       <button type="button" className="bouton ml-auto inline-flex items-center flex-none" onClick={() => setTour(t => t + 1)} title="Recalculer avec les dernières données" aria-label="Recalculer"><IconRefresh size={15} /></button>
@@ -215,6 +223,35 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
           ouvrir={s => { setSection(s); try { localStorage.setItem(MEMO, JSON.stringify({ ...lire(), section: s })); } catch { /* */ } if (onOuvrirSection) onOuvrirSection(s); else setPerim('section'); }} />
           : !S ? <p className="text-second text-slate-500">Section introuvable pour {d.annee}.</p>
             : <>
+              {enEtapes ? (<>
+                {!plein && <BarreEtapes etape={etape} onEtape={setEtape} />}
+                {etape === 1 && <div className="space-y-4">
+                  <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="etu" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} sansPistes />
+                  <div className="intertitre">Les inscriptions</div>
+                  <PopulationEcole annee={annee} initial={{ section: S.section }} partie="inscriptions" />
+                  <div className="intertitre">Les enseignants et le personnel</div>
+                  <PersonnelEcole annee={annee} initial={{ section: S.section }} />
+                </div>}
+                {etape === 2 && <div className="space-y-4">
+                  {estDirection && <IipHelbGestion sectionFixe={S.section} dernieres={3} />}
+                  <div className="intertitre">La charge bloc par bloc et les coordinations de {annee}</div>
+                  <div className="grid gap-3 lg:grid-cols-2"><ChargeParBloc annee={annee} section={S.section} /></div>
+                </div>}
+                {etape === 3 && <div className="space-y-4">
+                  {estDirection && <><div className="intertitre">Ce que la section engage, coûte et rapporte (en UCE)</div><FinancementUCE section={S.section} /></>}
+                  <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille="fin" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} sansPistes />
+                  {estDirection && <><div className="intertitre">Budget prévu</div><BudgetSection section={S.section} /></>}
+                </div>}
+                {etape === 4 && <div className="space-y-4">
+                  <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="res" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
+                  <div className="intertitre">Décisions et réussite, unité par unité</div>
+                  <StatsDeliberation annee={d.resultats_annee || annee} initial={{ section: S.section }} />
+                </div>}
+                <div className="flex justify-between sans-impression">
+                  {etape > 1 ? <button type="button" className="bouton" onClick={() => { setEtape(etape - 1); racine.current?.scrollIntoView({ block: 'start' }); }}>← {ETAPES_SECTION[etape - 2][1]}</button> : <span />}
+                  {etape < 4 && <button type="button" className="bouton bouton-fort" onClick={() => { setEtape(etape + 1); racine.current?.scrollIntoView({ block: 'start' }); }}>Étape suivante : {ETAPES_SECTION[etape][1]} →</button>}
+                </div>
+              </>) : <>
               {perimFixe === 'section' && !plein && (
                 <nav aria-label="Parties de la fiche" className="flex gap-5 border-b border-slate-200 overflow-x-auto">
                   {[['fiche-position', 'Où se situe la section'], ['fiche-comptes', 'Comptes de l’ASBL'], ['fiche-pistes', 'Ce qu’on peut améliorer'],
@@ -236,6 +273,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                 <h2 id="fiche-budget" className="titre-ecran !mt-6 !mb-0 scroll-mt-24">Budget prévu</h2>
                 <p className="text-mention text-slate-500 m-0">Ce que le budget des sections prévoit pour {S.section} (Gestion → Budget) : l’enveloppe, le fonctionnement, les investissements et ce qui est déjà engagé.</p>
                 <BudgetSection section={S.section} />
+              </>}
               </>}
             </>}
       </>)}
@@ -317,7 +355,7 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
 }
 
 /* ------------------------------------------------------------------------------------------------ UNE SECTION */
-function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, nomRef, blocs, pistes }) {
+function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, nomRef, blocs, pistes, sansPistes = false }) {
   const P = palette();
   const lignes = POSITION[lentille].map(k => {
     const v = valDe(k, S), r = refDe(k, S.section), j = juger(k, v, r);
@@ -423,7 +461,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
           </Tableau>
         </div>
       </section>)}
-    <section id="fiche-pistes" className="carte overflow-hidden scroll-mt-24">
+    {!sansPistes && <section id="fiche-pistes" className="carte overflow-hidden scroll-mt-24">
       <EnteteCarte titre="Ce qu’on peut améliorer — ou non" sous={`déduit des écarts à ${nomRef}`} />
       <div className="px-4 py-1">
         {!pistes.length ? <p className="text-second text-slate-500 py-2">Rien à signaler face à cette référence, ou pas de référence pour ces indicateurs.</p> : pistes.map(p => (
@@ -432,6 +470,29 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
             <div className="text-sm leading-snug text-slate-800">{p.txt}</div>
           </div>))}
       </div>
-    </section>
+    </section>}
   </>);
+}
+
+/* LES ÉTAPES DE LA FICHE D'UNE SECTION (3.5.550, Charles, 18 novembre 2026 : « en étapes 1, 2, 3… sur une ligne : 1) population,
+   inscriptions et profs, avec où se situe la section face à l'IIP et à l'ASBL ; 2) les attributions sur 3 ans et la coordination de
+   cette année, avec les graphiques ETP, MA / MFP / experts ; 3) les frais et coûts ; 4) réussite et pédagogie »). */
+export const ETAPES_SECTION = [
+  [1, 'Population et enseignants'], [2, 'Attributions et coordination'], [3, 'Frais et coûts'], [4, 'Réussite et pédagogie'],
+];
+function BarreEtapes({ etape, onEtape }) {
+  return (
+    <nav aria-label="Étapes de la fiche" className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 sans-impression">
+      {ETAPES_SECTION.map(([n, l], i) => {
+        const actif = etape === n;
+        return (<div key={n} className="flex items-center gap-2 flex-none">
+          {i > 0 && <span className="w-6 h-px bg-slate-300" aria-hidden />}
+          <button type="button" onClick={() => onEtape(n)} aria-current={actif ? 'step' : undefined}
+            className={`inline-flex items-center gap-2 rounded-full pl-1 pr-3 py-1 text-sm whitespace-nowrap border ${actif ? 'border-transparent text-white' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+            style={actif ? { background: 'var(--c-principal, #16406A)' } : undefined}>
+            <span className={`w-6 h-6 rounded-full inline-flex items-center justify-center text-second font-semibold ${actif ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}`}>{n}</span>{l}
+          </button>
+        </div>);
+      })}
+    </nav>);
 }

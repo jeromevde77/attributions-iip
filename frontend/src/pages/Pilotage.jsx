@@ -1649,7 +1649,7 @@ export default function Pilotage({ vue = 'tout' }) {
        section, mêmes réglages, gardés par la page) ; « Choisir les blocs » de l'aperçu retire ce qu'on ne veut pas. */
     : k === 'composer' && compoImprimee ? <CompositionBlocs annee={anneeActive} compo={compoImprimee} direction={direction} />
     : k === 'copil' ? <DossierCopil annee={anneeActive} section={copil.section} parties={copil.parties} textes={copil.textes} annees={copil.annees} />
-    : k === 'section' ? <GestionLecture annee={anneeActive} perimFixe="section" />
+    : k === 'section' ? <GestionLecture annee={anneeActive} perimFixe="section" lentilleFixe="tout" />
     : k === 'ecole' ? <GestionLecture annee={anneeActive} perimFixe="etab" />
     : k === 'iip-helb' ? <IipHelbGestion />
     : k === 'financements' ? <FinancementsAsbl />
