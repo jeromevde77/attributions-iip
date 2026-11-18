@@ -4655,6 +4655,12 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.569 — des pages en paysage dans le dossier COPIL** (Charles : « cette partie importante si mal mise en page — certaines pages
+en paysage ? » ; choisi : positionnement et finances UCE, les enseignants). `copil-paysage` (DossierCopil.jsx) : 1 170 px dans l'aperçu,
+`@page paysage { size: A4 landscape }` dans le PDF, rendu avec `pages_nommees` (`preferCSSPageSize`, `services/pdf.js`). **Chromium met
+en page tout le document à la largeur de la PREMIÈRE page** : le contenu est donc calé à gauche (`margin: 0`), sinon un bloc paysage se
+coupe à droite (essayé). Année de la population du dossier : l'année scolaire en cours par défaut. Les disques des enseignants se rangent
+selon la largeur de la carte (quatre groupes sur une rangée dès 1 100 px).
 **3.5.568** (captures de Charles) : dans le PDF de la Gestion, un nombre ne passe plus à la ligne (la règle d'`index.css`, `@media print`,
 l'emportait sur celle de Pilotage.jsx) ; les disques des enseignants passent sur deux colonnes sauf très grand écran (« Origine » coupée) ;
 le graphique et le tableau UCE ne sont côte à côte que si LA CARTE fait au moins 1 050 px (mesurée, `ResizeObserver`), sinon l'un sous l'autre.

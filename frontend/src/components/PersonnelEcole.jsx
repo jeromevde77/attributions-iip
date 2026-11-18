@@ -5,7 +5,7 @@
  * = qui porte une attribution cette année, plus les fonctions d'établissement (direction, secrétariat) ;
  * chacun une fois. Chaque répartition dit sur combien de fiches renseignées elle porte.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, couleurSerie } from './graphiques.jsx';
 import { TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
@@ -138,6 +138,14 @@ export default function PersonnelEcole({ annee: anneeProp, initial = null, onCho
    L'ASBL : Lucie n'a pas les fiches du personnel de la HELB — ses disques disent « non disponible ». */
 function Compare({ v, iip, section, etpVue, lec }) {
   const [ref, setRef] = useState('IIP');
+  // La largeur de la carte décide des colonnes de disques (3.5.568-569) : quatre groupes sur une rangée seulement s'ils y tiennent.
+  const boite = useRef(null);
+  const [largeur, setLargeur] = useState(0);
+  useEffect(() => {
+    const el = boite.current; if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setLargeur(Math.round(e.contentRect.width)));
+    ro.observe(el); return () => ro.disconnect();
+  }, []);
   const LS = lec?.sections?.find(x => x.section === section) || null, LI = lec?.iip || null, LA = lec?.asbl || null;
   const part = (o, k, base) => { const b = o && base(o); return b ? ((o[k] || 0) / b) * 100 : null; };
   const sexe = o => o.F + o.M + o.X, age = o => o.a35 + o.a45 + o.a55 + o.p55, nat = o => o.be + o.ue + o.hors_ue, dom = o => o.bruxelles + o.wallonie + o.flandre, tous = o => o.n;
@@ -163,7 +171,7 @@ function Compare({ v, iip, section, etpVue, lec }) {
       <Chiffres items={tuiles.map(([val, lib, r]) => [val, lib, `${ref} : ${r == null ? 'non disponible' : typeof r === 'number' ? f1(r) : r}`])} />
       {/* DEUX COLONNES TANT QUE LA PLACE MANQUE (3.5.568, capture de Charles : « Origine » coupée) : neuf disques ne tiennent sur une
           rangée qu'en très grand écran. */}
-      <div className="grid border-t border-slate-100 grid-cols-1 sm:grid-cols-2 2xl:[grid-template-columns:1fr_1.5fr_1fr_1fr]">
+      <div ref={boite} className="grid border-t border-slate-100" style={{ gridTemplateColumns: largeur >= 1100 ? '1fr 1.5fr 1fr 1fr' : largeur >= 560 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)' }}>
         {GROUPES.map(([titre, ds]) => (
           <div key={titre} className="px-3.5 py-3 space-y-2 border-b border-slate-100 min-w-0">
             <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{titre}</div>

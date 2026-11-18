@@ -1744,3 +1744,6 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 .kit-titre-partie .kit-annee { font-size: 12px; font-weight: 500; color: #64748b; }
 .kit-texte { background: #EEF5FB; border-radius: 10px; padding: 12px 16px; font-size: 13px; line-height: 1.6; color: #0E2A4F; break-inside: avoid; }
 .kit-texte-fort { font-size: 15px; }
+/* LES PAGES EN PAYSAGE DU DOSSIER (3.5.569) : 1 170 px dans l'aperçu (la largeur utile d'une A4 paysage, ramenée par le même zoom que
+   le portrait), une page à elles dans le PDF. */
+.kit-copil .copil-paysage { width: 1170px; max-width: none; }

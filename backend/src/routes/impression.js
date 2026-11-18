@@ -297,6 +297,7 @@ r.post('/pdf', authRequired, async (req, res) => {
       pied: gabarit,
       orientation: orientation === 'paysage' ? 'paysage' : 'portrait',
       pageCss,
+      pagesNommees: !!req.body?.pages_nommees,
       ...(pied ? { marges: { top: '12mm', right: '15mm',
                              bottom: `${margeBasse}mm`, left: '15mm' } } : {}),
     });
