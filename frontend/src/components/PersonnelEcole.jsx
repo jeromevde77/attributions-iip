@@ -10,6 +10,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, couleurSerie } from './graphiques.jsx';
 import { TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 import { RatiosEtp } from './RapportStatistique.jsx';
+import { Disque, ComparerA, Partie } from './Disques.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const e2 = n => (n || 0).toFixed(2).replace('.', ',');
@@ -130,35 +131,43 @@ export default function PersonnelEcole({ annee: anneeProp, initial = null, onCho
 }
 
 /* LA SECTION FACE À L'IIP ET À L'ASBL (3.5.481). Parts calculées sur les fiches renseignées, comme les cartes de la page. */
+/* LES ENSEIGNANTS DE LA SECTION, EN DISQUES RANGÉS PAR TYPE (3.5.552, maquette validée : « des graphiques en disques plutôt que des
+   nombres, triés par type » ; « comparer à » réglé par partie). Quatre tuiles (les ratios, que l'ASBL connaît aussi), puis les profils.
+   L'ASBL : Lucie n'a pas les fiches du personnel de la HELB — ses disques disent « non disponible ». */
 function Compare({ v, iip, section, etpVue, lec }) {
+  const [ref, setRef] = useState('IIP');
   const LS = lec?.sections?.find(x => x.section === section) || null, LI = lec?.iip || null, LA = lec?.asbl || null;
-  const part = (o, k, base) => { const b = base(o); return b ? Math.round(((o[k] || 0) / b) * 100) : null; };
+  const part = (o, k, base) => { const b = o && base(o); return b ? ((o[k] || 0) / b) * 100 : null; };
   const sexe = o => o.F + o.M + o.X, age = o => o.a35 + o.a45 + o.a55 + o.p55, nat = o => o.be + o.ue + o.hors_ue, dom = o => o.bruxelles + o.wallonie + o.flandre, tous = o => o.n;
   const f1 = x => (x == null ? '—' : x.toLocaleString('fr-BE', { maximumFractionDigits: 1 }));
-  const p = x => (x == null ? '—' : `${x} %`);
-  const lignes = [
-    ['Membres du personnel', k0(v.n), k0(iip.n), '—'],
-    ['ETP', e2(etpVue), e2(iip.etp), LA?.etp != null ? f1(LA.etp) : '—'],
-    ['Étudiants (temps plein) par ETP', f1(LS?.etc_etp), f1(LI?.etc_etp), f1(LA?.etc_etp)],
-    ['Étudiants par groupe, en moyenne', f1(LS?.taille_groupes), f1(LI?.taille_groupes), f1(LA?.taille_groupes)],
-    ['Femmes', p(part(v, 'F', sexe)), p(part(iip, 'F', sexe)), '—'],
-    ['Âge moyen', v.age_moyen != null ? `${Math.round(v.age_moyen)} ans` : '—', iip.age_moyen != null ? `${Math.round(iip.age_moyen)} ans` : '—', '—'],
-    ['55 ans et plus', p(part(v, 'p55', age)), p(part(iip, 'p55', age)), '—'],
-    ['Chargés de cours', p(part(v, 'cc', tous)), p(part(iip, 'cc', tous)), '—'],
-    ['Experts', p(part(v, 'exp', tous)), p(part(iip, 'exp', tous)), '—'],
-    ['Définitifs', p(part(v, 'definitif', tous)), p(part(iip, 'definitif', tous)), '—'],
-    ['Contrat HELB', p(part(v, 'helb', tous)), p(part(iip, 'helb', tous)), '—'],
-    ['CAPAES', p(part(v, 'capaes', tous)), p(part(iip, 'capaes', tous)), '—'],
-    ['Domicile à Bruxelles', p(part(v, 'bruxelles', dom)), p(part(iip, 'bruxelles', dom)), '—'],
-    ['Belges', p(part(v, 'be', nat)), p(part(iip, 'be', nat)), '—'],
+  const R = ref === 'ASBL' ? null : iip;          // l'ASBL n'a pas de fiches du personnel
+  const RL = ref === 'ASBL' ? LA : LI;
+  const d = (nom, k, base, couleur) => ({ nom, valeur: part(v, k, base), reference: R ? part(R, k, base) : null, couleur });
+  const GROUPES = [
+    ['Profil', [d('Femmes', 'F', sexe, 'var(--c-principal)'), d('55 ans et plus', 'p55', age, 'var(--c-accent, #19537E)')]],
+    ['Statut', [d('Chargés de cours', 'cc', tous, 'var(--c-principal)'), d('Experts', 'exp', tous, 'var(--c-attente)'), d('Définitifs', 'definitif', tous, 'var(--c-reussi)')]],
+    ['Contrat et qualification', [d('Contrat HELB', 'helb', tous, 'var(--c-helb, #05B7E6)'), d('CAPAES', 'capaes', tous, 'var(--c-accent, #19537E)')]],
+    ['Origine', [d('Domicile à Bruxelles', 'bruxelles', dom, 'var(--c-accent, #19537E)'), d('Belges', 'be', nat, 'var(--c-attente)')]],
+  ];
+  const tuiles = [
+    [f1(LS?.etc_etp), 'étudiants par ETP', RL?.etc_etp ?? RL?.etu_etp],
+    [f1(LS?.taille_groupes), 'étudiants par groupe', RL?.taille_groupes],
+    [v.age_moyen != null ? `${Math.round(v.age_moyen)} ans` : '—', 'âge moyen', ref === 'IIP' && iip.age_moyen != null ? `${Math.round(iip.age_moyen)} ans` : null],
+    [e2(etpVue), `ETP · ${k0(v.n)} membres`, ref === 'IIP' ? `${e2(iip.etp)} ETP · ${k0(iip.n)}` : LA?.etp != null ? `${f1(LA.etp)} ETP` : null],
   ];
   return (
-    <Carte titre={`${NOM(section)} comparée à l’IIP et à l’ASBL`}
-      sous="L’IIP : tout le personnel de l’école, même source. L’ASBL (IIP et HELB réunis) : seulement ce qui se compte en ETP — Lucie n’a pas les fiches du personnel de la HELB.">
-      <Tableau dense>
-        <TableauEntete><Th>Indicateur</Th><Th align="droite">{NOM(section)}</Th><Th align="droite">IIP</Th><Th align="droite">ASBL</Th></TableauEntete>
-        <tbody>{lignes.map(([l, a, b, c]) => <Tr key={l}><Td>{l}</Td><Td align="droite" ton="fort">{a}</Td><Td align="droite">{b}</Td><Td align="droite">{c}</Td></Tr>)}</tbody>
-      </Tableau>
-      {!lec && <div className="text-mention text-slate-400">Les ratios de l’IIP et de l’ASBL se chargent…</div>}
-    </Carte>);
+    <Partie titre="Les enseignants" sous={`${k0(v.n)} membres · ${e2(etpVue)} ETP · rangés par type`} droite={<ComparerA valeur={ref} onChange={setRef} />}>
+      <div className="p-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
+        {tuiles.map(([val, lib, r]) => (
+          <TuileEtat key={lib} valeur={val} libelle={lib} precision={`${ref} : ${r == null ? 'non disponible' : typeof r === 'number' ? f1(r) : r}`} />))}
+      </div>
+      <div className="px-4 pb-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+        {GROUPES.map(([titre, ds]) => (
+          <div key={titre} className="border border-slate-200 rounded-carte p-3 space-y-2">
+            <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{titre}</div>
+            <div className="flex flex-wrap justify-around gap-3">{ds.map(x => <Disque key={x.nom} {...x} nomRef={ref} taille={96} />)}</div>
+          </div>))}
+      </div>
+      {!lec && <div className="px-4 pb-3 text-mention text-slate-400">Les ratios de l’IIP et de l’ASBL se chargent…</div>}
+    </Partie>);
 }

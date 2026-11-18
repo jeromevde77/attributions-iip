@@ -53,7 +53,7 @@ function BasculeProfesseurs() {
     </section>);
 }
 
-function Personnes({ titre, icone: Ic, aide, l, nom, onRetirer, chercher, onAjouter }) {
+function Personnes({ titre, icone: Ic, aide, l, nom, onRetirer, chercher, onAjouter, onVider = null }) {
   const [q, setQ] = useState('');
   const [res, setRes] = useState([]);
   useEffect(() => {
@@ -63,7 +63,13 @@ function Personnes({ titre, icone: Ic, aide, l, nom, onRetirer, chercher, onAjou
   }, [q, chercher]);
   return (
     <div className="space-y-2">
-      <div className="intertitre flex items-center gap-2"><Ic size={15} /> {titre} ({l.length})</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="intertitre flex items-center gap-2"><Ic size={15} /> {titre} ({l.length})</div>
+        {/* VIDER LA LISTE (3.5.553, Charles : « vider la liste des étudiants et garder juste Sophie Huret ») : en un geste, après
+            confirmation ; on rajoute ensuite qui l'on veut par la recherche. */}
+        {onVider && l.length > 0 && <button type="button" className="bouton bouton-detruire !py-1 text-second"
+          onClick={async () => { if (await demander({ titre: `Vider « ${titre} »`, message: `Les ${l.length} personnes sortent de la liste (rien d’autre ne change). Vous pourrez rajouter qui vous voulez par la recherche.`, confirmer: 'Vider la liste', annuler: 'Annuler' })) onVider(); }}>Vider la liste</button>}
+      </div>
       <p className="text-second text-slate-500">{aide}</p>
       <div className="flex flex-wrap gap-1.5">
         {l.map(x => (
@@ -138,7 +144,8 @@ export default function MiseEnService() {
           aide="Ils voient les fonctions en essai de l’espace des étudiants. Un dossier fictif, ou des volontaires."
           chercher={q => fetch(`/api/etudiants?q=${encodeURIComponent(q)}`, { headers: authHeaders() }).then(x => (x.ok ? x.json() : [])).then(l => (Array.isArray(l) ? l : []).slice(0, 8))}
           onAjouter={id => regler({ etudiants_essai: [...r.etudiants_essai, id] })}
-          onRetirer={id => regler({ etudiants_essai: r.etudiants_essai.filter(x => x !== id) })} />
+          onRetirer={id => regler({ etudiants_essai: r.etudiants_essai.filter(x => x !== id) })}
+          onVider={() => regler({ etudiants_essai: [] })} />
         <Personnes titre="Comptes d’essai" icone={IconUserCheck} l={r.comptes} nom={c => nomDuCompte(c.nom_complet, c.email)}
           aide="Ils voient les fonctions en essai du personnel (la présence par QR et le ticket de sortie)."
           chercher={q => fetch('/api/users', { headers: authHeaders() }).then(x => (x.ok ? x.json() : [])).then(l => (Array.isArray(l) ? l : l.users || [])
@@ -154,18 +161,29 @@ export default function MiseEnService() {
 /* INVITER TOUTE UNE SECTION À SON ESPACE (3.5.536) : simulation d'abord (qui sera invité, qui est écarté et pourquoi, qui l'est déjà),
    puis l'envoi. Un étudiant n'est invité que s'il a une adresse d'institut et au moins une fonction de l'espace ouverte pour lui. */
 function InvitationLot({ ajouterEssai }) {
+  const nomEtudiant = e => `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [deja, setDeja] = useState(false);
   // PAR UNE UE (3.5.537, Charles : « sélectionner les étudiants de l'UE 250 pour un test » ; « qu'ils reçoivent un mail de ma part »).
   const [ue, setUe] = useState('');
   const [message, setMessage] = useState('');
+  // UN ÉTUDIANT PAR SON NOM (3.5.553, Charles : « je dois pouvoir inviter un étudiant par nom, avec le mail d'invitation »).
+  const [un, setUn] = useState(null);          // { id, nom }
+  const [q, setQ] = useState('');
+  const [res, setRes] = useState([]);
+  useEffect(() => {
+    if (q.trim().length < 2) { setRes([]); return undefined; }
+    const t = setTimeout(() => fetch(`/api/etudiants?q=${encodeURIComponent(q.trim())}`, { headers: authHeaders() }).then(x => (x.ok ? x.json() : []))
+      .then(l => setRes((Array.isArray(l) ? l : []).slice(0, 8))).catch(() => setRes([])), 250);
+    return () => clearTimeout(t);
+  }, [q]);
   const [msgEssai, setMsgEssai] = useState(null);
   const [sim, setSim] = useState(null);
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
   useEffect(() => { fetch('/api/ref/sections', { headers: authHeaders() }).then(x => x.json()).then(l => Array.isArray(l) && setSections(l)).catch(() => {}); }, []);
-  const cible = ue.trim() ? { ue: Number(ue) } : { section };
+  const cible = un ? { ids: [un.id] } : ue.trim() ? { ue: Number(ue) } : { section };
   const appel = simulation => fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...cible, simulation, deja, message }) }).then(x => x.json());
   const essai = async () => {
     setMsgEssai(null);
@@ -186,14 +204,27 @@ function InvitationLot({ ajouterEssai }) {
       <EnteteCarte titre="Inviter les étudiants à leur espace" sous="Un courriel à l’adresse d’institut : l’adresse de l’espace et la marche à suivre. Chaque invitation se lit dans la fiche (Suivi)." />
       <div className="px-4 py-3 space-y-3 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <select className="controle" value={section} onChange={e => { setSection(e.target.value); setUe(''); setSim(null); setFait(null); }}>
+          <div className="relative">
+            {un ? <span className="inline-flex items-center gap-1 border border-slate-300 rounded-champ bg-white px-2 py-1.5">{un.nom}
+              <button type="button" className="text-slate-400 hover:text-red-700" title="Retirer" onClick={() => { setUn(null); setSim(null); setFait(null); }}><IconX size={13} /></button></span>
+              : <><IconSearch size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input className="controle controle-icone w-60" placeholder="un étudiant, par son nom…" value={q} onChange={e => setQ(e.target.value)} /></>}
+            {!un && res.length > 0 && (
+              <ul className="absolute z-10 mt-1 w-72 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-64 overflow-auto">
+                {res.map(x => (
+                  <li key={x.id}><button type="button" className="w-full text-left px-3 py-1.5 text-second hover:bg-slate-50"
+                    onClick={() => { setUn({ id: x.id, nom: nomEtudiant(x) }); setQ(''); setRes([]); setSection(''); setUe(''); setSim(null); setFait(null); }}>{nomEtudiant(x)}</button></li>))}
+              </ul>)}
+          </div>
+          <span className="text-slate-500">ou</span>
+          <select className="controle" value={section} onChange={e => { setSection(e.target.value); setUe(''); setUn(null); setSim(null); setFait(null); }}>
             <option value="">— une section —</option>{sections.map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
           </select>
           <span className="text-slate-500">ou l’UE</span>
-          <input className="controle w-20" inputMode="numeric" placeholder="n°" value={ue} onChange={e => { setUe(e.target.value.replace(/\D/g, '')); setSection(''); setSim(null); setFait(null); }} />
+          <input className="controle w-20" inputMode="numeric" placeholder="n°" value={ue} onChange={e => { setUe(e.target.value.replace(/\D/g, '')); setSection(''); setUn(null); setSim(null); setFait(null); }} />
           {ue && <button type="button" className="bouton" onClick={essai}>Ajouter ses inscrits aux étudiants d’essai</button>}
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={deja} onChange={e => { setDeja(e.target.checked); setSim(null); }} /> réinviter aussi ceux déjà invités</label>
-          <button type="button" className="bouton" disabled={(!section && !ue) || enCours} onClick={simuler}>Simuler</button>
+          <button type="button" className="bouton" disabled={(!section && !ue && !un) || enCours} onClick={simuler}>Simuler</button>
           {sim?.a_inviter?.length > 0 && <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={envoyer}>Inviter {sim.a_inviter.length} étudiant(s)</button>}
         </div>
         {msgEssai && <div className="text-slate-600">{msgEssai}</div>}

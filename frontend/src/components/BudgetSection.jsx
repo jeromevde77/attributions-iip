@@ -37,11 +37,13 @@ export function useBudgetCompare(annees) {
   return c;
 }
 
-export function Compare({ section, c }) {
+/* `focus` (3.5.551, Charles : « un focus détaillé section : on compare juste à l'IIP et à l'ASBL, on ne détaille pas les autres
+   sections ») : la ligne de la section, la moyenne de l'IIP et l'ASBL ; aucune autre section. */
+export function Compare({ section, c, focus = false }) {
   const M = c.moyenne || {}, A = c.asbl;
   // Sans section (l'école) : les tuiles portent la moyenne des sections.
   const S = section ? c.sections.find(x => x.section === section) || null : { ...M, historique: [] };
-  const lignes = [...c.sections].filter(x => x.prevu_total_etudiant != null || x.realise_etudiant != null).sort((a, b) => (b.prevu_total_etudiant || 0) - (a.prevu_total_etudiant || 0));
+  const lignes = [...c.sections].filter(x => (!focus || x.section === section) && (x.prevu_total_etudiant != null || x.realise_etudiant != null)).sort((a, b) => (b.prevu_total_etudiant || 0) - (a.prevu_total_etudiant || 0));
   const max = Math.max(1, ...lignes.map(x => x.prevu_total_etudiant || 0));
   const exec = v => (!c.depenses ? 'aucune dépense' : v != null ? `${v} %` : '—');
   const comp = (v, m, inverse = false) => (v == null || m == null ? 'neutre' : (inverse ? v <= m : v >= m) ? 'reussi' : 'surveiller');
@@ -62,11 +64,11 @@ export function Compare({ section, c }) {
         aide={`Investissements prévus (équipement, informatique, mobilier d’au moins ${eur(c.seuil)} HT l’unité ; non refusés) ÷ effectif du budget.`} />
     </div>
     <section className="carte overflow-hidden">
-      <EnteteCarte titre={`Face aux autres sections et à l’ASBL — ${c.annee}`} sous={`Par étudiant, HTVA · réalisé : bilans ${ex || '—'}`} />
+      <EnteteCarte titre={focus ? `Face à l’IIP et à l’ASBL — ${c.annee}` : `Face aux autres sections et à l’ASBL — ${c.annee}`} sous={`Par étudiant, HTVA · réalisé : bilans ${ex || '—'}`} />
       <Tableau dense className="!border-0 !rounded-none">
         <TableauEntete><Th>Section</Th><Th align="droite">Effectif</Th><Th align="droite">Prévu / étudiant</Th><Th align="droite">dont fonctionnement</Th><Th align="droite">Réalisé / étudiant</Th><Th align="droite">Exécution</Th><Th align="droite">Investissements / étudiant</Th></TableauEntete>
         <tbody>
-          <TrTotal><Td>Moyenne des sections</Td><Td align="droite">—</Td><Td align="droite">{M.prevu_total_etudiant != null ? eurEt(M.prevu_total_etudiant) : '—'}</Td>
+          <TrTotal><Td>{focus ? 'Moyenne de l’IIP (toutes sections)' : 'Moyenne des sections'}</Td><Td align="droite">—</Td><Td align="droite">{M.prevu_total_etudiant != null ? eurEt(M.prevu_total_etudiant) : '—'}</Td>
             <Td align="droite">{M.prevu_etudiant != null ? eurEt(M.prevu_etudiant) : '—'}</Td>
             <Td align="droite">{M.realise_etudiant != null ? eur(M.realise_etudiant) : '—'}</Td><Td align="droite">{exec(M.execution)}</Td>
             <Td align="droite">{M.investissements_etudiant != null ? eurEt(M.investissements_etudiant) : '—'}</Td></TrTotal>
@@ -89,7 +91,7 @@ export function Compare({ section, c }) {
   </>);
 }
 
-export default function BudgetSection({ section, annees = null }) {
+export default function BudgetSection({ section, annees = null, focus = false }) {
   const d = useBudgetSection(section, annees);
   const comp = useBudgetCompare(d?.annees?.map(a => a.annee));
   if (!d) return <p className="text-second text-slate-400">Lecture du budget…</p>;
@@ -102,7 +104,7 @@ export default function BudgetSection({ section, annees = null }) {
         return (
           <div key={a.annee} className="space-y-3">
             <h3 className="intertitre m-0">{a.annee}</h3>
-            {comp[a.annee] && <Compare section={section} c={comp[a.annee]} />}
+            {comp[a.annee] && <Compare section={section} c={comp[a.annee]} focus={focus} />}
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
               <TuileEtat etat="fort" valeur={a.hors_budget ? '—' : eur(a.enveloppe)} libelle={`Enveloppe ${a.annee}`}
                 precision={a.hors_budget ? 'hors budget des sections' : a.coussin != null ? `brute ${eur(a.enveloppe_brute)} · coussin ${eur(a.coussin)}` : 'disponible pour la section'}

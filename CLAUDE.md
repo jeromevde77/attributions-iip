@@ -4598,6 +4598,11 @@ une étudiante de test (fonctions « essai ») sans adresse était rejetée et l
 accordée et décidée sur ce cours ; « report » : `dispenses` de lib/cep.js) et l'unité `va_partielle` (nombre de cours dispensés) —
 pastille « dispensé » et mention « dispense partielle » dans l’espace (Charles : « ce n’est pas une VA sur le cours, c’est une dispense » — circulaire Sanction des études).
 
+**Vider les étudiants d'essai, inviter un étudiant par son nom** (3.5.553, Charles : « vider la liste et garder juste Sophie Huret ;
+inviter un étudiant par nom, avec le mail d'invitation »). Mise en service : « Vider la liste » (`onVider` de `Personnes`, confirmation)
+sur les étudiants d'essai ; « Inviter les étudiants à leur espace » cherche aussi UN étudiant par son nom (`ids` de `inviter`), avec le
+mot de celui qui invite.
+
 **L'INVITATION À L'ESPACE DE L'ÉTUDIANT** (3.5.536, Charles : « comment savoir si elle a reçu l'invitation ? » ; « fais l'invitation »).
 `lib/invitationEspace.js` : `inviter({ ids | section, simulation, deja })` — un courriel à l'adresse d'institut (adresse du site, marche à
 suivre), seulement pour qui a une adresse d'institut, n'est ni archivé ni sorti, et a au moins une fonction de l'espace ouverte
@@ -4623,6 +4628,21 @@ inscriptions `PopulationEcole`, personnel `PersonnelEcole`) · 2 Attributions et
 `ChargeParBloc`) · 3 Frais et coûts (`FinancementUCE`, comptes de l'ASBL, budget prévu ; direction pour l'argent) · 4 Réussite et
 pédagogie (position réussite, ce qu'on peut améliorer, `StatsDeliberation`). Le « Voir » disparaît en étapes ; l'impression et le
 composeur gardent la lecture d'avant (`lentilleFixe="tout"`).
+**Un focus détaillé section** (3.5.551, Charles : « tout au niveau réussite — la section, les UE, les cours, de beaux graphiques ; pour
+le financier on reste sur la section, on compare juste à l'IIP et l'ASBL, on ne détaille pas les autres sections »). Étape 4 :
+`components/ReussiteSection.jsx` (évolution sur trois ans, décisions par bloc, réussite unité par unité, moyenne cours par cours avec le
+seuil de 10 ; données de `/api/stats-deliberation`), puis les tableaux. `focus` : `BudgetSection` ne liste plus les autres sections
+(moyenne de l'IIP et ASBL seulement), `IipHelbGestion` masque les cursus de la HE et la lecture VRIO (rang parmi eux).
+**La fiche repensée** (3.5.552, maquette validée par Charles : « c'est brouillon ; repense toute la feuille »). En-tête : le nom complet
+de la section (`section.libelle`). « Comparer à » se règle PAR PARTIE (`ComparerA`, interrupteur coulissant IIP / ASBL,
+`components/Disques.jsx` avec `Disque` et `Partie`) ; le « Comparer à » et le « Voir » globaux disparaissent en étapes. 1 : les étudiants
+en disques (femmes, primo, Bruxelles, hors UE, réussite S1 ; anneau = la section, trait intérieur = la référence) puis
+`PersonnelEcole`, dont la comparaison devient quatre tuiles et des disques RANGÉS PAR TYPE (profil, statut, contrat et qualification,
+origine). 2 : `IipHelbGestion focus` — tous les réglages derrière un bouton « Filtres » (panneau à cases), les choix en pastilles ;
+ni tuiles d'argent ni cartes financières (elles sont à l'étape 3) ; le doublon `ChargeParBloc` retiré. 3 : `FinancementUCE` resserré
+(quatre tuiles dont « ce que l'IIP apporte », huit colonnes groupées « rapporte / coûte », `whitespace-nowrap`, ligne d'ensemble en
+tête, ses filtres = ceux de l'étape 2 via `reglagesIipHelb()`), comptes et budget repliés (`<details>`). 4 : `ReussiteSection refs`
+(interrupteur), position réussite et pistes, tableaux repliés.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
