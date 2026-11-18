@@ -280,6 +280,9 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                         <div className="px-4 pb-3 text-mention text-slate-500">Anneau de couleur : {S.section} · cercle intérieur : {refEtu === 'ASBL' ? 'l’ASBL (quand la HELB publie le chiffre)' : 'l’IIP'}.</div>
                       </Partie>);
                   })()}
+                  {/* OÙ HABITENT-ILS (3.5.559, Charles : « n'oublie pas la carte de Bruxelles, Belgique et monde ») : les trois cartes de
+                      Population, pour la section, et Bruxelles sur trois ans. */}
+                  <PopulationEcole annee={annee} initial={{ section: S.section }} partie="cartes" />
                   <PersonnelEcole annee={annee} initial={{ section: S.section }} seulCompare />
                 </div>}
                 {etape === 2 && <div className="space-y-4">

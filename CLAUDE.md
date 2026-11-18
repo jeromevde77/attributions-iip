@@ -4669,6 +4669,8 @@ déplient en UE, coordinations HELB en pied). 3 : graphique et tableau dans la m
 chiffres face à l'IIP. 4 : `ReussiteSection` refaite — carte « La réussite » (trois disques | évolution SVG), jauges empilées par bloc
 et unité par unité, boîtes à moustaches (`/api/stats-deliberation/distributions` : `cotes_ue.par_bloc`, quartiles `q1`/`q3` ajoutés à
 `distribution`, la section et l'IIP), cours sur deux colonnes ; `Section seulPistes`.
+**Les cartes à l'étape 1** (3.5.559, Charles : « n'oublie pas la carte de Bruxelles, Belgique et monde ») : `PopulationEcole
+partie="cartes"` ne rend que `CarteCommunes` (Bruxelles, Belgique, monde) et `BruxellesTroisAns`, pour la section, sans la barre de choix.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
