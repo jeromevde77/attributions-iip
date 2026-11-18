@@ -536,7 +536,9 @@ function ProtectedLayout({ children }) {
   const AXES = [
     ['/accueil',       'Tableau de bord', ICONE_AXE.accueil,  null],
     ['/etudiants',     'Étudiants',       ICONE_AXE.etudiants, 'etudiants'],
-    ['/professeurs',   'Personnel',       ICONE_AXE.personnel, 'personnel'],
+    // LES COORDINATIONS LISENT LA FICHE DE LEURS ENSEIGNANTS (3.5.545) : l'axe s'ouvre aussi par le rôle ; le serveur ne leur rend
+    // que leurs enseignants et le professionnel.
+    ['/professeurs',   'Personnel',       ICONE_AXE.personnel, 'personnel', ['coordination']],
     /* L'ICÔNE D'UN AXE EST LA MÊME DANS LA BARRE ET DANS SON RAIL, et elle
        n'appartient qu'à lui. Organisation portait IconClipboardList ici et
        IconBooks dans son rail : deux dessins pour un même territoire, et le

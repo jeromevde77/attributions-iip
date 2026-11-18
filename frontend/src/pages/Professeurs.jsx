@@ -727,7 +727,13 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
   // se ranger d'eux-mêmes. Les documents quittent les onglets pour la colonne
   // de gauche, sous forme d'icônes.
   // « Ma fiche » d'un professeur : ses attributions, et rien d'autre.
-  const ONGLETS = restreint ? [
+  /* LA FICHE RÉDUITE DE LA COORDINATION (3.5.545) : le serveur ne rend que le professionnel (`reduite`) — les attributions de
+     SES sections, les titres, la charge totale sans détail ailleurs. */
+  const reduite = !!detail.reduite;
+  const ONGLETS = reduite ? [
+    { key: 'attributions', label: `Attributions dans mes sections (${detail.attributions?.length || 0})` },
+    { key: 'titres', label: `Titres de capacité (${detail.titres?.length || 0})` },
+  ] : restreint ? [
     { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
   ] : [
     { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
@@ -757,7 +763,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
       sous={
         <span className="inline-flex items-center gap-3">
           {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}
-          {detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
+          {!reduite && detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
           {detail.capaes === 'x' && <span className="bg-white/20 text-white/90 text-mention px-1.5 rounded">CAPAES</span>}
           {detail.statut && <span className="bg-white/20 text-white/90 text-mention px-1.5 rounded">{detail.statut}</span>}
         </span>
@@ -768,7 +774,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
       } : null}
       /* L'AVION, VERS LES ÉDITIONS (Charles, 27 septembre 2026) : contrats, fiches,
          EA12 et annexes, depuis un seul endroit. */
-      editions={onEditions ? () => onEditions(profId) : null}>
+      editions={onEditions && !reduite ? () => onEditions(profId) : null}>
 
         {/* ── Layout 2 colonnes ──
             Chaque colonne défile pour elle-même : le contenu de la fenêtre
@@ -779,8 +785,25 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
           {/* ── Colonne gauche — identité + KPIs + actions ── */}
           <div className="w-64 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-auto">
 
+            {reduite && (
+              <div className="px-4 pt-2 pb-3">
+                <div className="px-1 py-2 text-center border-b border-slate-200">
+                  <div className="text-xs text-slate-500 mb-0.5">Dans mes sections</div>
+                  <div className="text-xl font-semibold text-iip-blue">{(detail.charge_mes_sections || 0).toFixed(2)}</div>
+                  <div className="text-mention text-slate-400">ETP{detail.mes_sections?.length ? ` · ${detail.mes_sections.join(', ')}` : ''}</div>
+                </div>
+                <div className="px-1 py-2 text-center">
+                  <div className="text-xs text-slate-500 mb-0.5">Charge totale</div>
+                  <div className="text-lg font-semibold text-iip-blue">{(detail.charge_totale || 0).toFixed(2)}</div>
+                  <div className="text-mention text-slate-400">ETP, toutes sections</div>
+                  {detail.autres_sections?.length > 0 && (
+                    <div className="text-mention text-slate-500 mt-1">Enseigne aussi en {detail.autres_sections.join(', ')} (détail non communiqué)</div>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Charge — du plus synthétique au plus détaillé, l'un sous l'autre */}
-            <div className="px-4 pt-2 pb-3 space-y-0">
+            {!reduite && <div className="px-4 pt-2 pb-3 space-y-0">
               <div className="px-1 py-2 text-center border-b border-slate-200">
                 <div className="text-xs text-slate-500 mb-0.5">Charge totale</div>
                 <div className="text-xl font-semibold text-iip-blue">{etpTotal.toFixed(4)}</div>
@@ -845,7 +868,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                 <div className="text-mention text-slate-400">Ancienneté PO</div>
                 <div className="text-base font-bold text-slate-700">{detail.anciennete_25_26_po ?? 0}</div>
               </div>
-            </div>
+            </div>}
 
             {/* Fonctions & missions */}
             {detail.missions?.length > 0 && (
@@ -864,7 +887,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
 
             {/* Actions et documents — à portée de main, sans quitter l'onglet courant */}
             <div className="p-4 border-b border-slate-100 space-y-3">
-              {((peutGeste('personnel.fiche') && ecritModule('organisation'))
+              {!reduite && ((peutGeste('personnel.fiche') && ecritModule('organisation'))
                 || String(getUser()?.professeur_id ?? '') === String(profId)) && (
               <button onClick={() => onEdit(detail)}
                 className="bouton w-full flex items-center gap-2 text-xs">
@@ -890,6 +913,17 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
             </div>
 
             <div className="flex-1 overflow-auto p-4">
+
+              {onglet === 'titres' && (
+                (detail.titres || []).length === 0
+                  ? <div className="text-sm text-slate-400 text-center py-12">Aucun titre de capacité encodé.</div>
+                  : <div className="carte overflow-hidden"><Tableau className="!border-0 !rounded-none">
+                      <thead><tr><Th>Titre</Th><Th>Délivré par</Th><Th>Obtenu le</Th></tr></thead>
+                      <tbody>{detail.titres.map(t => (
+                        <Tr key={t.id}><Td>{t.intitule || '—'}</Td><Td>{t.delivre_par || '—'}</Td><Td>{t.date_obtention || '—'}</Td></Tr>
+                      ))}</tbody>
+                    </Tableau></div>
+              )}
 
               {/* ── Attributions ── */}
               {onglet === 'attributions' && (
