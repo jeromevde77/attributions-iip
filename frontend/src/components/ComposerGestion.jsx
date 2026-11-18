@@ -19,6 +19,7 @@ import PersonnelEcole from './PersonnelEcole.jsx';
 import StatsDeliberation from './StatsDeliberation.jsx';
 import PilotagePresences from './PilotagePresences.jsx';
 import GestionLecture from './GestionLecture.jsx';
+import FinancementUCE from './FinancementUCE.jsx';
 import IipHelbGestion from './IipHelbGestion.jsx';
 import FinancementsAsbl from './FinancementsAsbl.jsx';
 import ChargeParBloc from './ChargeParBloc.jsx';
@@ -41,7 +42,9 @@ export const BLOCS = [
   ['iiphelb', 'ens', 'Charge, coûts et financement, année par année (IIP et HELB)', 'section', true, true],
   ['blocs', 'ens', 'La charge bloc par bloc et les coordinations', 'section', true, false],
   ['budget', 'fin', 'Le budget, comparé aux autres sections et à l’ASBL', 'les deux', false, false],
-  ['lecture-fin', 'fin', 'Où se situe la section : coûts, comptes, efficience', 'les deux', false, true],
+  /* PAS DE BILAN DANS COMPOSER (3.5.549, Charles : « composer montre ce qui est engagé en ETP, ce que cela donne en salaire, ce que
+     l'on rapporte ; garde le bilan pour les finances ») : les comptes de la section sortent de Composer, le calcul en UCE y entre. */
+  ['uce', 'fin', 'Ce que la section engage, coûte et rapporte (en UCE)', 'section', false, true],
   ['financements', 'fin', 'Les financements de l’ASBL : départements et sections', 'ecole', false, true],
 ];
 /* LES PUBLICS : ce qu'ils reçoivent d'office. `sans` retire un bloc, `nominatif: false` écarte tout bloc qui nomme des personnes. */
@@ -85,7 +88,7 @@ export function CompositionBlocs({ annee, compo, direction = false }) {
     : k === 'reussite' ? <div className="space-y-4">{anneesRes.map(a => <div key={a} className="space-y-2">{anneesRes.length > 1 && <div className="intertitre">{a}</div>}<StatsDeliberation annee={a} initial={{ section: sec }} /></div>)}</div>
     : k === 'presences' ? <PilotagePresences annee={annee} />
     : k === 'lecture-etu' ? <GestionLecture annee={annee} perimFixe={sur === 'section' ? 'section' : 'etab'} sectionFixe={sec || null} sansIipHelb lentilleFixe="etu" />
-    : k === 'lecture-fin' ? <GestionLecture annee={annee} perimFixe={sur === 'section' ? 'section' : 'etab'} sectionFixe={sec || null} sansIipHelb lentilleFixe="fin" />
+    : k === 'uce' ? <FinancementUCE section={section} />
     : k === 'personnel' ? <PersonnelEcole annee={annee} initial={{ section: sec }} />
     : k === 'enseignants' ? <EnseignantsDepuis section={section} />
     : k === 'iiphelb' ? <IipHelbGestion sectionFixe={section} />

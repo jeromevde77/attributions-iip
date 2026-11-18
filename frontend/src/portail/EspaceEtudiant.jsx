@@ -144,7 +144,7 @@ function MaDesinscription() {
   return (
     <div className="space-y-4">
       <Encadre etat="disponible" titre="Ce que dit le règlement des études (art. 19)">
-        Avant le premier dixième de votre première unité, vos frais sont remboursés, sauf l’acompte (droit d’inscription et 150 € de frais fixes) et les droits de valorisation ou d’admission. Après, vous restez redevable de l’intégralité des frais. La date de votre demande fait foi.
+        Avant le premier dixième de votre première unité, vos frais sont remboursés, sauf l’acompte (droit d’inscription et frais fixes) et les droits de valorisation ou d’admission. Après, vous restez redevable de l’intégralité des frais. La date de votre demande fait foi.
       </Encadre>
       {(x.demandes || []).map(d => (
         <Encadre key={d.id} etat={d.statut === 'demandee' ? 'surveiller' : d.statut === 'confirmee' ? 'reussi' : 'corriger'}
@@ -166,11 +166,11 @@ function MaDesinscription() {
         {a && (toute || choix.size > 0) && (
           <div className="carte p-4 space-y-2 text-sm">
             <p className="m-0">{a.regle}</p>
-            <div className="flex flex-wrap gap-x-6 gap-y-1">
+            {a.frais && <div className="flex flex-wrap gap-x-6 gap-y-1">
               <span>Restent dus : <b>{eur(a.frais.du)}</b></span><span>Déjà versé : <b>{eur(a.frais.verse)}</b></span>
               <span>À vous rembourser : <b>{eur(a.frais.rembourse)}</b></span>{a.frais.reste_du > 0 && <span>Reste à payer : <b>{eur(a.frais.reste_du)}</b></span>}
-            </div>
-            <p className="text-second text-slate-500 m-0">Calcul à la date d’aujourd’hui ; le secrétariat le vérifie en confirmant.</p>
+            </div>}
+            <p className="text-second text-slate-500 m-0">{a.frais ? 'Calcul à la date d’aujourd’hui ; le secrétariat le vérifie en confirmant.' : 'Le secrétariat vous communiquera le détail en confirmant votre demande.'}</p>
           </div>)}
         <label className="block text-sm"><span className="text-slate-600">Un mot pour le secrétariat (facultatif)</span>
           <textarea className="controle w-full !h-auto py-2 mt-1" rows={2} value={motif} onChange={e => setMotif(e.target.value)} data-reponses="non" /></label>
@@ -666,7 +666,7 @@ function MesValorisations({ onErreur }) {
                 {choisie.echeance && <div>{choisie.hors_delai
                   ? <>Le délai est dépassé (au plus tard le {jourFr(choisie.echeance)}) : la demande risque de ne pas être prise en considération.</>
                   : <>À introduire au plus tard le <b>{jourFr(choisie.echeance)}</b>.</>}</div>}
-                <div><b>Frais d’instruction : {eur(choisie.prix)}</b>, dus dès la demande, quelle que soit la décision.</div>
+                {choisie.prix != null && <div><b>Frais d’instruction : {eur(choisie.prix)}</b>, dus dès la demande, quelle que soit la décision.</div>}
                 {choisie.au_pae && <div>Si la dispense complète vous est accordée, le droit d’inscription de l’UE {choisie.ue_num} n’est plus dû : vos frais seront revus.</div>}
               </div>)}
             <button type="button" className="bouton bouton-fort w-full" disabled={!choisie || !porte || enCours}

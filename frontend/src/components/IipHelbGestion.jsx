@@ -32,7 +32,7 @@ const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
 // La MUCE par année civile (3.5.546) : recopie de MUCE_ANNEES et muceDe (lib/rapportIipHelb.js).
 const MUCE_ANNEES = { 2022: 3837.18, 2026: 4562, 2027: 4593 };
-function muceInfo(C, P) {
+export function muceInfo(C, P) {
   const c = Number(C), ans = Object.keys(MUCE_ANNEES).map(Number).sort((a, b) => a - b);
   if (MUCE_ANNEES[c] != null) return { valeur: MUCE_ANNEES[c], estimee: false };
   const av = ans.filter(a => a < c).pop(), ap = ans.find(a => a > c);
@@ -227,14 +227,15 @@ export function chiffresIipHelb(d, reglages = {}) {
   return { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY };
 }
 
-export default function IipHelbGestion({ sectionFixe = null } = {}) {
+export default function IipHelbGestion({ sectionFixe = null, dernieres = null } = {}) {
   lireCouleurs();
   const memo = useMemo(lire, []);
   const [sections, setSections] = useState([]);
   const [sectionChoisie, setSection] = useState(memo.section || 'TIM');
   /* DANS LIRE ET COMPARER (3.5.461, Charles : « si co-dip, alors données complémentaires ») : la section est celle de la lecture. */
   const section = sectionFixe || sectionChoisie;
-  const [annees, setAnnees] = useState(memo.annees || null);
+  // `dernieres` (3.5.550) : la fiche d'une section s'ouvre sur les N dernières années.
+  const [annees, setAnnees] = useState(dernieres ? null : memo.annees || null);
   const [reglages, setReglages] = useState(memo.reglages || {});
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -266,7 +267,7 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
   useEffect(() => {
     let vivant = true; setEnCours(true); setErreur(null);
     fetch(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}${annees?.length ? `&annees=${encodeURIComponent(annees.join(','))}` : ''}${tour ? '&recalculer=1' : ''}&unite_helb=${reglages.mesures?.unite_helb === 'heures' ? 'heures' : 'periodes'}&cout=${['reel', 'titres'].includes(reglages.mesures?.cout) ? 'reel' : 'convention'}`, { headers: authHeaders() })
-      .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); if (vivant) { setD(j); if (!annees) setAnnees(j.annees); } })
+      .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); if (vivant) { setD(j); if (!annees) setAnnees(dernieres ? (j.annees || []).slice(-dernieres) : j.annees); } })
       .catch(e => vivant && setErreur(e.message)).finally(() => vivant && setEnCours(false));
     return () => { vivant = false; };
   }, [section, annees, tour, reglages.mesures?.unite_helb, reglages.mesures?.cout]);   // eslint-disable-line react-hooks/exhaustive-deps
