@@ -4674,6 +4674,10 @@ partie="cartes"` ne rend que `CarteCommunes` (Bruxelles, Belgique, monde) et `Br
 **Plus de comptabilité de l'ASBL sur la fiche** (3.5.560, Charles : « enlève ça ») : `Section` ne rend plus la carte « Les finances »
 (coût par crédit, par période, taille des groupes, recettes) ni « La comptabilité de l'ASBL pour cette section » — nulle part où
 `Section` est lue (fiche, Composer, dossier COPIL). Les bilans restent dans Gestion → L'école → Financements de l'ASBL.
+**L'Europe en détail** (3.5.561, Charles : « la carte Europe est peu détaillée »). `frontend/public/carte/europe.json` : Natural Earth
+au 1:50 M (world-atlas@2.0.2, domaine public), 67 pays d'Europe et voisins, DANS LA PROJECTION de monde.json (x = (lon + 180) × 1000/360,
+y = (84 − lat) × 1000/360 — vérifiée sur quatre pays) ; `useCartes` la charge, `svgMonde(vif, cadre, true)` pose ces pays à la place de
+ceux du monde. Une quatrième tuile « Europe » (Population, fiche d'une section) s'ouvre en grand.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
