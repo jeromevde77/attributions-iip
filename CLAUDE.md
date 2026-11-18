@@ -4616,6 +4616,15 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LES COORDINATIONS LISENT LA FICHE DE LEURS ENSEIGNANTS** (3.5.545, Charles, 18 novembre 2026 : « pas les données
+confidentielles mais la charge de cours » ; tranché : dans Personnel, fiche réduite ; identité et contact pro, charge dans ses sections,
+charge totale sans détail ailleurs, titres). L'axe Personnel s'ouvre par le rôle (5e élément d'`AXES`). `ficheReduite(user, profId)`
+(`routes/referentiels.js`) : pour une coordination (sauf sa propre fiche), `GET /api/ref/professeurs` ne garde que le professionnel et
+`GET /professeurs/:id` rend `reduite: true` — identité, adresse d'institut, statut, attributions de SES sections, titres,
+`charge_mes_sections`, `charge_totale`, `autres_sections` (nommées, sans détail) ; numéro national, adresses privées, banque, état civil,
+personnes à charge, ancienneté, barème ne sortent pas. La fiche PDF complète lui est refusée (403). `DetailModal` lit `reduite` :
+onglets Attributions dans mes sections et Titres, ni modification ni Éditions.
+
 **LES LISTES ET RAPPORTS SE PRODUISENT EN LECTURE** (3.5.544, Mati : « Inscrits par unité » refusé, « pas le droit de modifier
 ce module (pilotage) »). `actionDe` (`carteModules.js`) comptait comme ÉCRITURE les POST de `/api/rapports/:id/apercu`, `/document`,
 `/inscrits-unites`… : un rôle qui LIT le module (secrétariat) ne sortait plus ses listes. Tout `/api/rapports/` est désormais une

@@ -1004,8 +1004,25 @@ r.get('/professeurs', authRequired, soiSeul({ liste: true }), (req, res) => {
     l.plafond_expert = n > derogation ? 'au-dela' : n > plafond ? 'derogation' : null;
     l.plafond_valeurs = { plafond, derogation };
   }
+  // LA COORDINATION NE LIT QUE LE PROFESSIONNEL (3.5.545) : ni commune, ni ancienneté, ni ce qui manque au dossier.
+  if (ficheReduite(req.user)) {
+    const GARDER = ['id', 'nom', 'prenom', 'nom_prenom', 'statut', 'adresse_mail', 'capaes', 'type_personnel', 'total_per_annee',
+      'per_iip_annee', 'missions_libelles', 'contrats_annee', 'sections_annee', 'etp_iip', 'etp_helb', 'plafond_expert', 'plafond_valeurs'];
+    lignes = lignes.map(l => Object.fromEntries(GARDER.filter(k => k in l).map(k => [k, l[k]])));
+  }
   res.json(lignes);
 });
+
+/* LES COORDINATIONS LISENT LA FICHE DE LEURS ENSEIGNANTS — LE PROFESSIONNEL SEULEMENT (3.5.545, Charles, 18 novembre 2026 :
+   « l'accès aux fiches profs de leurs profs, pas les données confidentielles mais la charge de cours » ; tranché : identité et
+   contact pro, charge dans ses sections, charge totale sans détail ailleurs, titres). Le serveur RETIRE le reste — numéro
+   national, adresses privées, banque, état civil, personnes à charge, ancienneté, barème —, l'écran n'a rien à cacher.
+   Sa propre fiche, une coordination la lit entière. */
+export function ficheReduite(user, profId = null) {
+  if (user?.role !== 'coordination') return false;
+  if (profId != null && professeurDe(user) === Number(profId)) return false;
+  return true;
+}
 
 // Nom de cours normalisé pour le rapprochement des dossiers pédagogiques :
 // accents, casse et ponctuation ne font pas deux cours différents.
@@ -1200,6 +1217,23 @@ r.get('/professeurs/:id', authRequired, soiSeul(), exigerPerimetreProfesseur, (r
   p.total_per_iip  = Math.round((totauxAnnee.total_per_iip  || 0) * 10) / 10;
   p.total_hrs_helb = Math.round((totauxAnnee.total_hrs_helb || 0) * 10) / 10;
   p.prestations = p.total_per_iip >= 800 ? 'complètes' : 'incomplètes';
+
+  if (ficheReduite(req.user, req.params.id)) {
+    const mes = new Set(getUserSections(req.user) || []);
+    const etpDe = ls => ls.reduce((t, a) => {
+      const per = (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
+      return t + (a.type_cours === 'PP' ? per / 1000 : per / 800);
+    }, 0);
+    const miennes = attrs.filter(a => mes.has(a.section));
+    const GARDER = ['id', 'nom', 'prenom', 'nom_prenom', 'statut', 'statut_helb', 'statut_nomination', 'type_personnel', 'adresse_mail', 'capaes'];
+    return res.json({ ...Object.fromEntries(GARDER.map(k => [k, p[k] ?? null])),
+      reduite: true, annee, attributions: miennes, titres,
+      charge_mes_sections: Math.round(etpDe(miennes) * 100) / 100,
+      charge_totale: Math.round(etpDe(attrs) * 100) / 100,
+      mes_sections: [...new Set(miennes.map(a => a.section).filter(Boolean))].sort(),
+      autres_sections: [...new Set(attrs.map(a => a.section).filter(x => x && !mes.has(x)))].sort(),
+    });
+  }
 
   res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
     admin, missions,
@@ -1653,6 +1687,8 @@ r.delete('/ue-section/:ue_num/:section_code', authRequired, roleRequired('admin'
 // Génère la fiche signalétique (PDF) d'un prof à partir du modèle officiel,
 // l'archive (traçabilité Option B) et la renvoie.
 r.get('/professeurs/:id/fiche-pdf', authRequired, soiSeul(), async (req, res) => {
+  // La fiche complète imprimée porte le confidentiel : pas pour la coordination (3.5.545).
+  if (ficheReduite(req.user, req.params.id)) return res.status(403).json({ error: 'La fiche complète est réservée à la direction et au secrétariat.' });
   try {
     const p = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
     if (!p) return res.status(404).json({ error: 'Professeur introuvable' });
