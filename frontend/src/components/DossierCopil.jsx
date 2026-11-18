@@ -159,7 +159,10 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
         chapitre = ch;
         const titreCh = CHAPITRES[ch] || titre;
         return (
-          <div key={k} data-copil-partie={`${num} ${titre}`} className="space-y-3">
+          /* DES PAGES EN PAYSAGE (3.5.569, Charles : « cette partie importante si mal mise en page — certaines pages en paysage ? » ;
+             choisi : le positionnement et les finances, les enseignants) : `copil-paysage` se dessine à la largeur d'une A4 paysage et
+             s'imprime sur sa page (`@page paysage`). */
+          <div key={k} data-copil-partie={`${num} ${titre}`} className={`space-y-3 ${k === 'positionnement' ? 'copil-paysage' : ''}`}>
             {nouveauChapitre && (
               <div className="kit-bandeau">
                 <div className="kit-bandeau-num" aria-hidden="true">{ch}</div>
@@ -175,7 +178,7 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
                 de la fiche d'une section (Gestion → Une section). */}
             {k === 'inscriptions' && <><EtudiantsSection annee={an('population')} section={section} /><PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" compact /></>}
             {k === 'provenance' && <PopulationEcole annee={an('population')} initial={{ section }} partie="provenance" compact />}
-            {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} dernieres={3} focus /><PersonnelEcole annee={an('population')} initial={{ section }} seulCompare /></>}
+            {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} dernieres={3} focus /><div className="copil-paysage"><PersonnelEcole annee={an('population')} initial={{ section }} seulCompare /></div></>}
             {k === 'positionnement' && <><GestionLecture annee={an('positionnement')} perimFixe="section" sectionFixe={section} sansIipHelb /><FinancementUCE section={section} /></>}
             {k === 'reussite' && <ReussiteSection section={section} annee={an('reussite')} />}
             {k === 'budget' && <BudgetSection section={section} focus />}

@@ -3,7 +3,7 @@
    huit colonnes regroupées sous « ce qu'elle rapporte » et « ce qu'elle coûte », jamais un montant coupé, la ligne d'ensemble en tête,
    « comparer à » IIP / ASBL pour le ratio étudiants par ETP). Tout se calcule EN UCE, aussi pour 2026-2027 et après.
    Les chiffres sont ceux de la page IIP et HELB (`chiffresIipHelb`, GET /api/pilotage/iip-helb), avec SES filtres (étape 2). */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
 import { authHeaders } from '../lib/api.js';
 import { couleursGraphique } from '../lib/couleurs.js';
@@ -46,6 +46,14 @@ export default function FinancementUCE({ section, refsEtp = null }) {
     return () => { vivant = false; };
   }, [section, reglages]);
   const { lignes, PH, mes } = useMemo(() => lignesUCE(d, reglages), [d, reglages]);
+  const boite = useRef(null);
+  const [largeurBoite, setLargeurBoite] = useState(0);
+  useEffect(() => {
+    const el = boite.current; if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setLargeurBoite(Math.round(e.contentRect.width)));
+    ro.observe(el); return () => ro.disconnect();
+  }, [d]);
+  const large = largeurBoite >= 1050;
 
   if (erreur) return <Encadre etat="corriger" titre={erreur} />;
   if (!d) return <ChargementLucie texte="Lucie calcule le financement en UCE…" />;
@@ -77,8 +85,10 @@ export default function FinancementUCE({ section, refsEtp = null }) {
           en bleu = salaires HELB + matériel. */}
       <Partie titre="Ce qu’elle rapporte et ce qu’elle coûte, en UCE" sous="le graphique et le détail, côte à côte"
         droite={<ComparerA valeur={ref} onChange={setRef} />}>
-        <div className="grid grid-cols-1 lg:[grid-template-columns:340px_1fr]">
-        <div className="lg:border-r border-slate-100">
+        {/* CÔTE À CÔTE SEULEMENT S'IL Y A LA PLACE (3.5.568, Charles : « cette partie importante si mal mise en page ») : la largeur de la
+            carte décide, pas celle de l'écran — sinon le tableau s'écrase (« 623 169 / € ») ou sort de la page. */}
+        <div ref={boite} className="grid" style={{ gridTemplateColumns: large ? '320px minmax(0, 1fr)' : 'minmax(0, 1fr)' }}>
+        <div className={large ? 'border-r border-slate-100' : 'border-b border-slate-100'}>
         <div className="p-3" style={{ height: 270 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={lignes.map(l => ({ ...l, lib: court(l.annee), lissesTxt: l.lisses ? `${n1(l.lisses)} étud. lissés` : '' }))} margin={{ top: 24, right: 8, left: 8, bottom: 0 }}>

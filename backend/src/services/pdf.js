@@ -127,6 +127,9 @@ export async function rendrePdf(html, options = {}) {
     // UN DÉLAI IMPOSÉ (3.5.044) : le mode d'emploi rend des chapitres de vingt pages chargés de captures, sans « saut » à
     // compter — 61 s ne suffisaient pas sur le serveur, et l'écran retombait sur une mise en page de secours.
     delaiMs = null,
+    // DES PAGES NOMMÉES (3.5.569, dossier du COPIL : « certaines pages en paysage ») : le @page du document fait foi pour la taille
+    // (une page « paysage » se pose en A4 paysage), les marges et le pied restent ceux du gabarit.
+    pagesNommees = false,
   } = options;
 
   const nav = await obtenirNavigateur();
@@ -156,7 +159,7 @@ export async function rendrePdf(html, options = {}) {
       landscape: orientation === 'paysage',
       printBackground: true,
       margin: pageCss ? { top: '0', right: '0', bottom: '0', left: '0' } : marges,
-      preferCSSPageSize: !!pageCss,
+      preferCSSPageSize: !!pageCss || !!pagesNommees,
       // Ce qui supprime le titre, le lieu d'impression et la numérotation que
       // le navigateur ajoute de lui-même à l'impression.
       displayHeaderFooter: false,

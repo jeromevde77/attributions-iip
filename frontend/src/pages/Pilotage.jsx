@@ -579,6 +579,10 @@ export default function Pilotage({ vue = 'tout' }) {
     // Les résultats : par défaut, l'année d'avant — celle dont les délibérations sont tenues (3.5.486).
     const prec = `${Number(String(anneeActive).slice(0, 4)) - 1}-${Number(String(anneeActive).slice(5, 9)) - 1}`;
     setCopil(c => (c.annees.reussite ? c : { ...c, annees: { ...c.annees, reussite: prec } }));
+    /* LA POPULATION : l'année scolaire EN COURS par défaut (3.5.569, Charles : « Inscriptions, c'est pas 25-26 mais 26-27 ») — et non
+       l'année consultée dans la Gestion, souvent l'année d'avant pour lire les résultats. */
+    const d = new Date(), y = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+    setCopil(c => (c.annees.population ? c : { ...c, annees: { ...c.annees, population: `${y}-${y + 1}` } }));
   }, [copilFenetre]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!copilFenetre || !copil.section) return;
@@ -1809,6 +1813,7 @@ table { width: 100% !important; font-size: 8.5pt !important; } th, td { white-sp
 table, .overflow-x-auto, .overflow-auto, .recharts-responsive-container { break-inside: avoid; page-break-inside: avoid; }
 /* La marge basse est celle du pied de la maison (le serveur la réserve) : la page nommée de l'aperçu n'en impose pas d'autre. */
 .zone-impression { page: auto !important; }
+${copilPortrait ? '@page paysage { size: A4 landscape; } .copil-paysage { page: paysage; }' : ''}
 .titre-carte, .intertitre, .titre-ecran, h2, h3, h4 { break-after: avoid; }
 thead { display: table-header-group; }
 .overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
@@ -1816,11 +1821,11 @@ thead { display: table-header-group; }
 .peut-couper { break-inside: auto !important; page-break-inside: auto !important; }
 /* Un nombre ne se coupe pas sur deux lignes (« +80,0 / % ») : seule la première colonne, le libellé, passe à la ligne. */
 td:not(:first-child) { white-space: nowrap !important; }
-${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; zoom: 0.86; } .kit-couverture { min-height: 1080px; }` : ''}</style></head>
+${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; zoom: 0.86; margin: 0 !important; } .kit-couverture { min-height: 1080px; }` : ''}</style></head>
 <body class="impression-gestion"><div class="zone-impression">${clone.outerHTML}</div></body></html>`;
       const nom = `Gestion_${String(anneeActive).replace(/\W/g, '')}_${facesImprimees.length === 1 ? facesImprimees[0] : 'parties'}`;
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ html, nom, orientation: copilPortrait ? 'portrait' : 'paysage', pagination: 'toujours', couverture_html }) });
+        body: JSON.stringify({ html, nom, orientation: copilPortrait ? 'portrait' : 'paysage', pagination: 'toujours', couverture_html, pages_nommees: copilPortrait }) });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
       const url = URL.createObjectURL(await r.blob());
       const a = document.createElement('a'); a.href = url; a.download = `${nom}.pdf`;
@@ -2065,7 +2070,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             </aside>)}
           {choisirBlocs && <div className="sans-impression mx-auto my-2" style={{ width: 1000 }}><Encadre etat="disponible">
             <b>Choix des blocs</b> : cliquez une carte ou une tuile pour la retirer de l'impression — elle se grise ; recliquez pour la remettre. « Terminer le choix » quand c'est prêt.</Encadre></div>}
-          <div className={`page-impression mx-auto px-0 py-5 space-y-6 ${choisirBlocs ? 'choix-blocs' : ''}`} onClickCapture={basculerBloc}
+          <div className={`page-impression ${copilPortrait ? 'ml-4' : 'mx-auto'} px-0 py-5 space-y-6 ${choisirBlocs ? 'choix-blocs' : ''}`} onClickCapture={basculerBloc}
             style={copilPortrait ? { width: LARGEUR_PORTRAIT } : undefined}>
             {copilPortrait ? <CouvertureCopil section={copil.section} annee={anneeActive} parties={copil.parties} textes={copil.textes} /> : (
             <div className="border-b-2 pb-2" style={{ borderColor: '#C9A84C' }}>
