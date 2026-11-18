@@ -4598,6 +4598,11 @@ une étudiante de test (fonctions « essai ») sans adresse était rejetée et l
 accordée et décidée sur ce cours ; « report » : `dispenses` de lib/cep.js) et l'unité `va_partielle` (nombre de cours dispensés) —
 pastille « dispensé » et mention « dispense partielle » dans l’espace (Charles : « ce n’est pas une VA sur le cours, c’est une dispense » — circulaire Sanction des études).
 
+**Vider les étudiants d'essai, inviter un étudiant par son nom** (3.5.553, Charles : « vider la liste et garder juste Sophie Huret ;
+inviter un étudiant par nom, avec le mail d'invitation »). Mise en service : « Vider la liste » (`onVider` de `Personnes`, confirmation)
+sur les étudiants d'essai ; « Inviter les étudiants à leur espace » cherche aussi UN étudiant par son nom (`ids` de `inviter`), avec le
+mot de celui qui invite.
+
 **L'INVITATION À L'ESPACE DE L'ÉTUDIANT** (3.5.536, Charles : « comment savoir si elle a reçu l'invitation ? » ; « fais l'invitation »).
 `lib/invitationEspace.js` : `inviter({ ids | section, simulation, deja })` — un courriel à l'adresse d'institut (adresse du site, marche à
 suivre), seulement pour qui a une adresse d'institut, n'est ni archivé ni sorti, et a au moins une fonction de l'espace ouverte
