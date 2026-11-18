@@ -286,13 +286,22 @@ export function prixHelb(cor = null) {
    c'est de la rationalisation ») : l'allocation est nulle avant `debut`, puis vaut la MOYENNE des étudiants comptés des `lissage` années
    précédentes ; les droits et frais des étudiants de la section (au barème) entrent aux recettes, versés à l'ASBL. */
 /* LA MUCE A UNE VALEUR PAR ANNÉE CIVILE (3.5.546, Charles, 18 novembre 2026 : « les UCE pour 2026 : 4562, et pour 2027 : 4593 »).
-   2022 : présentation financière de Vinci. Une année sans valeur prend la dernière connue avant elle ; avant toutes, `muce`.
-   Recopiée dans IipHelbGestion.jsx — qui change l'une change l'autre. */
+   2022 : présentation financière de Vinci. ENTRE deux années connues, une année manquante est INDEXÉE sur la pente régulière qui les
+   relie (taux annuel constant ; 2023-2025 entre 2022 et 2026, ≈ 4,4 % l'an) et dite estimée (« * ») ; après la dernière, celle-ci ;
+   avant la première, `muce`. Recopiée dans IipHelbGestion.jsx — qui change l'une change l'autre. */
 export const MUCE_ANNEES = { 2022: 3837.18, 2026: 4562, 2027: 4593 };
-export function muceDe(C, P = PARAM_HELB) {
-  const ans = Object.keys(MUCE_ANNEES).map(Number).filter(a => a <= Number(C)).sort((a, b) => b - a);
-  return ans.length ? MUCE_ANNEES[ans[0]] : P.muce;
+export function muceInfo(C, P = PARAM_HELB) {
+  const c = Number(C), ans = Object.keys(MUCE_ANNEES).map(Number).sort((a, b) => a - b);
+  if (MUCE_ANNEES[c] != null) return { valeur: MUCE_ANNEES[c], estimee: false };
+  const av = ans.filter(a => a < c).pop(), ap = ans.find(a => a > c);
+  if (av != null && ap != null) {
+    const t = Math.pow(MUCE_ANNEES[ap] / MUCE_ANNEES[av], 1 / (ap - av));
+    return { valeur: Math.round(MUCE_ANNEES[av] * Math.pow(t, c - av) * 100) / 100, estimee: true };
+  }
+  if (av != null) return { valeur: MUCE_ANNEES[av], estimee: true };
+  return { valeur: P.muce, estimee: true };
 }
+export const muceDe = (C, P = PARAM_HELB) => muceInfo(C, P).valeur;
 export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 /* LE MATÉRIEL ET LE FONCTIONNEMENT DE LA SECTION (3.5.436, Charles : « aller chercher dans les bilans ce que coûte la section en
    matériel » ; « vas-y »). La comptabilité analytique de l'ASBL (classeur « 2021 à 2024 Comptes & Budgets », cursus 111066) ne porte pour

@@ -32,7 +32,14 @@ const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
 // La MUCE par année civile (3.5.546) : recopie de MUCE_ANNEES et muceDe (lib/rapportIipHelb.js).
 const MUCE_ANNEES = { 2022: 3837.18, 2026: 4562, 2027: 4593 };
-const muceDe = (C, P) => { const a = Object.keys(MUCE_ANNEES).map(Number).filter(x => x <= Number(C)).sort((x, y) => y - x); return a.length ? MUCE_ANNEES[a[0]] : P.muce; };
+function muceInfo(C, P) {
+  const c = Number(C), ans = Object.keys(MUCE_ANNEES).map(Number).sort((a, b) => a - b);
+  if (MUCE_ANNEES[c] != null) return { valeur: MUCE_ANNEES[c], estimee: false };
+  const av = ans.filter(a => a < c).pop(), ap = ans.find(a => a > c);
+  if (av != null && ap != null) { const t = Math.pow(MUCE_ANNEES[ap] / MUCE_ANNEES[av], 1 / (ap - av)); return { valeur: Math.round(MUCE_ANNEES[av] * Math.pow(t, c - av) * 100) / 100, estimee: true }; }
+  return { valeur: av != null ? MUCE_ANNEES[av] : P.muce, estimee: true };
+}
+const muceDe = (C, P) => muceInfo(C, P).valeur;
 const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
   ['lissage', 'Lissage (décret : 3)', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
@@ -499,6 +506,12 @@ export default function IipHelbGestion({ sectionFixe = null } = {}) {
                       onChange={e => maj('helb', { ...(reglages.helb || {}), [k]: e.target.value.replace(',', '.') })} aria-label={l} />
                     <span className="w-20 text-mention text-slate-500">{u}</span>
                   </label>))}
+                </div>
+                <div className="text-second">
+                  <span className="font-medium">MUCE par année civile :</span>{' '}
+                  {Array.from({ length: 6 }, (_, i) => 2022 + i).map(C => { const m = muceInfo(C, PARAM_HELB); return (
+                    <span key={C} className="mr-3 whitespace-nowrap">{C} : {m.valeur.toLocaleString('fr-BE', { maximumFractionDigits: 2 })} €{m.estimee ? '*' : ''}</span>); })}
+                  <span className="block text-mention text-slate-500">* estimée par indexation (pente régulière entre deux années connues) : la valeur réelle n’est pas connue.</span>
                 </div>
                 <p className="text-mention text-slate-500 m-0">Sources : présentation financière des départements (Vinci : MUCE 2022, 20,8 % de fonctionnement, 37,2 % d'autres
                   services), courriel de F. Vanderoost du 27 août 2026 (santé × 1,5, ~90 000 € par ETP), tableau Cor_HE_AE (17 étudiants par ETP en moyenne).

@@ -71,8 +71,8 @@ export default function FinancementsAsbl() {
       <Td align="droite">{n1(par(v?.etudiants, v?.etp))}</Td>
       <Td align="droite">{eur(v?.charges)}</Td>
       <Td align="droite">{eur(v?.produits)}</Td>
-      {avecDecret && <Td align="droite" title={v?.decret_detail ? `Moyenne des étudiants comptés ${v.decret_detail.annees.map(([a, n]) => `${a} : ${n}`).join(', ')} = ${v.decret_detail.moyenne} × MUCE ${eur(v.decret_detail.muce)} × ${v.decret_detail.ponderation}` : undefined}>
-        {v?.decret != null ? <>{eur(v.decret)}<span className={`block text-mention ${v.decret - (v.produits || 0) >= 0 ? 'text-[var(--c-reussi)]' : 'text-[var(--c-refuse)]'}`}>{v.decret - (v.produits || 0) >= 0 ? '+' : '−'}{eur(Math.abs(v.decret - (v.produits || 0)))} / comptes</span></> : '—'}</Td>}
+      {avecDecret && <Td align="droite" title={v?.decret_detail ? `Moyenne des étudiants comptés ${v.decret_detail.annees.map(([a, n]) => `${a} : ${n}`).join(', ')} = ${v.decret_detail.moyenne} × MUCE ${v.decret_detail.annee_civile || ''} ${eur(v.decret_detail.muce)}${v.decret_detail.muce_estimee ? ' (estimée par indexation)' : ''} × ${v.decret_detail.ponderation}` : undefined}>
+        {v?.decret != null ? <>{eur(v.decret)}{v.decret_detail?.muce_estimee ? '*' : ''}<span className={`block text-mention ${v.decret - (v.produits || 0) >= 0 ? 'text-[var(--c-reussi)]' : 'text-[var(--c-refuse)]'}`}>{v.decret - (v.produits || 0) >= 0 ? '+' : '−'}{eur(Math.abs(v.decret - (v.produits || 0)))} / comptes</span></> : '—'}</Td>}
       <Td align="droite" className={v?.resultat < 0 ? '!text-[var(--c-refuse)]' : ''}>{eur(v?.resultat)}</Td>
       <Td align="droite" title={v?.estime ? 'ETP × coût moyen d’un ETP statutaire du COR — estimation, déjà comprise dans les charges' : v?.federation ? 'Payés par la Fédération, hors des comptes de l’ASBL' : undefined}>
         {ens != null ? <>{v?.estime ? '≈ ' : ''}{eur(ens)}{v?.federation && <span className="text-mention text-slate-400"> FWB</span>}</> : '—'}</Td>
@@ -119,6 +119,7 @@ export default function FinancementsAsbl() {
             <p><b>Attention</b> : un étudiant finançable de la HELB est à peu près un temps plein ; un inscrit de l’IIP, un adulte qui suit souvent une partie du programme. Le coût par étudiant de l’IIP est donc un coût par inscrit.</p>
             <p><b>Enseignants</b> : HELB = ETP × {eur(d.prix_etp_helb)} (coût moyen d’un ETP statutaire du COR) — une estimation, déjà comprise dans les charges. IIP (FWB) = coût des enseignants payés par la Fédération, au prix de la convention — hors des comptes.</p>
             <p><b>Coût complet</b> = charges + enseignants payés par la Fédération.</p>
+            <p><b>*</b> MUCE estimée par indexation : pour 2023, 2024 et 2025, la valeur réelle n’est pas connue ; elle est placée sur la pente régulière entre 2022 (3 837,18 €) et 2026 (4 562 €).</p>
             <p><b>Selon le décret</b> : la HELB répartit son allocation dans les comptes au même montant par étudiant (« un étudiant vaut un étudiant »). Le décret du 9 septembre 1996 (art. 17) finance chaque cursus en UCE : étudiants comptés, en moyenne sur les trois années académiques précédentes, × MUCE × la pondération du groupe du cursus. Calculé pour les cursus dont la pondération est réglée (en bas de page). L’écart se lit face aux produits des comptes.</p>
           </BulleAide>
         </EnteteCarte>

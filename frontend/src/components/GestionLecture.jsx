@@ -416,7 +416,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
                          UCE × MUCE × pondération, lissé sur trois ans. Les deux lectures, l'une sous l'autre. */
                       if (v.resultat_decret != null) return (<span className="inline-flex flex-col items-end leading-tight">
                         <b style={{ color: coul(r) }} title={`Subsides des comptes : ${n0(v.subsides_comptes)} € (la HELB répartit son allocation au même montant par étudiant)`}>{f(r)} <span className="font-normal text-mention text-slate-500">comptes</span></b>
-                        <b style={{ color: coul(v.resultat_decret) }} title={`Financement selon le décret : ${n0(v.allocation_decret)} € = moyenne des étudiants comptés ${(v.decret_detail?.annees || []).map(([a, n]) => `${a} : ${n}`).join(', ')} (${v.decret_detail?.moyenne}) × MUCE ${n0(v.decret_detail?.muce)} € × ${v.decret_detail?.ponderation}`}>{f(v.resultat_decret)} <span className="font-normal text-mention text-slate-500">décret</span></b></span>);
+                        <b style={{ color: coul(v.resultat_decret) }} title={`Financement selon le décret : ${n0(v.allocation_decret)} € = moyenne des étudiants comptés ${(v.decret_detail?.annees || []).map(([a, n]) => `${a} : ${n}`).join(', ')} (${v.decret_detail?.moyenne}) × MUCE ${n0(v.decret_detail?.muce)} €${v.decret_detail?.muce_estimee ? ' (MUCE estimée par indexation : valeur réelle inconnue)' : ''} × ${v.decret_detail?.ponderation}`}>{f(v.resultat_decret)} <span className="font-normal text-mention text-slate-500">décret{v.decret_detail?.muce_estimee ? '*' : ''}</span></b></span>);
                       return <b style={{ color: coul(r) }}>{f(r)}</b>; })()}</Td></>}</Tr>);
               }))}
             </tbody>
