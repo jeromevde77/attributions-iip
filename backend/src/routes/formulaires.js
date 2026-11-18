@@ -313,6 +313,36 @@ async function enPdf(buf) {
   return docxToPdf(buf);
 }
 
+/* LA LISTE DES DISPONIBILITÉS ET DES PERTES PARTIELLES DE CHARGE (3.5.563, lib/annexePPC.js) : le calcul et la saisie de l'année,
+   puis le Word (ou le PDF) rempli. Avant les routes paramétriques. */
+r.get('/ppc', authRequired, PEUT, async (req, res) => {
+  try { const { lirePPC } = await import('../lib/annexePPC.js'); res.json(lirePPC(String(req.query.annee || anneeActivePPC()))); }
+  catch (e) { console.error('[formulaires/ppc]', e); res.status(500).json({ error: e.message }); }
+});
+r.put('/ppc', authRequired, PEUT, async (req, res) => {
+  try { const { ecrirePPC } = await import('../lib/annexePPC.js'); res.json({ ok: true, saisie: ecrirePPC(String(req.body?.annee || anneeActivePPC()), req.body || {}, req.user?.nom_complet || req.user?.email || null) }); }
+  catch (e) { console.error('[formulaires/ppc PUT]', e); res.status(500).json({ error: e.message }); }
+});
+r.get('/ppc/document', authRequired, PEUT, async (req, res) => {
+  try {
+    const { lirePPC, documentPPC } = await import('../lib/annexePPC.js');
+    const annee = String(req.query.annee || anneeActivePPC());
+    const L = lirePPC(annee);
+    const donnees = L.saisie || { lignes: L.calcul, reseau: null, date: '' };
+    const buf = await documentPPC(annee, donnees);
+    const nom = `Annexe_disponibilites_pertes_partielles_de_charge_${annee}`;
+    if (req.query.format === 'pdf') {
+      const pdf = await enPdf(buf);
+      res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `inline; filename="${nom}.pdf"`); return res.end(pdf);
+    }
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${nom}.docx"`); res.end(buf);
+  } catch (e) { console.error('[formulaires/ppc/document]', e); res.status(500).json({ error: e.message }); }
+});
+function anneeActivePPC() {
+  try { return db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code; } catch { return null; }
+}
+
 r.get('/:cle/saisie', authRequired, PEUT, (req, res) => {
   const { cle } = req.params;
   if (!SAISISSABLES.includes(cle)) return res.status(404).json({ error: "Cette annexe ne se complète pas encore dans Lucie." });

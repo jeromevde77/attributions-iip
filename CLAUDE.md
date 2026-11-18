@@ -4691,6 +4691,15 @@ en UCE (quatre chiffres, barres rapporte/coûte) ; `comptes` = le détail en UCE
 Dossier COPIL (`DossierCopil.jsx`) : mêmes parties, même ordre, mêmes textes ; 1.1 `EtudiantsSection` (nouveau composant, aussi celui de
 l'étape 1) puis le détail ; 2.1 l'historique, `IipHelbGestion focus dernieres={3}`, les enseignants en disques ; 2.2 la position puis
 `FinancementUCE` ; 3 `ReussiteSection` ; 5 `BudgetSection focus`.
+**L'annexe des disponibilités par défaut d'emploi et des pertes partielles de charge** (3.5.563, Charles : « sors-moi automatiquement
+cette annexe à la circulaire » ; tranché : définitif − attribué par fonction et niveau ; les attributions hors des fonctions nommées sont un
+rappel ; Éditions → Personnel, fenêtre modifiable, Word et PDF). `lib/annexePPC.js` : `calculerPPC(annee)` (nominations actives de
+`nomination_definitive` × attributions IIP hors congé de l'année ; une ligne par fonction et niveau — SU, SS, SI d'après `section.niveau` ;
+D = plus rien d'attribué dans la fonction, PPC sinon ; rappel converti en CT ÷ 800 / PP ÷ 1 000, payées non prestées = perdu − rappel),
+`annexe_ppc` (la saisie par année), `documentPPC` (le modèle `services/circulaire-9760/Annexe PPC_…docx`, VIDÉ de ses lignes d'exemple :
+une ligne clonée par ligne, l'année, le réseau coché, la date, signature et cachet). Routes `GET/PUT /api/formulaires/ppc`,
+`/ppc/document?format=docx|pdf`. Fenêtre `components/AnnexePPC.jsx` (Éditions → Personnel → Tout le personnel). **Le calcul ne vaut que
+ce que valent les nominations encodées** (fiche → Nominations) : au 18 novembre 2026, quatre définitifs seulement.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
