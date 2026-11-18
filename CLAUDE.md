@@ -4655,6 +4655,10 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.576 — qui s'est connecté à son espace** (Charles : « comment voir facilement qui s'est connecté, et envoyer un mail à ceux qui ne le
+sont pas ? »). Mise en service → carte « Qui s'est connecté à son espace » (`QuiConnecte`, MiseEnService.jsx) : une section, une UE, ou tous
+les invités ; invitation, nombre, première et dernière connexion (`portail_connexion`) ; filtres ; « Relancer les n jamais connectés » =
+l'invitation (avec un mot) par `inviter({ ids, deja: true })`. `suiviInvitations()` (lib/invitationEspace.js), `GET /api/portail-suivi/invitations`.
 **3.5.575** (capture de Charles, diapositive « comptes ») : les trois tuiles tiennent au-dessus de la bande « À retenir » (y 612) ;
 les valeurs du graphique sans « k€ » (le titre le dit), qui passait à la ligne et sortait du cadre ; tout « À retenir » long se réduit
 (17 → 15,5 → 14). **Une diapositive pose ses blocs AU-DESSUS de y 612 quand elle a un « À retenir ».**

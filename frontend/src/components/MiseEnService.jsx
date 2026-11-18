@@ -8,7 +8,7 @@ import { IconPower, IconSchool, IconUserCheck, IconX, IconSearch, IconCertificat
 import { demander } from '../lib/dialogue.jsx';
 import { authHeaders } from '../lib/api.js';
 import { nomDuCompte } from '../lib/nom.js';
-import { EnteteCarte } from './ui.jsx';
+import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat } from './ui.jsx';
 
 const LIBELLES = { eteinte: 'Éteinte', essai: 'Essai', allumee: 'Allumée' };
 const COULEUR = { eteinte: 'var(--c-indisponible, #94A3B8)', essai: 'var(--c-attente, #B45309)', allumee: 'var(--c-reussi, #3E7D5E)' };
@@ -154,6 +154,7 @@ export default function MiseEnService() {
           onRetirer={id => regler({ comptes_essai: r.comptes_essai.filter(x => x !== id) })} />
       </section>
       <InvitationLot ajouterEssai={ids => regler({ etudiants_essai: [...new Set([...r.etudiants_essai, ...ids])] })} />
+      <QuiConnecte />
     </div>
   );
 }
@@ -240,6 +241,77 @@ function InvitationLot({ ajouterEssai }) {
         </div>}
         {fait && <div className="bloc-etat px-3 py-2" data-etat={fait.echecs?.length ? 'surveiller' : 'reussi'}>
           {fait.invites?.length || 0} invitation(s) envoyée(s){fait.echecs?.length ? `, ${fait.echecs.length} en échec (${fait.echecs.map(e => e.nom).join(', ')})` : ''}.</div>}
+      </div>
+    </section>);
+}
+
+/* QUI S'EST CONNECTÉ (3.5.576, Charles : « comment voir facilement qui s'est connecté, et envoyer un mail à ceux qui ne le sont pas ? »).
+   Une section, une UE, ou tous les étudiants déjà invités : invitation, première et dernière connexion. « Relancer » renvoie le courriel
+   d'invitation (avec un mot) à ceux qui ne se sont jamais connectés. GET /api/portail-suivi/invitations, POST …/inviter (deja). */
+function QuiConnecte() {
+  const [sections, setSections] = useState([]);
+  const [section, setSection] = useState('');
+  const [ue, setUe] = useState('');
+  const [d, setD] = useState(null);
+  const [filtre, setFiltre] = useState('tous');
+  const [mot, setMot] = useState('');
+  const [msg, setMsg] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  useEffect(() => { fetch('/api/ref/sections', { headers: authHeaders() }).then(x => x.json()).then(l => Array.isArray(l) && setSections(l)).catch(() => {}); }, []);
+  const charger = () => {
+    setD(null); setMsg(null);
+    const q = ue.trim() ? `ue=${Number(ue)}` : section ? `section=${encodeURIComponent(section)}` : '';
+    fetch(`/api/portail-suivi/invitations?${q}`, { headers: authHeaders() }).then(x => x.json()).then(setD).catch(e => setMsg(e.message));
+  };
+  useEffect(charger, [section]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const date = v => (v ? new Date(`${String(v).replace(' ', 'T')}${String(v).includes('Z') ? '' : 'Z'}`).toLocaleDateString('fr-BE') : '—');
+  const lignes = (d?.lignes || []).filter(l => filtre === 'tous' || (filtre === 'jamais' ? l.invite_le && !l.premiere : filtre === 'connectes' ? !!l.premiere : !l.invite_le));
+  const aRelancer = (d?.lignes || []).filter(l => l.invite_le && !l.premiere && l.invitable);
+  const relancer = async () => {
+    if (!(await demander({ titre: 'Relancer les étudiants pas encore connectés', confirmer: `Relancer ${aRelancer.length} étudiant(s)`, annuler: 'Annuler',
+      message: `Le courriel d’invitation repart à l’adresse d’institut de ${aRelancer.length} étudiant(s) invité(s) qui ne se sont jamais connectés${mot.trim() ? ', avec ton mot en tête' : ''}.` }))) return;
+    setEnCours(true);
+    try {
+      const j = await fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ids: aRelancer.map(l => l.id), deja: true, simulation: false, message: mot }) }).then(x => x.json());
+      const n = Array.isArray(j.invites) ? j.invites.length : j.invites;
+      setMsg(j.error ? j.error : `${n ?? aRelancer.length} relance(s) envoyée(s)${j.echecs?.length ? `, ${j.echecs.length} échec(s)` : ''}.`); charger();
+    } finally { setEnCours(false); }
+  };
+  return (
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Qui s’est connecté à son espace" sous="Les étudiants d’une section, d’une UE, ou tous ceux déjà invités : l’invitation, la première et la dernière connexion." />
+      <div className="px-4 py-3 space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="controle" value={section} onChange={e => { setUe(''); setSection(e.target.value); }}>
+            <option value="">— tous les étudiants invités —</option>{sections.map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
+          </select>
+          <span className="text-slate-500">ou l’UE</span>
+          <input className="controle w-20" inputMode="numeric" value={ue} onChange={e => setUe(e.target.value.replace(/\D/g, ''))} onKeyDown={e => e.key === 'Enter' && charger()} />
+          <button type="button" className="bouton" onClick={charger}>Afficher</button>
+          {d && <span className="ml-auto text-second text-slate-500">{d.lignes.length} étudiant(s) · {d.invites} invité(s) · <b className="text-slate-700">{d.connectes} connecté(s)</b></span>}
+        </div>
+        {d && <div className="flex flex-wrap items-center gap-2">
+          <div className="segments">
+            {[['tous', 'Tous'], ['jamais', 'Invités, jamais connectés'], ['connectes', 'Connectés'], ['non', 'Pas encore invités']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setFiltre(k)} className={filtre === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+          </div>
+        </div>}
+        {msg && <p className="m-0 text-second text-slate-600">{msg}</p>}
+        {!d ? <p className="m-0 text-second text-slate-400">Lecture…</p> : (
+          <div className="border border-slate-100 rounded-champ overflow-hidden max-h-[420px] overflow-y-auto">
+            <Tableau dense className="!border-0 !rounded-none">
+              <TableauEntete><Th>Étudiant</Th><Th>Section</Th><Th>Invité le</Th><Th align="droite">Invitations</Th><Th>Première connexion</Th><Th>Dernière</Th><Th>État</Th></TableauEntete>
+              <tbody>{lignes.map(l => (
+                <Tr key={l.id}><Td>{l.nom}</Td><Td>{l.section || '—'}</Td><Td>{date(l.invite_le)}</Td><Td align="droite">{l.invitations || '—'}</Td>
+                  <Td>{date(l.premiere)}</Td><Td>{date(l.derniere)}</Td>
+                  <Td>{l.premiere ? <PastilleEtat etat="reussi">connecté</PastilleEtat> : l.invite_le ? <PastilleEtat etat="surveiller">jamais connecté</PastilleEtat>
+                    : <PastilleEtat etat="neutre">{l.invitable ? 'pas invité' : 'sans adresse d’institut'}</PastilleEtat>}</Td></Tr>))}</tbody>
+            </Tableau>
+          </div>)}
+        {aRelancer.length > 0 && <div className="space-y-2">
+          <textarea className="controle w-full" rows={2} placeholder="Un mot en tête de la relance (facultatif)" value={mot} onChange={e => setMot(e.target.value)} data-reponses="Relance de l’invitation à l’espace" />
+          <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={relancer}>Relancer les {aRelancer.length} étudiant(s) jamais connecté(s)</button>
+        </div>}
       </div>
     </section>);
 }
