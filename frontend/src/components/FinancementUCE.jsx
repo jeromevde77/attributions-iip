@@ -68,15 +68,18 @@ export default function FinancementUCE({ section, refsEtp = null }) {
       {/* LE GRAPHIQUE (3.5.554, Charles : « sur la colonne verte, ajouter les UCE lissés ; la colonne rose, je la veux en bleu ») : ce
           qu'elle rapporte = le financement en UCE (étudiants lissés) + DI et FI, le nombre d'étudiants lissés au-dessus ; ce qu'elle coûte,
           en bleu = salaires HELB + matériel. */}
-      <Partie titre="Ce qu’elle rapporte et ce qu’elle coûte, année par année">
-        <div className="p-3" style={{ height: 300 }}>
+      <Partie titre="Ce qu’elle rapporte et ce qu’elle coûte, en UCE" sous="le graphique et le détail, côte à côte"
+        droite={<ComparerA valeur={ref} onChange={setRef} />}>
+        <div className="grid grid-cols-1 lg:[grid-template-columns:340px_1fr]">
+        <div className="lg:border-r border-slate-100">
+        <div className="p-3" style={{ height: 270 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={lignes.map(l => ({ ...l, lib: court(l.annee), lissesTxt: l.lisses ? `${n1(l.lisses)} étud. lissés` : '' }))} margin={{ top: 24, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={G.grille || '#E2E8F0'} />
               <XAxis dataKey="lib" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${Math.round(v / 1000)} k`} />
               <Tooltip formatter={(v, n) => [eur(v), n]} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="financement" name="Financement UCE (étudiants lissés)" stackId="r" fill={G.reussi || '#3E7D5E'} />
               <Bar dataKey="di" name="DI et FI" stackId="r" fill={G.reussi || '#3E7D5E'} fillOpacity={0.5}>
                 <LabelList dataKey="lissesTxt" position="top" style={{ fontSize: 11, fill: '#475569' }} />
@@ -86,10 +89,8 @@ export default function FinancementUCE({ section, refsEtp = null }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </Partie>
-
-      <Partie titre="Ce qu’elle rapporte et ce qu’elle coûte, en UCE" sous="les comptes de l’ASBL, pour information, sous le tableau"
-        droite={<ComparerA valeur={ref} onChange={setRef} />}>
+        </div>
+        <div className="min-w-0">
         <div className="overflow-x-auto">
           <table className="w-full text-second" data-numeros="non">
             <thead>
@@ -136,6 +137,8 @@ export default function FinancementUCE({ section, refsEtp = null }) {
           « / {refEtp != null ? Math.round(refEtp) : '—'} » = étudiants par ETP de {ref === 'ASBL' ? 'l’ASBL' : 'l’IIP'}. * MUCE estimée par indexation.
           Filtres de l’étape 2 appliqués ({mes?.cout === 'reel' ? 'coûts réels' : 'convention'}{mes?.coord === 'oui' ? ', avec coordinations' : ', sans coordinations'}).
         </p>
+        </div>
+        </div>
       </Partie>
     </div>);
 }

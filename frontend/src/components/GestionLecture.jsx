@@ -94,6 +94,14 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
   const [ref, setRef] = useState(memo.ref === 'HELB' ? 'ASBL' : memo.ref || 'IIP');
   const [etape, setEtape] = useState(Number(memo.etape) || 1);
   const [refEtu, setRefEtu] = useState('IIP');
+  const [evo, setEvo] = useState(null);
+  useEffect(() => {
+    if (!(perimFixe === 'section' && !sectionFixe && !lentilleFixe) || !section) return undefined;
+    let vivant = true;
+    fetch(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&sle=compris&section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => vivant && setEvo(j?.evolution || [])).catch(() => vivant && setEvo([]));
+    return () => { vivant = false; };
+  }, [section, annee, perimFixe, sectionFixe, lentilleFixe]);
   const [libelles, setLibelles] = useState({});
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setLibelles(Object.fromEntries((Array.isArray(l) ? l : []).map(x => [x.code, x.libelle]))))
@@ -242,19 +250,37 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                   {(() => {
                     /* LES ÉTUDIANTS EN DISQUES (3.5.552, maquette validée) : la section, et la référence choisie pour cette partie. */
                     const R = refEtu === 'ASBL' ? (d.asbl || {}) : (d.iip || {});
-                    const D = [['Femmes', 'femmes', 'var(--c-principal)'], ['Primo-inscrits', 'primo', 'var(--c-helb, #05B7E6)'],
-                      ['Domicile à Bruxelles', 'bruxelles', 'var(--c-accent, #19537E)'], ['Hors Union européenne', 'hors_ue', 'var(--c-attente)'],
-                      ['Réussite en 1re session', 'reussite_s1', 'var(--c-reussi)']];
+                    const D = [['Femmes', 'femmes', 'var(--c-principal)'], ['Primo-inscrits', 'primo', '#05B7E6'],
+                      ['Domicile à Bruxelles', 'bruxelles', '#19537E'], ['Hors UE', 'hors_ue', '#F9B619'],
+                      ['Réussite 1re session', 'reussite_s1', 'var(--c-reussi)']];
                     return (
                       <Partie titre="Les étudiants" sous={`${n0(S.inscrits)} inscrits au 15/10 · ${IND.croissance.f(S.croissance)} sur un an · âge moyen ${IND.age.f(S.age)}`}
                         droite={<ComparerA valeur={refEtu} onChange={setRefEtu} />}>
-                        <div className="px-4 py-3 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-                          {D.map(([nom, k, c]) => <Disque key={k} nom={nom} valeur={S[k]} reference={R[k] ?? null} nomRef={refEtu} couleur={c} />)}
+                        <div className="grid grid-cols-1 lg:[grid-template-columns:1.4fr_1fr]">
+                          <div className="px-4 py-3 grid gap-2 lg:border-r border-slate-100" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>
+                            {D.map(([nom, k, c]) => <Disque key={k} nom={nom} valeur={S[k]} reference={R[k] ?? null} nomRef={refEtu} couleur={c} />)}
+                          </div>
+                          <div className="px-4 py-3 space-y-2">
+                            <div className="text-mention font-bold uppercase tracking-wider text-slate-500">Inscrits, année par année</div>
+                            {(() => {
+                              const ev = (evo || []).map(a => ({ a: `${String(a.annee).slice(2, 4)}-${String(a.annee).slice(7, 9)}`, n: a.par_section?.[S.section] })).filter(x => x.n != null).slice(-5);
+                              const mx = Math.max(1, ...ev.map(x => x.n));
+                              return ev.length ? (
+                                <div className="flex items-end gap-4 h-[130px] pt-2">
+                                  {ev.map(x => (
+                                    <div key={x.a} className="flex-1 flex flex-col items-center gap-1">
+                                      <span className="text-second font-semibold tabular-nums">{n0(x.n)}</span>
+                                      <div className="w-full max-w-[44px] rounded-t" style={{ height: Math.round((x.n / mx) * 90), background: '#19537E' }} />
+                                      <span className="text-mention text-slate-500">{x.a}</span>
+                                    </div>))}
+                                </div>) : <p className="text-second text-slate-400">Évolution en lecture…</p>;
+                            })()}
+                          </div>
                         </div>
-                        <div className="px-4 pb-3 text-mention text-slate-500">Anneau : {S.section} · anneau jaune intérieur : {refEtu === 'ASBL' ? 'l’ASBL (quand la HELB publie le chiffre)' : 'l’IIP'}.</div>
+                        <div className="px-4 pb-3 text-mention text-slate-500">Anneau de couleur : {S.section} · cercle intérieur : {refEtu === 'ASBL' ? 'l’ASBL (quand la HELB publie le chiffre)' : 'l’IIP'}.</div>
                       </Partie>);
                   })()}
-                  <PersonnelEcole annee={annee} initial={{ section: S.section }} />
+                  <PersonnelEcole annee={annee} initial={{ section: S.section }} seulCompare />
                 </div>}
                 {etape === 2 && <div className="space-y-4">
                   {estDirection ? <IipHelbGestion sectionFixe={S.section} dernieres={3} focus />
@@ -265,12 +291,12 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                   {/* LES COMPTES DE L'ASBL QUITTENT LA FICHE (3.5.557, Charles : « de trop, fait double emploi ») : le calcul en UCE
                       ci-dessus dit ce que la section rapporte et coûte ; les bilans restent dans Gestion → L'école. Et pas de cadre
                       dans le cadre : le budget se pose sous son intertitre. */}
-                  {estDirection && <><div className="intertitre">Le budget prévu</div><BudgetSection section={S.section} focus /></>}
+                  {estDirection && <><div className="intertitre">Le budget prévu</div><BudgetSection section={S.section} focus resume /></>}
                 </div>}
                 {etape === 4 && <div className="space-y-4">
                   <ReussiteSection section={S.section} annee={d.resultats_annee || annee}
                     refs={{ IIP: { s1: d.iip?.reussite_s1 ?? null, final: d.iip?.reussite_finale ?? null }, ASBL: { s1: d.asbl?.reussite_s1 ?? null, final: d.asbl?.reussite_finale ?? null } }} />
-                  <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="res" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
+                  <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="res" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} seulPistes />
                   <details>
                     <summary className="cursor-pointer intertitre">Le détail, en tableaux</summary>
                     <div className="pt-3"><StatsDeliberation annee={d.resultats_annee || annee} initial={{ section: S.section }} /></div>
@@ -384,7 +410,7 @@ function Etablissement({ d, lentille, refDe, valDe, juger, nomRef, ouvrir }) {
 }
 
 /* ------------------------------------------------------------------------------------------------ UNE SECTION */
-function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, nomRef, blocs, pistes, sansPistes = false }) {
+function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, nomRef, blocs, pistes, sansPistes = false, seulPistes = false }) {
   const P = palette();
   const lignes = POSITION[lentille].map(k => {
     const v = valDe(k, S), r = refDe(k, S.section), j = juger(k, v, r);
@@ -394,6 +420,19 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
   });
   const voir = l => lentille === 'tout' || lentille === l;
   const reel = (compta?.helb || []).some(x => x.non_impute != null);
+  const blocPistes = (
+<section id="fiche-pistes" className="carte overflow-hidden scroll-mt-24">
+      <EnteteCarte titre="Ce qu’on peut améliorer — ou non" sous={`déduit des écarts à ${nomRef}`} />
+      <div className="px-4 py-1">
+        {!pistes.length ? <p className="text-second text-slate-500 py-2">Rien à signaler face à cette référence, ou pas de référence pour ces indicateurs.</p> : pistes.map(p => (
+          <div key={p.k} className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
+            <Verdict etat={p.bien ? 'reussi' : 'surveiller'}>{p.bien ? 'Point fort' : 'À améliorer'}</Verdict>
+            <div className="text-sm leading-snug text-slate-800">{p.txt}</div>
+          </div>))}
+      </div>
+    </section>
+  );
+  if (seulPistes) return blocPistes;
   return (<>
     <section id="fiche-position" className="carte overflow-hidden scroll-mt-24">
       <EnteteCarte titre={`Où se situe ${S.section} ?`} sous={`comparée à ${nomRef} · le point = ${S.section} (vert : mieux que la référence, orange : à surveiller), le trait = la référence`} />
@@ -490,16 +529,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
           </Tableau>
         </div>
       </section>)}
-    {!sansPistes && <section id="fiche-pistes" className="carte overflow-hidden scroll-mt-24">
-      <EnteteCarte titre="Ce qu’on peut améliorer — ou non" sous={`déduit des écarts à ${nomRef}`} />
-      <div className="px-4 py-1">
-        {!pistes.length ? <p className="text-second text-slate-500 py-2">Rien à signaler face à cette référence, ou pas de référence pour ces indicateurs.</p> : pistes.map(p => (
-          <div key={p.k} className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
-            <Verdict etat={p.bien ? 'reussi' : 'surveiller'}>{p.bien ? 'Point fort' : 'À améliorer'}</Verdict>
-            <div className="text-sm leading-snug text-slate-800">{p.txt}</div>
-          </div>))}
-      </div>
-    </section>}
+    {!sansPistes && blocPistes}
   </>);
 }
 

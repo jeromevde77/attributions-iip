@@ -3,33 +3,28 @@
    bouton IIP / ASBL à la mode bouton coulissant Apple »).
    Disque : l'anneau plein = la section ; le fin trait gris intérieur = la référence (IIP ou ASBL). Couleurs lues des réglages, posées en
    `style` (un attribut SVG ne lit pas var()). */
-import { couleurSerie } from './graphiques.jsx';
-import { reglagesGraphique } from '../lib/design.js';
 
-/* MÊME DESSIN QUE LES ANNEAUX DU BAS DE PAGE (3.5.556, Charles : « une unicité dans le design ; mets le cercle IIP/ASBL en jaune
-   pour qu'on le voie ») : l'épaisseur de l'anneau vient des réglages des graphiques (`reglagesGraphique().anneau`), la section prend la
-   première couleur des séries — la même pour tous les disques —, la référence est un anneau JAUNE (deuxième série) à l'intérieur. */
-export function Disque({ nom, valeur, reference = null, nomRef = 'IIP', taille = 84 }) {
+/* LE DISQUE DE LA MAQUETTE VALIDÉE (3.5.558, Charles : « j'aimais bien les cercles avec le deuxième cercle de référence ») : un anneau
+   de couleur pour la section (la couleur dit la donnée, propre à chaque disque), un second cercle intérieur, gris ardoise, pour la
+   référence (IIP ou ASBL), sur sa propre piste pâle. */
+export function Disque({ nom, valeur, reference = null, nomRef = 'IIP', couleur = 'var(--c-principal)', taille = 96 }) {
   const v = valeur == null ? null : Math.max(0, Math.min(100, Math.round(valeur)));
   const r = reference == null ? null : Math.max(0, Math.min(100, Math.round(reference)));
-  const ep = (reglagesGraphique().anneau || 40) / 100;
-  const R = 46, ray = R - (R * ep) / 2, epaisseur = R * ep, Ci = 2 * Math.PI * ray;
-  const rr = R - R * ep - 5, Cr = 2 * Math.PI * rr;
+  const C = 2 * Math.PI * 40, C2 = 2 * Math.PI * 29;
   return (
-    <figure className="m-0 flex flex-col items-center gap-1">
+    <figure className="m-0 flex flex-col items-center gap-1.5">
       <svg width={taille} height={taille} viewBox="0 0 100 100" role="img" aria-label={`${nom} : ${v == null ? 'non disponible' : `${v} %`}${r != null ? `, ${nomRef} ${r} %` : ''}`}>
-        <circle cx="50" cy="50" r={ray} fill="none" strokeWidth={epaisseur} style={{ stroke: 'var(--g-vide, #E9EDF2)' }} />
-        {v != null && v > 0 && <circle cx="50" cy="50" r={ray} fill="none" strokeWidth={epaisseur} transform="rotate(-90 50 50)"
-          strokeDasharray={`${(v / 100) * Ci} ${Ci}`} style={{ stroke: couleurSerie(0) }} />}
-        {r != null && rr > 4 && <circle cx="50" cy="50" r={rr} fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 50 50)"
-          strokeDasharray={`${(r / 100) * Cr} ${Cr}`} style={{ stroke: couleurSerie(1) }} />}
-        <text x="50" y="55" textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--c-texte, #16263D)' }}>{v == null ? '—' : `${v} %`}</text>
+        <circle cx="50" cy="50" r="40" fill="none" strokeWidth="10" style={{ stroke: '#EDF0F4' }} />
+        {v != null && v > 0 && <circle cx="50" cy="50" r="40" fill="none" strokeWidth="10" transform="rotate(-90 50 50)"
+          strokeDasharray={`${(v / 100) * C} ${C}`} style={{ stroke: couleur }} />}
+        <circle cx="50" cy="50" r="29" fill="none" strokeWidth="3" style={{ stroke: '#EDF0F4' }} />
+        {r != null && r > 0 && <circle cx="50" cy="50" r="29" fill="none" strokeWidth="3" strokeLinecap="round" transform="rotate(-90 50 50)"
+          strokeDasharray={`${(r / 100) * C2} ${C2}`} style={{ stroke: '#7C8BA1' }} />}
+        <text x="50" y="55" textAnchor="middle" fontSize="16" fontWeight="700" style={{ fill: 'var(--c-texte, #16263D)' }}>{v == null ? '—' : `${v} %`}</text>
       </svg>
       <figcaption className="text-center text-second leading-tight">
-        <span className="font-semibold text-slate-800">{nom}</span><br />
-        <span className="text-mention" style={{ color: r == null ? undefined : 'var(--c-texte)' }}>
-          <span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: r == null ? 'var(--g-vide, #E9EDF2)' : couleurSerie(1) }} />
-          {nomRef} : {r == null ? 'non disponible' : `${r} %`}</span>
+        <b className="text-slate-800">{nom}</b><br />
+        <span className="text-slate-500">{nomRef} : {r == null ? 'non disponible' : `${r} %`}</span>
       </figcaption>
     </figure>);
 }
@@ -40,7 +35,7 @@ export function Chiffres({ items }) {
     <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
       {items.map(([val, lib, prec]) => (
         <div key={lib} className="px-4 py-3">
-          <div className="text-xl font-bold tabular-nums" style={{ color: 'var(--c-texte)' }}>{val}</div>
+          <div className="text-lg font-bold tabular-nums" style={{ color: 'var(--c-texte)' }}>{val}</div>
           <div className="text-second text-slate-700">{lib}</div>
           {prec && <div className="text-mention text-slate-500">{prec}</div>}
         </div>))}

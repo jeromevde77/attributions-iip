@@ -283,7 +283,7 @@ export default function IipHelbGestion({ sectionFixe = null, dernieres = null, f
   const masquer = k => () => maj('masques', [...masques, k]);
   // `focus` (3.5.551) : la fiche d'une section ne montre ni les cursus de la HE ni le rang parmi eux (VRIO). À l'étape « attributions »
   // (3.5.552), ni l'argent : il est à l'étape « frais et coûts ».
-  const vu = k => !masques.includes(k) && !(focus && ['comparaison', 'vrio', 'couts', 'etudiant', 'recettes', 'helb', 'admin'].includes(k));
+  const vu = k => !masques.includes(k) && !(focus && ['comparaison', 'vrio', 'couts', 'etudiant', 'recettes', 'helb', 'admin', 'charge_ens', 'charge_coord', 'charge_admin', 'fonctions', 'blocs', 'natures', 'enseignants', 'statuts'].includes(k));
   const [filtresOuverts, setFiltresOuverts] = useState(false);
 
   const { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY } = useMemo(() => chiffresIipHelb(d, reglages), [d, reglages]);
@@ -429,8 +429,21 @@ export default function IipHelbGestion({ sectionFixe = null, dernieres = null, f
           </Carte>}
           {/* LE DÉTAIL PAR BLOC ET LES COORDINATIONS HELB (3.5.491, Charles : « intégrer la partie bloc 1, 2 et 3, ainsi que la partie
               coordination — dans la gestion, important ») : la dernière année choisie, comme le rapport de charge ETP d'une section. */}
+          {/* QUI ENSEIGNE (3.5.558, maquette validée de la fiche d'une section) : la dernière année, en un anneau. */}
+          {focus && Y.length > 0 && (() => {
+            const y = Y[Y.length - 1];
+            const som = (re, cote) => Object.entries(y.statuts || {}).filter(([c]) => re.test(c)).reduce((t, [, v]) => t + (cote === 'tout' ? (v.iip || 0) + (v.helb || 0) : (v[cote] || 0)), 0);
+            const cc = som(/^Chargés/, 'iip'), ma = som(/^Chargés/, 'helb') + som(/^Autres/, 'tout'), ex = som(/^Experts/, 'tout'), tot = cc + ma + ex;
+            return (
+              <Carte titre={`Qui enseigne en ${y.annee}`} sous="part des ETP par statut">
+                <div className="flex justify-center py-2"><Anneau taille={140} centre={`${n2(tot)} ETP`} parts={[
+                  { nom: 'Chargés de cours IIP', valeur: cc, couleur: 'var(--c-principal)' },
+                  { nom: 'MA / MFP HELB', valeur: ma, couleur: '#05B7E6' },
+                  { nom: 'Experts et invités', valeur: ex, couleur: '#F9B619' }]} /></div>
+              </Carte>);
+          })()}
           {(vu('blocs_ue') || vu('coord_helb')) && Y.length > 0 && (
-            <ChargeParBloc annee={Y[Y.length - 1].annee} section={section} voir={{ blocs: vu('blocs_ue'), coord: vu('coord_helb') }} />)}
+            <ChargeParBloc annee={Y[Y.length - 1].annee} section={section} voir={{ blocs: vu('blocs_ue'), coord: vu('coord_helb') }} compact={focus} />)}
           {/* LA CHARGE EN TROIS LECTURES (3.5.482, Charles : « la charge ETP sans coordination, avec coordination et avec admin — à la
               carte ») : trois cartes, chacune son graphique, quelles que soient les mesures choisies — on garde à l'impression celles qu'on
               veut. Le cadre administratif (direction, secrétariat : IIP) en ETP, au prorata des inscrits de la section. */}

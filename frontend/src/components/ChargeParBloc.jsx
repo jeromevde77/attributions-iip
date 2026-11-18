@@ -21,7 +21,8 @@ const BANDE = { ...COULEUR_BLOC, Autres: 'rgb(var(--gris-400))' };
 const contratDe = u => (u.etp_helb > 0 && u.etp_iip <= 0 ? 'HELB' : 'IIP');
 const perDe = u => (u.per_ct || 0) + (u.per_pp || 0) + (u.per_ct_helb || 0) + (u.per_pp_helb || 0);
 
-export default function ChargeParBloc({ annee, section, voir = { blocs: true, coord: true } }) {
+export default function ChargeParBloc({ annee, section, voir = { blocs: true, coord: true }, compact = false }) {
+  const [ouverts, setOuverts] = useState([]);
   const [sec, setSec] = useState(null);
   const [erreur, setErreur] = useState(null);
   useEffect(() => {
@@ -41,6 +42,52 @@ export default function ChargeParBloc({ annee, section, voir = { blocs: true, co
   const blocs = [...parBloc.keys()].sort((a, b) => ORDRE.indexOf(a) - ORDRE.indexOf(b));
   const coord = sec.coord_helb || [];
 
+  /* UN SEUL TABLEAU (3.5.558, maquette validée de la fiche d'une section : « un bloc se déplie pour ses UE ») : l'ensemble en tête,
+     une ligne par bloc qu'on déplie, les coordinations en pied. */
+  if (compact) {
+    const etpC = (us, c) => us.reduce((t, u) => t + (c === 'IIP' ? (u.etp_iip || 0) : (u.etp_helb || 0)), 0);
+    const toutes = sec.ues || [];
+    const ligne = (cle, lib, us, fort) => (
+      <tr key={cle} className={`border-t border-slate-100 ${fort ? 'ligne-total font-semibold' : ''}`}>
+        <td className="px-4 py-2">{lib}</td><td className="px-3 py-2 text-right tabular-nums">{us.length}</td>
+        <td className="px-3 py-2 text-right tabular-nums">{n0(us.reduce((t, u) => t + perDe(u), 0))}</td>
+        <td className="px-3 py-2 text-right tabular-nums">{n2(etpC(us, 'IIP'))}</td><td className="px-3 py-2 text-right tabular-nums">{n2(etpC(us, 'HELB'))}</td>
+        <td className="px-4 py-2 text-right tabular-nums">{n2(us.reduce((t, u) => t + (u.etp_total || 0), 0))}</td></tr>);
+    return (
+      <section className="carte overflow-hidden lg:col-span-2">
+        <EnteteCarte titre={`Les attributions de ${annee}, bloc par bloc, et les coordinations`} sous="un seul tableau · un bloc se déplie pour ses UE" />
+        <div className="overflow-x-auto"><table className="w-full text-second" data-numeros="non">
+          <thead><tr className="tab-entete text-mention uppercase tracking-wide text-slate-500">
+            <th className="px-4 py-2 text-left font-semibold">Bloc</th><th className="px-3 py-2 text-right font-semibold">UE</th><th className="px-3 py-2 text-right font-semibold">Périodes</th>
+            <th className="px-3 py-2 text-right font-semibold">ETP IIP</th><th className="px-3 py-2 text-right font-semibold">ETP HELB</th><th className="px-4 py-2 text-right font-semibold">Total</th></tr></thead>
+          <tbody>
+            {ligne('tout', 'Ensemble', toutes, true)}
+            {blocs.map(b => {
+              const us = parBloc.get(b).sort((x, y) => String(x.ue_num).localeCompare(String(y.ue_num), 'fr', { numeric: true }));
+              const o = ouverts.includes(b);
+              return [
+                <tr key={b} className="border-t border-slate-100 cursor-pointer hover:bg-slate-50" onClick={() => setOuverts(v => (o ? v.filter(x => x !== b) : [...v, b]))}>
+                  <td className="px-4 py-2"><span className="inline-block w-3 text-slate-500">{o ? '▾' : '▸'}</span> {NOM_BLOC[b]}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{us.length}</td><td className="px-3 py-2 text-right tabular-nums">{n0(us.reduce((t, u) => t + perDe(u), 0))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{n2(etpC(us, 'IIP'))}</td><td className="px-3 py-2 text-right tabular-nums">{n2(etpC(us, 'HELB'))}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{n2(us.reduce((t, u) => t + (u.etp_total || 0), 0))}</td></tr>,
+                ...(o ? us.map(u => (
+                  <tr key={`${b}-${u.ue_num}`} className="border-t border-slate-100 text-slate-600" style={{ background: 'rgb(var(--gris-50, 250 251 252))' }}>
+                    <td className="py-1.5 pl-10 pr-3">UE {u.ue_num} · {u.ue_nom || '—'}</td><td />
+                    <td className="px-3 py-1.5 text-right tabular-nums">{n0(perDe(u))}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{u.etp_iip ? n2(u.etp_iip) : '—'}</td><td className="px-3 py-1.5 text-right tabular-nums">{u.etp_helb ? n2(u.etp_helb) : '—'}</td>
+                    <td className="px-4 py-1.5 text-right tabular-nums">{n2(u.etp_total)}</td></tr>)) : []),
+              ];
+            })}
+            {voir.coord && coord.length > 0 && (
+              <tr className="border-t-2 border-slate-200">
+                <td className="px-4 py-2">Coordinations HELB ({coord.map(m => `${String(m.prof_nom || '').toUpperCase()} ${n2(m.etp_helb)}`).join(' · ')})</td>
+                <td /><td /><td className="px-3 py-2 text-right">—</td><td className="px-3 py-2 text-right tabular-nums">{n2(sec.etp_coord_helb)}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{n2(sec.etp_coord_helb)}</td></tr>)}
+          </tbody>
+        </table></div>
+      </section>);
+  }
   return (
     <>
       {voir.blocs && blocs.map(b => {

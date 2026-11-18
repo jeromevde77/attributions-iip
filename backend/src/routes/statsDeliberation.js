@@ -245,8 +245,11 @@ function distribution(valeurs) {
   const modes = maxi < 2 ? [] : [...freq.entries()].filter(([, n]) => n === maxi).map(([x]) => x);
 
   const r1 = x => Math.round(x * 10) / 10;
+  // Les quartiles (3.5.558, boîtes à moustaches de la fiche d'une section) : interpolation linéaire.
+  const q = p => { const i = (v.length - 1) * p, b = Math.floor(i); return v[b] + (v[Math.min(b + 1, v.length - 1)] - v[b]) * (i - b); };
   return {
     n: v.length,
+    q1: r1(q(0.25)), q3: r1(q(0.75)),
     moyenne: r1(somme / v.length),
     mediane: r1(m),
     mode: modes.length ? modes.map(r1) : null,
@@ -350,7 +353,7 @@ r.get('/distributions', authRequired, (req, res) => {
   // La trace de séance d'abord ; le dossier ne comble que ses silences —
   // la même règle que partout ailleurs dans ce module.
   const cotesUe = db.prepare(`
-    SELECT i.ue_num, u.section, u.ue_nom, i.etudiant_id,
+    SELECT i.ue_num, u.section, u.ue_nom, u.ue_niv, i.etudiant_id,
            COALESCE(u.hors_cursus, 0) AS hors_cursus,
            COALESCE((SELECT d.points FROM deliberation_resultat d
                       WHERE d.etudiant_id = i.etudiant_id
@@ -438,6 +441,7 @@ r.get('/distributions', authRequired, (req, res) => {
       ensemble: distribution(cotesUe.map(l => l.points)),
       par_ue: sortir(distributions(cotesUe, l => l.ue_num, l => l.points), titreUe),
       par_section: sortir(distributions(cotesUe, l => l.section, l => l.points)),
+      par_bloc: sortir(distributions(cotesUe, niveauDe, l => l.points)),
     },
     cotes_cours: {
       ensemble: distribution(cotesCours.map(l => l.points)),
