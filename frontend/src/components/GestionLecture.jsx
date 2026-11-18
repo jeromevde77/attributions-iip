@@ -491,7 +491,9 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
               </BarChart>)}
           </div>
         </section>)}
-      {voir('fin') && (
+      {/* Plus de carte « Les finances » ni de comptabilité de l'ASBL sur la fiche d'une section (3.5.560, Charles : « enlève ça ») :
+          le calcul en UCE de l'étape 3 les remplace ; les bilans restent dans Gestion → L'école. */}
+      {false && voir('fin') && (
         <section className={`carte overflow-hidden h-full ${[voir('etu'), voir('res')].filter(Boolean).length === 2 ? 'md:col-span-2 xl:col-span-1' : [voir('etu'), voir('res')].filter(Boolean).length === 1 ? 'xl:col-span-2' : 'md:col-span-2 xl:col-span-3'}`}>
           <EnteteCarte titre="Les finances" sous={`${d.annee} · coût complet, CT ÷ 800 + PP ÷ 1000`} />
           <div className={`p-4 grid gap-3 ${[voir('etu'), voir('res')].filter(Boolean).length === 2 ? 'grid-cols-2 md:grid-cols-4 xl:grid-cols-2' : [voir('etu'), voir('res')].filter(Boolean).length === 1 ? 'grid-cols-2 xl:grid-cols-4' : 'grid-cols-2 lg:grid-cols-4'}`}>
@@ -500,7 +502,7 @@ function Section({ S, d, compta, comptaSource, lentille, refDe, valDe, juger, no
         </section>)}
     </div>
 
-    {voir('fin') && compta && (
+    {false && voir('fin') && compta && (
       <section id="fiche-comptes" className="carte overflow-hidden scroll-mt-24">
         <EnteteCarte titre="La comptabilité de l’ASBL pour cette section" sous={reel ? 'résultat réel : le coût des enseignants HELB que les comptes imputent à d’autres codes analytiques est ajouté (ETP de Lucie, coordinations comprises, au prix du titre ; 8/12 de l’année scolaire qui finit, 4/12 de celle qui commence)' : `charges, produits et résultat, exercice par exercice · ${comptaSource?.fichier || ''}`} />
         <div className="overflow-x-auto">

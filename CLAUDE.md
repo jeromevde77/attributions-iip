@@ -4671,6 +4671,9 @@ et unité par unité, boîtes à moustaches (`/api/stats-deliberation/distributi
 `distribution`, la section et l'IIP), cours sur deux colonnes ; `Section seulPistes`.
 **Les cartes à l'étape 1** (3.5.559, Charles : « n'oublie pas la carte de Bruxelles, Belgique et monde ») : `PopulationEcole
 partie="cartes"` ne rend que `CarteCommunes` (Bruxelles, Belgique, monde) et `BruxellesTroisAns`, pour la section, sans la barre de choix.
+**Plus de comptabilité de l'ASBL sur la fiche** (3.5.560, Charles : « enlève ça ») : `Section` ne rend plus la carte « Les finances »
+(coût par crédit, par période, taille des groupes, recettes) ni « La comptabilité de l'ASBL pour cette section » — nulle part où
+`Section` est lue (fiche, Composer, dossier COPIL). Les bilans restent dans Gestion → L'école → Financements de l'ASBL.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
