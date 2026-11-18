@@ -25,6 +25,7 @@ import db from '../db/index.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
 import { prixDUneUE } from './forfaitVA.js';
+import { fonctionPour } from './fonctions.js';
 import { uniteValorisable, journaliser, rafraichirEtat, controleDelai } from './valorisation.js';
 import { sectionRattachement, nommerPreuve, nomLibre, NATURES_PREUVE } from '../routes/etudiants.js';
 
@@ -127,8 +128,10 @@ export function offreVA(e, annee = anneeActive()) {
   const auPAE = new Set(db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
     .all(e.id, annee).map(x => Number(x.ue_num)));
   const jour = aujourdHui();
+  // Pas de montant tant que « Frais » est fermée pour lui (3.5.548).
+  let argent = false; try { argent = fonctionPour('espace.frais', { etudiantId: e.id }); } catch { argent = false; }
   const unites = lignes.map(u => {
-    const prix = prixDUneUE(fi[u.ue_num] ?? null);
+    const prix = argent ? prixDUneUE(fi[u.ue_num] ?? null) : { du: null, calcul: null };
     const d = controleDelai({ ueNum: u.ue_num, annee, date_demande: jour, date_reception: jour });
     return { ue_num: u.ue_num, ue_nom: u.ue_nom, au_pae: auPAE.has(Number(u.ue_num)), prix: prix.du, calcul: prix.calcul,
       echeance: d?.echeance || null, hors_delai: !!d?.hors_delai, acquis: acquisDeLUE(u.ue_num) };

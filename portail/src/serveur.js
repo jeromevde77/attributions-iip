@@ -439,7 +439,9 @@ try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* d�
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
 const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'desinscription'];
-const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
+// L'aperçu voit ce que Lucie dit (`vues`, 3.5.548 : sans les frais tant qu'ils sont éteints), à défaut tout.
+const vuesDe = id => { try { const v = db.prepare('SELECT vues FROM etudiant WHERE id = ?').get(id)?.vues; return v ? JSON.parse(v) : null; } catch { return null; } };
+const fonctionsVues = req => (req.apercu ? (vuesDe(req.etudiant?.id) || TOUTES) : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
 const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
   : res.status(404).json({ error: 'Cette partie de votre espace n’est pas encore ouverte.' }));
@@ -1056,13 +1058,15 @@ int.post('/interne/etudiants', (req, res) => {
   db.transaction(() => {
     db.exec('DELETE FROM matricule; DELETE FROM etudiant;');
     try { db.exec('ALTER TABLE etudiant ADD COLUMN essai INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
-    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, fonctions, apercu_seul, maj_le, essai) VALUES (?,?,?,?,?,?, datetime('now'), ?)");
+    try { db.exec('ALTER TABLE etudiant ADD COLUMN vues TEXT'); } catch { /* déjà là */ }
+    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, fonctions, apercu_seul, maj_le, essai, vues) VALUES (?,?,?,?,?,?, datetime('now'), ?, ?)");
+    const vx = x => (Array.isArray(x.donnees) ? JSON.stringify(x.donnees.map(String)) : null);
     const fx = x => JSON.stringify(Array.isArray(x.fonctions) ? x.fonctions.map(String) : []);
     const im = db.prepare('INSERT OR IGNORE INTO matricule (code, etudiant_id) VALUES (?,?)');
     for (const e of l) {
       // Sans adresse d'institut, seul l'aperçu de la direction entre (apercu_seul) : l'étudiant, lui, n'a aucune porte.
       if (!Number(e.id) || (!String(e.email_ecole || '').includes('@') && !e.apercu_seul)) continue;
-      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole || ''), fx(e), e.apercu_seul ? 1 : 0, e.essai ? 1 : 0);
+      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole || ''), fx(e), e.apercu_seul ? 1 : 0, e.essai ? 1 : 0, vx(e));
       for (const m of e.matricules || []) if (m) im.run(String(m).trim(), Number(e.id));
     }
     // Les candidats : sans adresse d'institut ; ils n'entrent que par leur code.
@@ -1071,7 +1075,7 @@ int.post('/interne/etudiants', (req, res) => {
     for (const c of Array.isArray(req.body?.candidats) ? req.body.candidats : []) {
       if (!Number(c.id) || !String(c.email_prive || '').includes('@') || !String(c.code_hash || '').startsWith('scrypt$')) continue;
       if (db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(Number(c.id))) db.prepare('DELETE FROM etudiant WHERE id = ?').run(Number(c.id));
-      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '', fx(c), 0, 0);
+      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '', fx(c), 0, 0, vx(c));
       ic.run(Number(c.id), String(c.email_prive), String(c.code_hash), String(c.jusqu_au || ''));
     }
   })();

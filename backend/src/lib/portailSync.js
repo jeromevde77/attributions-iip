@@ -93,7 +93,12 @@ function enApercu() {
   } catch { return new Set(); }
 }
 /** Les fonctions dont on DÉPOSE les données (les vraies, ou toutes pour un étudiant en aperçu) — jamais pour décider d'un envoi. */
-const fonctionsDonnees = (id, apercus = enApercu()) => (apercus.has(Number(id)) ? TOUTES_FONCTIONS : fonctionsEspace(id));
+/* PAS D'ARGENT DANS L'ESPACE TANT QUE « FRAIS » EST ÉTEINTE (3.5.548, Charles : « pour le moment, pas de décompte ni de valeur
+   financière dans l'espace étudiant ; quand je fais des tests, on voit I-01, I-04 et l'onglet finance »). L'aperçu de la direction
+   voit tout, SAUF les frais quand la fonction est éteinte pour tous. */
+const fraisEteints = () => { try { return !fonctionOuverte('espace.frais'); } catch { return true; } };
+const toutesVues = () => (fraisEteints() ? TOUTES_FONCTIONS.filter(f => f !== 'frais') : TOUTES_FONCTIONS);
+const fonctionsDonnees = (id, apercus = enApercu()) => (apercus.has(Number(id)) ? toutesVues() : fonctionsEspace(id));
 
 /** Les étudiants que le portail connaît : actifs, non archivés, avec une adresse d'école. */
 function etudiantsVisibles() {
@@ -115,7 +120,7 @@ function etudiantsVisibles() {
     return { id: e.id, nom: e.nom, prenom: e.prenom, email_ecole: String(e.email_ecole || '').includes('@') ? e.email_ecole : '',
       // « Aperçu seulement » aussi pour un étudiant SANS adresse d'institut (3.5.525, HURET Sophie, étudiante de test) : le portail
       // n'admet un étudiant sans adresse que sous cette marque — il la rejetait, et l'aperçu répondait « le portail n'a pas reçu ».
-      fonctions, donnees: apercu ? TOUTES_FONCTIONS : fonctions, apercu_seul: apercu && (!fonctions.length || !String(e.email_ecole || '').includes('@')),
+      fonctions, donnees: apercu ? toutesVues() : fonctions, apercu_seul: apercu && (!fonctions.length || !String(e.email_ecole || '').includes('@')),
       matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))], essai: essais.has(Number(e.id)) };
   }).filter(e => e.fonctions.length || e.apercu_seul);
 }

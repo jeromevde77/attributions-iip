@@ -14,6 +14,7 @@ import { PIECES as PIECES_CODEES } from './codesPieces.js';
 import { cepDe } from './cep.js';
 import { eligibiliteStib } from './attestationStib.js';
 import { poserSpecimen } from './filigraneDocument.js';
+import { fonctionPour } from './fonctions.js';
 /** Un étudiant d'essai (Mise en service) : ses pièces portent « SPÉCIMEN — ESSAI ». */
 function etudiantDEssai(id) {
   try { return (JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'fonctions'").get()?.valeur || '{}').etudiants_essai || []).map(Number).includes(Number(id)); }
@@ -45,8 +46,11 @@ function catalogue(id, annee) {
   if (inscrit(annee)) {
     l.push({ cle: 'attestation_inscription', chemin: `/api/etudiants/${id}/attestation-inscription?annee=${a}` });
     l.push({ cle: 'attestation_allocations', chemin: `/api/etudiants/${id}/attestation-inscription?annee=${a}&variante=allocations` });
-    l.push({ cle: 'fiche_inscription', chemin: `/api/etudiants/${id}/fiche-inscription?annee=${a}` });
-    l.push({ cle: 'frais_scolarite', chemin: `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` });
+    // La fiche d'inscription (reçu, droits) et les frais portent de l'argent : seulement quand « Frais » est ouverte pour lui (3.5.548).
+    if (essai(() => fonctionPour('espace.frais', { etudiantId: id }), false)) {
+      l.push({ cle: 'fiche_inscription', chemin: `/api/etudiants/${id}/fiche-inscription?annee=${a}` });
+      l.push({ cle: 'frais_scolarite', chemin: `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` });
+    }
     // L'attestation STIB (3.5.524) : seulement si Lucie vérifie les seuils de la STIB (moins de 25 ans, heures et jours par semaine).
     if (essai(() => eligibiliteStib(id, annee).ok, false)) l.push({ cle: 'attestation_stib', chemin: `/api/etudiants/${id}/attestation-stib?annee=${a}`, pdf: true });
   }
@@ -174,6 +178,11 @@ async function desinscriptionEnLigne(q, json) {
   if (q.action === 'desins_etat') {
     const tout = apercu(id, annee);
     const choix = ues ? apercu(id, annee, { ues }) : tout;
+    // Pas de montant tant que « Frais » est fermée pour lui (3.5.548) : la règle, sans les sommes.
+    if (!fonctionPour('espace.frais', { etudiantId: id })) {
+      return json(q.id, 200, { annee, programme: tout.unites || [], apercu: choix.erreur ? null : { ...choix, frais: null }, erreur: choix.erreur || null,
+        demandes: demandes.map(d => ({ ...d, rembourse: null, reste_du: null })), sans_montants: true });
+    }
     return json(q.id, 200, { annee, programme: tout.unites || [], apercu: choix.erreur ? null : choix, erreur: choix.erreur || null, demandes });
   }
   const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
