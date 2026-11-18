@@ -32,7 +32,7 @@ const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
 // La MUCE par année civile (3.5.546) : recopie de MUCE_ANNEES et muceDe (lib/rapportIipHelb.js).
 const MUCE_ANNEES = { 2022: 3837.18, 2026: 4562, 2027: 4593 };
-function muceInfo(C, P) {
+export function muceInfo(C, P) {
   const c = Number(C), ans = Object.keys(MUCE_ANNEES).map(Number).sort((a, b) => a - b);
   if (MUCE_ANNEES[c] != null) return { valeur: MUCE_ANNEES[c], estimee: false };
   const av = ans.filter(a => a < c).pop(), ap = ans.find(a => a > c);

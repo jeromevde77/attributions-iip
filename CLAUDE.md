@@ -4616,6 +4616,13 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
+2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
+pondération, financement, salaires HELB, salaires IIP pour info, matériel et investissements, DI et FI rapportés par l'IIP, solde ASBL).
+Bloc `uce` de Composer (section, direction) = `components/FinancementUCE.jsx` sur `chiffresIipHelb` (convention) : tuiles (ETP engagés,
+rapporte, coûte, solde), barres rapporte / coûte, tableau. Solde ASBL = financement + DI et FI − salaires HELB − matériel ; salaires IIP
+(Fédération) en gris, hors solde. Le bloc `lecture-fin` (comptes) quitte Composer ; il reste dans Gestion.
+
 **PAS D'ARGENT DANS L'ESPACE ÉTUDIANT TANT QUE « FRAIS » EST ÉTEINTE** (3.5.548, Charles, 18 novembre 2026 : « pas de décompte ni de
 valeur financière ; en test on voit I-01, I-04 et l'onglet finance »). Tant que `espace.frais` n'est pas ouverte pour l'étudiant :
 le centre de documents ne propose ni I-01 (fiche d'inscription / reçu) ni I-04 (frais de scolarité) ; la demande de VA ne montre pas
