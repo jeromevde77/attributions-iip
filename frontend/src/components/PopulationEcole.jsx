@@ -33,6 +33,8 @@ function Carte({ titre, sous, children, className = '' }) {
    (domicile, nationalité, cartes, Bruxelles sur trois ans) ; sans elle, toute la page. */
 export default function PopulationEcole({ annee: anneeProp, initial = null, onChoix = null, partie = null }) {
   const ins = !partie || partie === 'inscriptions', prov = !partie || partie === 'provenance';
+  // `cartes` (3.5.559, fiche d'une section : « n'oublie pas la carte de Bruxelles, Belgique et monde ») : les trois cartes seules.
+  const cartes = partie === 'cartes';
   const annee = anneeProp || getAnnee();
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -88,8 +90,10 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
 
   return (
     <div className="space-y-4">
+      {cartes && <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />}
+      {cartes && <BruxellesTroisAns parAnnee={d.par_annee || []} titreFiltre={section ? NOM_SECTION(section) : ''} />}
       {/* Toute l'école, ou une section : tout l'écran suit. */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {!cartes && <div className="flex items-center gap-2 flex-wrap">
         <div className="segments">
           {[['', 'Toute l’école'], ...d.sections.map(s => [s.section, NOM_SECTION(s.section)])].map(([k, l]) => (
             <button key={k || 'tout'} type="button" onClick={() => setSection(k)}
@@ -108,7 +112,7 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
               className={sle === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
         </div>
         <span className="text-second text-slate-400 ml-auto">{d.annee} · inscrits au {d.ref.split('-').reverse().join('/')}, hors archivés{d.sle_nombre ? ` · ${k0(d.sle_nombre)} SLE ${sle === 'exclus' ? 'exclus' : 'compris'}` : ''}</span>
-      </div>
+      </div>}
 
       {ins && eff && !section && (
         <div className="flex flex-wrap gap-3">
