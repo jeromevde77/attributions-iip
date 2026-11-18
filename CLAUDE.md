@@ -4643,6 +4643,9 @@ ni tuiles d'argent ni cartes financières (elles sont à l'étape 3) ; le doublo
 (quatre tuiles dont « ce que l'IIP apporte », huit colonnes groupées « rapporte / coûte », `whitespace-nowrap`, ligne d'ensemble en
 tête, ses filtres = ceux de l'étape 2 via `reglagesIipHelb()`), comptes et budget repliés (`<details>`). 4 : `ReussiteSection refs`
 (interrupteur), position réussite et pistes, tableaux repliés.
+**Le graphique de l'étape 3** (3.5.554, Charles : « sur la colonne verte, ajouter les UCE lissés ; la rose, en bleu ») : barres empilées
+— vert = financement UCE (étudiants lissés, leur nombre au-dessus) + DI et FI (vert pâle) ; bleu (`--c-disponible`) = salaires HELB +
+matériel (bleu pâle). Tuiles et en-têtes du tableau suivent : rapporte en vert, coûte en bleu.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
