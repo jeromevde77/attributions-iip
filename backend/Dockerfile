@@ -19,8 +19,10 @@ WORKDIR /app
 # « libreoffice-writer-nogui » (3.5.080) : les annexes Word de la circulaire (EA12, A2…A34) sortent aussi en PDF
 # (services/docx-to-pdf.js) ; sans lui, « Le PDF n'est pas encore disponible sur ce serveur ».
 # « fonts-inter » (3.5.032) : la police du mode d'emploi PDF au modèle du kit FeLSI (lib/guideKit.js).
+# « fonts-crosextra-carlito / caladea » (3.5.565) : les largeurs de Calibri et Cambria, polices des modèles Word de la circulaire ;
+# sans elles, LibreOffice prenait une police plus large et les cases débordaient.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    fontconfig fonts-liberation fonts-dejavu-core fonts-inter \
+    fontconfig fonts-liberation fonts-dejavu-core fonts-inter fonts-crosextra-carlito fonts-crosextra-caladea \
     libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
     libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
     libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgtk-3-0 libx11-xcb1 \

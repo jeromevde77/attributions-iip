@@ -40,8 +40,9 @@ const sectionDeUE = ue => db.prepare('SELECT section FROM ue WHERE ue_num = ? OR
 const fr = iso => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '');
 
 function bornesAnnee(annee) {
+  // Les bornes de l'année : le calendrier des cours (première et dernière semaine), sinon 1er septembre – 30 juin.
   let d = null, f = null;
-  try { const a = db.prepare('SELECT * FROM annee_scolaire WHERE code = ?').get(annee) || {}; d = a.date_debut || a.debut || null; f = a.date_fin || a.fin || null; } catch { /* */ }
+  try { const a = db.prepare('SELECT MIN(date_debut) d, MAX(date_fin) f FROM annee_calendrier WHERE annee_scolaire = ?').get(annee) || {}; d = a.d || null; f = a.f || null; } catch { /* */ }
   const y = Number(String(annee).slice(0, 4));
   return { debut: fr(d) || `01/09/${y}`, fin: fr(f) || `30/06/${y + 1}` };
 }
@@ -113,6 +114,10 @@ const texteRun = v => String(v ?? '').split('\n').map((l, i) => `${i ? '</w:t><w
 export async function documentPPC(annee, donnees) {
   const zip = await JSZip.loadAsync(fs.readFileSync(MODELE));
   let x = await zip.file('word/document.xml').async('string');
+  /* DES RANGÉES QUI S'ALLONGENT (3.5.565, Charles : « la mise en page ne va pas ») : le modèle fixe la hauteur de ses rangées
+     (« exact ») ; le titre y perdait sa troisième ligne et le cachet sortait de sa case. Au moins cette hauteur, plus si le contenu
+     le demande. */
+  x = x.replace(/w:hRule="exact"/g, 'w:hRule="atLeast"');
   x = x.replace('{{ANNEE}}', esc(annee));
   // La note (*) du modèle date de 2015-2016 : elle vaut pour l'année de l'annexe.
   x = x.replace(/2015-2016/g, esc(annee));
