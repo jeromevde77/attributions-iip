@@ -82,6 +82,28 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
       for (const p of l) pres.set(`${p.seance_id}|${p.etudiant_id}`, p);
     }
   }
+  /* LES SÉANCES D'UN SOUS-GROUPE NE CONCERNENT QUE SES MEMBRES (3.5.579, Charles, UE 65 : « nous ne savons toujours pas mettre P » —
+     le cours 65.2 se donne en groupes A, B et C ; chaque étudiant voyait « NE » sur les séances des deux autres groupes, qu'aucun
+     « tous P » ne remplit et qui comptaient dans ses heures dues). Quand la répartition des groupes existe pour le cours (Organisation →
+     Répartition des étudiants), une séance d'un autre groupe que le sien est une case vide, hors compte. Une présence encodée quand
+     même reste lue. */
+  const membres = new Map();   // `${cours}|${groupe}` → Set(étudiants) ; un cours absent = pas de répartition connue
+  const coursRepartis = new Set();
+  try {
+    const sg = s.filter(x => x.sous_groupe);
+    if (sg.length) {
+      const annee = db.prepare('SELECT annee_scolaire a FROM horaire_seance WHERE id = ?').get(sg[0].id)?.a;
+      const cours = [...new Set(sg.map(x => x.cours_code))];
+      if (annee && cours.length) for (const g of db.prepare(`SELECT etudiant_id, cours_code, groupe_code FROM etudiant_cours_groupe
+          WHERE annee_scolaire = ? AND cours_code IN (${cours.map(() => '?').join(',')}) AND COALESCE(groupe_code, '') <> ''`).all(annee, ...cours)) {
+        const k = `${g.cours_code}|${String(g.groupe_code).trim().toUpperCase()}`;
+        if (!membres.has(k)) membres.set(k, new Set());
+        membres.get(k).add(g.etudiant_id); coursRepartis.add(g.cours_code);
+      }
+    }
+  } catch { /* pas de répartition : tout le monde reste concerné */ }
+  const horsGroupe = (x, etudId) => !!x.sous_groupe && coursRepartis.has(x.cours_code)
+    && !membres.get(`${x.cours_code}|${String(x.sous_groupe).trim().toUpperCase()}`)?.has(etudId);
   const tenue = x => !x.annule && x.date <= aujourdhui;
   const codeDe = p => (p.statut === 'present' ? (p.distance ? 'M' : 'P') + (p.retard ? '*' : '')
     : p.statut === 'justifie' ? (p.motif === 'medical' ? 'CM' : 'J') : (CODES[p.statut] || ''));
@@ -98,6 +120,7 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
       // que l'étudiant soit inscrit — case vide, hors compte. Une présence encodée quand même reste lue.
       const inscritLe = info.date_inscription ? String(info.date_inscription).slice(0, 10) : null;
       if (!p && inscritLe && x.date < inscritLe) return { code: '', statut: 'avant_inscription', motif: null };
+      if (!p && horsGroupe(x, e.id)) return { code: '', statut: 'hors_groupe', motif: null };
       // CODIPLOMATION (« CH ») : réputé assidu, la présence n'est pas due — une case non encodée reste vide, hors compte.
       if (!p && info.ch) return { code: '', statut: 'codiplomation', motif: null };
       // Une activité dont l'étudiant est dispensé (partiellement) ne lui est pas due : « D », hors compte.

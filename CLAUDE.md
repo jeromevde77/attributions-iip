@@ -4655,6 +4655,26 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.580 — tout le monde présent** (Charles : « une option de la direction ou du secrétariat pour mettre tout le monde présent » ;
+tranché : toutes les UE d'une section ou de l'école ; sous-groupes sans répartition laissés vides). Suivi des présences → Par UE, bouton
+« Toutes les UE <section> » / « … de l'école » à côté de la date : `POST /api/presences-ue/remplir-tout` (simulation puis écriture), la règle de
+« Remplir » écrite une fois (`aRemplir`, routes/presencesUE.js) : jamais une case encodée, une dispense, une séance d'un autre groupe ou
+d'avant l'inscription ; une UE en plusieurs organisations est nommée et laissée à la main.
+**3.5.579 — une séance de sous-groupe ne concerne que ses membres** (Charles, UE 65 : « nous ne savons toujours pas mettre P » — 65.2
+en groupes A, B, C : chacun voyait « NE » sur les séances des deux autres groupes, que « tous P » ne remplit jamais, comptées dans ses heures
+dues). `donneesGrille` (lib/grillePresence.js) : quand la répartition des groupes existe pour le cours (`etudiant_cours_groupe` de l'année),
+une séance d'un autre groupe = case vide, statut `hors_groupe`, hors compte (régularité comprise). Une présence encodée reste lue.
+**3.5.578 — le rôle décide** (Charles, après le bilan de « Ce que le contrôle a vu » : coordinations, secrétariat — rôle pour toutes et
+tous, Moiny et Perez comprises ; la conseillère qualité lit tout et écrit la Configuration). Migration marquée `acces_role_decide_2026_11_18`
+(permissions.js) : cases personnelles effacées pour `coordination`, `secretariat`, `conseiller_qualite`, l'octroi des aménagements gardé ;
+la qualité reçoit lecture partout, écriture de Configuration (l'atelier de l'unité s'écrit par /api/due et les affinements). L'écran du
+contrôle dit « refusé sur » en mode strict (il disait « perdrait »). Vider le registre ensuite pour mesurer sur une page blanche.
+**3.5.577 — imprimer n'est pas piloter** (Charles, 18 novembre 2026). Une pièce du catalogue des rapports se lit avec le module de
+son DOMAINE (`moduleDuRapport` : étudiants → Étudiants, personnel → Personnel, organisation → Organisation, gestion → Pilotage, dotation-* →
+Dotation), jugé par `rapportPermis` (routes/rapports.js, aperçu compris) ; affinements de `carteModules.js` : catalogue et
+`/:id/(apercu|document|xlsx)` sans module (la route juge), `mise-en-page` et `document-groupe` → Listes, `inscrits-unites|inscrits-grille`
+→ Étudiants ; les coûts des formations restent au Pilotage. Et `/api/conventions/a-signer` sans module (719 refus chez 46 professeurs :
+la route rend vide à qui n'est pas signataire).
 **3.5.576 — qui s'est connecté à son espace** (Charles : « comment voir facilement qui s'est connecté, et envoyer un mail à ceux qui ne le
 sont pas ? »). Mise en service → carte « Qui s'est connecté à son espace » (`QuiConnecte`, MiseEnService.jsx) : une section, une UE, ou tous
 les invités ; invitation, nombre, première et dernière connexion (`portail_connexion`) ; filtres ; « Relancer les n jamais connectés » =

@@ -210,6 +210,15 @@ const AFFINEMENTS = [
      les pondérations vivent sous /api/acquis, gardé par le module Étudiants, que la conseillère qualité n'a pas. Ces routes jugent
      elles-mêmes (fixerPonderation → droitsSurLUE : enseignants de l'unité, coordination de la section, fonctions de coordination ;
      la direction seule fixe). */
+  /* IMPRIMER N'EST PAS PILOTER (3.5.577, Charles) : une pièce du catalogue se juge à la route, avec le module de son domaine
+     (`rapportPermis`, routes/rapports.js) ; la mise en page d'une liste déjà composée à l'écran est une impression (Listes) ; les
+     inscrits par unité sont une liste d'étudiants. Le reste de /api/rapports (coûts des formations) reste au Pilotage. */
+  { motif: /^\/api\/rapports\/(catalogue|iip-helb\/reglages|[^/]+\/(apercu|document|xlsx))\/?$/, module: null },
+  { motif: /^\/api\/rapports\/(mise-en-page|document-groupe)\/?$/, module: 'listes' },
+  { motif: /^\/api\/rapports\/(inscrits-unites|inscrits-grille)\/?$/, module: 'etudiants' },
+  /* « À SIGNER » DU TABLEAU DE BORD (3.5.577 : 719 refus chez 46 professeurs) : la route juge elle-même — vide pour qui n'est pas le
+     signataire des conventions. Le tableau de bord de chacun la demande ; elle n'a pas à passer par le module des stages. */
+  { motif: /^\/api\/conventions\/a-signer\/?$/, module: null },
   /* CE QUE LA GRILLE DES ATTRIBUTIONS LIT DES NOMINATIONS (3.5.570 : 233 refus chez huit coordinations en un mois) : quelles lignes
      sont verrouillées par une nomination, quels cours en alerte, quelles pertes de charge. C'est une lecture de la grille des
      attributions ; le détail des nominations reste au module Personnel. */
