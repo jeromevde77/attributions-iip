@@ -15,8 +15,11 @@ const charger = f => (CACHE[f] ||= fetch(`/carte/${f}`).then(r => (r.ok ? r.json
 export function useCartes() {
   const [be, setBe] = useState(null);
   const [monde, setMonde] = useState(null);
-  useEffect(() => { charger('communes-be.json').then(setBe); charger('monde.json').then(setMonde); }, []);
-  return { be, monde };
+  const [europe, setEurope] = useState(null);
+  // L'EUROPE EN DÉTAIL (3.5.561, Charles : « la carte Europe est peu détaillée ») : Natural Earth au 1:50 M pour l'Europe
+  // (public/carte/europe.json), dans la projection de monde.json — elle se pose par-dessus, aux mêmes coordonnées.
+  useEffect(() => { charger('communes-be.json').then(setBe); charger('monde.json').then(setMonde); charger('europe.json').then(setEurope); }, []);
+  return { be, monde, europe };
 }
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -76,7 +79,7 @@ export function CarteDomicile({ be, parNis, base, quelle = 'bruxelles', vif = fa
 }
 
 export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, totalPays = 0 }) {
-  const { be, monde } = useCartes();
+  const { be, monde, europe } = useCartes();
   const [ouverte, setOuverte] = useState(null);   // 'bruxelles' | 'belgique' | 'monde'
   const [vu, setVu] = useState(null);
   const [avecBelgique, setAvecBelgique] = useState(false);
@@ -122,10 +125,10 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
     if (!Number.isFinite(x0)) return null;
     const m = 6; return `${Math.round(x0 - m)} ${Math.round(y0 - m)} ${Math.round(x1 - x0 + 2 * m)} ${Math.round(y1 - y0 + 2 * m)}`;
   }, [monde, boites]);
-  const svgMonde = (vif, cadre) => monde && (
+  const svgMonde = (vif, cadre, eur = false) => monde && (
     <svg viewBox={cadre || `0 0 ${monde.largeur} ${monde.hauteur}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet" role={vif ? 'img' : undefined} aria-label={vif ? 'Le monde : étudiants par nationalité' : undefined}>
-      {monde.pays.map(p => { const n = comptesMonde[p.iso] || 0; return (
-        <path key={`${p.iso}-${p.fr}`} d={p.d} strokeWidth={0.4} fillRule="evenodd" style={{ fill: teinte(n, baseMonde), stroke: 'rgb(var(--gris-300, 203 213 225))', cursor: vif ? 'pointer' : undefined }}
+      {(eur && europe ? [...monde.pays.filter(p => !europe.pays.some(q => q.iso === p.iso)), ...europe.pays] : monde.pays).map(p => { const n = comptesMonde[p.iso] || 0; return (
+        <path key={`${p.iso}-${p.fr}`} d={p.d} strokeWidth={eur ? 0.15 : 0.4} fillRule="evenodd" style={{ fill: teinte(n, baseMonde), stroke: 'rgb(var(--gris-300, 203 213 225))', cursor: vif ? 'pointer' : undefined }}
           {...(vif ? { onMouseEnter: () => setVu({ libelle: p.fr, n, base: baseMonde }), onMouseLeave: () => setVu(null), onClick: () => setVu({ libelle: p.fr, n, base: baseMonde }) } : {})}>
           {vif && <title>{`${p.fr} — ${k0(n)} étudiant(s)${n ? ` · ${pc1(n, baseMonde)}` : ''}`}</title>}
         </path>); })}
@@ -158,7 +161,7 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
     <div className="grid gap-3 grid-cols-2 mt-3">
       {grande('Bruxelles — domicile des étudiants', `${k0(nBxl)} Bruxellois · ${cBxl} commune(s) · part de chaque commune`, <CarteDomicile be={be} parNis={parNis} base={nBxl} quelle="bruxelles" />, <LegendeClasses />)}
       {grande('Belgique — domicile des étudiants', `${k0(total)} adresses belges · ${k0(Object.keys(parNis).length)} commune(s)`, <CarteDomicile be={be} parNis={parNis} base={total} quelle="belgique" />, <LegendeClasses />)}
-      {grande('Europe — nationalité des étudiants', 'Nationalités hors Belgique', svgMonde(false, cadreEurope), <LegendeClasses campus={false} />)}
+      {grande('Europe — nationalité des étudiants', 'Nationalités hors Belgique', svgMonde(false, cadreEurope, true), <LegendeClasses campus={false} />)}
       {grande('Le monde — nationalité des étudiants', `${k0(nationalites)} nationalité(s) hors Belgique · ${k0(horsBe)} étudiant(s)`, svgMonde(false, cadreMonde), <>{legendeMonde}<LegendeClasses campus={false} /></>)}
     </div>) : null;
 
@@ -166,23 +169,24 @@ export default function CarteCommunes({ parNis = {}, total = 0, pays = {}, total
     <>
       <div ref={racine} />
       {imprimees}
-      <div className={`grid gap-3 md:grid-cols-3 ${enImpression ? 'sans-impression' : ''}`}>
+      <div className={`grid gap-3 md:grid-cols-2 xl:grid-cols-4 ${enImpression ? 'sans-impression' : ''}`}>
         {tuile('bruxelles', k0(nBxl), 'à Bruxelles', `${pc(nBxl, total)} des adresses belges · ${cBxl} commune(s)`, <CarteDomicile be={be} parNis={parNis} base={nBxl} quelle="bruxelles" />)}
         {tuile('belgique', k0(total), 'adresses belges', `${k0(Object.keys(parNis).length)} commune(s) concernée(s)`, <CarteDomicile be={be} parNis={parNis} base={total} quelle="belgique" />)}
+        {tuile('europe', k0(Object.entries(parIso.r).filter(([c]) => c !== 'BE' && europe?.pays.some(q => q.iso === c)).reduce((t, [, n]) => t + n, 0)), 'Européens hors Belgique', 'nationalités d’Europe', svgMonde(false, cadreEurope, true), true)}
         {tuile('monde', k0(nationalites), 'nationalités hors Belgique', `${k0(horsBe)} étudiant(s)`, svgMonde(false, cadreMonde), true)}
       </div>
       {ouverte && (
-        <Fenetre titre={{ bruxelles: 'Bruxelles — domicile des étudiants', belgique: 'Belgique — domicile des étudiants', monde: 'Le monde — nationalité des étudiants' }[ouverte]}
-          sous={ouverte === 'monde' ? `${k0(totalPays)} étudiants dont la nationalité est renseignée` : ouverte === 'bruxelles' ? `${k0(nBxl)} Bruxellois · part de chaque commune parmi eux` : `${k0(total)} adresses belges · part de chaque commune`}
+        <Fenetre titre={{ bruxelles: 'Bruxelles — domicile des étudiants', belgique: 'Belgique — domicile des étudiants', europe: 'L’Europe — nationalité des étudiants', monde: 'Le monde — nationalité des étudiants' }[ouverte]}
+          sous={ouverte === 'monde' || ouverte === 'europe' ? `${k0(totalPays)} étudiants dont la nationalité est renseignée` : ouverte === 'bruxelles' ? `${k0(nBxl)} Bruxellois · part de chaque commune parmi eux` : `${k0(total)} adresses belges · part de chaque commune`}
           large="grande" onFermer={() => setOuverte(null)}>
           <div className="space-y-2">
-            {ouverte === 'monde' && (
+            {(ouverte === 'monde' || ouverte === 'europe') && (
               <label className="text-second text-slate-600 inline-flex items-center gap-1.5"><input type="checkbox" checked={avecBelgique} onChange={e => setAvecBelgique(e.target.checked)} /> Belgique comprise</label>)}
-            <div className="w-full" style={{ aspectRatio: ouverte === 'monde' ? `${monde?.largeur || 1000} / ${monde?.hauteur || 394}` : ouverte === 'belgique' ? `${be?.largeur || 1000} / ${be?.hauteur || 816}` : '1 / 1', maxHeight: '62vh' }}>
-              {ouverte === 'monde' ? svgMonde(true) : <CarteDomicile be={be} parNis={parNis} base={ouverte === 'bruxelles' ? nBxl : total} quelle={ouverte} vif onVu={setVu} />}
+            <div className="w-full" style={{ aspectRatio: ouverte === 'europe' ? '16 / 11' : ouverte === 'monde' ? `${monde?.largeur || 1000} / ${monde?.hauteur || 394}` : ouverte === 'belgique' ? `${be?.largeur || 1000} / ${be?.hauteur || 816}` : '1 / 1', maxHeight: '62vh' }}>
+              {ouverte === 'europe' ? svgMonde(true, cadreEurope, true) : ouverte === 'monde' ? svgMonde(true) : <CarteDomicile be={be} parNis={parNis} base={ouverte === 'bruxelles' ? nBxl : total} quelle={ouverte} vif onVu={setVu} />}
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <LegendeClasses campus={ouverte !== 'monde'} />
+              <LegendeClasses campus={ouverte !== 'monde' && ouverte !== 'europe'} />
               <div className="ml-auto text-second font-medium text-iip-texte min-h-[1.25rem]">{vu ? `${vu.libelle} — ${k0(vu.n)} étudiant(s)${vu.n ? ` · ${pc1(vu.n, vu.base)}` : ''}` : 'Survolez ou touchez une commune ou un pays.'}</div>
             </div>
             {ouverte === 'monde' && parIso.hors > 0 && <div className="text-mention text-slate-400">{k0(parIso.hors)} nationalité(s) encodée(s) hors de la liste des pays : pas sur la carte.</div>}

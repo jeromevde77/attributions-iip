@@ -9,6 +9,8 @@ import { Fenetre } from './ui.jsx';
 import { ETOILES, TRAITS, ECLAT, POINTS_L } from '../lib/logoVierge.js';
 import { useCartes, CLASSES } from './CarteCommunes.jsx';
 import { listePays } from '../lib/pays.js';
+import { lignesUCE } from './FinancementUCE.jsx';
+import { reglagesIipHelb } from './IipHelbGestion.jsx';
 
 /* LA PRÉSENTATION D'UNE SECTION (3.5.446, Charles, 14 novembre 2026 : « jeudi je dois présenter la section imagerie médicale au CA,
    sous tous les axes : chiffres de population, grandeurs qualitatives (sexe, provenance…), résultats des étudiants, points forts et
@@ -110,6 +112,7 @@ function svgCarte(b, cartes) {
 const ICONE_SECTION = { TIM: IconBone, Optométrie: IconEye, Orthoptie: IconEyeglass, Optique: IconEyeglass2, Psychomotricité: IconStretching,
   AeSI: IconStethoscope, Soins_plaies: IconBandage, ATNUP: IconDeviceDesktop };
 function svgIcone(b) {
+  if (b.section === 'TIM') return svgVisage(b);
   const Ic = ICONE_SECTION[b.section] || IconSchool, t = Math.min(b.w, b.h), r = t / 2;
   const picto = renderToStaticMarkup(<Ic size={t * 0.52} stroke={1.3} color="#FFFFFF" />).replace('<svg ', `<svg x="${(b.w - t * 0.52) / 2}" y="${(b.h - t * 0.52) / 2}" `);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${b.w} ${b.h}" width="100%" height="100%">`
@@ -131,6 +134,70 @@ function svgIsotype(b) {
   let out = '';
   for (let k = 0; k < 20; k++) { const femme = k < nf; out += sil((k % cols) * cw, Math.floor(k / cols) * rh, femme, femme ? C.helb : C.bleu); }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${b.w} ${b.h}" width="100%" height="100%">${out}</svg>`;
+}
+
+
+/* LES DESSINS DE LA FICHE D'UNE SECTION, DANS LA PRÉSENTATION (3.5.562, maquette des diapositives validée par Charles, 18 novembre
+   2026 : « construis-la telle quelle »). Des SVG — l'écran les pose tels quels, l'export PowerPoint les rend en image (`k: 'svg'`) :
+   les disques avec leur cercle de référence, les jauges empilées, les boîtes à moustaches ; et, pour TIM, un visage en constellation. */
+const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+function svgDisques(items, w, h, { cols = items.length, taille = 15 } = {}) {
+  const rows = Math.ceil(items.length / cols), cw = w / cols, ch = h / rows, d = Math.min(cw * 0.78, ch - taille * 3.4), r = d / 2 * 0.8, ri = r * 0.72;
+  const C1 = 2 * Math.PI * r, C2 = 2 * Math.PI * ri, ep = r * 0.25;
+  let o = '';
+  items.forEach((it, k) => {
+    const cx = (k % cols) * cw + cw / 2, cy = Math.floor(k / cols) * ch + d / 2 + 4, v = it.v == null ? null : Math.max(0, Math.min(100, Math.round(it.v))), rf = it.ref == null ? null : Math.max(0, Math.min(100, Math.round(it.ref)));
+    o += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#EDF0F4" stroke-width="${ep}"/>`;
+    if (v) o += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${it.c}" stroke-width="${ep}" stroke-dasharray="${(v / 100) * C1} ${C1}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    o += `<circle cx="${cx}" cy="${cy}" r="${ri}" fill="none" stroke="#EDF0F4" stroke-width="${ep * 0.3}"/>`;
+    if (rf) o += `<circle cx="${cx}" cy="${cy}" r="${ri}" fill="none" stroke="#7C8BA1" stroke-width="${ep * 0.3}" stroke-linecap="round" stroke-dasharray="${(rf / 100) * C2} ${C2}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    o += `<text x="${cx}" y="${cy + d * 0.08}" text-anchor="middle" font-size="${d * 0.17}" font-weight="700" fill="${C.encre}" font-family="${POLICE}">${v == null ? '—' : `${v} %`}</text>`;
+    o += `<text x="${cx}" y="${cy + d / 2 + taille * 1.5}" text-anchor="middle" font-size="${taille}" font-weight="700" fill="${C.encre}" font-family="${POLICE}">${esc(it.nom)}</text>`;
+    o += `<text x="${cx}" y="${cy + d / 2 + taille * 2.8}" text-anchor="middle" font-size="${taille * 0.9}" fill="${C.gris}" font-family="${POLICE}">${esc(it.refNom || 'IIP')} : ${rf == null ? 'non disponible' : `${rf} %`}</text>`;
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${o}</svg>`;
+}
+function svgJauges(rows, w, h, { lib = 260, taille = 15, haut = 18 } = {}) {
+  const pas = Math.min(haut * 2.1, h / Math.max(1, rows.length)), gx = lib + 12, gw = w - gx - 70;
+  let o = '';
+  rows.forEach((r0, k) => {
+    const y = k * pas + pas / 2, t = (r0.r + r0.a + r0.x) || 1; let x = gx;
+    o += `<text x="0" y="${y + taille * 0.35}" font-size="${taille}" fill="${C.encre}" font-family="${POLICE}" font-weight="${r0.fort ? 700 : 400}">${esc(String(r0.nom).length > 34 ? `${String(r0.nom).slice(0, 33)}…` : r0.nom)}</text>`;
+    o += `<rect x="${gx}" y="${y - haut / 2}" width="${gw}" height="${haut}" rx="4" fill="#EDF0F4"/>`;
+    [[r0.r, C.vert], [r0.a, C.ocre], [r0.x, C.brique]].forEach(([n, c]) => { const ww = (n / t) * gw; if (ww > 0) o += `<rect x="${x}" y="${y - haut / 2}" width="${ww}" height="${haut}" fill="${c}"/>`; x += ww; });
+    o += `<text x="${w}" y="${y + taille * 0.35}" text-anchor="end" font-size="${taille}" font-weight="600" fill="${C.encre}" font-family="${POLICE}">${r0.fin == null ? '—' : `${Math.round(r0.fin)} %`}</text>`;
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${o}</svg>`;
+}
+function svgBoites(rows, w, h) {
+  const X = v => 90 + v * ((w * 0.55 - 90) / 20), pas = Math.min(56, (h - 34) / Math.max(1, rows.length)), f1 = v => String(Math.round(v * 10) / 10).replace('.', ',');
+  let o = '';
+  [0, 5, 10, 15, 20].forEach(v => { o += `<line x1="${X(v)}" y1="0" x2="${X(v)}" y2="${h - 26}" stroke="${v === 10 ? C.encre : '#EDF0F4'}" ${v === 10 ? 'stroke-dasharray="4 3"' : ''}/>`; });
+  [0, 10, 20].forEach(v => { o += `<text x="${X(v)}" y="${h - 6}" text-anchor="middle" font-size="13" fill="${v === 10 ? C.encre : C.gris}" font-weight="${v === 10 ? 700 : 400}" font-family="${POLICE}">${v === 10 ? '10 · seuil' : v}</text>`; });
+  rows.forEach((b, k) => {
+    const y = 22 + k * pas, md = Array.isArray(b.mode) ? b.mode[0] : b.mode;
+    o += `<text x="0" y="${y + 5}" font-size="15" font-weight="${b.fort ? 700 : 500}" fill="${C.encre}" font-family="${POLICE}">${esc(b.nom)}</text>`;
+    o += `<line x1="${X(b.min)}" y1="${y}" x2="${X(b.q1)}" y2="${y}" stroke="#7C8BA1" stroke-width="2"/><line x1="${X(b.q3)}" y1="${y}" x2="${X(b.max)}" y2="${y}" stroke="#7C8BA1" stroke-width="2"/>`;
+    o += `<line x1="${X(b.min)}" y1="${y - 8}" x2="${X(b.min)}" y2="${y + 8}" stroke="#7C8BA1" stroke-width="2"/><line x1="${X(b.max)}" y1="${y - 8}" x2="${X(b.max)}" y2="${y + 8}" stroke="#7C8BA1" stroke-width="2"/>`;
+    o += `<rect x="${X(b.q1)}" y="${y - 13}" width="${Math.max(2, X(b.q3) - X(b.q1))}" height="26" rx="5" fill="${b.ref ? '#EDF0F4' : b.fort ? '#CFE3D7' : '#E3EEE8'}" stroke="${b.ref ? '#7C8BA1' : C.vert}" stroke-width="1.5"/>`;
+    o += `<line x1="${X(b.mediane)}" y1="${y - 13}" x2="${X(b.mediane)}" y2="${y + 13}" stroke="${C.encre}" stroke-width="3"/><circle cx="${X(b.moyenne)}" cy="${y}" r="6" fill="#fff" stroke="${C.encre}" stroke-width="2"/>`;
+    if (md != null) o += `<path d="M ${X(md) - 7} ${y - 20} L ${X(md) + 7} ${y - 20} L ${X(md)} ${y - 11} Z" fill="${C.or}"/>`;
+    o += `<text x="${w * 0.58}" y="${y + 5}" font-size="14" fill="${C.gris}" font-family="${POLICE}">médiane ${f1(b.mediane)} · moyenne ${f1(b.moyenne)}${md != null ? ` · mode ${f1(md)}` : ''} · ${f1(b.min)} → ${f1(b.max)}</text>`;
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${o}</svg>`;
+}
+/* LE VISAGE EN CONSTELLATION (TIM, maquette validée) : un profil dessiné d'étoiles reliées, à la manière du logo de Lucie, dans l'anneau
+   d'un scanner, une ligne de coupe dorée. */
+const VISAGE = { t1: [170, 120], t2: [230, 100], t3: [290, 118], t4: [335, 160], f1: [352, 210], n1: [362, 250], n2: [392, 290], n3: [362, 305], l1: [370, 328], l2: [358, 345], c1: [356, 372], c2: [326, 400], j1: [280, 404], k1: [262, 450], k2: [248, 520],
+  b1: [120, 160], b2: [96, 220], b3: [100, 290], b4: [130, 345], b5: [175, 380], o1: [300, 245], e1: [205, 280], i1: [210, 190], i2: [265, 175], i3: [160, 250], i4: [250, 250], i5: [205, 330] };
+const LIENS_VISAGE = 'b5-b4 b4-b3 b3-b2 b2-b1 b1-t1 t1-t2 t2-t3 t3-t4 t4-f1 f1-n1 n1-n2 n2-n3 n3-l1 l1-l2 l2-c1 c1-c2 c2-j1 j1-k1 k1-k2 b5-k1 i1-i2 i2-i4 i4-i3 i3-i1 i1-t2 i2-t4 i4-o1 o1-f1 i3-b2 i4-i5 i5-e1 e1-i3 i5-b5 o1-n1 i5-j1'.split(' ').map(x => x.split('-'));
+function svgVisage(b) {
+  const int = k => /^[ioe]/.test(k);
+  let o = `<circle cx="250" cy="300" r="250" fill="none" stroke="#05B7E6" stroke-opacity=".16" stroke-width="22"/><circle cx="250" cy="300" r="214" fill="none" stroke="#05B7E6" stroke-opacity=".12" stroke-width="2" stroke-dasharray="3 9"/>`
+    + `<line x1="40" y1="190" x2="460" y2="190" stroke="${C.or}" stroke-opacity=".6" stroke-width="1.5" stroke-dasharray="6 6"/>`;
+  LIENS_VISAGE.forEach(([a, z]) => { const i = int(a) || int(z); o += `<line x1="${VISAGE[a][0]}" y1="${VISAGE[a][1]}" x2="${VISAGE[z][0]}" y2="${VISAGE[z][1]}" stroke="#FFFFFF" stroke-opacity="${i ? 0.3 : 0.78}" stroke-width="${i ? 1 : 1.6}"/>`; });
+  Object.entries(VISAGE).forEach(([k, [x, y]]) => { o += `<circle cx="${x}" cy="${y}" r="${['o1', 'i2', 'n2', 't2'].includes(k) ? 5 : int(k) ? 2.6 : 3.6}" fill="${k === 'o1' ? C.or : int(k) ? '#7FD6F2' : '#FFFFFF'}"/>`; });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 620" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${o}</svg>`;
 }
 
 /* ------------------------------------------------------------------ LES DIAPOSITIVES ------------------------------------------- */
@@ -201,6 +268,28 @@ function composer(D, T, opts = {}) {
     precision ? { k: 'texte', x: x + 22, y: y + 76, w: w - 34, h: h - 80, texte: precision, taille: 12, couleur: C.gris } : null,
   ].filter(Boolean);
   const intertitreBloc = (x, y, w, txt) => ({ k: 'texte', x, y, w, h: 24, texte: txt, taille: 15, couleur: C.encre, gras: true });
+  /* UN TABLEAU EN BLOCS NATIFS (3.5.562) : du texte, modifiable dans le PowerPoint. `cols` : [[intitulé, largeur, align]] ; une ligne
+     `fort` = la ligne d'ensemble, en tête, sur fond pâle. `groupes` : [[intitulé, de, à, couleur]] au-dessus des en-têtes. */
+  const tableau = (x, y, w, cols, rows, { taille = 16, h = 40, groupes = [] } = {}) => {
+    const out = [], somme = cols.reduce((t, c) => t + c[1], 0), xs = []; let cx = x;
+    cols.forEach(c => { xs.push(cx); cx += (c[1] / somme) * w; });
+    const larg = i => (cols[i][1] / somme) * w;
+    let yy = y;
+    if (groupes.length) {
+      groupes.forEach(([lib, de, a, couleur]) => { const gx = xs[de], gw = xs[a] + larg(a) - xs[de];
+        out.push({ k: 'texte', x: gx, y: yy, w: gw, h: 22, texte: lib.toUpperCase(), taille: 11, couleur: C.gris, gras: true, align: 'center', espace: 1 },
+          { k: 'rect', x: gx + 4, y: yy + 24, w: gw - 8, h: 3, fond: couleur }); });
+      yy += 32;
+    }
+    cols.forEach((c, i) => out.push({ k: 'texte', x: xs[i] + 6, y: yy, w: larg(i) - 12, h: 26, texte: c[0].toUpperCase(), taille: 11, couleur: C.gris, gras: true, align: c[2] || 'left', espace: 1, vcentre: true }));
+    yy += 28; out.push({ k: 'rect', x, y: yy, w, h: 2, fond: C.titre }); yy += 2;
+    rows.forEach(r => {
+      if (r.fort) out.push({ k: 'rect', x, y: yy, w, h, fond: C.pale });
+      r.cells.forEach((v, i) => out.push({ k: 'texte', x: xs[i] + 6, y: yy, w: larg(i) - 12, h, texte: String(v ?? '—'), taille, couleur: r.couleurs?.[i] || C.encre, gras: !!r.fort || !!r.gras?.[i], align: cols[i][2] || 'left', vcentre: true }));
+      yy += h; out.push({ k: 'rect', x, y: yy, w, h: 1, fond: C.filet });
+    });
+    return out;
+  };
   const legendeClasses = (x, y, campus = false) => {
     const r = []; let cx = x;
     CLASSES.forEach(([l], i) => { r.push({ k: 'rect', x: cx, y: y + 3, w: 16, h: 12, fond: melange('#16406A', TONS[i]), rayon: 2 },
@@ -295,19 +384,17 @@ function composer(D, T, opts = {}) {
   separateur(2, 'Qui sont nos étudiants', 'Sexe, âge, nationalités, domicile, titre d’accès.', '◎');
   if (s.n) {
     const sexeConnu = (s.F || 0) + (s.M || 0) + (s.X || 0);
-    const bl = [...entete('Profil', `Des adultes, en majorité des ${(s.F || 0) >= (s.M || 0) ? 'femmes' : 'hommes'}`)];
-    bl.push(intertitreBloc(M, 140, 480, 'Sexe — une silhouette pour 5 %'));
-    bl.push({ k: 'isotype', x: M, y: 180, w: 470, h: 260, f: s.F, m: s.M });
-    bl.push({ k: 'texte', x: M, y: 462, w: 230, h: 60, texte: `${pc(s.F, sexeConnu)} %`, taille: 46, couleur: C.helb, gras: true },
-      { k: 'texte', x: M, y: 522, w: 230, h: 24, texte: `femmes · ${n0(s.F)}`, taille: 15, couleur: C.encre, gras: true },
-      { k: 'texte', x: M + 240, y: 462, w: 230, h: 60, texte: `${pc(s.M, sexeConnu)} %`, taille: 46, couleur: C.bleu, gras: true },
-      { k: 'texte', x: M + 240, y: 522, w: 230, h: 24, texte: `hommes · ${n0(s.M)}`, taille: 15, couleur: C.encre, gras: true });
-    const ages = [['< 25 ans', s.m25], ['25-34 ans', s.m35], ['35-44 ans', s.m45], ['45 ans et +', s.p45]];
-    bl.push({ k: 'graphe', type: 'barres', x: M + 520, y: 140, w: 400, h: 440, categories: ages.map(a => a[0]), series: [{ nom: 'Étudiants', valeurs: ages.map(a => a[1] || 0), couleur: C.bleu }], titre: 'Âge' });
-    bl.push(...tuileSombre(M + 950, 150, CW - 950, 200, `${n0(s.age_moyen)} ans`, 'âge moyen', iipEns.age_moyen ? `IIP : ${n0(iipEns.age_moyen)} ans` : ''));
-    bl.push(...tuileClaire(M + 950, 370, CW - 950, 200, `${pc(s.F, sexeConnu)} %`, 'de femmes', iipEns.n ? `IIP : ${pc(iipEns.F, (iipEns.F || 0) + (iipEns.M || 0) + (iipEns.X || 0))} %` : '', C.helb));
+    /* LES ÉTUDIANTS EN DISQUES (3.5.562, maquette validée) : l'anneau = la section, le cercle intérieur = l'IIP ; à droite, les inscrits
+       année par année. */
+    const bl = [...entete('Population', `Les étudiants : ${n0(derniere?.n || s.n)} inscrits${premiere && derniere && evo.length > 1 && premiere.n ? `, ${derniere.n >= premiere.n ? '+' : '−'}${Math.abs(pc(derniere.n - (evo[evo.length - 2]?.n || premiere.n), evo[evo.length - 2]?.n || premiere.n))} % en un an` : ''}`)];
+    const V = k => LS?.[k] ?? null, R = k => LI?.[k] ?? null;
+    bl.push({ k: 'svg', x: M, y: 140, w: 700, h: 450, svg: svgDisques([
+      { nom: 'Femmes', v: V('femmes') ?? pc(s.F, sexeConnu), ref: R('femmes'), c: C.nuit }, { nom: 'Primo-inscrits', v: V('primo') ?? pc(s.primo, s.n), ref: R('primo'), c: '#05B7E6' },
+      { nom: 'Domicile à Bruxelles', v: V('bruxelles'), ref: R('bruxelles'), c: C.iip }, { nom: 'Hors UE', v: V('hors_ue') ?? pc(s.hors_ue, s.n), ref: R('hors_ue'), c: C.or },
+      { nom: 'Réussite 1re session', v: V('reussite_s1'), ref: R('reussite_s1'), c: C.vert }], 700, 450, { cols: 3, taille: 16 }) });
+    if (evo.length) bl.push({ k: 'graphe', type: 'barres', x: M + 740, y: 140, w: CW - 740, h: 450, categories: evo.slice(-5).map(e => court(e.annee)), series: [{ nom: 'Inscrits', valeurs: evo.slice(-5).map(e => e.n), couleur: C.iip }], titre: 'Inscrits, année par année' });
     bl.push(...retenir('sexe', `${pc(s.F, sexeConnu)} % de femmes, ${n0(s.age_moyen)} ans en moyenne : un public d’adultes en reprise d’études.`));
-    ajouter({ id: 'sexe', blocs: bl, notes: t('notes.sexe', 'Comparaison avec l’ensemble de l’IIP dans les tuiles de droite.'), notesCle: 'notes.sexe' });
+    ajouter({ id: 'sexe', blocs: bl, notes: t('notes.sexe', 'L’anneau de couleur : la section ; le cercle gris intérieur : l’ensemble de l’IIP.'), notesCle: 'notes.sexe' });
 
     const pays = Object.entries(s.pays || {}).sort((a, b) => b[1] - a[1]).slice(0, 8);
     const bl2 = [...entete('Profil', pc(s.hors_ue, s.n) >= 30 ? 'Une section ouverte sur le monde' : 'Les nationalités')];
@@ -484,14 +571,17 @@ function composer(D, T, opts = {}) {
     const avecHelb = Ya.some(y => y.etp_helb > 0);
     const n2 = v => (v || 0).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const etp = y => y.etp_iip + y.etp_helb;
-    const bl = [...entete('Les enseignants', `La charge d’enseignement depuis ${AT.premiere}`)];
-    bl.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: CW - 380, h: 450, categories: cat, unite: '',
-      series: [{ nom: 'IIP', valeurs: Ya.map(y => Math.round(y.etp_iip * 10) / 10), couleur: C.iip },
-        ...(avecHelb ? [{ nom: 'HELB', valeurs: Ya.map(y => Math.round(y.etp_helb * 10) / 10), couleur: C.helb }] : [])],
-      titre: avecHelb ? 'ETP d’enseignement, IIP et HELB' : 'ETP d’enseignement' });
-    bl.push(...tuileSombre(W - M - 350, 150, 350, 190, n2(etp(aN)), `ETP en ${aN.annee}`, `${n0(aN.per_iip + aN.per_helb)} périodes attribuées${Ya.length > 1 ? ` · ${n2(etp(a0))} ETP en ${a0.annee}` : ''}`));
-    if (avecHelb) bl.push(...tuileClaire(W - M - 350, 360, 350, 110, `${pc(aN.etp_helb, etp(aN))} %`, 'portés par la HELB', `${n2(aN.etp_helb)} ETP en ${aN.annee}${Ya.length > 1 ? ` · ${pc(a0.etp_helb, etp(a0))} % en ${a0.annee}` : ''}`, C.helb));
-    if (Ya.length > 1 && etp(a0)) bl.push(...tuileClaire(W - M - 350, avecHelb ? 486 : 360, 350, 110, `${etp(aN) >= etp(a0) ? '+' : '−'}${Math.abs(Math.round((etp(aN) / etp(a0) - 1) * 100))} %`, `depuis ${a0.annee}`, 'la charge d’enseignement', C.vert));
+    /* LA CHARGE SUR TROIS ANS ET QUI ENSEIGNE (3.5.562, maquette validée). */
+    const Y3 = Ya.slice(-3), cat3 = Y3.map(y => `${y.annee.slice(2, 4)}-${y.annee.slice(7, 9)}`);
+    const st0 = (y, k, c) => y.statuts?.[k]?.[c] || 0;
+    const bl = [...entete('Les enseignants', Y3.length > 1 ? `La charge passe de ${n2(etp(Y3[0]))} à ${n2(etp(aN))} ETP` : `La charge d’enseignement en ${aN.annee}`)];
+    bl.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: 640, h: 450, categories: cat3, unite: '', decimales: 2,
+      series: [{ nom: 'IIP', valeurs: Y3.map(y => Math.round(y.etp_iip * 100) / 100), couleur: C.iip },
+        ...(avecHelb ? [{ nom: 'HELB', valeurs: Y3.map(y => Math.round(y.etp_helb * 100) / 100), couleur: '#05B7E6' }] : [])],
+      titre: 'ETP d’enseignement, IIP et HELB' });
+    const ccI = st0(aN, 'CC', 'etp_iip'), ma = st0(aN, 'CC', 'etp_helb'), ex = st0(aN, 'EXP', 'etp_iip') + st0(aN, 'EXP', 'etp_helb');
+    bl.push({ k: 'graphe', type: 'donut', x: M + 680, y: 140, w: CW - 680, h: 450, categories: ['Chargés de cours IIP', 'MA / MFP HELB', 'Experts et invités'],
+      series: [{ nom: 'ETP', valeurs: [ccI, ma, ex].map(v => Math.round(v * 100) / 100) }], couleurs: [C.nuit, '#05B7E6', C.or], titre: `Qui enseigne en ${aN.annee}` });
     bl.push(...retenir('attributions', Ya.length > 1
       ? `De ${n2(etp(a0))} à ${n2(etp(aN))} ETP d’enseignement entre ${a0.annee} et ${aN.annee}${avecHelb ? ` ; la HELB en porte ${pc(aN.etp_helb, etp(aN))} %.` : '.'}`
       : `${n2(etp(aN))} ETP d’enseignement en ${aN.annee}.`));
@@ -530,13 +620,14 @@ function composer(D, T, opts = {}) {
     const noms = [...new Set(SE.ues.map(blocDe))].sort();
     const somme = (b, k) => SE.ues.filter(u => blocDe(u) === b).reduce((t, u) => t + (u[k] || 0), 0);
     const coord = SE.etp_coord_helb || 0, cours = SE.etp_total || 0;
-    const bl = [...entete('Les enseignants', `La charge ${SE.annee || annee}, bloc par bloc`)];
-    bl.push({ k: 'graphe', type: 'empile', x: M, y: 140, w: CW - 380, h: 450, categories: noms, unite: '', decimales: 2,
-      series: [{ nom: 'IIP', valeurs: noms.map(b => Math.round(somme(b, 'etp_iip') * 100) / 100), couleur: C.iip },
-        { nom: 'HELB', valeurs: noms.map(b => Math.round(somme(b, 'etp_helb') * 100) / 100), couleur: C.helb }],
-      titre: 'ETP d’enseignement par bloc, IIP et HELB' });
-    bl.push(...tuileSombre(W - M - 350, 150, 350, 190, n2(cours + coord), 'ETP au total', `${n2(cours)} de cours${coord ? ` · ${n2(coord)} de coordination HELB` : ''}`));
-    if (SE.nb_etudiants && cours + coord) bl.push(...tuileClaire(W - M - 350, 360, 350, 110, (SE.nb_etudiants / (cours + coord)).toLocaleString('fr-BE', { maximumFractionDigits: 1 }), 'étudiants par ETP', `${n0(SE.nb_etudiants)} étudiants`, C.vert));
+    /* UN SEUL TABLEAU (3.5.562, maquette validée) : l'ensemble en tête, les blocs, les coordinations HELB en pied. */
+    const bl = [...entete('Les enseignants', `Les attributions de ${SE.annee || annee}, bloc par bloc`)];
+    const per = us => n0(us.reduce((t, u) => t + (u.per_ct || 0) + (u.per_pp || 0) + (u.per_ct_helb || 0) + (u.per_pp_helb || 0), 0));
+    const lig = (lib, us, fort) => ({ fort, cells: [lib, us.length, per(us), n2(us.reduce((t, u) => t + (u.etp_iip || 0), 0)), n2(us.reduce((t, u) => t + (u.etp_helb || 0), 0)), n2(us.reduce((t, u) => t + (u.etp_total || 0), 0))] });
+    bl.push(...tableau(M, 140, CW, [['Bloc', 3], ['UE', 1, 'right'], ['Périodes', 1.4, 'right'], ['ETP IIP', 1.3, 'right'], ['ETP HELB', 1.3, 'right'], ['Total', 1.3, 'right']], [
+      lig('Ensemble', SE.ues, true), ...noms.map(b => lig(b, SE.ues.filter(u => blocDe(u) === b))),
+      ...(coord ? [{ cells: [`Coordinations HELB (${(SE.coord_helb || []).length})`, '', '', '—', n2(coord), n2(coord)], couleurs: [C.gris, C.gris, C.gris, C.gris, C.gris, C.gris] }] : []),
+    ], { taille: 18, h: 46 }));
     bl.push(...retenir('chargeblocs', `${noms.map(b => `${b} : ${n2(somme(b, 'etp_total'))} ETP`).join(' · ')}.`));
     ajouter({ id: 'chargeblocs', blocs: bl, notes: t('notes.chargeblocs', 'Le détail unité par unité est dans le dossier imprimé (2.1 Attributions). ETP : CT ÷ 800, PP ÷ 1 000.'), notesCle: 'notes.chargeblocs' });
     if ((SE.coord_helb || []).length) {
@@ -547,6 +638,35 @@ function composer(D, T, opts = {}) {
       bl2.push(...retenir('coordhelb', `La HELB finance ${n2(coord)} ETP de coordination : pédagogie, cursus, stages et TFE.`));
       ajouter({ id: 'coordhelb', blocs: bl2, notes: t('notes.coordhelb', 'Postes financés directement par la HELB : ils ne sont pas prélevés sur la dotation de périodes de l’IIP.'), notesCle: 'notes.coordhelb' });
     }
+  }
+  /* LES ENSEIGNANTS EN DISQUES, RANGÉS PAR TYPE (3.5.562, maquette validée) : population du personnel de la section, l'IIP en référence. */
+  const PS = D.pers?.sections?.find(x => x.section === section) || null, PI = D.pers?.ensemble || null;
+  if (PS?.n) {
+    const part = (o, k, base) => { const b = o && base(o); return b ? ((o[k] || 0) / b) * 100 : null; };
+    const sexe = o => o.F + o.M + o.X, age = o => o.a35 + o.a45 + o.a55 + o.p55, nat = o => o.be + o.ue + o.hors_ue, dom = o => o.bruxelles + o.wallonie + o.flandre, tous = o => o.n;
+    const dq = (nom, k, base, c) => ({ nom, v: part(PS, k, base), ref: PI ? part(PI, k, base) : null, c });
+    const etpS = PS.etp_section ?? PS.etp;
+    const bl = [...entete('Les enseignants', `Les enseignants : ${n0(PS.n)} personnes, ${(etpS || 0).toLocaleString('fr-BE', { maximumFractionDigits: 2 })} ETP`)];
+    const LSx = lec?.sections?.find(x => x.section === section);
+    const ch = [[LSx?.etc_etp != null ? n1(LSx.etc_etp) : '—', 'étudiants par ETP', LI?.etc_etp != null ? `IIP : ${n1(LI.etc_etp)}` : ''],
+      [LSx?.taille_groupes != null ? n1(LSx.taille_groupes) : '—', 'étudiants par groupe', LI?.taille_groupes != null ? `IIP : ${n1(LI.taille_groupes)}` : ''],
+      [PS.age_moyen != null ? `${Math.round(PS.age_moyen)} ans` : '—', 'âge moyen', PI?.age_moyen != null ? `IIP : ${Math.round(PI.age_moyen)} ans` : ''],
+      [(etpS || 0).toLocaleString('fr-BE', { maximumFractionDigits: 2 }), `ETP · ${n0(PS.n)} membres`, PI ? `IIP : ${(PI.etp || 0).toLocaleString('fr-BE', { maximumFractionDigits: 2 })} ETP` : '']];
+    const w4 = CW / 4;
+    bl.push({ k: 'rect', x: M, y: 132, w: CW, h: 1, fond: C.filet }, { k: 'rect', x: M, y: 232, w: CW, h: 1, fond: C.filet });
+    ch.forEach(([v, l, r], k) => bl.push({ k: 'texte', x: M + k * w4 + 14, y: 140, w: w4 - 20, h: 40, texte: v, taille: 28, couleur: C.encre, gras: true },
+      { k: 'texte', x: M + k * w4 + 14, y: 180, w: w4 - 20, h: 22, texte: l, taille: 14, couleur: C.encre }, { k: 'texte', x: M + k * w4 + 14, y: 202, w: w4 - 20, h: 22, texte: r, taille: 13, couleur: C.gris }));
+    const G = [['Profil', [dq('Femmes', 'F', sexe, C.nuit), dq('55 ans et +', 'p55', age, C.iip)]],
+      ['Statut', [dq('Chargés de cours', 'cc', tous, C.nuit), dq('Experts', 'exp', tous, C.or), dq('Définitifs', 'definitif', tous, C.vert)]],
+      ['Contrat et qualification', [dq('Contrat HELB', 'helb', tous, '#05B7E6'), dq('CAPAES', 'capaes', tous, C.iip)]],
+      ['Origine', [dq('Bruxelles', 'bruxelles', dom, C.iip), dq('Belges', 'be', nat, C.or)]]];
+    const parts = [2, 3, 2, 2], tot = 9; let gx = M;
+    G.forEach(([titre, ds], k) => { const gw = (parts[k] / tot) * CW;
+      bl.push({ k: 'texte', x: gx + 10, y: 248, w: gw - 20, h: 22, texte: titre.toUpperCase(), taille: 11, couleur: C.gris, gras: true, espace: 1 },
+        { k: 'svg', x: gx, y: 274, w: gw, h: 320, svg: svgDisques(ds, gw, 320, { cols: ds.length, taille: 14 }) });
+      if (k) bl.push({ k: 'rect', x: gx, y: 248, w: 1, h: 340, fond: C.filet });
+      gx += gw; });
+    ajouter({ id: 'enseignants', blocs: bl, notes: t('notes.enseignants', 'L’anneau de couleur : la section ; le cercle gris intérieur : l’ensemble de l’IIP. Lucie n’a pas les fiches du personnel de la HELB.'), notesCle: 'notes.enseignants' });
   }
 
   /* PARTIE 5 — LE BILAN */
@@ -671,7 +791,7 @@ function composer(D, T, opts = {}) {
     sep(1, 'Statistiques annuelles de population', 'Les inscriptions, puis la provenance des étudiants.', '◎');
     prendre('croissance', 'place', 'sexe', 'acces', 'nationalites', 'europe', 'domicile');
     sep(2, 'Évolution des attributions depuis l’ouverture', 'Qui enseigne, la charge de chaque école, puis où se situe la section.', '⇄');
-    prendre('attributions', 'equipe', 'chargeblocs', 'coordhelb', 'finances', 'comptes');
+    prendre('attributions', 'equipe', 'enseignants', 'chargeblocs', 'coordhelb', 'finances', 'comptes');
     sep(3, 'Statistiques de réussite', 'Première session, seconde session, et ce qui reste au final.', '✓');
     prendre('decisions', 'blocs', 'unites');
     sep(4, 'Évolution du dossier pédagogique', '', '✎');
@@ -788,6 +908,7 @@ function Bloc({ b, logo, editer, onEditer, cartes, anim }) {
   if (b.k === 'carte') return <div style={pos} dangerouslySetInnerHTML={{ __html: svgCarte(b, cartes) }} />;
   if (b.k === 'isotype') return <div style={pos} dangerouslySetInnerHTML={{ __html: svgIsotype(b) }} />;
   if (b.k === 'icone') return <div style={pos} dangerouslySetInnerHTML={{ __html: svgIcone(b) }} />;
+  if (b.k === 'svg') return <div style={pos} dangerouslySetInnerHTML={{ __html: b.svg }} />;
   if (b.k === 'liste') return (
     <ul onClick={() => editer && b.edit && onEditer(b.edit)} style={{ ...pos, ...marque, margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 14, fontSize: b.taille, color: b.couleur, lineHeight: 1.35 }}>
       {b.items.map((it, i) => (
@@ -864,8 +985,8 @@ async function exporterPptx(diapos, { titre, logo, logoRatio, nomFichier, cartes
           const h = b.h, w = Math.min(b.w, h * (logoRatio || 2));
           sl.addImage({ data: logo.replace(/^data:/, ''), x: IN(b.x), y: IN(b.y), w: IN(w), h: IN(h) });
         }
-      } else if (b.k === 'carte' || b.k === 'isotype' || b.k === 'icone') {
-        const svg = b.k === 'carte' ? svgCarte(b, cartes) : b.k === 'icone' ? svgIcone(b) : svgIsotype(b);
+      } else if (b.k === 'carte' || b.k === 'isotype' || b.k === 'icone' || b.k === 'svg') {
+        const svg = b.k === 'svg' ? b.svg : b.k === 'carte' ? svgCarte(b, cartes) : b.k === 'icone' ? svgIcone(b) : svgIsotype(b);
         if (svg) sl.addImage({ data: (await svgEnPng(svg, b.w, b.h)).replace(/^data:/, ''), ...geo });
       } else if (b.k === 'vierge') {
         // La figure, dessinée en formes : traits, étoiles, le L.
@@ -953,13 +1074,17 @@ export default function PresentationSection() {
     let vivant = true; setD(null); setErreur(null);
     const j = u => fetch(u, { headers: authHeaders() }).then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.error || `Erreur ${r.status}`); return x; });
     (async () => {
-      const [pop, lec, txt, attr, etpTout, budget] = await Promise.all([
+      const coutLu = (() => { try { const c = reglagesIipHelb().mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })();
+      const [pop, lec, txt, attr, etpTout, budget, pers, iiphelb] = await Promise.all([
         j(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`),
         j(`/api/pilotage/lecture?annee=${encodeURIComponent(annee)}${tour ? '&recalculer=1' : ''}`).catch(() => null),
         j(`/api/pilotage/presentation/${encodeURIComponent(section)}`).catch(() => ({ textes: {} })),
         j(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}&cout=${(() => { try { const c = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages?.mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })()}`).catch(() => null),
         j(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`).catch(() => null),
         j(`/api/budget/section?section=${encodeURIComponent(section)}`).catch(() => null),
+        // La fiche d'une section, dans la présentation (3.5.562) : les enseignants, le calcul en UCE.
+        j(`/api/pilotage/population-personnel?annee=${encodeURIComponent(annee)}`).catch(() => null),
+        j(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}&cout=${coutLu}`).catch(() => null),
       ]);
       const evo = (pop.evolution || []).filter(e => (e.par_section?.[section] || 0) > 0).map(e => e.annee);
       const anneesRes = [...new Set(evo)].filter(a => a <= annee).sort();
@@ -967,10 +1092,14 @@ export default function PresentationSection() {
         const [sec, iip] = await Promise.all([j(`/api/stats-deliberation?annee=${a}&section=${encodeURIComponent(section)}`).catch(() => null), j(`/api/stats-deliberation?annee=${a}`).catch(() => null)]);
         return { annee: a, sec, iip };
       }));
+      // La distribution des notes d'unité (boîtes à moustaches) : la dernière année délibérée, la section et l'IIP.
+      const aRes = [...stats].reverse().find(x => x.sec?.total?.s1?.decides)?.annee || annee;
+      const [dist, distIip] = await Promise.all([j(`/api/stats-deliberation/distributions?annee=${aRes}&section=${encodeURIComponent(section)}`).catch(() => null),
+        j(`/api/stats-deliberation/distributions?annee=${aRes}`).catch(() => null)]);
       if (!vivant) return;
       setTextes(txt.textes || {});
       const etp = (etpTout?.sections || []).find(x => x.section === section) || null;
-      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee, attr, budget, etp: etp ? { ...etp, annee } : null });
+      setD({ section, nom: NOMS_SECTION[section] || section, pop, stats, lec, annee, attr, budget, etp: etp ? { ...etp, annee } : null, pers, uce: iiphelb ? lignesUCE(iiphelb, reglagesIipHelb()) : null, dist, distIip });
     })().catch(e => vivant && setErreur(e.message));
     return () => { vivant = false; };
   }, [section, annee, tour]);

@@ -17,6 +17,21 @@ const signe = n => (n == null ? '—' : `${n >= 0 ? '+' : '−'}${Math.abs(Math.
 const n1 = n => (n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('fr-BE'));
 const court = a => `${String(a).slice(2, 4)}-${String(a).slice(7, 9)}`;
 
+/** Les lignes du calcul en UCE, année par année (3.5.562 : partagées avec la présentation d'une section). */
+export function lignesUCE(d, reglages) {
+  if (!d) return { lignes: [], PH: null, mes: null };
+  const { HY, PH, mes, u95 } = chiffresIipHelb(d, reglages);
+  const lignes = HY.map(({ y, h }) => {
+    const deb = Number(String(y.annee).slice(0, 4));
+    const m1 = muceInfo(deb, PH), m2 = muceInfo(deb + 1, PH);
+    const rapporte = h.allocation + h.droits, coute = h.salaires + h.autres + h.fonct;
+    return { annee: y.annee, lisses: h.base, financement: h.allocation, muce: m1.valeur * 4 / 12 + m2.valeur * 8 / 12, estimee: m1.estimee || m2.estimee,
+      di: h.droits, salH: h.salaires + h.autres, materiel: h.fonct, solde: rapporte - coute, rapporte, coute, parEtp: h.parEtp,
+      apport: (mes?.admin === 'oui' ? (y.admin?.part || 0) : 0) + (u95 ? u95(y) : 0), admin: mes?.admin === 'oui' ? (y.admin?.part || 0) : 0, aide: u95 ? u95(y) : 0, salI: y.coutI };
+  });
+  return { lignes, PH, mes };
+}
+
 export default function FinancementUCE({ section, refsEtp = null }) {
   const reglages = useMemo(() => reglagesIipHelb(), []);
   const [d, setD] = useState(null);
@@ -30,15 +45,7 @@ export default function FinancementUCE({ section, refsEtp = null }) {
       .catch(e => vivant && setErreur(e.message));
     return () => { vivant = false; };
   }, [section, reglages]);
-  const { HY, PH, mes, u95 } = useMemo(() => (d ? chiffresIipHelb(d, reglages) : { HY: [], PH: null }), [d, reglages]);
-  const lignes = useMemo(() => HY.map(({ y, h }) => {
-    const deb = Number(String(y.annee).slice(0, 4));
-    const m1 = muceInfo(deb, PH), m2 = muceInfo(deb + 1, PH);
-    const rapporte = h.allocation + h.droits, coute = h.salaires + h.autres + h.fonct;
-    return { annee: y.annee, lisses: h.base, financement: h.allocation, muce: m1.valeur * 4 / 12 + m2.valeur * 8 / 12, estimee: m1.estimee || m2.estimee,
-      di: h.droits, salH: h.salaires + h.autres, materiel: h.fonct, solde: rapporte - coute, rapporte, coute, parEtp: h.parEtp,
-      apport: (mes?.admin === 'oui' ? (y.admin?.part || 0) : 0) + (u95 ? u95(y) : 0), admin: mes?.admin === 'oui' ? (y.admin?.part || 0) : 0, aide: u95 ? u95(y) : 0, salI: y.coutI };
-  }), [HY, PH, mes, u95]);
+  const { lignes, PH, mes } = useMemo(() => lignesUCE(d, reglages), [d, reglages]);
 
   if (erreur) return <Encadre etat="corriger" titre={erreur} />;
   if (!d) return <ChargementLucie texte="Lucie calcule le financement en UCE…" />;
