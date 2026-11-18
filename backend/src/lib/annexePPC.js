@@ -52,7 +52,8 @@ function bornesAnnee(annee) {
 export function calculerPPC(annee) {
   const { debut, fin } = bornesAnnee(annee);
   const noms = db.prepare(`SELECT n.professeur_id pid, n.ue_num, n.periodes, UPPER(COALESCE(n.type_charge, 'CT')) f, p.nom, p.prenom
-    FROM nomination_definitive n JOIN professeur p ON p.id = n.professeur_id WHERE COALESCE(n.actif, 1) = 1 AND n.periodes > 0`).all();
+    FROM nomination_definitive n JOIN professeur p ON p.id = n.professeur_id WHERE COALESCE(n.actif, 1) = 1 AND n.periodes > 0
+      AND UPPER(COALESCE(n.type_charge, 'CT')) IN ('CT', 'PP', 'CG', 'CS', 'CTPP', 'PPM')`).all();   // le personnel non chargé de cours n'est pas concerné
   const parProf = new Map();
   for (const n of noms) {
     if (!parProf.has(n.pid)) parProf.set(n.pid, { nom: `${String(n.nom || '').toUpperCase()} ${n.prenom || ''}`.trim(), def: new Map() });

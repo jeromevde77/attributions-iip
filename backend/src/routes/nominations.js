@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, exigerPerimetreProfesseur, soiSeul } from '../middleware/auth.js';
+import { lireNominationsDocx, simulerImport, ecrireImport } from '../lib/importNominations.js';
 
 const r = Router();
 
@@ -52,6 +53,22 @@ r.patch('/:id', authRequired, exigerPerimetreProfesseur, roleRequired('admin', '
 r.delete('/:id', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
   db.prepare('UPDATE nomination_definitive SET actif = 0 WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
+});
+
+// POST /nominations/import — le Word « MDP définitifs » (3.5.567) : simulation d'abord, `ecrire` ensuite ; `remplacer` = fiches dont
+// les nominations actives sont remplacées.
+r.post('/import', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  try {
+    const b64 = String(req.body?.fichier || '').replace(/^data:[^,]*,/, '');
+    if (!b64) return res.status(400).json({ error: 'Fichier Word requis.' });
+    const personnes = await lireNominationsDocx(Buffer.from(b64, 'base64'));
+    if (!personnes.length) return res.status(400).json({ error: 'Aucune personne lue : le tableau attendu a les colonnes Nom et prénom · Fonction / Cours · Périodes · Total · Niveau.' });
+    const remplacer = (Array.isArray(req.body?.remplacer) ? req.body.remplacer : []).map(Number);
+    const sim = simulerImport(personnes, remplacer);
+    if (!req.body?.ecrire) return res.json({ simulation: true, personnes: sim });
+    const n = ecrireImport(sim, req.user?.nom_complet || req.user?.email);
+    res.json({ ecrit: n, personnes: simulerImport(personnes, []) });
+  } catch (e) { res.status(400).json({ error: `Lecture impossible : ${e.message}` }); }
 });
 
 // ─── Verrous : attributions verrouillées par une nomination ───────────────────

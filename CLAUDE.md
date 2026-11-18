@@ -4708,6 +4708,11 @@ une ligne clonée par ligne, l'année, le réseau coché, la date, signature et 
 `/ppc/document?format=docx|pdf`. Fenêtre `components/AnnexePPC.jsx` (Éditions → Personnel → Tout le personnel). **Le calcul ne vaut que
 ce que valent les nominations encodées** (fiche → Nominations) : au 18 novembre 2026, quatre définitifs seulement.
 
+**3.5.567 — l'import des nominations** (Charles : « prépare-moi un import des nominations ») : fenêtre de l'annexe → « Importer les
+nominations (Word) » (`lib/importNominations.js`, `POST /api/nominations/import`, simulation puis `ecrire`) lit le tableau « MDP
+définitifs » (Nom et prénom · Fonction / Cours avec CT, PP… en fin de libellé · Périodes · Total · Niveau, une ligne par paragraphe),
+retrouve la fiche (`professeurExistant`), ne touche une personne déjà encodée que si l'on coche « remplacer » (anciennes inactives) ;
+une fonction sans suffixe (éducateur, chef d'atelier) entre en `AUTRE` et reste hors de l'annexe (personnel non chargé de cours).
 **3.5.566** (tranché par Charles) : la charge perdue est TOUTE la charge nommée de la fonction ; le rappel = ce qui est attribué dans
 cette fonction et ce niveau (+ hors fonctions nommées sur la première ligne) ; payées non prestées = nommé − rappel ; tout nommé encodé a
 sa ligne ; le supérieur s'écrit « DS » (« c'est pour l'admin, on suit la circulaire »). Une saisie enregistrée l'emporte : « Reprendre le
