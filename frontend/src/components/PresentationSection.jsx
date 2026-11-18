@@ -11,6 +11,7 @@ import { useCartes, CLASSES } from './CarteCommunes.jsx';
 import { listePays } from '../lib/pays.js';
 import { lignesUCE } from './FinancementUCE.jsx';
 import { reglagesIipHelb } from './IipHelbGestion.jsx';
+import { anneeBudget } from './BudgetSection.jsx';
 
 /* LA PRÉSENTATION D'UNE SECTION (3.5.446, Charles, 14 novembre 2026 : « jeudi je dois présenter la section imagerie médicale au CA,
    sous tous les axes : chiffres de population, grandeurs qualitatives (sexe, provenance…), résultats des étudiants, points forts et
@@ -1081,7 +1082,7 @@ export default function PresentationSection() {
         j(`/api/pilotage/presentation/${encodeURIComponent(section)}`).catch(() => ({ textes: {} })),
         j(`/api/pilotage/evolution-attributions?section=${encodeURIComponent(section)}&cout=${(() => { try { const c = JSON.parse(localStorage.getItem('lucie.iipHelb') || '{}').reglages?.mesures?.cout; return c === 'reel' || c === 'titres' ? 'reel' : 'convention'; } catch { return 'convention'; } })()}`).catch(() => null),
         j(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`).catch(() => null),
-        j(`/api/budget/section?section=${encodeURIComponent(section)}`).catch(() => null),
+        j(`/api/budget/section?section=${encodeURIComponent(section)}&annees=${anneeBudget()}`).catch(() => null),
         // La fiche d'une section, dans la présentation (3.5.562) : les enseignants, le calcul en UCE.
         j(`/api/pilotage/population-personnel?annee=${encodeURIComponent(annee)}`).catch(() => null),
         j(`/api/pilotage/iip-helb?section=${encodeURIComponent(section)}&cout=${coutLu}`).catch(() => null),

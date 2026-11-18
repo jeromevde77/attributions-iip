@@ -92,8 +92,12 @@ export function Compare({ section, c, focus = false }) {
   </>);
 }
 
+/* L'ANNÉE QUI SE PRÉPARE (3.5.573, Charles : « 2026 n'a pas d'intérêt, on va en 2027 ») : à partir de septembre, le budget qu'on
+   présente est celui de l'année civile suivante ; avant, celui de l'année en cours. Une seule année, sauf si l'écran en demande d'autres. */
+export function anneeBudget(d = new Date()) { return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); }
+
 export default function BudgetSection({ section, annees = null, focus = false, resume = false }) {
-  const d = useBudgetSection(section, annees);
+  const d = useBudgetSection(section, annees || [anneeBudget()]);
   const comp = useBudgetCompare(d?.annees?.map(a => a.annee));
   if (!d) return <p className="text-second text-slate-400">Lecture du budget…</p>;
   if (d.erreur) return <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{d.erreur}</div>;
