@@ -83,8 +83,9 @@ function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   // Le lissage du décret (art. 17) : la formule de baseDecret (lib/rapportIipHelb.js), recopiée — qui change l'une change l'autre.
   const n = Math.max(1, Math.round(P.lissage || 3)), deb = Number(y.annee.slice(0, 4));
   const civile = C => { let s = 0; for (let k = 2; k < 2 + n; k++) s += (inscritsDe(`${C - k}-${C - k + 1}`) || 0) * P.part / 100; return s / n; };
-  const base = civile(deb) * 4 / 12 + civile(deb + 1) * 8 / 12;
-  const allocation = (civile(deb) * 4 / 12 * muceDe(deb, P) + civile(deb + 1) * 8 / 12 * muceDe(deb + 1, P)) * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
+  // Les étudiants lissés : la moyenne des trois années académiques précédentes × la part comptée (3.5.555, recopie de baseDecret).
+  const base = civile(deb + 1);
+  const allocation = base * (muceDe(deb, P) * 4 / 12 + muceDe(deb + 1, P) * 8 / 12) * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
   const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = salairesHelb(y, P, avecCoord), autres = salaires * P.autres / 100;
   const fonct = P.mode_fonct === 'forfait' ? allocation * P.fonctionnement / 100 : (materiel || 0);
   const cout = salaires + autres + fonct;

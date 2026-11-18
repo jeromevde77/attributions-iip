@@ -492,16 +492,16 @@ export function salairesHelb(y, P, avecCoord = true) {
 export function baseDecret(deb, P, inscritsDe) {
   const n = Math.max(1, Math.round(P.lissage || 3));
   const civile = C => { let s = 0; for (let k = 2; k < 2 + n; k++) s += (inscritsDe(`${C - k}-${C - k + 1}`) || 0) * P.part / 100; return s / n; };
-  if (P._part === 'debut') return civile(deb) * 4 / 12;
-  if (P._part === 'fin') return civile(deb + 1) * 8 / 12;
-  return civile(deb) * 4 / 12 + civile(deb + 1) * 8 / 12;
+  // LES ÉTUDIANTS LISSÉS D'UNE ANNÉE ACADÉMIQUE (3.5.555, Charles : « (117 + 206 + 306) / 2 / 3 ») : la moyenne des trois années
+  // académiques PRÉCÉDENTES × la part comptée. (L'année civile garde sa règle : `allocationCivile`, `financementDecret`.)
+  return civile(deb + 1);
 }
 export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0, materiel = null) {
   const comptes = y.inscrits * P.part / 100;
   const deb = Number(String(y.annee).slice(0, 4));
   const base = baseDecret(deb, P, inscritsDe);
-  // Chaque part civile au prix de SON année (4/12 de l'année où elle commence, 8/12 de la suivante).
-  const allocation = base ? (baseDecret(deb, { ...P, _part: 'debut' }, inscritsDe) * muceDe(deb, P) + baseDecret(deb, { ...P, _part: 'fin' }, inscritsDe) * muceDe(deb + 1, P)) * P.ponderation : 0;
+  // La MUCE d'une année académique : 4/12 de celle de l'année civile où elle commence, 8/12 de la suivante.
+  const allocation = base * (muceDe(deb, P) * 4 / 12 + muceDe(deb + 1, P) * 8 / 12) * P.ponderation;
   const droits = y.tiers ? 0 : (y.recettes || 0);
   const recettes = allocation + droits;
   const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0);
@@ -984,8 +984,11 @@ export function donneesIipHelb(section, anneesDemandees, { unite = 'periodes', c
       statuts: parCle(l => `${{ CC: 'Chargés de cours', EXP: 'Experts et invités', AUTRE: 'Autres statuts' }[l.statut]} · ${l.nature === 'ES' ? 'stages' : l.nature === 'EI' ? 'épreuve intégrée' : l.nature === 'Cours' ? 'cours' : 'coordination et autres'}`) };
   });
   // Les inscrits de chaque année de la section, pour le lissage de l'allocation (années hors du choix comprises).
+  // LES INSCRITS DE RÉFÉRENCE FONT FOI (3.5.555, Charles : « on tombe sur environ 106 étudiants lissés » — Lucie lisait ses propres
+  // inscriptions, incomplètes avant 2025, et TIM en avait 28) : Gestion → Population, toutes les années connues ; Lucie à défaut.
   const inscrits_annees = {};
   for (const a of toutes) { try { inscrits_annees[a] = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { inscrits_annees[a] = 0; } }
+  try { for (const r of db.prepare('SELECT annee_scolaire a, total FROM inscrits_reference WHERE section = ? AND total IS NOT NULL').all(section)) inscrits_annees[r.a] = r.total; } catch { /* sans référence */ }
   // L'ETP QUE DÉCLARE LA HELB (3.5.464, Charles : « les deux côte à côte ») : la comparaison ETP de la HELB, quand elle connaît la section.
   const cursusHe = COMPARAISON_HE.cursus.find(c => c.dept !== 'IIP' && c.tim && section === 'TIM');
   const etp_declare_helb = Object.fromEntries(Object.entries(cursusHe?.series || {}).map(([a, v]) => [a, v[1]]));

@@ -4646,6 +4646,10 @@ tête, ses filtres = ceux de l'étape 2 via `reglagesIipHelb()`), comptes et bud
 **Le graphique de l'étape 3** (3.5.554, Charles : « sur la colonne verte, ajouter les UCE lissés ; la rose, en bleu ») : barres empilées
 — vert = financement UCE (étudiants lissés, leur nombre au-dessus) + DI et FI (vert pâle) ; bleu (`--c-disponible`) = salaires HELB +
 matériel (bleu pâle). Tuiles et en-têtes du tableau suivent : rapporte en vert, coûte en bleu.
+**Les étudiants lissés d'une année académique** (3.5.555, Charles : « (117 + 206 + 306) / 2 / 3 ») : la moyenne des TROIS années
+académiques précédentes × la part comptée (50 %) — `baseDecret` et sa recopie dans `IipHelbGestion.jsx` ; la MUCE d'une année
+académique reste 4/12 + 8/12 des années civiles. Les inscrits viennent des inscrits de RÉFÉRENCE (Gestion → Population,
+`inscrits_reference`), Lucie à défaut : TIM n'en avait que 28 (ses inscriptions d'avant 2025 sont incomplètes).
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
