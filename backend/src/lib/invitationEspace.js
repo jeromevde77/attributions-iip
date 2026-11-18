@@ -91,3 +91,25 @@ export function inscritsUE(ue, annee = null) {
   return db.prepare(`SELECT DISTINCT i.etudiant_id id FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.ue_num = ? AND i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') NOT IN ('archive', 'sorti')`).all(Number(ue), a).map(x => x.id);
 }
+
+/* QUI S'EST CONNECTÉ (3.5.576, Charles : « comment voir facilement qui s'est connecté, et envoyer un mail à ceux qui ne le sont pas ? »).
+   Les étudiants d'une section, d'une UE, ou — sans choix — tous ceux déjà invités : dernière invitation, nombre d'invitations,
+   première et dernière connexion à l'espace (`portail_connexion`, relevée du portail). La relance passe par `inviter` (deja = true). */
+export function suiviInvitations({ section = null, ue = null } = {}) {
+  migrerInvitation();
+  let ids;
+  if (ue) ids = inscritsUE(Number(ue));
+  else if (section) ids = db.prepare(`SELECT id FROM etudiant WHERE section_rattachement = ? AND COALESCE(actif, 1) = 1`).all(String(section)).map(x => x.id);
+  else ids = db.prepare('SELECT DISTINCT etudiant_id id FROM portail_invitation').all().map(x => x.id);
+  const lignes = [];
+  for (const id of [...new Set(ids)]) {
+    const e = db.prepare('SELECT id, nom, prenom, email_ecole, sortie_statut, section_rattachement FROM etudiant WHERE id = ?').get(id);
+    if (!e) continue;
+    const inv = db.prepare(`SELECT MAX(le) le, COUNT(*) n FROM portail_invitation WHERE etudiant_id = ? AND statut <> 'echec'`).get(id) || {};
+    let c = {}; try { c = db.prepare('SELECT MIN(le) premiere, MAX(le) derniere, COUNT(*) n FROM portail_connexion WHERE etudiant_id = ?').get(id) || {}; } catch { c = {}; }
+    lignes.push({ id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), section: e.section_rattachement || null, email: e.email_ecole || null,
+      invitable: invitable(e).ok, invite_le: inv.le || null, invitations: inv.n || 0, premiere: c.premiere || null, derniere: c.derniere || null, connexions: c.n || 0 });
+  }
+  lignes.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  return { lignes, invites: lignes.filter(l => l.invite_le).length, connectes: lignes.filter(l => l.premiere).length };
+}
