@@ -262,21 +262,17 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                 </div>}
                 {etape === 3 && <div className="space-y-4">
                   {estDirection && <FinancementUCE section={S.section} refsEtp={{ IIP: d.iip?.etc_etp ?? null, ASBL: d.asbl?.etu_etp ?? d.asbl?.etc_etp ?? null }} />}
-                  <details className="carte px-4 py-3">
-                    <summary className="cursor-pointer font-semibold" style={{ color: 'var(--c-principal)' }}>Les comptes de l’ASBL et les indicateurs de coût de {S.section} (pour information)</summary>
-                    <div className="pt-3 space-y-3"><Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille="fin" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} sansPistes /></div>
-                  </details>
-                  {estDirection && <details className="carte px-4 py-3">
-                    <summary className="cursor-pointer font-semibold" style={{ color: 'var(--c-principal)' }}>Le budget prévu</summary>
-                    <div className="pt-3"><BudgetSection section={S.section} focus /></div>
-                  </details>}
+                  {/* LES COMPTES DE L'ASBL QUITTENT LA FICHE (3.5.557, Charles : « de trop, fait double emploi ») : le calcul en UCE
+                      ci-dessus dit ce que la section rapporte et coûte ; les bilans restent dans Gestion → L'école. Et pas de cadre
+                      dans le cadre : le budget se pose sous son intertitre. */}
+                  {estDirection && <><div className="intertitre">Le budget prévu</div><BudgetSection section={S.section} focus /></>}
                 </div>}
                 {etape === 4 && <div className="space-y-4">
                   <ReussiteSection section={S.section} annee={d.resultats_annee || annee}
                     refs={{ IIP: { s1: d.iip?.reussite_s1 ?? null, final: d.iip?.reussite_finale ?? null }, ASBL: { s1: d.asbl?.reussite_s1 ?? null, final: d.asbl?.reussite_finale ?? null } }} />
                   <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="res" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
-                  <details className="carte px-4 py-3">
-                    <summary className="cursor-pointer font-semibold" style={{ color: 'var(--c-principal)' }}>Le détail, en tableaux</summary>
+                  <details>
+                    <summary className="cursor-pointer intertitre">Le détail, en tableaux</summary>
                     <div className="pt-3"><StatsDeliberation annee={d.resultats_annee || annee} initial={{ section: S.section }} /></div>
                   </details>
                 </div>}

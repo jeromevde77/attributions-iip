@@ -4655,6 +4655,10 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**Les comptes de l'ASBL quittent la fiche** (3.5.557, Charles : « de trop, fait double emploi ; supprime partout les doubles cadres ») :
+l'étape 3 = le calcul en UCE et le budget prévu (sous un intertitre, plus dans un `<details>` encadré) ; les bilans restent dans
+Gestion → L'école. Le détail en tableaux de l'étape 4 se déplie sous un intertitre, sans carte autour. **Une carte ne se pose jamais
+dans une carte** : un `<details>`, une tuile ou un tableau dans une carte perd son cadre (`Chiffres`, `!border-0`).
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
