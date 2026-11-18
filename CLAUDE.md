@@ -4655,6 +4655,9 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.573** (Charles : « 2026 n'a pas d'intérêt, on va en 2027 ») : le budget prévu d'une section (fiche, Composer, dossier COPIL,
+présentation) ne montre que l'année qui se prépare — `anneeBudget()` (BudgetSection.jsx) : l'année civile suivante à partir de
+septembre, l'année en cours avant.
 **3.5.572 — le visage du TIM sur la couverture du dossier COPIL** (projet v2 validé par Charles : « un demi-visage de face en étoiles
 liées, collé au bord droit ; Spica dans l'œil, au centre, qui brille ; sans écrire son nom »). `svgVisageTim` (DossierCopil.jsx),
 `ILLUSTRATION_COUVERTURE` par section (une autre section n'a pas d'illustration), `.kit-couv-illustration` (index.css : 36 % de la
