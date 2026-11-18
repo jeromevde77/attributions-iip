@@ -4616,6 +4616,11 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LES LISTES ET RAPPORTS SE PRODUISENT EN LECTURE** (3.5.544, Mati : « Inscrits par unité » refusé, « pas le droit de modifier
+ce module (pilotage) »). `actionDe` (`carteModules.js`) comptait comme ÉCRITURE les POST de `/api/rapports/:id/apercu`, `/document`,
+`/inscrits-unites`… : un rôle qui LIT le module (secrétariat) ne sortait plus ses listes. Tout `/api/rapports/` est désormais une
+lecture (aucune de ses routes n'écrit). **Une route de rapports qui écrirait un jour devra vivre ailleurs.**
+
 **LE BLOCAGE HORS DE BELGIQUE EST LEVÉ** (3.5.543, Charles, 17 novembre 2026 : « enlève ce blocage, je sens que ça va nous faire
 des soucis » — une étudiante d'essai refusée en Belgique). `PORTAIL_GEO` vaut « constat » par défaut : l'accès étranger ou par VPN est
 NOTÉ dans le journal du portail, jamais refusé (espaces étudiant et enseignant). `PORTAIL_GEO=bloquer` le rétablit ; les listes, le
