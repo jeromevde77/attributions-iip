@@ -10,7 +10,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, couleurSerie } from './graphiques.jsx';
 import { TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 import { RatiosEtp } from './RapportStatistique.jsx';
-import { Disque, ComparerA, Partie } from './Disques.jsx';
+import { Disque, ComparerA, Partie, Chiffres } from './Disques.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const e2 = n => (n || 0).toFixed(2).replace('.', ',');
@@ -157,15 +157,13 @@ function Compare({ v, iip, section, etpVue, lec }) {
   ];
   return (
     <Partie titre="Les enseignants" sous={`${k0(v.n)} membres · ${e2(etpVue)} ETP · rangés par type`} droite={<ComparerA valeur={ref} onChange={setRef} />}>
-      <div className="p-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
-        {tuiles.map(([val, lib, r]) => (
-          <TuileEtat key={lib} valeur={val} libelle={lib} precision={`${ref} : ${r == null ? 'non disponible' : typeof r === 'number' ? f1(r) : r}`} />))}
-      </div>
-      <div className="px-4 pb-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+      {/* SANS CADRE DANS LE CADRE (3.5.556) : les chiffres en ligne, puis les groupes séparés par un filet. */}
+      <Chiffres items={tuiles.map(([val, lib, r]) => [val, lib, `${ref} : ${r == null ? 'non disponible' : typeof r === 'number' ? f1(r) : r}`])} />
+      <div className="grid border-t border-slate-100 divide-x divide-slate-100" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
         {GROUPES.map(([titre, ds]) => (
-          <div key={titre} className="border border-slate-200 rounded-carte p-3 space-y-2">
+          <div key={titre} className="px-4 py-3 space-y-2">
             <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{titre}</div>
-            <div className="flex flex-wrap justify-around gap-3">{ds.map(x => <Disque key={x.nom} {...x} nomRef={ref} taille={96} />)}</div>
+            <div className="flex flex-wrap justify-around gap-3">{ds.map(x => <Disque key={x.nom} {...x} nomRef={ref} />)}</div>
           </div>))}
       </div>
       {!lec && <div className="px-4 pb-3 text-mention text-slate-400">Les ratios de l’IIP et de l’ASBL se chargent…</div>}

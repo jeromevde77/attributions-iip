@@ -248,10 +248,10 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                     return (
                       <Partie titre="Les étudiants" sous={`${n0(S.inscrits)} inscrits au 15/10 · ${IND.croissance.f(S.croissance)} sur un an · âge moyen ${IND.age.f(S.age)}`}
                         droite={<ComparerA valeur={refEtu} onChange={setRefEtu} />}>
-                        <div className="p-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+                        <div className="px-4 py-3 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                           {D.map(([nom, k, c]) => <Disque key={k} nom={nom} valeur={S[k]} reference={R[k] ?? null} nomRef={refEtu} couleur={c} />)}
                         </div>
-                        <div className="px-4 pb-3 text-mention text-slate-500">Anneau plein : {S.section} · fin trait gris intérieur : {refEtu === 'ASBL' ? 'l’ASBL (quand la HELB publie le chiffre)' : 'l’IIP'}.</div>
+                        <div className="px-4 pb-3 text-mention text-slate-500">Anneau : {S.section} · anneau jaune intérieur : {refEtu === 'ASBL' ? 'l’ASBL (quand la HELB publie le chiffre)' : 'l’IIP'}.</div>
                       </Partie>);
                   })()}
                   <PersonnelEcole annee={annee} initial={{ section: S.section }} />

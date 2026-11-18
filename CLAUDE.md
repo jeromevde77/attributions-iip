@@ -4650,6 +4650,11 @@ matériel (bleu pâle). Tuiles et en-têtes du tableau suivent : rapporte en ver
 académiques précédentes × la part comptée (50 %) — `baseDecret` et sa recopie dans `IipHelbGestion.jsx` ; la MUCE d'une année
 académique reste 4/12 + 8/12 des années civiles. Les inscrits viennent des inscrits de RÉFÉRENCE (Gestion → Population,
 `inscrits_reference`), Lucie à défaut : TIM n'en avait que 28 (ses inscriptions d'avant 2025 sont incomplètes).
+**Un seul dessin** (3.5.556, Charles : « une unicité dans le design ; enlève les doubles cadres ; réduis un peu ; le cercle IIP/ASBL en
+jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau`) et la première couleur des séries pour TOUS les
+disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
+des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
+L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
