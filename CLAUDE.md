@@ -4708,7 +4708,10 @@ une ligne clonée par ligne, l'année, le réseau coché, la date, signature et 
 `/ppc/document?format=docx|pdf`. Fenêtre `components/AnnexePPC.jsx` (Éditions → Personnel → Tout le personnel). **Le calcul ne vaut que
 ce que valent les nominations encodées** (fiche → Nominations) : au 18 novembre 2026, quatre définitifs seulement.
 
-**3.5.565** (Charles : « la mise en page ne va pas ») : les rangées du modèle à hauteur « exact » passent en « au moins » (titre tronqué,
+**3.5.566** (tranché par Charles) : la charge perdue est TOUTE la charge nommée de la fonction ; le rappel = ce qui est attribué dans
+cette fonction et ce niveau (+ hors fonctions nommées sur la première ligne) ; payées non prestées = nommé − rappel ; tout nommé encodé a
+sa ligne ; le supérieur s'écrit « DS » (« c'est pour l'admin, on suit la circulaire »). Une saisie enregistrée l'emporte : « Reprendre le
+calcul » dans la fenêtre. **3.5.565** (Charles : « la mise en page ne va pas ») : les rangées du modèle à hauteur « exact » passent en « au moins » (titre tronqué,
 cachet hors de sa case) ; l'image du serveur reçoit Carlito et Caladea (largeurs de Calibri et Cambria) pour les modèles Word ; les dates
 de l'annexe = première et dernière semaine du calendrier des cours. **Seuls les nommés ENCODÉS comptent** : un enseignant nommé absent
 de `nomination_definitive` (VAN GOETHEM, KOENIG en 2025-2026, « temporaires » dans Lucie) n'apparaît pas — fiche → Nominations.

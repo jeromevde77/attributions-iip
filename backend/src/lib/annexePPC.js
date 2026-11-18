@@ -34,7 +34,8 @@ function niveauDe(section) {
   const n = String(db.prepare('SELECT niveau FROM section WHERE code = ?').get(section)?.niveau || '').toLowerCase();
   if (/secondaire\s*inf|^di$/.test(n)) return 'SI';
   if (/secondaire|^ds$/.test(n)) return 'SS';
-  return 'SU';
+  // Le supérieur s'écrit « DS » (Charles, 18 novembre 2026 : « DS, c'est pour l'admin — étrange, je sais ; on suit la circulaire »).
+  return 'DS';
 }
 const sectionDeUE = ue => db.prepare('SELECT section FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1').get(ue)?.section || null;
 const fr = iso => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '');
@@ -67,20 +68,19 @@ export function calculerPPC(annee) {
       const k = `${a.f === 'PP' ? 'PP' : 'CT'}|${niveauDe(a.section)}`;
       att.set(k, (att.get(k) || 0) + Number(a.per || 0));
     }
-    // Les pertes, fonction par fonction ; le rappel = ce qui est attribué hors des fonctions nommées, et le surplus.
-    const pertes = [], rappels = [];
-    for (const [k, d] of P.def) { const a = att.get(k) || 0; if (d - a > 0.5) pertes.push({ k, d, a, perdu: d - a }); else if (a - d > 0.5) rappels.push({ k, per: a - d }); }
-    for (const [k, a] of att) if (!P.def.has(k) && a > 0.5) rappels.push({ k, per: a });
-    if (!pertes.length) continue;
-    let reste = rappels.reduce((t, r) => t + r.per / div(r.k.split('|')[0]), 0);   // en ETP
-    const txtRappel = rappels.map(r => { const [f, n] = r.k.split('|'); return `${Math.round(r.per)}/${div(f)} ${n} (${f})`; }).join('\n');
-    pertes.forEach((p, i) => {
-      const [f, n] = p.k.split('|'), dv = div(f);
-      const imp = Math.min(p.perdu, reste * dv); reste -= imp / dv;
-      const rappelLigne = [p.a > 0.5 ? `${Math.round(p.a)}/${dv} ${n} (${f}) conservées` : '', i === 0 ? txtRappel : ''].filter(Boolean).join('\n');
-      lignes.push({ professeur_id: pid, nom: P.nom, fonction: `${f}/${n}`, nature: p.a > 0.5 ? 'PPC' : 'D', perte: `${Math.round(p.perdu)}/${dv} ${n}`,
-        date_perte: debut, rappel: imp > 0.5 ? `${rappelLigne}${rappelLigne ? '\n' : ''}→ ${Math.round(imp)}/${dv} en rappel` : (rappelLigne || '/'), date_fin_rappel: imp > 0.5 ? fin : '/',
-        non_prestees: `${Math.max(0, Math.round(p.perdu - imp))}/${dv}`, remarques: '' });
+    /* LA RÈGLE DE L'IIP (3.5.566, Charles : « toute la charge nommée ») : une ligne par fonction et niveau nommés ; la charge perdue
+       est TOUTE la charge nommée ; le rappel à l'activité est ce qui lui est attribué cette année dans cette fonction et ce niveau ;
+       ce qui est attribué hors des fonctions nommées s'ajoute au rappel de la première ligne. D quand rien n'est attribué dans la
+       fonction, PPC sinon. Payées et non prestées = nommé − rappel, jamais sous zéro. */
+    const hors = [...att].filter(([k, a]) => !P.def.has(k) && a > 0.5);
+    [...P.def].forEach(([k, d], i) => {
+      const [f, n] = k.split('|'), dv = div(f), a = att.get(k) || 0;
+      const rap = [a > 0.5 ? `${Math.round(a)}/${dv} ${n} (${f})` : '', ...(i === 0 ? hors.map(([kk, aa]) => { const [ff, nn] = kk.split('|'); return `${Math.round(aa)}/${div(ff)} ${nn} (${ff})`; }) : [])].filter(Boolean);
+      const horsEtp = i === 0 ? hors.reduce((t, [kk, aa]) => t + aa / div(kk.split('|')[0]), 0) : 0;
+      const prestees = a + horsEtp * dv;
+      lignes.push({ professeur_id: pid, nom: P.nom, fonction: `${f}/${n}`, nature: a > 0.5 ? 'PPC' : 'D', perte: `${Math.round(d)}/${dv} ${n}`,
+        date_perte: debut, rappel: rap.length ? rap.join('\n') : '/', date_fin_rappel: rap.length ? fin : '/',
+        non_prestees: `${Math.max(0, Math.round(d - prestees))}/${dv}`, remarques: '' });
     });
   }
   return { annee, lignes, debut, fin };

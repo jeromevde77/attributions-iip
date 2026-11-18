@@ -67,9 +67,10 @@ export default function FenetreAnnexePPC({ onFermer }) {
       {!d ? <p className="text-second text-slate-400">Lucie calcule…</p> : (
         <div className="space-y-3">
           <Encadre etat="neutre" titre="Comment Lucie calcule">
-            Pour chaque membre nommé à titre définitif : ses périodes nommées, fonction par fonction (CT, PP) et niveau (SU, SS, SI), moins ce qui lui est attribué cette année
-            dans la même fonction et le même niveau (IIP, hors congé). Plus rien d’attribué : <b>D</b> ; une partie : <b>PPC</b>. Ce qui lui est attribué ailleurs est un rappel
-            à l’activité ; il réduit les périodes payées et non prestées (CT ÷ 800, PP ÷ 1 000). Chaque case se corrige.
+            Une ligne par membre nommé à titre définitif, par fonction (CT, PP) et niveau (DS pour le supérieur, SS, SI) : la charge perdue
+            est <b>toute la charge nommée</b> ; le rappel à l'activité, ce qui lui est attribué cette année dans cette fonction (IIP, hors
+            congé), plus ce qui lui est attribué ailleurs. Rien d'attribué : <b>D</b> ; sinon <b>PPC</b>. Payées et non prestées = nommé −
+            rappel. Seuls les nommés encodés comptent (fiche → Nominations). Chaque case se corrige.
             {d.saisie && <> Dernier enregistrement {d.saisie.par ? `par ${d.saisie.par} ` : ''}le {String(d.saisie.maj_le || '').slice(0, 10).split('-').reverse().join('/')}.</>}
           </Encadre>
           <div className="flex flex-wrap items-center gap-3 text-second">
