@@ -252,7 +252,7 @@ function composer(D, T, opts = {}) {
       { k: 'rect', x: M, y: 612, w: CW, h: 56, fond: C.pale, rayon: 0 },
       { k: 'rect', x: M, y: 612, w: 5, h: 56, fond: C.or },
       { k: 'texte', x: M + 22, y: 612, w: 120, h: 56, texte: 'À RETENIR', taille: 11, couleur: C.ocre, gras: true, espace: 1.5, vcentre: true },
-      { k: 'texte', x: M + 140, y: 612, w: CW - 160, h: 56, texte: txt, taille: 17, couleur: C.encre, italique: true, vcentre: true, edit: `retenir.${cle}` },
+      { k: 'texte', x: M + 140, y: 612, w: CW - 160, h: 56, texte: txt, taille: String(txt).length > 230 ? 14 : String(txt).length > 190 ? 15.5 : 17, couleur: C.encre, italique: true, vcentre: true, edit: `retenir.${cle}` },
     ];
   };
   const tuileSombre = (x, y, w, h, valeur, libelle, precision, couleur = C.tuile) => [
@@ -525,16 +525,18 @@ function composer(D, T, opts = {}) {
     if (comptes.length) {
       const avecReel = comptes.some(x => x.ajout);
       const bl2 = [...entete('Finances', avecReel ? 'Ce que la section coûte et rapporte vraiment à l’ASBL' : 'Dans les comptes de l’ASBL')];
-      bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 140, w: CW - 380, h: 450, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : x.estimation ? ' (estimation)' : ' (budget)'}`), unite: ' k€',
+      // Les valeurs sans « k€ » (le titre le dit) : sur une colonne étroite, l'unité passait à la ligne et sortait du cadre.
+      bl2.push({ k: 'graphe', type: 'groupes', x: M, y: 150, w: CW - 380, h: 440, categories: comptes.map(x => `${x.annee}${x.nature === 'réalisé' ? '' : x.estimation ? ' (estimation)' : ' (budget)'}`), unite: '',
         series: [{ nom: 'Charges ASBL', valeurs: comptes.map(x => Math.round(x.charges / 1000)), couleur: C.brique }, { nom: 'Produits', valeurs: comptes.map(x => Math.round(x.produits / 1000)), couleur: C.vert },
           // Les enseignants de l'IIP, payés par la Fédération, hors comptes de l'ASBL (3.5.498) : une colonne à part, jamais dans le résultat.
           ...(comptes.some(x => x.mdp) ? [{ nom: 'Enseignants IIP (Fédération)', valeurs: comptes.map(x => Math.round((x.mdp || 0) / 1000)), couleur: C.iip }] : [])],
         titre: avecReel ? 'Charges ASBL (enseignants HELB compris), produits, et à part les enseignants IIP payés par la Fédération — en k€' : 'Charges et produits de la section, en milliers d’euros' });
       if (dernierCompte) {
-        bl2.push(...tuileSombre(W - M - 350, 150, 350, 200, `${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))}`, `résultat ${avecReel ? 'réel ' : ''}${dernierCompte.annee}`, avecReel ? `comptable ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))} · enseignants HELB imputés ailleurs −${e0(dernierCompte.ajout)}` : `produits ${e0(dernierCompte.produits)} · charges ${e0(dernierCompte.charges)}`, dernierCompte.resultat >= 0 ? C.vert : C.brique));
+        // Trois tuiles qui tiennent AU-DESSUS de la bande « À retenir » (y 612) — 3.5.575, capture de Charles : la troisième passait dessous.
+        bl2.push(...tuileSombre(W - M - 350, 140, 350, 175, `${dernierCompte.resultat >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat))}`, `résultat ${avecReel ? 'réel ' : ''}${dernierCompte.annee}`, avecReel ? `comptable ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))} · enseignants HELB imputés ailleurs −${e0(dernierCompte.ajout)}` : `produits ${e0(dernierCompte.produits)} · charges ${e0(dernierCompte.charges)}`, dernierCompte.resultat >= 0 ? C.vert : C.brique));
         const cumul = comptes.filter(x => x.nature === 'réalisé').reduce((a, x) => a + x.resultat, 0);
-        if (dernierCompte.mdp) bl2.push(...tuileClaire(W - M - 350, 520, 350, 110, e0(dernierCompte.mdp), `enseignants IIP ${dernierCompte.annee}, hors ASBL`, 'payés par la Fédération (dotation de l’IIP)', C.iip));
-        bl2.push(...tuileClaire(W - M - 350, 370, 350, 130, `${cumul >= 0 ? '+' : '−'}${e0(Math.abs(cumul))}`, avecReel ? 'résultat réel cumulé, exercices réalisés' : 'résultat cumulé, exercices réalisés', comptes.filter(x => x.nature === 'réalisé').map(x => x.annee).join(' · '), C.vert));
+        if (dernierCompte.mdp) bl2.push(...tuileClaire(W - M - 350, 475, 350, 118, e0(dernierCompte.mdp), `enseignants IIP ${dernierCompte.annee}, hors ASBL`, 'payés par la Fédération (dotation de l’IIP)', C.iip));
+        bl2.push(...tuileClaire(W - M - 350, 332, 350, 125, `${cumul >= 0 ? '+' : '−'}${e0(Math.abs(cumul))}`, avecReel ? 'résultat réel cumulé, exercices réalisés' : 'résultat cumulé, exercices réalisés', comptes.filter(x => x.nature === 'réalisé').map(x => x.annee).join(' · '), C.vert));
       }
       bl2.push(...retenir('comptes', dernierCompte ? (avecReel
         ? `En ${dernierCompte.annee}, enseignants HELB compris, la section ${dernierCompte.resultat >= 0 ? `dégage ${e0(dernierCompte.resultat)}` : `coûte ${e0(-dernierCompte.resultat)} de plus qu’elle ne rapporte`} à l’ASBL (résultat comptable : ${dernierCompte.resultat_comptable >= 0 ? '+' : '−'}${e0(Math.abs(dernierCompte.resultat_comptable))}).`

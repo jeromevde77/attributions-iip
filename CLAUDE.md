@@ -4655,6 +4655,9 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.575** (capture de Charles, diapositive « comptes ») : les trois tuiles tiennent au-dessus de la bande « À retenir » (y 612) ;
+les valeurs du graphique sans « k€ » (le titre le dit), qui passait à la ligne et sortait du cadre ; tout « À retenir » long se réduit
+(17 → 15,5 → 14). **Une diapositive pose ses blocs AU-DESSUS de y 612 quand elle a un « À retenir ».**
 **3.5.574** (capture de Charles : un « À retenir » coupé par « … ») : dans la présentation au public COPIL, l'« À retenir » repris
 du texte du dossier garde des phrases ENTIÈRES (260 signes au plus, la première au moins) et règle sa taille sur sa longueur (17, 15, 13,5).
 **3.5.573** (Charles : « 2026 n'a pas d'intérêt, on va en 2027 ») : le budget prévu d'une section (fiche, Composer, dossier COPIL,
