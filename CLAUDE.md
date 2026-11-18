@@ -4655,6 +4655,13 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**Le PDF du dossier COPIL reprend la mise en page de l'aperçu** (3.5.564, Charles : « trop de vide, des choses coupées »). Le PDF se
+rend dans une fenêtre plus étroite que l'écran : les grilles `lg:` y retombaient sur une colonne, avec des graphiques gardant leur largeur
+d'écran (disques étalés, graphique UCE tassé). `pdfDeLAperçu` (Pilotage.jsx) fige dans la copie l'affichage et les colonnes calculés dans
+l'aperçu pour tout élément à classe responsive ; `.peut-couper` vaut aussi pour sections et tableaux de plus d'une demi-page ; un nombre ne
+passe plus à la ligne. `PopulationEcole compact` (dossier : ni barre, ni tuiles, ni évolution — déjà dans EtudiantsSection ; sexe, âge,
+blocs sur trois colonnes) ; une partie à texte seul (dossier pédagogique, divers) vide ne s'imprime pas. Carte d'Europe : l'anneau de la
+Russie franchissait l'antiméridien (bande en travers) — recousu dans `europe.json`.
 **Les comptes de l'ASBL quittent la fiche** (3.5.557, Charles : « de trop, fait double emploi ; supprime partout les doubles cadres ») :
 l'étape 3 = le calcul en UCE et le budget prévu (sous un intertitre, plus dans un `<details>` encadré) ; les bilans restent dans
 Gestion → L'école. Le détail en tableaux de l'étape 4 se déplie sous un intertitre, sans carte autour. **Une carte ne se pose jamais
