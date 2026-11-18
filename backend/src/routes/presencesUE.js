@@ -75,15 +75,12 @@ r.put('/ue/:ue/presences', authRequired, EDITEUR, (req, res) => {
    l'inscription de l'étudiant. Ce que l'horaire ne permet pas de savoir ne se devine pas : une séance d'un
    sous-groupe (qui n'en est pas ?) et une UE donnée en plusieurs organisations (qui suit quelle séance ?) restent à
    la main. `simuler` rend ce qui serait écrit, sans rien écrire. */
-r.post('/ue/:ue/remplir', authRequired, EDITEUR, (req, res) => {
-  const annee = anneeDe(req);
-  const ue = Number(req.params.ue);
+/** Ce que « Remplir » écrirait pour une UE : les cases vides des séances tenues (une séance, ou jusqu'à une date). Rend
+    { lignes, resume } ou { erreur, statut } — la règle de « Remplir », écrite une fois pour une UE et pour toutes (3.5.580). */
+function aRemplir(ue, annee, { seanceId = null, jusquau = null } = {}) {
   const aujourdhui = new Date().toISOString().slice(0, 10);
-  const seanceId = req.body?.seance_id ? Number(req.body.seance_id) : null;
-  const jusquau = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.jusquau || '')) ? String(req.body.jusquau) : null;
-  if (!seanceId && !jusquau) return res.status(400).json({ error: 'Une séance, ou une date « jusqu’au ».' });
   const orgs = db.prepare(`SELECT COUNT(DISTINCT COALESCE(num_organisation, 1)) n FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ?`).get(annee, ue).n;
-  if (orgs > 1) return res.status(409).json({ error: `L’UE ${ue} est donnée en ${orgs} organisations : l’horaire ne dit pas quelle séance est suivie par qui. Ses présences s’encodent case par case.` });
+  if (orgs > 1) return { statut: 409, organisations: orgs, erreur: `L’UE ${ue} est donnée en ${orgs} organisations : l’horaire ne dit pas quelle séance est suivie par qui. Ses présences s’encodent case par case.` };
   const x = presencesDeLUE(ue, annee);
   const inscr = new Map(db.prepare(`SELECT etudiant_id, MIN(date_inscription) d FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ? GROUP BY etudiant_id`)
     .all(annee, ue).map(r0 => [r0.etudiant_id, r0.d ? String(r0.d).slice(0, 10) : null]));
@@ -103,30 +100,69 @@ r.post('/ue/:ue/remplir', authRequired, EDITEUR, (req, res) => {
     }
   } catch { /* pas de répartition */ }
   const coursAvecGroupes = new Set([...groupesDe.keys()].map(k => k.split('|')[0]));
-  x.g.seances.forEach((s, i) => {
-    if (seanceId ? s.id !== seanceId : s.date > borne) return;
-    if (s.annule || s.date > aujourdhui) return;
-    const sg = s.sous_groupe != null && s.sous_groupe !== '' ? String(s.sous_groupe).trim().toUpperCase() : null;
-    if (sg && !coursAvecGroupes.has(s.cours_code)) { sousGroupes++; return; }
+  x.g.seances.forEach((s0, i) => {
+    if (seanceId ? s0.id !== seanceId : s0.date > borne) return;
+    if (s0.annule || s0.date > aujourdhui) return;
+    const sg = s0.sous_groupe != null && s0.sous_groupe !== '' ? String(s0.sous_groupe).trim().toUpperCase() : null;
+    if (sg && !coursAvecGroupes.has(s0.cours_code)) { sousGroupes++; return; }
     for (const l of x.g.lignes) {
       const c = l.cases[i];
       // « NE » (non encodée) est une case VIDE : c'est elle qu'on remplit. Le reste — présence encodée, dispense, non concerné,
-      // abandon — ne se touche pas.
+      // abandon, hors de son groupe — ne se touche pas.
       if (c?.statut && c.statut !== 'non_encode') continue;
-      if (sg && !groupesDe.get(`${s.cours_code}|${l.etudiant.id}`)?.has(sg)) continue;   // pas de ce sous-groupe
+      if (sg && !groupesDe.get(`${s0.cours_code}|${l.etudiant.id}`)?.has(sg)) continue;   // pas de ce sous-groupe
       const ins = inscr.get(l.etudiant.id);
-      if (ins && s.date < ins) continue;                // pas encore inscrit ce jour-là
-      lignes.push({ seance_id: s.id, etudiant_id: l.etudiant.id, statut: 'present', motif: null, retard: false });
-      seancesTouchees.add(s.id);
+      if (ins && s0.date < ins) continue;                // pas encore inscrit ce jour-là
+      lignes.push({ seance_id: s0.id, etudiant_id: l.etudiant.id, statut: 'present', motif: null, retard: false });
+      seancesTouchees.add(s0.id);
     }
   });
-  const resume = { cases: lignes.length, seances: seancesTouchees.size, sous_groupes: sousGroupes, jusquau: seanceId ? null : borne };
-  if (seanceId && sousGroupes) return res.status(409).json({ error: 'Séance d’un sous-groupe : Lucie ne sait pas quels étudiants en font partie. Encodez-la case par case.' });
-  if (req.body?.simuler) return res.json({ simulation: true, ...resume });
-  if (!lignes.length) return res.json({ ok: true, ecrites: 0, ...resume });
-  const out = ecrirePresences(lignes, qui(req));
+  if (seanceId && sousGroupes) return { statut: 409, erreur: 'Séance d’un sous-groupe : Lucie ne sait pas quels étudiants en font partie. Encodez-la case par case.' };
+  return { lignes, resume: { cases: lignes.length, seances: seancesTouchees.size, sous_groupes: sousGroupes, jusquau: seanceId ? null : borne } };
+}
+
+r.post('/ue/:ue/remplir', authRequired, EDITEUR, (req, res) => {
+  const annee = anneeDe(req);
+  const ue = Number(req.params.ue);
+  const seanceId = req.body?.seance_id ? Number(req.body.seance_id) : null;
+  const jusquau = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.jusquau || '')) ? String(req.body.jusquau) : null;
+  if (!seanceId && !jusquau) return res.status(400).json({ error: 'Une séance, ou une date « jusqu’au ».' });
+  const a = aRemplir(ue, annee, { seanceId, jusquau });
+  if (a.erreur) return res.status(a.statut || 400).json({ error: a.erreur });
+  if (req.body?.simuler) return res.json({ simulation: true, ...a.resume });
+  if (!a.lignes.length) return res.json({ ok: true, ecrites: 0, ...a.resume });
+  const out = ecrirePresences(a.lignes, qui(req));
   if (out.erreur) return res.status(400).json({ error: out.erreur });
-  res.json({ ok: true, ...out, ...resume });
+  res.json({ ok: true, ...out, ...a.resume });
+});
+
+/* TOUT LE MONDE PRÉSENT (3.5.580, Charles : « une option de la direction ou du secrétariat pour mettre tout le monde présent » ;
+   tranché : toutes les UE d'une section, ou de l'école ; les sous-groupes sans répartition restent vides). La règle de « Remplir »,
+   UE par UE, jusqu'à une date : jamais une case déjà encodée, ni une dispense, ni une séance d'un autre groupe ou d'avant l'inscription.
+   Une UE en plusieurs organisations est nommée et laissée à la main. `simuler` rend le compte, sans rien écrire. */
+r.post('/remplir-tout', authRequired, EDITEUR, (req, res) => {
+  try {
+    const annee = anneeDe(req);
+    const section = req.body?.section ? String(req.body.section) : null;
+    const jusquau = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.jusquau || '')) ? String(req.body.jusquau) : new Date().toISOString().slice(0, 10);
+    const ues = uesAvecHoraire(annee).filter(u => !section || String(u.sections || '').split(',').includes(section));
+    const parUE = [], aLaMain = [];
+    let cases = 0, sousGroupes = 0;
+    for (const u of ues) {
+      const a = aRemplir(u.ue_num, annee, { jusquau });
+      if (a.erreur) { aLaMain.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, raison: a.organisations ? `${a.organisations} organisations` : a.erreur }); continue; }
+      sousGroupes += a.resume.sous_groupes;
+      if (!a.lignes.length) continue;
+      cases += a.lignes.length;
+      parUE.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, cases: a.lignes.length, seances: a.resume.seances, lignes: a.lignes });
+    }
+    const resume = { ues: parUE.length, cases, sous_groupes: sousGroupes, a_la_main: aLaMain, jusquau,
+      detail: parUE.map(({ lignes, ...x }) => x) };
+    if (req.body?.simuler) return res.json({ simulation: true, ...resume });
+    let ecrites = 0;
+    for (const u of parUE) { const out = ecrirePresences(u.lignes, qui(req)); if (out.erreur) return res.status(400).json({ error: `UE ${u.ue_num} : ${out.erreur}`, ecrites }); ecrites += u.lignes.length; }
+    res.json({ ok: true, ecrites, ...resume });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 /* L'ABANDON (3.5.237, circulaire 9764, p. 26) : sa date s'écrit sur l'inscription ; le registre la porte en observation et trace un

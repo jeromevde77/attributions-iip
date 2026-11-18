@@ -119,6 +119,26 @@ export default function PresencesUE({ ueInitiale = null }) {
       await charger();
     } catch (e) { setErreur(e.message); }
   }
+  /* TOUT LE MONDE PRÉSENT (3.5.580, Charles : « une option de la direction ou du secrétariat pour mettre tout le monde présent ») :
+     toutes les UE de la section choisie, ou de l'école ; même règle que « Remplir » ; simulation d'abord. */
+  async function remplirTout() {
+    const portee = section ? `de la section ${section}` : 'de toute l’école';
+    try {
+      const sim = await appel('/remplir-tout', { method: 'POST', body: JSON.stringify({ annee, section: section || null, jusquau, simuler: true }) });
+      const main = sim.a_la_main?.length ? `\n\nÀ encoder à la main (plusieurs organisations) : ${sim.a_la_main.map(u => `UE ${u.ue_num}`).join(', ')}.` : '';
+      const sg = sim.sous_groupes ? `\n${sim.sous_groupes} séance(s) en sous-groupes sans répartition des étudiants restent vides.` : '';
+      if (!sim.cases) { await informer(`Rien à remplir dans les UE ${portee} jusqu’au ${frl(jusquau)} : toutes les cases sont encodées.${sg}${main}`); return; }
+      const ok = await demander({ titre: 'Tout le monde présent',
+        message: `Marquer « présent » ${sim.cases} case(s) vide(s) dans ${sim.ues} UE ${portee}, jusqu’au ${frl(jusquau)} ?\n\n`
+          + 'Les cases déjà encodées (absent, justifié), les dispenses, les séances d’un autre groupe et celles d’avant l’inscription ne sont pas touchées.'
+          + sg + main,
+        confirmer: `Marquer ${sim.cases} présence(s)` });
+      if (!ok) return;
+      const j = await appel('/remplir-tout', { method: 'POST', body: JSON.stringify({ annee, section: section || null, jusquau }) });
+      await informer(`${j.ecrites} présence(s) marquée(s) dans ${j.ues} UE.`);
+      if (ue) await charger();
+    } catch (e) { setErreur(e.message); }
+  }
   async function inverser(l, j) {
     const r = l.regularite[j];
     try {
@@ -152,13 +172,15 @@ export default function PresencesUE({ ueInitiale = null }) {
             <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom ou matricule"
               className="controle controle-icone border border-slate-300 rounded-champ bg-white w-56" />
           </div>)}
-        {d && d.seances.length > 0 && (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="text-second text-slate-600">Cases vides en « présent » jusqu’au</span>
-            <input type="date" className="controle border border-slate-300 rounded-champ bg-white" value={jusquau} max={d.aujourdhui}
-              onChange={e => setJusquau(e.target.value)} />
-            <button type="button" className="bouton" onClick={() => remplir({ jusquau }, `jusqu’au ${frl(jusquau)}`)}>Remplir</button>
-          </span>)}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-second text-slate-600 whitespace-nowrap">Cases vides en « présent » jusqu’au</span>
+          <input type="date" className="controle border border-slate-300 rounded-champ bg-white" value={jusquau} max={new Date().toISOString().slice(0, 10)}
+            onChange={e => setJusquau(e.target.value)} />
+          {d && d.seances.length > 0 && <button type="button" className="bouton" onClick={() => remplir({ jusquau }, `jusqu’au ${frl(jusquau)}`)}>Remplir l’UE</button>}
+          <button type="button" className="bouton whitespace-nowrap" onClick={remplirTout}
+            title="Toutes les UE de la section choisie (ou de toute l’école) : les cases vides des séances tenues jusqu’à la date, en « présent »">
+            {section ? `Toutes les UE ${section}` : 'Toutes les UE de l’école'}</button>
+        </span>
       </div>
       {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
       {!ue && <p className="text-sm text-slate-500">Choisissez une unité : ses inscrits, toutes ses séances, et la régularité au 1er et au 5e dixième.</p>}
