@@ -6,6 +6,7 @@ import OngletSLE from './OngletSLE.jsx';
 import { useDroits, peutGeste } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
 import LettresModele from './LettresModele.jsx';
+import { BoutonAnnexePPC } from './AnnexePPC.jsx';
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -1580,7 +1581,8 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
     return (
       <div className="grid gap-3 lg:grid-cols-[minmax(0,200px)_minmax(0,1fr)] items-start">
         {zoneUn}
-        <RapportsEnZones domaine="personnel" debut={1} />
+        {/* L'ANNEXE DE LA CIRCULAIRE (3.5.563) : disponibilités par défaut d'emploi et pertes partielles de charge. */}
+        <div className="space-y-3 min-w-0"><BoutonAnnexePPC /><RapportsEnZones domaine="personnel" debut={1} /></div>
       </div>);
   }
   const serie = pourQui === 'des';

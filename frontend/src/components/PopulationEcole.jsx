@@ -31,7 +31,9 @@ function Carte({ titre, sous, children, className = '' }) {
    le suive. */
 /* `partie` (3.5.485, dossier du COPIL) : 'inscriptions' (chiffres, sexe, âge, blocs, évolution, titres d'accès) ou 'provenance'
    (domicile, nationalité, cartes, Bruxelles sur trois ans) ; sans elle, toute la page. */
-export default function PopulationEcole({ annee: anneeProp, initial = null, onChoix = null, partie = null }) {
+/* `compact` (3.5.564, dossier du COPIL : « trop de vide, des choses coupées ») : ni la barre de choix, ni les tuiles, ni l'évolution
+   des inscrits — le dossier les porte déjà (EtudiantsSection) ; sexe, âge et blocs sur une rangée de trois. */
+export default function PopulationEcole({ annee: anneeProp, initial = null, onChoix = null, partie = null, compact = false }) {
   const ins = !partie || partie === 'inscriptions', prov = !partie || partie === 'provenance';
   // `cartes` (3.5.559, fiche d'une section : « n'oublie pas la carte de Bruxelles, Belgique et monde ») : les trois cartes seules.
   const cartes = partie === 'cartes';
@@ -93,7 +95,7 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
       {cartes && <CarteCommunes parNis={dom.par_nis || {}} total={domConnu} pays={v.pays || {}} totalPays={natConnue} />}
       {cartes && <BruxellesTroisAns parAnnee={d.par_annee || []} titreFiltre={section ? NOM_SECTION(section) : ''} />}
       {/* Toute l'école, ou une section : tout l'écran suit. */}
-      {!cartes && <div className="flex items-center gap-2 flex-wrap">
+      {!cartes && !compact && <div className="flex items-center gap-2 flex-wrap">
         <div className="segments">
           {[['', 'Toute l’école'], ...d.sections.map(s => [s.section, NOM_SECTION(s.section)])].map(([k, l]) => (
             <button key={k || 'tout'} type="button" onClick={() => setSection(k)}
@@ -125,7 +127,7 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
           <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(eff.en_parcours)} libelle="encore en parcours"
             precision={`une UE encore ouverte · ${k0(eff.inscrits)} inscrits non archivés${eff.sortis ? `, dont ${eff.sortis} sorti(s)` : ''}`} /></div>
         </div>)}
-      {ins && <div className="flex flex-wrap gap-3">
+      {ins && !compact && <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[150px]"><TuileEtat etat="fort" valeur={k0(v.n)} libelle="inscrits" precision={section ? NOM_SECTION(section) : `${d.sections.length} sections`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat aide="Aucune inscription ni valorisation dans une année antérieure (règle du badge « primo », lib/primo.js) ÷ inscrits." valeur={k0(v.primo)} libelle="nouveaux étudiants" precision={`${pc(v.primo, v.n)} — aucune inscription avant ${d.annee}`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat aide="Les étudiants dont le niveau de l’année, tel que Lucie le calcule pour la fiche, est le bloc 3." valeur={k0(v.ba3)} libelle="en année diplômante" precision={`${pc(v.ba3, v.n)} — bloc 3, niveau principal`} /></div>
@@ -138,7 +140,7 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
           <Barres format={k0} lignes={d.sections.map((s, i) => ({ nom: NOM_SECTION(s.section), valeur: s.n, couleur: couleurSerie(i) }))} />
         </Carte>)}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className={`grid gap-4 ${compact && ins ? 'grid-cols-3' : 'lg:grid-cols-2'}`}>
         {ins && <>
         <Carte titre="Sexe" sous={`Sur ${k0(sexeConnu)} fiches renseignées${v.sexe_inconnu ? ` · ${k0(v.sexe_inconnu)} sans sexe` : ''}`}>
           <Anneau centre={k0(sexeConnu)} parts={[{ nom: 'Femmes', valeur: v.F, couleur: 'var(--g-3)' }, { nom: 'Hommes', valeur: v.M, couleur: 'var(--g-1)' }, { nom: 'X', valeur: v.X, couleur: 'var(--g-2)' }]} />
@@ -147,7 +149,10 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
           <Barres format={n => `${k0(n)} · ${pc(n, ageConnu)}`} lignes={[
             { nom: 'moins de 25 ans', valeur: v.m25 }, { nom: '25 à 34 ans', valeur: v.m35 },
             { nom: '35 à 44 ans', valeur: v.m45 }, { nom: '45 ans et plus', valeur: v.p45 }]} />
-        </Carte></>}
+        </Carte>
+        {compact && <Carte titre="Par bloc" sous="Le niveau principal de chaque étudiant : celui où il a le plus d'unités, le plus bas en cas d'égalité.">
+          <Barres format={n => `${k0(n)} · ${pc(n, v.n)}`} lignes={niveaux.filter(n => v.par_niveau[n]).map(n => ({ nom: n === 'BA3' ? 'BA3 — diplômante' : n, valeur: v.par_niveau[n] }))} />
+        </Carte>}</>}
         {prov && <>
         <Carte titre="Domicile" sous={`Région du code postal · sur ${k0(domConnu)} adresses belges${dom.inconnu ? ` · ${k0(dom.inconnu)} sans code postal belge` : ''}`}>
           <Anneau centre={k0(domConnu)} parts={[{ nom: 'Bruxelles', valeur: dom.bruxelles, couleur: 'var(--g-1)' }, { nom: 'Wallonie', valeur: dom.wallonie, couleur: 'var(--g-2)' }, { nom: 'Flandre', valeur: dom.flandre, couleur: 'var(--g-3)' }]} />
@@ -207,7 +212,7 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
           </Carte>);
       })}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {!compact && <div className="grid gap-4 lg:grid-cols-2">
         <Carte titre="Par bloc" sous="Le niveau principal de chaque étudiant : celui où il a le plus d'unités, le plus bas en cas d'égalité.">
           <Barres format={n => `${k0(n)} · ${pc(n, v.n)}`} lignes={niveaux.filter(n => v.par_niveau[n]).map(n => ({ nom: n === 'BA3' ? 'BA3 — diplômante' : n, valeur: v.par_niveau[n] }))} />
         </Carte>
@@ -215,9 +220,9 @@ export default function PopulationEcole({ annee: anneeProp, initial = null, onCh
           <Carte titre="Nouveaux étudiants par section" sous="Aucune inscription ni valorisation dans une année antérieure.">
             <Barres format={n => `${k0(n)}`} lignes={d.sections.map(s => ({ nom: `${NOM_SECTION(s.section)} · ${pc(s.primo, s.n)}`, valeur: s.primo }))} />
           </Carte>)}
-      </div>
+      </div>}
 
-      {d.evolution.length > 1 && (
+      {!compact && d.evolution.length > 1 && (
         <Carte titre="L'évolution des inscrits" sous={`Par section, sur ${d.evolution.length} années. Les années passées se lisent dans les chiffres de référence de la direction (Lucie n'en a qu'une partie) ; les autres, dans les inscriptions de Lucie.`}>
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>

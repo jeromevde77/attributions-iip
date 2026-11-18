@@ -1754,8 +1754,25 @@ export default function Pilotage({ vue = 'tout' }) {
       /* UNE CARTE PLUS HAUTE QU'UNE DEMI-PAGE PEUT SE COUPER (3.5.488, « pas de pages blanches ou peu remplies ») : gardée entière, elle
          passe à la page suivante et laisse une demi-page vide ; ses lignes, elles, ne se coupent jamais. */
       const demiPage = copilPortrait ? 520 : 330;
-      zone.querySelectorAll('.carte').forEach(c => c.classList.toggle('peut-couper', c.getBoundingClientRect().height > demiPage));
+      zone.querySelectorAll('.carte, section, table, .overflow-x-auto').forEach(c => c.classList.toggle('peut-couper', c.getBoundingClientRect().height > demiPage));
       const clone = zone.cloneNode(true);
+      /* LA MISE EN PAGE DE L'APERÇU, TELLE QUELLE (3.5.564, Charles : « trop de vide, des choses coupées ») : le PDF se rend dans une
+         fenêtre plus étroite que l'écran, où les grilles « lg: » retombaient sur une colonne alors que les graphiques gardaient la
+         largeur mesurée à l'écran — disques étalés sur toute la page, graphique tassé à gauche. On fige les colonnes et l'affichage
+         calculés dans l'aperçu (même largeur de page des deux côtés). */
+      {
+        const a = zone.querySelectorAll('*'), b = clone.querySelectorAll('*');
+        if (a.length === b.length) a.forEach((el, i) => {
+          const rep = /(^|\s)(sm|md|lg|xl|2xl):/;
+          if (!rep.test(el.getAttribute('class') || '') && !/(sm|md|lg|xl):divide/.test(el.parentElement?.getAttribute('class') || '')) return;
+          const cs = getComputedStyle(el), st = b[i].style;
+          st.display = cs.display;
+          if (cs.display.includes('grid')) { st.gridTemplateColumns = cs.gridTemplateColumns; }
+          if (cs.display.includes('flex')) { st.flexDirection = cs.flexDirection; st.flexWrap = cs.flexWrap; }
+          st.gridColumn = cs.gridColumn;
+          for (const c of ['Top', 'Right', 'Bottom', 'Left']) st[`border${c}Width`] = cs[`border${c}Width`];
+        });
+      }
       clone.querySelectorAll('.exclu-impression').forEach(n => n.remove());
       clone.querySelectorAll('.sans-impression, button, select').forEach(n => { if (n.tagName === 'SELECT') { const t = document.createElement('span'); t.textContent = n.options[n.selectedIndex]?.text || ''; n.replaceWith(t); } else if (n.classList.contains('sans-impression')) n.remove(); });
       /* CE QUI SERT À MANIPULER L'ÉCRAN NE S'IMPRIME PAS (Charles, 16 octobre 2026 : « ça ne va pas, la première
@@ -1796,7 +1813,9 @@ table, .overflow-x-auto, .overflow-auto, .recharts-responsive-container { break-
 thead { display: table-header-group; }
 .overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
 .partie-impression + .partie-impression { break-before: page; }
-.carte.peut-couper { break-inside: auto !important; page-break-inside: auto !important; }
+.peut-couper { break-inside: auto !important; page-break-inside: auto !important; }
+/* Un nombre ne se coupe pas sur deux lignes (« +80,0 / % ») : seule la première colonne, le libellé, passe à la ligne. */
+td:not(:first-child) { white-space: nowrap !important; }
 ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; zoom: 0.86; } .kit-couverture { min-height: 1080px; }` : ''}</style></head>
 <body class="impression-gestion"><div class="zone-impression">${clone.outerHTML}</div></body></html>`;
       const nom = `Gestion_${String(anneeActive).replace(/\W/g, '')}_${facesImprimees.length === 1 ? facesImprimees[0] : 'parties'}`;
