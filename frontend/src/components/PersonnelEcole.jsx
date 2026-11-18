@@ -10,7 +10,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, couleurSerie } from './graphiques.jsx';
 import { TuileEtat, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 import { RatiosEtp } from './RapportStatistique.jsx';
-import { Disque, ComparerA, Partie } from './Disques.jsx';
+import { Disque, ComparerA, Partie, Chiffres } from './Disques.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const e2 = n => (n || 0).toFixed(2).replace('.', ',');
@@ -31,7 +31,7 @@ function Carte({ titre, sous, children }) {
    (comme Qui sont nos étudiants). Une section choisie porte la carte « Comparé à l'IIP et à l'ASBL » : le profil du personnel face à
    l'IIP (même source) ; l'ASBL seulement pour ce qui se compte en ETP (Lire et comparer : GET /api/pilotage/lecture) — Lucie ne garde
    pas de fiche nominative du personnel de la HELB. */
-export default function PersonnelEcole({ annee: anneeProp, initial = null, onChoix = null }) {
+export default function PersonnelEcole({ annee: anneeProp, initial = null, onChoix = null, seulCompare = false }) {
   const annee = anneeProp || getAnnee();
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -59,6 +59,8 @@ export default function PersonnelEcole({ annee: anneeProp, initial = null, onCho
   const domConnu = v.bruxelles + v.wallonie + v.flandre;
   const pays = Object.entries(v.pays || {}).filter(([p]) => p !== 'Belgique').sort((a, b) => b[1] - a[1]).slice(0, 10);
   const etpVue = section ? (v.etp_section ?? v.etp) : v.etp;
+  // La fiche d'une section (3.5.558) : la carte des enseignants seule, telle que la maquette validée.
+  if (seulCompare && section) return <Compare v={v} iip={d.ensemble} section={section} etpVue={etpVue} lec={lec} />;
 
   return (
     <div className="space-y-4">
@@ -81,7 +83,7 @@ export default function PersonnelEcole({ annee: anneeProp, initial = null, onCho
 
       {/* LE RATIO ÉTUDIANTS PAR ETP, ICI AUSSI (Charles, 16 octobre 2026 : « je ne le vois nulle part ») :
           profs, profs + coordination, tout le personnel ; secrétariat et direction pour l'école. */}
-      {section && <Compare v={v} iip={d.ensemble} section={section} etpVue={etpVue} lec={lec} />}
+      {section && !seulCompare && <Compare v={v} iip={d.ensemble} section={section} etpVue={etpVue} lec={lec} />}
 
       {!section && (
         <Carte titre="Étudiants par ETP" sous="Étudiants équivalents temps plein pour un ETP : profs, profs + coordination, tout le personnel — par section ; secrétariat et direction pour l'école.">
@@ -144,10 +146,10 @@ function Compare({ v, iip, section, etpVue, lec }) {
   const RL = ref === 'ASBL' ? LA : LI;
   const d = (nom, k, base, couleur) => ({ nom, valeur: part(v, k, base), reference: R ? part(R, k, base) : null, couleur });
   const GROUPES = [
-    ['Profil', [d('Femmes', 'F', sexe, 'var(--c-principal)'), d('55 ans et plus', 'p55', age, 'var(--c-accent, #19537E)')]],
-    ['Statut', [d('Chargés de cours', 'cc', tous, 'var(--c-principal)'), d('Experts', 'exp', tous, 'var(--c-attente)'), d('Définitifs', 'definitif', tous, 'var(--c-reussi)')]],
-    ['Contrat et qualification', [d('Contrat HELB', 'helb', tous, 'var(--c-helb, #05B7E6)'), d('CAPAES', 'capaes', tous, 'var(--c-accent, #19537E)')]],
-    ['Origine', [d('Domicile à Bruxelles', 'bruxelles', dom, 'var(--c-accent, #19537E)'), d('Belges', 'be', nat, 'var(--c-attente)')]],
+    ['Profil', [d('Femmes', 'F', sexe, 'var(--c-principal)'), d('55 ans et plus', 'p55', age, '#19537E')]],
+    ['Statut', [d('Chargés de cours', 'cc', tous, 'var(--c-principal)'), d('Experts', 'exp', tous, '#F9B619'), d('Définitifs', 'definitif', tous, 'var(--c-reussi)')]],
+    ['Contrat et qualification', [d('Contrat HELB', 'helb', tous, '#05B7E6'), d('CAPAES', 'capaes', tous, '#19537E')]],
+    ['Origine', [d('Bruxelles', 'bruxelles', dom, '#19537E'), d('Belges', 'be', nat, '#F9B619')]],
   ];
   const tuiles = [
     [f1(LS?.etc_etp), 'étudiants par ETP', RL?.etc_etp ?? RL?.etu_etp],
@@ -157,16 +159,34 @@ function Compare({ v, iip, section, etpVue, lec }) {
   ];
   return (
     <Partie titre="Les enseignants" sous={`${k0(v.n)} membres · ${e2(etpVue)} ETP · rangés par type`} droite={<ComparerA valeur={ref} onChange={setRef} />}>
-      <div className="p-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
-        {tuiles.map(([val, lib, r]) => (
-          <TuileEtat key={lib} valeur={val} libelle={lib} precision={`${ref} : ${r == null ? 'non disponible' : typeof r === 'number' ? f1(r) : r}`} />))}
-      </div>
-      <div className="px-4 pb-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+      {/* SANS CADRE DANS LE CADRE (3.5.556) : les chiffres en ligne, puis les groupes séparés par un filet. */}
+      <Chiffres items={tuiles.map(([val, lib, r]) => [val, lib, `${ref} : ${r == null ? 'non disponible' : typeof r === 'number' ? f1(r) : r}`])} />
+      <div className="grid border-t border-slate-100 divide-x divide-slate-100 grid-cols-1 lg:[grid-template-columns:1fr_1.5fr_1fr_1fr]">
         {GROUPES.map(([titre, ds]) => (
-          <div key={titre} className="border border-slate-200 rounded-carte p-3 space-y-2">
+          <div key={titre} className="px-3.5 py-3 space-y-2">
             <div className="text-mention font-bold uppercase tracking-wider text-slate-500">{titre}</div>
-            <div className="flex flex-wrap justify-around gap-3">{ds.map(x => <Disque key={x.nom} {...x} nomRef={ref} taille={96} />)}</div>
+            <div className="flex justify-around gap-1.5">{ds.map(x => <Disque key={x.nom} {...x} nomRef={ref} taille={84} />)}</div>
           </div>))}
+      </div>
+      {/* L'ÂGE EN BARRES, SOUS LES DISQUES (maquette validée, 3.5.558) — le sexe est déjà dans « Profil ». */}
+      <div className="grid grid-cols-1 md:grid-cols-2 border-t border-slate-100 md:divide-x divide-slate-100">
+        <div className="px-4 py-3 space-y-1.5">
+          <div className="text-mention font-bold uppercase tracking-wider text-slate-500">Âge</div>
+          {[['moins de 35 ans', v.a35], ['35 à 44 ans', v.a45], ['45 à 54 ans', v.a55], ['55 ans et plus', v.p55]].map(([l, n]) => {
+            const t = age(v) || 0, p = t ? Math.round((n / t) * 100) : 0;
+            return (
+              <div key={l} className="grid grid-cols-[110px_1fr_70px] items-center gap-2.5 text-second">
+                <span>{l}</span>
+                <div className="h-2 rounded bg-slate-100"><div className="h-2 rounded" style={{ width: `${p}%`, background: '#19537E' }} /></div>
+                <span className="text-right tabular-nums">{n} · {p} %</span>
+              </div>);
+          })}
+        </div>
+        <div className="px-4 py-3 space-y-1 text-second text-slate-600">
+          <div className="text-mention font-bold uppercase tracking-wider text-slate-500">À savoir</div>
+          <div>{age(v)} dates de naissance connues sur {k0(v.n)}{v.n - age(v) > 0 ? ` · ${k0(v.n - age(v))} inconnues` : ''}.</div>
+          <div>L’ASBL : Lucie n’a pas les fiches du personnel de la HELB ; seuls les ratios en ETP se comparent.</div>
+        </div>
       </div>
       {!lec && <div className="px-4 pb-3 text-mention text-slate-400">Les ratios de l’IIP et de l’ASBL se chargent…</div>}
     </Partie>);

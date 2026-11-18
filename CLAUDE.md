@@ -4646,6 +4646,29 @@ tête, ses filtres = ceux de l'étape 2 via `reglagesIipHelb()`), comptes et bud
 **Le graphique de l'étape 3** (3.5.554, Charles : « sur la colonne verte, ajouter les UCE lissés ; la rose, en bleu ») : barres empilées
 — vert = financement UCE (étudiants lissés, leur nombre au-dessus) + DI et FI (vert pâle) ; bleu (`--c-disponible`) = salaires HELB +
 matériel (bleu pâle). Tuiles et en-têtes du tableau suivent : rapporte en vert, coûte en bleu.
+**Les étudiants lissés d'une année académique** (3.5.555, Charles : « (117 + 206 + 306) / 2 / 3 ») : la moyenne des TROIS années
+académiques précédentes × la part comptée (50 %) — `baseDecret` et sa recopie dans `IipHelbGestion.jsx` ; la MUCE d'une année
+académique reste 4/12 + 8/12 des années civiles. Les inscrits viennent des inscrits de RÉFÉRENCE (Gestion → Population,
+`inscrits_reference`), Lucie à défaut : TIM n'en avait que 28 (ses inscriptions d'avant 2025 sont incomplètes).
+**Un seul dessin** (3.5.556, Charles : « une unicité dans le design ; enlève les doubles cadres ; réduis un peu ; le cercle IIP/ASBL en
+jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau`) et la première couleur des séries pour TOUS les
+disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
+des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
+L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**Les comptes de l'ASBL quittent la fiche** (3.5.557, Charles : « de trop, fait double emploi ; supprime partout les doubles cadres ») :
+l'étape 3 = le calcul en UCE et le budget prévu (sous un intertitre, plus dans un `<details>` encadré) ; les bilans restent dans
+Gestion → L'école. Le détail en tableaux de l'étape 4 se déplie sous un intertitre, sans carte autour. **Une carte ne se pose jamais
+dans une carte** : un `<details>`, une tuile ou un tableau dans une carte perd son cadre (`Chiffres`, `!border-0`).
+**La fiche au plus près de la maquette complète** (3.5.558, validée par Charles : « sois le plus proche d'elle ; le moins de cadres
+dans les cadres » ; « j'aimais les cercles avec le deuxième cercle de référence » ; « les jauges empilées vert/orange/rouge » ; « les
+boîtes à moustaches, avec médiane, mode, moyenne et étendue »). `Disque` : anneau de couleur propre à la donnée + cercle intérieur gris
+ardoise (#7C8BA1) pour la référence. 1 : étudiants (disques | inscrits année par année, `population-ecole` → `evolution`) ;
+`PersonnelEcole seulCompare` = la seule carte des enseignants (chiffres, groupes en 4 colonnes, âge en barres). 2 : `IipHelbGestion
+focus` ne garde que la charge, « Qui enseigne » (anneau, dernière année) et `ChargeParBloc compact` (UN tableau : ensemble, blocs qui se
+déplient en UE, coordinations HELB en pied). 3 : graphique et tableau dans la même carte ; `BudgetSection resume` = une ligne de quatre
+chiffres face à l'IIP. 4 : `ReussiteSection` refaite — carte « La réussite » (trois disques | évolution SVG), jauges empilées par bloc
+et unité par unité, boîtes à moustaches (`/api/stats-deliberation/distributions` : `cotes_ue.par_bloc`, quartiles `q1`/`q3` ajoutés à
+`distribution`, la section et l'IIP), cours sur deux colonnes ; `Section seulPistes`.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,

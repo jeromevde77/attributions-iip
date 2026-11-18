@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { EnteteCarte, PastilleEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal, TuileEtat } from './ui.jsx';
+import { Chiffres } from './Disques.jsx';
 
 const eur = v => `${Math.round(v || 0).toLocaleString('fr-BE')} €`;
 // Un montant par étudiant : une décimale sous 100 € (3.5.507, Charles : « on ne peut pas être à zéro, il faut une décimale »).
@@ -91,11 +92,29 @@ export function Compare({ section, c, focus = false }) {
   </>);
 }
 
-export default function BudgetSection({ section, annees = null, focus = false }) {
+export default function BudgetSection({ section, annees = null, focus = false, resume = false }) {
   const d = useBudgetSection(section, annees);
   const comp = useBudgetCompare(d?.annees?.map(a => a.annee));
   if (!d) return <p className="text-second text-slate-400">Lecture du budget…</p>;
   if (d.erreur) return <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{d.erreur}</div>;
+  /* LE BUDGET EN UNE LIGNE (3.5.558, maquette validée de la fiche d'une section) : quatre chiffres de la section, chacun face à la
+     moyenne de l'IIP (et à l'ASBL quand elle se compare) — une carte, sans tuiles encadrées dedans. */
+  if (resume) {
+    const a = [...d.annees].reverse().find(x => comp[x.annee]) || d.annees[d.annees.length - 1];
+    const c = a && comp[a.annee];
+    if (!c) return <p className="text-second text-slate-400">Lecture du budget…</p>;
+    const S = c.sections.find(x => x.section === section) || {}, M = c.moyenne || {}, A = c.asbl;
+    const exe = v => (!c.depenses ? 'aucune dépense' : v != null ? `${v} %` : '—');
+    return (
+      <section className="carte overflow-hidden">
+        <Chiffres items={[
+          [S.prevu_total_etudiant != null ? eurEt(S.prevu_total_etudiant) : '—', `prévu par étudiant (${a.annee})`, `IIP : ${M.prevu_total_etudiant != null ? eurEt(M.prevu_total_etudiant) : '—'}`],
+          [S.realise_etudiant != null ? eur(S.realise_etudiant) : '—', `réalisé par étudiant (bilan ${c.exercice_realise || '—'})`, `IIP : ${M.realise_etudiant != null ? eur(M.realise_etudiant) : '—'}${A?.realise_etudiant != null ? ` · ASBL : ${eur(A.realise_etudiant)}` : ''}`],
+          [exe(S.execution), 'exécuté', `IIP : ${exe(M.execution)}`],
+          [S.investissements_etudiant != null ? eurEt(S.investissements_etudiant) : '—', 'investissements par étudiant', `IIP : ${M.investissements_etudiant != null ? eurEt(M.investissements_etudiant) : '—'}`],
+        ]} />
+      </section>);
+  }
   return (
     <div className="space-y-4">
       {d.annees.map(a => {
