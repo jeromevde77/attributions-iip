@@ -9,6 +9,7 @@ import FinancementUCE from './FinancementUCE.jsx';
 import PopulationEcole from './PopulationEcole.jsx';
 import PersonnelEcole from './PersonnelEcole.jsx';
 import StatsDeliberation from './StatsDeliberation.jsx';
+import ReussiteSection from './ReussiteSection.jsx';
 import ChargeParBloc from './ChargeParBloc.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { EnteteCarte, Tableau, Th, Td, Tr, TrTotal, TuileEtat, PastilleEtat } from './ui.jsx';
@@ -233,18 +234,19 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
                   <PersonnelEcole annee={annee} initial={{ section: S.section }} />
                 </div>}
                 {etape === 2 && <div className="space-y-4">
-                  {estDirection && <IipHelbGestion sectionFixe={S.section} dernieres={3} />}
+                  {estDirection && <IipHelbGestion sectionFixe={S.section} dernieres={3} focus />}
                   <div className="intertitre">La charge bloc par bloc et les coordinations de {annee}</div>
                   <div className="grid gap-3 lg:grid-cols-2"><ChargeParBloc annee={annee} section={S.section} /></div>
                 </div>}
                 {etape === 3 && <div className="space-y-4">
                   {estDirection && <><div className="intertitre">Ce que la section engage, coûte et rapporte (en UCE)</div><FinancementUCE section={S.section} /></>}
                   <Section S={S} d={d} compta={d.compta?.sections?.[S.section]} comptaSource={d.compta} lentille="fin" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} sansPistes />
-                  {estDirection && <><div className="intertitre">Budget prévu</div><BudgetSection section={S.section} /></>}
+                  {estDirection && <><div className="intertitre">Budget prévu</div><BudgetSection section={S.section} focus /></>}
                 </div>}
                 {etape === 4 && <div className="space-y-4">
                   <Section S={S} d={d} compta={null} comptaSource={d.compta} lentille="res" refDe={refDe} valDe={valDe} juger={juger} nomRef={nomRef} blocs={blocs} pistes={pistes} />
-                  <div className="intertitre">Décisions et réussite, unité par unité</div>
+                  <ReussiteSection section={S.section} annee={d.resultats_annee || annee} />
+                  <div className="intertitre">Le détail, en tableaux</div>
                   <StatsDeliberation annee={d.resultats_annee || annee} initial={{ section: S.section }} />
                 </div>}
                 <div className="flex justify-between sans-impression">

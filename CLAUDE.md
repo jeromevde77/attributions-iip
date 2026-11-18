@@ -4623,6 +4623,11 @@ inscriptions `PopulationEcole`, personnel `PersonnelEcole`) · 2 Attributions et
 `ChargeParBloc`) · 3 Frais et coûts (`FinancementUCE`, comptes de l'ASBL, budget prévu ; direction pour l'argent) · 4 Réussite et
 pédagogie (position réussite, ce qu'on peut améliorer, `StatsDeliberation`). Le « Voir » disparaît en étapes ; l'impression et le
 composeur gardent la lecture d'avant (`lentilleFixe="tout"`).
+**Un focus détaillé section** (3.5.551, Charles : « tout au niveau réussite — la section, les UE, les cours, de beaux graphiques ; pour
+le financier on reste sur la section, on compare juste à l'IIP et l'ASBL, on ne détaille pas les autres sections »). Étape 4 :
+`components/ReussiteSection.jsx` (évolution sur trois ans, décisions par bloc, réussite unité par unité, moyenne cours par cours avec le
+seuil de 10 ; données de `/api/stats-deliberation`), puis les tableaux. `focus` : `BudgetSection` ne liste plus les autres sections
+(moyenne de l'IIP et ASBL seulement), `IipHelbGestion` masque les cursus de la HE et la lecture VRIO (rang parmi eux).
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,

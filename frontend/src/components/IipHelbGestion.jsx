@@ -227,7 +227,7 @@ export function chiffresIipHelb(d, reglages = {}) {
   return { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY };
 }
 
-export default function IipHelbGestion({ sectionFixe = null, dernieres = null } = {}) {
+export default function IipHelbGestion({ sectionFixe = null, dernieres = null, focus = false } = {}) {
   lireCouleurs();
   const memo = useMemo(lire, []);
   const [sections, setSections] = useState([]);
@@ -278,7 +278,8 @@ export default function IipHelbGestion({ sectionFixe = null, dernieres = null } 
   const majForme = k => v => maj('graphes', { ...(reglages.graphes || {}), [k]: v });
   const masques = reglages.masques || [];
   const masquer = k => () => maj('masques', [...masques, k]);
-  const vu = k => !masques.includes(k);
+  // `focus` (3.5.551) : la fiche d'une section ne montre ni les cursus de la HE ni le rang parmi eux (VRIO).
+  const vu = k => !masques.includes(k) && !(focus && ['comparaison', 'vrio'].includes(k));
 
   const { mes, Y, PH, inscritsDe, materielDe, part95, u95, HY } = useMemo(() => chiffresIipHelb(d, reglages), [d, reglages]);
 
