@@ -4655,6 +4655,8 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.574** (capture de Charles : un « À retenir » coupé par « … ») : dans la présentation au public COPIL, l'« À retenir » repris
+du texte du dossier garde des phrases ENTIÈRES (260 signes au plus, la première au moins) et règle sa taille sur sa longueur (17, 15, 13,5).
 **3.5.573** (Charles : « 2026 n'a pas d'intérêt, on va en 2027 ») : le budget prévu d'une section (fiche, Composer, dossier COPIL,
 présentation) ne montre que l'année qui se prépare — `anneeBudget()` (BudgetSection.jsx) : l'année civile suivante à partir de
 septembre, l'année en cours avant.

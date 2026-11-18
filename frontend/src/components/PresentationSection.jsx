@@ -779,7 +779,15 @@ function composer(D, T, opts = {}) {
     const reprendre = (id, k) => {
       const d = par[id]; if (!d || T[`retenir.${id}`]) return;
       const b = d.blocs.find(x => x.edit === `retenir.${id}`); const v = texteCopilT(k);
-      if (b && v) b.texte = v.length > 230 ? `${v.slice(0, 227)}…` : v;
+      /* PAS DE PHRASE COUPÉE (3.5.574, capture de Charles : « … la HELB… ») : on garde les phrases entières qui tiennent (260 signes
+         au plus, au moins la première), et la taille du texte se règle sur sa longueur pour tenir dans la bande. */
+      if (b && v) {
+        const phrases = v.replace(/\s+/g, ' ').trim().match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [v];
+        let txt = '';
+        for (const p of phrases) { if (txt && (txt + p).length > 260) break; txt += p; }
+        b.texte = txt.trim();
+        b.taille = b.texte.length > 200 ? 13.5 : b.texte.length > 130 ? 15 : 17;
+      }
     };
     reprendre('croissance', 'inscriptions'); reprendre('nationalites', 'provenance'); reprendre('attributions', 'attributions');
     reprendre('finances', 'positionnement'); reprendre('decisions', 'reussite');
