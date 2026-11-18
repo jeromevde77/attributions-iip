@@ -110,6 +110,8 @@ export default function FinancementsAsbl() {
           aide="HELB : ETP du document « ratio par département ». IIP : ETP des attributions de Lucie (enseignants IIP, coordinations comprises)." />
       </div>
 
+      {d.inscrits_helb && <InscritsHelb x={d.inscrits_helb} />}
+
       <div className="carte overflow-hidden">
         <EnteteCarte titre={`Les financements, poste par poste — exercice ${A}`}
           sous={`Comptes : ${d.fichier || 'synthèse de l’ASBL'} · étudiants et ETP de ${Number(A) - 1}-${A}`}>
@@ -205,5 +207,43 @@ function Ponderations({ d, onFait }) {
             {msg && <span className="text-second text-[var(--c-refuse)]">{msg}</span>}
           </div>
         </div>)}
+    </div>);
+}
+
+/* LES INSCRITS DE LA HELB, PAR DÉPARTEMENT ET PAR CURSUS (3.5.571, Charles : « pour avoir de vrais chiffres des départements ») : le
+   fichier des dossiers inscrits avec cohorte (Gestion → Les sources). Des DOSSIERS à une date, avec leur cohorte — débutants,
+   intermédiaires, diplômants —, et à côté, pour repère, les étudiants comptés l'année d'avant (comparaison ETP de la HELB). */
+function InscritsHelb({ x }) {
+  const [ouverts, setOuverts] = useState([]);
+  const coh = (o, k) => n0(o?.[k] || 0);
+  const date = x.date ? x.date.split('-').reverse().join('/') : '';
+  return (
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre={`Les inscrits de la HELB en ${x.annee || ''}, par département`}
+        sous={`${n0(x.total)} dossiers inscrits au ${date} · ${n0(x.cohortes?.START)} débutants · TIM compté à l’IIP`} />
+      <Tableau dense className="!border-0 !rounded-none">
+        <TableauEntete><Th>Département et cursus</Th><Th align="droite">Dossiers inscrits</Th><Th align="droite">Débutants</Th><Th align="droite">Intermédiaires</Th>
+          <Th align="droite">Diplômants</Th><Th align="droite">Part des débutants</Th><Th align="droite" title="Étudiants comptés par la HELB l’année d’avant (comparaison ETP) : un repère, pas la même mesure">Comptés {x.avant || ''}</Th></TableauEntete>
+        <tbody>
+          <TrTotal><Td>Toute la HELB</Td><Td align="droite">{n0(x.total)}</Td><Td align="droite">{coh(x.cohortes, 'START')}</Td><Td align="droite">{coh(x.cohortes, 'PROGRESS')}</Td>
+            <Td align="droite">{coh(x.cohortes, 'END')}</Td><Td align="droite">{x.total ? `${Math.round(((x.cohortes?.START || 0) / x.total) * 100)} %` : '—'}</Td><Td align="droite">—</Td></TrTotal>
+          {x.departements.map(D => {
+            const ouvert = ouverts.includes(D.dept);
+            return (<Fragment key={D.dept}>
+              <Tr><Td><button type="button" className="inline-flex items-center gap-1 font-semibold" onClick={() => setOuverts(o => (o.includes(D.dept) ? o.filter(y => y !== D.dept) : [...o, D.dept]))}>
+                <IconChevronRight size={14} className={`text-slate-400 transition-transform sans-impression ${ouvert ? 'rotate-90' : ''}`} />{D.dept}</button></Td>
+                <Td align="droite" className="font-semibold">{n0(D.inscrits)}</Td><Td align="droite">{coh(D.cohortes, 'START')}</Td><Td align="droite">{coh(D.cohortes, 'PROGRESS')}</Td>
+                <Td align="droite">{coh(D.cohortes, 'END')}</Td><Td align="droite">{D.inscrits ? `${Math.round(((D.cohortes.START || 0) / D.inscrits) * 100)} %` : '—'}</Td>
+                <Td align="droite">{D.comptes_avant != null ? n0(D.comptes_avant) : '—'}</Td></Tr>
+              {ouvert && D.cursus.map(c => (
+                <Tr key={c.cursus}><Td><span className="pl-6 text-slate-600" title={c.libelles.join(' · ')}>{c.cursus}{c.libelles.length > 1 ? ` (${c.libelles.length} intitulés)` : ''}</span></Td>
+                  <Td align="droite">{n0(c.inscrits)}</Td><Td align="droite">{coh(c.cohortes, 'START')}</Td><Td align="droite">{coh(c.cohortes, 'PROGRESS')}</Td>
+                  <Td align="droite">{coh(c.cohortes, 'END')}</Td><Td align="droite">{c.inscrits ? `${Math.round(((c.cohortes.START || 0) / c.inscrits) * 100)} %` : '—'}</Td>
+                  <Td align="droite">{c.comptes_avant != null ? n1(c.comptes_avant) : '—'}</Td></Tr>))}
+            </Fragment>);
+          })}
+        </tbody>
+      </Tableau>
+      {!x.detail && <p className="px-3 py-2 m-0 text-mention text-slate-500">Les cohortes par cursus manquent : déposer à nouveau le fichier dans Gestion → Les sources.</p>}
     </div>);
 }

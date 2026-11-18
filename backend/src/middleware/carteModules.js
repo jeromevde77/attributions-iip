@@ -131,7 +131,7 @@ export const CARTE = {
   // DE PERSONNEL (21 septembre 2026). Rangé sous « personnel », il était
   // fermé en écriture au secrétariat et ouvert en LECTURE aux enseignants.
   disciplinaire:           'procedures',
-  grille:                  'personnel',      // grille d'entretien
+  grille:                  'organisation',   // la grille d'organisation (laboratoire, Organisation) — rangée par erreur sous Personnel jusqu'en 3.5.570
   assistants:              'personnel',
   'analyse-cv':            'recrutement',   // lecture d'un CV de candidat
 
@@ -210,6 +210,10 @@ const AFFINEMENTS = [
      les pondérations vivent sous /api/acquis, gardé par le module Étudiants, que la conseillère qualité n'a pas. Ces routes jugent
      elles-mêmes (fixerPonderation → droitsSurLUE : enseignants de l'unité, coordination de la section, fonctions de coordination ;
      la direction seule fixe). */
+  /* CE QUE LA GRILLE DES ATTRIBUTIONS LIT DES NOMINATIONS (3.5.570 : 233 refus chez huit coordinations en un mois) : quelles lignes
+     sont verrouillées par une nomination, quels cours en alerte, quelles pertes de charge. C'est une lecture de la grille des
+     attributions ; le détail des nominations reste au module Personnel. */
+  { motif: /^\/api\/nominations\/(verrous|alertes-cours|pertes-charge)\/?$/, module: 'attributions' },
   { motif: /^\/api\/acquis\/(ponderations(\/repartir)?|ue\/\d+\/(poids-cours|reprendre)|sections\/[^/]+\/ues)\/?$/, module: null },
 ];
 

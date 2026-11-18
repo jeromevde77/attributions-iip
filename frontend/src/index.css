@@ -1727,6 +1727,10 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    portrait »). Bleu nuit #0E2A4F, bleus #2C7DB8 / #3E9BD0, Inter ; couverture pleine page, bandeau par partie, textes en bande pâle. */
 .kit-couverture { background: #0E2A4F; color: #fff; border-radius: 14px; padding: 48px 44px 32px; min-height: 1060px; display: flex; flex-direction: column;
   break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.kit-couverture { position: relative; overflow: hidden; }
+/* L'illustration de la section (3.5.572, le visage du TIM) : collée au bord droit de la page, sous les textes. */
+.kit-couv-illustration { position: absolute; right: 0; top: 10%; width: 36%; pointer-events: none; }
+.kit-couverture > :not(.kit-couv-illustration) { position: relative; }
 .kit-kicker { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; font-weight: 600; color: #3E9BD0; }
 .kit-couv-titre { font-size: 64px; font-weight: 800; line-height: 1.02; letter-spacing: -0.02em; margin-top: 10px; }
 .kit-couv-trait { width: 150px; height: 4px; background: #3E9BD0; border-radius: 2px; margin: 26px 0 22px; }

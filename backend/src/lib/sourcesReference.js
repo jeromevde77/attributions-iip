@@ -139,11 +139,17 @@ function lireInscrits(wb, nom) {
   const cursus = [], cohortes = {}; let total = 0;
   for (const l of lignes(ws)) {
     const k = String(l[0] || '').trim(), n = l[1];
-    // Les cohortes (START = débutant, PROGRESS, END = diplômant) : seuls leurs totaux sont gardés (3.5.460, primo-inscrits de l'ASBL).
-    if (['END', 'PROGRESS', 'START', 'TEMP'].includes(k) && typeof n === 'number') { cohortes[k] = (cohortes[k] || 0) + n; continue; }
+    /* Les cohortes (START = débutant, PROGRESS, END = diplômant) : leurs totaux (3.5.460, primo-inscrits de l'ASBL), et depuis 3.5.571
+       celles de chaque cursus (Charles : « pour avoir de vrais chiffres des départements »). */
+    if (['END', 'PROGRESS', 'START', 'TEMP'].includes(k) && typeof n === 'number') {
+      cohortes[k] = (cohortes[k] || 0) + n;
+      const c = cursus[cursus.length - 1]; if (c) c.cohortes[k] = (c.cohortes[k] || 0) + n;
+      continue;
+    }
     if (!k || typeof n !== 'number' || k === 'Étiquettes de lignes') continue;
     if (/^Total/i.test(k)) { total = n; continue; }
-    cursus.push({ cursus: k, inscrits: n });
+    if (/^\(vide\)$/.test(k)) continue;
+    cursus.push({ cursus: k, inscrits: n, cohortes: {} });
   }
   if (!cursus.length) return null;
   if (!total) total = cursus.reduce((t, c) => t + c.inscrits, 0);

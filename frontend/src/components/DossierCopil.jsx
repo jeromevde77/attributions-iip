@@ -110,6 +110,32 @@ function Texte({ texte, fort = false }) {
   return <div className={`kit-texte ${fort ? 'kit-texte-fort' : ''}`} style={{ whiteSpace: 'pre-line' }}>{texte}</div>;
 }
 
+/* LE VISAGE DU TIM (3.5.572, Charles : « un demi-visage de face en étoiles liées, collé au bord droit ; Spica dans l'œil, au centre,
+   qui brille ; sans écrire son nom »). Moitié gauche d'un visage (axe x = 200, qui tombe sur le bord droit de la page) ; la pupille
+   est Spica, l'étoile du coin du L de Lucie. */
+const VISAGE_TIM = {
+  crane: [200, 38], c1: [152, 46], c2: [112, 72], c3: [84, 116], tempe: [72, 172], t2: [74, 232], pommette: [86, 292], mach: [102, 352], m2: [128, 402], menton1: [166, 440], menton: [200, 452],
+  ch1: [200, 96], ch2: [158, 102], ch3: [122, 126], ch4: [98, 166], sourcil1: [118, 204], sourcil2: [150, 193], sourcil3: [182, 202],
+  oeilExt: [118, 238], oeilHaut: [148, 227], oeilInt: [180, 238], oeilBas: [149, 249],
+  nez1: [194, 268], nez2: [188, 306], aile: [170, 326], pointe: [200, 336],
+  bouche: [156, 380], levre1: [182, 370], levre: [200, 375], levre2: [180, 390], levreBas: [200, 394],
+  oreille1: [72, 212], oreille2: [58, 240], oreille3: [62, 280], oreille4: [78, 298],
+};
+const LIENS_TIM = 'crane-c1 c1-c2 c2-c3 c3-tempe tempe-t2 t2-pommette pommette-mach mach-m2 m2-menton1 menton1-menton ch1-ch2 ch2-ch3 ch3-ch4 ch4-tempe crane-ch1 sourcil1-sourcil2 sourcil2-sourcil3 oeilExt-oeilHaut oeilHaut-oeilInt oeilInt-oeilBas oeilBas-oeilExt nez1-nez2 nez2-aile aile-pointe bouche-levre1 levre1-levre bouche-levre2 levre2-levreBas oreille1-oreille2 oreille2-oreille3 oreille3-oreille4 pommette-aile oeilExt-pommette sourcil3-nez1'
+  .split(' ').map(x => x.split('-'));
+function svgVisageTim() {
+  const V = VISAGE_TIM, forts = ['crane', 'menton', 'pointe', 'pommette', 'oeilExt'];
+  let o = LIENS_TIM.map(([a, b]) => `<line x1="${V[a][0]}" y1="${V[a][1]}" x2="${V[b][0]}" y2="${V[b][1]}" stroke="#FFFFFF" stroke-opacity=".72" stroke-width="1.4"/>`).join('');
+  o += Object.entries(V).map(([k, [x, y]]) => `<circle cx="${x}" cy="${y}" r="${forts.includes(k) ? 4.2 : x === 200 ? 3.4 : 2.9}" fill="#FFFFFF"/>`).join('');
+  const [x, y] = [149, 238];   // Spica, la pupille
+  o += `<circle cx="${x}" cy="${y}" r="16" fill="#9FD8FF" fill-opacity=".18"/><circle cx="${x}" cy="${y}" r="8" fill="#CFEBFF" fill-opacity=".45"/>`
+    + `<line x1="${x - 24}" y1="${y}" x2="${x + 24}" y2="${y}" stroke="#E6F5FF" stroke-width="1.2" stroke-opacity=".9"/><line x1="${x}" y1="${y - 24}" x2="${x}" y2="${y + 24}" stroke="#E6F5FF" stroke-width="1.2" stroke-opacity=".9"/>`
+    + `<line x1="${x - 11}" y1="${y - 11}" x2="${x + 11}" y2="${y + 11}" stroke="#E6F5FF" stroke-width=".8" stroke-opacity=".55"/><line x1="${x - 11}" y1="${y + 11}" x2="${x + 11}" y2="${y - 11}" stroke="#E6F5FF" stroke-width=".8" stroke-opacity=".55"/>`
+    + `<circle cx="${x}" cy="${y}" r="5.2" fill="#FFFFFF"/>`;
+  return `<svg viewBox="44 30 156 430" width="100%" style="display:block" role="img" aria-label="Demi-visage en étoiles liées ; Spica brille dans l'œil">${o}</svg>`;
+}
+const ILLUSTRATION_COUVERTURE = { TIM: svgVisageTim };
+
 /* LA COUVERTURE AU MODÈLE DU KIT (3.5.488, Charles : « modèle sur base de Micro certif ; format portrait ») : bleu nuit, logo blanc,
    le nom de la section en grand, le trait, l'ouverture, les parties au pied. Une page à elle. */
 export function CouvertureCopil({ section, annee, parties, textes }) {
@@ -119,6 +145,7 @@ export function CouvertureCopil({ section, annee, parties, textes }) {
   const nomCh = c => CHAPITRES[c] || PARTIES_COPIL.find(([, n]) => n === c)?.[2] || '';
   return (
     <div className="kit-couverture">
+      {ILLUSTRATION_COUVERTURE[section] && <div className="kit-couv-illustration" aria-hidden="true" dangerouslySetInnerHTML={{ __html: ILLUSTRATION_COUVERTURE[section]() }} />}
       <div className="flex items-start justify-between gap-6">
         {id.logo_blanc ? <img src={id.logo_blanc} alt="" style={{ height: 54 }} /> : <span className="font-bold text-lg">Institut Ilya Prigogine</span>}
         <div className="kit-kicker text-right">Institut Ilya Prigogine · HELB<br />Comité de pilotage</div>

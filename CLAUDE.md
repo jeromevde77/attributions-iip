@@ -4655,6 +4655,22 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.572 — le visage du TIM sur la couverture du dossier COPIL** (projet v2 validé par Charles : « un demi-visage de face en étoiles
+liées, collé au bord droit ; Spica dans l'œil, au centre, qui brille ; sans écrire son nom »). `svgVisageTim` (DossierCopil.jsx),
+`ILLUSTRATION_COUVERTURE` par section (une autre section n'a pas d'illustration), `.kit-couv-illustration` (index.css : 36 % de la
+largeur, collée au bord droit, sous les textes).
+**3.5.571** : (1) la coordination ÉCRIT la planification (Charles : « Écrire » ; migration marquée `plafond_coordination_planification_2026_11_18`,
+réglable ensuite dans Configuration → Accès). (2) LES INSCRITS DE LA HELB PAR DÉPARTEMENT (Charles : « pour avoir de vrais chiffres des
+départements ») : `lireInscrits` garde les cohortes de chaque cursus ; `inscritsHelbParDepartement()` (`lib/financementsAsbl.js`,
+`INSCRITS_CURSUS` : intitulé du fichier → département et cursus de la comparaison ETP, plusieurs intitulés réunis) ; carte « Les inscrits
+de la HELB en <année>, par département » de Financements de l'ASBL (dossiers, débutants, intermédiaires, diplômants, et pour repère les
+étudiants comptés l'année d'avant). Le fichier se dépose dans Gestion → Les sources (aucun n'était déposé en prod au 18/11/2026).
+**3.5.570 — qui est bloqué, et pourquoi** (Charles : « le secrétariat et la coordination encore bloqués »). Lu dans
+`permission_constat` (les refus de module, en prod) : (1) `/api/grille` (la grille d'organisation) était rangée sous Personnel → Organisation ;
+(2) `/api/nominations/(verrous|alertes-cours|pertes-charge)`, lus par la grille des attributions → module Attributions (affinement) ;
+(3) LA CAUSE PRINCIPALE N'EST PAS LE CODE : les cases personnelles des comptes (`permissions_json`) ferment des modules que le rôle
+ouvre (Mati : planification, procédures, réunions, pilotage, aménagements ; Moiny : presque tout ; Amélie : étudiants, organisation…) —
+Configuration → Accès → « Le rôle décide pour tous ». Et le plafond de la coordination pour Planification est « rien » (horaires refusés).
 **3.5.569 — des pages en paysage dans le dossier COPIL** (Charles : « cette partie importante si mal mise en page — certaines pages
 en paysage ? » ; choisi : positionnement et finances UCE, les enseignants). `copil-paysage` (DossierCopil.jsx) : 1 170 px dans l'aperçu,
 `@page paysage { size: A4 landscape }` dans le PDF, rendu avec `pages_nommees` (`preferCSSPageSize`, `services/pdf.js`). **Chromium met
