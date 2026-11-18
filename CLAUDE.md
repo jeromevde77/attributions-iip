@@ -4678,6 +4678,19 @@ partie="cartes"` ne rend que `CarteCommunes` (Bruxelles, Belgique, monde) et `Br
 au 1:50 M (world-atlas@2.0.2, domaine public), 67 pays d'Europe et voisins, DANS LA PROJECTION de monde.json (x = (lon + 180) × 1000/360,
 y = (84 − lat) × 1000/360 — vérifiée sur quatre pays) ; `useCartes` la charge, `svgMonde(vif, cadre, true)` pose ces pays à la place de
 ceux du monde. Une quatrième tuile « Europe » (Population, fiche d'une section) s'ouvre en grand.
+**La présentation et le dossier COPIL au dessin de la fiche** (3.5.562, maquette des diapositives validée par Charles : « construis-la
+telle quelle, et revois le dossier COPIL avec les nouveaux graphiques et tableaux, en gardant la structure et mes notes »).
+Présentation (`PresentationSection.jsx`) : un bloc `k: 'svg'` (l'écran le pose, le PowerPoint l'exporte en image) ; `svgDisques`,
+`svgJauges`, `svgBoites`, `svgVisage` (TIM : un profil en constellation dans l'anneau d'un scanner, la ligne de coupe dorée — la
+couverture et « Merci ») ; `tableau()` = un tableau en blocs de texte NATIFS (modifiable dans le PowerPoint). Les diapositives gardent
+leurs IDENTIFIANTS, donc leurs notes et leurs « À retenir » : `sexe` = les étudiants en disques + inscrits ; `attributions` = la charge sur
+trois ans + « Qui enseigne » ; `chargeblocs` = un seul tableau ; `enseignants` (nouvelle) = disques par type ; `finances` = frais et coûts
+en UCE (quatre chiffres, barres rapporte/coûte) ; `comptes` = le détail en UCE (huit colonnes) ; `decisions` = trois disques +
+évolution ; `blocs` = jauges empilées par bloc et par UE ; `unites` = boîtes à moustaches. Données ajoutées au chargement :
+`population-personnel`, `iip-helb` (→ `lignesUCE`, exportée de `FinancementUCE.jsx`), `stats-deliberation/distributions`.
+Dossier COPIL (`DossierCopil.jsx`) : mêmes parties, même ordre, mêmes textes ; 1.1 `EtudiantsSection` (nouveau composant, aussi celui de
+l'étape 1) puis le détail ; 2.1 l'historique, `IipHelbGestion focus dernieres={3}`, les enseignants en disques ; 2.2 la position puis
+`FinancementUCE` ; 3 `ReussiteSection` ; 5 `BudgetSection focus`.
 
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,

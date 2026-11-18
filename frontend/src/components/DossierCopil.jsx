@@ -18,6 +18,10 @@ import PopulationEcole from './PopulationEcole.jsx';
 import IipHelbGestion from './IipHelbGestion.jsx';
 import GestionLecture from './GestionLecture.jsx';
 import StatsDeliberation from './StatsDeliberation.jsx';
+import EtudiantsSection from './EtudiantsSection.jsx';
+import ReussiteSection from './ReussiteSection.jsx';
+import FinancementUCE from './FinancementUCE.jsx';
+import PersonnelEcole from './PersonnelEcole.jsx';
 import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 import { useIdentite } from '../lib/identite.js';
 
@@ -164,12 +168,15 @@ export default function DossierCopil({ annee, section, parties, textes = {}, ann
             {CHAPITRES[ch] && <h3 className="kit-titre-partie">{num} {titre}
               {ANNEE_DE[k] && <span className="kit-annee"> · {an(ANNEE_DE[k])}</span>}</h3>}
             <Texte texte={texteCopil(textes, section, k)} />
-            {k === 'inscriptions' && <PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" />}
+            {/* LES NOUVEAUX GRAPHIQUES ET TABLEAUX (3.5.562, Charles : « revois le dossier COPIL avec les nouveaux graphiques et tableaux,
+                tout en gardant la structure et mes notes ») : les parties, leur ordre et leurs textes ne changent pas ; leurs dessins sont ceux
+                de la fiche d'une section (Gestion → Une section). */}
+            {k === 'inscriptions' && <><EtudiantsSection annee={an('population')} section={section} /><PopulationEcole annee={an('population')} initial={{ section }} partie="inscriptions" /></>}
             {k === 'provenance' && <PopulationEcole annee={an('population')} initial={{ section }} partie="provenance" />}
-            {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} /></>}
-            {k === 'positionnement' && <GestionLecture annee={an('positionnement')} perimFixe="section" sectionFixe={section} sansIipHelb />}
-            {k === 'reussite' && <StatsDeliberation annee={an('reussite')} initial={{ section }} />}
-            {k === 'budget' && <BudgetSection section={section} />}
+            {k === 'attributions' && <><EnseignantsDepuis section={section} /><IipHelbGestion sectionFixe={section} dernieres={3} focus /><PersonnelEcole annee={an('population')} initial={{ section }} seulCompare /></>}
+            {k === 'positionnement' && <><GestionLecture annee={an('positionnement')} perimFixe="section" sectionFixe={section} sansIipHelb /><FinancementUCE section={section} /></>}
+            {k === 'reussite' && <ReussiteSection section={section} annee={an('reussite')} />}
+            {k === 'budget' && <BudgetSection section={section} focus />}
           </div>);
       })}
       {texteCopil(textes, section, 'conclusion') && (

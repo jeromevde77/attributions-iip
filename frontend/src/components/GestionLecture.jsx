@@ -10,6 +10,7 @@ import PopulationEcole from './PopulationEcole.jsx';
 import PersonnelEcole from './PersonnelEcole.jsx';
 import StatsDeliberation from './StatsDeliberation.jsx';
 import ReussiteSection from './ReussiteSection.jsx';
+import EtudiantsSection from './EtudiantsSection.jsx';
 import { Disque, ComparerA, Partie } from './Disques.jsx';
 import ChargeParBloc from './ChargeParBloc.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
@@ -247,39 +248,7 @@ export default function GestionLecture({ annee: anneeProp, onPresenter, onSource
               {enEtapes ? (<>
                 {!plein && <BarreEtapes etape={etape} onEtape={setEtape} />}
                 {etape === 1 && <div className="space-y-4">
-                  {(() => {
-                    /* LES ÉTUDIANTS EN DISQUES (3.5.552, maquette validée) : la section, et la référence choisie pour cette partie. */
-                    const R = refEtu === 'ASBL' ? (d.asbl || {}) : (d.iip || {});
-                    const D = [['Femmes', 'femmes', 'var(--c-principal)'], ['Primo-inscrits', 'primo', '#05B7E6'],
-                      ['Domicile à Bruxelles', 'bruxelles', '#19537E'], ['Hors UE', 'hors_ue', '#F9B619'],
-                      ['Réussite 1re session', 'reussite_s1', 'var(--c-reussi)']];
-                    return (
-                      <Partie titre="Les étudiants" sous={`${n0(S.inscrits)} inscrits au 15/10 · ${IND.croissance.f(S.croissance)} sur un an · âge moyen ${IND.age.f(S.age)}`}
-                        droite={<ComparerA valeur={refEtu} onChange={setRefEtu} />}>
-                        <div className="grid grid-cols-1 lg:[grid-template-columns:1.4fr_1fr]">
-                          <div className="px-4 py-3 grid gap-2 lg:border-r border-slate-100" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>
-                            {D.map(([nom, k, c]) => <Disque key={k} nom={nom} valeur={S[k]} reference={R[k] ?? null} nomRef={refEtu} couleur={c} />)}
-                          </div>
-                          <div className="px-4 py-3 space-y-2">
-                            <div className="text-mention font-bold uppercase tracking-wider text-slate-500">Inscrits, année par année</div>
-                            {(() => {
-                              const ev = (evo || []).map(a => ({ a: `${String(a.annee).slice(2, 4)}-${String(a.annee).slice(7, 9)}`, n: a.par_section?.[S.section] })).filter(x => x.n != null).slice(-5);
-                              const mx = Math.max(1, ...ev.map(x => x.n));
-                              return ev.length ? (
-                                <div className="flex items-end gap-4 h-[130px] pt-2">
-                                  {ev.map(x => (
-                                    <div key={x.a} className="flex-1 flex flex-col items-center gap-1">
-                                      <span className="text-second font-semibold tabular-nums">{n0(x.n)}</span>
-                                      <div className="w-full max-w-[44px] rounded-t" style={{ height: Math.round((x.n / mx) * 90), background: '#19537E' }} />
-                                      <span className="text-mention text-slate-500">{x.a}</span>
-                                    </div>))}
-                                </div>) : <p className="text-second text-slate-400">Évolution en lecture…</p>;
-                            })()}
-                          </div>
-                        </div>
-                        <div className="px-4 pb-3 text-mention text-slate-500">Anneau de couleur : {S.section} · cercle intérieur : {refEtu === 'ASBL' ? 'l’ASBL (quand la HELB publie le chiffre)' : 'l’IIP'}.</div>
-                      </Partie>);
-                  })()}
+                  <EtudiantsSection annee={annee} section={S.section} lec={d} />
                   {/* OÙ HABITENT-ILS (3.5.559, Charles : « n'oublie pas la carte de Bruxelles, Belgique et monde ») : les trois cartes de
                       Population, pour la section, et Bruxelles sur trois ans. */}
                   <PopulationEcole annee={annee} initial={{ section: S.section }} partie="cartes" />
