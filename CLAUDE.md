@@ -4655,6 +4655,10 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.572 — le visage du TIM sur la couverture du dossier COPIL** (projet v2 validé par Charles : « un demi-visage de face en étoiles
+liées, collé au bord droit ; Spica dans l'œil, au centre, qui brille ; sans écrire son nom »). `svgVisageTim` (DossierCopil.jsx),
+`ILLUSTRATION_COUVERTURE` par section (une autre section n'a pas d'illustration), `.kit-couv-illustration` (index.css : 36 % de la
+largeur, collée au bord droit, sous les textes).
 **3.5.571** : (1) la coordination ÉCRIT la planification (Charles : « Écrire » ; migration marquée `plafond_coordination_planification_2026_11_18`,
 réglable ensuite dans Configuration → Accès). (2) LES INSCRITS DE LA HELB PAR DÉPARTEMENT (Charles : « pour avoir de vrais chiffres des
 départements ») : `lireInscrits` garde les cohortes de chaque cursus ; `inscritsHelbParDepartement()` (`lib/financementsAsbl.js`,
