@@ -20,6 +20,7 @@ import { placer } from '../lib/passages.js';
 import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
+import { peut } from '../middleware/permissions.js';
 import { envelopperDocument } from '../lib/document.js';
 import { donneesInscritsUnites } from './etudiants.js';
 import { anneeDeTravail } from '../helpers/annee.js';
@@ -3037,8 +3038,14 @@ function grilleDePortee(p) {
   return grilleUE(ues[0], p.annee, periode);
 }
 
-/** Un rapport réservé (`roles`) ne s'ouvre qu'à ces rôles : pas de droit, pas de pièce. */
-const rapportPermis = (def, user) => !def.roles || def.roles.includes(user?.role);
+/* IMPRIMER N'EST PAS PILOTER (3.5.577, Charles : « pour moi imprimer ce n'est pas du pilotage ») : une pièce se lit avec le module
+   de ce qu'elle montre — une liste d'étudiants avec Étudiants, une pièce du personnel avec Personnel, un référentiel avec Organisation,
+   un chiffre de l'école avec Pilotage (la dotation avec Dotation). Tout /api/rapports passait par Pilotage : le secrétariat et les
+   professeurs étaient refusés pour imprimer une liste d'inscrits. */
+const MODULE_DU_DOMAINE = { etudiants: 'etudiants', organisation: 'organisation', personnel: 'personnel', gestion: 'pilotage' };
+export const moduleDuRapport = def => (/^dotation/.test(def.id) ? 'dotation' : MODULE_DU_DOMAINE[def.domaine] || 'pilotage');
+/** Un rapport réservé (`roles`) ne s'ouvre qu'à ces rôles, et à qui lit le module de son domaine : pas de droit, pas de pièce. */
+const rapportPermis = (def, user) => (!def.roles || def.roles.includes(user?.role)) && !!peut(user, moduleDuRapport(def), 'lire');
 
 // LES RÉGLAGES POSSIBLES DE « IIP ET HELB » (3.5.431) : la page de Gestion les lit ici — une seule liste, celle de la pièce.
 r.get('/iip-helb/reglages', authRequired, (req, res) => res.json({ parties: PARTIES_IIP_HELB, graphes: GRAPHES_IIP_HELB, mesures: MESURES_IIP_HELB }));
@@ -3092,7 +3099,7 @@ r.get('/cout-formations/donnees', authRequired, (req, res) => {
 /** Un aperçu à l'écran avant de télécharger : on voit ce qu'on emporte. */
 r.post('/:id/apercu', authRequired, (req, res) => {
   const def = RAPPORTS.find(x => x.id === req.params.id);
-  if (!def) return res.status(404).json({ error: 'rapport inconnu' });
+  if (!def || !rapportPermis(def, req.user)) return res.status(404).json({ error: 'rapport inconnu' });
   try {
     const p = parametres(req, def);
     const lignes = def.lignes(p);

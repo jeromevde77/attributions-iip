@@ -4655,6 +4655,12 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.577 — imprimer n'est pas piloter** (Charles, 18 novembre 2026). Une pièce du catalogue des rapports se lit avec le module de
+son DOMAINE (`moduleDuRapport` : étudiants → Étudiants, personnel → Personnel, organisation → Organisation, gestion → Pilotage, dotation-* →
+Dotation), jugé par `rapportPermis` (routes/rapports.js, aperçu compris) ; affinements de `carteModules.js` : catalogue et
+`/:id/(apercu|document|xlsx)` sans module (la route juge), `mise-en-page` et `document-groupe` → Listes, `inscrits-unites|inscrits-grille`
+→ Étudiants ; les coûts des formations restent au Pilotage. Et `/api/conventions/a-signer` sans module (719 refus chez 46 professeurs :
+la route rend vide à qui n'est pas signataire).
 **3.5.576 — qui s'est connecté à son espace** (Charles : « comment voir facilement qui s'est connecté, et envoyer un mail à ceux qui ne le
 sont pas ? »). Mise en service → carte « Qui s'est connecté à son espace » (`QuiConnecte`, MiseEnService.jsx) : une section, une UE, ou tous
 les invités ; invitation, nombre, première et dernière connexion (`portail_connexion`) ; filtres ; « Relancer les n jamais connectés » =
