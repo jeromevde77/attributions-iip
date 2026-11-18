@@ -4708,6 +4708,18 @@ une ligne clonée par ligne, l'année, le réseau coché, la date, signature et 
 `/ppc/document?format=docx|pdf`. Fenêtre `components/AnnexePPC.jsx` (Éditions → Personnel → Tout le personnel). **Le calcul ne vaut que
 ce que valent les nominations encodées** (fiche → Nominations) : au 18 novembre 2026, quatre définitifs seulement.
 
+**3.5.567 — l'import des nominations** (Charles : « prépare-moi un import des nominations ») : fenêtre de l'annexe → « Importer les
+nominations (Word) » (`lib/importNominations.js`, `POST /api/nominations/import`, simulation puis `ecrire`) lit le tableau « MDP
+définitifs » (Nom et prénom · Fonction / Cours avec CT, PP… en fin de libellé · Périodes · Total · Niveau, une ligne par paragraphe),
+retrouve la fiche (`professeurExistant`), ne touche une personne déjà encodée que si l'on coche « remplacer » (anciennes inactives) ;
+une fonction sans suffixe (éducateur, chef d'atelier) entre en `AUTRE` et reste hors de l'annexe (personnel non chargé de cours).
+**3.5.566** (tranché par Charles) : la charge perdue est TOUTE la charge nommée de la fonction ; le rappel = ce qui est attribué dans
+cette fonction et ce niveau (+ hors fonctions nommées sur la première ligne) ; payées non prestées = nommé − rappel ; tout nommé encodé a
+sa ligne ; le supérieur s'écrit « DS » (« c'est pour l'admin, on suit la circulaire »). Une saisie enregistrée l'emporte : « Reprendre le
+calcul » dans la fenêtre. **3.5.565** (Charles : « la mise en page ne va pas ») : les rangées du modèle à hauteur « exact » passent en « au moins » (titre tronqué,
+cachet hors de sa case) ; l'image du serveur reçoit Carlito et Caladea (largeurs de Calibri et Cambria) pour les modèles Word ; les dates
+de l'annexe = première et dernière semaine du calendrier des cours. **Seuls les nommés ENCODÉS comptent** : un enseignant nommé absent
+de `nomination_definitive` (VAN GOETHEM, KOENIG en 2025-2026, « temporaires » dans Lucie) n'apparaît pas — fiche → Nominations.
 **COMPOSER MONTRE CE QUI EST ENGAGÉ, CE QUE ÇA COÛTE, CE QUE ÇA RAPPORTE — EN UCE, PAS EN BILAN** (3.5.549, Charles, 18 novembre
 2026 : « composer n'est pas un bilan comptable ; garde le bilan pour les finances » ; colonnes : année, étudiants réels, lissés, MUCE,
 pondération, financement, salaires HELB, salaires IIP pour info, matériel et investissements, DI et FI rapportés par l'IIP, solde ASBL).
