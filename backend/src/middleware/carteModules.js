@@ -169,8 +169,9 @@ export const CARTE = {
  */
 const LECTURES_EN_POST = [
   /^\/api\/impression\//,
-  /^\/api\/rapports\/[^/]+\/(xlsx|pdf)$/,
-  /^\/api\/rapports\/mise-en-page$/,   // met en page une liste : elle produit, elle n'écrit rien (Mati, 7 refus)
+  // TOUT /api/rapports ne fait que PRODUIRE (aperçu, document, tableur, mise en page, grilles) : aucune de ses routes
+  // n'écrit (3.5.544, Mati : « Inscrits par unité » refusé, « pas le droit de modifier ce module (pilotage) »).
+  /^\/api\/rapports\//,
   /^\/api\/exports\//,
   /^\/api\/apercu\//,
   /\/simuler$/,            // toute simulation : elle n'écrit rien, c'est son objet
