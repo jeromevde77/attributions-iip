@@ -6,7 +6,7 @@
    La pondération de chaque cursus se règle à l'écran (direction) : seule celle de TIM (1,5, paramédical) est connue avec certitude ;
    un cursus sans pondération n'est pas calculé. */
 import db from '../db/index.js';
-import { PARAM_HELB } from './rapportIipHelb.js';
+import { PARAM_HELB, muceDe } from './rapportIipHelb.js';
 
 const CLE = 'ponderations_cursus';
 const DEFAUT = { 'Technologue en imagerie médicale': 1.5 };
@@ -43,5 +43,6 @@ export function financementDecret(serie, C, pond, existe = () => true, P = PARAM
     s += v; annees.push([a, v]);
   }
   const moyenne = s / n;
-  return { montant: Math.round(moyenne * P.muce * pond), moyenne: Math.round(moyenne * 100) / 100, annees, muce: P.muce, ponderation: pond };
+  const muce = muceDe(C, P);
+  return { montant: Math.round(moyenne * muce * pond), moyenne: Math.round(moyenne * 100) / 100, annees, muce, ponderation: pond };
 }

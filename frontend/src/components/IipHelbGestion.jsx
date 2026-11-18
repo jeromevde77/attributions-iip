@@ -30,6 +30,9 @@ const pc = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const court = a => `${String(a).slice(2, 4)}-${String(a).slice(7, 9)}`;
 const FORMES = [['empile', 'Empilé'], ['cote', 'Côte à côte'], ['parts', '%'], ['courbe', 'Courbe']];
 /* POUR LA HELB (3.5.433) : la formule de helbAnnee (lib/rapportIipHelb.js), recopiée ici pour l'écran — qui change l'une change l'autre. */
+// La MUCE par année civile (3.5.546) : recopie de MUCE_ANNEES et muceDe (lib/rapportIipHelb.js).
+const MUCE_ANNEES = { 2022: 3837.18, 2026: 4562, 2027: 4593 };
+const muceDe = (C, P) => { const a = Object.keys(MUCE_ANNEES).map(Number).filter(x => x <= Number(C)).sort((x, y) => y - x); return a.length ? MUCE_ANNEES[a[0]] : P.muce; };
 const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 const LIB_HELB = [['part', '% des inscrits comptés', '%'], ['muce', 'Unité de charge (MUCE)', '€'], ['ponderation', 'Pondération santé', '×'],
   ['lissage', 'Lissage (décret : 3)', 'ans'], ['cmbp', 'Coût moyen brut d’un ETP', '€'], ['autres', 'Autres services', '% des salaires'], ['fonctionnement', 'Fonctionnement', '% de l’allocation'], ['moyenne', 'Moyenne HELB', 'étu./ETP']];
@@ -72,7 +75,7 @@ function helbAnnee(y, P, avecCoord, inscritsDe, materiel) {
   const n = Math.max(1, Math.round(P.lissage || 3)), deb = Number(y.annee.slice(0, 4));
   const civile = C => { let s = 0; for (let k = 2; k < 2 + n; k++) s += (inscritsDe(`${C - k}-${C - k + 1}`) || 0) * P.part / 100; return s / n; };
   const base = civile(deb) * 4 / 12 + civile(deb + 1) * 8 / 12;
-  const allocation = base * P.muce * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
+  const allocation = (civile(deb) * 4 / 12 * muceDe(deb, P) + civile(deb + 1) * 8 / 12 * muceDe(deb + 1, P)) * P.ponderation, droits = y.tiers ? 0 : (y.recettes || 0), recettes = allocation + droits;
   const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0), salaires = salairesHelb(y, P, avecCoord), autres = salaires * P.autres / 100;
   const fonct = P.mode_fonct === 'forfait' ? allocation * P.fonctionnement / 100 : (materiel || 0);
   const cout = salaires + autres + fonct;

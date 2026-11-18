@@ -4616,6 +4616,12 @@ est le compte de direction (`directionDestinataire` : `lucie_config` « messages
 admin), la phrase de l'étudiant au fil, une notification `reponse_etudiant`. La direction le lit et répond dans Étudiants → Écrire → Envoyés ;
 la coordination ne le voit pas.
 
+**LA MUCE PAR ANNÉE CIVILE** (3.5.546, Charles, 18 novembre 2026 : « les UCE pour 2026 : 4562, et pour 2027 : 4593 »).
+`MUCE_ANNEES` et `muceDe(C)` (`lib/rapportIipHelb.js`, recopiés dans `IipHelbGestion.jsx`) : 2022 = 3 837,18 (Vinci), 2026 = 4 562,
+2027 = 4 593 ; une année sans valeur prend la dernière connue avant elle. Lus par l'allocation d'une année académique (4/12 de la MUCE de
+l'année où elle commence, 8/12 de la suivante), `allocationCivile` et `financementDecret`. **Une MUCE nouvelle s'ajoute aux deux tables.**
+2023 à 2025 restent au prix de 2022 tant que leurs valeurs ne sont pas connues.
+
 **LES COORDINATIONS LISENT LA FICHE DE LEURS ENSEIGNANTS** (3.5.545, Charles, 18 novembre 2026 : « pas les données
 confidentielles mais la charge de cours » ; tranché : dans Personnel, fiche réduite ; identité et contact pro, charge dans ses sections,
 charge totale sans détail ailleurs, titres). L'axe Personnel s'ouvre par le rôle (5e élément d'`AXES`). `ficheReduite(user, profId)`

@@ -285,6 +285,14 @@ export function prixHelb(cor = null) {
    cette année, de façon lissée ; les droits d'inscription vont directement à l'ASBL, et la HE paie ses enseignants avec son allocation —
    c'est de la rationalisation ») : l'allocation est nulle avant `debut`, puis vaut la MOYENNE des étudiants comptés des `lissage` années
    précédentes ; les droits et frais des étudiants de la section (au barème) entrent aux recettes, versés à l'ASBL. */
+/* LA MUCE A UNE VALEUR PAR ANNÉE CIVILE (3.5.546, Charles, 18 novembre 2026 : « les UCE pour 2026 : 4562, et pour 2027 : 4593 »).
+   2022 : présentation financière de Vinci. Une année sans valeur prend la dernière connue avant elle ; avant toutes, `muce`.
+   Recopiée dans IipHelbGestion.jsx — qui change l'une change l'autre. */
+export const MUCE_ANNEES = { 2022: 3837.18, 2026: 4562, 2027: 4593 };
+export function muceDe(C, P = PARAM_HELB) {
+  const ans = Object.keys(MUCE_ANNEES).map(Number).filter(a => a <= Number(C)).sort((a, b) => b - a);
+  return ans.length ? MUCE_ANNEES[ans[0]] : P.muce;
+}
 export const PARAM_HELB = { part: 50, muce: 3837.18, ponderation: 1.5, cmbp: 90000, autres: 0, fonctionnement: 20.8, moyenne: 17, debut: 2026, lissage: 3 };
 /* LE MATÉRIEL ET LE FONCTIONNEMENT DE LA SECTION (3.5.436, Charles : « aller chercher dans les bilans ce que coûte la section en
    matériel » ; « vas-y »). La comptabilité analytique de l'ASBL (classeur « 2021 à 2024 Comptes & Budgets », cursus 111066) ne porte pour
@@ -475,13 +483,16 @@ export function salairesHelb(y, P, avecCoord = true) {
 export function baseDecret(deb, P, inscritsDe) {
   const n = Math.max(1, Math.round(P.lissage || 3));
   const civile = C => { let s = 0; for (let k = 2; k < 2 + n; k++) s += (inscritsDe(`${C - k}-${C - k + 1}`) || 0) * P.part / 100; return s / n; };
+  if (P._part === 'debut') return civile(deb) * 4 / 12;
+  if (P._part === 'fin') return civile(deb + 1) * 8 / 12;
   return civile(deb) * 4 / 12 + civile(deb + 1) * 8 / 12;
 }
 export function helbAnnee(y, P, avecCoord = true, inscritsDe = () => 0, materiel = null) {
   const comptes = y.inscrits * P.part / 100;
   const deb = Number(String(y.annee).slice(0, 4));
   const base = baseDecret(deb, P, inscritsDe);
-  const allocation = base * P.muce * P.ponderation;
+  // Chaque part civile au prix de SON année (4/12 de l'année où elle commence, 8/12 de la suivante).
+  const allocation = base ? (baseDecret(deb, { ...P, _part: 'debut' }, inscritsDe) * muceDe(deb, P) + baseDecret(deb, { ...P, _part: 'fin' }, inscritsDe) * muceDe(deb + 1, P)) * P.ponderation : 0;
   const droits = y.tiers ? 0 : (y.recettes || 0);
   const recettes = allocation + droits;
   const etp = y.ens_helb + (avecCoord ? y.cetp_helb : 0);
@@ -1047,5 +1058,5 @@ export function allocationCivile(section, C) {
     let ins = 0; try { ins = coutMemo(a).sections.find(x => x.section === section)?.inscrits || 0; } catch { ins = 0; }
     s += ins * P.part / 100;
   }
-  return Math.round((s / n) * P.muce * P.ponderation);
+  return Math.round((s / n) * muceDe(C, P) * P.ponderation);
 }
