@@ -4655,6 +4655,10 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.581 — la loupe de projection** (Charles, 19 novembre 2026 : « quand je projette mon écran, faire des zooms » ; tranché : sur
+n'importe quel écran). Barre du haut → loupe (`components/Loupe.jsx`, dans `OutilsBarre`) ou Alt + Z : `transform: scale()` posé sur
+`#root`, origine = le point sous la souris (la zone suit le pointeur) ; ×1,5 à ×4 (+ / −, Alt + molette, bandeau en bas, rendu HORS de la
+racine par portail) ; Échap ou le bouton referment ; les clics restent actifs. Rien ne s'écrit.
 **3.5.580 — tout le monde présent** (Charles : « une option de la direction ou du secrétariat pour mettre tout le monde présent » ;
 tranché : toutes les UE d'une section ou de l'école ; sous-groupes sans répartition laissés vides). Suivi des présences → Par UE, bouton
 « Toutes les UE <section> » / « … de l'école » à côté de la date : `POST /api/presences-ue/remplir-tout` (simulation puis écriture), la règle de
