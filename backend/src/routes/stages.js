@@ -423,6 +423,15 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
   res.json({ stages, section: sec, minimum: sec ? (minimaStages()[sec] ?? null) : null });
 });
 
+/* L'ATTESTATION DE STAGES (3.5.588, code R-06) : lib/attestationStage.js. Signée et cachetée : direction et secrétariat,
+   comme l'attestation d'inscription. */
+r.get('/etudiant/:id/attestation', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  const { chargerAttestationStage, composerAttestationStage } = await import('../lib/attestationStage.js');
+  const d = chargerAttestationStage(Number(req.params.id));
+  if (d.erreur) return res.status(d.code || 409).json({ error: d.erreur });
+  res.json({ ...composerAttestationStage(d), sans_heures: d.sans_heures });
+});
+
 function minimaStages() {
   try { return { TIM: 600, ...JSON.parse(getParam('stages_heures_min', '{}') || '{}') }; } catch { return { TIM: 600 }; }
 }

@@ -156,6 +156,8 @@ const PIECES_DOSSIER = [
   // L'ATTESTATION D'INSCRIPTION (3.5.352) : la « Lettre 1 » du secrétariat — allocations familiales, mutuelle, CPAS…
   { cle: 'att_inscription', label: 'Attestation d’inscription', dixSept: true, route: (id, a) => `/api/etudiants/${id}/attestation-inscription?annee=${a}` },
   { cle: 'att_allocations', label: 'Attestation d’inscription (allocations familiales)', dixSept: true, route: (id, a) => `/api/etudiants/${id}/attestation-inscription?variante=allocations&annee=${a}` },
+  // L'ATTESTATION DE STAGES (3.5.588, R-06) : les stages effectués, toutes années ; un étudiant sans stage effectué est nommé.
+  { cle: 'att_stage', label: 'Attestation de stages', route: id => `/api/stages/etudiant/${id}/attestation` },
   /* L'ATTESTATION STIB (3.5.527) : le formulaire officiel rempli, déjà en PDF — il sort à part, en un PDF qui réunit les étudiants
      cochés qui remplissent les seuils de la STIB ; les autres sont nommés. */
   { cle: 'stib', label: 'Attestation de fréquentation scolaire — STIB', pdfLot: true },

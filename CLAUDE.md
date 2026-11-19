@@ -4655,6 +4655,13 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**L'attestation de stages, R-06** (3.5.588, troisième étape du code des stages). `lib/attestationStage.js` (`chargerAttestationStage`,
+`composerAttestationStage`) : les stages EFFECTUÉS de l'étudiant, toutes années (terminés ou à heures encodées, jamais rompus ni annulés)
+— année, stage et UE, lieu (nom, service, adresse, maître de stage), période, heures —, le total face au minimum de la section, bloc de
+clôture (référence et QR). `GET /api/stages/etudiant/:id/attestation` (direction, secrétariat), catalogue `attestation_stage`, code R-06
+dans les DEUX copies de `codesPieces.js` (alias `att_stage`, titre reconnu). Portes : Organisation → Stages → 6 (bouton par étudiant
+dont un stage est terminé), fiche → Imprimer ou envoyer → Résultats, Éditions → Documents (colonne Inscription). Pas de spécimen dans la
+galerie ni dans le centre de documents de l'étudiant (à décider).
 **Les places et les heures confirmées** (3.5.587, deuxième étape du code des stages). `stage_lieu_place` (lieu × année, `PUT
 /stages/lieux/:id/places`) : saisies à l'étape 1 (colonne « Places »), comptées à l'affectation en lot (`places` de la simulation :
 signalé, jamais bloquant ; le menu des lieux dit « 3/4 places »). Les heures effectuées disent qui et quand (`heures_par`, `heures_le`) :

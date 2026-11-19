@@ -158,6 +158,8 @@ export default function PiecesEtudiant({ etud, annee }) {
         clic: () => apercu('bulletin', `/api/etudiants/${id}/bulletin/document?annee=${a}`, 'Bulletin de parcours', 'bulletin') },
       { cle: 'parcours', icone: IconFileText, titre: 'Parcours de formation', sous: 'Schéma de capitalisation et unités acquises',
         clic: () => apercu('parcours', `/api/etudiants/${id}/fiche-parcours/document?annee=${a}`, 'Parcours de formation', 'parcours', { orientation: 'paysage' }) },
+      { cle: 'stages', icone: IconFileText, titre: 'Attestation de stages', sous: 'Les stages effectués, toutes années, et leurs heures',
+        clic: () => apercu('stages', `/api/stages/etudiant/${id}/attestation`, 'Attestation de stages', 'attestation_stage') },
       { cle: 'motivation', icone: IconFileText, titre: 'Motiver un refus ou un ajournement', sous: 'Annexes 8 et 9 — par acquis',
         clic: () => setModale('motivation') },
     ]],

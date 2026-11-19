@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconSend, IconCheck, IconPlus, IconUpload, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
 import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat, TuileEtat, Fenetre } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { VisitesTrajets } from '../components/VisitesStage.jsx';
 import FichesEvaluation from '../components/FichesEvaluation.jsx';
@@ -38,7 +39,7 @@ const ETAPES = [
   [3, 'Les pièces', 'Avant le premier jour (RDE art. 51 et 55) : autorisation, convention signée, visite médicale du CESI (fiche → Santé), casier de moins de six mois, vaccination.'],
   [4, 'Les conventions', 'Une seule source : le registre des conventions. On y dépose la convention d’un stage, la direction la signe d’un clic, et la date « convention signée » du stage s’en déduit.'],
   [5, 'Le suivi', 'L’état se déduit des pièces et des dates : à préparer, prêt, en cours, terminé. Seuls « rompu » et « annulé » se posent à la main, dans la fiche. Les visites et les trajets du superviseur se lisent ici.'],
-  [6, 'Évaluation et heures', 'Les heures effectuées face au minimum de la section, puis les fiches d’évaluation (superviseur, maître de stage par lien) qui versent leurs notes dans le carnet.'],
+  [6, 'Évaluation et heures', 'Les heures effectuées face au minimum de la section et l’attestation de stages (R-06) de chaque étudiant ; puis les fiches d’évaluation (superviseur, maître de stage par lien) qui versent leurs notes dans le carnet.'],
 ];
 const ANCIENNES = { ensemble: 5, pieces: 3, lot: 2, propositions: 2, trajets: 5, fiches: 6 };
 
@@ -284,6 +285,20 @@ function EtapeSuivi({ stages, annee }) {
   </>);
 }
 
+/* L'attestation de stages (R-06) d'un étudiant : composée par le serveur, rendue en PDF, ouverte dans un onglet. */
+async function attestationStages(etudId) {
+  const w = ouvrirOngletAttente('L’attestation de stages est en cours de composition…');
+  try {
+    const j = await appel(`/api/stages/etudiant/${etudId}/attestation`);
+    const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html: j.html, nom: j.nom, pagination: 'si-plusieurs' }) });
+    if (!rp.ok) { const e = await rp.json().catch(() => ({})); throw new Error(e.error || 'Le PDF n’a pas pu être produit.'); }
+    const url = URL.createObjectURL(await rp.blob());
+    if (w) w.location.href = url; else window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { if (w) w.close(); informer({ message: e.message }); }
+}
+
 /* 6. ÉVALUATION ET HEURES — par étudiant : les heures de ses stages de l'année, son cumul (toutes années) face au minimum de
    sa section ; puis les fiches d'évaluation des UE de stage. */
 function EtapeHeures({ stages, annee }) {
@@ -303,7 +318,7 @@ function EtapeHeures({ stages, annee }) {
     </div>
     {vue === 'fiches' ? <div className="p-4"><FichesEvaluation annee={annee} domaine="stage" /></div> : !liste.length ? <p className="px-4 py-3 text-sm text-slate-500 m-0">Aucun stage.</p> : (
       <Tableau dense>
-        <TableauEntete><Th>Étudiant</Th><Th>Section</Th><Th align="droite">Stages</Th><Th align="droite">Heures effectuées / prévues ({annee})</Th><Th align="droite">Cumul / minimum</Th><Th>À noter</Th></TableauEntete>
+        <TableauEntete><Th>Étudiant</Th><Th>Section</Th><Th align="droite">Stages</Th><Th align="droite">Heures effectuées / prévues ({annee})</Th><Th align="droite">Cumul / minimum</Th><Th>À noter</Th><Th /></TableauEntete>
         <tbody>{liste.map(e => {
           const sous = e.minimum && e.cumul < e.minimum;
           return (
@@ -312,6 +327,7 @@ function EtapeHeures({ stages, annee }) {
               <Td align="droite">{e.eff || '—'} / {e.prev || '—'}</Td>
               <Td align="droite">{e.minimum ? <PastilleEtat etat={sous ? (e.termines === e.n ? 'corriger' : 'neutre') : 'reussi'}>{e.cumul} / {e.minimum} h</PastilleEtat> : <span className="text-slate-400">{e.cumul} h · pas de minimum</span>}</Td>
               <Td ton="secondaire">{[e.manque ? `${e.manque} stage(s) terminé(s) sans heures effectuées` : '', e.aConfirmer ? `${e.aConfirmer} non confirmé(s) par le superviseur` : ''].filter(Boolean).join(' · ')}</Td>
+              <Td align="droite">{e.termines > 0 && <button className="bouton px-2 py-0.5 text-second whitespace-nowrap" onClick={() => attestationStages(e.id)}>Attestation</button>}</Td>
             </Tr>);
         })}</tbody>
       </Tableau>)}
