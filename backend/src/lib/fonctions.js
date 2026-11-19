@@ -1,4 +1,4 @@
-/**
+/** (CS)
  * LES FONCTIONS QU'ON ALLUME UNE À UNE (3.5.001, Charles, 30 octobre 2026 : « tout l'espace étudiant en ligne, mais pas
  * encore communiqué ; on activera petit à petit — d'abord la mise à disposition des documents, puis le reste ; tout comme
  * les présences, on va d'abord faire des tests » ; tranché : trois états, la présence par QR éteinte au départ).

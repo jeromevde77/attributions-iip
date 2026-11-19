@@ -1,4 +1,4 @@
-/**
+/** (CS)
  * LE MOTEUR DU PAE — UNE SEULE RÈGLE POUR DIRE CE QUI EST ACCESSIBLE
  * (Charles, 28 septembre 2026 : « tout le mécanisme PAE est multiple ; il n'y
  * a pas qu'une seule porte d'entrée, et donc cela crée des bugs »).

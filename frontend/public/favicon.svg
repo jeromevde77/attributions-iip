@@ -1,4 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Logo de Lucie © Charles Sohet, tous droits réservés. Création originale protégée par le droit d'auteur ; toute reproduction ou utilisation hors de Lucie est interdite sans autorisation écrite. (CS) -->
+  <title>Lucie</title>
+  <desc>Logo de Lucie © Charles Sohet — tous droits réservés</desc>
   <defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050B1E"/><stop offset="1" stop-color="#16406A"/></linearGradient></defs>
   <rect width="512" height="512" rx="96" fill="url(#n)"/>
   <g stroke="#FFFFFF" stroke-opacity=".17" stroke-width="2.8" stroke-linecap="round"><line x1="497.92" y1="333.76" x2="367.6" y2="349.6"/><line x1="367.6" y1="349.6" x2="313.6" y2="323.68"/><line x1="313.6" y1="323.68" x2="151.6" y2="349.6"/><line x1="151.6" y1="349.6" x2="42.88" y2="270.4"/><line x1="42.88" y1="270.4" x2="64.48" y2="222.88"/><line x1="64.48" y1="222.88" x2="-5.36" y2="174.64"/><line x1="151.6" y1="349.6" x2="199.84" y2="235.84"/><line x1="199.84" y1="235.84" x2="151.6" y2="173.2"/><line x1="151.6" y1="173.2" x2="40.72" y2="91.12"/><line x1="199.84" y1="235.84" x2="313.6" y2="257.44"/><line x1="313.6" y1="257.44" x2="348.88" y2="176.8"/><line x1="313.6" y1="257.44" x2="313.6" y2="323.68"/></g>

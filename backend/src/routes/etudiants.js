@@ -1,3 +1,4 @@
+// (CS)
 import { requeteCourante } from '../lib/contexteRequete.js';
 import { chargerAttestationInscription, composerAttestationInscription } from '../lib/attestationInscription.js';
 import { dixiemeUE } from '../lib/datesReelles.js';

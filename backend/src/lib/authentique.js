@@ -1,4 +1,4 @@
-/**
+/** (CS)
  * L'AUTHENTICITÉ D'UNE PIÈCE — UN QR, UNE RÉFÉRENCE, UN REGISTRE (Charles, 30 octobre 2026 : « un petit QR qui
  * permet d'authentifier le document, pour éviter la fraude ; si quelqu'un scanne, il sait que c'est un vrai » ;
  * « les attestations et documents légaux ; les diplômes, eux, ont la signature manuscrite »).

@@ -1,4 +1,4 @@
-/**
+/** (CS)
  * PAS DE DROIT, PAS DE BOUTON (3.1.20, Charles, 4 octobre 2026 : « si pas
  * accès, pas d'icône — fais attention à cela pour tout le monde »).
  *

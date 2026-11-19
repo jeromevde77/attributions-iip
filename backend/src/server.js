@@ -1,3 +1,4 @@
+// (CS)
 import 'dotenv/config';
 import { porterContexte } from './lib/contexteRequete.js';
 import { cloreGeste, poserDeclencheurs } from './lib/annulation.js';

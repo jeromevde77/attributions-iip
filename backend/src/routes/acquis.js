@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────── (CS)
 // Lucie — Acquis d'apprentissage : pondérations et calcul de la note d'UE
 //
 // En enseignement pour adultes, la note d'une UE se détermine à partir des

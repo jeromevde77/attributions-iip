@@ -1,4 +1,4 @@
-/**
+/** (CS)
  * UNE NOTE D'UNE SÉANCE CLOSE NE S'ÉCRIT PLUS, PAR AUCUNE PORTE (3.1.432, Charles,
  * 28 octobre 2026 : « vérifier qu'il n'y a pas pour une chose deux entrées »).
  *
