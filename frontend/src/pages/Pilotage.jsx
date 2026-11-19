@@ -242,6 +242,87 @@ function DotSectionSelect({ value, onChange }) {
 }
 
 // ── Composant comparaison dotation ───────────────────────────────────────────
+/* TOUTES LES ANNÉES CIVILES, CÔTE À CÔTE (3.5.585, Charles : « un tableau qui me calcule la dotation civile et compare facilement
+   toutes les années »). Le calcul de la face Dotation, ligne par ligne : dotation, les deux moitiés de l'année civile (janvier-juin
+   = Q2 de l'année scolaire d'avant, septembre-décembre = Q1 de la suivante), dépassements d'enveloppes, utilisées, FELSI (1 %,
+   arrondi) + GIPS (40), solde réel, taux ; l'écart à l'année d'avant sur la dotation et sur les utilisées. */
+function DotationAnnees({ civil, selYear, onChoisir }) {
+  const lignes = (civil || []).map((y, i, t) => {
+    const felsi = Math.round((y.dotation_organique || 0) * 0.01);
+    const avant = i > 0 ? t[i - 1] : null;
+    const evol = (a, b) => (a != null && b ? Math.round((a - b) / b * 1000) / 10 : null);
+    return { ...y, felsi, solde_reel: (y.solde_organique ?? 0) - felsi - 40,
+      d_dot: evol(y.dotation_organique, avant?.dotation_organique), d_usage: evol(y.usage_organique, avant?.usage_organique) };
+  });
+  if (!lignes.length) return <div className="text-gray-400 py-12 text-center">Aucune année civile encodée</div>;
+  const max = Math.max(...lignes.map(l => Math.max(l.dotation_organique || 0, l.usage_organique || 0)), 1);
+  const ecart = v => v == null ? <span className="text-gray-300">—</span> : <span className="text-mention text-slate-500">{sign(v)}{fmt(v, 1)} %</span>;
+  const td = 'px-3 py-2 text-right tabular-nums whitespace-nowrap';
+  return (
+    <div className="space-y-4">
+      <div className="carte overflow-hidden">
+        <EnteteCarte titre="La dotation civile, année par année" sous="Un clic sur une année ouvre son détail (onglet Dotation)" />
+        <div className="overflow-x-auto">
+          <Tableau className="!border-0 !rounded-none">
+            <TableauEntete>
+              <ThM>Année civile</ThM>
+              <ThM align="droite">Dotation</ThM>
+              <ThM align="droite">Janv. – juin</ThM>
+              <ThM align="droite">Sept. – déc.</ThM>
+              <ThM align="droite">Dépassements</ThM>
+              <ThM align="droite">Utilisées</ThM>
+              <ThM align="droite">FELSI + GIPS</ThM>
+              <ThM align="droite">Solde réel</ThM>
+              <ThM>Taux</ThM>
+            </TableauEntete>
+            <tbody>
+              {lignes.map(l => {
+                const ton = tonDotation(l.pct_organique);
+                return (
+                  <tr key={l.annee_civile} className={`ligne-maison cursor-pointer ${l.annee_civile === selYear ? 'ligne-active' : ''}`} onClick={() => onChoisir(l.annee_civile)}>
+                    <td className="px-3 py-2 font-semibold whitespace-nowrap">{l.annee_civile}
+                      {l.source === 'historique' && <span className="ml-2 text-mention text-slate-500">historique</span>}</td>
+                    <td className={td}>{fmt(l.dotation_organique)}<div>{ecart(l.d_dot)}</div></td>
+                    <td className={td}>{fmt(l.usage_jan_juin)}</td>
+                    <td className={td}>{fmt(l.usage_sep_dec)}</td>
+                    <td className={td}>{l.dot_total ? fmt(l.dot_total) : <span className="text-gray-300">—</span>}</td>
+                    <td className={`${td} font-semibold`}>{fmt(l.usage_organique)}<div>{ecart(l.d_usage)}</div></td>
+                    <td className={`${td} text-slate-500`}>−{fmt(l.felsi + 40)}</td>
+                    <td className={`${td} font-semibold`} style={{ color: l.solde_reel < 0 ? 'var(--c-refuse)' : undefined }}>{sign(l.solde_reel)}{fmt(l.solde_reel)}</td>
+                    <td className="px-3 py-2 min-w-[160px]">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 rounded-full" style={{ background: 'rgb(var(--gris-200))' }}>
+                          <div className="h-2 rounded-full" style={{ width: `${Math.min(100, l.pct_organique || 0)}%`, background: ton.teinte }} />
+                        </div>
+                        <span className="tabular-nums text-sm w-14 text-right">{pct(l.pct_organique)}</span>
+                      </div>
+                    </td>
+                  </tr>);
+              })}
+            </tbody>
+          </Tableau>
+        </div>
+        <p className="text-mention text-slate-500 px-4 py-2 m-0">Janvier – juin = second quadrimestre de l’année scolaire qui finit ; septembre – décembre = premier quadrimestre de celle qui commence (engagé, encore mouvant pour l’année en cours). Solde réel = dotation − utilisées − FELSI (1 %) − GIPS (40). Sous chaque chiffre, l’écart à l’année d’avant.</p>
+      </div>
+      <div className="carte overflow-hidden">
+        <EnteteCarte titre="Dotation et périodes utilisées" />
+        <div className="p-4" style={{ height: 280 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={lignes.map(l => ({ annee: String(l.annee_civile), Dotation: l.dotation_organique, Utilisées: l.usage_organique }))}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} domain={[0, Math.ceil(max * 1.05)]} />
+              <Tooltip formatter={(v, n) => [fmt(v), n]} />
+              <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Dotation" fill={couleursGraphique().series[0]} radius={reglagesGraphique().rayon} />
+              <Bar dataKey="Utilisées" fill={couleursGraphique().series[1]} radius={reglagesGraphique().rayon} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>);
+}
+
 function DotationComparaison({ civil }) {
   // Pré-remplir : annee2 = année active, annee1 = année précédente
   const anneeActive = getAnnee(); // ex. '2026-2027'
@@ -1595,7 +1676,7 @@ export default function Pilotage({ vue = 'tout' }) {
     /* LA DOTATION A SA PORTE (3.5.583, Charles : « je ne vois plus ma gestion de dotation » — depuis 3.5.474, elle n'était plus
        qu'une ligne du sommaire des tableaux détaillés de L'école). */
     { key: 'g-dotation', label: 'Dotation', icon: IconHome, faces: [
-      lit('dotation') && ['synthese', 'Dotation'], ['dotation', 'Comparaison des années'],
+      lit('dotation') && ['synthese', 'Dotation'], lit('dotation') && ['dotation-annees', 'Toutes les années'], ['dotation', 'Comparaison des années'],
       !coord && lit('repartition') && ['repartition', 'Répartition des périodes'],
       lit('dotation') && ['config', 'Configuration']] },
     { key: 'g-section', label: 'Une section', icon: IconUsersGroup, faces: [['section', 'Une section']] },
@@ -1644,6 +1725,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'synthese' ? renderSynthese()
     : k === 'etp' ? (etpData ? renderETP() : <div className="text-gray-400 py-4">Chargement…</div>)
     : k === 'dotation' ? <DotationComparaison civil={civil} />
+    : k === 'dotation-annees' ? <DotationAnnees civil={civil} selYear={selYear} onChoisir={() => {}} />
     : k === 'deliberation' ? (
       <div className="space-y-4">
         {(delibSections?.length ? delibSections : [choixDelib.section]).map((sec, i) => (
@@ -2225,7 +2307,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
                 <EnteteCarte titre="Les tableaux détaillés" sous="Chaque lien ouvre son tableau ; « ← L’école » y ramène" />
                 <div className="grid gap-x-8 gap-y-1 p-4 sm:grid-cols-2 lg:grid-cols-5">
                   {[['Les étudiants', ['population-ecole', 'population', 'presences-ue']], ['La réussite', ['deliberation', 'distributions']],
-                    ['Le personnel', ['personnel-ecole', 'etp', 'etp-annees', 'repartition', 'qui-fait-quoi']], ['La dotation', ['synthese', 'dotation', 'iip-helb', 'config']], ['Les finances', ['financements']]]
+                    ['Le personnel', ['personnel-ecole', 'etp', 'etp-annees', 'repartition', 'qui-fait-quoi']], ['La dotation', ['synthese', 'dotation-annees', 'dotation', 'iip-helb', 'config']], ['Les finances', ['financements']]]
                     .map(([titre, cles]) => {
                       const faces = RUBRIQUES.filter(x => x.key === 'g-ecole' || x.key === 'g-dotation').flatMap(x => x.faces).filter(([k]) => cles.includes(k));
                       return faces.length ? (
@@ -2246,6 +2328,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
               onPresenter={(sec, pub) => { try { localStorage.setItem('lucie.presentation', sec); if (pub) localStorage.setItem('lucie.presentation.public', pub); } catch { /* */ } setTab('presentation'); }} />}
             {tab === 'presentation' && <PresentationSection />}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
+            {tab === 'dotation-annees' && <DotationAnnees civil={civil} selYear={selYear} onChoisir={y => { setSelYear(y); setTab('synthese'); }} />}
             {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} initial={choixDelib} onChoix={setChoixDelib} />}
             {tab === 'config'   && renderConfig()}
           </>
