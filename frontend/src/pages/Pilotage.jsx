@@ -1590,9 +1590,14 @@ export default function Pilotage({ vue = 'tout' }) {
       ['population-ecole', 'Qui sont nos étudiants', true], ['population', 'Places par unité', true], !coord && ['presences-ue', 'Présences par UE', true],
       ['deliberation', 'Décisions et taux de réussite', true], ['distributions', 'Distributions des cotes', true],
       !coord && ['personnel-ecole', 'Notre personnel', true], ['etp', 'ETP', true], ['etp-annees', 'ETP sur plusieurs années', true],
-      !coord && lit('repartition') && ['repartition', 'Répartition des périodes', true], direction && ['qui-fait-quoi', 'Qui fait quoi', true],
-      lit('dotation') && ['synthese', 'Dotation', true], ['dotation', 'Dotation : comparaison des années', true], direction && ['iip-helb', 'IIP et HELB', true], direction && ['financements', 'Financements de l’ASBL', true],
-      lit('dotation') && ['config', 'Dotation : configuration', true]] },
+      direction && ['qui-fait-quoi', 'Qui fait quoi', true],
+      direction && ['iip-helb', 'IIP et HELB', true], direction && ['financements', 'Financements de l’ASBL', true]] },
+    /* LA DOTATION A SA PORTE (3.5.583, Charles : « je ne vois plus ma gestion de dotation » — depuis 3.5.474, elle n'était plus
+       qu'une ligne du sommaire des tableaux détaillés de L'école). */
+    { key: 'g-dotation', label: 'Dotation', icon: IconHome, faces: [
+      lit('dotation') && ['synthese', 'Dotation'], ['dotation', 'Comparaison des années'],
+      !coord && lit('repartition') && ['repartition', 'Répartition des périodes'],
+      lit('dotation') && ['config', 'Configuration']] },
     { key: 'g-section', label: 'Une section', icon: IconUsersGroup, faces: [['section', 'Une section']] },
     { key: 'g-presenter', label: 'Présentation', icon: IconPresentation, faces: [direction && ['presentation', 'Présentation d’une section']] },
     { key: 'g-finances', label: 'Budget et frais', icon: IconCoin, faces: [
@@ -2215,7 +2220,7 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
                   {[['Les étudiants', ['population-ecole', 'population', 'presences-ue']], ['La réussite', ['deliberation', 'distributions']],
                     ['Le personnel', ['personnel-ecole', 'etp', 'etp-annees', 'repartition', 'qui-fait-quoi']], ['La dotation', ['synthese', 'dotation', 'iip-helb', 'config']], ['Les finances', ['financements']]]
                     .map(([titre, cles]) => {
-                      const faces = (RUBRIQUES.find(x => x.key === 'g-ecole')?.faces || []).filter(([k]) => cles.includes(k));
+                      const faces = RUBRIQUES.filter(x => x.key === 'g-ecole' || x.key === 'g-dotation').flatMap(x => x.faces).filter(([k]) => cles.includes(k));
                       return faces.length ? (
                         <div key={titre} className="min-w-0">
                           <div className="intertitre mb-1">{titre}</div>

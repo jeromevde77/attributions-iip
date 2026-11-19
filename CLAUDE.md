@@ -4655,6 +4655,9 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.583 — la Dotation retrouve sa porte** (Charles : « je ne vois plus ma gestion de dotation » — depuis 3.5.474 elle n'était qu'une ligne
+du sommaire des tableaux détaillés de L'école). Rail de Gestion → *Dotation* (`g-dotation`) : Dotation · Comparaison des années ·
+Répartition des périodes · Configuration, en segments ; le sommaire de L'école y renvoie encore.
 **3.5.582 — la taille de l'écran remplace la loupe** (Charles : « ce que je veux, c'est que tu changes la taille de la mise en
 page » ; tranché : tout l'écran plus grand). Barre du haut → icône loupe → 100 · 115 · 125 · 150 · 175 · 200 % (Alt + « + » / « − »,
 Alt + 0) : `zoom` sur la racine du document (`lib/tailleEcran.js`, posé dans `main.jsx` avant le premier rendu), gardé sur l'appareil
