@@ -1752,3 +1752,17 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 /* LES PAGES EN PAYSAGE DU DOSSIER (3.5.569) : 1 170 px dans l'aperçu (la largeur utile d'une A4 paysage, ramenée par le même zoom que
    le portrait), une page à elles dans le PDF. */
 .kit-copil .copil-paysage { width: 1170px; max-width: none; }
+
+/* LES VOLETS DE L'ACCUEIL (3.5.594) : un bloc fermé ne montre que ses en-têtes ; un clic sur l'en-tête l'ouvre. */
+.volet .entete-carte, .volet .entete-volet { cursor: pointer; position: relative; }
+.volet .entete-carte .titre-carte::before, .volet .entete-volet .titre-carte::before {
+  content: ''; display: inline-block; width: .45rem; height: .45rem; margin-right: .15rem;
+  border-right: 2px solid rgb(var(--gris-400, 148 163 184)); border-bottom: 2px solid rgb(var(--gris-400, 148 163 184));
+  transform: rotate(45deg) translateY(-2px); transition: transform .15s ease; }
+.volet[data-ferme="1"] .entete-carte .titre-carte::before, .volet[data-ferme="1"] .entete-volet .titre-carte::before { transform: rotate(-45deg); }
+.volet[data-ferme="1"] .carte > :not(.entete-carte) { display: none; }
+.volet[data-ferme="1"] .entete-carte { border-bottom: 0; }
+.volet[data-ferme="1"] [data-volet-corps] { display: none; }
+.volet[data-ferme="1"] .entete-volet { margin-bottom: 0; }
+.volet[data-urgence="0"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-refuse, #9D4A38); margin-left: .25rem; }
+.volet[data-urgence="1"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-attente, #B45309); margin-left: .25rem; }

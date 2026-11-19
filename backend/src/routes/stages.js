@@ -528,6 +528,11 @@ r.get('/', authRequired, (req, res) => {
 
   const clauses = ['s.annee_scolaire = ?'];
   const params = [annee];
+  /* LE SUIVI NE MONTRE QUE LES ÉTUDIANTS INSCRITS À UNE UE DE STAGE (3.5.593, Charles, 19 novembre 2026 : « si un étudiant n'est pas
+     inscrit en stage, il ne doit pas apparaître — c'est logique pour le suivi »). Un stage d'un étudiant qui n'a, cette année, aucune
+     UE à cours `is_stage` à son programme reste dans sa fiche, hors d'Organisation → Stages. */
+  if (req.query.tous !== '1') clauses.push(`EXISTS (SELECT 1 FROM etudiant_inscription i WHERE i.etudiant_id = s.etudiant_id
+    AND i.annee_scolaire = s.annee_scolaire AND EXISTS (SELECT 1 FROM cours c WHERE c.ue_num = i.ue_num AND COALESCE(c.is_stage, 0) = 1))`);
   if (section) { clauses.push('s.section = ?'); params.push(section); }
   else if (perim) {
     clauses.push(`s.section IN (${perim.map(() => '?').join(',') || "''"})`);

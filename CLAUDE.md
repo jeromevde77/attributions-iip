@@ -4655,6 +4655,16 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**L'ACCUEIL EN VOLETS, LES URGENCES EN TÊTE** (3.5.594, Charles : « mettre les urgences en premier ; fermer les volets pour tout
+voir » ; tranché : volets fermés, urgences en tête). `BlocsPage volets` : chaque bloc se replie sur ses en-têtes (`.volet[data-ferme]`
+cache ce qui suit `.entete-carte` dans chaque `.carte`, et `[data-volet-corps]` ; le fil d'activité a son `.entete-volet`) ; un clic sur
+l'en-tête ouvre ou ferme, gardé sur l'appareil (`lucie.volets.<page>`) ; l'urgence se lit dans ce que le bloc affiche (`data-etat`
+corriger puis surveiller, `urgenceDe`, observée à mesure du chargement) et range les blocs (point brique ou ocre après le titre) ;
+`dernier: true` garde le fil en dernier. En mode mise en page, tout reste ouvert et l'ordre réglé vaut. Messages, présences à compléter,
+Qui est là et Quoi de neuf restent au-dessus, ouverts.
+**LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
+ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
+(`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
 **MES STAGES OUVERT DANS L'ESPACE ENSEIGNANT** (3.5.592, Charles, 19 novembre 2026) : la face `stages` perd son `bientot` (FACES
 d'`EspaceEnseignant.jsx`) — le superviseur y voit ses stages, remplit ses fiches, envoie le lien au maître de stage et confirme les heures
 (`MesStages.jsx` par le relais). Restent « bientôt » : présences, TFE.

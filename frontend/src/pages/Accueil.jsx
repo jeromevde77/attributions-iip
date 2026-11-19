@@ -698,7 +698,7 @@ export default function Accueil({ apresEntete = null }) {
           <TuileQuiEstLa />
           {/* QUOI DE NEUF REJOINT LA PILE (3.5.190) : un seul tableau, liseré à gauche. */}
           <TuileNouveautes /></div>
-        <BlocsPage page="accueil" blocs={[
+        <BlocsPage page="accueil" volets blocs={[
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
           { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
           { cle: 'a-signer', titre: 'À valider par la direction', rendu: <ASignerDirection /> },
@@ -706,9 +706,9 @@ export default function Accueil({ apresEntete = null }) {
           { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },
           { cle: 'propositions', titre: 'Mes propositions', rendu: <MesPropositions /> },
           { cle: 'taches', titre: 'Mes tâches', rendu: <MesTaches signal={rafraichirTaches} /> },
-          { cle: 'fil', titre: 'Fil d’activité', rendu: <div>
+          { cle: 'fil', titre: 'Fil d’activité', dernier: true, rendu: <div>
         {/* En-tête du fil */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="entete-volet flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <h2 className="titre-carte">
               {filtre === 'tout' ? 'Fil d\'activité' :
@@ -744,7 +744,7 @@ export default function Accueil({ apresEntete = null }) {
         )}
 
         {/* Fil groupé par date */}
-        <div className="space-y-6">
+        <div className="space-y-6" data-volet-corps>
           {groupes.map(([groupe, gItems]) => (
             <div key={groupe}>
               <div className="intertitre mb-2">{groupe}</div>
