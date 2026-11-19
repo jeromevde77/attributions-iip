@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────── (CS)
 // Lucie — Les extraits de compte (3.1.444, Charles, 29 octobre 2026 : « un système qui
 // vérifie sur le compte en banque ce qui a été payé » ; première solution retenue :
 // l'import des extraits, pas la liaison automatique avec la banque).

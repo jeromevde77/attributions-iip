@@ -1,3 +1,6 @@
+/*  LE LOGO DE LUCIE — © Charles Sohet, tous droits réservés. La figure de la Vierge, le L tracé sur trois de ses étoiles et le
+ *  mot « Lucie » forment une création originale de Charles Sohet, protégée par le droit d'auteur (Code de droit économique,
+ *  livre XI). Toute reproduction, adaptation ou utilisation hors de Lucie est interdite sans son autorisation écrite. (CS) */
 /** LE LOGO DE LUCIE, EN APLAT (3.1.487) : la Vierge à peine visible, le L par-dessus, « Lucie » à côté. Le même partout — la
  *  barre de Lucie, l'espace enseignant, l'espace étudiant (3.5.086, Charles : « ce n'est pas le bon logo »). */
 import { ETOILES, TRAITS, ECLAT, DISCRETES, POINTS_L } from '../lib/logoVierge.js';
@@ -6,6 +9,7 @@ import { ETOILES, TRAITS, ECLAT, DISCRETES, POINTS_L } from '../lib/logoVierge.j
 export default function LogoLucie({ hauteur = 28, className = 'logo-lucie', sansTexte = false }) {
   return (
     <svg className={className} width={Math.round(hauteur * (sansTexte ? 1.5 : 3.5))} height={hauteur} viewBox={sansTexte ? '-12 -6 74 49' : '-12 -6 172 49'} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lucie">
+      <desc>Logo de Lucie © Charles Sohet — tous droits réservés</desc>
       <g stroke="#1B2B4B" strokeOpacity=".12" fill="none" strokeWidth="0.8" strokeLinecap="round">
         {TRAITS.map(([a, b]) => <line key={a + b} x1={ETOILES[a][0]} y1={ETOILES[a][1]} x2={ETOILES[b][0]} y2={ETOILES[b][1]} />)}
       </g>

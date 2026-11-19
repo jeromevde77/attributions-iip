@@ -1,3 +1,6 @@
+/*  LE LOGO DE LUCIE — © Charles Sohet, tous droits réservés. La figure de la Vierge, le L tracé sur trois de ses étoiles et le
+ *  mot « Lucie » forment une création originale de Charles Sohet, protégée par le droit d'auteur (Code de droit économique,
+ *  livre XI). Toute reproduction, adaptation ou utilisation hors de Lucie est interdite sans son autorisation écrite. (CS) */
 /**
  * LA VIERGE DANS LE LOGO (3.1.476 ; refaite en 3.1.480, Charles : « les extrémités du L doivent être des étoiles
  * de la Vierge — tu peux changer l'orientation ; calcule et fais »). Un code secret : qui sait, reconnaît.

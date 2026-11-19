@@ -1,3 +1,4 @@
+// (CS)
 import db from '../db/index.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Lucie — Permissions par module

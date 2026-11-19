@@ -4655,6 +4655,11 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**LE LOGO EST PROTÉGÉ, L'AUTEUR EST MARQUÉ** (3.5.591, Charles, 19 novembre 2026 : « que le logo soit clairement protégé, et que mon nom
+se trouve par endroit en caché, par exemple (CS) »). `COPYRIGHT` porte un paragraphe propre au logo ; mention de droit d'auteur en tête
+de `LogoLucie.jsx` et `logoVierge.js`, `<desc>` dans le SVG rendu, commentaire + `<title>`/`<desc>` dans `favicon.svg`, textes PNG
+(Author, Copyright) des icônes ; `<meta name="author">` dans `index.html` ; « (CS) » en tête d'une vingtaine de fichiers (serveur, base,
+droits, PAE, notes, documents, écrans principaux). **Ne jamais les retirer.**
 **La coordination consulte les AR de ses sections et rend son avis** (3.5.590, Charles, 19 novembre 2026 — Aurore CARLY : « consulter
 et valider ; pas avoir accès aux documents ; tous les profs doivent pouvoir valider une demande » ; tranché : valider = rendre son avis
 mesure par mesure, consulter = les mesures seulement, les profs = les chargés de cours des UE, ce qui existait). Sans l'octroi nominatif

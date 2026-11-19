@@ -1,4 +1,4 @@
-/**
+/** (CS)
  * LE FILIGRANE DES PIÈCES SIGNÉES — « un peu genre billets de banque ».
  *
  * Demandé par Charles le 26 septembre 2026, motif C retenu (« les vagues et la

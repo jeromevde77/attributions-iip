@@ -1,3 +1,4 @@
+// (CS)
 import { ICONE_AXE } from './lib/iconesAxes.js';
 import OutilsBarre from './components/OutilsBarre.jsx';
 import PontEspaceEnseignant from './components/PontEspaceEnseignant.jsx';

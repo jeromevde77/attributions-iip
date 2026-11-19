@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────── (CS)
 // Lucie — Enveloppe commune des documents imprimés
 //
 // Tout document produit par Lucie porte le même pied de page — logo, raison

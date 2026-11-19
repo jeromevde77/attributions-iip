@@ -1,4 +1,4 @@
-/**
+/** (CS)
  * LA GRILLE DE PRÉSENCE (Charles, 28 octobre 2026 : « une liste de présence au
  * format tableau — les étudiants en lignes, les séances en colonnes ; par cours
  * puis par UE, car la vérificatrice demande les présences dans l'UE »).

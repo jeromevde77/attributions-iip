@@ -1,3 +1,4 @@
+// (CS)
 import { lazy, Suspense } from 'react';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette, IconPresentation, IconWand } from '@tabler/icons-react';

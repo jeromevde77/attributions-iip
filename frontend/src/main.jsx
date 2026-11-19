@@ -1,3 +1,4 @@
+// (CS)
 import React from 'react';
 import { ReponsesTypesHote } from './lib/reponsesTypes.jsx';
 import ReactDOM from 'react-dom/client';
