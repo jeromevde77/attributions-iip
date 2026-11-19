@@ -9,6 +9,8 @@ import { authHeaders } from '../lib/api.js';
  * chacune : réalisable, avec adaptation, pas réalisable — motivé dès que ce
  * n'est pas « réalisable ». Il ne voit que les mesures (secret professionnel,
  * art. 5). Tant que le Conseil n'a pas décidé, il corrige ; ensuite il relit.
+ * LA COORDINATION (3.5.590) y voit aussi les dossiers de ses sections dès la demande validée (volet A), toutes leurs mesures, et rend
+ * son avis de la même façon une fois le rapport (volet B) validé.
  */
 const SENS = [['realisable', 'Réalisable', 'var(--c-reussi, #3E7D5E)'], ['adaptation', 'Avec adaptation', 'var(--c-attente, #B45309)'],
   ['impossible', 'Pas réalisable', 'var(--c-refuse, #9D4A38)']];
@@ -30,7 +32,8 @@ export default function AvisAmenagementProf({ annee }) {
   useEffect(() => { charger(); }, [charger]);
   if (!d || !d.length) return null;
 
-  const aRendre = d.filter(x => !x.decide && x.mesures.some(m => !m.mon_avis)).length;
+  const aRendre = d.filter(x => !x.decide && x.avis_ouvert !== false && x.mesures.some(m => !m.mon_avis)).length;
+  const lecture = x => x.decide || x.avis_ouvert === false;
   const ouvrir = x => {
     setOuvert(ouvert === x.id ? null : x.id); setErreur(null);
     setSaisie(Object.fromEntries(x.mesures.map(m => [m.id, { sens: m.mon_avis?.sens || '', motif: m.mon_avis?.motif || '' }])));
@@ -68,14 +71,15 @@ export default function AvisAmenagementProf({ annee }) {
             <div key={x.id} className="px-3 py-2 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <b>{x.etudiant}</b><span className="text-xs text-slate-500 tabular-nums">{x.id_ecampus}</span>
-                <span className="text-second text-slate-500">UE {x.ues.join(', ')} · {x.mesures.length} mesure(s)</span>
+                <span className="text-second text-slate-500">{x.ues?.length ? `UE ${x.ues.join(', ')} · ` : ''}{x.mesures.length} mesure(s){x.coordination ? ' · votre section' : ''}</span>
                 <span className="ml-auto text-second">
                   {x.decide ? <span className="text-slate-500">décidé</span>
+                    : x.avis_ouvert === false ? <span className="text-slate-500">rapport (volet B) pas encore validé — l’avis s’ouvrira alors</span>
                     : rendu ? <span className="font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>✓ avis rendu</span>
                       : <span className="font-semibold" style={{ color: 'var(--c-attente, #B45309)' }}>avis à rendre · depuis le {date(x.appele_le)}</span>}
                 </span>
                 <button type="button" className="bouton text-second px-2.5 py-1" onClick={() => ouvrir(x)}>
-                  {ouvert === x.id ? 'Refermer' : x.decide ? 'Relire' : rendu ? 'Corriger mon avis' : 'Rendre mon avis'}</button>
+                  {ouvert === x.id ? 'Refermer' : lecture(x) ? (x.decide ? 'Relire' : 'Voir les mesures') : rendu ? 'Corriger mon avis' : 'Rendre mon avis'}</button>
               </div>
               {ouvert === x.id && (
                 <div className="mt-2 space-y-2">
@@ -94,7 +98,7 @@ export default function AvisAmenagementProf({ annee }) {
                           {x.decide && m.accorde != null && <div className="text-xs mt-0.5 text-slate-500">Décision : {m.accorde ? 'accordée' : 'refusée'}</div>}
                         </div>
                         <div>
-                          {x.decide ? (
+                          {lecture(x) ? (
                             m.mon_avis ? <span className="text-second"><span className="inline-block text-xs font-semibold text-white rounded-full px-2 mr-1" style={{ background: LIB[m.mon_avis.sens]?.[1] }}>{LIB[m.mon_avis.sens]?.[0]}</span>{m.mon_avis.motif}</span>
                               : <span className="text-second text-slate-500">pas d'avis rendu</span>
                           ) : (
@@ -117,7 +121,7 @@ export default function AvisAmenagementProf({ annee }) {
                       </div>
                     );
                   })}
-                  {!x.decide && (
+                  {!lecture(x) && (
                     <div className="flex items-center gap-2">
                       <button type="button" className="bouton bouton-fort disabled:opacity-40" disabled={enCours || !!manque(x)} onClick={() => rendre(x)}>
                         {rendu ? 'Enregistrer la correction' : 'Rendre mon avis'}</button>
