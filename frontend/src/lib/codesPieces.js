@@ -21,6 +21,7 @@ export const PIECES = [
   { code: 'R-03', cle: 'motivation_refus', nom: 'Motivation d’une décision de refus', usage: 'Acquis par acquis, voies de recours (annexe 9).', alias: ['refus', 'motivation_decision', 'motivation'] },
   { code: 'R-04', cle: 'bulletin', nom: 'Bulletin de parcours', usage: 'Toutes les unités, année après année, et le schéma.', alias: [] },
   { code: 'R-05', cle: 'parcours', nom: 'Parcours de formation', usage: 'Schéma de capitalisation et unités acquises (paysage).', alias: [] },
+  { code: 'R-06', cle: 'attestation_stage', nom: 'Attestation de stages', usage: 'Les stages effectués : lieux, périodes, heures, face au minimum de la section.', alias: ['stages', 'att_stage'] },
   { code: 'I-01', cle: 'fiche_inscription', nom: 'Fiche d’inscription / reçu', usage: 'PAE, droits d’inscription, engagement signé.', alias: ['fiche'] },
   { code: 'I-02', cle: 'attestation_inscription', nom: 'Attestation d’inscription', usage: 'Mutuelle, CPAS, employeur… : dates, congés, bloc, crédits.', alias: ['att_inscription', 'att-ins'] },
   { code: 'I-03', cle: 'attestation_allocations', nom: 'Attestation d’inscription — allocations familiales', usage: 'Pour la caisse d’allocations familiales.', alias: ['att_allocations', 'att-af'] },

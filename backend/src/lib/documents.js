@@ -118,6 +118,17 @@ export const DOCUMENTS = [
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
   {
+    cle: 'attestation_stage',
+    libelle: 'Attestation de stages',
+    description: "Les stages effectués, toutes années : lieu et adresse, période, heures ; le total face au minimum de la section. Signée et cachetée.",
+    portee: 'etudiant', lot: true, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/stages/etudiant/:id/attestation' },
+    parametres: [],
+    nomFichier: 'Attestation-stages_{nom}_{prenom}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
     cle: 'attestation_allocations',
     libelle: "Attestation d'inscription — allocations familiales",
     description: "La même attestation, titrée pour la caisse d'allocations familiales, sans le bloc ni les crédits.",

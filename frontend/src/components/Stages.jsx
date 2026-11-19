@@ -22,10 +22,12 @@ import { passeRole } from '../lib/droits.js';
  * convention signée — et signale ce qui manque avant que le stage puisse
  * commencer, plutôt que de l'interdire : c'est le professeur de stage qui juge.
  */
+/* L'ÉTAT SE DÉDUIT (3.5.586, routes/stages.js → etatDuStage) : à préparer, prêt, en cours, terminé ; seuls « rompu » et
+   « annulé » se posent, avec un motif. */
 const STATUTS = {
-  prevu:    { libelle: 'Prévu',      ton: 'neutre' },
-  autorise: { libelle: 'Autorisé',   ton: 'info' },
-  en_cours: { libelle: 'En cours',   ton: 'alerte' },
+  a_preparer: { libelle: 'À préparer', ton: 'alerte' },
+  pret:     { libelle: 'Prêt',       ton: 'info' },
+  en_cours: { libelle: 'En cours',   ton: 'info' },
   termine:  { libelle: 'Terminé',    ton: 'succes' },
   rompu:    { libelle: 'Rompu',      ton: 'danger' },
   annule:   { libelle: 'Annulé',     ton: 'danger' },
@@ -151,7 +153,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
           {/* LE TOTAL EN PREMIER (Charles, 8 octobre 2026 : « les totaux doivent TOUJOURS être en
               premier dans les tableaux, sinon on doit scroller »), face au minimum de la section. */}
           {(() => {
-            const total = stages.filter(x => !['rompu', 'annule'].includes(x.statut))
+            const total = stages.filter(x => !['rompu', 'annule'].includes(x.etat))
               .reduce((t, x) => t + (Number(x.heures_effectuees ?? x.heures_prevues) || 0), 0);
             const min = Number(minimum.heures) || 0;
             const ok = !min || total >= min;
@@ -195,7 +197,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                 <span className="text-right tabular-nums font-semibold">{(s.heures_effectuees ?? s.heures_prevues) != null ? `${s.heures_effectuees ?? s.heures_prevues} h` : '—'}</span>
                 <span className="text-right tabular-nums">{s.note_tuteur ?? '—'}</span>
                 <span className="flex items-center gap-1 min-w-0">
-                  <Badge ton={STATUTS[s.statut]?.ton || 'neutre'}>{STATUTS[s.statut]?.libelle || s.statut}</Badge>
+                  <Badge ton={STATUTS[s.etat]?.ton || 'neutre'}>{STATUTS[s.etat]?.libelle || s.etat}</Badge>
                   {!s.pret && <IconAlertTriangle size={14} className="flex-none" style={{ color: 'var(--c-attente)' }} title={`${s.blocages.length} pièce(s) manquante(s)`} />}
                 </span>
                 <span className="flex justify-end">
@@ -291,14 +293,17 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                       onValider={v => maj(s.id, { heures_prevues: v })} lecture={!peutEcrire} />
                     <ChampTexte libelle="Heures effectuées" valeur={s.heures_effectuees} type="number"
                       onValider={v => maj(s.id, { heures_effectuees: v })} lecture={!peutEcrire} />
-                    <Champ libelle="Statut">
-                      <select value={s.statut} disabled={!peutEcrire}
-                        onChange={e => maj(s.id, { statut: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                        {Object.entries(STATUTS).map(([k, v]) => (
-                          <option key={k} value={k}>{v.libelle}</option>
-                        ))}
-                      </select>
+                    <Champ libelle="État (déduit des pièces et des dates)">
+                      <div className="flex items-center gap-2 py-1">
+                        <Badge ton={STATUTS[s.etat]?.ton || 'neutre'}>{STATUTS[s.etat]?.libelle || s.etat}</Badge>
+                        {peutEcrire && (['rompu', 'annule'].includes(s.statut)
+                          ? <button type="button" className="text-xs underline text-slate-600" onClick={() => maj(s.id, { statut: 'prevu' })}>Rétablir</button>
+                          : <select value="" className="border border-slate-300 rounded-lg px-1 py-1 text-xs" aria-label="Rompre ou annuler"
+                              onChange={async e => { const st = e.target.value; if (!st) return; const m = await saisir({ message: st === 'rompu' ? 'Pourquoi ce stage est-il rompu ?' : 'Pourquoi ce stage est-il annulé ?' }); if (m && m.trim()) maj(s.id, { statut: st, motif: m.trim() }); }}>
+                              <option value="">Rompre ou annuler…</option><option value="rompu">Rompu</option><option value="annule">Annulé</option>
+                            </select>)}
+                      </div>
+                      {s.etat_motif && <div className="text-xs text-slate-500">{s.etat_motif}{s.etat_par ? ` — ${s.etat_par}` : ''}{s.etat_le ? `, le ${fr(s.etat_le)}` : ''}</div>}
                     </Champ>
                   </div>
 
@@ -323,8 +328,12 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2 border-t border-slate-100">
                     <ChampTexte libelle="Autorisation le" valeur={s.autorisation_le} type="date"
                       onValider={v => maj(s.id, { autorisation_le: v })} lecture={!peutEcrire} />
-                    <ChampTexte libelle="Convention le" valeur={s.convention_le} type="date"
-                      onValider={v => maj(s.id, { convention_le: v })} lecture={!peutEcrire} />
+                    {/* LA CONVENTION SE LIT DU REGISTRE (3.5.586) : déposée plus bas, signée par la direction ; la date s'en déduit. */}
+                    <Champ libelle="Convention signée">
+                      <div className="text-sm py-1.5">{s.convention_le
+                        ? <span style={{ color: 'var(--c-reussi)' }}>{fr(s.convention_le)}{s.convention_ref ? ` · ${s.convention_ref}` : ''}</span>
+                        : <span className="text-slate-500">au registre, ci-dessous</span>}</div>
+                    </Champ>
                     <ChampTexte libelle="Casier modèle 2" valeur={s.casier_le} type="date"
                       onValider={v => maj(s.id, { casier_le: v })} lecture={!peutEcrire} />
                     {/* LA VISITE MÉDICALE SE LIT DANS LA FICHE (3.5.283) : encodée une fois, onglet « Santé ». */}

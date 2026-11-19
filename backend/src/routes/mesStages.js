@@ -73,6 +73,7 @@ r.get('/', authRequired, (req, res) => {
       maitre: { nom: s.maitre_stage, fonction: s.maitre_fonction, email: s.maitre_email, tel: s.maitre_tel },
       debut: s.date_debut, fin: s.date_fin, statut: s.statut, en_cours: !!(s.date_debut && s.date_debut <= auj && (!s.date_fin || s.date_fin >= auj)),
       heures_prevues: s.heures_prevues, heures_effectuees: s.heures_effectuees,
+      heures: { confirmees: !!s.heures_confirmees, par: s.heures_par || null, le: s.heures_le || null, peut: !!(s.date_debut && s.date_debut <= auj) },
       visites: { prevues: v?.prevues || 0, faites: v?.faites || 0, prochaine: v?.prochaine || null },
       fiches: s.ue_num ? fichesPour('stage', s.annee_scolaire, s.ue_num, s.etudiant_id, remplit).map(f => ({
         ...f, lien: f.rempli_par === 'maitre_stage' ? liens.find(l => l.fiche_id === f.id) || null : undefined,
@@ -99,6 +100,21 @@ r.put('/:stageId/fiche/:ficheId', authRequired, (req, res) => {
   const x = ecrireFiche(f, s.etudiant_id, req.body?.notes, qui(req));
   if (!x.ok) return res.status(x.status).json({ error: x.error, erreurs: x.erreurs });
   res.json(x);
+});
+
+/* LES HEURES EFFECTUÉES, CONFIRMÉES PAR LE SUPERVISEUR (3.5.588, Charles : « on garde tout » — maquette des stages). Une fois le
+   stage commencé ; elles comptent vers le minimum d'heures de la section (Organisation → Stages → 6). */
+r.put('/:stageId/heures', authRequired, (req, res) => {
+  if (req.user?.apercuProfId) return res.status(403).json({ error: 'Aperçu : lecture seule.' });
+  const s = stageDuSuperviseur(req);
+  if (!s) return res.status(404).json({ error: 'Stage introuvable.' });
+  const auj = new Date().toISOString().slice(0, 10);
+  if (!s.date_debut || s.date_debut > auj) return res.status(409).json({ error: 'Le stage n’a pas encore commencé.' });
+  const h = Number(String(req.body?.heures ?? '').replace(',', '.'));
+  if (!Number.isFinite(h) || h < 0 || h > 2000) return res.status(400).json({ error: 'Un nombre d’heures entre 0 et 2000.' });
+  db.prepare(`UPDATE stage SET heures_effectuees = ?, heures_confirmees = 1, heures_par = ?, heures_le = ?, maj_le = datetime('now') WHERE id = ?`)
+    .run(Math.round(h * 100) / 100, `${req.user?.nom || qui(req) || ''} (superviseur)`.trim(), auj, s.id);
+  res.json({ ok: true, heures: h });
 });
 
 // Envoyer le lien au maître de stage (adresse du stage, ou celle donnée ; elle est alors retenue sur le stage).
