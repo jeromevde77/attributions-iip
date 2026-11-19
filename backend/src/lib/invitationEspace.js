@@ -33,14 +33,16 @@ function invitable(e) {
 }
 
 /** Invite (ou simule). `ids` : les étudiants ; `section` : toute une section à la place. `deja` : réinviter aussi ceux déjà invités. */
-export async function inviter({ ids = [], section = null, ue = null, simulation = true, deja = false, message = '' }, par) {
+export async function inviter({ ids = [], section = null, ue = null, prof = null, simulation = true, deja = false, message = '' }, par) {
   migrerInvitation();
   let liste = (Array.isArray(ids) ? ids : []).map(Number).filter(Boolean);
   if (!liste.length && section) {
     liste = db.prepare(`SELECT id FROM etudiant WHERE section_rattachement = ? AND COALESCE(actif, 1) = 1`).all(String(section)).map(x => x.id);
   }
   // Les inscrits d'une UE pour l'année active (3.5.537, Charles : « sélectionner les étudiants de l'UE 250 pour un test »).
-  if (!liste.length && ue) liste = inscritsUE(ue);
+  // LES ÉTUDIANTS D'UN PROFESSEUR (3.5.589, Charles : « je ne veux inviter QUE ceux dont Wael est prof » — UE 250) : ses groupes.
+  if (!liste.length && prof) liste = etudiantsDuProf(prof, { ue });
+  else if (!liste.length && ue) liste = inscritsUE(ue);
   liste = [...new Set(liste)].slice(0, 2000);
   const prets = [], ecartes = [], dejaInvites = [];
   for (const id of liste) {
@@ -85,6 +87,33 @@ export async function inviter({ ids = [], section = null, ue = null, simulation 
 }
 
 /** Les inscrits d'une UE pour l'année active (ou l'année donnée). */
+/** Les étudiants d'un professeur, l'année active : pour chaque ligne d'attribution (cours, activité, groupe), les étudiants de ce
+ *  groupe dans la répartition (`etudiant_cours_groupe`) ; un cours sans répartition donne les inscrits de l'UE (de son organisation).
+ *  Bornable à une UE. Archivés et sortis écartés. */
+export function etudiantsDuProf(profId, { ue = null, annee = null } = {}) {
+  const a = annee || db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'annee_active'").get()?.valeur
+    || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const lignes = db.prepare(`SELECT DISTINCT ue_num, code_cours, code, activite_id, num_organisation FROM attribution
+    WHERE professeur_id = ? AND annee_scolaire = ? ${ue ? 'AND ue_num = ?' : ''}`).all(...[Number(profId), a, ...(ue ? [Number(ue)] : [])]);
+  const ids = new Set();
+  let rep = null; try { rep = db.prepare('SELECT COUNT(*) n FROM etudiant_cours_groupe WHERE annee_scolaire = ? AND cours_code = ?'); } catch { rep = null; }
+  for (const l of lignes) {
+    const reparti = rep && l.code_cours ? rep.get(a, l.code_cours).n > 0 : false;
+    if (reparti && l.code) {
+      const avecAct = db.prepare('SELECT COUNT(*) n FROM etudiant_cours_groupe WHERE annee_scolaire = ? AND cours_code = ? AND activite_id = ?').get(a, l.code_cours, l.activite_id || 0).n > 0;
+      db.prepare(`SELECT etudiant_id id FROM etudiant_cours_groupe WHERE annee_scolaire = ? AND cours_code = ? AND groupe_code = ? ${avecAct ? 'AND activite_id = ?' : ''}`)
+        .all(...[a, l.code_cours, l.code, ...(avecAct ? [l.activite_id || 0] : [])]).forEach(x => ids.add(x.id));
+    } else {
+      db.prepare(`SELECT etudiant_id id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire = ?
+        AND (num_organisation IS NULL OR num_organisation = ? OR ? IS NULL)`).all(l.ue_num, a, l.num_organisation, l.num_organisation).forEach(x => ids.add(x.id));
+    }
+  }
+  return [...ids].filter(id => {
+    const e = db.prepare('SELECT sortie_statut FROM etudiant WHERE id = ?').get(id);
+    return e && !['archive', 'sorti'].includes(e.sortie_statut || '');
+  });
+}
+
 export function inscritsUE(ue, annee = null) {
   const a = annee || db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'annee_active'").get()?.valeur
     || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;

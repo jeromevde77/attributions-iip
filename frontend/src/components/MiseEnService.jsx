@@ -168,6 +168,9 @@ function InvitationLot({ ajouterEssai }) {
   const [deja, setDeja] = useState(false);
   // PAR UNE UE (3.5.537, Charles : « sélectionner les étudiants de l'UE 250 pour un test » ; « qu'ils reçoivent un mail de ma part »).
   const [ue, setUe] = useState('');
+  // LES ÉTUDIANTS D'UN PROFESSEUR (3.5.589, Charles : « QUE ceux dont Wael est prof ») : ses groupes, bornés à l'UE si elle est donnée.
+  const [prof, setProf] = useState('');
+  const [profs, setProfs] = useState([]);
   const [message, setMessage] = useState('');
   // UN ÉTUDIANT PAR SON NOM (3.5.553, Charles : « je dois pouvoir inviter un étudiant par nom, avec le mail d'invitation »).
   const [un, setUn] = useState(null);          // { id, nom }
@@ -184,7 +187,8 @@ function InvitationLot({ ajouterEssai }) {
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
   useEffect(() => { fetch('/api/ref/sections', { headers: authHeaders() }).then(x => x.json()).then(l => Array.isArray(l) && setSections(l)).catch(() => {}); }, []);
-  const cible = un ? { ids: [un.id] } : ue.trim() ? { ue: Number(ue) } : { section };
+  useEffect(() => { fetch('/api/ref/professeurs', { headers: authHeaders() }).then(x => x.json()).then(l => Array.isArray(l) && setProfs(l.slice().sort((a, b) => String(a.nom).localeCompare(String(b.nom), 'fr')))).catch(() => {}); }, []);
+  const cible = un ? { ids: [un.id] } : prof ? { prof: Number(prof), ue: ue.trim() ? Number(ue) : null } : ue.trim() ? { ue: Number(ue) } : { section };
   const appel = simulation => fetch('/api/portail-suivi/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...cible, simulation, deja, message }) }).then(x => x.json());
   const essai = async () => {
     setMsgEssai(null);
@@ -218,14 +222,18 @@ function InvitationLot({ ajouterEssai }) {
               </ul>)}
           </div>
           <span className="text-slate-500">ou</span>
-          <select className="controle" value={section} onChange={e => { setSection(e.target.value); setUe(''); setUn(null); setSim(null); setFait(null); }}>
+          <select className="controle" value={section} onChange={e => { setSection(e.target.value); setUe(''); setProf(''); setUn(null); setSim(null); setFait(null); }}>
             <option value="">— une section —</option>{sections.map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
           </select>
           <span className="text-slate-500">ou l’UE</span>
           <input className="controle w-20" inputMode="numeric" placeholder="n°" value={ue} onChange={e => { setUe(e.target.value.replace(/\D/g, '')); setSection(''); setUn(null); setSim(null); setFait(null); }} />
-          {ue && <button type="button" className="bouton" onClick={essai}>Ajouter ses inscrits aux étudiants d’essai</button>}
+          <span className="text-slate-500">{ue ? 'dont le professeur est' : 'ou le professeur'}</span>
+          <select className="controle max-w-[14rem]" value={prof} onChange={e => { setProf(e.target.value); setSection(''); setUn(null); setSim(null); setFait(null); }} aria-label="Professeur">
+            <option value="">— tous —</option>{profs.map(p => <option key={p.id} value={p.id}>{String(p.nom || '').toUpperCase()} {p.prenom || ''}</option>)}
+          </select>
+          {ue && !prof && <button type="button" className="bouton" onClick={essai}>Ajouter ses inscrits aux étudiants d’essai</button>}
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={deja} onChange={e => { setDeja(e.target.checked); setSim(null); }} /> réinviter aussi ceux déjà invités</label>
-          <button type="button" className="bouton" disabled={(!section && !ue && !un) || enCours} onClick={simuler}>Simuler</button>
+          <button type="button" className="bouton" disabled={(!section && !ue && !un && !prof) || enCours} onClick={simuler}>Simuler</button>
           {sim?.a_inviter?.length > 0 && <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={envoyer}>Inviter {sim.a_inviter.length} étudiant(s)</button>}
         </div>
         {msgEssai && <div className="text-slate-600">{msgEssai}</div>}
