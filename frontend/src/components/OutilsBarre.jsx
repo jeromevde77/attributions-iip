@@ -4,6 +4,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { IconDatabaseImport, IconBulb } from '@tabler/icons-react';
 import { useImport } from '../lib/barreOutils.js';
+import Loupe from './Loupe.jsx';
 
 const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
 
@@ -14,6 +15,7 @@ export default function OutilsBarre() {
     {importer && (
       <button type="button" onClick={importer} aria-label="Importer" title="Importer (classeurs, listes)"
         className="objet-barre objet-barre-icone"><IconDatabaseImport size={16} /></button>)}
+    <Loupe />
     <button type="button" onClick={() => setIdees(true)} aria-label="Proposer une amélioration" title="Proposer une amélioration"
       className="objet-barre objet-barre-icone"><IconBulb size={16} /></button>
     {idees && (
