@@ -112,7 +112,7 @@ export function migrerStages(dbx) {
     // L'INTITULÉ ET LE DOMAINE D'UN STAGE (8 octobre 2026, relevé des stages de TIM
     // pour le supplément au diplôme) : « 3e année – Stage 5 », « Angiographie /
     // Échographie » — le même hôpital accueille des stages de domaines différents.
-    for (const col of ['intitule TEXT', 'domaine TEXT']) {
+    for (const col of ['intitule TEXT', 'domaine TEXT', 'etat_motif TEXT', 'etat_par TEXT', 'etat_le TEXT']) {
       try { dbx.exec(`ALTER TABLE stage ADD COLUMN ${col}`); } catch { /* déjà là */ }
     }
     console.log('[migration] stages : lieux et périodes');
@@ -139,8 +139,15 @@ r.get('/lieux', authRequired, (req, res) => {
 
   // Combien d'étudiants y sont passés : un lieu très fréquenté se distingue
   // d'un lieu ponctuel, et cela guide le choix.
+  const annee = String(req.query.annee || '');
+  const cadres = annee ? cadresDesLieux() : null;
   for (const l of lieux) {
     l.nb_stages = db.prepare('SELECT COUNT(*) n FROM stage WHERE lieu_id = ?').get(l.id).n;
+    // L'année choisie (3.5.586) : combien y sont cette année, et la convention-cadre du lieu.
+    if (annee) {
+      l.stages_annee = db.prepare("SELECT COUNT(*) n FROM stage WHERE lieu_id = ? AND annee_scolaire = ? AND COALESCE(statut, '') NOT IN ('annule', 'rompu')").get(l.id, annee).n;
+      l.cadre = cadres.get(l.id) || null;
+    }
   }
   res.json(lieux);
 });
@@ -206,7 +213,7 @@ r.post('/lieux', authRequired, roleRequired(...ECRITURE), (req, res) => {
   if (!l.nom) return res.status(400).json({ error: 'nom requis' });
   const champs = ['nom', 'service', 'adresse', 'cp', 'localite', 'pays', 'secteur',
                   'num_entreprise', 'site_web', 'contact_nom', 'contact_fonction',
-                  'contact_tel', 'contact_email', 'agrement', 'remarques'];
+                  'contact_tel', 'contact_email', 'agrement', 'remarques', 'section', 'ues', 'demande'];
   const info = db.prepare(`
     INSERT INTO stage_lieu (${champs.join(',')}, cree_par)
     VALUES (${champs.map(() => '?').join(',')}, ?)
@@ -218,7 +225,7 @@ r.put('/lieux/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
   const l = req.body || {};
   const champs = ['nom', 'service', 'adresse', 'cp', 'localite', 'pays', 'secteur',
                   'num_entreprise', 'site_web', 'contact_nom', 'contact_fonction',
-                  'contact_tel', 'contact_email', 'agrement', 'remarques', 'actif'];
+                  'contact_tel', 'contact_email', 'agrement', 'remarques', 'actif', 'section', 'ues', 'demande'];
   const presents = champs.filter(k => k in l);
   if (!presents.length) return res.json({ ok: true, inchange: true });
   db.prepare(`UPDATE stage_lieu SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
@@ -388,6 +395,7 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
     }
     s.pret = s.blocages.length === 0;
   }
+  for (const s of stages) s.etat = etatDuStage(s);
 
   /* LE MINIMUM D'HEURES DE STAGE DE LA SECTION (Charles, 8 octobre 2026 : « la somme
      totale pour vérifier qu'on a respecté le minimum de 600 h en TIM — différent
@@ -437,8 +445,18 @@ r.put('/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
   const champs = ['ue_num', 'section', 'lieu_id', 'maitre_stage', 'maitre_fonction',
                   'maitre_email', 'maitre_tel', 'professeur_id', 'date_debut', 'date_fin',
                   'heures_prevues', 'heures_effectuees', 'fractionne', 'autorisation_le',
-                  'convention_le', 'convention_ref', 'casier_le', 'medecine_le',
+                  'casier_le', 'medecine_le',
                   'vaccination_ok', 'statut', 'evaluation_tuteur', 'note_tuteur', 'remarques', 'intitule', 'domaine'];
+  // LA CONVENTION SE LIT DU REGISTRE (3.5.586) : `convention_le` n'est posée que par la signature au registre des conventions.
+  // L'ÉTAT SE DÉDUIT : seuls « rompu » et « annulé » se posent, avec un motif ; « prevu » rend la main à la déduction.
+  if ('statut' in s) {
+    if (!['prevu', 'rompu', 'annule'].includes(s.statut)) return res.status(400).json({ error: 'L’état d’un stage se déduit des pièces et des dates : seuls « rompu » et « annulé » se posent.' });
+    if (s.statut !== 'prevu' && !String(s.motif || '').trim()) return res.status(400).json({ error: 'Un stage rompu ou annulé se motive.' });
+    s.etat_motif = s.statut === 'prevu' ? null : String(s.motif).trim();
+    s.etat_par = s.statut === 'prevu' ? null : (req.user?.nom || req.user?.email || null);
+    s.etat_le = s.statut === 'prevu' ? null : new Date().toISOString().slice(0, 10);
+    champs.push('etat_motif', 'etat_par', 'etat_le');
+  }
   const presents = champs.filter(k => k in s);
   if (!presents.length) return res.json({ ok: true, inchange: true });
 
@@ -450,7 +468,8 @@ r.put('/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
   // Rappel plutôt qu'interdiction : c'est le professeur de stage qui juge.
   const apres = db.prepare('SELECT * FROM stage WHERE id = ?').get(Number(req.params.id));
   let rappel = null;
-  if (['en_cours', 'termine'].includes(apres.statut)
+  const auj = new Date().toISOString().slice(0, 10);
+  if (!['rompu', 'annule'].includes(apres.statut) && apres.date_debut && apres.date_debut <= auj && !(apres.date_fin && apres.date_fin < auj)
       && (!apres.autorisation_le || !apres.convention_le)) {
     rappel = "Aucun stage ne peut débuter sans autorisation écrite du professeur de stage "
            + "ni convention signée (art. 51). Le non-respect entraîne l'annulation du stage.";
@@ -498,22 +517,42 @@ r.get('/', authRequired, (req, res) => {
   const nomProf = db.prepare("SELECT TRIM(nom || ' ' || COALESCE(prenom, '')) n FROM professeur WHERE id = ?");
   // Les visites de chaque stage (3.5.068) : prévues, faites — la table vient du module des visites, elle peut manquer.
   let vis = null; try { vis = db.prepare("SELECT SUM(statut = 'prevue') prevues, SUM(statut = 'faite') faites FROM stage_visite WHERE stage_id = ?"); } catch { vis = null; }
+  let prochaine = null; try { prochaine = db.prepare("SELECT MIN(date) d FROM stage_visite WHERE stage_id = ? AND statut = 'prevue' AND date >= ?"); } catch { prochaine = null; }
+  const conv = conventionsDesStages(stages.map(x => x.id));
+  const cadres = cadresDesLieux();
+  const minima = minimaStages();
+  const cumul = db.prepare(`SELECT COALESCE(SUM(heures_effectuees), 0) h FROM stage WHERE etudiant_id = ?
+    AND COALESCE(statut, '') NOT IN ('annule', 'rompu')`);
+  const dans30 = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
   for (const x of stages) {
     const v = vis ? vis.get(x.id) : null; x.visites_prevues = v?.prevues || 0; x.visites_faites = v?.faites || 0;
+    x.prochaine_visite = prochaine ? prochaine.get(x.id, auj)?.d || null : null;
     Object.assign(x, piecesDuStage(x, annee, auj));
+    x.etat = etatDuStage(x, auj);
     x.professeur = x.professeur_id ? nomProf.get(x.professeur_id)?.n || null : null;
+    x.convention = conv.get(x.id) || null;
+    x.cadre = x.lieu_id ? cadres.get(x.lieu_id) || null : null;
+    x.cumul_heures = cumul.get(x.etudiant_id).h;
+    x.minimum = x.section ? (minima[x.section] ?? null) : null;
   }
   const manquants = stages.filter(s => !s.autorisation_le || !s.convention_le).length;
+  const parEtudiant = new Map(); for (const x of stages) if (x.minimum) parEtudiant.set(x.etudiant_id, x);
   res.json({
     annee, stages,
     synthese: {
       total: stages.length,
       sans_lieu: stages.filter(s => !s.lieu_id).length,
       sans_convention: manquants,
-      en_cours: stages.filter(s => s.statut === 'en_cours').length,
-      termines: stages.filter(s => s.statut === 'termine').length,
+      en_cours: stages.filter(s => s.etat === 'en_cours').length,
+      termines: stages.filter(s => s.etat === 'termine').length,
       a_relancer: stages.filter(s => s.urgence === 'rouge').length,
       incomplets: stages.filter(s => s.manquent.length).length,
+      sans_stage: propositions(annee, perim).length,
+      conventions_a_signer: stages.filter(s => s.convention?.etat === 'deposee').length,
+      conventions_absentes: stages.filter(s => !s.convention && !s.convention_le && !['termine', 'rompu', 'annule'].includes(s.etat)).length,
+      visites_30j: stages.filter(s => s.prochaine_visite && s.prochaine_visite <= dans30).length,
+      sous_minimum: [...parEtudiant.values()].filter(s => s.etat === 'termine' && s.cumul_heures < s.minimum).length,
+      etats: Object.fromEntries(['a_preparer', 'pret', 'en_cours', 'termine', 'rompu', 'annule'].map(k => [k, stages.filter(s => s.etat === k).length])),
     },
   });
 });
@@ -551,6 +590,42 @@ export function piecesDuStage(x, annee, auj = new Date().toISOString().slice(0, 
   if (manquent.length && x.date_debut && x.date_debut <= dans14) urgence = 'rouge';
   if (!x.casier_le && dixieme && dixieme <= auj) urgence = 'rouge';
   return { manquent, urgence, dixieme };
+}
+
+/* L'ÉTAT D'UN STAGE SE DÉDUIT (3.5.586, Charles, 19 novembre 2026 : « une seule porte », maquette validée). Il ne se tape plus :
+ *   rompu, annulé  — les deux seuls états posés à la main (avec un motif) ;
+ *   terminé        — la date de fin est passée (ou le stage a été repris d'un relevé comme terminé) ;
+ *   à préparer     — il manque quelque chose (piecesDuStage) ;
+ *   en cours       — rien ne manque et l'on est entre les dates ;
+ *   prêt           — rien ne manque, le stage n'a pas commencé. */
+export const ETATS_STAGE = { a_preparer: 'à préparer', pret: 'prêt', en_cours: 'en cours', termine: 'terminé', rompu: 'rompu', annule: 'annulé' };
+export function etatDuStage(x, auj = new Date().toISOString().slice(0, 10)) {
+  if (x.statut === 'rompu' || x.statut === 'annule') return x.statut;
+  if (x.statut === 'termine' || (x.date_fin && x.date_fin < auj)) return 'termine';
+  const manquent = x.manquent || piecesDuStage(x, x.annee_scolaire, auj).manquent;
+  if (manquent.length) return 'a_preparer';
+  return x.date_debut && x.date_debut <= auj ? 'en_cours' : 'pret';
+}
+
+/* LA CONVENTION SE LIT DU REGISTRE (routes/conventions.js) : une par stage, non retirée — déposée (à signer par la direction),
+ * signée par l'IIP, contresignée par le lieu. La date du stage (`convention_le`) est posée par le registre à la signature. */
+function etatConv(c) { return c.contresigne_le ? 'contresignee' : c.signe_le ? 'signee' : 'deposee'; }
+function conventionsDesStages(ids) {
+  const m = new Map(); if (!ids.length) return m;
+  try {
+    for (const c of db.prepare(`SELECT * FROM convention WHERE retire_le IS NULL AND stage_id IN (${ids.map(() => '?').join(',')}) ORDER BY id`).all(...ids))
+      m.set(c.stage_id, { id: c.id, etat: etatConv(c), depose_le: c.depose_le, signe_le: c.signe_le, contresigne_le: c.contresigne_le || null });
+  } catch { /* registre absent */ }
+  return m;
+}
+/** La convention-cadre de chaque lieu (famille cadre_stage, la plus récente non retirée). */
+function cadresDesLieux() {
+  const m = new Map();
+  try {
+    for (const c of db.prepare("SELECT * FROM convention WHERE retire_le IS NULL AND famille = 'cadre_stage' AND lieu_id IS NOT NULL ORDER BY id").all())
+      m.set(c.lieu_id, { id: c.id, etat: etatConv(c), signe_le: c.signe_le, depose_le: c.depose_le, fin: c.periode_fin || null });
+  } catch { /* registre absent */ }
+  return m;
 }
 
 /** Ce que l'écran propose de choisir : les UE de stage de l'année (cours `is_stage`) et les professeurs — ceux attribués à

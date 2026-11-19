@@ -13,7 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import db from '../db/index.js';
 import { typeReel } from './portailValorisation.js';
-import { piecesDuStage } from '../routes/stages.js';
+import { piecesDuStage, etatDuStage } from '../routes/stages.js';
 import { REMPLI_PAR } from '../routes/fichesEvaluation.js';
 
 const DATA_DIR = () => process.env.DATA_DIR || '/app/data';
@@ -88,7 +88,7 @@ export function stagePortail(e, annee) {
     return {
       id: s.id, ue_num: s.ue_num,
       ue_nom: s.ue_num ? db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(s.ue_num, annee)?.ue_nom || '' : '',
-      statut: s.statut, date_debut: s.date_debut, date_fin: s.date_fin, heures_prevues: s.heures_prevues,
+      statut: etatDuStage(s), date_debut: s.date_debut, date_fin: s.date_fin, heures_prevues: s.heures_prevues,
       lieu: s.lieu_id ? { nom: s.lieu_nom, service: s.lieu_service, adresse: [s.lieu_adresse, [s.lieu_cp, s.lieu_localite].filter(Boolean).join(' ')].filter(Boolean).join(', ') } : null,
       maitre: s.maitre_stage ? { nom: s.maitre_stage, fonction: s.maitre_fonction || null } : null,
       superviseur: nomProf(s.professeur_id),

@@ -4655,6 +4655,19 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**LES STAGES, UNE SEULE PORTE EN SIX ÉTAPES** (3.5.586, Charles, 19 novembre 2026 : « que la gestion des stages soit bien claire » ;
+maquette validée : « on garde tout, code par étapes »). Organisation → Stages (`pages/StagesOrganisation.jsx`) : section et recherche,
+six tuiles qui mènent à leur étape, frise `FriseStages` (`?etape=1..6` ; les anciens `?face=` y mènent) — 1 Les lieux (`EtapeLieux`,
+`FicheLieu`, import ; `GET /stages/lieux?annee=` rend `stages_annee` et `cadre`) · 2 Affecter (propositions puis lot) · 3 Les pièces ·
+4 Les conventions (`EtapeConventions`, `ConventionStage` en fenêtre) · 5 Le suivi (état, visites, ligne du temps, Visites et trajets) ·
+6 Évaluation et heures (`EtapeHeures` : heures de l'année, cumul toutes années / minimum ; fiches d'évaluation). **L'état se déduit**
+(`etatDuStage`, `ETATS_STAGE` de `routes/stages.js`) : rompu, annulé (posés avec motif : `etat_motif`, `etat_par`, `etat_le`) ·
+terminé (date de fin passée, ou `statut = 'termine'` d'un relevé) · à préparer (`piecesDuStage` non vide) · en cours · prêt ;
+`PUT /stages/:id` n'accepte plus pour `statut` que prevu (rend la main), rompu, annule. **La convention se lit du registre**
+(`conventionsDesStages`, `cadresDesLieux` : déposée · signée · contresignée) ; `convention_le` n'est plus écrite par `PUT /stages/:id`,
+seulement par la signature au registre. Lecteurs : fiche → Stages (état, rompre/annuler), espace étudiant (`portailTfeStage`, `statut` =
+l'état). **À venir (étapes suivantes du code)** : les places par lieu et par année ; les heures effectuées confirmées par le superviseur ;
+l'attestation de stage ; les espaces enseignant et étudiant qui renvoient à cette chaîne.
 **3.5.585** : Gestion → Dotation → *Toutes les années* (`DotationAnnees`, Pilotage.jsx, sur `/api/pilotage/civil`) — une ligne par année
 civile : dotation, janvier-juin, septembre-décembre, dépassements, utilisées, FELSI + GIPS, solde réel, taux ; écart à l'année d'avant ;
 un clic ouvre le détail de l'année ; graphique dotation / utilisées.
