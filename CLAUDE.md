@@ -4655,6 +4655,12 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**Inviter les étudiants d'un professeur** (3.5.589, Charles, 19 novembre 2026 : « je ne veux inviter QUE ceux dont Wael est prof » —
+UE 250). Mise en service → Inviter les étudiants à leur espace : choix « le professeur » (seul, ou « dont le professeur est » avec une
+UE). `etudiantsDuProf(profId, { ue })` (`lib/invitationEspace.js`) : pour chaque ligne d'attribution de l'année active, les étudiants
+de son groupe dans la répartition (`etudiant_cours_groupe`, même activité quand l'activité est répartie) ; un cours sans répartition
+donne les inscrits de l'UE de son organisation. `inviter({ prof, ue })`, `GET /api/portail-suivi/professeur/:id/etudiants?ue=`.
+UE 250 / Wael ELKHANSA au 19/11/2026 : 65 étudiants (250.1 groupes D et F, 250.2 groupes C et D).
 **L'attestation de stages, R-06** (3.5.588, troisième étape du code des stages). `lib/attestationStage.js` (`chargerAttestationStage`,
 `composerAttestationStage`) : les stages EFFECTUÉS de l'étudiant, toutes années (terminés ou à heures encodées, jamais rompus ni annulés)
 — année, stage et UE, lieu (nom, service, adresse, maître de stage), période, heures —, le total face au minimum de la section, bloc de
