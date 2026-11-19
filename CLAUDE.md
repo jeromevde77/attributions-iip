@@ -4655,6 +4655,11 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**Les places et les heures confirmées** (3.5.587, deuxième étape du code des stages). `stage_lieu_place` (lieu × année, `PUT
+/stages/lieux/:id/places`) : saisies à l'étape 1 (colonne « Places »), comptées à l'affectation en lot (`places` de la simulation :
+signalé, jamais bloquant ; le menu des lieux dit « 3/4 places »). Les heures effectuées disent qui et quand (`heures_par`, `heures_le`) :
+saisies par l'école (fiche, `heures_confirmees = 0`) ou CONFIRMÉES par le superviseur dans Mes stages (`PUT
+/mes-cours/stages/:id/heures`, une fois le stage commencé) ; l'étape 6 nomme les stages terminés sans heures ou non confirmés.
 **LES STAGES, UNE SEULE PORTE EN SIX ÉTAPES** (3.5.586, Charles, 19 novembre 2026 : « que la gestion des stages soit bien claire » ;
 maquette validée : « on garde tout, code par étapes »). Organisation → Stages (`pages/StagesOrganisation.jsx`) : section et recherche,
 six tuiles qui mènent à leur étape, frise `FriseStages` (`?etape=1..6` ; les anciens `?face=` y mènent) — 1 Les lieux (`EtapeLieux`,

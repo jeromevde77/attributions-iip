@@ -112,9 +112,14 @@ export function migrerStages(dbx) {
     // L'INTITULÉ ET LE DOMAINE D'UN STAGE (8 octobre 2026, relevé des stages de TIM
     // pour le supplément au diplôme) : « 3e année – Stage 5 », « Angiographie /
     // Échographie » — le même hôpital accueille des stages de domaines différents.
-    for (const col of ['intitule TEXT', 'domaine TEXT', 'etat_motif TEXT', 'etat_par TEXT', 'etat_le TEXT']) {
+    for (const col of ['intitule TEXT', 'domaine TEXT', 'etat_motif TEXT', 'etat_par TEXT', 'etat_le TEXT',
+      'heures_par TEXT', 'heures_le TEXT', 'heures_confirmees INTEGER']) {
       try { dbx.exec(`ALTER TABLE stage ADD COLUMN ${col}`); } catch { /* déjà là */ }
     }
+    // LES PLACES D'UN LIEU, PAR ANNÉE (3.5.587) : ce que le lieu offre cette année ; l'affectation les compte et signale un
+    // dépassement, sans l'interdire.
+    dbx.exec(`CREATE TABLE IF NOT EXISTS stage_lieu_place (lieu_id INTEGER NOT NULL, annee_scolaire TEXT NOT NULL, places INTEGER,
+      maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')), PRIMARY KEY (lieu_id, annee_scolaire))`);
     console.log('[migration] stages : lieux et périodes');
   } catch (e) { console.error('[migration] stages :', e.message); }
 }
@@ -147,6 +152,7 @@ r.get('/lieux', authRequired, (req, res) => {
     if (annee) {
       l.stages_annee = db.prepare("SELECT COUNT(*) n FROM stage WHERE lieu_id = ? AND annee_scolaire = ? AND COALESCE(statut, '') NOT IN ('annule', 'rompu')").get(l.id, annee).n;
       l.cadre = cadres.get(l.id) || null;
+      l.places = db.prepare('SELECT places FROM stage_lieu_place WHERE lieu_id = ? AND annee_scolaire = ?').get(l.id, annee)?.places ?? null;
     }
   }
   res.json(lieux);
@@ -231,6 +237,18 @@ r.put('/lieux/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
   db.prepare(`UPDATE stage_lieu SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
     .run(...presents.map(k => l[k] ?? null), Number(req.params.id));
   res.json({ ok: true });
+});
+
+/** Les places qu'un lieu offre une année (vide = non précisé). */
+r.put('/lieux/:id/places', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const annee = String(req.body?.annee || ''); if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const v = req.body?.places, n = v === '' || v == null ? null : Number(v);
+  if (n != null && (!Number.isInteger(n) || n < 0 || n > 500)) return res.status(400).json({ error: 'Un nombre de places entier, entre 0 et 500.' });
+  if (!db.prepare('SELECT 1 FROM stage_lieu WHERE id = ?').get(Number(req.params.id))) return res.status(404).json({ error: 'Lieu introuvable.' });
+  db.prepare(`INSERT INTO stage_lieu_place (lieu_id, annee_scolaire, places, maj_par) VALUES (?, ?, ?, ?)
+    ON CONFLICT(lieu_id, annee_scolaire) DO UPDATE SET places = excluded.places, maj_par = excluded.maj_par, maj_le = datetime('now')`)
+    .run(Number(req.params.id), annee, n, req.user?.email || null);
+  res.json({ ok: true, places: n });
 });
 
 r.delete('/lieux/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
@@ -457,6 +475,12 @@ r.put('/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
     s.etat_le = s.statut === 'prevu' ? null : new Date().toISOString().slice(0, 10);
     champs.push('etat_motif', 'etat_par', 'etat_le');
   }
+  // LES HEURES EFFECTUÉES (3.5.588) : saisies par l'école, elles disent qui et quand ; celles du superviseur sont « confirmées »
+  // (Mes stages, routes/mesStages.js). Une saisie de l'école remplace la confirmation.
+  if ('heures_effectuees' in s) {
+    s.heures_par = req.user?.nom || req.user?.email || null; s.heures_le = new Date().toISOString().slice(0, 10); s.heures_confirmees = 0;
+    champs.push('heures_par', 'heures_le', 'heures_confirmees');
+  }
   const presents = champs.filter(k => k in s);
   if (!presents.length) return res.json({ ok: true, inchange: true });
 
@@ -679,7 +703,17 @@ r.post('/lot', authRequired, roleRequired(...ECRITURE), (req, res) => {
     const sec = e.section || db.prepare('SELECT section FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(ue, annee)?.section || null;
     return { etudiant_id: id, nom: `${String(e.nom).toUpperCase()} ${e.prenom}`, section: sec, geste: ex ? 'compléter' : 'créer', stage_id: ex?.id || null };
   });
-  if (!b.ecrire) return res.json({ plan, champs });
+  // Les places du lieu (3.5.587) : signalées, jamais bloquantes.
+  let places = null;
+  if (champs.lieu_id) {
+    const offre = db.prepare('SELECT places FROM stage_lieu_place WHERE lieu_id = ? AND annee_scolaire = ?').get(Number(champs.lieu_id), annee)?.places;
+    if (offre != null) {
+      const deja = db.prepare("SELECT etudiant_id FROM stage WHERE lieu_id = ? AND annee_scolaire = ? AND COALESCE(statut, '') NOT IN ('annule', 'rompu')").all(Number(champs.lieu_id), annee).map(x => x.etudiant_id);
+      const apres = new Set([...deja, ...plan.filter(x => !x.refus).map(x => x.etudiant_id)]).size;
+      places = { offre, apres, depasse: apres > offre };
+    }
+  }
+  if (!b.ecrire) return res.json({ plan, champs, places });
   const par = req.user?.email || null;
   db.transaction(() => {
     for (const x of plan) {

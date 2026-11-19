@@ -44,6 +44,27 @@ function LienMaitre({ stage, fiche, onFait }) {
     </div>);
 }
 
+/* Les heures effectuées : le superviseur les confirme (3.5.588) ; elles comptent vers le minimum d'heures de la section. */
+function Heures({ stage: s, onFait }) {
+  const h = s.heures || {};
+  const confirmer = async () => {
+    const v = await saisir({ message: `Heures effectuées par ${String(s.etudiant.nom || '').toUpperCase()} ${s.etudiant.prenom || ''} pendant ce stage${s.heures_prevues ? ` (${s.heures_prevues} h prévues)` : ''} :`, valeur: String(s.heures_effectuees ?? s.heures_prevues ?? '') });
+    if (v == null || String(v).trim() === '') return;
+    const r = await fetch(`/api/mes-cours/stages/${s.id}/heures`, { method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ heures: v }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { informer({ message: j.error || 'Enregistrement impossible.' }); return; }
+    onFait();
+  };
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-slate-500">Heures effectuées :</span>
+      {s.heures_effectuees != null ? <span>{s.heures_effectuees} h</span> : <i className="text-slate-400">non encodées</i>}
+      {s.heures_effectuees != null && (h.confirmees ? <PastilleEtat etat="reussi">confirmées{h.le ? ` le ${fr(h.le)}` : ''}</PastilleEtat>
+        : <span className="text-second text-slate-500">saisies par l’école{h.le ? ` le ${fr(h.le)}` : ''}</span>)}
+      {h.peut && <button type="button" className="bouton px-2 py-0.5 text-second" onClick={confirmer}>{h.confirmees ? 'Corriger' : 'Confirmer les heures'}</button>}
+    </div>);
+}
+
 export default function MesStages() {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -82,6 +103,7 @@ export default function MesStages() {
                       <div><span className="text-slate-500">Lieu :</span> {s.lieu.nom || '—'}{s.lieu.service ? ` — ${s.lieu.service}` : ''}</div>
                       {s.lieu.adresse && <div className="text-second text-slate-500">{s.lieu.adresse}</div>}
                       <div><span className="text-slate-500">Période :</span> {s.debut ? `du ${fr(s.debut)} au ${fr(s.fin)}` : 'à fixer'}{s.heures_prevues ? ` · ${s.heures_prevues} h prévues` : ''}</div>
+                      <Heures stage={s} onFait={charger} />
                       {s.etudiant.email && <div><span className="text-slate-500">Étudiant :</span> <span className="select-all">{s.etudiant.email}</span></div>}
                     </div>
                     <div className="space-y-1">

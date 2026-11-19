@@ -74,9 +74,10 @@ export default function StagesOrganisation({ annee }) {
     visites: stages.filter(s => s.prochaine_visite && s.prochaine_visite <= dans30).length,
     sousMin: [...parEtud.values()].filter(s => s.etat === 'termine' && s.cumul_heures < s.minimum).length,
     lieux: (lieux || []).filter(l => !section || l.section === section).length,
+    places: (lieux || []).filter(l => !section || l.section === section).reduce((t, l) => t + (l.places || 0), 0),
   };
   const comptes = {
-    1: `${n.lieux} lieu(x)`, 2: n.sans ? `${n.sans} sans stage` : 'chacun a son stage', 3: n.incomplets ? `${n.incomplets} incomplet(s)` : 'rien ne manque',
+    1: `${n.lieux} lieu(x)${n.places ? ` · ${n.places} places` : ''}`, 2: n.sans ? `${n.sans} sans stage` : 'chacun a son stage', 3: n.incomplets ? `${n.incomplets} incomplet(s)` : 'rien ne manque',
     4: n.aSigner ? `${n.aSigner} à signer` : n.sansConv ? `${n.sansConv} sans convention` : 'à jour', 5: `${n.enCours} en cours`,
     6: n.sousMin ? `${n.sousMin} sous le minimum` : 'heures et fiches',
   };
@@ -108,7 +109,7 @@ export default function StagesOrganisation({ annee }) {
         {etape === 2 && <Lot annee={annee} recharger={charger} />}
         {etape !== 2 && <div className="carte overflow-hidden">
           <EnteteCarte titre={`${etape}. ${titre}`} sous={aide} />
-          {etape === 1 && <EtapeLieux lieux={lieux} section={section} recharger={charger} />}
+          {etape === 1 && <EtapeLieux lieux={lieux} section={section} annee={annee} recharger={charger} />}
           {etape === 3 && <Pieces stages={stages} recharger={charger} />}
           {etape === 4 && <EtapeConventions stages={stages} lieux={lieux} recharger={charger} />}
           {etape === 5 && <EtapeSuivi stages={stages} annee={annee} />}
@@ -142,7 +143,7 @@ function FriseStages({ etape, onEtape, comptes }) {
 }
 
 /* 1. LES LIEUX — le répertoire de la section d'abord ; « tous les lieux » montre aussi ceux des autres sections. */
-function EtapeLieux({ lieux, section, recharger }) {
+function EtapeLieux({ lieux, section, annee, recharger }) {
   const [tous, setTous] = useState(false);
   const [fiche, setFiche] = useState(null);
   const [importer, setImporter] = useState(false);
@@ -156,18 +157,34 @@ function EtapeLieux({ lieux, section, recharger }) {
     </div>
     {!liste.length ? <p className="px-4 py-3 text-sm text-slate-500 m-0">Aucun lieu {section ? `dans le répertoire de ${section}` : 'encodé'}.</p> : (
       <Tableau dense>
-        <TableauEntete><Th>Lieu</Th><Th>Service</Th><Th>Localité</Th><Th>Section</Th><Th>UE</Th><Th align="droite">Cette année</Th><Th align="droite">Depuis toujours</Th><Th>Convention-cadre</Th></TableauEntete>
+        <TableauEntete><Th>Lieu</Th><Th>Service</Th><Th>Localité</Th><Th>Section</Th><Th>UE</Th><Th align="droite">Places {annee}</Th><Th align="droite">Occupées</Th><Th align="droite">Depuis toujours</Th><Th>Convention-cadre</Th></TableauEntete>
         <tbody>{liste.map(l => (
           <Tr key={l.id} onClick={() => setFiche(l)} className="cursor-pointer">
             <Td><span className="font-medium">{l.nom}</span></Td><Td ton="secondaire">{l.service || '—'}</Td><Td ton="secondaire">{l.localite || '—'}</Td>
             <Td ton="secondaire">{l.section || '—'}</Td><Td ton="secondaire">{l.ues || '—'}</Td>
-            <Td align="droite">{l.stages_annee || 0}</Td><Td align="droite" ton="secondaire">{l.nb_stages || 0}</Td>
+            <Td align="droite" onClick={e => e.stopPropagation()}><Places lieu={l} annee={annee} onFait={recharger} /></Td>
+            <Td align="droite">{l.places != null && (l.stages_annee || 0) > l.places
+              ? <PastilleEtat etat="corriger" title="Plus d’étudiants que de places offertes">{l.stages_annee}</PastilleEtat> : (l.stages_annee || 0)}</Td>
+            <Td align="droite" ton="secondaire">{l.nb_stages || 0}</Td>
             <Td>{l.cadre ? <PastilleEtat etat={CONV[l.cadre.etat]?.[0]}>{CONV[l.cadre.etat]?.[1]}{l.cadre.fin ? ` · jusqu’au ${fr(l.cadre.fin)}` : ''}</PastilleEtat> : <span className="text-slate-400">aucune</span>}</Td>
           </Tr>))}</tbody>
       </Tableau>)}
     {fiche && <FicheLieu lieu={fiche} onFermer={() => setFiche(null)} onFait={() => { setFiche(null); recharger(); }} />}
     {importer && <ImportLieuxStage onClose={() => setImporter(false)} onFini={() => { setImporter(false); recharger(); }} />}
   </>);
+}
+
+/* Les places qu'un lieu offre cette année : un champ qui s'enregistre en quittant. */
+function Places({ lieu, annee, onFait }) {
+  const [v, setV] = useState(lieu.places ?? '');
+  useEffect(() => { setV(lieu.places ?? ''); }, [lieu.places]);
+  const garder = async () => {
+    if (String(v) === String(lieu.places ?? '')) return;
+    try { await appel(`/api/stages/lieux/${lieu.id}/places`, { method: 'PUT', body: JSON.stringify({ annee, places: v === '' ? null : Number(v) }) }); onFait(); }
+    catch (e) { informer({ message: e.message }); setV(lieu.places ?? ''); }
+  };
+  return <input type="number" min="0" className="border border-slate-300 rounded-champ text-sm w-16 px-1.5 py-0.5 text-right" value={v} placeholder="—"
+    aria-label={`Places offertes par ${lieu.nom}`} onChange={e => setV(e.target.value)} onBlur={garder} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />;
 }
 
 function FicheLieu({ lieu, onFermer, onFait }) {
@@ -274,9 +291,9 @@ function EtapeHeures({ stages, annee }) {
   const parEtud = new Map();
   for (const s of stages) {
     if (['annule', 'rompu'].includes(s.etat)) continue;
-    const e = parEtud.get(s.etudiant_id) || { id: s.etudiant_id, nom: nomE(s), section: s.section, eff: 0, prev: 0, cumul: s.cumul_heures, minimum: s.minimum, termines: 0, n: 0, manque: 0 };
+    const e = parEtud.get(s.etudiant_id) || { id: s.etudiant_id, nom: nomE(s), section: s.section, eff: 0, prev: 0, cumul: s.cumul_heures, minimum: s.minimum, termines: 0, n: 0, manque: 0, aConfirmer: 0 };
     e.eff += Number(s.heures_effectuees || 0); e.prev += Number(s.heures_prevues || 0); e.n += 1;
-    if (s.etat === 'termine') { e.termines += 1; if (s.heures_effectuees == null) e.manque += 1; }
+    if (s.etat === 'termine') { e.termines += 1; if (s.heures_effectuees == null) e.manque += 1; else if (!s.heures_confirmees) e.aConfirmer += 1; }
     parEtud.set(s.etudiant_id, e);
   }
   const liste = [...parEtud.values()].sort((a, b) => a.nom.localeCompare(b.nom));
@@ -294,7 +311,7 @@ function EtapeHeures({ stages, annee }) {
               <Td>{e.nom}</Td><Td ton="secondaire">{e.section || '—'}</Td><Td align="droite">{e.n}</Td>
               <Td align="droite">{e.eff || '—'} / {e.prev || '—'}</Td>
               <Td align="droite">{e.minimum ? <PastilleEtat etat={sous ? (e.termines === e.n ? 'corriger' : 'neutre') : 'reussi'}>{e.cumul} / {e.minimum} h</PastilleEtat> : <span className="text-slate-400">{e.cumul} h · pas de minimum</span>}</Td>
-              <Td ton="secondaire">{e.manque ? `${e.manque} stage(s) terminé(s) sans heures effectuées` : ''}</Td>
+              <Td ton="secondaire">{[e.manque ? `${e.manque} stage(s) terminé(s) sans heures effectuées` : '', e.aConfirmer ? `${e.aConfirmer} non confirmé(s) par le superviseur` : ''].filter(Boolean).join(' · ')}</Td>
             </Tr>);
         })}</tbody>
       </Tableau>)}
@@ -363,7 +380,7 @@ function Lot({ annee, recharger }) {
   const [coches, setCoches] = useState([]);
   const [v, setV] = useState({ lieu_id: '', date_debut: '', date_fin: '', professeur_id: '', maitre_stage: '', intitule: '' });
   const [plan, setPlan] = useState(null);
-  useEffect(() => { appel(`/api/stages/choix?annee=${encodeURIComponent(annee)}`).then(setChoix).catch(e => setChoix({ erreur: e.message })); appel('/api/stages/lieux').then(l => setLieux(Array.isArray(l) ? l : l.lieux || [])).catch(() => {}); }, [annee]);
+  useEffect(() => { appel(`/api/stages/choix?annee=${encodeURIComponent(annee)}`).then(setChoix).catch(e => setChoix({ erreur: e.message })); appel(`/api/stages/lieux?annee=${encodeURIComponent(annee)}`).then(l => setLieux(Array.isArray(l) ? l : l.lieux || [])).catch(() => {}); }, [annee]);
   useEffect(() => { setIns(null); setCoches([]); setPlan(null); if (ue) appel(`/api/stages/inscrits?annee=${encodeURIComponent(annee)}&ue_num=${ue}`).then(setIns).catch(e => setIns({ erreur: e.message })); }, [ue]);
   const org = o => { const x = ins?.organisations?.find(y => y.org === o); if (x) setV(w => ({ ...w, date_debut: x.du || '', date_fin: x.au || '' })); setCoches((ins?.inscrits || []).filter(i => (i.org || 1) === o).map(i => i.id)); };
   const corps = () => ({ annee, ue_num: Number(ue), etudiant_ids: coches, ...v, lieu_id: v.lieu_id ? Number(v.lieu_id) : '', professeur_id: v.professeur_id ? Number(v.professeur_id) : '' });
@@ -394,7 +411,7 @@ function Lot({ annee, recharger }) {
       <div className="carte overflow-hidden self-start">
         <EnteteCarte titre="2. Ce qu’ils reçoivent" sous="Seuls les champs remplis s’écrivent ; un stage existant est complété." />
         <div className="px-4 py-3 space-y-2 text-sm">
-          <label className="block">Lieu<select className={champ} value={v.lieu_id} onChange={e => setV({ ...v, lieu_id: e.target.value })}><option value="">—</option>{lieux.map(l => <option key={l.id} value={l.id}>{l.nom}{l.localite ? ` · ${l.localite}` : ''}</option>)}</select></label>
+          <label className="block">Lieu<select className={champ} value={v.lieu_id} onChange={e => setV({ ...v, lieu_id: e.target.value })}><option value="">—</option>{lieux.map(l => <option key={l.id} value={l.id}>{l.nom}{l.localite ? ` · ${l.localite}` : ''}{l.places != null ? ` — ${l.stages_annee || 0}/${l.places} places` : ''}</option>)}</select></label>
           <div className="grid grid-cols-2 gap-2"><label className="block">Du<input type="date" className={champ} value={v.date_debut} onChange={e => setV({ ...v, date_debut: e.target.value })} /></label>
             <label className="block">Au<input type="date" className={champ} value={v.date_fin} onChange={e => setV({ ...v, date_fin: e.target.value })} /></label></div>
           <label className="block">Professeur de stage<select className={champ} value={v.professeur_id} onChange={e => setV({ ...v, professeur_id: e.target.value })}><option value="">—</option>{choix.professeurs.map(p => <option key={p.id} value={p.id}>{p.nom}{p.stage ? ' ★' : ''}</option>)}</select></label>
@@ -405,6 +422,7 @@ function Lot({ annee, recharger }) {
             <button className="bouton bouton-fort inline-flex items-center gap-1" disabled={!plan} onClick={ecrire}><IconCheck size={14} /> Affecter</button></div>
           {plan && <div className="text-second space-y-0.5 pt-1">
             <div><b>{plan.plan.filter(x => x.geste === 'créer').length}</b> créé(s), <b>{plan.plan.filter(x => x.geste === 'compléter').length}</b> complété(s){plan.plan.some(x => x.refus) ? `, ${plan.plan.filter(x => x.refus).length} écarté(s)` : ''}.</div>
+            {plan.places && <div className={plan.places.depasse ? 'text-[var(--c-refuse)]' : 'text-slate-500'}>Ce lieu : {plan.places.apres} étudiant(s) pour {plan.places.offre} place(s){plan.places.depasse ? ' — au-delà de ce qu’il offre (vérifiez avec lui).' : '.'}</div>}
             {plan.plan.filter(x => x.refus).map(x => <div key={x.etudiant_id} className="text-[var(--c-refuse)]">{x.nom || x.etudiant_id} : {x.refus}</div>)}
           </div>}
         </div>
