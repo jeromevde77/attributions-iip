@@ -67,9 +67,13 @@ export function PiecesJointes({ message }) {
   );
 }
 
-export default function MessagesRecus() {
-  const [liste, setListe] = useState([]);
+/* LES MESSAGES LUS PARTENT AUX ARCHIVES (3.5.595, Charles, 19 novembre 2026 : « j'ai déjà vu ces messages, il faut les archiver
+   dans le bas, en option « ouvrir les archives » »). En haut de l'Accueil : ce qui reste à lire ou à confirmer. `archives` : les
+   messages lus ou confirmés, derrière « Ouvrir les archives » au bas de la page. */
+export default function MessagesRecus({ archives = false }) {
+  const [tous, setListe] = useState([]);
   const [ouvert, setOuvert] = useState(null);
+  const [deplie, setDeplie] = useState(false);
   const charger = () => fetch('/api/communication/recus', { headers: authHeaders() })
     .then(r => (r.ok ? r.json() : [])).then(l => setListe(Array.isArray(l) ? l : [])).catch(() => setListe([]));
   useEffect(() => { charger(); }, []);
@@ -79,10 +83,17 @@ export default function MessagesRecus() {
     await fetch(`/api/communication/${m.id}/${geste}`, { method: 'POST', headers: authHeaders() }).catch(() => {});
     await charger(); setOuvert(null);
   }
+  const liste = tous.filter(m => (archives ? !aFaire(m) : aFaire(m)));
   if (!liste.length) return null;
+  if (archives && !deplie) return (
+    <div className="mt-4 text-center">
+      <button type="button" className="bouton" onClick={() => setDeplie(true)}>Ouvrir les archives des messages ({liste.length})</button>
+    </div>);
 
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${archives ? 'mt-4' : ''}`}>
+      {archives && <div className="flex items-center justify-between"><span className="intertitre">Messages archivés</span>
+        <button type="button" className="bouton" onClick={() => setDeplie(false)}>Fermer les archives</button></div>}
       {liste.map(m => {
         const imp = IMPORTANCES_MESSAGE[m.importance] || IMPORTANCES_MESSAGE.info;
         const Icone = (m.icone && ICONES_MESSAGE[m.icone]?.Icone) || IconSpeakerphone;
