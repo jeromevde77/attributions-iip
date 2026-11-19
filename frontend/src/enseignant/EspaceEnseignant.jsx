@@ -830,7 +830,7 @@ const FACES = [
   { k: 'prestations', l: 'Mes prestations', I: IconClockHour4, expert: true },
   { k: 'amenagements', l: 'Aménagements', I: IconAccessible },
   { k: 'tfe', l: 'Mes TFE', I: IconSchool, bientot: true },
-  { k: 'stages', l: 'Mes stages', I: IconBriefcase, bientot: true },
+  { k: 'stages', l: 'Mes stages', I: IconBriefcase },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
 ];
 const FACES_BAS = [

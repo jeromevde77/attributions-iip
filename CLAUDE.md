@@ -4655,6 +4655,9 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**MES STAGES OUVERT DANS L'ESPACE ENSEIGNANT** (3.5.592, Charles, 19 novembre 2026) : la face `stages` perd son `bientot` (FACES
+d'`EspaceEnseignant.jsx`) — le superviseur y voit ses stages, remplit ses fiches, envoie le lien au maître de stage et confirme les heures
+(`MesStages.jsx` par le relais). Restent « bientôt » : présences, TFE.
 **LE LOGO EST PROTÉGÉ, L'AUTEUR EST MARQUÉ** (3.5.591, Charles, 19 novembre 2026 : « que le logo soit clairement protégé, et que mon nom
 se trouve par endroit en caché, par exemple (CS) »). `COPYRIGHT` porte un paragraphe propre au logo ; mention de droit d'auteur en tête
 de `LogoLucie.jsx` et `logoVierge.js`, `<desc>` dans le SVG rendu, commentaire + `<title>`/`<desc>` dans `favicon.svg`, textes PNG
