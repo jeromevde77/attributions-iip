@@ -818,6 +818,7 @@ export default function Accueil({ apresEntete = null }) {
         </div>
         </div> },
         ]} />
+        <MessagesRecus archives />
       </div>
     </div>
   );

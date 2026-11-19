@@ -4655,6 +4655,9 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**LES MESSAGES LUS PARTENT AUX ARCHIVES** (3.5.595, Charles : « j'ai déjà vu ces messages, il faut les archiver dans le bas, en option
+"ouvrir les archives" ») : `MessagesRecus` en haut de l'Accueil ne montre que les messages à lire ou à confirmer ; `MessagesRecus
+archives`, au bas de la page, porte les lus et confirmés derrière « Ouvrir les archives des messages (n) ».
 **L'ACCUEIL EN VOLETS, LES URGENCES EN TÊTE** (3.5.594, Charles : « mettre les urgences en premier ; fermer les volets pour tout
 voir » ; tranché : volets fermés, urgences en tête). `BlocsPage volets` : chaque bloc se replie sur ses en-têtes (`.volet[data-ferme]`
 cache ce qui suit `.entete-carte` dans chaque `.carte`, et `[data-volet-corps]` ; le fil d'activité a son `.entete-volet`) ; un clic sur
