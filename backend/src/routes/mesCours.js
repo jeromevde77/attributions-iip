@@ -434,6 +434,23 @@ function arDuProf(pid, annee) {
   }
   return out;
 }
+/* LA COORDINATION CONSULTE ET REND SON AVIS (3.5.590, Charles, 19 novembre 2026 — Aurore CARLY : « je veux qu'elle puisse consulter
+ * et valider ; pas avoir accès aux documents » ; tranché : « valider » = rendre son avis, mesure par mesure, comme un chargé de cours ;
+ * consulter = les mesures seulement). Les dossiers des sections de la coordination dont la demande (volet A) est validée ; l'avis
+ * s'ouvre quand le rapport (volet B) l'est. Ni pièce, ni soins, ni motivation : la même lecture que le chargé de cours. */
+function arDeLaCoordination(req, annee) {
+  if (req.user?.role !== 'coordination') return [];
+  const perim = getUserSections(req.user);
+  const out = [];
+  for (const x of db.prepare('SELECT id FROM amenagement_dossier WHERE annee_scolaire = ? AND valide_a_le IS NOT NULL').all(annee)) {
+    const d = chargerDossier(x.id);
+    if (!d || (perim && (!d.section || !perim.includes(d.section)))) continue;
+    out.push({ d, ues: d.ues?.length ? d.ues : [...new Set(d.mesures.map(m => m.ue_num).filter(Boolean))], coordination: true });
+  }
+  return out;
+}
+const coordinationDe = (req, d) => req.user?.role === 'coordination' && (() => { const p = getUserSections(req.user); return !p || (d.section && p.includes(d.section)); })();
+
 r.get('/amenagements', authRequired, (req, res) => {
   const pid = profDe(req);
   if (!pid) return res.json({ dossiers: [] });
@@ -441,14 +458,18 @@ r.get('/amenagements', authRequired, (req, res) => {
   /* UN DOSSIER QUI ATTEND UN AVIS SE VOIT, QUELLE QUE SOIT SA DATE (3.5.522, Charles : « les dossiers d'AR sont bloqués, les profs ne
      peuvent rendre d'avis »). La date de mise en service de Mes cours (12 octobre) cachait les dossiers appelés avant elle — 18 sur 21
      en instruction, appelés du 3 au 9 octobre. Seul un dossier déjà DÉCIDÉ d'avant cette date reste hors de la liste. */
-  const dossiers = arDuProf(pid, annee).filter(({ d }) => !(DECIDE.includes(d.statut) || d.cde_date) || !avantDepart(d.avis_demande_le || d.valide_b_le)).map(({ d, ues }) => {
-    const mesures = d.mesures.filter(m => !m.ue_num || ues.includes(m.ue_num));
+  const vus = new Map();
+  for (const x of arDuProf(pid, annee)) vus.set(x.d.id, x);
+  for (const x of arDeLaCoordination(req, annee)) if (!vus.has(x.d.id)) vus.set(x.d.id, x); else vus.get(x.d.id).coordination = true;
+  const dossiers = [...vus.values()].filter(({ d }) => !(DECIDE.includes(d.statut) || d.cde_date) || !avantDepart(d.avis_demande_le || d.valide_b_le || d.valide_a_le)).map(({ d, ues, coordination }) => {
+    const mesures = coordination ? d.mesures : d.mesures.filter(m => !m.ue_num || ues.includes(m.ue_num));
     const avis = db.prepare('SELECT mesure_id, professeur_id, auteur, sens, motif, rendu_le FROM amenagement_avis WHERE dossier_id = ?').all(d.id);
     return {
       id: d.id, etudiant: `${String(d.etudiant?.nom || '').toUpperCase()} ${d.etudiant?.prenom || ''}`.trim(),
       id_ecampus: d.etudiant?.id_ecampus || null, section: d.section, ues,
       appele_le: d.avis_demande_le || d.valide_b_le,
       decide: DECIDE.includes(d.statut) || !!d.cde_date,
+      coordination: !!coordination, avis_ouvert: !!d.valide_b_le,
       mesures: mesures.map(m => ({ id: m.id, libelle: m.libelle, precisions: m.precisions, portee: m.portee, nature: m.nature,
         ue_num: m.ue_num, accorde: DECIDE.includes(d.statut) ? !!m.accorde : null,
         mon_avis: avis.find(a => a.mesure_id === m.id && a.professeur_id === pid) || null,
@@ -461,7 +482,8 @@ r.put('/amenagements/:id/avis', authRequired, (req, res) => {
   const pid = profDe(req);
   if (!pid) return res.status(403).json({ error: 'Votre compte n’est relié à aucun dossier professeur : l’avis ne peut pas porter votre nom.' });
   const d = chargerDossier(Number(req.params.id));
-  if (!d || !d.valide_b_le || !chargesDeCours(d).some(p => p.id === pid)) return res.status(404).json({ error: 'Demande introuvable.' });
+  if (!d || !(chargesDeCours(d).some(p => p.id === pid) || coordinationDe(req, d))) return res.status(404).json({ error: 'Demande introuvable.' });
+  if (!d.valide_b_le) return res.status(409).json({ error: 'Le rapport (volet B) n’est pas encore validé : l’avis s’ouvrira alors.' });
   if (DECIDE.includes(d.statut) || d.cde_date) return res.status(409).json({ error: 'Le Conseil a décidé : l’avis ne se modifie plus.' });
   const lignes = Array.isArray(req.body?.avis) ? req.body.avis : [];
   const ids = new Set(d.mesures.map(m => m.id));

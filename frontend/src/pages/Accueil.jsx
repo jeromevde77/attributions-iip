@@ -381,7 +381,10 @@ function AmenagementsSections() {
   const enCours = l.filter(x => x.a_faire).length;
   return (
     <section className="carte overflow-hidden mb-5">
-      <EnteteCarte titre="Aménagements raisonnables" sous={`${l.length} étudiant${l.length > 1 ? 's' : ''} de vos sections${enCours ? ` · ${enCours} en cours` : ''} — les mesures seules, jamais la nature de la difficulté`} />
+      <EnteteCarte titre="Aménagements raisonnables" sous={`${l.length} étudiant${l.length > 1 ? 's' : ''} de vos sections${enCours ? ` · ${enCours} en cours` : ''} — les mesures seules, jamais la nature de la difficulté`}>
+        {/* L'AVIS DE LA COORDINATION (3.5.590) : rendu dans Mes cours, mesure par mesure, une fois le rapport (volet B) validé. */}
+        <a className="bouton" href="/mes-cours#avis-ar">Rendre mon avis</a>
+      </EnteteCarte>
       <ListeEtats className="!border-0 !rounded-none !py-0">
         {l.map(x => (
           <LigneEtat key={x.id} etat={x.a_faire ? 'surveiller' : 'reussi'} icone={IconWriting}

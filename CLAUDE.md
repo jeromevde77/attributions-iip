@@ -4655,6 +4655,15 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**La coordination consulte les AR de ses sections et rend son avis** (3.5.590, Charles, 19 novembre 2026 — Aurore CARLY : « consulter
+et valider ; pas avoir accès aux documents ; tous les profs doivent pouvoir valider une demande » ; tranché : valider = rendre son avis
+mesure par mesure, consulter = les mesures seulement, les profs = les chargés de cours des UE, ce qui existait). Sans l'octroi nominatif
+du module : `arDeLaCoordination` (`routes/mesCours.js`) ajoute à `GET /mes-cours/amenagements` les dossiers des sections du compte de
+coordination dont le volet A est validé, TOUTES leurs mesures (`coordination`, `avis_ouvert` = volet B validé) ; `PUT
+/mes-cours/amenagements/:id/avis` accepte aussi la coordination de la section (409 tant que B n'est pas validé). Écran :
+`AvisAmenagementProf` (Mes cours, « Voir les mesures » en lecture avant B) ; bouton « Rendre mon avis » sur le bloc AR de l'Accueil.
+Il faut un compte relié à une fiche de professeur (l'avis porte son nom). Au 19/11/2026 : 23 dossiers, 21 volets B validés, 134 avis
+de 7 chargés de cours.
 **Inviter les étudiants d'un professeur** (3.5.589, Charles, 19 novembre 2026 : « je ne veux inviter QUE ceux dont Wael est prof » —
 UE 250). Mise en service → Inviter les étudiants à leur espace : choix « le professeur » (seul, ou « dont le professeur est » avec une
 UE). `etudiantsDuProf(profId, { ue })` (`lib/invitationEspace.js`) : pour chaque ligne d'attribution de l'année active, les étudiants
