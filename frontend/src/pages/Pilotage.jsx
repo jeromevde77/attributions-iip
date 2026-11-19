@@ -2110,7 +2110,14 @@ ${copilPortrait ? `.page-impression { width: ${LARGEUR_PORTRAIT}px !important; z
             {direction && <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5" onClick={() => setCopilFenetre(true)}
               title="Le dossier d'une section pour le comité de pilotage : population, attributions, positionnement, réussite, textes">
               <IconPrinter size={15} /> Dossier COPIL…</button>}
-            {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
+            {/* L'ANNÉE CIVILE SE CHOISIT ICI (3.5.584, Charles : « je ne sais pas voir 25 » — le choix vivait dans le rail, qui ne le montre plus). */}
+            {(tab === 'synthese' || tab === 'config') && civil.length > 0 && (
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-second text-slate-500">Année civile</span>
+                <select className="controle" value={selYear || ''} onChange={e => setSelYear(Number(e.target.value))}>
+                  {civil.map(y => <option key={y.annee_civile} value={y.annee_civile}>{y.annee_civile}{y.pct_organique > 95 ? ' ⚠' : ''}</option>)}
+                </select>
+              </label>)}
             {tab === 'mes-frais' ? null : ['budget', 'dotation'].includes(tab)
               ? <span className="text-second text-slate-500">{tab === 'budget' ? 'Année civile : dans la page' : 'Toutes les années civiles'}</span>
               : (

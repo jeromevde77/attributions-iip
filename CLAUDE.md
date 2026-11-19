@@ -4655,6 +4655,8 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.584** : l'année civile de la Dotation se choisit dans sa barre (Charles : « je ne sais pas voir 25 » — le choix vivait dans le `extra`
+du rail, que le rail de Gestion ne montre plus).
 **3.5.583 — la Dotation retrouve sa porte** (Charles : « je ne vois plus ma gestion de dotation » — depuis 3.5.474 elle n'était qu'une ligne
 du sommaire des tableaux détaillés de L'école). Rail de Gestion → *Dotation* (`g-dotation`) : Dotation · Comparaison des années ·
 Répartition des périodes · Configuration, en segments ; le sommaire de L'école y renvoie encore.
