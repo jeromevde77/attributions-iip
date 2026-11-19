@@ -7,6 +7,9 @@ import { Dialogues } from './lib/dialogue.jsx';
 import './index.css';
 import { installerNumeros } from './lib/numeros.js';
 installerNumeros();
+// LA TAILLE DE L'ÉCRAN (3.5.582) : posée avant le premier rendu, pour ne pas sauter.
+import { installerTaille } from './lib/tailleEcran.js';
+installerTaille();
 // UN PAE VALIDÉ NE SE MODIFIE PAS SANS LE DIRE (3.5.233) : la fenêtre commune qui demande avant de forcer.
 import { installerGardePAE } from './lib/paeValide.js';
 installerGardePAE();

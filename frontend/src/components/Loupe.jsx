@@ -1,76 +1,55 @@
-/* LA LOUPE DE PROJECTION (3.5.581, Charles, 19 novembre 2026 : « quand je projette mon écran, j'ai besoin de faire des zooms » ;
- * tranché : sur n'importe quel écran de Lucie). Un bouton de la barre du haut (ou Alt + Z) : l'écran se grossit AUTOUR DE LA
- * SOURIS — le point sous le pointeur reste sous le pointeur, ses alentours s'agrandissent, et la zone suit la souris. « + » et
- * « − » (ou Alt + molette) règlent le grossissement de ×1,5 à ×4 ; Échap ou le bouton referment. Rien n'est réécrit : un `transform`
- * posé sur la racine de l'application le temps du zoom, retiré à la sortie. Les clics continuent de fonctionner pendant le zoom. */
+/* LA TAILLE DE L'ÉCRAN, POUR PROJETER (3.5.582 ; remplace la loupe de 3.5.581 — Charles : « ce que je veux, c'est que tu changes
+ * la taille de la mise en page » ; tranché : tout l'écran plus grand). Un bouton de la barre du haut ouvre le choix : 100 % à 200 %.
+ * Toute la page grandit et se remet en page ; on défile normalement. Raccourcis : Alt + « + », Alt + « − », Alt + 0 (100 %).
+ * Le choix reste sur cet appareil. */
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { IconZoomIn, IconZoomOut, IconX } from '@tabler/icons-react';
-
-const NIVEAUX = [1.5, 2, 2.5, 3, 4];
+import { IconZoomIn } from '@tabler/icons-react';
+import { TAILLES, tailleGardee, poserTaille } from '../lib/tailleEcran.js';
 
 export default function Loupe() {
-  const [actif, setActif] = useState(false);
-  const [rang, setRang] = useState(1);   // ×2 par défaut
-  const dernier = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-  const niveau = NIVEAUX[rang];
+  const [taille, setTaille] = useState(tailleGardee);
+  const [ouvert, setOuvert] = useState(false);
+  const boite = useRef(null);
+  const choisir = t => setTaille(poserTaille(t));
 
-  // Alt + Z, partout ; Échap et + / − pendant le zoom.
   useEffect(() => {
     const clavier = e => {
-      if (e.altKey && (e.key === 'z' || e.key === 'Z' || e.code === 'KeyZ')) { e.preventDefault(); setActif(a => !a); return; }
-      if (!actif) return;
-      const champ = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '') || e.target?.isContentEditable;
-      if (e.key === 'Escape') { setActif(false); return; }
-      if (champ) return;
-      if (e.key === '+' || e.key === '=') { e.preventDefault(); setRang(r => Math.min(NIVEAUX.length - 1, r + 1)); }
-      if (e.key === '-' || e.key === '_') { e.preventDefault(); setRang(r => Math.max(0, r - 1)); }
+      if (!e.altKey) return;
+      const i = TAILLES.indexOf(tailleGardee());
+      if (e.code === 'Equal' || e.code === 'NumpadAdd' || e.key === '+') { e.preventDefault(); choisir(TAILLES[Math.min(TAILLES.length - 1, i + 1)]); }
+      else if (e.code === 'Minus' || e.code === 'NumpadSubtract' || e.key === '-') { e.preventDefault(); choisir(TAILLES[Math.max(0, i - 1)]); }
+      else if (e.code === 'Digit0' || e.code === 'Numpad0') { e.preventDefault(); choisir(100); }
     };
     window.addEventListener('keydown', clavier);
     return () => window.removeEventListener('keydown', clavier);
-  }, [actif]);
+  }, []);
 
-  // Le grossissement suit la souris : l'origine de la transformation est le point sous le pointeur.
   useEffect(() => {
-    const racine = document.getElementById('root');
-    if (!racine) return undefined;
-    if (!actif) { racine.style.transform = ''; racine.style.transformOrigin = ''; racine.style.transition = ''; return undefined; }
-    const poser = (x, y) => {
-      dernier.current = { x, y };
-      racine.style.transformOrigin = `${x + window.scrollX - racine.offsetLeft}px ${y + window.scrollY - racine.offsetTop}px`;
-    };
-    racine.style.transition = 'transform 160ms cubic-bezier(.32,.72,0,1)';
-    racine.style.transform = `scale(${niveau})`;
-    poser(dernier.current.x, dernier.current.y);
-    const bouge = e => poser(e.clientX, e.clientY);
-    const touche = e => { const t = e.touches?.[0]; if (t) poser(t.clientX, t.clientY); };
-    const molette = e => { if (!e.altKey) return; e.preventDefault(); setRang(r => Math.max(0, Math.min(NIVEAUX.length - 1, r + (e.deltaY < 0 ? 1 : -1)))); };
-    window.addEventListener('mousemove', bouge);
-    window.addEventListener('touchmove', touche, { passive: true });
-    window.addEventListener('wheel', molette, { passive: false });
-    return () => {
-      window.removeEventListener('mousemove', bouge);
-      window.removeEventListener('touchmove', touche);
-      window.removeEventListener('wheel', molette);
-      racine.style.transform = ''; racine.style.transformOrigin = ''; racine.style.transition = '';
-    };
-  }, [actif, niveau]);
+    if (!ouvert) return undefined;
+    const dehors = e => { if (boite.current && !boite.current.contains(e.target)) setOuvert(false); };
+    const echap = e => { if (e.key === 'Escape') setOuvert(false); };
+    document.addEventListener('pointerdown', dehors);
+    document.addEventListener('keydown', echap);
+    return () => { document.removeEventListener('pointerdown', dehors); document.removeEventListener('keydown', echap); };
+  }, [ouvert]);
 
-  return (<>
-    <button type="button" onClick={() => setActif(a => !a)} aria-pressed={actif} aria-label="Loupe de projection"
-      title="Loupe de projection : grossir l’écran autour de la souris (Alt + Z)"
-      className="objet-barre objet-barre-icone"><IconZoomIn size={16} /></button>
-    {/* Le bandeau vit HORS de la racine grossie : il reste lisible et à sa place. */}
-    {actif && createPortal(
-      <div role="toolbar" aria-label="Loupe" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-1 rounded-full px-2 py-1 text-white text-second shadow-flottant"
-        style={{ background: 'rgb(var(--c-principal-rgb, 22 64 106) / .92)' }}>
-        <button type="button" className="p-1.5 rounded-full hover:bg-white/15 disabled:opacity-40" aria-label="Moins" disabled={rang === 0}
-          onClick={() => setRang(r => Math.max(0, r - 1))}><IconZoomOut size={16} /></button>
-        <span className="tabular-nums font-semibold w-10 text-center">×{String(niveau).replace('.', ',')}</span>
-        <button type="button" className="p-1.5 rounded-full hover:bg-white/15 disabled:opacity-40" aria-label="Plus" disabled={rang === NIVEAUX.length - 1}
-          onClick={() => setRang(r => Math.min(NIVEAUX.length - 1, r + 1))}><IconZoomIn size={16} /></button>
-        <span className="px-2 opacity-80 whitespace-nowrap hidden sm:inline">la zone suit la souris · Échap pour sortir</span>
-        <button type="button" className="p-1.5 rounded-full hover:bg-white/15" aria-label="Fermer la loupe" onClick={() => setActif(false)}><IconX size={16} /></button>
-      </div>, document.body)}
-  </>);
+  return (
+    <div ref={boite} className="relative">
+      <button type="button" onClick={() => setOuvert(o => !o)} aria-expanded={ouvert} aria-label="Taille de l’écran"
+        title="Taille de l’écran, pour projeter (Alt + « + » / « − »)"
+        className="objet-barre objet-barre-icone" style={taille !== 100 ? { width: 'auto', paddingInline: 8 } : undefined}>
+        <IconZoomIn size={16} />{taille !== 100 && <span className="ml-1 text-second font-semibold tabular-nums">{taille} %</span>}
+      </button>
+      {ouvert && (
+        <div role="menu" className="absolute right-0 top-full mt-2 z-50 w-56 rounded-carte border border-[rgb(var(--gris-200))] shadow-flottant p-3"
+          style={{ background: 'var(--c-fond_carte, #fff)' }}>
+          <div className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--gris-500))] mb-2">Taille de l’écran</div>
+          <div className="grid grid-cols-3 gap-1">
+            {TAILLES.map(t => (
+              <button key={t} type="button" role="menuitemradio" aria-checked={taille === t} onClick={() => choisir(t)}
+                className={`bouton !px-0 justify-center tabular-nums ${taille === t ? 'bouton-fort' : ''}`}>{t} %</button>))}
+          </div>
+          <p className="text-mention text-[rgb(var(--gris-500))] mt-2 leading-snug">Toute la page grandit, pour la projection. Gardé sur cet appareil. Alt + « + » / « − », Alt + 0.</p>
+        </div>)}
+    </div>);
 }
