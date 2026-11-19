@@ -36,7 +36,10 @@ export function useAlignerSurLeRail(cle) {
       if (!rail || window.innerWidth < 640) { main.style.marginTop = ''; return; }
       const haut = premierContenu(main);
       if (haut == null) return;
-      const ecart = haut - rail.getBoundingClientRect().top;   // le rail est fixe : son haut ne défile pas
+      const br = rail.getBoundingClientRect();
+      // Taille de l'écran (3.5.582) : sous un `zoom`, la mesure peut être en pixels grossis, la marge s'écrit en pixels CSS.
+      const echelle = rail.offsetHeight > 0 ? (br.height / rail.offsetHeight) || 1 : 1;
+      const ecart = (haut - br.top) / echelle;   // le rail est fixe : son haut ne défile pas
       if (Math.abs(ecart) < 2) return;
       const actuel = parseFloat(main.style.marginTop) || 0;
       // Borné : jamais plus haut que ce que la page a de marge, jamais un saut absurde.

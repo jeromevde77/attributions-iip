@@ -4655,6 +4655,11 @@ jaune ») : `Disque` prend l'épaisseur des anneaux (`reglagesGraphique().anneau
 disques ; la référence = un anneau jaune intérieur (deuxième série), sa pastille dans la légende ; 84 px. `Chiffres` (Disques.jsx) :
 des chiffres en ligne, sans tuile encadrée, dans une carte. Les groupes de disques sont séparés par des filets, plus d'encadré.
 L'interrupteur « Comparer à » : le choix actif plein, couleur principale.
+**3.5.582 — la taille de l'écran remplace la loupe** (Charles : « ce que je veux, c'est que tu changes la taille de la mise en
+page » ; tranché : tout l'écran plus grand). Barre du haut → icône loupe → 100 · 115 · 125 · 150 · 175 · 200 % (Alt + « + » / « − »,
+Alt + 0) : `zoom` sur la racine du document (`lib/tailleEcran.js`, posé dans `main.jsx` avant le premier rendu), gardé sur l'appareil
+(`localStorage` « lucie.tailleEcran »). `alignerTitre.js` divise l'écart par l'échelle mesurée (hauteur rendue ÷ `offsetHeight`) :
+sous un zoom, la mesure est en pixels grossis et la marge en pixels CSS.
 **3.5.581 — la loupe de projection** (Charles, 19 novembre 2026 : « quand je projette mon écran, faire des zooms » ; tranché : sur
 n'importe quel écran). Barre du haut → loupe (`components/Loupe.jsx`, dans `OutilsBarre`) ou Alt + Z : `transform: scale()` posé sur
 `#root`, origine = le point sous la souris (la zone suit le pointeur) ; ×1,5 à ×4 (+ / −, Alt + molette, bandeau en bas, rendu HORS de la
