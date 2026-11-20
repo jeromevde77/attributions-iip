@@ -4668,6 +4668,10 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**LE QR ACCEPTE TOUT INSCRIT DE L'UNITÉ** (3.5.597, Charles, 20 novembre 2026, premier test du QR, UE 250 : 10 présences, 13 étudiants
+des groupes A et B refusés « non inscrit » — l'horaire mettait chez Wael des groupes que les attributions donnent à un autre). `admisALaSeance`
+(`lib/presenceQr.js`) : au scan et à l'appairage, les étudiants du professeur OU tout inscrit actif de l'UE de la séance ; journal
+`scan_hors_groupe`. Attendus, compteur et absents restent ceux du professeur. Un refus dit « inutile de réessayer ».
 **MES PRÉSENCES OUVERT DANS L'ESPACE ENSEIGNANT** (3.5.596, Charles, 20 novembre 2026, jour de la bascule des professeurs : le QR
 du cours de Wael était inaccessible — Lucie fermée aux professeurs depuis le 20/11, la face « présences » de l'espace encore « bientôt ») :
 la face `presences` perd son `bientot` ; la frise d'Aujourd'hui y mène déjà. **Avant une date de bascule, vérifier que tout ce que le
