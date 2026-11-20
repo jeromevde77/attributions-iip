@@ -820,7 +820,7 @@ function MesAmenagements() {
 const FACES = [
   { k: 'aujourdhui', l: 'Aujourd’hui', I: IconSun },
   { k: 'notes', l: 'Mes notes', I: IconPencil },
-  { k: 'presences', l: 'Mes présences', I: IconUserCheck, bientot: true },
+  { k: 'presences', l: 'Mes présences', I: IconUserCheck },
   { k: 'etudiants', l: 'Mes étudiants', I: IconUsers },
   { k: 'ue', l: 'Mes unités', I: IconFileText },
   { k: 'rendre', l: 'Les avis à rendre', I: IconChecklist },
