@@ -4668,6 +4668,9 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**INVITER UNE SECTION, C'EST SA SECTION DÉDUITE AUSSI** (3.5.603, Charles : « Psychomotricité lundi, opto mardi, le reste mercredi ») :
+`etudiantsDeSection` (`lib/invitationEspace.js`) = inscrits de l'année active dont `sectionPropre` est la section ; l'invitation et
+« Qui s'est connecté » le lisent. `section_rattachement` seul oubliait 343 étudiants de 2026-2027.
 **UNE BULLE OU UNE ANNONCE A LA FORME D'UN D** (3.5.602, Charles : « fenêtre avec bord coloré à gauche, forme de D dont deux angles
 droits ») : `bg-white rounded-r-fenetre border-l-4` + `borderLeftColor` (comme `lib/dialogue.jsx`) — la visite guidée des deux espaces
 (`VisiteGuidee.jsx`) et l'annonce du professeur à la connexion. Les fenêtres à bandeau (`Fenetre`) gardent leur dessin.

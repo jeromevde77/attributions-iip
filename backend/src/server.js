@@ -3192,8 +3192,8 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
     app.get('/api/portail-suivi/professeur/:id/etudiants', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => res.json({ ids: etudiantsDuProf(Number(req.params.id), { ue: req.query.ue ? Number(req.query.ue) : null }) }));
     app.get('/api/portail-suivi/ue/:ue/inscrits', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => res.json({ ids: inscritsUE(Number(req.params.ue)) }));
     // Qui s'est connecté (3.5.576) : avant les routes paramétriques.
-    app.get('/api/portail-suivi/invitations', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {
-      try { res.json(suiviInvitations({ section: req.query.section || null, ue: req.query.ue ? Number(req.query.ue) : null })); }
+    app.get('/api/portail-suivi/invitations', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {
+      try { res.json(await suiviInvitations({ section: req.query.section || null, ue: req.query.ue ? Number(req.query.ue) : null })); }
       catch (e) { res.status(500).json({ error: e.message }); }
     });
     app.post('/api/portail-suivi/inviter', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {

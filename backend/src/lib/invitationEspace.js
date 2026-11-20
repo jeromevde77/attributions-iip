@@ -37,7 +37,7 @@ export async function inviter({ ids = [], section = null, ue = null, prof = null
   migrerInvitation();
   let liste = (Array.isArray(ids) ? ids : []).map(Number).filter(Boolean);
   if (!liste.length && section) {
-    liste = db.prepare(`SELECT id FROM etudiant WHERE section_rattachement = ? AND COALESCE(actif, 1) = 1`).all(String(section)).map(x => x.id);
+    liste = await etudiantsDeSection(section);
   }
   // Les inscrits d'une UE pour l'année active (3.5.537, Charles : « sélectionner les étudiants de l'UE 250 pour un test »).
   // LES ÉTUDIANTS D'UN PROFESSEUR (3.5.589, Charles : « je ne veux inviter QUE ceux dont Wael est prof » — UE 250) : ses groupes.
@@ -114,6 +114,18 @@ export function etudiantsDuProf(profId, { ue = null, annee = null } = {}) {
   });
 }
 
+/* LES ÉTUDIANTS D'UNE SECTION (3.5.603, Charles : « Psychomotricité lundi, opto mardi, le reste mercredi ») : les inscrits de l'année
+   active dont la section — posée, ou déduite par Lucie à défaut (`sectionPropre`, la règle de la liste et du périmètre) — est celle-là.
+   Ne lire que `section_rattachement` laissait de côté 343 étudiants de 2026-2027 sans section posée. */
+export async function etudiantsDeSection(section, annee = null) {
+  const { sectionPropre } = await import('../routes/etudiants.js');
+  const a = annee || db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'annee_active'").get()?.valeur
+    || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const ids = db.prepare(`SELECT DISTINCT i.etudiant_id id FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND COALESCE(e.actif, 1) = 1`).all(a).map(x => x.id);
+  return ids.filter(id => sectionPropre(id) === String(section));
+}
+
 export function inscritsUE(ue, annee = null) {
   const a = annee || db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'annee_active'").get()?.valeur
     || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
@@ -124,11 +136,11 @@ export function inscritsUE(ue, annee = null) {
 /* QUI S'EST CONNECTÉ (3.5.576, Charles : « comment voir facilement qui s'est connecté, et envoyer un mail à ceux qui ne le sont pas ? »).
    Les étudiants d'une section, d'une UE, ou — sans choix — tous ceux déjà invités : dernière invitation, nombre d'invitations,
    première et dernière connexion à l'espace (`portail_connexion`, relevée du portail). La relance passe par `inviter` (deja = true). */
-export function suiviInvitations({ section = null, ue = null } = {}) {
+export async function suiviInvitations({ section = null, ue = null } = {}) {
   migrerInvitation();
   let ids;
   if (ue) ids = inscritsUE(Number(ue));
-  else if (section) ids = db.prepare(`SELECT id FROM etudiant WHERE section_rattachement = ? AND COALESCE(actif, 1) = 1`).all(String(section)).map(x => x.id);
+  else if (section) ids = await etudiantsDeSection(section);
   else ids = db.prepare('SELECT DISTINCT etudiant_id id FROM portail_invitation').all().map(x => x.id);
   const lignes = [];
   for (const id of [...new Set(ids)]) {
