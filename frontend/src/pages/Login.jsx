@@ -2,8 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
-import { informer } from '../lib/dialogue.jsx';
-import { IconFlask } from '@tabler/icons-react';
+import { IconFlask, IconInfoCircle } from '@tabler/icons-react';
 import { ETOILES, TRAITS, ECLAT, ORDRE_APPARITION, POINTS_L, L, ETOILES_HORS, ECLAT_HORS } from '../lib/logoVierge.js';
 
 /* LA NAISSANCE DU LOGO, DE LA NUIT AU BLEU DE LUCIE (3.1.486, Charles, 30 octobre 2026 — projet D, mélange de « Nuit
@@ -169,16 +168,31 @@ const avecLien = t => String(t || '').split(/(https:\/\/[^\s]+)/).map((x, i) => 
 
 // UN PROFESSEUR VA DROIT À SON ESPACE (3.5.598, Charles : « qu'un profil prof soit redirigé direct s'il se connecte via Lucie »).
 // Le serveur ne le dit qu'une fois le mot de passe vérifié (routes/auth.js) : rien ne révèle le rôle d'une adresse.
-// Une fenêtre le dit d'abord, avec l'adresse à retenir (texte de Charles).
-function versLEspace(e) {
-  const u = e?.body?.bascule && e.body.url;
-  if (!u || !/^https:\/\//.test(u)) return false;
-  informer({
-    titre: 'Votre espace enseignant',
-    message: `Bonjour${e.body.prenom ? ` ${e.body.prenom}` : ''} !\n\nVous vous connectez avec un profil « professeur ». Vous allez être redirigé vers votre espace enseignant.\n\nNotez son adresse pour gagner du temps la prochaine fois :\n${u}\n\nBon travail !\n\nLe service administratif et la direction`,
-    confirmer: 'Aller à mon espace',
-  }).then(() => window.location.replace(u));
-  return true;
+// Une fenêtre le dit d'abord, avec l'adresse à retenir (texte de Charles) : liseré orange à droite, icône d'information.
+function AnnonceEspace({ prenom, url }) {
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="annonce-espace" style={{
+      position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      background: 'color-mix(in srgb, var(--c-principal, #16406A) 45%, transparent)', backdropFilter: 'blur(3px)' }}>
+      <div style={{ background: '#fff', maxWidth: 460, width: '100%', borderRadius: '14px 0 0 14px',
+        borderRight: '4px solid var(--c-attente)', boxShadow: '0 20px 50px rgba(0,0,0,.25)', padding: '22px 24px',
+        display: 'flex', gap: 14, color: 'var(--c-texte, #16406A)', fontSize: 14, lineHeight: 1.55 }}>
+        <IconInfoCircle size={28} stroke={1.8} style={{ color: 'var(--c-attente)', flexShrink: 0, marginTop: 1 }} />
+        <div style={{ minWidth: 0 }}>
+          <p id="annonce-espace" style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>Bonjour{prenom ? ` ${prenom}` : ''} !</p>
+          <p style={{ margin: '10px 0 0' }}>Vous vous connectez avec un profil « professeur ». Vous allez être redirigé vers votre espace enseignant.</p>
+          <p style={{ margin: '10px 0 0' }}>Notez son adresse pour gagner du temps la prochaine fois :</p>
+          <p style={{ margin: '4px 0 0', fontWeight: 600, wordBreak: 'break-all' }}>{url}</p>
+          <p style={{ margin: '10px 0 0' }}>Bon travail !</p>
+          <p style={{ margin: '10px 0 0', fontStyle: 'italic', color: '#5B6B80' }}>Le service administratif et la direction</p>
+          <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" className="bouton bouton-fort" autoFocus
+              onClick={() => window.location.replace(url)}>Aller à mon espace</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Login() {
@@ -187,6 +201,14 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
+  const [annonce, setAnnonce]   = useState(null);
+  // UN PROFESSEUR VA À SON ESPACE (3.5.598) : le serveur ne le dit qu'une fois le mot de passe vérifié.
+  const versLEspace = e => {
+    const u = e?.body?.bascule && e.body.url;
+    if (!u || !/^https:\/\//.test(u)) return false;
+    setAnnonce({ url: u, prenom: e.body.prenom || null });
+    return true;
+  };
   const [info, setInfo]         = useState({ etab_nom: '', version: '' });
 
   // SECOND FACTEUR — DEUXIÈME ÉTAPE DU MÊME ÉCRAN, PAS UN ÉCRAN DE PLUS.
@@ -280,7 +302,8 @@ export default function Login() {
     fontFamily:"'Segoe UI',sans-serif",
   };
 
-  return (
+  return (<>
+    {annonce && <AnnonceEspace {...annonce} />}
     <div style={{
       minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
       background:'var(--c-principal)', position:'relative', overflow:'hidden', padding:'24px',
@@ -610,5 +633,5 @@ export default function Login() {
         }
       `}</style>
     </div>
-  );
+  </>);
 }
