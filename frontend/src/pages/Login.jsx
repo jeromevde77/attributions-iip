@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
+import { informer } from '../lib/dialogue.jsx';
 import { IconFlask } from '@tabler/icons-react';
 import { ETOILES, TRAITS, ECLAT, ORDRE_APPARITION, POINTS_L, L, ETOILES_HORS, ECLAT_HORS } from '../lib/logoVierge.js';
 
@@ -166,6 +167,20 @@ function NetworkBg() {
 const avecLien = t => String(t || '').split(/(https:\/\/[^\s]+)/).map((x, i) => (x.startsWith('https://')
   ? <a key={i} href={x} style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>{x}</a> : x));
 
+// UN PROFESSEUR VA DROIT À SON ESPACE (3.5.598, Charles : « qu'un profil prof soit redirigé direct s'il se connecte via Lucie »).
+// Le serveur ne le dit qu'une fois le mot de passe vérifié (routes/auth.js) : rien ne révèle le rôle d'une adresse.
+// Une fenêtre le dit d'abord, avec l'adresse à retenir (texte de Charles).
+function versLEspace(e) {
+  const u = e?.body?.bascule && e.body.url;
+  if (!u || !/^https:\/\//.test(u)) return false;
+  informer({
+    titre: 'Votre espace enseignant',
+    message: `Vous vous connectez avec un profil « professeur ». Vous allez être redirigé vers votre espace enseignant.\n\nNotez son adresse pour gagner du temps la prochaine fois :\n${u}\n\nBon travail !`,
+    confirmer: 'Aller à mon espace',
+  }).then(() => window.location.replace(u));
+  return true;
+}
+
 export default function Login() {
   if (isAuthenticated()) return <Navigate to="/" replace />;
   const [email, setEmail]       = useState('');
@@ -210,7 +225,7 @@ export default function Login() {
       if (r?.mfa_requis) { setTokenInter(r.token_intermediaire); setCode(''); return; }
       nav('/');
     }
-    catch (e) { setError(e.message); }
+    catch (e) { if (!versLEspace(e)) setError(e.message); }
     finally { setLoading(false); }
   }
 
@@ -234,6 +249,7 @@ export default function Login() {
       await api.loginMfa(tokenInter, parSecours ? { code_recuperation: code } : { code });
       nav('/');
     } catch (e) {
+      if (versLEspace(e)) return;
       setError(e.message);
       setCode('');
       // Les cinq minutes sont passées, ou la connexion a été interrompue :
