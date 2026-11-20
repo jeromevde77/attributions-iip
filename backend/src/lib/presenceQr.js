@@ -231,6 +231,19 @@ export function attendusDeLaSeance(s) {
     GROUP BY e.id ORDER BY e.nom, e.prenom`).all(s.annee_scolaire, s.ue_num);
 }
 
+/* ADMIS AU SCAN (3.5.597, Charles, 20 novembre 2026, premier test du QR, UE 250 : treize étudiants des groupes A et B refusés
+   dans la salle de Wael, à qui les attributions donnent C et D — l'horaire fait tourner les groupes, les attributions non).
+   Le scan accepte les étudiants du professeur ET tout inscrit de l'unité de la séance (année de la séance, dossier actif) :
+   l'étudiant est dans la salle, c'est ce qu'atteste le scan. Les attendus (compteur, absents) restent ceux du professeur. */
+export function admisALaSeance(s, etudiantId) {
+  if (attendusDeLaSeance(s).some(x => x.id === etudiantId)) return { ok: true, horsGroupe: false };
+  if (s.ue_num == null) return { ok: false };
+  const i = db.prepare(`SELECT 1 FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND i.etudiant_id = ? AND COALESCE(e.actif, 1) = 1 LIMIT 1`)
+    .get(s.annee_scolaire, s.ue_num, etudiantId);
+  return i ? { ok: true, horsGroupe: true } : { ok: false };
+}
+
 // ── Journal ───────────────────────────────────────────────────────────────
 function journaliser(type, { etudiant_id = null, seance_id = null, appareil_id = null, raison = null, par = null } = {}) {
   try {
@@ -339,10 +352,12 @@ export function enRetard(s, scanne, r = reglagesPresenceQr()) {
 /** Pose la présence d'un appareil appairé — un appareil n'enregistre que SON étudiant. */
 function enregistrer(s, app, maintenant, scanne = maintenant) {
   const e = db.prepare('SELECT id, nom, prenom FROM etudiant WHERE id = ?').get(app.etudiant_id);
-  if (!attendusDeLaSeance(s).some(x => x.id === app.etudiant_id)) {
+  const adm = admisALaSeance(s, app.etudiant_id);
+  if (!adm.ok) {
     journaliser('scan_refuse', { etudiant_id: app.etudiant_id, seance_id: s.id, appareil_id: app.id, raison: 'non inscrit' });
-    return refus('non_inscrit', `${nomDe(e)}, vous n’êtes pas inscrit(e) à cette séance (${libelleSeance(s)}). Voyez votre enseignant.`);
+    return refus('non_inscrit', `${nomDe(e)}, vous n’êtes pas inscrit(e) à l’unité de cette séance (${libelleSeance(s)}). Inutile de réessayer : signalez-vous à votre enseignant, qui encodera votre présence.`);
   }
+  if (adm.horsGroupe) journaliser('scan_hors_groupe', { etudiant_id: app.etudiant_id, seance_id: s.id, appareil_id: app.id, raison: 'inscrit à l’unité, hors des groupes du professeur' });
   db.prepare('UPDATE presence_appareil SET dernier_usage_le = ? WHERE id = ?').run(sqlDate(maintenant), app.id);
   const avant = db.prepare('SELECT statut FROM presence WHERE seance_id = ? AND etudiant_id = ?').get(s.id, app.etudiant_id);
   if (avant?.statut === 'present') {
@@ -381,9 +396,9 @@ function controlerAppairage(ticket, email, appareilBrut, maintenant) {
     journaliser('appairage_refuse', { etudiant_id: x.etudiant.id, seance_id: t.seance.id, appareil_id: app.id, raison: 'appareil lié à un autre étudiant' });
     return refus('appareil_autre', 'Ce téléphone est déjà lié à un autre étudiant. Un appareil ne sert qu’à une personne : adressez-vous au secrétariat.');
   }
-  if (!attendusDeLaSeance(t.seance).some(e => e.id === x.etudiant.id)) {
+  if (!admisALaSeance(t.seance, x.etudiant.id).ok) {
     journaliser('scan_refuse', { etudiant_id: x.etudiant.id, seance_id: t.seance.id, raison: 'non inscrit' });
-    return refus('non_inscrit', `Vous n’êtes pas inscrit(e) à cette séance (${libelleSeance(t.seance)}). Voyez votre enseignant.`);
+    return refus('non_inscrit', `Vous n’êtes pas inscrit(e) à l’unité de cette séance (${libelleSeance(t.seance)}). Inutile de réessayer : signalez-vous à votre enseignant, qui encodera votre présence.`);
   }
   return { ok: true, r, seance: t.seance, scanne: t.scanne, etudiant: x.etudiant, adresse: x.adresse, app };
 }
@@ -524,7 +539,7 @@ export const TYPES_JOURNAL = {
   autorisation: 'Nouveau téléphone autorisé par le secrétariat',
   appairage_refuse: 'Lien refusé',
   code_refuse: 'Code refusé',
-  scan_refuse: 'Scan refusé',
+  scan_refuse: 'Scan refusé', scan_hors_groupe: 'Scan hors des groupes du professeur',
   avis_absence: 'Avis d’absences envoyé à l’étudiant',
 };
 /** Le journal, pour les modules voisins (l'avis d'absences). */
