@@ -4668,6 +4668,10 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**MES PRÉSENCES OUVERT DANS L'ESPACE ENSEIGNANT** (3.5.596, Charles, 20 novembre 2026, jour de la bascule des professeurs : le QR
+du cours de Wael était inaccessible — Lucie fermée aux professeurs depuis le 20/11, la face « présences » de l'espace encore « bientôt ») :
+la face `presences` perd son `bientot` ; la frise d'Aujourd'hui y mène déjà. **Avant une date de bascule, vérifier que tout ce que le
+professeur faisait dans Lucie est ouvert dans l'espace.** Reste « bientôt » : TFE.
 **MES STAGES OUVERT DANS L'ESPACE ENSEIGNANT** (3.5.592, Charles, 19 novembre 2026) : la face `stages` perd son `bientot` (FACES
 d'`EspaceEnseignant.jsx`) — le superviseur y voit ses stages, remplit ses fiches, envoie le lien au maître de stage et confirme les heures
 (`MesStages.jsx` par le relais). Restent « bientôt » : présences, TFE.
