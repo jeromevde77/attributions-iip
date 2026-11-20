@@ -159,7 +159,7 @@ r.post('/login', (req, res) => {
     });
   }
   // LA BASCULE (3.5.212) : le mot de passe est juste, mais un professeur travaille désormais dans son espace.
-  if (estBascule({ role: user.role })) return res.status(403).json(refusBascule());
+  if (estBascule({ role: user.role })) return res.status(403).json({ ...refusBascule(), prenom: prenomDuCompte(user) || null });
 
   // Le mot de passe est bon : la série d'échecs n'a plus lieu d'être.
   oublierEchecs(user.id);

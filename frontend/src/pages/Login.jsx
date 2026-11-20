@@ -175,7 +175,7 @@ function versLEspace(e) {
   if (!u || !/^https:\/\//.test(u)) return false;
   informer({
     titre: 'Votre espace enseignant',
-    message: `Vous vous connectez avec un profil « professeur ». Vous allez être redirigé vers votre espace enseignant.\n\nNotez son adresse pour gagner du temps la prochaine fois :\n${u}\n\nBon travail !`,
+    message: `Bonjour${e.body.prenom ? ` ${e.body.prenom}` : ''} !\n\nVous vous connectez avec un profil « professeur ». Vous allez être redirigé vers votre espace enseignant.\n\nNotez son adresse pour gagner du temps la prochaine fois :\n${u}\n\nBon travail !\n\nLe service administratif et la direction`,
     confirmer: 'Aller à mon espace',
   }).then(() => window.location.replace(u));
   return true;
