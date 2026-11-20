@@ -170,25 +170,28 @@ const avecLien = t => String(t || '').split(/(https:\/\/[^\s]+)/).map((x, i) => 
 // Le serveur ne le dit qu'une fois le mot de passe vérifié (routes/auth.js) : rien ne révèle le rôle d'une adresse.
 // Une fenêtre le dit d'abord, avec l'adresse à retenir (texte de Charles) : liseré orange à droite, icône d'information.
 function AnnonceEspace({ prenom, url }) {
+  const teinte = 'var(--c-attente)';
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="annonce-espace" style={{
-      position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-      background: 'color-mix(in srgb, var(--c-principal, #16406A) 45%, transparent)', backdropFilter: 'blur(3px)' }}>
-      <div style={{ background: '#fff', maxWidth: 460, width: '100%', borderRadius: '14px 0 0 14px',
-        borderRight: '4px solid var(--c-attente)', boxShadow: '0 20px 50px rgba(0,0,0,.25)', padding: '22px 24px',
-        display: 'flex', gap: 14, color: 'var(--c-texte, #16406A)', fontSize: 14, lineHeight: 1.55 }}>
-        <IconInfoCircle size={28} stroke={1.8} style={{ color: 'var(--c-attente)', flexShrink: 0, marginTop: 1 }} />
-        <div style={{ minWidth: 0 }}>
-          <p id="annonce-espace" style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>Bonjour{prenom ? ` ${prenom}` : ''} !</p>
-          <p style={{ margin: '10px 0 0' }}>Vous vous connectez avec un profil « professeur ». Vous allez être redirigé vers votre espace enseignant.</p>
-          <p style={{ margin: '10px 0 0' }}>Notez son adresse pour gagner du temps la prochaine fois :</p>
-          <p style={{ margin: '4px 0 0', fontWeight: 600, wordBreak: 'break-all' }}>{url}</p>
-          <p style={{ margin: '10px 0 0' }}>Bon travail !</p>
-          <p style={{ margin: '10px 0 0', fontStyle: 'italic', color: '#5B6B80' }}>Le service administratif et la direction</p>
-          <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" className="bouton bouton-fort" autoFocus
-              onClick={() => window.location.replace(url)}>Aller à mon espace</button>
+    <div role="alertdialog" aria-modal="true" aria-labelledby="annonce-espace"
+      className="fixed inset-0 z-[90] flex items-start justify-center p-4 pt-[14vh]">
+      <div aria-hidden="true" className="absolute inset-0 voile-fenetre" />
+      <div className="relative bg-white rounded-r-fenetre shadow-dessus w-[460px] max-w-full overflow-hidden border-l-4"
+        style={{ borderLeftColor: teinte }}>
+        <div className="flex gap-3 px-5 pt-5 pb-4">
+          <IconInfoCircle size={22} className="flex-none mt-0.5" style={{ color: teinte }} />
+          <div className="min-w-0 flex-1">
+            <div id="annonce-espace" className="text-base font-semibold text-iip-texte">Bonjour{prenom ? ` ${prenom}` : ''} !</div>
+            <div className="mt-1.5 text-sm text-slate-700 break-words leading-relaxed space-y-2">
+              <p>Vous vous connectez avec un profil « professeur ». Vous allez être redirigé vers votre espace enseignant.</p>
+              <p>Notez son adresse pour gagner du temps la prochaine fois :<br /><b className="break-all">{url}</b></p>
+              <p>Bon travail !</p>
+              <p className="italic text-slate-500">Le service administratif et la direction</p>
+            </div>
           </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">
+          <button type="button" className="bouton bouton-fort" autoFocus
+            onClick={() => window.location.replace(url)}>Aller à mon espace</button>
         </div>
       </div>
     </div>
