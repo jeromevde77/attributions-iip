@@ -7,7 +7,7 @@
 export const ETAPES_ENSEIGNANT = [
   { cible: null, titre: 'Bienvenue dans votre espace enseignant',
     texte: 'Votre espace réunit ce dont vous avez besoin pour vos cours : vos séances, vos présences, vos notes, vos étudiants, ce que l’école attend de vous. La visite ouvre chaque écran et vous montre ce qu’il contient.',
-    gestes: ['« Suivant » pour avancer, « Passer » pour fermer.', 'Une entrée marquée d’une pastille orange « bientôt » arrive prochainement : Mes présences, Mes TFE, Mes stages.',
+    gestes: ['« Suivant » pour avancer, « Passer » pour fermer.', 'Une entrée marquée d’une pastille orange « bientôt » arrive prochainement : Mes TFE.',
       'Vous pourrez relancer la visite à tout moment depuis « Aide ».'] },
   { face: 'aujourdhui', cible: 'contenu', titre: 'Aujourd’hui',
     texte: 'Votre point de départ : la frise de vos séances du jour, puis ce qui vous attend — textes à confirmer, notes à encoder, messages.',
