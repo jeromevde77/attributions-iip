@@ -4668,6 +4668,9 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**UNE BULLE OU UNE ANNONCE A LA FORME D'UN D** (3.5.602, Charles : « fenêtre avec bord coloré à gauche, forme de D dont deux angles
+droits ») : `bg-white rounded-r-fenetre border-l-4` + `borderLeftColor` (comme `lib/dialogue.jsx`) — la visite guidée des deux espaces
+(`VisiteGuidee.jsx`) et l'annonce du professeur à la connexion. Les fenêtres à bandeau (`Fenetre`) gardent leur dessin.
 **UN PROFESSEUR QUI SE CONNECTE À LUCIE VA DROIT À SON ESPACE** (3.5.598, Charles : « qu'un profil prof soit redirigé direct
 s'il se connecte via Lucie »). Le refus de la bascule (`refusBascule`, après la vérification du mot de passe) ne s'affiche plus : une fenêtre (`informer`) annonce l'espace et son adresse, puis
 `versLEspace` (`pages/Login.jsx`) envoie le navigateur à son `url` (connexion et second facteur). Une session ouverte y partait déjà

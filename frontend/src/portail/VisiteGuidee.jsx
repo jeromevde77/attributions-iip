@@ -162,8 +162,8 @@ export default function VisiteGuidee({ etudiantId, etapes: catalogue = ETAPES_VI
       {contenu && rail && (
         <div className="absolute pointer-events-none rounded-carte transition-all duration-300 ease-ios"
           style={{ top: rail.top - 4, left: rail.left - 4, width: rail.width + 8, height: rail.height + 8, boxShadow: '0 0 0 3px var(--c-accent)' }} />)}
-      <div className="absolute bg-white rounded-fenetre shadow-dessus p-5 space-y-3 transition-all duration-300 ease-ios overflow-y-auto"
-        style={{ ...pos, width: pos.right !== undefined && pos.left !== undefined ? undefined : larg, maxHeight: telephone ? '62vh' : '80vh' }}>
+      <div className="absolute bg-white rounded-r-fenetre border-l-4 shadow-dessus p-5 space-y-3 transition-all duration-300 ease-ios overflow-y-auto"
+        style={{ borderLeftColor: 'var(--c-principal)', ...pos, width: pos.right !== undefined && pos.left !== undefined ? undefined : larg, maxHeight: telephone ? '62vh' : '80vh' }}>
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <div className="text-xs text-slate-500 tabular-nums">Étape {i + 1} sur {etapes.length}</div>
