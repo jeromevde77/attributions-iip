@@ -164,12 +164,25 @@ export function envoyer({ objet, corps, critere, importance, icone, accuse_deman
 }
 
 /** LA COPIE PAR COURRIEL : le message entier, ses documents joints, à l'adresse d'institut (le candidat : son adresse privée). */
+/* Les places de l'heure qui restent pour les courriels aux étudiants (avis + copies), sous le quota de 200 du serveur. */
+const placesHeure = () => Math.max(0, 120
+  - db.prepare("SELECT COUNT(*) n FROM message_etudiant_avis WHERE avise_le >= datetime('now', '-1 hour')").get().n
+  - db.prepare("SELECT COUNT(*) n FROM message_etudiant_dest WHERE courriel_le >= datetime('now', '-1 hour')").get().n);
+/** Les copies qui n'ont pas pu partir (quota) : reprises au passage suivant. */
+export async function envoyerCopiesEnAttente() {
+  migrerMessages();
+  for (const m of db.prepare(`SELECT DISTINCT m.id, m.auteur_nom FROM message_etudiant m JOIN message_etudiant_dest d ON d.message_id = m.id
+      WHERE m.canal_email = 1 AND m.retire_le IS NULL AND d.courriel_le IS NULL AND m.envoye_le >= datetime('now', '-7 days')`).all()) {
+    if (!placesHeure()) return;
+    await envoyerCopies(m.id, m.auteur_nom);
+  }
+}
 async function envoyerCopies(id, nomAuteur) {
   const m = db.prepare('SELECT * FROM message_etudiant WHERE id = ?').get(Number(id));
   const docs = piecesDe(id).map(p => ({ filename: p.nom, content: lirePiece(p), contentType: p.mime })).filter(x => x.content);
   const esc = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   for (const d of db.prepare(`SELECT d.etudiant_id, e.prenom, e.email_ecole, e.email_perso FROM message_etudiant_dest d JOIN etudiant e ON e.id = d.etudiant_id
-      WHERE d.message_id = ? AND d.courriel_le IS NULL`).all(id)) {
+      WHERE d.message_id = ? AND d.courriel_le IS NULL LIMIT ?`).all(id, placesHeure())) {
     const to = String(d.email_ecole || '').includes('@') ? d.email_ecole : d.email_perso;
     if (!to) continue;
     const html = templateNotif({ titre: m.objet, corps: `<p>Bonjour ${esc(d.prenom)},</p>${esc(m.corps).split(/\n{2,}/).map(x => `<p>${x.replace(/\n/g, '<br>')}</p>`).join('')}
@@ -310,8 +323,14 @@ export function recevoir({ lus = [], reponses = [], accuses = [] }) {
 /** L'avis par courriel : un par étudiant et par jour au plus, sans le contenu. */
 export async function aviserParCourriel(urlPortail) {
   migrerMessages();
+  /* LE QUOTA DU SERVEUR DE COURRIEL (3.5.610) : noreply@lucie-iip.be n'a droit qu'à 200 messages par heure. Le 21 novembre 2026, le
+     message de bienvenue (751 étudiants) a fait partir 551 avis d'affilée : plus aucun autre courriel ne passait (codes des évaluations,
+     réinitialisations…). Les avis prennent au plus 120 places par heure ; le reste part à l'heure suivante. */
+  await envoyerCopiesEnAttente().catch(e => console.error('[messages] copies :', e.message));
+  const place = placesHeure();
+  if (!place) return;
   const l = db.prepare(`SELECT a.etudiant_id, e.prenom, e.email_ecole, e.email_perso FROM message_etudiant_avis a JOIN etudiant e ON e.id = a.etudiant_id
-    WHERE a.depuis IS NOT NULL AND (a.avise_le IS NULL OR date(a.avise_le) < date('now')) LIMIT 200`).all();
+    WHERE a.depuis IS NOT NULL AND (a.avise_le IS NULL OR date(a.avise_le) < date('now')) LIMIT ?`).all(place);
   for (const x of l) {
     const adresse = String(x.email_ecole || '').includes('@') ? x.email_ecole : x.email_perso;
     if (adresse) {
