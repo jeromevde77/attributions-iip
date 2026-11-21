@@ -40,8 +40,8 @@ function EditeurRubrique({ titre, texte, origine, onChange, lecture = false }) {
   if (!editor) return null;
   const c = () => editor.chain().focus();
   return (
-    <div className="border border-slate-200 rounded-carte overflow-hidden mb-3 bg-white">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+    <div className="carte border border-slate-200 rounded-carte overflow-hidden mb-3 bg-white">
+      <div className="entete-carte flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-200">
         <span className="font-semibold text-iip-texte flex-1 min-w-0">{titre}</span>
         {modifiee
           ? <button type="button" className="text-mention px-2 py-0.5 rounded-pastille text-white" style={{ background: 'var(--c-attente)' }}

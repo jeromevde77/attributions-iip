@@ -78,7 +78,9 @@ function mesurer() {
       .map(x => ({ x, r: x.getBoundingClientRect(), mt: parseFloat(x.style.getPropertyValue('--doc-colle')) || 0 }));
     if (items.length < 2) continue;
     for (const a of items) {
-      const b = items.find(o => o !== a && Math.abs(o.r.left - a.r.left) < 2 && Math.abs(o.r.width - a.r.width) < 2
+      // (3.5.628) Même nature seulement : deux cartes, ou deux tuiles du même état ; une alerte ne se colle pas à une carte.
+      const nature = x => (x.classList.contains('carte') ? 'carte' : `etat:${x.dataset.etat || ''}`);
+      const b = items.find(o => o !== a && nature(o.x) === nature(a.x) && Math.abs(o.r.left - a.r.left) < 2 && Math.abs(o.r.width - a.r.width) < 2
         && (o.r.top + o.mt) - a.r.bottom >= -1 && (o.r.top + o.mt) - a.r.bottom <= 24);
       if (!b) continue;
       const ecart = Math.max(0, Math.round((b.r.top + b.mt) - a.r.bottom));

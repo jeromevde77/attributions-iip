@@ -25,7 +25,7 @@
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useEnregistrementAuto } from '../lib/enregistrementAuto.js';
-import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, IconTrash, IconHeading } from '@tabler/icons-react';
+import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus, IconPencil, IconTrash, IconHeading, IconSparkles } from '@tabler/icons-react';
 import { demander, saisir } from '../lib/dialogue.jsx';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
@@ -377,6 +377,12 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         </p>
         {/* PLUS DE BOUTON GRIS QUI FAIT CROIRE À UNE PANNE (3.5.378, réunion du 12/11 : « le bouton Enregistrer du haut n'est pas
             cliquable ») : l'étape s'enregistre seule ; on dit où on en est, et le bouton ne paraît que s'il reste quelque chose à envoyer. */}
+        {/* L'AIDE DE L'IA EST UN BOUTON (3.5.628, Charles : « dans cette zone, ou plutôt comme un bouton ? ») : dans la barre de
+            l'étape ; ses propositions ne paraissent qu'une fois demandées. */}
+        {!lecture && acquis.length > 0 && cours.length > 0 && (
+          <button type="button" className="bouton inline-flex items-center gap-1.5" disabled={iaEnCours} onClick={demanderIA}
+            title="L’IA lit les acquis et les points du programme et propose des croix, en pointillé : rien n’est coché sans vous.">
+            <IconSparkles size={15} /> {iaEnCours ? 'L’IA lit l’unité…' : ia ? 'Redemander à l’IA' : 'Proposer avec l’IA'}</button>)}
         {!lecture && (enCours ? <span className="text-second text-slate-500">Enregistrement…</span>
           : sale ? <button className="bouton bouton-fort" onClick={enregistrer}><IconDeviceFloppy size={14} /> Enregistrer maintenant</button>
             : <span className="text-second text-slate-500 inline-flex items-center gap-1"><IconCheck size={14} /> Enregistré automatiquement{dernierEnreg ? ` à ${dernierEnreg}` : ''}</span>)}
@@ -390,24 +396,21 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
       {/* LA LÉGENDE DES ACQUIS (Charles, 8 octobre 2026 : « il faut la légende des AA…
           c'est important »). Les colonnes ne portent que le code : sans le texte, on
           coche au jugé. */}
-      {!lecture && acquis.length > 0 && cours.length > 0 && (
+      {!lecture && ia && (
         <section className="carte overflow-hidden">
-          <EnteteCarte titre="L’aide de l’IA" sous="Elle lit les acquis et les points du programme, et propose des croix — en pointillé, à relire : rien n’est coché sans vous.">
-            <button type="button" className="bouton" disabled={iaEnCours} onClick={demanderIA}>
-              {iaEnCours ? 'L’IA lit l’unité…' : ia ? 'Redemander' : 'Proposer avec l’IA'}</button>
-            {ia?.liens?.length > 0 && <button type="button" className="bouton" onClick={toutCocherIA}>Cocher toutes les propositions ({ia.liens.reduce((t, l) => t + l.acquis.length, 0)})</button>}
-            {ia && <button type="button" className="bouton" onClick={() => setIa(null)}>Effacer</button>}
+          <EnteteCarte titre="Les propositions de l’IA" sous="En pointillé bleu dans les tableaux, à relire : rien n’est coché sans vous.">
+            {ia.liens?.length > 0 && <button type="button" className="bouton" onClick={toutCocherIA}>Cocher toutes les propositions ({ia.liens.reduce((t, l) => t + l.acquis.length, 0)})</button>}
+            <button type="button" className="bouton" onClick={() => setIa(null)}>Effacer</button>
           </EnteteCarte>
-          {ia && (
-            <div className="px-4 py-2 space-y-1 text-second">
-              <p className="m-0 text-slate-500">{ia.liens.length ? `${ia.liens.length} point(s) relié(s) : les cases proposées sont en pointillé bleu, la raison s’affiche au survol.` : 'Aucune proposition.'}</p>
-              {(ia.manques || []).map((m, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="flex-1 min-w-0"><b>{m.acquis}</b> n’est porté par aucun point{m.cours ? ` — à ajouter au cours ${m.cours}` : ''} : « {m.point_propose} »{m.raison ? <span className="text-slate-500"> · {m.raison}</span> : null}</span>
-                  {m.cours && m.point_propose && cours.some(x => x.cours_code === m.cours) && (
-                    <button type="button" className="bouton flex-none" onClick={() => ajouterTexte(m.cours, m.point_propose)}>Ajouter ce point à {m.cours}</button>)}
-                </div>))}
-            </div>)}
+          <div className="px-4 py-2 space-y-1 text-second">
+            <p className="m-0 text-slate-500">{ia.liens.length ? `${ia.liens.length} point(s) relié(s) : la raison s’affiche au survol de la case.` : 'Aucune proposition.'}</p>
+            {(ia.manques || []).map((m, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="flex-1 min-w-0"><b>{m.acquis}</b> n’est porté par aucun point{m.cours ? ` — à ajouter au cours ${m.cours}` : ''} : « {m.point_propose} »{m.raison ? <span className="text-slate-500"> · {m.raison}</span> : null}</span>
+                {m.cours && m.point_propose && cours.some(x => x.cours_code === m.cours) && (
+                  <button type="button" className="bouton flex-none" onClick={() => ajouterTexte(m.cours, m.point_propose)}>Ajouter ce point à {m.cours}</button>)}
+              </div>))}
+          </div>
         </section>)}
       {/* UN ACQUIS QU'AUCUN POINT NE PORTE SE SIGNALE (3.5.414, Charles, UE 298 : « AA298.4 — nous devons compléter ce tableau ») :
           sans croix, il n'a aucun poids à l'étape 2 et ne s'évalue nulle part. Le remède est dans le cours où il s'enseigne :

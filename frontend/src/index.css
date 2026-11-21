@@ -1873,14 +1873,15 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
   border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
 /* (3.5.619) DES CARTES QUI SE SUIVENT À LA VERTICALE FORMENT UNE PILE, quel que soit l'écran : dans une colonne (space-y), une carte
    qui suit une carte s'y colle ; elle perd l'arc (le bord gauche reste complet), un filet aligné sur la première lettre la sépare de
-   la précédente ; seule la dernière arrondit l'angle inférieur droit. Même chose pour les tuiles et encadrés de bloc. */
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) {
+   la précédente ; seule la dernière arrondit l'angle inférieur droit. (3.5.628) Des CARTES seulement : un encadré (une alerte, un
+   état) reste à part — collé à la pile, son orange se lisait comme un bloc. */
+:root[data-theme="v4"] [class*="space-y-"] > .carte + .carte {
   margin-top: 0 !important; border-top-left-radius: 0 !important; }
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)):has(+ :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))) {
+:root[data-theme="v4"] [class*="space-y-"] > .carte:has(+ .carte) {
   border-bottom-right-radius: 0 !important; }
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::before {
+:root[data-theme="v4"] [class*="space-y-"] > .carte + .carte::before {
   width: 0; border-top: 0; border-top-left-radius: 0; }
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::after {
+:root[data-theme="v4"] [class*="space-y-"] > .carte + .carte::after {
   content: ''; position: absolute; pointer-events: none; z-index: 1; top: 0; left: 1.25rem; right: var(--doc-retrait);
   border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
 /* (3.5.619) DANS UNE FENÊTRE, JUSTE LA LIGNE LATÉRALE GAUCHE (Charles : « si dans une fenêtre on a cela, juste ligne latérale
@@ -1936,3 +1937,18 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 :root[data-theme="v4"] .morceau-doc[data-g-col] { background-image: linear-gradient(var(--c-filet, rgb(var(--gris-200))), var(--c-filet, rgb(var(--gris-200))));
   background-size: 1px var(--doc-sep); background-position: left center; background-repeat: no-repeat; }
 :root[data-theme="v4"] .morceau-doc[data-g-col]:hover { background-color: rgb(var(--gris-50, 248 250 252)); }
+
+/* (3.5.628) PAS DE TUILE DANS UNE TUILE (Charles, 21 novembre 2026 : « ligne dans ligne ou tuile dans tuile, ça fait redondance ; la
+   structure n'est pas claire »). Dans une carte, une tuile ou un encadré n'a plus de bord ni d'arc : la carte porte déjà le dessin ;
+   son état se dit par un point de sa couleur devant le contenu. (Les lignes d'une pile gardent leur règle.) */
+:root[data-theme="v4"] .carte .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat) { border-radius: 0 !important; background: transparent !important;
+  padding-left: 1.6rem !important; }
+:root[data-theme="v4"] .carte .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat)::before { width: 7px !important; height: 7px !important; bottom: auto !important;
+  top: 0.95rem !important; left: 0.6rem !important; border: 0 !important; border-radius: 50% !important; background: var(--e-doc, var(--c-principal)); }
+/* Les sous-titres d'un texte du dossier pédagogique : ni barre dorée ni fond ; un titre, simplement. */
+:root[data-theme="v4"] .texte-dossier h4 { border-left: 0; background: transparent; padding-left: 0; }
+
+/* (3.5.628) PAS DE DOUBLE LIGNE (Charles : « double ligne ? ») : quand un tableau suit le titre d'une carte, le filet sous le titre
+   s'efface — la ligne sous l'en-tête du tableau suffit. */
+:root[data-theme="v4"] .entete-carte:has(+ :is(table, .tableau-cadre, .overflow-x-auto))::after,
+:root[data-theme="v4"] .entete-carte:has(+ * > :first-child:is(table, .tableau-cadre, .overflow-x-auto))::after { content: none; }
