@@ -183,6 +183,45 @@ function InvitationLot({ ajouterEssai }) {
     return () => clearTimeout(t);
   }, [q]);
   const [msgEssai, setMsgEssai] = useState(null);
+  /* LE MOT D'ACCUEIL PROPOSÉ ET L'INVITATION PROGRAMMÉE (3.5.604, Charles : « les accès à minuit une, lundi, mardi… comme ça je prépare le
+     travail ; et un mot d'accueil déjà rédigé »). */
+  const [motPropose, setMotPropose] = useState('');
+  useEffect(() => { fetch('/api/portail-suivi/mot-accueil', { headers: authHeaders() }).then(x => x.json())
+    .then(j => { if (j?.texte) { setMotPropose(j.texte); setMessage(m => m || j.texte); } }).catch(() => {}); }, []);
+  const lundiMinuitUne = () => {
+    const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
+    const z = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T00:01`;
+  };
+  const [quand, setQuand] = useState(lundiMinuitUne);
+  const [prog, setProg] = useState([]);
+  const [msgProg, setMsgProg] = useState(null);
+  const chargerProg = () => fetch('/api/portail-suivi/programmees', { headers: authHeaders() }).then(x => x.json()).then(l => Array.isArray(l) && setProg(l)).catch(() => {});
+  useEffect(() => { chargerProg(); }, []);
+  const libelleCible = () => {
+    if (un) return un.nom;
+    const p = prof && profs.find(x => String(x.id) === String(prof));
+    const np = p ? `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim() : '';
+    if (prof) return ue ? `UE ${ue}, étudiants de ${np}` : `Étudiants de ${np}`;
+    if (ue) return `UE ${ue}`;
+    const sct = sections.find(x => x.code === section);
+    return sct?.libelle || section;
+  };
+  const jourEnMots = q => { const d = new Date(q); return Number.isNaN(d.getTime()) ? q
+    : d.toLocaleString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }); };
+  const programmerEnvoi = async () => {
+    setMsgProg(null);
+    if (!(await demander({ titre: 'Programmer l’invitation', confirmer: 'Programmer', annuler: 'Annuler',
+      message: `${libelleCible()} : l’invitation partira le ${jourEnMots(quand)} (heure de Bruxelles), avec votre mot, à votre nom. Les étudiants sont choisis au moment de l’envoi : la simulation d’aujourd’hui peut encore changer.` }))) return;
+    const r = await fetch('/api/portail-suivi/programmer', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ cible, libelle: libelleCible(), quand, message, deja }) }).then(async x => ({ ok: x.ok, j: await x.json() }));
+    if (!r.ok) { setMsgProg(r.j?.error || 'Refusé.'); return; }
+    setMsgProg(`Programmée : ${libelleCible()}, le ${jourEnMots(quand)}.`); chargerProg();
+  };
+  const annulerProg = async l => {
+    if (!(await demander({ titre: 'Annuler l’invitation programmée', confirmer: 'Annuler l’envoi', annuler: 'Garder', message: `${l.libelle} — ${jourEnMots(l.quand)}` }))) return;
+    await fetch(`/api/portail-suivi/programmees/${l.id}`, { method: 'DELETE', headers: authHeaders() }); chargerProg();
+  };
   const [sim, setSim] = useState(null);
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -234,11 +273,19 @@ function InvitationLot({ ajouterEssai }) {
           {ue && !prof && <button type="button" className="bouton" onClick={essai}>Ajouter ses inscrits aux étudiants d’essai</button>}
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={deja} onChange={e => { setDeja(e.target.checked); setSim(null); }} /> réinviter aussi ceux déjà invités</label>
           <button type="button" className="bouton" disabled={(!section && !ue && !un && !prof) || enCours} onClick={simuler}>Simuler</button>
-          {sim?.a_inviter?.length > 0 && <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={envoyer}>Inviter {sim.a_inviter.length} étudiant(s)</button>}
+          {sim?.a_inviter?.length > 0 && <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={envoyer}>Inviter {sim.a_inviter.length} étudiant(s) maintenant</button>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-slate-600">ou programmer l’envoi le</span>
+          <input type="datetime-local" className="controle" value={quand} onChange={e => setQuand(e.target.value)} aria-label="Jour et heure de l’envoi" />
+          <span className="text-second text-slate-500">heure de Bruxelles</span>
+          <button type="button" className="bouton" disabled={!section && !ue && !un && !prof} onClick={programmerEnvoi}>Programmer l’invitation</button>
+          {msgProg && <span className="text-second text-slate-600">{msgProg}</span>}
         </div>
         {msgEssai && <div className="text-slate-600">{msgEssai}</div>}
         <label className="block">
-          <span className="text-second text-slate-600">Votre mot, en tête du courriel (facultatif) — il sera signé de votre nom :</span>
+          <span className="text-second text-slate-600">Votre mot, en tête du courriel (facultatif) — il sera signé de votre nom :
+            {motPropose && message !== motPropose && <button type="button" className="ml-2 underline text-slate-500" onClick={() => setMessage(motPropose)}>reprendre le mot proposé</button>}</span>
           <textarea className="controle w-full !h-auto mt-1" rows={4} value={message} data-reponses="invitation_espace"
             placeholder="Chers étudiants, nous ouvrons votre espace étudiant…" onChange={e => setMessage(e.target.value)} />
         </label>
@@ -246,6 +293,19 @@ function InvitationLot({ ajouterEssai }) {
           <div><b>{sim.a_inviter.length}</b> à inviter{sim.deja_invites?.length ? ` · ${sim.deja_invites.length} déjà invité(s), laissés de côté` : ''}{sim.ecartes?.length ? ` · ${sim.ecartes.length} écarté(s)` : ''}.</div>
           {sim.ecartes?.length > 0 && <details><summary className="cursor-pointer text-slate-600">Les écartés et pourquoi</summary>
             <ul className="mt-1 text-second text-slate-600">{sim.ecartes.map(e => <li key={e.id}>{e.nom} — {e.raison}</li>)}</ul></details>}
+        </div>}
+        {prog.length > 0 && <div>
+          <div className="intertitre mb-1">Invitations programmées</div>
+          <Tableau><TableauEntete><Tr><Th>Pour</Th><Th>Quand</Th><Th>Par</Th><Th>État</Th><Th></Th></Tr></TableauEntete>
+            <tbody>{prog.map(l => <Tr key={l.id}>
+              <Td>{l.libelle}</Td><Td>{jourEnMots(l.quand)}</Td><Td>{l.par}</Td>
+              <Td>{l.statut === 'prevue' ? <PastilleEtat etat="disponible">prévue{l.en_production ? '' : ' (part en production seulement)'}</PastilleEtat>
+                : l.statut === 'faite' ? <PastilleEtat etat="reussi">partie : {l.resultat?.invites || 0} invitée(s){l.resultat?.echecs ? `, ${l.resultat.echecs} en échec` : ''}</PastilleEtat>
+                : l.statut === 'annulee' ? <PastilleEtat etat="neutre">annulée</PastilleEtat>
+                : l.statut === 'en_cours' ? <PastilleEtat etat="surveiller">en cours d’envoi</PastilleEtat>
+                : <PastilleEtat etat="corriger">échec{l.resultat?.erreur ? ` : ${l.resultat.erreur}` : ''}</PastilleEtat>}</Td>
+              <Td>{l.statut === 'prevue' && <button type="button" className="bouton" onClick={() => annulerProg(l)}>Annuler</button>}</Td>
+            </Tr>)}</tbody></Tableau>
         </div>}
         {fait && <div className="bloc-etat px-3 py-2" data-etat={fait.echecs?.length ? 'surveiller' : 'reussi'}>
           {fait.invites?.length || 0} invitation(s) envoyée(s){fait.echecs?.length ? `, ${fait.echecs.length} en échec (${fait.echecs.map(e => e.nom).join(', ')})` : ''}.</div>}
