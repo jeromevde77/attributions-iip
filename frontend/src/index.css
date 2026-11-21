@@ -1768,7 +1768,6 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    fermés). Un bloc peut poser, À CÔTÉ de sa carte, un paragraphe, une seconde carte ou des marges : fermé, tout ce qui ne contient
    pas l'en-tête disparaît, et les conteneurs de l'en-tête perdent leurs marges. */
 .volet[data-ferme="1"]:has(.entete-carte, .entete-volet) *:not(:has(.entete-carte, .entete-volet)):not(.entete-carte):not(.entete-volet):not(.entete-carte *):not(.entete-volet *) { display: none; }
-.volet[data-ferme="1"]:has(.entete-carte, .entete-volet) :has(.entete-carte, .entete-volet) { margin-top: 0 !important; margin-bottom: 0 !important; padding-top: 0; padding-bottom: 0; gap: 0; }
-.volet[data-ferme="1"] .carte:has(.entete-carte) { padding: 0; }
+.volet[data-vide="1"] { position: absolute; visibility: hidden; pointer-events: none; width: 100%; }
 .volet[data-urgence="0"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-refuse, #9D4A38); margin-left: .25rem; }
 .volet[data-urgence="1"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-attente, #B45309); margin-left: .25rem; }

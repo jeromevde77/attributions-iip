@@ -39,8 +39,18 @@ export default function BlocsPage({ page, blocs, volets = false }) {
       for (const b of blocs) { n[b.cle] = urgenceDe(refs.current[b.cle]); if (n[b.cle] !== u[b.cle]) change = true; }
       return change ? n : u;
     });
-    mesurer();
-    const obs = new MutationObserver(mesurer);
+    /* UN BLOC SANS HAUTEUR NE PREND PAS DE PLACE (3.5.614, Charles : « ce design ne va pas ») : un bloc qui ne rend rien de visible
+       (un élément vide, pas `empty`) occupait une rangée de la grille et doublait l'écart. Mesuré ici, il sort du flux
+       (`data-vide`, en position absolue et invisible) — on peut encore le mesurer quand son contenu arrive. */
+    const vides = () => requestAnimationFrame(() => {
+      for (const el of Object.values(refs.current)) if (el) {
+        const v = el.offsetHeight < 2 ? '1' : '';
+        if ((el.dataset.vide || '') !== v) { if (v) el.dataset.vide = v; else delete el.dataset.vide; }
+      }
+    });
+    const tout = () => { mesurer(); vides(); };
+    tout();
+    const obs = new MutationObserver(tout);
     for (const el of Object.values(refs.current)) if (el) obs.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-etat'] });
     return () => obs.disconnect();
   });
@@ -68,7 +78,7 @@ export default function BlocsPage({ page, blocs, volets = false }) {
   const basculer = (liste, cle) => maj(p => { const s = new Set(p[liste] || []); s.has(cle) ? s.delete(cle) : s.add(cle); return { ...p, [liste]: [...s] }; });
   const ranger = (de, vers) => maj(p => ({ ...p, ordre: deplacer(ranges.map(b => b.cle), de, vers) }));
   return (
-    <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+    <div className="relative grid gap-4 grid-cols-1 lg:grid-cols-2">
       {ranges.filter(b => mep.actif || !masques.has(b.cle)).map(b => (
         // Un bloc qui n'a rien à montrer ne garde pas sa place : vide, il laissait un trou (11 octobre 2026).
         <div key={b.cle} ref={el => { refs.current[b.cle] = el; }} className={`min-w-0 empty:hidden ${volets ? 'volet' : ''} ${demis.has(b.cle) ? '' : 'lg:col-span-2'} ${mep.actif && masques.has(b.cle) ? 'opacity-40' : ''}`}
