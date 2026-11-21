@@ -1838,7 +1838,7 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 :root[data-theme="v4"] .pile-etats > :first-child.bloc-etat, :root[data-theme="v4"] .pile-etats > :first-child .bloc-etat { border-top-left-radius: var(--doc-arc) !important; }
 :root[data-theme="v4"] .pile-etats > :first-child.bloc-etat::before, :root[data-theme="v4"] .pile-etats > :first-child .bloc-etat::before { width: min(var(--doc-haut), 7rem);
   border-top: var(--doc-trait) solid var(--e-doc); border-top-left-radius: var(--doc-arc); }
-:root[data-theme="v4"] .pile-etats > :first-child::before { content: none; }
+:root[data-theme="v4"] .pile-etats > :first-child:not(.bloc-etat)::before { content: none; }
 :root[data-theme="v4"] .pile-etats > :last-child.bloc-etat, :root[data-theme="v4"] .pile-etats > :last-child .bloc-etat { border-bottom-right-radius: var(--doc-arc) !important; }
 :root[data-theme="v4"] .pile-etats > * + *.bloc-etat::after, :root[data-theme="v4"] .pile-etats > * + * .bloc-etat::after { content: ''; position: absolute; pointer-events: none;
   top: 0; left: 2.5rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
@@ -1897,3 +1897,16 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 /* (3.5.619) SOUS DES ONGLETS, PAS DE LIGNE (Charles : « pourquoi cette ligne horizontale ? Pas besoin ; on garde juste le trait sous
    le menu actif ») : la rangée d'onglets perd son filet ; seul l'onglet ouvert reste souligné. */
 :root[data-theme="v4"] :has(> .onglet-page) { border-bottom-color: transparent !important; box-shadow: none !important; }
+
+/* (3.5.621) PLUS LÉGER (Charles : « fort lourd », « toutes ces lignes horizontales, cela ne va pas dans le sens du design simple »).
+   Dans la pile de l'Accueil : un seul bord, celui de la pile, dans la couleur principale — l'urgence se dit par le point après le
+   titre ; un seul filet entre deux volets ; pas de filet sous un titre fermé ; un volet ouvert reste dans la pile. */
+:root[data-theme="v4"] .volet .carte[data-rang] { --e-doc: var(--c-principal) !important; }
+:root[data-theme="v4"] .volet .carte[data-rang] > .entete-carte::after { content: none; }
+:root[data-theme="v4"] .volet:not([data-ferme="1"]) .carte[data-rang] > .entete-carte::after { content: ''; }
+:root[data-theme="v4"] .pile-volets > .volet:has(.carte[data-rang="milieu"], .carte[data-rang="bas"]) { margin-top: 0 !important; }
+:root[data-theme="v4"] .volet .carte .pile-etats > * + * .bloc-etat::after,
+:root[data-theme="v4"] .volet .carte .pile-etats > * + *.bloc-etat::after { left: 2.5rem; }
+/* Dans un volet ouvert, les lignes de son contenu n'ont pas d'arc : la pile du volet a déjà le sien. */
+:root[data-theme="v4"] .carte .pile-etats .bloc-etat::before { width: 0 !important; border-top: 0 !important; border-top-left-radius: 0 !important; border-left-width: 0 !important; }
+:root[data-theme="v4"] .carte .pile-etats .bloc-etat { border-radius: 0 !important; }
