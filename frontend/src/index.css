@@ -1768,7 +1768,132 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    fermés). Un bloc peut poser, À CÔTÉ de sa carte, un paragraphe, une seconde carte ou des marges : fermé, tout ce qui ne contient
    pas l'en-tête disparaît, et les conteneurs de l'en-tête perdent leurs marges. */
 .volet[data-ferme="1"]:has(.entete-carte, .entete-volet) *:not(:has(.entete-carte, .entete-volet)):not(.entete-carte):not(.entete-volet):not(.entete-carte *):not(.entete-volet *) { display: none; }
-.volet[data-ferme="1"]:has(.entete-carte, .entete-volet) :has(.entete-carte, .entete-volet) { margin-top: 0 !important; margin-bottom: 0 !important; padding-top: 0; padding-bottom: 0; gap: 0; }
-.volet[data-ferme="1"] .carte:has(.entete-carte) { padding: 0; }
+.volet[data-vide="1"] { position: absolute; visibility: hidden; pointer-events: none; width: 100%; }
+/* LA PILE DES VOLETS FERMÉS (3.5.615) : le dessin de « Qui est là » — une carte blanche, des lignes séparées par un filet, le liseré
+   d'urgence à gauche de chaque ligne. L'écart entre deux paquets (ou avec un volet ouvert) reste celui de la page. */
+.pile-volets { column-gap: 1rem; row-gap: 0; }
+.pile-volets > .volet + .volet { margin-top: 1rem; }
+.pile-volets > .volet:has(.carte[data-rang="milieu"], .carte[data-rang="bas"]):not(:has(.carte[data-rang="haut"], .carte[data-rang="seul"])) { margin-top: 0; }
+.volet[data-ferme="1"] :has(> .carte[data-rang]), .volet[data-ferme="1"]:has(.carte[data-rang]) > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+.volet[data-ferme="1"] .carte[data-rang] + .carte[data-rang] { margin-top: 0 !important; }
+.carte[data-rang] { margin: 0 !important; box-shadow: none; }
+.carte[data-rang="milieu"], .carte[data-rang="bas"] { border-top-width: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.carte[data-rang="haut"], .carte[data-rang="milieu"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.carte[data-rang] > .entete-carte { background: var(--c-fond_tuile, #fff); border-bottom: 0;
+  box-shadow: inset var(--d-tuile-lisere, 4px) 0 0 var(--c-disponible); }
+.volet[data-urgence="0"] .carte[data-rang] > .entete-carte { box-shadow: inset var(--d-tuile-lisere, 4px) 0 0 var(--c-refuse); }
+.volet[data-urgence="1"] .carte[data-rang] > .entete-carte { box-shadow: inset var(--d-tuile-lisere, 4px) 0 0 var(--c-attente); }
 .volet[data-urgence="0"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-refuse, #9D4A38); margin-left: .25rem; }
 .volet[data-urgence="1"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-attente, #B45309); margin-left: .25rem; }
+
+/* ═══ LE DESSIN DES DOCUMENTS — LE THÈME « LUCIE V4 » (3.5.620 : tout ce bloc ne vaut que sous data-theme="v4", choisi dans la palette ; 3.5.616, Charles, 21 novembre 2026 — maquette « Tuiles qui se touchent », v7 ; tranché : tableaux sans
+ * bande et filets pleins, fenêtres à bandeau gardées, carte sans état au bord de la couleur principale, une tuile seule = un groupe d'un).
+ *
+ * 1. Pas de cadre : un bord gauche coloré COMPLET (l'état, sinon la couleur principale), l'angle supérieur gauche arrondi d'où le
+ *    trait remonte en arc sur une partie du haut, l'angle inférieur droit arrondi. Fond blanc.
+ * 2. Le filet gris intérieur (sous un titre, entre deux lignes d'une pile) part de la première lettre et s'arrête avant le bord droit.
+ * 3. Des tuiles de même nature côte à côte forment un groupe : une pile (verticale), une bande (horizontale), dont le séparateur est
+ *    un trait centré qui ne touche ni le haut ni le bas.
+ * Les mesures se lisent dans --d-doc-* (réglables), avec leur valeur par défaut ici. */
+:root[data-theme="v4"] { --doc-trait: var(--d-doc-trait, 1px); --doc-arc: var(--d-doc-arc, 14px); --doc-haut: var(--d-doc-haut, 36%);
+  --doc-sep: var(--d-doc-sep, 55%); --doc-retrait: var(--d-doc-retrait, 18%); }
+
+/* L'ARC : un pseudo-élément qui dessine le bord gauche complet, l'arc et le trait du haut. */
+:root[data-theme="v4"] .carte, :root[data-theme="v4"] .bloc-etat:not(span, .inline-flex, .inline-block), :root[data-theme="v4"] .pile-etats { position: relative; }
+:root[data-theme="v4"] .carte::before, :root[data-theme="v4"] .bloc-etat:not(span, .inline-flex, .inline-block)::before, :root[data-theme="v4"] .pile-etats > :first-child::before {
+  content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--e-doc, var(--c-principal)); border-left: var(--doc-trait) solid var(--e-doc, var(--c-principal));
+  border-top-left-radius: var(--doc-arc);
+}
+/* (3.5.618) Le trait a l'épaisseur du contour d'un bouton (1 px) ; le trait du haut s'arrête à 7 rem au plus ; une pastille en ligne
+   (span, inline-flex) n'est pas une tuile et garde son dessin. */
+/* 1. LES CARTES */
+:root[data-theme="v4"] .carte { border: 0 !important; background: var(--c-fond_tuile, #fff);
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; box-shadow: none; }
+:root[data-theme="v4"] .carte > .entete-carte:first-child { border-radius: var(--doc-arc) 0 0 0; }
+/* L'en-tête : plus de bande grise ; une fine ligne sous le titre, de la première lettre à avant le bord droit. */
+:root[data-theme="v4"] .entete-carte { background: transparent !important; border-bottom: 0 !important; position: relative; }
+:root[data-theme="v4"] .entete-carte::after { content: ''; position: absolute; left: 1rem; right: var(--doc-retrait); bottom: 0;
+  border-bottom: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+/* Les tableaux : l'en-tête sans bande, une fine ligne dessous ; les filets entre les lignes restent pleins (ils guident l'œil). */
+/* (3.5.618) blanc, pas transparent : un en-tête qui reste en haut quand on défile laissait voir les lignes dessous. */
+:root[data-theme="v4"] .tab-entete { background: var(--c-fond_tuile, #fff) !important; }
+:root[data-theme="v4"] #root thead > tr > th { background: var(--c-fond_tuile, #fff) !important; }
+:root[data-theme="v4"] :is(.carte) .tableau-cadre { border: 0; border-radius: 0; background: transparent; }
+
+/* 2. LES TUILES ET ENCADRÉS : un groupe d'un. */
+:root[data-theme="v4"] .bloc-etat:not(span, .inline-flex, .inline-block) { --e-doc: var(--e); border: 0 !important; box-shadow: none;
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; background: var(--c-fond_tuile, #fff); }
+:root[data-theme="v4"] .bloc-etat:is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande):not(.tuile-compacte):not(:is(.etat-reussi, .etat-faveur, .etat-disponible, .etat-surveiller, .etat-corriger, .etat-neutre)):not(:is(button, label, a))::before { content: none; }
+:root[data-theme="v4"] .bloc-etat:is([data-etat="neutre"], :not([data-etat]), [data-etat="fort"]) { --e-doc: var(--c-principal); }
+:root[data-theme="v4"] .bloc-etat.sous-reserve::before { border-style: dashed; }
+
+/* 3a. LA PILE (listes à liseré) : plus de cadre commun ; chaque ligne garde son bord coloré complet ; la première porte l'arc,
+   la dernière arrondit l'angle inférieur droit ; le filet entre deux lignes part de la première lettre. */
+:root[data-theme="v4"] .pile-etats { border: 0 !important; background: transparent !important; padding-block: 0 !important; border-radius: 0 !important; }
+:root[data-theme="v4"] .pile-etats .bloc-etat { border-radius: 0 !important; background: var(--c-fond_tuile, #fff); box-shadow: none !important;
+  border-bottom: 0 !important; }
+:root[data-theme="v4"] .pile-etats .bloc-etat::before { width: 0; border-top: 0; border-top-left-radius: 0; }
+:root[data-theme="v4"] .pile-etats > :first-child.bloc-etat, :root[data-theme="v4"] .pile-etats > :first-child .bloc-etat { border-top-left-radius: var(--doc-arc) !important; }
+:root[data-theme="v4"] .pile-etats > :first-child.bloc-etat::before, :root[data-theme="v4"] .pile-etats > :first-child .bloc-etat::before { width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--e-doc); border-top-left-radius: var(--doc-arc); }
+:root[data-theme="v4"] .pile-etats > :first-child::before { content: none; }
+:root[data-theme="v4"] .pile-etats > :last-child.bloc-etat, :root[data-theme="v4"] .pile-etats > :last-child .bloc-etat { border-bottom-right-radius: var(--doc-arc) !important; }
+:root[data-theme="v4"] .pile-etats > * + *.bloc-etat::after, :root[data-theme="v4"] .pile-etats > * + * .bloc-etat::after { content: ''; position: absolute; pointer-events: none;
+  top: 0; left: 2.5rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+
+/* 3b. LA BANDE : une rangée de grandes tuiles côte à côte se fond ; le séparateur est le bord coloré de chaque tuile, raccourci et
+   centré ; seule la première porte l'arc, seule la dernière arrondit l'angle inférieur droit. */
+:root[data-theme="v4"] :has(> .tuile-grande + .tuile-grande) { column-gap: 0 !important; }
+:root[data-theme="v4"] .tuile-grande + .tuile-grande { border-radius: 0 !important; }
+:root[data-theme="v4"] .tuile-grande + .tuile-grande::before { width: 0; border-top: 0; border-top-left-radius: 0; top: calc((100% - var(--doc-sep)) / 2);
+  bottom: auto; height: var(--doc-sep); border-radius: 2px; }
+:root[data-theme="v4"] .tuile-grande:has(+ .tuile-grande) { border-bottom-right-radius: 0 !important; }
+:root[data-theme="v4"] .tuile-grande + .tuile-grande:not(:has(+ .tuile-grande)) { border-bottom-right-radius: var(--doc-arc) !important; }
+
+/* Les volets de l'Accueil (3.5.615) prennent le même dessin : la pile des cartes fermées. */
+:root[data-theme="v4"] .carte[data-rang] > .entete-carte { box-shadow: none !important; }
+:root[data-theme="v4"] .carte[data-rang="milieu"], :root[data-theme="v4"] .carte[data-rang="bas"] { border-top-left-radius: 0 !important; }
+:root[data-theme="v4"] .carte[data-rang="milieu"]::before, :root[data-theme="v4"] .carte[data-rang="bas"]::before { width: 0; border-top: 0; border-top-left-radius: 0; }
+:root[data-theme="v4"] .carte[data-rang="haut"], :root[data-theme="v4"] .carte[data-rang="milieu"] { border-bottom-right-radius: 0 !important; }
+:root[data-theme="v4"] .carte[data-rang="milieu"]::after, :root[data-theme="v4"] .carte[data-rang="bas"]::after { content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 2.5rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+:root[data-theme="v4"] .volet[data-urgence="0"] .carte[data-rang] { --e-doc: var(--c-refuse); }
+:root[data-theme="v4"] .volet[data-urgence="1"] .carte[data-rang] { --e-doc: var(--c-attente); }
+/* (3.5.618) UNE CARTE DANS UNE CARTE n'ouvre pas un second arc : le dessin appartient à la carte extérieure ; l'intérieure garde un
+   filet fin et un rayon ordinaire. */
+:root[data-theme="v4"] .carte .carte { border: 1px solid var(--c-filet, rgb(var(--gris-200))) !important; border-radius: var(--d-forme-champ, 8px) !important; }
+:root[data-theme="v4"] .carte .carte::before { content: none; }
+/* (3.5.619) TOUS LES TABLEAUX DE LA MÊME MANIÈRE : un tableau posé seul sur la page (hors carte) prend le dessin des documents. */
+:root[data-theme="v4"] .tableau-cadre:not(.carte .tableau-cadre) { position: relative; border: 0 !important; background: var(--c-fond_tuile, #fff) !important;
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; }
+:root[data-theme="v4"] .tableau-cadre:not(.carte .tableau-cadre)::before { content: ''; position: absolute; pointer-events: none; z-index: 2;
+  top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
+/* (3.5.619) DES CARTES QUI SE SUIVENT À LA VERTICALE FORMENT UNE PILE, quel que soit l'écran : dans une colonne (space-y), une carte
+   qui suit une carte s'y colle ; elle perd l'arc (le bord gauche reste complet), un filet aligné sur la première lettre la sépare de
+   la précédente ; seule la dernière arrondit l'angle inférieur droit. Même chose pour les tuiles et encadrés de bloc. */
+:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) {
+  margin-top: 0 !important; border-top-left-radius: 0 !important; }
+:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)):has(+ :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))) {
+  border-bottom-right-radius: 0 !important; }
+:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::before {
+  width: 0; border-top: 0; border-top-left-radius: 0; }
+:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::after {
+  content: ''; position: absolute; pointer-events: none; z-index: 1; top: 0; left: 1.25rem; right: var(--doc-retrait);
+  border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+/* (3.5.619) DANS UNE FENÊTRE, JUSTE LA LIGNE LATÉRALE GAUCHE (Charles : « si dans une fenêtre on a cela, juste ligne latérale
+   gauche ») : la fenêtre porte déjà un cadre ; un encadré ou une carte qu'elle contient n'a ni arc, ni trait du haut, ni coin. */
+:root[data-theme="v4"] .fenetre-lucie :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) { border-radius: 0 !important; }
+:root[data-theme="v4"] .fenetre-lucie :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::before { width: 0; border-top: 0; border-top-left-radius: 0; }
+
+/* (3.5.619) LES PILES TROUVÉES À L'ÉCRAN (lib/groupesVisuels.js) : deux cartes l'une sous l'autre, même largeur, se collent. */
+:root[data-theme="v4"] [data-voisin-haut] { margin-top: calc(-1 * var(--doc-colle, 0px)) !important; border-top-left-radius: 0 !important; }
+:root[data-theme="v4"] [data-voisin-bas] { border-bottom-right-radius: 0 !important; }
+:root[data-theme="v4"] [data-voisin-haut]::before { width: 0 !important; border-top: 0 !important; border-top-left-radius: 0 !important; }
+:root[data-theme="v4"] [data-voisin-haut]::after { content: ''; position: absolute; pointer-events: none; z-index: 1; top: 0; left: 1.25rem; right: var(--doc-retrait);
+  border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+/* (3.5.619) SOUS DES ONGLETS, PAS DE LIGNE (Charles : « pourquoi cette ligne horizontale ? Pas besoin ; on garde juste le trait sous
+   le menu actif ») : la rangée d'onglets perd son filet ; seul l'onglet ouvert reste souligné. */
+:root[data-theme="v4"] :has(> .onglet-page) { border-bottom-color: transparent !important; box-shadow: none !important; }

@@ -247,17 +247,17 @@ export default function Documentation() {
                 Le liseré gauche porte l'état ; toute la ligne ouvre le texte (ou le texte officiel en ligne
                 quand aucune version n'est publiée). */}
             {vus.length > 0 && (
-              <div className="carte overflow-hidden">
+              /* (3.5.619) Une liste à liseré : la pile du dessin des documents, comme partout ailleurs. */
+              <div className="pile-etats">
                 {vus.map(d => {
                   const lu = !!d.confirme_le || (!d.a_confirmer && !!d.ouvert_le);
-                  const couleur = d.a_confirmer ? 'var(--c-refuse)' : lu ? 'var(--c-reussi)' : 'var(--c-disponible)';
                   const lien = !d.version && d.source_url;
                   const ouvrir = () => (lien ? window.open(d.source_url, '_blank', 'noopener') : setOuvert(d.cle));
                   return (
                     <div key={d.cle} role="button" tabIndex={0} onClick={ouvrir}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrir(); } }}
-                      className="ligne-maison last:border-b-0 flex items-center gap-3 pl-4 pr-2 py-2.5 cursor-pointer"
-                      style={{ boxShadow: `inset 4px 0 0 ${couleur}` }}>
+                      className="bloc-etat ligne-maison flex items-center gap-3 pl-4 pr-2 py-2.5 cursor-pointer"
+                      data-etat={d.a_confirmer ? 'corriger' : lu ? 'reussi' : 'disponible'}>
                       <span className="flex-1 min-w-0">
                         <span className="text-sm font-semibold text-iip-texte flex items-center gap-1.5">
                           <span className="truncate">{d.titre}</span>
