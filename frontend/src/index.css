@@ -1973,7 +1973,8 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    Dessiné en fond (trois dégradés) : le ::before et le ::after servent déjà aux bords et aux filets des piles. */
 :root[data-theme="v4"] :is(
   .carte:not([data-voisin-bas], [data-rang="haut"], [data-rang="milieu"], .carte .carte, [data-grille-doc] > .carte, .fenetre-lucie .carte, [class*="space-y-"] > .carte:has(+ .carte)),
-  .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat, .carte .bloc-etat, .fenetre-lucie .bloc-etat, [data-voisin-bas], [data-grille-doc] > *, .tuile-grande:has(+ .tuile-grande)),
+  .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat, .carte .bloc-etat, .fenetre-lucie .bloc-etat, [data-voisin-bas], [data-grille-doc] > *, .tuile-grande:has(+ .tuile-grande),
+    :is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande, .tuile-compacte, .etat-reussi, .etat-faveur, .etat-disponible, .etat-surveiller, .etat-corriger, .etat-neutre, button, label, a)),
   .pile-etats:not(.carte .pile-etats) > :last-child.bloc-etat,
   [data-grille-doc],
   .tableau-cadre:not(.carte .tableau-cadre)
@@ -1982,7 +1983,8 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
   background-image:
     radial-gradient(circle at 0 0, transparent calc(var(--doc-arc) - var(--doc-trait)), var(--coin) calc(var(--doc-arc) - var(--doc-trait)), var(--coin) var(--doc-arc), transparent calc(var(--doc-arc) + 0.5px)),
     linear-gradient(var(--coin), var(--coin)), linear-gradient(var(--coin), var(--coin)) !important;
-  background-size: var(--doc-arc) var(--doc-arc), var(--doc-trait) calc(1cm - var(--doc-arc)), calc(1cm - var(--doc-arc)) var(--doc-trait) !important;
+  /* (3.5.637) Sur un élément bas (un encadré d'une ligne), le rappel se réduit : 40 % de la hauteur au plus. */
+  background-size: var(--doc-arc) var(--doc-arc), var(--doc-trait) max(0px, calc(min(1cm, 40%) - var(--doc-arc))), calc(1cm - var(--doc-arc)) var(--doc-trait) !important;
   background-position: right bottom, right bottom var(--doc-arc), right var(--doc-arc) bottom !important;
   background-repeat: no-repeat !important;
 }
