@@ -438,17 +438,20 @@ function TableauDetaille({ lignes, categories, peutEcrire, onEditer }) {
   return (
     <div className="overflow-x-auto carte">
       <table className="text-second min-w-full">
-        <thead><tr>{cles.map(k => <th key={k} className={`px-2 py-1.5 whitespace-nowrap ${MONTANTS.has(k) || k === 'Quantité' || k === 'TVA %' ? 'text-right' : 'text-left'}`}>{k}</th>)}{peutEcrire && <th />}</tr></thead>
+        {/* LE CRAYON EN TÊTE DE LIGNE, ET LA LIGNE ENTIÈRE CLIQUABLE (3.5.622, Charles : « je ne sais pas modifier mon budget ») : il
+            était dans la dernière colonne, hors de l'écran au bout d'un tableau très large. */}
+        <thead><tr>{peutEcrire && <th className="w-8" />}{cles.map(k => <th key={k} className={`px-2 py-1.5 whitespace-nowrap ${MONTANTS.has(k) || k === 'Quantité' || k === 'TVA %' ? 'text-right' : 'text-left'}`}>{k}</th>)}</tr></thead>
         <tbody>
           <tr className="ligne-total font-semibold">
-            {cles.map((k, i) => <td key={k} className="px-2 py-1.5 text-right whitespace-nowrap">{i === 0 ? <span className="float-left">Total · {lignes.length} lignes</span> : MONTANTS.has(k) && k !== 'P.U. HTVA' ? eurD(total(k)) : ''}</td>)}
             {peutEcrire && <td />}
+            {cles.map((k, i) => <td key={k} className="px-2 py-1.5 text-right whitespace-nowrap">{i === 0 ? <span className="float-left">Total · {lignes.length} lignes</span> : MONTANTS.has(k) && k !== 'P.U. HTVA' ? eurD(total(k)) : ''}</td>)}
           </tr>
           {lignesC.map(({ l, c }) => (
-            <tr key={l.id} className={`border-b border-slate-100 align-top ${l.depasse ? 'bg-red-50/40' : ''}`}>
+            <tr key={l.id} className={`border-b border-slate-100 align-top ${peutEcrire ? 'cursor-pointer hover:bg-slate-50' : ''} ${l.depasse ? 'bg-red-50/40' : ''}`}
+              onClick={peutEcrire ? () => onEditer(l) : undefined} title={peutEcrire ? 'Modifier cette ligne' : undefined}>
+              {peutEcrire && <td className="px-2 py-1.5"><button type="button" onClick={e => { e.stopPropagation(); onEditer(l); }} className="text-slate-400 hover:text-iip-blue" title="Modifier">✎</button></td>}
               {cles.map(k => <td key={k} className={`px-2 py-1.5 ${MONTANTS.has(k) || k === 'Quantité' || k === 'TVA %' ? 'text-right whitespace-nowrap' : k === 'Prévision' || k === 'Justification' || k === 'Remarque' ? 'min-w-[16rem]' : 'whitespace-nowrap'}`}>
                 {MONTANTS.has(k) ? eurD(c[k]) : String(c[k] ?? '')}</td>)}
-              {peutEcrire && <td className="px-2 py-1.5"><button onClick={() => onEditer(l)} className="text-slate-400 hover:text-iip-blue" title="Modifier">✎</button></td>}
             </tr>))}
         </tbody>
       </table>
