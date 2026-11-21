@@ -46,6 +46,8 @@ export const CATALOGUE = [
     quoi: "L'étudiant voit ce que dit le RDE (art. 19) pour sa situation — remboursement avant le premier dixième, frais dus après — et demande sa désinscription, de toute l'année ou d'unités ; la date de la demande fait foi. Le secrétariat confirme dans la fiche → Finances." },
   { cle: 'espace.amenagements', famille: 'espace', titre: 'Aménagement raisonnable — la demande en ligne',
     quoi: "L'étudiant remplit la demande (cadre A : unités, aménagements demandés, difficultés, pièce jointe) au moins 10 jours ouvrables avant l'ouverture de l'unité ; au-delà, il est renvoyé vers la personne de référence, à qui il écrit depuis son espace. La personne de référence est prévenue et reprend le dossier." },
+  { cle: 'espace.photo', famille: 'espace', titre: 'Ma photo d’identité',
+    quoi: "L'étudiant dépose une photo de type identité, sur fond blanc, pour son dossier ; le secrétariat l'accepte ou la refuse avec un motif (Étudiants → Photos à valider). Acceptée, elle paraît sur la fiche, dans les listes des professeurs et sur la carte d'étudiant. Tant qu'elle manque, l'espace la rappelle." },
   { cle: 'espace.sante', famille: 'espace', titre: 'Ma santé — la visite médicale',
     quoi: "L'étudiant voit sa visite médicale (CESI) : la date de l'examen, jusqu'à quand elle vaut, ou qu'elle manque — pas de visite médicale, pas de stage et pas de réussite. Encodée par le secrétariat dans la fiche → Santé." },
   { cle: 'espace.candidats', famille: 'espace', titre: "Le code d'accès des candidats",

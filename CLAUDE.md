@@ -4668,6 +4668,16 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**LA PHOTO D'IDENTITÉ DE L'ÉTUDIANT** (3.5.606, demande du secrétariat par Charles, 21 novembre 2026 ; tranché : l'étudiant dépose, le
+secrétariat valide ; demandée avec rappel, jamais bloquante ; fiche, trombinoscope, carte d'étudiant, carte eID). `lib/photoEtudiant.js`
+(table `etudiant_photo`, fichiers DATA_DIR/photos/<étudiant>/<id> ; statut a_valider · acceptee · refusee · remplacee ; secrétariat et eID =
+acceptée d'emblée ; `peutVoir` : direction et secrétariat, coordination de la section, professeur de ses cours), `routes/photos.js` sur
+`/api/photos` (sans module ; JSON 8 Mo). Espace : fonction `espace.photo` (NÉE ÉTEINTE — Mise en service), Mes démarches → Ma photo
+(`portail/MaPhoto.jsx`, réduite à 1 000 px JPEG avant l'envoi), rappel dans Aujourd'hui ; portail `ph_geste`, relevé `r.ph` dans
+`portailSync`, état déposé dans le lot (`espace_lot.photo`), notification `photo_a_valider` au secrétariat. Lucie : fiche → Identité →
+bloc Photo (accepter/refuser, déposer, reprendre de la carte eID, carte d'étudiant PDF 85,6 × 54 mm), Étudiants → rail → Photos à valider
+(`?outil=photos`), Mes cours → Ma liste → Trombinoscope ; Nouvel étudiant garde la photo de la carte eID lue. nginx du portail : photo et
+certificat à 26 Mo (le certificat était limité à 1 Mo).
 **L'ÉVALUATION DU PERSONNEL** (3.5.605, Charles, 21 novembre 2026, cahier des charges v1.0 ; tranché : construit et mis en production ;
 clé propre, production seule ; Personnel → Évaluations et l'espace de l'évalué ; code redemandé, 15 minutes). `lib/evaluationPersonnel.js`,
 `routes/evaluations.js` (sans module : rôle jugé SUR l'évaluation — évalué, évaluateur, gestionnaire = admin et directeur, PAS la

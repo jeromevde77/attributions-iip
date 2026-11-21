@@ -153,6 +153,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS cm_geste (id INTEGER PRIMARY KEY AUTOINCREME
   du TEXT NOT NULL, au TEXT NOT NULL, nom TEXT, taille INTEGER, contenu BLOB,
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
 
+/* MA PHOTO D'IDENTITÉ (3.5.606) : l'étudiant dépose sa photo ; elle n'attend ici que le relevé de Lucie, qui la range « à valider ». */
+db.exec(`CREATE TABLE IF NOT EXISTS ph_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, taille INTEGER, contenu BLOB,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
+try { db.exec('ALTER TABLE espace_lot ADD COLUMN photo TEXT'); } catch { /* déjà là */ }
+
 /* L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : la demande (cadre A, sa pièce) ou un message à la personne de référence ; noté ici,
    jugé et écrit par Lucie au relevé. */
 db.exec(`CREATE TABLE IF NOT EXISTS ar_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
@@ -438,7 +443,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'desinscription'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'photo', 'desinscription'];
 // L'aperçu voit ce que Lucie dit (`vues`, 3.5.548 : sans les frais tant qu'ils sont éteints), à défaut tout.
 const vuesDe = id => { try { const v = db.prepare('SELECT vues FROM etudiant WHERE id = ?').get(id)?.vues; return v ? JSON.parse(v) : null; } catch { return null; } };
 const fonctionsVues = req => (req.apercu ? (vuesDe(req.etudiant?.id) || TOUTES) : fonctionsDe(req.etudiant?.id));
@@ -868,6 +873,26 @@ pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw(
 pub.use('/api/portail/certificat', (err, req, res, next) => (err?.type === 'entity.too.large'
   ? res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' }) : next(err)));
 
+// ── MA PHOTO (3.5.606) : l'état déposé par Lucie, et le dépôt en attente de relevé. ──
+pub.get('/api/portail/photo', connecte, exige('photo'), (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  const g = db.prepare('SELECT id, cree_le, releve_le, erreur, resultat FROM ph_geste WHERE etudiant_id = ? ORDER BY id DESC LIMIT 1').get(req.etudiant.id);
+  res.json({ pret: !!l, photo: l?.photo ? JSON.parse(l.photo) : null, dernier_envoi: g || null });
+});
+pub.post('/api/portail/photo', connecte, exige('photo'), express.raw({ type: 'application/octet-stream', limit: '6mb' }), (req, res) => {
+  const b = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!b || !b.length) return res.status(400).json({ error: 'Joignez votre photo.' });
+  const h = b.toString('hex', 0, 4);
+  if (!(h.startsWith('ffd8ff') || h === '89504e47')) return res.status(400).json({ error: 'La photo doit être une image JPEG ou PNG.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM ph_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 5) {
+    return res.status(429).json({ error: 'Trop de dépôts en une heure. Réessayez plus tard.' });
+  }
+  db.prepare('INSERT INTO ph_geste (etudiant_id, taille, contenu) VALUES (?,?,?)').run(req.etudiant.id, b.length, b);
+  res.json({ ok: true });
+});
+pub.use('/api/portail/photo', (err, req, res, next) => (err?.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'Photo trop lourde (5 Mo au plus).' }) : next(err)));
+
 // ── MA SANTÉ (3.5.286) : la visite médicale du CESI, déposée par Lucie (sans le formulaire). ──
 pub.get('/api/portail/sante', connecte, exige('sante'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
@@ -1135,6 +1160,7 @@ int.post('/interne/va', (req, res) => {
   const its = db.prepare(`UPDATE espace_lot SET tfe = ?, stage = ? WHERE etudiant_id = ?`);
   const iar = db.prepare(`INSERT INTO espace_lot (etudiant_id, ar, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET ar = excluded.ar`);
   const isa = db.prepare(`INSERT INTO espace_lot (etudiant_id, sante, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET sante = excluded.sante`);
+  const iph = db.prepare(`INSERT INTO espace_lot (etudiant_id, photo, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET photo = excluded.photo`);
   const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
   db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
@@ -1144,6 +1170,7 @@ int.post('/interne/va', (req, res) => {
     if (x.tfe !== undefined || x.stage !== undefined) its.run(JSON.stringify(x.tfe ?? null), JSON.stringify(x.stage ?? null), Number(x.etudiant_id));
     if (x.ar !== undefined) iar.run(Number(x.etudiant_id), JSON.stringify(x.ar ?? null));
     if (x.sante !== undefined) isa.run(Number(x.etudiant_id), JSON.stringify(x.sante ?? null));
+    if (x.photo !== undefined) iph.run(Number(x.etudiant_id), JSON.stringify(x.photo ?? null));
   } })();
   res.json({ ok: true, n: l.length });
 });
@@ -1172,6 +1199,11 @@ int.get('/interne/va/piece/:id', (req, res) => {
 
 int.get('/interne/ar/piece/:id', (req, res) => {
   const g = db.prepare('SELECT contenu FROM ar_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
+  if (!g?.contenu) return res.status(404).end();
+  res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
+});
+int.get('/interne/ph/piece/:id', (req, res) => {
+  const g = db.prepare('SELECT contenu FROM ph_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
   if (!g?.contenu) return res.status(404).end();
   res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
 });
@@ -1285,6 +1317,7 @@ int.get('/interne/releve', (req, res) => {
     pae_avis: db.prepare('SELECT id, etudiant_id, annee, message, cree_le FROM pae_avis WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     ts: db.prepare('SELECT id, etudiant_id, type, tfe_id, jalon_id, nom, taille, texte FROM ts_geste WHERE releve_le IS NULL ORDER BY id LIMIT 30').all(),
     cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
+    ph: db.prepare('SELECT id, etudiant_id, taille FROM ph_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le, objet FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
@@ -1313,6 +1346,11 @@ int.post('/interne/acquitter', (req, res) => {
         .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM cm_geste WHERE releve_le < datetime('now', '-180 days')").run();
+    for (const g of Array.isArray(req.body?.ph) ? req.body.ph : []) {
+      db.prepare("UPDATE ph_geste SET releve_le = datetime('now'), erreur = ?, resultat = ?, contenu = NULL WHERE id = ?")
+        .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
+    }
+    db.prepare("DELETE FROM ph_geste WHERE releve_le < datetime('now', '-90 days')").run();
     for (const g of Array.isArray(req.body?.ar) ? req.body.ar : []) {
       db.prepare("UPDATE ar_geste SET releve_le = datetime('now'), erreur = ?, resultat = ?, contenu = NULL WHERE id = ?")
         .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));

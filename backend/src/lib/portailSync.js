@@ -27,6 +27,7 @@ import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
 import { parcoursPortail, fraisPortail, docsDesUnites } from './portailEspace.js';
 import { santePortail } from './suiviSante.js';
+import { photoPortail, deposerPhoto, mimeDe as mimePhoto } from './photoEtudiant.js';
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offreAR, demandeEnLigne, messageAR } from './portailAmenagements.js';
@@ -281,7 +282,9 @@ async function deposerVA(ids) {
         // L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : les unités et leur délai, les mesures, la référente, le dossier.
         ar: f.has('amenagements') ? offreAR(e, anneeActive()) : null,
         // MA SANTÉ (3.5.286) : la visite médicale du CESI, telle que la fiche la connaît.
-        sante: f.has('sante') ? santePortail(e) : null });
+        sante: f.has('sante') ? santePortail(e) : null,
+        // MA PHOTO (3.5.606) : l'état de sa photo d'identité (acceptée, à valider, refusée et pourquoi).
+        photo: f.has('photo') ? photoPortail(e.id) : null });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
@@ -291,7 +294,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ar: [], messages_lus: [], messages_reponses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ph: [], ar: [], messages_lus: [], messages_reponses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -412,6 +415,31 @@ async function relever() {
     } catch (x) { console.error('[portail] certificat :', x.message); erreur = 'Le certificat n’a pas pu être enregistré : réessayez, ou remettez-le au secrétariat.'; }
     ok.cm.push({ id: g.id, erreur, resultat });
   }
+  // LA PHOTO D'IDENTITÉ DÉPOSÉE EN LIGNE (3.5.606) : contrôlée, rangée « à valider » ; le secrétariat décide.
+  for (const g of r.ph || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null, resultat = null;
+    try {
+      if (!e) erreur = 'Votre accès à l’espace n’est plus valable : adressez-vous au secrétariat.';
+      else if (!fonctionPour('espace.photo', { etudiantId: e.id })) erreur = 'Le dépôt de la photo en ligne n’est pas ouvert : remettez-la au secrétariat.';
+      else {
+        const contenu = await lireBinaire(`/interne/ph/piece/${g.id}`);
+        if (!contenu?.length || !mimePhoto(contenu)) erreur = 'La photo n’a pas pu être lue : déposez-la à nouveau (JPEG ou PNG).';
+        else {
+          const x = deposerPhoto({ etudiantId: e.id, buffer: contenu, source: 'espace', par: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} (étudiant, en ligne)` });
+          if (x.erreur) erreur = x.erreur; else resultat = 'Reçue : le secrétariat la vérifie.';
+          if (!x.erreur) {
+            try {
+              db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par) VALUES ('photo_a_valider', ?, ?, '/etudiants?outil=photos', 'secretariat', ?)`)
+                .run(`Photo d’identité à valider — ${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`, 'Déposée depuis l’espace étudiant.', 'espace étudiant');
+            } catch { /* */ }
+          }
+        }
+      }
+    } catch (x) { console.error('[portail] photo :', x.message); erreur = 'La photo n’a pas pu être enregistrée : réessayez.'; }
+    ok.ph.push({ id: g.id, erreur, resultat });
+    touches.add(Number(g.etudiant_id));
+  }
   // L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : la demande (cadre A + pièce) ou le message à la personne de référence.
   for (const g of r.ar || []) {
     const e = etudiantDuPortail(g.etudiant_id);
@@ -456,7 +484,7 @@ async function relever() {
     } catch (x) { console.error('[portail] désaccord PAE :', x.message); }
     ok.pae_avis.push(Number(a.id));
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ar.length
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ph.length || ok.ar.length
     || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);

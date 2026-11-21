@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconListDetails, IconChevronDown, IconPrinter, IconFileSpreadsheet, IconMail, IconColumns } from '@tabler/icons-react';
+import { IconListDetails, IconChevronDown, IconPrinter, IconFileSpreadsheet, IconMail, IconColumns, IconCamera } from '@tabler/icons-react';
 import { Fenetre, OutilFenetre } from './ui.jsx';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { Trombinoscope } from './PhotoEtudiant.jsx';
 
 /* COMPOSER SA LISTE (3.5.147, Charles : « pouvoir composer des listes comme dans Éditions, avec mail, matricule… »). Les colonnes à
    garder, dans l'ordre ; des colonnes vides à remplir à la main ; un titre. Le N° est toujours là. Aperçu/PDF par le serveur (la
@@ -62,6 +63,7 @@ export default function MaListe({ etudiants, groupe, cours, onImprimer, occupe }
   // celui-ci est à droite de l'écran, à gauche sinon (dans l'espace enseignant, le bouton est à gauche de la tuile).
   const [aGauche, setAGauche] = useState(false);
   const [composer, setComposer] = useState(false);
+  const [trombi, setTrombi] = useState(false);
   const [msg, setMsg] = useState('');
   const boite = useRef(null);
   useEffect(() => {
@@ -104,12 +106,14 @@ export default function MaListe({ etudiants, groupe, cours, onImprimer, occupe }
             [IconPrinter, 'Imprimer la liste (PDF)', 'Avec une colonne de signature ; aperçu d’abord', () => { setOuvert(false); onImprimer(); }],
             [IconFileSpreadsheet, 'Télécharger en Excel', 'Nom, prénom, matricule, groupe, adresse école', excel],
             [IconMail, 'Copier les adresses e-mail', 'Les adresses de l’école, séparées par « ; »', adresses],
+            [IconCamera, 'Trombinoscope', 'Les photos d’identité des étudiants du cours', () => { setOuvert(false); setTrombi(true); }],
           ].map(([Ic, t, d, f]) => (
             <button key={t} type="button" onClick={f} className="w-full text-left px-3 py-2 rounded-champ hover:bg-slate-50 flex gap-2.5">
               <Ic size={18} className="text-slate-500 mt-0.5 flex-none" />
               <span><span className="block text-sm font-medium">{t}</span><span className="block text-second text-slate-500">{d}</span></span>
             </button>))}
         </div>)}
+      {trombi && <Fenetre icone={IconCamera} titre={`Trombinoscope — ${cours}`} large="grande" onFermer={() => setTrombi(false)}><Trombinoscope cours={cours} /></Fenetre>}
       {composer && <Composer etudiants={etudiants} cours={cours} groupe={groupe} onImprimer={onImprimer} onFermer={() => setComposer(false)} />}
     </div>);
 }
