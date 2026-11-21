@@ -4698,8 +4698,10 @@ production → refus d'écrire ; la dev prend une clé d'essai, les évaluations
 soumissions ; `GET /:id/grille/:partie` refusé et journalisé). Synthèse sans moyenne (concordant 0, proche 1, divergent ≥ 2, à clarifier =
 NO d'un seul côté). Compte rendu : l'évaluateur valide d'abord, l'évalué ajoute ses observations (désaccord) et valide → référence
 `EVAL-…`, PDF sans QR. Conservation : `lucie_config` « eval_conservation_ans » (vide = rien n'est effacé). Banc `test/evaluations.mjs`
-(29 ok). Tables dans `OFFICIELS` de l'annulation. **Le référentiel de la direction adjointe n'a que la STRUCTURE du formulaire 2026 :
-missions, comportements et compétences sont à reprendre du PDF** (Référentiels → Nouvelle version). Mise en place : `scripts/vps/EVALUATIONS.md`.
+(29 ok). Tables dans `OFFICIELS` de l'annulation. **Le référentiel de la direction adjointe est le formulaire « Auto-évaluation 2026 »** (3.5.608 :
+8 missions du profil, 3 missions apparues + lignes libres, 9 comportements en 3 compétences — `groupe` sur le critère —, 5 compétences
+techniques, échelles et ancrages du formulaire ; `reprendreFormulaireDA` remplace au démarrage le modèle provisoire tant qu'aucune
+évaluation ne l'utilise). Mise en place : `scripts/vps/EVALUATIONS.md`.
 **L'INVITATION SE PROGRAMME, ET LE MOT D'ACCUEIL EST PROPOSÉ** (3.5.604, Charles, 21 novembre 2026 : « que les accès se fassent à
 minuit une, lundi, mardi… comme ça je prépare le travail ; et un mot d'accueil déjà rédigé »). Mise en service → Inviter : « Programmer
 l'invitation » (jour et heure de Bruxelles, défaut : lundi 00:01) → `portail_invitation_programmee` (cible, mot, auteur) ; un tour chaque
