@@ -261,7 +261,7 @@ function FaceReglages({ info }) {
   const [taux, setTaux] = useState('');
   const [erreur, setErreur] = useState('');
   const charger = () => api('/regles').then(j => { setD(j); setTaux(j.taux ?? ''); }).catch(e => setErreur(e.message));
-  useEffect(charger, []);
+  useEffect(() => { charger(); }, []);   // un effet ne rend jamais une promesse (3.5.616 : écran blanc)
   async function regle(p, valeur) {
     try { await envoyer(`/regles/${p.id}`, 'PUT', { regle: valeur, remarque: p.remarque }); charger(); } catch (e) { informer({ message: e.message }); }
   }
