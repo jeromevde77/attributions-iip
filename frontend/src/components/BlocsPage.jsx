@@ -48,7 +48,29 @@ export default function BlocsPage({ page, blocs, volets = false }) {
         if ((el.dataset.vide || '') !== v) { if (v) el.dataset.vide = v; else delete el.dataset.vide; }
       }
     });
-    const tout = () => { mesurer(); vides(); };
+    /* LES VOLETS FERMÉS QUI SE SUIVENT FORMENT UNE SEULE PILE (3.5.615, Charles : « pourquoi tu n'appliques pas le même design qu'au
+       dessus dès que deux tuiles se touchent ? ») : comme « Qui est là » et « Quoi de neuf », une carte, des lignes séparées par un filet.
+       Chaque carte fermée reçoit sa place dans la pile (`data-rang` : seul, haut, milieu, bas) ; un volet ouvert coupe la pile. */
+    const piles = () => requestAnimationFrame(() => {
+      const conteneur = Object.values(refs.current).find(Boolean)?.parentElement;
+      if (!conteneur) return;
+      const lignes = [];
+      for (const v of conteneur.children) {
+        if (v.dataset.vide) continue;
+        if (v.dataset.ferme !== '1') { lignes.push(null); continue; }
+        const cartes = [...v.querySelectorAll('.carte')].filter(c => c.querySelector(':scope > .entete-carte') && c.offsetHeight > 0);
+        if (!cartes.length) { lignes.push(null); continue; }
+        lignes.push(...cartes);
+      }
+      lignes.forEach((c, i) => {
+        if (!c) return;
+        const avant = !!lignes[i - 1], apres = !!lignes[i + 1];
+        const r = avant && apres ? 'milieu' : avant ? 'bas' : apres ? 'haut' : 'seul';
+        if (c.dataset.rang !== r) c.dataset.rang = r;
+      });
+      for (const c of conteneur.querySelectorAll('.carte[data-rang]')) if (!lignes.includes(c)) delete c.dataset.rang;
+    });
+    const tout = () => { mesurer(); vides(); piles(); };
     tout();
     const obs = new MutationObserver(tout);
     for (const el of Object.values(refs.current)) if (el) obs.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-etat'] });
@@ -78,7 +100,7 @@ export default function BlocsPage({ page, blocs, volets = false }) {
   const basculer = (liste, cle) => maj(p => { const s = new Set(p[liste] || []); s.has(cle) ? s.delete(cle) : s.add(cle); return { ...p, [liste]: [...s] }; });
   const ranger = (de, vers) => maj(p => ({ ...p, ordre: deplacer(ranges.map(b => b.cle), de, vers) }));
   return (
-    <div className="relative grid gap-4 grid-cols-1 lg:grid-cols-2">
+    <div className={`relative grid grid-cols-1 lg:grid-cols-2 ${volets && !mep.actif ? 'pile-volets' : 'gap-4'}`}>
       {ranges.filter(b => mep.actif || !masques.has(b.cle)).map(b => (
         // Un bloc qui n'a rien à montrer ne garde pas sa place : vide, il laissait un trou (11 octobre 2026).
         <div key={b.cle} ref={el => { refs.current[b.cle] = el; }} className={`min-w-0 empty:hidden ${volets ? 'volet' : ''} ${demis.has(b.cle) ? '' : 'lg:col-span-2'} ${mep.actif && masques.has(b.cle) ? 'opacity-40' : ''}`}
