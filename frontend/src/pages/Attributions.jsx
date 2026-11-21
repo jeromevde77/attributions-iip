@@ -1912,31 +1912,17 @@ export default function Attributions() {
                         className="cursor-pointer"/>
                     </th>
                   : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{
-                      unite==='heures' && (c.key==='periodes_attribuees' || c.key==='autonomie_attribuee')
+                      <>{unite==='heures' && (c.key==='periodes_attribuees' || c.key==='autonomie_attribuee')
                         ? (c.key==='periodes_attribuees' ? 'Heu.' : 'Aut.(h)')
-                        : c.label
+                        : c.label}
+                      {/* LE PLAFOND DANS LE TITRE DE SA COLONNE (3.5.633, Charles : « fusionne les lignes : je veux Per. /20 ») : une ligne
+                          d'en-tête au lieu de deux. */}
+                      {c.key==='periodes_attribuees' && plafondPer != null && <span className="plafond-entete"> / {affPlafond(plafondPer)}</span>}
+                      {c.key==='autonomie_attribuee' && plafondAut != null && <span className="plafond-entete"> / {affPlafond(plafondAut)}</span>}</>
                     }</ResizableHeader>
                 )}
               </tr>
-              {/* LA LIGNE DES PLAFONDS — sous son libellé, à l'aplomb de sa
-                  colonne. Posée ailleurs, un nombre gris ne dit pas ce qu'il
-                  borne ; ici, au moment où l'on tape, la limite est juste
-                  au-dessus du curseur. Elle ne paraît que s'il y a un plafond à
-                  montrer : une ligne vide n'apprend rien et coûte une hauteur. */}
-              {(plafondPer != null || plafondAut != null) && (
-                <tr className="plafonds">
-                  {COLS_COURS.map(c => (
-                    <th key={c.key}
-                      style={c.flex ? {} : {width:c.width,minWidth:c.width,maxWidth:c.width}}
-                      className={c.num ? 'num' : ''}>
-                      {c.key==='periodes_attribuees' && plafondPer != null
-                        ? `/ ${affPlafond(plafondPer)}`
-                        : c.key==='autonomie_attribuee' && plafondAut != null
-                          ? `/ ${affPlafond(plafondAut)}` : ''}
-                    </th>
-                  ))}
-                </tr>
-              )}
+
               </thead>)}
               <tbody>{renderActiviteGroups(cg, key, COLS_COURS)}</tbody>
             </table>
