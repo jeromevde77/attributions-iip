@@ -29,6 +29,7 @@ const SignalerAbsenceLucie = lazy(() => import('../components/AbsencesEnseignant
 const MesDisponibilitesLucie = lazy(() => import('../components/MesDisponibilites.jsx'));
 const MesReunionsLucie = lazy(() => import('../components/MesReunions.jsx'));
 const MaCandidatureLucie = lazy(() => import('../components/MaCandidature.jsx'));
+const EvaluationsLucie = lazy(() => import('../pages/Evaluations.jsx'));
 const VoyagesLucie = lazy(() => import('../components/VoyagesEtudes.jsx'));
 const MesExamensLucie = lazy(() => import('../components/MesExamens.jsx'));
 const MesEditionsLucie = lazy(() => import('../components/MesEditions.jsx'));
@@ -836,6 +837,8 @@ const FACES = [
 const FACES_BAS = [
   { k: 'fiche', l: 'Ma fiche', I: IconId },
   { k: 'candidature', l: 'Ma candidature', I: IconFileCheck },
+  // MON ÉVALUATION (3.5.605) : l'écran des évaluations de Lucie, par le relais — l'évalué y remplit sa grille et valide.
+  { k: 'evaluation', l: 'Mon évaluation', I: IconChecklist },
   { k: 'aide', l: 'Aide', I: IconHelpCircle },
   { k: 'ecole', l: 'L’école', I: IconBuilding },
   { k: 'compte', l: 'Mon compte', I: IconLock },
@@ -853,7 +856,7 @@ const GROUPES = [
   { k: 'g-rendre', l: 'À rendre', I: IconInbox, enfants: ['rendre', 'amenagements', 'prestations'] },
   { k: 'g-suivis', l: 'Mes suivis', I: IconRoute, enfants: ['tfe', 'stages'] },
   { k: 'agenda', l: 'Mon agenda', I: IconCalendar },
-  { k: 'g-moi', l: 'Moi et l’école', I: IconUserCircle, enfants: ['fiche', 'candidature', 'ecole', 'compte', 'aide'] },
+  { k: 'g-moi', l: 'Moi et l’école', I: IconUserCircle, enfants: ['fiche', 'candidature', 'evaluation', 'ecole', 'compte', 'aide'] },
 ];
 const FACE = Object.fromEntries([...FACES, ...FACES_BAS].map(f => [f.k, f]));
 const groupeDe = k => GROUPES.find(g => g.k === k || (g.enfants || []).includes(k));
@@ -1008,6 +1011,7 @@ export default function EspaceEnseignant() {
           : face === 'editions' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesEditionsLucie /></Suspense> : <ChargementLucie />)
           : face === 'prestations' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MesPrestationsLucie /></Suspense> : <ChargementLucie />)
           : face === 'candidature' ? (lucie ? <Suspense fallback={<ChargementLucie />}><MaCandidatureLucie /></Suspense> : <ChargementLucie />)
+          : face === 'evaluation' ? (lucie ? <Suspense fallback={<ChargementLucie />}><EvaluationsLucie /></Suspense> : <ChargementLucie />)
           : face === 'ecole' ? <LEcole />
           : face === 'compte' ? <MonCompte moi={moi} onToken={entrer} />
           : null)}

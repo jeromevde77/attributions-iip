@@ -10,7 +10,7 @@ import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4, IconEye } from '@tabler/icons-react';
+import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4, IconEye, IconClipboardCheck } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral, OuvrirEditions, Fenetre, Encadre, OutilFenetre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
@@ -26,6 +26,7 @@ const Classement = lazy(() => import('./Classement.jsx'));
 const TempsTravail = lazy(() => import('./TempsTravail.jsx'));
 const CandidaturesMDP = lazy(() => import('../components/CandidaturesMDP.jsx'));
 const PrestationsExperts = lazy(() => import('../components/PrestationsExperts.jsx'));
+const Evaluations = lazy(() => import('./Evaluations.jsx'));
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 
 /**
@@ -2356,6 +2357,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           ...(ttMoi?.designe && !ttMoi?.gere ? [{ label: 'Mon temps', items: [
             { key: 'nav-temps', label: 'Mon temps', icon: IconClockHour4, actif: vue === 'temps', onClick: () => setVue('temps') },
           ]}] : []),
+          // L'ÉVALUATION DU PERSONNEL (3.5.605) : pour chacun, ses évaluations ; pour la direction, la gestion.
+          { label: 'Évaluations', items: [
+            { key: 'nav-evaluations', label: 'Évaluations', icon: IconClipboardCheck, actif: vue === 'evaluations', onClick: () => setVue('evaluations') },
+          ]},
           ...(estDirection(getUser()) ? [{ label: 'Carrière', items: [
             { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription,
               actif: vue === 'classement', onClick: () => setVue('classement') },
@@ -2374,6 +2379,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           {vue === 'temps' && <TempsTravail />}
           {vue === 'candidatures' && <CandidaturesMDP />}
           {vue === 'prestations' && <PrestationsExperts />}
+          {vue === 'evaluations' && <Evaluations />}
         </Suspense>
       ) : (<>
       {/* UN SEUL FORMAT DE TITRE, celui de PageHeader : icône turquoise,

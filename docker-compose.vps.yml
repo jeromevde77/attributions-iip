@@ -146,6 +146,9 @@ services:
       # ELLE NE SE CHANGE PAS : une nouvelle clé rend illisibles tous les
       # secrets déjà enrôlés, et chacun doit reconfigurer son application.
       MFA_KEY: ${MFA_KEY:?MFA_KEY manquant dans .env}
+      # L'ÉVALUATION DU PERSONNEL (3.5.605) : clé propre, PRODUCTION SEULE (la dev garde sa clé d'essai : une évaluation réelle n'y est
+      # jamais lisible). Absente, le module refuse d'écrire. Voir scripts/vps/EVALUATIONS.md.
+      EVAL_KEY: ${EVAL_KEY:-}
     volumes:
       - ./prod/data:/app/data
       - ./prod/backups:/app/data/backups

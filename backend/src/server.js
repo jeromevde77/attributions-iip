@@ -17,6 +17,7 @@ import { migrerReunions } from './db/migrations_reunions.js';
 import { migrerBesoinsOffres } from './db/migrations_besoins.js';
 import { migrerJournalPersonnel } from './db/migrations_journal.js';
 import mfaRoutes, { migrerMfa } from './routes/mfa.js';
+import evaluationsRoutes from './routes/evaluations.js';
 import { garderModule, garderModuleSauf } from './middleware/garde.js';
 import { migrerConstat } from './middleware/garde.js';
 import { verifierCleMfa } from './lib/secret-box.js';
@@ -3268,6 +3269,10 @@ try { (await import('./lib/certificatMedical.js')).migrerCertificats(); } catch 
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
+// L'ÉVALUATION DU PERSONNEL (3.5.605) : sans module, chaque route juge le rôle sur l'évaluation ; la conservation se vérifie chaque jour.
+app.use('/api/evaluations', garderModule('evaluations'), evaluationsRoutes);
+{ const tour = () => import('./lib/evaluationPersonnel.js').then(m => m.purgerEchues()).catch(e => console.error('[évaluations] conservation :', e.message));
+  setTimeout(tour, 60 * 1000).unref?.(); setInterval(tour, 24 * 60 * 60 * 1000).unref?.(); }
 app.use('/api/attributions', garderModule('attributions'), attrRoutes);
 // LIRE LE DOSSIER PÉDAGOGIQUE D'UNE UE EST OUVERT À TOUT COMPTE (3.5.108, Charles : l'étape 0 de Mes cours disait « aucun
 // dossier » à un professeur — le module Référentiels lui est fermé). C'est le référentiel approuvé par le Gouvernement ;

@@ -49,6 +49,8 @@ const OFFICIELS = {
   envoi_mail: 'un courriel envoyé', communication_destinataire: 'une communication envoyée',
   offre_envoi: 'un envoi', rapport_mensuel_envoi: 'un rapport envoyé',
   geste_journal: 'un journal en ajout seul', note_doublon_journal: 'un journal en ajout seul',
+  eval_evaluation: 'une évaluation du personnel', eval_reponse: 'une grille d’évaluation', eval_compte_rendu: 'un compte rendu d’évaluation',
+  eval_journal: 'le journal des évaluations', eval_deverrou: 'un déverrouillage', eval_referentiel: 'un référentiel d’évaluation',
   pae_derogation: 'une dérogation au PAE (registre en ajout seul)', journal_personnel: 'le journal du personnel',
 };
 /* Et des lignes qui deviennent officielles par leur état. */
