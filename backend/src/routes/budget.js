@@ -407,10 +407,12 @@ r.post('/import', authRequired, roleRequired('admin', 'directeur', 'directeur_ad
   const autorisees = sectionsAutorisees(req.user);
   const refusees = new Set();
 
+  // LE TABLEAU DE LUCIE SE RÉIMPORTE ENTIER (3.5.624, Charles : « j'ai mis le document à jour ») : catégorie, priorité, mois,
+  // justification, devis ; le statut (l'arbitrage) seulement par la direction.
   const ins = db.prepare(`
     INSERT INTO budget_ligne (annee_civile, section, compte_ref, details, a_charge,
-      prix_unitaire, quantite, taux_tva, remarque, statut, cree_par)
-    VALUES (?,?,?,?,?,?,?,?,?, 'prevu', ?)
+      prix_unitaire, quantite, taux_tva, remarque, statut, cree_par, categorie_id, priorite, mois, justification, devis, tronc_commun)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `);
 
   let n = 0, supprimees = 0;
@@ -427,10 +429,12 @@ r.post('/import', authRequired, roleRequired('admin', 'directeur', 'directeur_ad
     for (const l of lignes) {
       const section = l.section || 'À répartir';
       if (autorisees && !autorisees.includes(section)) { refusees.add(section); continue; }
+      const c = champsLigne(l);
+      const statut = estDirection(req.user) && ['prevu', 'arbitre', 'refuse'].includes(l.statut) ? l.statut : 'prevu';
       ins.run(Number(annee), section, l.compte_ref || null, l.details || '',
               l.a_charge || 'IIP', Number(l.prix_unitaire || 0), Number(l.quantite || 1),
-              l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
-              req.user?.email || null);
+              l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null, statut,
+              req.user?.email || null, c.categorie_id, c.priorite, c.mois, c.justification, c.devis, c.tronc_commun);
       n++;
     }
   })();
