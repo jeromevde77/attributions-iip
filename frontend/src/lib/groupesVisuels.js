@@ -64,8 +64,22 @@ function couleursEnLigne() {
   }
 }
 
+/* (3.5.632) Les marges intérieures de la première et de la dernière colonne de chaque tableau, pour que ses filets partent du contenu. */
+function margesTableaux() {
+  if (document.documentElement.dataset.theme !== 'v4') return;
+  for (const t of document.querySelectorAll('#root table')) {
+    const ligne = t.querySelector('tbody > tr, thead > tr');
+    const g = ligne?.firstElementChild, d = ligne?.lastElementChild;
+    if (!g) continue;
+    const pg = `${parseFloat(getComputedStyle(g).paddingLeft) || 0}px`, pd = `${parseFloat(getComputedStyle(d).paddingRight) || 0}px`;
+    if (t.style.getPropertyValue('--tab-g') !== pg) t.style.setProperty('--tab-g', pg);
+    if (t.style.getPropertyValue('--tab-d') !== pd) t.style.setProperty('--tab-d', pd);
+  }
+}
+
 function mesurer() {
   couleursEnLigne();
+  margesTableaux();
   const enGrille = grilles();
   const vus = new Set(enGrille);
   const marques = document.querySelectorAll('[data-voisin-haut], [data-voisin-bas]');

@@ -1986,3 +1986,32 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
   background-position: right bottom, right bottom var(--doc-arc), right var(--doc-arc) bottom !important;
   background-repeat: no-repeat !important;
 }
+
+/* (3.5.632) LA CASE À COCHER D'UN TABLEAU EST AU MILIEU de sa ligne (Charles : « espace haut et bas différents autour de la case à
+   cocher ») : en ligne, elle se posait sur la ligne de base du texte, plus haut que le milieu. */
+#root :is(th, td) > input[type="checkbox"] { vertical-align: middle; margin-top: 0; margin-bottom: 0; }
+#root :is(th, td):has(> input[type="checkbox"]:only-child) { vertical-align: middle; line-height: 0; }
+
+/* (3.5.632) SOUS LUCIE V4, LA LIGNE D'UN TABLEAU NE TOUCHE PAS LE BORD (Charles : « ligne grise qui touche… non-respect du modèle ») :
+   elle part du début du contenu de la première colonne et s'arrête à la fin de celui de la dernière. Les filets sont dessinés dans les
+   cases (un dégradé d'un pixel en bas) ; --tab-g et --tab-d, posés par lib/groupesVisuels.js, valent les marges intérieures. */
+:root[data-theme="v4"] #root tbody > tr { border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root thead > tr > th { border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root :is(thead > tr > th, tbody > tr > td) { --tab-f: var(--c-filet, rgb(var(--gris-200)));
+  background-image: linear-gradient(var(--tab-f), var(--tab-f)); background-size: 100% 1px; background-position: left bottom; background-repeat: no-repeat; }
+:root[data-theme="v4"] #root thead > tr > th { --tab-f: var(--menu-bord, rgb(var(--gris-300))); }
+:root[data-theme="v4"] #root :is(thead > tr > th, tbody > tr > td):first-child {
+  background-image: linear-gradient(to right, transparent var(--tab-g, 0px), var(--tab-f) var(--tab-g, 0px)); }
+:root[data-theme="v4"] #root :is(thead > tr > th, tbody > tr > td):last-child:not(:first-child) {
+  background-image: linear-gradient(to left, transparent var(--tab-d, 0px), var(--tab-f) var(--tab-d, 0px)); }
+
+/* (3.5.632) L'UE OUVERTE DES ATTRIBUTIONS : elle s'avance, sans cadre. */
+.ue-active-anim { transition: transform .22s var(--ease-ios, cubic-bezier(.32,.72,0,1)), box-shadow .22s ease, background-color .22s ease; }
+.ue-active { position: relative; z-index: 2; transform: scale(1.006); background: var(--c-fond_tuile, #fff);
+  box-shadow: 0 8px 24px -10px rgb(var(--c-texte-rgb, 22 64 106) / .28), 0 2px 6px -2px rgb(var(--c-texte-rgb, 22 64 106) / .12);
+  border-radius: 10px; margin-block: 4px; }
+@media (prefers-reduced-motion: reduce) { .ue-active-anim { transition: none; } }
+
+/* (3.5.632) LE PETIT TRAIN SOUS LUCIE V4 : une tuile en miniature — bord gauche d'1 px à la couleur du bloc, petit arc en haut à
+   gauche, contour gris fin ailleurs (Charles : « pas conforme niveau épaisseur »). */
+:root[data-theme="v4"] :is(.gelule, span.bloc-etat.inline-flex, .bloc-etat.inline-flex) { border-left-width: 1px !important; border-top-left-radius: 6px !important; }

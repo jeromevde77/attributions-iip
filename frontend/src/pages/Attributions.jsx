@@ -1956,11 +1956,11 @@ export default function Attributions() {
     const isHelb = ue.ue_et_ref === 'HELB';
     const isTC = ue.ue_tc === 'x';
     return (
-      <div key={key} className={`overflow-hidden transition-all ${
+      /* L'UE OUVERTE SE DÉTACHE SANS CADRE (3.5.632, Charles : « moche, double cadre ; un effet… petit zoom direct avec animation ? ») :
+         elle s'avance d'un rien (agrandie, ombre douce, au-dessus des autres), animée ; plus de bordure de 2 px dans le cadre du tableau. */
+      <div key={key} className={`overflow-hidden ue-active-anim ${
         activeUE === key
-          ? (isHelb
-              ? 'border-2 border-pink-400 rounded-sm shadow-pose mb-0.5'
-              : 'border-2 border-iip-gold/60 rounded-sm shadow-pose mb-0.5')
+          ? (isHelb ? 'ue-active border-l-2 border-l-pink-400' : isTC ? 'ue-active border-l-2 border-l-[color:var(--c-accent)]' : 'ue-active')
           : (isHelb
               ? 'border-b border-gray-100 border-l-2 border-l-pink-400'
               /* LE TRONC COMMUN SE MARQUE À GAUCHE, COMME LA HELB (Charles, 27

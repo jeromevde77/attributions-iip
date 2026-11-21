@@ -474,8 +474,10 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
               L'avion plutôt que l'imprimante : ce qu'on ouvre là ne sort pas
               que du papier. Et le libellé suit le dessin — une enveloppe qui
               dirait « Imprimer » serait un libellé qui ment. */}
-          {[{ key: '__impression', label: 'Imprimer ou envoyer', icon: IconSend,
-              couleur: 'var(--menu-accent)', onClick: () => setCentre(true) },
+          {/* UN SEUL AVION (3.5.632, Charles : « pourquoi deux fois Éditions ? ») : un écran qui a ses propres Éditions (une entrée
+              `editions`, Mes cours) les met à la place du centre général, au même endroit. */}
+          {[...((sections || []).some(sec => (sec.items || []).some(i => i.key === 'editions' || (i.sous || []).some(x => x.key === 'editions'))) ? [] : [{ key: '__impression', label: 'Imprimer ou envoyer', icon: IconSend,
+              couleur: 'var(--menu-accent)', onClick: () => setCentre(true) }]),
             ...actions.filter(a2 => !a2.destructif),
             /* LA PORTE DES IDÉES, SUR TOUS LES ÉCRANS ET AU MÊME ENDROIT.
                Une demande s'écrit au moment où l'on bute, pas trois jours plus
