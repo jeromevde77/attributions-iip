@@ -137,6 +137,15 @@ function Ecrire({ onEnvoye, onErreur }) {
           Demander un accusé de lecture (« J’en ai pris connaissance »)</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={courriel} onChange={e => setCourriel(e.target.checked)} />
           <IconMail size={15} className="text-slate-500" /> Envoyer aussi une copie entière par courriel (adresse de l’institut)</label>
+        {/* LE COURRIEL QUI PART DE TOUTE FAÇON (3.5.612, Charles, 21 novembre 2026 : le message de bienvenue a fait partir 551 avis avant les
+            invitations) : dit avant l'envoi, avec le nombre. */}
+        {apercu?.nb > 0 && <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
+          <IconMail size={14} className="inline -mt-0.5 mr-1" />
+          {courriel
+            ? <><b>{apercu.nb} courriel{apercu.nb > 1 ? 's' : ''}</b> partiront, avec le message entier, à l’adresse de l’institut.</>
+            : <><b>{apercu.nb} étudiant{apercu.nb > 1 ? 's' : ''}</b> recevr{apercu.nb > 1 ? 'ont' : 'a'} aussi un courriel d’avis « un nouveau message vous attend dans votre espace », avec le lien de l’espace — même sans copie.</>}
+          {apercu.nb > 120 && <> Au-delà de 120 par heure, les courriels partent l’heure suivante.</>}
+        </div>}
         <p className="text-second text-slate-500">L’étudiant le lit dans son espace et peut y répondre : sa réponse vous revient ici, et sur votre tableau de bord.</p>
         <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={!apercu?.nb || !objet.trim() || !corps.trim() || enCours} onClick={envoyer}>
           <IconSend size={15} /> {enCours ? 'Envoi…' : 'Envoyer'}</button>

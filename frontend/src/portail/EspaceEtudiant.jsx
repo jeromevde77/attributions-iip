@@ -1730,10 +1730,12 @@ function Espace() {
           {d.resultats.map(a => (
             <section key={a.annee} className="carte overflow-hidden">
               <EnteteCarte titre={a.annee.replace('-', ' – ')} />
-              <Tableau className="!border-0 !rounded-none">
+              <Tableau className="!border-0 !rounded-none [&_table]:table-fixed [&_table]:min-w-[40rem]">
                 {/* UNE COLONNE PAR SESSION (3.5.370, Charles : « une colonne S1, une colonne S2, avec le détail ») : décision et note de
                     chaque session close ; « — » quand il n'y a pas (encore) de seconde session. */}
-                <TableauEntete><Th>Unité</Th><Th>Intitulé</Th><Th>1re session</Th><Th>2e session</Th><Th /></TableauEntete>
+                {/* LES MÊMES COLONNES D'UNE ANNÉE À L'AUTRE (3.5.610, Charles : « détail d'alignement ») : largeurs fixes, sinon chaque
+                    tableau se dimensionne sur ses propres intitulés et les colonnes des sessions ne tombent pas l'une sous l'autre. */}
+                <TableauEntete><Th largeur="w-24">Unité</Th><Th>Intitulé</Th><Th largeur="w-48">1re session</Th><Th largeur="w-48">2e session</Th><Th largeur="w-10" /></TableauEntete>
                 <tbody>{a.ues.map(u => { const cle = `${a.annee}|${u.ue_num}|${u.decision}`; const ouvert = detailUE === cle; const avecDetail = !!u.detail?.cours;
                   const ses = u.detail?.sessions?.length ? u.detail.sessions : [{ n: 1, decision: u.decision, note: u.note, etat: u.etat }];
                   const cellule = n => { const x = ses.find(y => y.n === n); return x
@@ -1743,7 +1745,7 @@ function Espace() {
                   return (<Fragment key={cle}>
                   <Tr className={avecDetail ? 'cursor-pointer' : ''} onClick={avecDetail ? () => setDetailUE(ouvert ? null : cle) : undefined}
                     title={avecDetail ? (ouvert ? 'Replier le détail' : 'Voir le détail par cours et par acquis') : undefined}>
-                    <Td className="tabular-nums whitespace-nowrap">UE {u.ue_num}</Td><Td>{u.ue_nom}</Td>
+                    <Td className="tabular-nums whitespace-nowrap">UE {u.ue_num}</Td><Td className="break-words">{u.ue_nom}</Td>
                     <Td>{cellule(1)}</Td><Td>{cellule(2)}</Td>
                     <Td align="droite">{avecDetail && <IconChevronRight size={14} className={`inline text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}</Td>
                   </Tr>
