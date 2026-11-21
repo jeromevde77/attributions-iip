@@ -1966,3 +1966,23 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 :root[data-theme="v4"] .cadre-editeur:focus-within::before, :root[data-theme="v4"] .cadre-editeur:focus-within::after { border-color: var(--c-accent, var(--c-principal)); }
 /* La barre d'outils : pas de fond gris ; un filet fin qui part de la première icône. */
 :root[data-theme="v4"] .cadre-editeur > div > .border-b:first-child, :root[data-theme="v4"] .cadre-editeur > .border-b:first-child { background: transparent !important; }
+
+/* (3.5.630) LE RAPPEL EN BAS À DROITE, PARTOUT (Charles, 21 novembre 2026 : « oui, partout »). Toute tuile qui ferme un groupe — une carte
+   seule, la dernière d'une pile, une tuile ou un encadré seul, la dernière ligne d'une pile d'états, la dernière d'une bande, une grille
+   fondue, un tableau posé seul — porte en bas à droite l'arc de la couleur de son bord, et 1 cm de trait sur le côté droit et sur le bas.
+   Dessiné en fond (trois dégradés) : le ::before et le ::after servent déjà aux bords et aux filets des piles. */
+:root[data-theme="v4"] :is(
+  .carte:not([data-voisin-bas], [data-rang="haut"], [data-rang="milieu"], .carte .carte, [data-grille-doc] > .carte, .fenetre-lucie .carte, [class*="space-y-"] > .carte:has(+ .carte)),
+  .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat, .carte .bloc-etat, .fenetre-lucie .bloc-etat, [data-voisin-bas], [data-grille-doc] > *, .tuile-grande:has(+ .tuile-grande)),
+  .pile-etats:not(.carte .pile-etats) > :last-child.bloc-etat,
+  [data-grille-doc],
+  .tableau-cadre:not(.carte .tableau-cadre)
+) {
+  --coin: var(--e-doc, var(--c-principal));
+  background-image:
+    radial-gradient(circle at 0 0, transparent calc(var(--doc-arc) - var(--doc-trait)), var(--coin) calc(var(--doc-arc) - var(--doc-trait)), var(--coin) var(--doc-arc), transparent calc(var(--doc-arc) + 0.5px)),
+    linear-gradient(var(--coin), var(--coin)), linear-gradient(var(--coin), var(--coin)) !important;
+  background-size: var(--doc-arc) var(--doc-arc), var(--doc-trait) calc(1cm - var(--doc-arc)), calc(1cm - var(--doc-arc)) var(--doc-trait) !important;
+  background-position: right bottom, right bottom var(--doc-arc), right var(--doc-arc) bottom !important;
+  background-repeat: no-repeat !important;
+}
