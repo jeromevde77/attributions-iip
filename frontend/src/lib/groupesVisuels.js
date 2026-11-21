@@ -11,8 +11,39 @@ function exclu(el) {
   return !!el.closest('.pile-etats') || el.hasAttribute('data-rang') || !!el.parentElement?.closest('.carte, .bloc-etat');
 }
 
+/* (3.5.625) UNE GRILLE DE CARTES EST UNE SEULE TUILE COUPÉE EN MORCEAUX (Charles, 21 novembre 2026, les cours de l'UE 66 rangés sur
+   deux colonnes : « un seul coin arrondi ; tout le reste est dans une tuile coupée en morceaux »). Un conteneur dont TOUS les enfants
+   visibles sont des cartes, rangées sur au moins deux colonnes, porte `data-grille-doc` : c'est lui qui dessine le bord, l'arc et le
+   coin ; chaque carte perd le sien et porte `data-g-ligne` (pas sur la première rangée : filet horizontal) et `data-g-col` (pas dans
+   la première colonne : filet vertical court). */
+function grilles() {
+  const vus = new Set(), gardees = new Set();
+  for (const el of document.querySelectorAll(SELECTEUR)) {
+    const parent = el.parentElement;
+    if (!parent || vus.has(parent) || el.closest('.pile-etats') || el.hasAttribute('data-rang') || parent.closest('.carte, .bloc-etat')) continue;
+    vus.add(parent);
+    const enfants = [...parent.children].filter(x => x.offsetParent !== null);
+    if (enfants.length < 2 || !enfants.every(x => x.matches(SELECTEUR))) continue;
+    const r = enfants.map(x => x.getBoundingClientRect());
+    const cols = [...new Set(r.map(b => Math.round(b.left)))];
+    if (cols.length < 2) continue;
+    const haut = Math.min(...r.map(b => b.top)), gauche = Math.min(...r.map(b => b.left));
+    parent.dataset.grilleDoc = '1'; gardees.add(parent);
+    enfants.forEach((x, i) => {
+      if (r[i].top - haut > 2) x.dataset.gLigne = '1'; else delete x.dataset.gLigne;
+      if (r[i].left - gauche > 2) x.dataset.gCol = '1'; else delete x.dataset.gCol;
+    });
+  }
+  for (const g of document.querySelectorAll('[data-grille-doc]')) if (!gardees.has(g)) {
+    delete g.dataset.grilleDoc;
+    for (const x of g.children) { delete x.dataset.gLigne; delete x.dataset.gCol; }
+  }
+  return gardees;
+}
+
 function mesurer() {
-  const vus = new Set();
+  const enGrille = grilles();
+  const vus = new Set(enGrille);
   const marques = document.querySelectorAll('[data-voisin-haut], [data-voisin-bas]');
   for (const el of document.querySelectorAll(SELECTEUR)) {
     if (exclu(el) || vus.has(el.parentElement)) continue;
@@ -50,7 +81,7 @@ export function installerGroupesVisuels() {
   window.__groupesVisuels = true;
   new MutationObserver(muts => {
     // On ignore nos propres marques, sans quoi la mesure se relancerait elle-même.
-    if (muts.every(m => m.type === 'attributes' && /^data-(voisin|v[hb])|^style$/.test(m.attributeName || ''))) return;
+    if (muts.every(m => m.type === 'attributes' && /^data-(voisin|v[hb]|grille|g-)|^style$/.test(m.attributeName || ''))) return;
     planifier();
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'data-ferme'] });
   window.addEventListener('resize', planifier);

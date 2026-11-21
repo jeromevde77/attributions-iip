@@ -1910,3 +1910,20 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 /* Dans un volet ouvert, les lignes de son contenu n'ont pas d'arc : la pile du volet a déjà le sien. */
 :root[data-theme="v4"] .carte .pile-etats .bloc-etat::before { width: 0 !important; border-top: 0 !important; border-top-left-radius: 0 !important; border-left-width: 0 !important; }
 :root[data-theme="v4"] .carte .pile-etats .bloc-etat { border-radius: 0 !important; }
+
+/* (3.5.625) UNE GRILLE DE CARTES = UNE TUILE COUPÉE EN MORCEAUX (lib/groupesVisuels.js, `data-grille-doc`). Le conteneur porte le bord
+   gauche complet, l'arc et le coin inférieur droit ; les cartes n'ont plus rien à elles ; entre deux rangées, un filet qui part de la
+   première lettre ; entre deux colonnes, un trait gris court et centré. */
+:root[data-theme="v4"] [data-grille-doc] { position: relative; gap: 0 !important; background: var(--c-fond_tuile, #fff);
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0; }
+:root[data-theme="v4"] [data-grille-doc]::before { content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
+:root[data-theme="v4"] [data-grille-doc] > :is(.carte, .bloc-etat) { border-radius: 0 !important; background: transparent !important; margin: 0 !important; }
+:root[data-theme="v4"] [data-grille-doc] > :is(.carte, .bloc-etat)::before { content: none !important; }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-ligne]::after { content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 1.25rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-col] { box-shadow: none; }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-col] > :first-child::before { content: none; }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-col] { background-image: linear-gradient(var(--c-filet, rgb(var(--gris-200))), var(--c-filet, rgb(var(--gris-200)))) !important;
+  background-size: 1px var(--doc-sep) !important; background-position: left center !important; background-repeat: no-repeat !important; }
