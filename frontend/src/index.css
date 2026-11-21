@@ -1785,3 +1785,76 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 .volet[data-urgence="1"] .carte[data-rang] > .entete-carte { box-shadow: inset var(--d-tuile-lisere, 4px) 0 0 var(--c-attente); }
 .volet[data-urgence="0"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-refuse, #9D4A38); margin-left: .25rem; }
 .volet[data-urgence="1"] .entete-carte .titre-carte::after { content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--c-attente, #B45309); margin-left: .25rem; }
+
+/* ═══ LE DESSIN DES DOCUMENTS (3.5.616, Charles, 21 novembre 2026 — maquette « Tuiles qui se touchent », v7 ; tranché : tableaux sans
+ * bande et filets pleins, fenêtres à bandeau gardées, carte sans état au bord de la couleur principale, une tuile seule = un groupe d'un).
+ *
+ * 1. Pas de cadre : un bord gauche coloré COMPLET (l'état, sinon la couleur principale), l'angle supérieur gauche arrondi d'où le
+ *    trait remonte en arc sur une partie du haut, l'angle inférieur droit arrondi. Fond blanc.
+ * 2. Le filet gris intérieur (sous un titre, entre deux lignes d'une pile) part de la première lettre et s'arrête avant le bord droit.
+ * 3. Des tuiles de même nature côte à côte forment un groupe : une pile (verticale), une bande (horizontale), dont le séparateur est
+ *    un trait centré qui ne touche ni le haut ni le bas.
+ * Les mesures se lisent dans --d-doc-* (réglables), avec leur valeur par défaut ici. */
+:root { --doc-trait: var(--d-doc-trait, 2px); --doc-arc: var(--d-doc-arc, 14px); --doc-haut: var(--d-doc-haut, 36%);
+  --doc-sep: var(--d-doc-sep, 55%); --doc-retrait: var(--d-doc-retrait, 18%); }
+
+/* L'ARC : un pseudo-élément qui dessine le bord gauche complet, l'arc et le trait du haut. */
+.carte, .bloc-etat, .pile-etats { position: relative; }
+.carte::before, .bloc-etat::before, .pile-etats > :first-child::before {
+  content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 0; bottom: 0; width: var(--doc-haut);
+  border-top: var(--doc-trait) solid var(--e-doc, var(--c-principal)); border-left: var(--doc-trait) solid var(--e-doc, var(--c-principal));
+  border-top-left-radius: var(--doc-arc);
+}
+/* 1. LES CARTES */
+.carte { border: 0 !important; background: var(--c-fond_tuile, #fff);
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; box-shadow: none; }
+.carte > .entete-carte:first-child { border-radius: var(--doc-arc) 0 0 0; }
+/* L'en-tête : plus de bande grise ; une fine ligne sous le titre, de la première lettre à avant le bord droit. */
+.entete-carte { background: transparent !important; border-bottom: 0 !important; position: relative; }
+.entete-carte::after { content: ''; position: absolute; left: 1rem; right: var(--doc-retrait); bottom: 0;
+  border-bottom: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+/* Les tableaux : l'en-tête sans bande, une fine ligne dessous ; les filets entre les lignes restent pleins (ils guident l'œil). */
+.tab-entete { background: transparent !important; }
+#root thead > tr > th { background: transparent !important; }
+:is(.carte) .tableau-cadre { border: 0; border-radius: 0; background: transparent; }
+
+/* 2. LES TUILES ET ENCADRÉS : un groupe d'un. */
+.bloc-etat { --e-doc: var(--e); border: 0 !important; box-shadow: none;
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; background: var(--c-fond_tuile, #fff); }
+.bloc-etat:is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande):not(.tuile-compacte):not(:is(.etat-reussi, .etat-faveur, .etat-disponible, .etat-surveiller, .etat-corriger, .etat-neutre)):not(:is(button, label, a))::before { content: none; }
+.bloc-etat:is([data-etat="neutre"], :not([data-etat]), [data-etat="fort"]) { --e-doc: var(--c-principal); }
+.bloc-etat.sous-reserve::before { border-style: dashed; }
+
+/* 3a. LA PILE (listes à liseré) : plus de cadre commun ; chaque ligne garde son bord coloré complet ; la première porte l'arc,
+   la dernière arrondit l'angle inférieur droit ; le filet entre deux lignes part de la première lettre. */
+.pile-etats { border: 0 !important; background: transparent !important; padding-block: 0 !important; border-radius: 0 !important; }
+.pile-etats .bloc-etat { border-radius: 0 !important; background: var(--c-fond_tuile, #fff); box-shadow: none !important;
+  border-bottom: 0 !important; }
+.pile-etats .bloc-etat::before { width: 0; border-top: 0; border-top-left-radius: 0; }
+.pile-etats > :first-child.bloc-etat, .pile-etats > :first-child .bloc-etat { border-top-left-radius: var(--doc-arc) !important; }
+.pile-etats > :first-child.bloc-etat::before, .pile-etats > :first-child .bloc-etat::before { width: var(--doc-haut);
+  border-top: var(--doc-trait) solid var(--e-doc); border-top-left-radius: var(--doc-arc); }
+.pile-etats > :first-child::before { content: none; }
+.pile-etats > :last-child.bloc-etat, .pile-etats > :last-child .bloc-etat { border-bottom-right-radius: var(--doc-arc) !important; }
+.pile-etats > * + *.bloc-etat::after, .pile-etats > * + * .bloc-etat::after { content: ''; position: absolute; pointer-events: none;
+  top: 0; left: 2.5rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+
+/* 3b. LA BANDE : une rangée de grandes tuiles côte à côte se fond ; le séparateur est le bord coloré de chaque tuile, raccourci et
+   centré ; seule la première porte l'arc, seule la dernière arrondit l'angle inférieur droit. */
+:has(> .tuile-grande + .tuile-grande) { column-gap: 0 !important; }
+.tuile-grande + .tuile-grande { border-radius: 0 !important; }
+.tuile-grande + .tuile-grande::before { width: 0; border-top: 0; border-top-left-radius: 0; top: calc((100% - var(--doc-sep)) / 2);
+  bottom: auto; height: var(--doc-sep); border-radius: 2px; }
+.tuile-grande:has(+ .tuile-grande) { border-bottom-right-radius: 0 !important; }
+.tuile-grande + .tuile-grande:not(:has(+ .tuile-grande)) { border-bottom-right-radius: var(--doc-arc) !important; }
+
+/* Les volets de l'Accueil (3.5.615) prennent le même dessin : la pile des cartes fermées. */
+.carte[data-rang] > .entete-carte { box-shadow: none !important; }
+.carte[data-rang="milieu"], .carte[data-rang="bas"] { border-top-left-radius: 0 !important; }
+.carte[data-rang="milieu"]::before, .carte[data-rang="bas"]::before { width: 0; border-top: 0; border-top-left-radius: 0; }
+.carte[data-rang="haut"], .carte[data-rang="milieu"] { border-bottom-right-radius: 0 !important; }
+.carte[data-rang="milieu"]::after, .carte[data-rang="bas"]::after { content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 2.5rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+.volet[data-urgence="0"] .carte[data-rang] { --e-doc: var(--c-refuse); }
+.volet[data-urgence="1"] .carte[data-rang] { --e-doc: var(--c-attente); }
