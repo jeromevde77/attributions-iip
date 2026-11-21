@@ -111,8 +111,9 @@ function Grille({ ev, contenu: initial, lecture, onRecharger }) {
               <div className="px-4 py-3 space-y-4 text-sm">
                 {s.type === 'texte' && (s.champs || []).map(ch => <label key={ch.id} className="block"><span className="font-medium">{ch.libelle}</span>{texte(ch.id)}</label>)}
                 {s.type === 'objectifs' && !criteres.length && <p className="text-slate-500">Aucun objectif n’a été fixé pour cette période.</p>}
-                {criteres.map(cr => (
+                {criteres.map((cr, i) => (
                   <div key={cr.id} className="space-y-1">
+                    {cr.groupe && cr.groupe !== criteres[i - 1]?.groupe && <div className="intertitre pt-2">{cr.groupe}</div>}
                     <div className="font-medium">{cr.libelle}</div>
                     {s.type === 'objectifs' && texte(cr.id, 'ind', 'L’indicateur : ce qui montre où l’on en est')}
                     <Choix echelle={ech} valeur={c[cr.id]?.v ?? null} lecture={lecture} onChange={v => maj(cr.id, 'v', v)} />

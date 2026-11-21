@@ -82,42 +82,83 @@ export function migrerEvaluations() {
   `);
   if (!db.prepare("SELECT 1 FROM eval_referentiel WHERE fonction = 'direction_adjointe'").get()) {
     db.prepare('INSERT INTO eval_referentiel (fonction, version, titre, structure, cree_par) VALUES (?,?,?,?,?)')
-      .run('direction_adjointe', 1, 'Direction adjointe — formulaire 2026', JSON.stringify(REFERENTIEL_DA), 'Lucie (modèle initial)');
+      .run('direction_adjointe', 1, 'Direction adjointe — Auto-évaluation 2026', JSON.stringify(REFERENTIEL_DA), 'Lucie (formulaire 2026)');
   }
+  reprendreFormulaireDA();
 }
 
-/* LES ÉCHELLES, affichées en permanence à côté de la grille. */
+/* LES ÉCHELLES, affichées en permanence à côté de la grille — celles du formulaire « Auto-évaluation 2026 — Direction adjointe »
+   (quatre niveaux sans position centrale, chacun défini par un ancrage comportemental). */
 export const ECHELLES = {
   niveau: { titre: 'Niveau d’atteinte', valeurs: [
-    { v: 1, l: 'Insuffisant', d: 'La mission n’est pas assurée ou l’est rarement ; des manquements ont des conséquences.' },
-    { v: 2, l: 'À développer', d: 'La mission est assurée en partie ; un accompagnement ou des rappels sont nécessaires.' },
-    { v: 3, l: 'Atteint', d: 'La mission est assurée de manière fiable et autonome, comme le profil de fonction l’attend.' },
-    { v: 4, l: 'Dépassé', d: 'La mission est assurée au-delà des attentes ; elle sert de référence ou améliore le fonctionnement.' },
-    { v: 'NO', l: 'Non observé', d: 'Pas d’occasion d’observer pendant la période.' }] },
-  frequence: { titre: 'Fréquence du comportement', valeurs: [
-    { v: 1, l: 'Jamais' }, { v: 2, l: 'Rarement' }, { v: 3, l: 'Parfois' }, { v: 4, l: 'Souvent' }, { v: 5, l: 'Toujours' },
-    { v: 'NO', l: 'Non observé' }] },
+    { v: 4, l: 'Dépasse les attentes', d: 'La mission est assurée de façon autonome et anticipée ; vous avez amélioré le fonctionnement au-delà de ce qui était demandé.' },
+    { v: 3, l: 'Répond pleinement aux attentes', d: 'La mission est assurée de façon fiable, dans les délais, sans relance ; les difficultés sont signalées à temps.' },
+    { v: 2, l: 'Répond partiellement aux attentes', d: 'La mission est assurée, mais avec des retards, des relances ou des oublis ponctuels.' },
+    { v: 1, l: 'Ne répond pas encore aux attentes', d: 'La mission n’est pas assurée de façon régulière, ou elle a dû être reprise par quelqu’un d’autre.' },
+    { v: 'NO', l: 'Non observable', d: 'La mission n’a pas été exercée ou l’occasion ne s’est pas présentée cette année.' }] },
+  frequence: { titre: 'Fréquence du comportement (1 presque jamais · 5 presque toujours)', valeurs: [
+    { v: 1, l: 'Presque jamais' }, { v: 2, l: 'Rarement' }, { v: 3, l: 'Parfois' }, { v: 4, l: 'Souvent' }, { v: 5, l: 'Presque toujours' },
+    { v: 'NO', l: 'Non observable' }] },
   maitrise: { titre: 'Maîtrise', valeurs: [
-    { v: 1, l: 'Notions' }, { v: 2, l: 'Utilisateur' }, { v: 3, l: 'Autonome' }, { v: 4, l: 'Expert' }, { v: 'NO', l: 'Non observé' }] },
+    { v: 1, l: 'Notions' }, { v: 2, l: 'Utilisation courante' }, { v: 3, l: 'Maîtrise' },
+    { v: 4, l: 'Maîtrise autonome, capable de former d’autres personnes' }, { v: 'NO', l: 'Non observable' }] },
 };
 
-/* LE RÉFÉRENTIEL DE LA DIRECTION ADJOINTE — les sections du formulaire 2026. Les missions, comportements et compétences sont à
-   reprendre du formulaire PDF dans l'éditeur (Personnel → Évaluations → Référentiels) ; une évaluation garde la version de sa création. */
+/* LE RÉFÉRENTIEL DE LA DIRECTION ADJOINTE — le formulaire « Auto-évaluation 2026 » (repris le 21 novembre 2026). */
 const REFERENTIEL_DA = { sections: [
   { id: 'annee', titre: 'Votre année en bref', type: 'texte', champs: [
-    { id: 'realisations', libelle: 'Les réalisations de l’année' }, { id: 'difficultes', libelle: 'Les difficultés rencontrées' }] },
+    { id: 'realisations', libelle: 'Trois réalisations significatives de l’année. Pour chacune : la situation, votre action et le résultat obtenu.' },
+    { id: 'difficultes', libelle: 'Trois difficultés significatives de l’année. Pour chacune : la situation, ce qui relevait de vous et ce qui relevait du contexte, et ce que vous feriez différemment.' }] },
   { id: 'missions', titre: 'Missions du profil de fonction', type: 'missions', echelle: 'niveau', criteres: [
-    { id: 'm1', libelle: '[À reprendre du formulaire] Mission 1' }, { id: 'm2', libelle: '[À reprendre du formulaire] Mission 2' }] },
-  { id: 'missions_pratique', titre: 'Missions apparues avec la pratique', type: 'missions', echelle: 'niveau', libres: true, criteres: [] },
+    { id: 'm1', libelle: 'Supervision quotidienne de la coordination pédagogique et administrative des cursus délégués' },
+    { id: 'm2', libelle: 'Mise en œuvre du projet pédagogique du Pouvoir organisateur' },
+    { id: 'm3', libelle: 'Supervision du secrétariat des étudiants' },
+    { id: 'm4', libelle: 'Participation aux horaires, examens et délibérations' },
+    { id: 'm5', libelle: 'Veille et remplacement de la direction en son absence' },
+    { id: 'm6', libelle: 'Fonction de responsable auprès des équipes pédagogiques et administratives' },
+    { id: 'm7', libelle: 'Suivi des étudiants : parcours, orientation, aide à la réussite, enseignement inclusif' },
+    { id: 'm8', libelle: 'Lien entre étudiants, enseignants et personnel administratif' }] },
+  { id: 'missions_pratique', titre: 'Missions apparues avec la pratique', type: 'missions', echelle: 'niveau', libres: true, criteres: [
+    { id: 'p1', libelle: 'Dossiers RH des membres du personnel (désignations, Doc12, EA12, DIMONA, absences)' },
+    { id: 'p2', libelle: 'Communication institutionnelle vers les membres du personnel et schéma de communication' },
+    { id: 'p3', libelle: 'COPIL (depuis février 2026) : ordres du jour, PV, suivi des décisions' }] },
   { id: 'objectifs', titre: 'Objectifs fixés pour la période', type: 'objectifs', echelle: 'niveau' },
   { id: 'comportements', titre: 'Compétences comportementales', type: 'comportements', echelle: 'frequence', criteres: [
-    { id: 'c1', libelle: '[À reprendre du formulaire] Comportement observable 1' }] },
+    { id: 'c1', groupe: 'Leadership collaboratif, dialogue, loyauté', libelle: 'Vous associez les personnes concernées avant de mettre en œuvre une décision.' },
+    { id: 'c2', groupe: 'Leadership collaboratif, dialogue, loyauté', libelle: 'Vous relayez fidèlement les orientations de la direction, y compris lorsque vous ne les partagez pas entièrement.' },
+    { id: 'c3', groupe: 'Leadership collaboratif, dialogue, loyauté', libelle: 'Vous exprimez vos désaccords à la direction, en bilatérale plutôt que devant les équipes.' },
+    { id: 'c4', groupe: 'Analyse, rigueur, discrétion', libelle: 'Vous vérifiez les dossiers avant de les transmettre : pièces, délais, conformité.' },
+    { id: 'c5', groupe: 'Analyse, rigueur, discrétion', libelle: 'Vous fondez vos propositions sur des données et des textes de référence.' },
+    { id: 'c6', groupe: 'Analyse, rigueur, discrétion', libelle: 'Vous préservez la confidentialité des informations relatives aux personnes.' },
+    { id: 'c7', groupe: 'Proactivité, flexibilité, initiative', libelle: 'Vous anticipez les échéances et signalez les risques avant qu’ils ne se réalisent.' },
+    { id: 'c8', groupe: 'Proactivité, flexibilité, initiative', libelle: 'Vous vous adaptez aux changements de priorité en cours d’année.' },
+    { id: 'c9', groupe: 'Proactivité, flexibilité, initiative', libelle: 'Vous proposez des améliorations de procédure sans attendre qu’on vous les demande.' }] },
   { id: 'techniques', titre: 'Compétences techniques', type: 'techniques', echelle: 'maitrise', criteres: [
-    { id: 't1', libelle: '[À reprendre du formulaire] Compétence 1' }] },
-  { id: 'fin', titre: 'Charge de travail, développement, commentaire libre', type: 'texte', champs: [
-    { id: 'charge', libelle: 'La charge de travail' }, { id: 'developpement', libelle: 'Mon développement' },
-    { id: 'commentaire', libelle: 'Commentaire libre' }] },
+    { id: 't1', libelle: 'Outils bureautiques (Word, Excel, PowerPoint)' },
+    { id: 't2', libelle: 'Outils de l’établissement (Lucie, Hyperplanning, Moodle, eCampus)' },
+    { id: 't3', libelle: 'Applications de la FWB (GEDI, Mon Espace)' },
+    { id: 't4', libelle: 'Cadre réglementaire de l’enseignement pour adultes' },
+    { id: 't5', libelle: 'Statut et gestion administrative des membres du personnel' }] },
+  { id: 'charge', titre: 'Charge de travail et conditions d’exercice', type: 'texte', champs: [
+    { id: 'charge_temps', libelle: 'Votre temps de travail vous a-t-il permis d’exercer l’ensemble de vos missions ? Quelles tâches ont mobilisé la plus grande part de votre temps, et lesquelles ont dû être reportées ou laissées de côté ?' },
+    { id: 'charge_organisation', libelle: 'Quels éléments de l’organisation de l’IIP (outils, procédures, répartition des rôles, circulation de l’information) ont facilité votre travail, et lesquels l’ont freiné ?' }] },
+  { id: 'developpement', titre: 'Développement et année 2027', type: 'texte', champs: [
+    { id: 'dev_missions', libelle: 'Les missions que vous souhaitez renforcer, et celles qui gagneraient à être confiées à quelqu’un d’autre.' },
+    { id: 'dev_plan', libelle: 'Votre proposition de plan de développement : deux ou trois axes au maximum, formulés en comportements que vous pouvez faire évoluer — pour chacun, le comportement visé, les moyens nécessaires (formation, accompagnement, outil, temps) et une échéance.' },
+    { id: 'dev_soutien', libelle: 'Le soutien que vous attendez de la direction pour y parvenir.' }] },
+  { id: 'commentaire', titre: 'Commentaire libre et retour sur la collaboration', type: 'texte', champs: [
+    { id: 'commentaire', libelle: 'Ce que vous souhaitez ajouter, y compris un retour sur notre collaboration et sur la manière dont la direction pourrait mieux soutenir votre fonction.' }] },
 ] };
+
+/* Le modèle provisoire de 3.5.605 (missions « [À reprendre du formulaire] ») est remplacé par le formulaire, tant qu'aucune
+   évaluation ne l'utilise. Une fois utilisé, un référentiel ne se réécrit plus : on publie une nouvelle version. */
+export function reprendreFormulaireDA() {
+  const r = db.prepare("SELECT id, structure FROM eval_referentiel WHERE fonction = 'direction_adjointe' AND version = 1").get();
+  if (!r || !r.structure.includes('[À reprendre du formulaire]')) return;
+  if (db.prepare('SELECT 1 FROM eval_evaluation WHERE referentiel_id = ?').get(r.id)) return;
+  db.prepare('UPDATE eval_referentiel SET structure = ?, titre = ? WHERE id = ?')
+    .run(JSON.stringify(REFERENTIEL_DA), 'Direction adjointe — Auto-évaluation 2026', r.id);
+}
 
 // ── Le journal ───────────────────────────────────────────────────────────────
 export function journaliser(req, evaluationId, action, detail = null) {
@@ -270,7 +311,7 @@ export function calculerSynthese(structure, objectifs, auto, evalr) {
       : (s.criteres || []);
     for (const c of criteres) {
       const a = val(auto, c.id), b = val(evalr, c.id);
-      lignes.push({ section: s.titre, echelle: s.echelle, id: c.id, libelle: c.libelle, auto: a, eval: b, ...classer(a, b),
+      lignes.push({ section: c.groupe ? `${s.titre} — ${c.groupe}` : s.titre, echelle: s.echelle, id: c.id, libelle: c.libelle, auto: a, eval: b, ...classer(a, b),
         t_auto: auto?.[c.id]?.t || '', t_eval: evalr?.[c.id]?.t || '',
         ...(s.type === 'objectifs' ? { ind_auto: auto?.[c.id]?.ind || '', ind_eval: evalr?.[c.id]?.ind || '' } : {}),
         ...(s.type === 'techniques' ? { formation_auto: auto?.[c.id]?.f ?? null, formation_eval: evalr?.[c.id]?.f ?? null } : {}) });
@@ -473,7 +514,7 @@ export function publierReferentiel({ fonction, titre, structure }, user) {
     const type = TYPES.includes(s.type) ? s.type : 'texte';
     const id = String(s.id || `s${i + 1}`).replace(/[^a-z0-9_]/gi, '').slice(0, 30) || `s${i + 1}`;
     const items = l => (Array.isArray(l) ? l : []).map((c, j) => ({ id: String(c.id || `${id}_${j + 1}`).replace(/[^a-z0-9_]/gi, '').slice(0, 40) || `${id}_${j + 1}`,
-      libelle: String(c.libelle || '').slice(0, 1000) })).filter(c => c.libelle.trim());
+      libelle: String(c.libelle || '').slice(0, 1000), ...(c.groupe ? { groupe: String(c.groupe).slice(0, 200) } : {}) })).filter(c => c.libelle.trim());
     return { id, titre: String(s.titre || '').slice(0, 200), type, ...(type === 'texte' ? { champs: items(s.champs) } : {}),
       ...(['missions', 'comportements', 'techniques'].includes(type) ? { criteres: items(s.criteres) } : {}),
       ...(ECH[type] ? { echelle: ECH[type] } : {}), ...(type === 'missions' && s.libres ? { libres: true } : {}) };
