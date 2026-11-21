@@ -192,8 +192,12 @@ export async function envoyerCodeDeverrou(userId) {
   db.prepare(`INSERT INTO eval_deverrou (user_id, code_empreinte, code_expire, code_essais) VALUES (?,?,?,0)
     ON CONFLICT(user_id) DO UPDATE SET code_empreinte = excluded.code_empreinte, code_expire = excluded.code_expire, code_essais = 0`)
     .run(userId, crypto.createHash('sha256').update(code).digest('hex'), Date.now() + 10 * 60000);
-  await envoyerEmail({ to: u.email, subject: 'Lucie — votre code pour les évaluations',
-    html: templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour ouvrir les évaluations dans Lucie : <b style="font-size:20px;letter-spacing:3px">${code}</b></p><p>Il vaut dix minutes. Si vous ne l’avez pas demandé, ignorez ce message.</p>` }) });
+  // UN ENVOI QUI ÉCHOUE SE DIT (3.5.609, Charles : « je ne reçois pas le code ») : l'écran annonçait « code envoyé » quoi qu'il arrive.
+  const r = await envoyerEmail({ to: u.email, subject: 'Lucie — votre code pour les évaluations',
+    html: templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour ouvrir les évaluations dans Lucie : <b style="font-size:20px;letter-spacing:3px">${code}</b></p><p>Il vaut dix minutes. Si vous ne l’avez pas demandé, ignorez ce message.</p>` }) })
+    .catch(e => ({ ok: false, erreur: e.message }));
+  if (r?.ok === false) return { erreur: `Le courriel n’est pas parti (${r.erreur || 'serveur de courriel'}). Réessayez dans un instant ; si cela persiste, activez la double authentification dans Mon compte.` };
+  if (r?.simule) return { erreur: 'Ce serveur n’envoie pas de courriels (mode simulé) : activez la double authentification dans Mon compte, ou demandez le code sur la production.' };
   return { ok: true };
 }
 export function verifierDeverrou(userId, code) {
