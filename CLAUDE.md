@@ -4668,6 +4668,19 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**L'ÉVALUATION DU PERSONNEL** (3.5.605, Charles, 21 novembre 2026, cahier des charges v1.0 ; tranché : construit et mis en production ;
+clé propre, production seule ; Personnel → Évaluations et l'espace de l'évalué ; code redemandé, 15 minutes). `lib/evaluationPersonnel.js`,
+`routes/evaluations.js` (sans module : rôle jugé SUR l'évaluation — évalué, évaluateur, gestionnaire = admin et directeur, PAS la
+direction adjointe), `pages/Evaluations.jsx` (route `/evaluations`, rubrique de Personnel, face « Mon évaluation » de l'espace
+enseignant par le relais). Tables `eval_referentiel` (versionné, une évaluation garde sa version), `eval_evaluation`, `eval_reponse`,
+`eval_compte_rendu`, `eval_journal` (ajout seul, déclencheurs), `eval_deverrou`. Contenus CHIFFRÉS (AES-256-GCM, `EVAL_KEY` ; absente en
+production → refus d'écrire ; la dev prend une clé d'essai, les évaluations réelles copiées y sont illisibles). Code : TOTP si actif, sinon
+6 chiffres par courriel ; « voir comme » refusé. L'AVEUGLE est tenu par le serveur (grille de l'autre partie jamais rendue avant les deux
+soumissions ; `GET /:id/grille/:partie` refusé et journalisé). Synthèse sans moyenne (concordant 0, proche 1, divergent ≥ 2, à clarifier =
+NO d'un seul côté). Compte rendu : l'évaluateur valide d'abord, l'évalué ajoute ses observations (désaccord) et valide → référence
+`EVAL-…`, PDF sans QR. Conservation : `lucie_config` « eval_conservation_ans » (vide = rien n'est effacé). Banc `test/evaluations.mjs`
+(29 ok). Tables dans `OFFICIELS` de l'annulation. **Le référentiel de la direction adjointe n'a que la STRUCTURE du formulaire 2026 :
+missions, comportements et compétences sont à reprendre du PDF** (Référentiels → Nouvelle version). Mise en place : `scripts/vps/EVALUATIONS.md`.
 **L'INVITATION SE PROGRAMME, ET LE MOT D'ACCUEIL EST PROPOSÉ** (3.5.604, Charles, 21 novembre 2026 : « que les accès se fassent à
 minuit une, lundi, mardi… comme ça je prépare le travail ; et un mot d'accueil déjà rédigé »). Mise en service → Inviter : « Programmer
 l'invitation » (jour et heure de Bruxelles, défaut : lundi 00:01) → `portail_invitation_programmee` (cible, mot, auteur) ; un tour chaque

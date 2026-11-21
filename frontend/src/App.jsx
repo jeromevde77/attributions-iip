@@ -77,6 +77,7 @@ import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 const Documentation = lazy(() => import('./pages/Documentation.jsx'));
 const MesCours = lazy(() => import('./pages/MesCours.jsx'));
+const Evaluations = lazy(() => import('./pages/Evaluations.jsx'));
 import Echeancier from './pages/Echeancier.jsx';
 import Organisation from './pages/Organisation.jsx';
 import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
@@ -897,6 +898,8 @@ export default function App() {
       <Route path="/mes-cours"      element={<ProtectedLayout><Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}><MesCours /></Suspense></ProtectedLayout>} />
       <Route path="/pilotage"       element={<Navigate to="/accueil" replace />} />
       <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
+      {/* L'ÉVALUATION DU PERSONNEL (3.5.605) : une adresse à elle, ouverte à tout compte — le serveur ne rend que ses évaluations. */}
+      <Route path="/evaluations" element={<ProtectedLayout><Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}><div className="gouttiere-rail p-4 md:p-6"><Evaluations /></div></Suspense></ProtectedLayout>} />
       <Route path="/documentation"  element={<ProtectedLayout><Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}><Documentation /></Suspense></ProtectedLayout>} />
       {/* L'ancienne adresse continue de mener quelque part : un lien noté dans
           un courriel ou un signet ne doit pas tomber dans le vide. */}
