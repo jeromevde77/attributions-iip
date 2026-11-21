@@ -2032,3 +2032,7 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 :root[data-theme="v4"] #root :is(tbody, tfoot) > tr { border-top-color: transparent !important; border-bottom-color: transparent !important; }
 :root[data-theme="v4"] #root :is(tbody, tfoot) > tr > td { border-top-color: transparent !important; border-bottom-color: transparent !important; }
 :root[data-theme="v4"] #root :is(.ligne-total, .tab-repere, tr.ligne-total > td, tr.tab-repere > td) { background-color: transparent !important; box-shadow: none !important; }
+
+/* (3.5.638) L'ÉDITEUR : LA GAUCHE S'ARRÊTE, LE COIN PREND LE RELAIS (Charles : « B, mais avec le coin droit comme C ») — le trait de
+   gauche s'arrête à 1 cm du bas ; en bas à droite, le rappel ordinaire (arc et 1 cm de trait de chaque côté). */
+:root[data-theme="v4"] .cadre-editeur::before { bottom: 1cm; }
