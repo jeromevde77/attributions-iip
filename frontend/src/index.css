@@ -1795,17 +1795,19 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
  * 3. Des tuiles de même nature côte à côte forment un groupe : une pile (verticale), une bande (horizontale), dont le séparateur est
  *    un trait centré qui ne touche ni le haut ni le bas.
  * Les mesures se lisent dans --d-doc-* (réglables), avec leur valeur par défaut ici. */
-:root { --doc-trait: var(--d-doc-trait, 2px); --doc-arc: var(--d-doc-arc, 14px); --doc-haut: var(--d-doc-haut, 36%);
+:root { --doc-trait: var(--d-doc-trait, 1px); --doc-arc: var(--d-doc-arc, 14px); --doc-haut: var(--d-doc-haut, 36%);
   --doc-sep: var(--d-doc-sep, 55%); --doc-retrait: var(--d-doc-retrait, 18%); }
 
 /* L'ARC : un pseudo-élément qui dessine le bord gauche complet, l'arc et le trait du haut. */
-.carte, .bloc-etat, .pile-etats { position: relative; }
-.carte::before, .bloc-etat::before, .pile-etats > :first-child::before {
+.carte, .bloc-etat:not(span, .inline-flex, .inline-block), .pile-etats { position: relative; }
+.carte::before, .bloc-etat:not(span, .inline-flex, .inline-block)::before, .pile-etats > :first-child::before {
   content: ''; position: absolute; pointer-events: none; z-index: 1;
-  top: 0; left: 0; bottom: 0; width: var(--doc-haut);
+  top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
   border-top: var(--doc-trait) solid var(--e-doc, var(--c-principal)); border-left: var(--doc-trait) solid var(--e-doc, var(--c-principal));
   border-top-left-radius: var(--doc-arc);
 }
+/* (3.5.618) Le trait a l'épaisseur du contour d'un bouton (1 px) ; le trait du haut s'arrête à 7 rem au plus ; une pastille en ligne
+   (span, inline-flex) n'est pas une tuile et garde son dessin. */
 /* 1. LES CARTES */
 .carte { border: 0 !important; background: var(--c-fond_tuile, #fff);
   border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; box-shadow: none; }
@@ -1815,12 +1817,13 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 .entete-carte::after { content: ''; position: absolute; left: 1rem; right: var(--doc-retrait); bottom: 0;
   border-bottom: 1px solid var(--c-filet, rgb(var(--gris-200))); }
 /* Les tableaux : l'en-tête sans bande, une fine ligne dessous ; les filets entre les lignes restent pleins (ils guident l'œil). */
-.tab-entete { background: transparent !important; }
-#root thead > tr > th { background: transparent !important; }
+/* (3.5.618) blanc, pas transparent : un en-tête qui reste en haut quand on défile laissait voir les lignes dessous. */
+.tab-entete { background: var(--c-fond_tuile, #fff) !important; }
+#root thead > tr > th { background: var(--c-fond_tuile, #fff) !important; }
 :is(.carte) .tableau-cadre { border: 0; border-radius: 0; background: transparent; }
 
 /* 2. LES TUILES ET ENCADRÉS : un groupe d'un. */
-.bloc-etat { --e-doc: var(--e); border: 0 !important; box-shadow: none;
+.bloc-etat:not(span, .inline-flex, .inline-block) { --e-doc: var(--e); border: 0 !important; box-shadow: none;
   border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; background: var(--c-fond_tuile, #fff); }
 .bloc-etat:is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande):not(.tuile-compacte):not(:is(.etat-reussi, .etat-faveur, .etat-disponible, .etat-surveiller, .etat-corriger, .etat-neutre)):not(:is(button, label, a))::before { content: none; }
 .bloc-etat:is([data-etat="neutre"], :not([data-etat]), [data-etat="fort"]) { --e-doc: var(--c-principal); }
@@ -1833,7 +1836,7 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
   border-bottom: 0 !important; }
 .pile-etats .bloc-etat::before { width: 0; border-top: 0; border-top-left-radius: 0; }
 .pile-etats > :first-child.bloc-etat, .pile-etats > :first-child .bloc-etat { border-top-left-radius: var(--doc-arc) !important; }
-.pile-etats > :first-child.bloc-etat::before, .pile-etats > :first-child .bloc-etat::before { width: var(--doc-haut);
+.pile-etats > :first-child.bloc-etat::before, .pile-etats > :first-child .bloc-etat::before { width: min(var(--doc-haut), 7rem);
   border-top: var(--doc-trait) solid var(--e-doc); border-top-left-radius: var(--doc-arc); }
 .pile-etats > :first-child::before { content: none; }
 .pile-etats > :last-child.bloc-etat, .pile-etats > :last-child .bloc-etat { border-bottom-right-radius: var(--doc-arc) !important; }
@@ -1858,3 +1861,7 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
   top: 0; left: 2.5rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
 .volet[data-urgence="0"] .carte[data-rang] { --e-doc: var(--c-refuse); }
 .volet[data-urgence="1"] .carte[data-rang] { --e-doc: var(--c-attente); }
+/* (3.5.618) UNE CARTE DANS UNE CARTE n'ouvre pas un second arc : le dessin appartient à la carte extérieure ; l'intérieure garde un
+   filet fin et un rayon ordinaire. */
+.carte .carte { border: 1px solid var(--c-filet, rgb(var(--gris-200))) !important; border-radius: var(--d-forme-champ, 8px) !important; }
+.carte .carte::before { content: none; }
