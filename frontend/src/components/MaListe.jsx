@@ -9,7 +9,11 @@ import { Trombinoscope } from './PhotoEtudiant.jsx';
    garder, dans l'ordre ; des colonnes vides à remplir à la main ; un titre. Le N° est toujours là. Aperçu/PDF par le serveur (la
    feuille de Mes cours), Excel dans le navigateur. */
 const COLONNES = [['nom', 'Nom'], ['prenom', 'Prénom'], ['matricule', 'Matricule'], ['email', 'Adresse école'], ['groupe', 'Groupe'], ['section', 'Section']];
-const VIDES_PROPOSEES = ['Signature', 'Présent', 'Remarques', 'Note', 'Matériel'];
+const VIDES_PROPOSEES = ['Signature', 'Heure d’arrivée', 'Heure de sortie', 'Présent', 'Remarques', 'Note', 'Matériel'];
+/* DES LISTES TOUTES FAITES (3.5.613, proposition reçue par Charles : « une liste avec l'heure de sortie et la signature, pour les évaluations
+   continues ») : un clic pose les colonnes vides d'un usage courant. */
+const MODELES_VIDES = [['Évaluation (sortie et signature)', ['Heure de sortie', 'Signature']], ['Appel', ['Présent', 'Signature']],
+  ['Arrivée et sortie', ['Heure d’arrivée', 'Heure de sortie', 'Signature']]];
 function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
   const [cols, setCols] = useState(['nom', 'prenom', 'matricule']);
   const [vides, setVides] = useState(['Signature']);
@@ -40,13 +44,16 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
         <div><span className="intertitre block mb-1">Colonnes</span>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5"><span className="text-slate-400">N° (toujours)</span>
             {COLONNES.map(([k, l]) => <label key={k} className="inline-flex items-center gap-1.5"><input type="checkbox" checked={cols.includes(k)} onChange={() => basculer(cols, setCols, k)} />{l}</label>)}</div></div>
+        <div><span className="intertitre block mb-1">Listes toutes faites</span>
+          <div className="flex flex-wrap gap-2">{MODELES_VIDES.map(([l, v]) => (
+            <button key={l} type="button" className="bouton !h-8" onClick={() => { setVides(v); if (!titre) setTitre(l === 'Appel' ? 'Liste d’appel' : l.startsWith('Évaluation') ? 'Évaluation — heure de sortie et signature' : 'Arrivées et sorties'); }}>{l}</button>))}</div></div>
         <div><span className="intertitre block mb-1">Colonnes vides, à remplir à la main</span>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
             {[...new Set([...VIDES_PROPOSEES, ...vides])].map(v => <label key={v} className="inline-flex items-center gap-1.5"><input type="checkbox" checked={vides.includes(v)} onChange={() => basculer(vides, setVides, v)} />{v}</label>)}
             <span className="inline-flex items-center gap-1.5"><input className="controle !h-8 w-40" value={autre} onChange={e => setAutre(e.target.value)} placeholder="Autre colonne…" data-reponses="non" />
               <button type="button" className="bouton !h-8" disabled={!autre.trim()} onClick={() => { setVides(v => [...new Set([...v, autre.trim()])]); setAutre(''); }}>Ajouter</button></span>
           </div></div>
-        <p className="m-0 text-second text-slate-500">L’aperçu, le PDF et l’Excel sont dans la barre bleue, en haut de la fenêtre.</p>
+        <p className="m-0 text-second text-slate-500">L’en-tête porte le cours, l’UE et l’enseignant. L’aperçu, le PDF et l’Excel sont dans la barre bleue, en haut de la fenêtre.</p>
       </div>
     </Fenetre>);
 }

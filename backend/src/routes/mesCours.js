@@ -1113,9 +1113,17 @@ r.get('/:coursCode/listes', authRequired, async (req, res) => {
       <tbody>${lot.map((e, k) => `<tr><td>${k + 1}</td>${colonnes.map(c => `<td>${valeur(e, c)}</td>`).join('')}${vides.map(() => '<td></td>').join('')}</tr>`).join('')
         || `<tr><td colspan="${nbCol}" style="text-align:center;color:#94a3b8">Aucun étudiant dans ce groupe.</td></tr>`}</tbody></table></div>`;
   }).join('');
+  /* L'EN-TÊTE DIT QUI, QUELLE UE, QUEL COURS (3.5.613, proposition reçue par Charles : « le nom de l'enseignant, l'UE concernée,
+     l'intitulé du cours, comme la liste des examens »). L'enseignant : celui qui imprime s'il donne ce cours, sinon ceux de l'attribution. */
+  const ueNom = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(d.ueNum, annee)?.ue_nom || '';
+  const profs = db.prepare(`SELECT DISTINCT p.id, p.prenom, p.nom FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.annee_scolaire = ? AND a.code_cours = ?`).all(annee, code);
+  const moi = profDe(req);
+  const enseignants = (profs.some(p => p.id === moi) ? profs.filter(p => p.id === moi) : profs)
+    .map(p => `${p.prenom || ''} ${String(p.nom || '').toUpperCase()}`.trim()).join(', ');
   const html = envelopperDocument({
     html: corps, titre: `Liste — ${code}`,
-    entete: { titre: `${code} — ${nom}`.trim(), sous: `UE ${d.ueNum} · année ${annee}`,
+    entete: { titre: `${code} — ${nom}`.trim(), sous: `UE ${d.ueNum}${ueNom ? ` — ${ueNom}` : ''}${enseignants ? ` · ${enseignants}` : ''} · année ${annee}`,
       ligne: demande ? `Groupe ${demande}` : (tous.length > 1 ? `${tous.length} groupes, une feuille par groupe` : null) },
     styles: `
 .tg{font-size:11pt;font-weight:700;color:#1B2B4B;margin:0 0 2.5mm;border-left:1.2mm solid #C9A84C;padding-left:2.5mm}
