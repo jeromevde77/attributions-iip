@@ -3,7 +3,7 @@ import MotivationsCours from '../components/MotivationsCours.jsx';
 import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard, IconSchool, IconUserOff, IconBriefcase, IconSend } from '@tabler/icons-react';
-import { couleurBloc, rangBloc } from '../lib/blocs.js';
+import { blocDe, couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useRef, useState } from 'react';
 import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight, IconChevronDown, IconListDetails, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
@@ -916,10 +916,12 @@ export default function MesCours({ espace = null }) {
           const g = parUe.find(y => y.ue_num === x.ue_num);
           if (g) g.cours.push(x); else parUe.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, cours: [x] });
         }
-        const carte = x => (
-          <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-            style={{ '--e': couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }} data-etat="fort"
-            className="bloc-etat w-full text-left px-3 py-2 hover:brightness-[.98] flex items-center gap-3">
+        /* UNE TUILE PAR BLOC (3.5.626, Charles, 21 novembre 2026 : « au-delà de l'UE, c'est la fenêtre qui doit gérer cela, par
+           année : tout ce qui est B1, une tuile avec parties ; B2 idem »). Le bloc est la tuile — son bord a la couleur du bloc ; les
+           unités en sont les parties, chacune avec son titre ; chaque cours un morceau, séparé du voisin par un filet. */
+        const morceau = x => (
+          <button key={x.cours_code} type="button" onClick={() => ouvrir(x.cours_code)}
+            className="morceau-doc w-full text-left px-4 py-2.5 border-t border-slate-100 hover:bg-slate-50 flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>
               <div className="text-second text-slate-500 truncate">
@@ -931,12 +933,33 @@ export default function MesCours({ espace = null }) {
             </div>
             <span className="flex-none text-second font-semibold text-iip-turquoise-dark text-right">
               {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
-              {!x.repartition && x.nb_etudiants > 0 && (
-                <span className="block font-normal text-slate-400">toute l'unité</span>
-              )}
+              {!x.repartition && x.nb_etudiants > 0 && <span className="block font-normal text-slate-400">toute l'unité</span>}
             </span>
           </button>
         );
+        const tuilesParBloc = (liste, parUnite) => {
+          const blocs = [];
+          for (const x of liste) {
+            const b = blocDe(x.ue_niv) || 'Autres';
+            let g = blocs.find(y => y.bloc === b);
+            if (!g) blocs.push(g = { bloc: b, niv: x.ue_niv, unites: [] });
+            let u = g.unites.find(y => y.ue_num === x.ue_num);
+            if (!u) g.unites.push(u = { ue_num: x.ue_num, ue_nom: x.ue_nom, cours: [] });
+            u.cours.push(x);
+          }
+          return <div className="flex flex-col gap-4">{blocs.map(g => (
+            <section key={g.bloc} data-tuile-seule className="carte overflow-hidden" style={couleurBloc(g.niv) ? { '--e-doc': couleurBloc(g.niv) } : undefined}>
+              <div className="entete-carte px-4 py-2 flex items-center gap-2">
+                <span className="font-semibold text-iip-texte">{g.bloc === 'Autres' ? 'Hors bloc' : g.bloc.replace('BA', 'Bloc ')}</span>
+                <span className="text-second text-slate-500">· {g.unites.reduce((t, u) => t + u.cours.length, 0)} cours</span>
+              </div>
+              {g.unites.map(u => (
+                <div key={u.ue_num}>
+                  {parUnite && <div className="px-4 pt-3 pb-1 text-second font-semibold text-iip-blue">UE {u.ue_num}{u.ue_nom ? ` — ${u.ue_nom}` : ''}</div>}
+                  <div className="grid md:grid-cols-2 2xl:grid-cols-3">{u.cours.map(morceau)}</div>
+                </div>))}
+            </section>))}</div>;
+        };
         const aSection = cours.some(x => x.a_moi === false);
         return (
           <div className="space-y-3">
@@ -1010,7 +1033,7 @@ export default function MesCours({ espace = null }) {
                 {!espace && parSection.map(g => (
                   <div key={g.section} className="space-y-1.5">
                     {(parSection.length > 1 || aSection) && <div className="text-sm font-semibold text-iip-blue pt-1">{g.section}</div>}
-                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
+                    {tuilesParBloc(g.cours, false)}
                   </div>
                 ))}
               </div>
@@ -1020,12 +1043,7 @@ export default function MesCours({ espace = null }) {
                 <div className="intertitre">
                   Les cours de ma section <span className="normal-case font-normal">— en tant que coordination</span>
                 </div>
-                {parUe.map(g => (
-                  <div key={g.ue_num} className="space-y-1">
-                    <div className="text-second font-semibold text-iip-blue">UE {g.ue_num}{g.ue_nom ? ` — ${g.ue_nom}` : ''}</div>
-                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
-                  </div>
-                ))}
+                {tuilesParBloc(section, true)}
               </div>
             )}
             {q && !miens.length && !parUe.length && <p className="text-sm text-slate-400">Aucun cours ne correspond.</p>}

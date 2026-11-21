@@ -8,7 +8,7 @@ const SELECTEUR = '.carte, div.bloc-etat:not(.inline-flex):not(.inline-block)';
 
 function exclu(el) {
   // Les lignes d'une pile déclarée, les volets de l'Accueil et une carte dans une carte ont leur propre règle.
-  return !!el.closest('.pile-etats') || el.hasAttribute('data-rang') || !!el.parentElement?.closest('.carte, .bloc-etat');
+  return !!el.closest('.pile-etats') || el.hasAttribute('data-rang') || el.hasAttribute('data-tuile-seule') || !!el.parentElement?.closest('.carte, .bloc-etat');
 }
 
 /* (3.5.625) UNE GRILLE DE CARTES EST UNE SEULE TUILE COUPÉE EN MORCEAUX (Charles, 21 novembre 2026, les cours de l'UE 66 rangés sur
@@ -29,6 +29,17 @@ function grilles() {
     if (cols.length < 2) continue;
     const haut = Math.min(...r.map(b => b.top)), gauche = Math.min(...r.map(b => b.left));
     parent.dataset.grilleDoc = '1'; gardees.add(parent);
+    enfants.forEach((x, i) => {
+      if (r[i].top - haut > 2) x.dataset.gLigne = '1'; else delete x.dataset.gLigne;
+      if (r[i].left - gauche > 2) x.dataset.gCol = '1'; else delete x.dataset.gCol;
+    });
+  }
+  // Les morceaux d'une tuile (3.5.626, `.morceau-doc`, ex. les cours d'un bloc dans Mes cours) : même repérage, la tuile est la carte.
+  for (const parent of new Set([...document.querySelectorAll('.morceau-doc')].map(x => x.parentElement).filter(Boolean))) {
+    const enfants = [...parent.children].filter(x => x.offsetParent !== null);
+    if (!enfants.length) continue;
+    const r = enfants.map(x => x.getBoundingClientRect());
+    const haut = Math.min(...r.map(b => b.top)), gauche = Math.min(...r.map(b => b.left));
     enfants.forEach((x, i) => {
       if (r[i].top - haut > 2) x.dataset.gLigne = '1'; else delete x.dataset.gLigne;
       if (r[i].left - gauche > 2) x.dataset.gCol = '1'; else delete x.dataset.gCol;

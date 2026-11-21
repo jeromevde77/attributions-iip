@@ -1927,3 +1927,12 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 :root[data-theme="v4"] [data-grille-doc] > [data-g-col] > :first-child::before { content: none; }
 :root[data-theme="v4"] [data-grille-doc] > [data-g-col] { background-image: linear-gradient(var(--c-filet, rgb(var(--gris-200))), var(--c-filet, rgb(var(--gris-200)))) !important;
   background-size: 1px var(--doc-sep) !important; background-position: left center !important; background-repeat: no-repeat !important; }
+
+/* (3.5.626) LES MORCEAUX D'UNE TUILE (`.morceau-doc` : les cours d'un bloc dans Mes cours). Sous Lucie V4, pas de filet plein : entre
+   deux rangées un filet qui part de la première lettre ; entre deux colonnes un trait court et centré. */
+:root[data-theme="v4"] .morceau-doc { border-top-color: transparent !important; position: relative; }
+:root[data-theme="v4"] .morceau-doc[data-g-ligne]::after { content: ''; position: absolute; pointer-events: none; top: 0; left: 1rem; right: var(--doc-retrait);
+  border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+:root[data-theme="v4"] .morceau-doc[data-g-col] { background-image: linear-gradient(var(--c-filet, rgb(var(--gris-200))), var(--c-filet, rgb(var(--gris-200))));
+  background-size: 1px var(--doc-sep); background-position: left center; background-repeat: no-repeat; }
+:root[data-theme="v4"] .morceau-doc[data-g-col]:hover { background-color: rgb(var(--gris-50, 248 250 252)); }
