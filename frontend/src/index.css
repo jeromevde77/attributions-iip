@@ -2018,3 +2018,8 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 
 /* (3.5.633) Le plafond d'une colonne, dans son titre : en minuscules, sans graisse, en gris. */
 .plafond-entete { text-transform: none; font-weight: 400; letter-spacing: 0; color: rgb(var(--gris-400)); white-space: nowrap; }
+
+/* (3.5.635) LE CHIFFRE PREND LA COULEUR DE SON POINT (Charles : « l'idée du point de couleur est top, ça allège ; allons plus loin, mets
+   la police dans la même couleur ») : dans une carte, sous Lucie V4, le chiffre d'une tuile est de la couleur de son état. Le libellé et
+   la précision restent à l'encre. */
+:root[data-theme="v4"] .carte .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat) .tuile-chiffre { color: var(--e-doc, var(--c-principal)); }
