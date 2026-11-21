@@ -1952,3 +1952,17 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    s'efface — la ligne sous l'en-tête du tableau suffit. */
 :root[data-theme="v4"] .entete-carte:has(+ :is(table, .tableau-cadre, .overflow-x-auto))::after,
 :root[data-theme="v4"] .entete-carte:has(+ * > :first-child:is(table, .tableau-cadre, .overflow-x-auto))::after { content: none; }
+
+/* (3.5.629) LE CADRE D'UN ÉDITEUR DE TEXTE (Charles, 21 novembre 2026 : « le principe de la tuile — côté, haut et arc ; et dans le coin
+   inférieur droit, un rappel : un arc et le côté coloré sur 1 cm, en haut et en bas »). Côté gauche complet, trait du haut et arc en
+   haut à gauche ; en bas à droite, le même arc, avec 1 cm de trait sur le côté droit et 1 cm sur le bas. Plus de cadre gris. */
+:root[data-theme="v4"] .cadre-editeur { position: relative; border: 0 !important; overflow: visible !important;
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; }
+:root[data-theme="v4"] .cadre-editeur::before, :root[data-theme="v4"] .cadre-editeur::after { content: ''; position: absolute; pointer-events: none; z-index: 2; }
+:root[data-theme="v4"] .cadre-editeur::before { top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
+:root[data-theme="v4"] .cadre-editeur::after { right: 0; bottom: 0; width: 1cm; height: 1cm;
+  border-right: var(--doc-trait) solid var(--c-principal); border-bottom: var(--doc-trait) solid var(--c-principal); border-bottom-right-radius: var(--doc-arc); }
+:root[data-theme="v4"] .cadre-editeur:focus-within::before, :root[data-theme="v4"] .cadre-editeur:focus-within::after { border-color: var(--c-accent, var(--c-principal)); }
+/* La barre d'outils : pas de fond gris ; un filet fin qui part de la première icône. */
+:root[data-theme="v4"] .cadre-editeur > div > .border-b:first-child, :root[data-theme="v4"] .cadre-editeur > .border-b:first-child { background: transparent !important; }

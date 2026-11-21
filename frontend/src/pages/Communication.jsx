@@ -130,7 +130,7 @@ export default function Communication() {
         <div>
           <span className="intertitre block mb-1">Message</span>
           {/* L'éditeur de la DUE : votre mise en page arrive telle quelle (3.1.286). */}
-          <div className="border border-slate-300 rounded-champ overflow-hidden" style={{ background: 'var(--blanc)' }}>
+          <div className="cadre-editeur border border-slate-300 rounded-champ overflow-hidden" style={{ background: 'var(--blanc)' }}>
             <EditeurDUE valeur={texte} onChange={setTexte} />
           </div>
         </div>
