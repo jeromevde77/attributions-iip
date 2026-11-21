@@ -182,6 +182,9 @@ export const THEMES_PERSONNELS = {
   sombre: { nom: 'Sombre', texte: 'Gris foncés, texte clair', couleurs: COULEURS_SOMBRE, gris: 'sombre' },
   metal:  { nom: 'Métal', texte: 'Blanc et gris d’Apple, sans bordure', couleurs: COULEURS_METAL, gris: 'apple' },
   pastel: { nom: 'Pastel', texte: 'Tons doux sur fond blanc', couleurs: COULEURS_PASTEL, gris: 'neutre' },
+  /* LUCIE V4 (3.5.620, Charles : « un style Lucie V4 que je peux appliquer comme Maison IIP, pour tester en prod ») : les couleurs de
+     l'école, le dessin des documents (bord gauche coloré, arc, filets alignés sur la première lettre, piles et bandes). */
+  v4: { nom: 'Lucie V4', texte: 'À l’essai : le dessin des documents', couleurs: null, gris: null },
   nouveau: { nom: 'Nouveau style', texte: 'À l’essai : fond blanc, rail en parenthèse', couleurs: COULEURS_NOUVEAU, gris: 'neutre' },
 };
 const CLES_PERSO = [...new Set([COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL, COULEURS_NOUVEAU].flatMap(Object.keys))];

@@ -5,7 +5,7 @@ import { THEMES_PERSONNELS, DEFAUT } from '../lib/couleurs.js';
 import { passeRole } from '../lib/droits.js';
 
 /* « Nouveau style » est à l'essai (3.5.103) : seule la direction le voit dans la palette. */
-const themesVisibles = theme => THEMES_PERSO.filter(k => k !== 'nouveau' || theme === 'nouveau' || passeRole(['admin', 'directeur', 'directeur_adjoint']));
+const themesVisibles = theme => THEMES_PERSO.filter(k => !['nouveau', 'v4'].includes(k) || theme === k || passeRole(['admin', 'directeur', 'directeur_adjoint']));
 
 /* LE CHOIX DU THÈME, POUR CHACUN (3.5.037, Charles : « que TOUT le monde puisse, non pas gérer la mise en page, mais avoir
  * le choix entre des thèmes »). Une palette dans la barre du haut ; quatre thèmes, nommés, avec leurs trois couleurs.
