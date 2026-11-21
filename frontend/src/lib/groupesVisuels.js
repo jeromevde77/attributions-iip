@@ -24,6 +24,9 @@ function grilles() {
     vus.add(parent);
     const enfants = [...parent.children].filter(x => x.offsetParent !== null);
     if (enfants.length < 2 || !enfants.every(x => x.matches(SELECTEUR))) continue;
+    // Une tuile qui porte un état (réussi, à surveiller…) ou un chiffre garde son dessin : la fondre lui ôterait sa couleur.
+    if (enfants.some(x => x.matches('.tuile-grande, .tuile-compacte, [class*="etat-"], [data-tuile-seule]')
+      || (x.dataset.etat && !['fort', 'neutre'].includes(x.dataset.etat)))) continue;
     const r = enfants.map(x => x.getBoundingClientRect());
     const cols = [...new Set(r.map(b => Math.round(b.left)))];
     if (cols.length < 2) continue;
@@ -52,7 +55,17 @@ function grilles() {
   return gardees;
 }
 
+/* (3.5.627) UNE CARTE QUI PORTE SA COULEUR EN LIGNE (style borderLeft, ex. le bloc d'une liste rangée par bloc) la garde sous Lucie V4 :
+   le dessin des documents retire les bordures et lit sa couleur dans --e-doc. */
+function couleursEnLigne() {
+  for (const el of document.querySelectorAll('.carte[style*="border-left"]')) {
+    const c = el.style.borderLeftColor;
+    if (c && el.style.getPropertyValue('--e-doc') !== c) el.style.setProperty('--e-doc', c);
+  }
+}
+
 function mesurer() {
+  couleursEnLigne();
   const enGrille = grilles();
   const vus = new Set(enGrille);
   const marques = document.querySelectorAll('[data-voisin-haut], [data-voisin-bas]');
