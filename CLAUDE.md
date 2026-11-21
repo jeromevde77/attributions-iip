@@ -4668,6 +4668,15 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**ÉCRIRE AUX ÉTUDIANTS COMME À L'ÉQUIPE** (3.5.607, Charles, 21 novembre 2026 : « il doit ressembler à celui pour les profs ; les
+pictogrammes ; les accusés de réception, la copie mail »). `lib/messagesEtudiants.js` : `message_etudiant.importance`, `icone` (les listes de
+`frontend/src/lib/messages.js`, celles de la Communication), `accuse_demande`, `canal_email` ; `message_etudiant_dest.accuse_le`,
+`courriel_le` ; `message_etudiant_piece` (DATA_DIR/messages-etudiants/<message>/<id> ; PDF, image, docx, xlsx, pptx ; 5 × 10 Mo, 20 Mo en
+tout). Copie par courriel = le message ENTIER et ses documents, à l'adresse d'institut (le candidat : privée) ; sans copie, l'avis « un
+message vous attend » d'avant. Portail : colonnes du message, `message_accuse` (relevé `messages_accuses` → `accuse_le`), `message_piece`
+(Lucie dépose une fois chaque document : `GET /interne/messages/pieces`, `POST /interne/messages/piece`), « J'en ai pris connaissance »,
+documents à ouvrir, pictogramme et importance dans la liste. Écran de Lucie (`MessagesEtudiants.jsx`) : importance, pictogramme, documents,
+accusé, copie ; envoyés avec ✓ lus et ✓✓ confirmés ; détail par étudiant (lu, confirmé, courriel parti).
 **LA PHOTO D'IDENTITÉ DE L'ÉTUDIANT** (3.5.606, demande du secrétariat par Charles, 21 novembre 2026 ; tranché : l'étudiant dépose, le
 secrétariat valide ; demandée avec rappel, jamais bloquante ; fiche, trombinoscope, carte d'étudiant, carte eID). `lib/photoEtudiant.js`
 (table `etudiant_photo`, fichiers DATA_DIR/photos/<étudiant>/<id> ; statut a_valider · acceptee · refusee · remplacee ; secrétariat et eID =

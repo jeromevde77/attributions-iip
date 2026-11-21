@@ -24,7 +24,7 @@ import { copieDeLEnvoi } from '../routes/envois.js';
 import { deposerDOffice } from './depotEspace.js';
 import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
-import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
+import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel, lirePiece as lireMessagePiece } from './messagesEtudiants.js';
 import { parcoursPortail, fraisPortail, docsDesUnites } from './portailEspace.js';
 import { santePortail } from './suiviSante.js';
 import { photoPortail, deposerPhoto, mimeDe as mimePhoto } from './photoEtudiant.js';
@@ -294,7 +294,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ph: [], ar: [], messages_lus: [], messages_reponses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ph: [], ar: [], messages_lus: [], messages_reponses: [], messages_accuses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -463,10 +463,10 @@ async function relever() {
     touches.add(Number(g.etudiant_id));
   }
   // LES MESSAGES (3.1.516) : ✓ lu, et les réponses (au fil, l'auteur prévenu).
-  if ((r.messages_lus || []).length || (r.messages_reponses || []).length) {
-    const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [] });
-    ok.messages_lus = m.lus; ok.messages_reponses = m.reponses;
-    for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || [])]) touches.add(Number(x.etudiant_id));
+  if ((r.messages_lus || []).length || (r.messages_reponses || []).length || (r.messages_accuses || []).length) {
+    const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [], accuses: r.messages_accuses || [] });
+    ok.messages_lus = m.lus; ok.messages_reponses = m.reponses; ok.messages_accuses = m.accuses;
+    for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || []), ...(r.messages_accuses || [])]) touches.add(Number(x.etudiant_id));
     tours = 0;
   }
   /* « MON PROGRAMME N'EST PAS JUSTE » (3.5.275) : l'étudiant le signale depuis la validation de son PAE ; la coordination de sa
@@ -485,7 +485,7 @@ async function relever() {
     ok.pae_avis.push(Number(a.id));
   }
   if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ph.length || ok.ar.length
-    || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
+    || ok.messages_lus.length || ok.messages_reponses.length || ok.messages_accuses.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);
 }
@@ -508,7 +508,19 @@ async function deposer() {
   await deposerVA(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_connexion WHERE le >= datetime('now', '-3 hours')`).all().map(x => x.etudiant_id));
   await appel('POST', '/interne/resultats', { resultats: resultatsPublies(avec('resultats', etudiants)) });
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
-  await appel('POST', '/interne/messages', messagesADeposer([...avec('messages', etudiants), ...avec('messages', candidats)]));
+  const lotMessages = messagesADeposer([...avec('messages', etudiants), ...avec('messages', candidats)]);
+  await appel('POST', '/interne/messages', lotMessages);
+  // LES DOCUMENTS JOINTS (3.5.607) : déposés une fois chacun ; le portail dit ceux qu'il a déjà.
+  try {
+    const voulus = lotMessages.messages.flatMap(m => (m.pieces || []).map(p => ({ ...p, message_id: m.id })));
+    if (voulus.length) {
+      const deja = new Set(((await appel('GET', '/interne/messages/pieces'))?.ids || []).map(Number));
+      for (const p of voulus.filter(x => !deja.has(Number(x.id))).slice(0, 10)) {
+        const b = lireMessagePiece(p);
+        if (b) await appel('POST', '/interne/messages/piece', { id: p.id, message_id: p.message_id, nom: p.nom, mime: p.mime, contenu: b.toString('base64') });
+      }
+    }
+  } catch (x) { console.error('[portail] documents des messages :', x.message); }
   try { await aviserParCourriel(URL_PUBLIQUE()); } catch (e) { console.error('[messages] avis :', e.message); }
   await appel('POST', '/interne/exceptions', { exceptions: db.prepare(`SELECT etudiant_id, MAX(jusqu_au) AS jusqu_au FROM portail_exception
     WHERE retire_le IS NULL AND jusqu_au >= date('now') GROUP BY etudiant_id`).all() });

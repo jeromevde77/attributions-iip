@@ -5,12 +5,20 @@
  * Serveur : routes/messagesEtudiants.js, lib/messagesEtudiants.js.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { IconMessages, IconSend, IconCheck, IconX, IconArrowBackUp } from '@tabler/icons-react';
+import { IconMessages, IconSend, IconCheck, IconChecks, IconX, IconArrowBackUp, IconPaperclip, IconMail, IconTrash } from '@tabler/icons-react';
+import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
 import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { demander } from '../lib/dialogue.jsx';
 
 const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+const VERT = 'var(--c-reussi)';
+const lireFichier = f => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+/** Le pictogramme d'un message, dans la couleur de son importance. */
+export function Picto({ icone, importance, taille = 18 }) {
+  const I = (ICONES_MESSAGE[icone] || ICONES_MESSAGE['porte-voix']).Icone;
+  return <I size={taille} style={{ color: (IMPORTANCES_MESSAGE[importance] || IMPORTANCES_MESSAGE.info).couleur }} className="flex-none" />;
+}
 async function appel(methode, chemin, corps) {
   const r = await fetch(`/api/messages-etudiants${chemin}`, { method: methode,
     headers: { ...authHeaders(), ...(corps ? { 'Content-Type': 'application/json' } : {}) }, body: corps ? JSON.stringify(corps) : undefined });
@@ -29,7 +37,21 @@ function Ecrire({ onEnvoye, onErreur }) {
   const [apercu, setApercu] = useState(null);
   const [objet, setObjet] = useState('');
   const [corps, setCorps] = useState('');
+  const [importance, setImportance] = useState('info');
+  const [icone, setIcone] = useState('porte-voix');
+  const [accuse, setAccuse] = useState(false);
+  const [courriel, setCourriel] = useState(false);
+  const [pieces, setPieces] = useState([]);
   const [enCours, setEnCours] = useState(false);
+  const joindre = async fichiers => {
+    const l = [...pieces];
+    for (const f of Array.from(fichiers || [])) {
+      if (l.length >= 5) break;
+      if (f.size > 10 * 1024 * 1024) { onErreur(new Error(`${f.name} dépasse 10 Mo.`)); continue; }
+      l.push({ nom: f.name, contenu: await lireFichier(f) });
+    }
+    setPieces(l);
+  };
   useEffect(() => { appel('GET', '/cibles').then(setC).catch(onErreur); }, [onErreur]);
   useEffect(() => {
     if (q.trim().length < 2) { setTrouves([]); return undefined; }
@@ -46,9 +68,9 @@ function Ecrire({ onEnvoye, onErreur }) {
   if (!c) return <p className="text-sm text-slate-500">Chargement…</p>;
   const bascule = (l, set, v) => set(l.includes(v) ? l.filter(x => x !== v) : [...l, v]);
   const envoyer = async () => {
-    if (!(await demander(`Envoyer « ${objet} » à ${apercu.nb} étudiant${apercu.nb > 1 ? 's' : ''} ? Ils le liront dans leur espace ; un courriel les en avertit.`))) return;
+    if (!(await demander({ titre: 'Envoyer le message', confirmer: 'Envoyer', message: `« ${objet} » (${IMPORTANCES_MESSAGE[importance].libelle.toLowerCase()}) à ${apercu.nb} étudiant${apercu.nb > 1 ? 's' : ''}. Ils le liront dans leur espace.${accuse ? '\n\nUn accusé de lecture est demandé.' : ''}${pieces.length ? `\n\nDocument(s) joint(s) : ${pieces.map(p => p.nom).join(', ')}.` : ''}${courriel ? '\n\nUne copie entière part aussi par courriel, à leur adresse de l’institut.' : '\n\nUn courriel les avertit qu’un message les attend (sans le contenu).'}` }))) return;
     setEnCours(true);
-    try { await appel('POST', '/', { objet, corps, critere }); onEnvoye(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
+    try { await appel('POST', '/', { objet, corps, critere, importance, icone, accuse_demande: accuse, canal_email: courriel, pieces }); onEnvoye(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
   };
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -82,9 +104,42 @@ function Ecrire({ onEnvoye, onErreur }) {
         <div className="intertitre">Le message</div>
         <input value={objet} onChange={e => setObjet(e.target.value)} placeholder="Objet" className="controle w-full" />
         <textarea value={corps} onChange={e => setCorps(e.target.value)} rows={9} placeholder="Votre message…" className="w-full border border-slate-300 rounded-champ px-3 py-2 text-sm" data-reponses="Message aux étudiants" />
-        <p className="text-xs text-slate-500">L’étudiant le lit dans son espace et peut y répondre : sa réponse vous revient ici, et sur votre tableau de bord.</p>
+        <div className="space-y-1.5">
+          <span className="intertitre block">Documents joints</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {pieces.map((p, i) => <span key={i} className="inline-flex items-center gap-1 text-second border border-slate-200 rounded-full px-2 py-0.5"><IconPaperclip size={12} /> {p.nom}
+              <button type="button" aria-label="Retirer" onClick={() => setPieces(x => x.filter((_, j) => j !== i))}><IconX size={12} /></button></span>)}
+            {pieces.length < 5 && <label className="bouton cursor-pointer inline-flex items-center gap-1.5"><IconPaperclip size={15} /> Joindre un document
+              <input type="file" multiple className="hidden" accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.pptx" onChange={e => { joindre(e.target.files); e.target.value = ''; }} /></label>}
+          </div>
+          <span className="text-second text-slate-500">PDF, image, Word, Excel ou PowerPoint — 5 au plus, 10 Mo chacun. Ils s’ouvrent dans l’espace et partent avec la copie par courriel.</span>
+        </div>
+        <div>
+          <span className="intertitre block mb-1">Importance — la couleur du message</span>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(IMPORTANCES_MESSAGE).map(([k, v]) => (
+              <button key={k} type="button" aria-pressed={importance === k} onClick={() => setImportance(k)}
+                className={`px-2.5 py-1 rounded-pastille text-second border ${importance === k ? 'text-white font-semibold' : 'text-slate-600'}`}
+                style={importance === k ? { background: v.couleur, borderColor: v.couleur } : { borderColor: v.couleur }}>{v.libelle}</button>))}
+          </div>
+        </div>
+        <div>
+          <span className="intertitre block mb-1">Pictogramme</span>
+          <div className="flex flex-wrap gap-1">
+            {Object.entries(ICONES_MESSAGE).map(([k, { Icone, libelle }]) => (
+              <button key={k} type="button" title={libelle} aria-label={libelle} aria-pressed={icone === k} onClick={() => setIcone(k)}
+                className={`w-8 h-8 grid place-items-center rounded-champ border ${icone === k ? 'border-[color:var(--c-principal)] bg-slate-100' : 'border-slate-200'}`}>
+                <Icone size={17} style={{ color: icone === k ? IMPORTANCES_MESSAGE[importance].couleur : undefined }} />
+              </button>))}
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={accuse} onChange={e => setAccuse(e.target.checked)} />
+          Demander un accusé de lecture (« J’en ai pris connaissance »)</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={courriel} onChange={e => setCourriel(e.target.checked)} />
+          <IconMail size={15} className="text-slate-500" /> Envoyer aussi une copie entière par courriel (adresse de l’institut)</label>
+        <p className="text-second text-slate-500">L’étudiant le lit dans son espace et peut y répondre : sa réponse vous revient ici, et sur votre tableau de bord.</p>
         <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={!apercu?.nb || !objet.trim() || !corps.trim() || enCours} onClick={envoyer}>
-          <IconSend size={15} /> Envoyer</button>
+          <IconSend size={15} /> {enCours ? 'Envoi…' : 'Envoyer'}</button>
       </div>
     </div>
   );
@@ -97,6 +152,12 @@ function Detail({ id, onRetour, onErreur }) {
   useEffect(() => { charger(); }, [charger]);
   if (!m) return <p className="text-sm text-slate-500">Chargement…</p>;
   const lus = m.destinataires.filter(d => d.lu_le).length;
+  const confirmes = m.destinataires.filter(d => d.accuse_le).length;
+  const ouvrirPiece = async p => {
+    const r = await fetch(`/api/messages-etudiants/${id}/piece/${p.id}`, { headers: authHeaders() });
+    if (!r.ok) { onErreur(new Error('Document introuvable.')); return; }
+    window.open(URL.createObjectURL(await r.blob()), '_blank');
+  };
   const repondre = async d => {
     try { await appel('POST', `/${id}/repondre`, { etudiant_id: d.etudiant_id, corps: reponse[d.etudiant_id] }); setReponse(r => ({ ...r, [d.etudiant_id]: '' })); charger(); }
     catch (e) { onErreur(e); }
@@ -108,20 +169,28 @@ function Detail({ id, onRetour, onErreur }) {
   return (
     <div className="space-y-3">
       <button type="button" className="text-second text-iip-blue underline inline-flex items-center gap-1" onClick={onRetour}><IconArrowBackUp size={14} /> Tous les messages</button>
-      <div className="bloc-etat px-4 py-3 space-y-1" data-etat={m.retire_le ? 'neutre' : 'disponible'}>
-        <div className="text-sm font-semibold text-iip-texte">{m.objet}</div>
-        <div className="text-xs text-slate-500">{m.auteur_nom} · {jour(m.envoye_le)} · {m.resume} · {lus} / {m.destinataires.length} lu{lus > 1 ? 's' : ''}
+      <div className="bloc-etat px-4 py-3 space-y-1" data-etat={m.retire_le ? 'neutre' : (IMPORTANCES_MESSAGE[m.importance] || IMPORTANCES_MESSAGE.info).etat}>
+        <div className="text-sm font-semibold text-iip-texte flex items-center gap-2"><Picto icone={m.icone} importance={m.importance} /> {m.objet}</div>
+        <div className="text-second text-slate-500">{m.auteur_nom} · {jour(m.envoye_le)} · {m.resume}{m.canal_email ? ' · copie courriel' : ''}
           {m.retire_le ? ` · retiré le ${jour(m.retire_le)} par ${m.retire_par}` : ''}</div>
+        <div className="text-second flex items-center gap-1" style={{ color: VERT }}><IconCheck size={14} /> {lus}/{m.destinataires.length} lu{lus > 1 ? 's' : ''}
+          {m.accuse_demande ? <> · <IconChecks size={14} /> {confirmes} confirmé{confirmes > 1 ? 's' : ''}</> : null}</div>
         <div className="text-sm text-slate-700 whitespace-pre-line pt-1">{m.corps}</div>
-        {!m.retire_le && <button type="button" className="bouton mt-2" onClick={retirer}>Retirer</button>}
+        {(m.pieces || []).length > 0 && <div className="flex flex-wrap gap-1.5 pt-1">{m.pieces.map(p => (
+          <button key={p.id} type="button" className="inline-flex items-center gap-1 text-second border border-slate-200 rounded-full px-2 py-0.5 hover:bg-slate-50" onClick={() => ouvrirPiece(p)}>
+            <IconPaperclip size={12} /> {p.nom}</button>))}</div>}
+        {!m.retire_le && <button type="button" className="bouton bouton-detruire mt-2 inline-flex items-center gap-1" onClick={retirer}><IconTrash size={14} /> Retirer</button>}
       </div>
       <div className="divide-y divide-slate-100 border border-slate-200 rounded-carte">
         {m.destinataires.map(d => (
           <div key={d.etudiant_id} className="px-3 py-2 space-y-1.5">
             <div className="flex items-center gap-2 text-sm">
               <span className="flex-1 min-w-0">{d.nom}</span>
-              {d.lu_le ? <span className="text-emerald-700 inline-flex items-center gap-1 text-second"><IconCheck size={14} /> lu le {jour(d.lu_le)}</span>
-                : <span className="text-slate-400 text-second">pas encore lu</span>}
+              {d.accuse_le ? <IconChecks size={16} stroke={2.5} style={{ color: VERT }} title="Confirmé" />
+                : d.lu_le ? <IconCheck size={16} stroke={2.5} style={{ color: VERT }} title="Lu" /> : <span className="w-4" />}
+              <span className="text-second text-slate-500">
+                {d.accuse_le ? `confirmé le ${jour(d.accuse_le)}` : d.lu_le ? `lu le ${jour(d.lu_le)}${m.accuse_demande ? ' · pas encore confirmé' : ''}` : 'pas encore lu'}
+                {d.courriel_le ? ' · courriel parti' : ''}</span>
             </div>
             {d.fil.map(f => (
               <div key={f.id} className={`text-second rounded-champ px-3 py-1.5 whitespace-pre-line ${f.de === 'etudiant' ? 'border border-slate-200' : 'bloc-etat ml-8'}`}>
@@ -162,11 +231,14 @@ export default function MessagesEtudiants({ onFermer, titre = 'Messages aux étu
               : <div className="divide-y divide-slate-100 border border-slate-200 rounded-carte">
                 {l.map(m => (
                   <button key={m.id} type="button" className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-50" onClick={() => setOuvert(m.id)}>
+                    <Picto icone={m.icone} importance={m.importance} />
                     <span className="flex-1 min-w-0">
                       <span className={`block text-sm truncate ${m.retire_le ? 'line-through text-slate-400' : 'text-iip-texte'}`}>{m.objet}</span>
-                      <span className="block text-xs text-slate-500 truncate">{m.auteur_nom} · {jour(m.envoye_le)} · {m.resume}</span>
+                      <span className="block text-second text-slate-500 truncate">{m.auteur_nom} · {jour(m.envoye_le)} · {m.resume}{m.canal_email ? ' · copie courriel' : ''}{m.nb_pieces ? ` · ${m.nb_pieces} document${m.nb_pieces > 1 ? 's' : ''}` : ''}</span>
                     </span>
-                    <span className="text-second text-slate-500 whitespace-nowrap">{m.lus} / {m.n} lus</span>
+                    <span className="text-second tabular-nums whitespace-nowrap flex items-center gap-1" style={{ color: VERT }}>
+                      <IconCheck size={14} /> {m.lus}/{m.n} lu{m.lus > 1 ? 's' : ''}
+                      {m.accuse_demande ? <> · <IconChecks size={14} /> {m.accuses} confirmé{m.accuses > 1 ? 's' : ''}</> : null}</span>
                     {m.reponses > 0 && <span className="pastille-etat whitespace-nowrap" data-etat={m.reponses_non_lues ? 'disponible' : 'neutre'}>
                       {m.reponses} réponse{m.reponses > 1 ? 's' : ''}{m.reponses_non_lues ? ` · ${m.reponses_non_lues} nouvelle${m.reponses_non_lues > 1 ? 's' : ''}` : ''}</span>}
                   </button>))}

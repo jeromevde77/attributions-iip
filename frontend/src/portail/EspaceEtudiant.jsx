@@ -4,6 +4,7 @@ import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
 import MaPhoto from './MaPhoto.jsx';
+import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
 import MonAmenagement from './MonAmenagement.jsx';
 import VisiteGuidee, { visiteVue } from './VisiteGuidee.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
@@ -11,7 +12,7 @@ import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
 import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
-import { IconCamera, IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
+import { IconCamera, IconPaperclip, IconChecks, IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -1078,12 +1079,24 @@ function MesMessages({ onErreur, onLus, signature = '' }) {
     {!l.length && <p className="text-sm text-slate-500">Aucun message pour l’instant. Les messages du secrétariat, de votre coordination et de vos enseignants paraîtront ici.</p>}
     {l.length > 0 && <ListeEtats>
       {l.map(m => (
-        <LigneEtat key={m.id} etat={m.lu ? 'neutre' : 'disponible'} icone={IconMessages} titre={m.objet}
-          meta={!m.lu ? <PastilleEtat etat="disponible">non lu</PastilleEtat> : null}
+        <LigneEtat key={m.id} etat={!m.lu ? 'disponible' : m.accuse_demande && !m.accuse_le ? 'surveiller' : (IMPORTANCES_MESSAGE[m.importance]?.etat === 'corriger' ? 'corriger' : 'neutre')}
+          icone={(ICONES_MESSAGE[m.icone] || ICONES_MESSAGE['porte-voix']).Icone} titre={m.objet}
+          meta={!m.lu ? <PastilleEtat etat="disponible">non lu</PastilleEtat>
+            : m.accuse_demande && !m.accuse_le ? <PastilleEtat etat="surveiller">à confirmer</PastilleEtat>
+            : m.importance && m.importance !== 'info' ? <PastilleEtat etat={IMPORTANCES_MESSAGE[m.importance]?.etat}>{IMPORTANCES_MESSAGE[m.importance]?.libelle}</PastilleEtat> : null}
           sous={`${m.auteur} · ${jourFr(m.envoye_le)}${m.fil.length ? ` · ${m.fil.length} réponse${m.fil.length > 1 ? 's' : ''}` : ''}`}
           onClick={() => ouvrir(m)} ouverte={ouvert === m.id}>
           {ouvert === m.id && <div className="space-y-2">
             <div className="text-sm text-slate-700 whitespace-pre-line break-words">{m.corps}</div>
+            {(m.pieces || []).length > 0 && <div className="flex flex-wrap gap-1.5">{m.pieces.map(p => (
+              <button key={p.id} type="button" className="inline-flex items-center gap-1 text-second border border-slate-200 rounded-full px-2 py-0.5 hover:bg-slate-50"
+                onClick={async () => { try { const r = await appel('GET', `/messages/${m.id}/piece/${p.id}`, null, true); window.open(URL.createObjectURL(await r.blob()), '_blank'); } catch (e) { onErreur(e); } }}>
+                <IconPaperclip size={12} /> {p.nom}</button>))}</div>}
+            {/* L'ACCUSÉ (3.5.607) : demandé par l'école, il se donne d'un geste. */}
+            {m.accuse_demande && (m.accuse_le
+              ? <div className="text-second flex items-center gap-1" style={{ color: 'var(--c-reussi)' }}><IconChecks size={14} /> Vous avez confirmé en avoir pris connaissance le {jourFr(m.accuse_le)}.</div>
+              : <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={async () => { try { await appel('POST', `/messages/${m.id}/accuse`); charger(); } catch (e) { onErreur(e); } }}>
+                <IconChecks size={15} /> J’en ai pris connaissance</button>)}
             {m.fil.map((f, i) => (
               <div key={i} className={`text-sm pl-3 border-l-2 whitespace-pre-line break-words ${f.de === 'etudiant' ? 'ml-6' : ''}`}
                 style={{ borderColor: f.de === 'etudiant' ? 'rgb(var(--gris-300))' : 'var(--c-disponible)' }}>

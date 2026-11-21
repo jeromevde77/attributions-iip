@@ -931,7 +931,7 @@ pub.use('/api/portail/amenagement', (err, req, res, next) => (err?.type === 'ent
 // ── LES MESSAGES (3.1.516) ──
 pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const id = req.etudiant.id;
-  const l = db.prepare(`SELECT m.*, d.lu_le AS lu_lucie, (SELECT lu_le FROM message_lu WHERE message_id = m.id AND etudiant_id = ?) AS lu_ici
+  const l = db.prepare(`SELECT m.*, d.lu_le AS lu_lucie, d.accuse_le, (SELECT lu_le FROM message_lu WHERE message_id = m.id AND etudiant_id = ?) AS lu_ici
     FROM message m JOIN message_dest d ON d.message_id = m.id AND d.etudiant_id = ? ORDER BY m.envoye_le DESC`).all(id, id);
   const fil = db.prepare('SELECT de, auteur, corps, le FROM message_fil WHERE message_id = ? AND etudiant_id = ? ORDER BY id');
   // Ses réponses que le fil déposé par Lucie ne porte pas encore (relevées ou non) : on les montre « en cours ».
@@ -942,8 +942,11 @@ pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const nouveaux = db.prepare(`SELECT id, objet, corps, le FROM message_reponse WHERE message_id = 0 AND etudiant_id = ?
     AND (releve_le IS NULL OR releve_le > datetime('now', '-10 minutes')) ORDER BY id DESC`).all(id)
     .filter(r => !l.some(m => m.objet && r.objet && m.objet.endsWith(r.objet) && m.envoye_le >= r.le.slice(0, 10)));
+  const accuseIci = db.prepare('SELECT accuse_le FROM message_accuse WHERE message_id = ? AND etudiant_id = ?');
   res.json([...nouveaux.map(r => ({ id: `n${r.id}`, objet: r.objet, corps: r.corps, auteur: 'Vous → la direction', envoye_le: r.le, lu: true, fil: [], en_cours: true })),
     ...l.map(m => ({ id: m.id, objet: m.objet, corps: m.corps, auteur: m.auteur, envoye_le: m.envoye_le, lu: !!(m.lu_lucie || m.lu_ici),
+    importance: m.importance || 'info', icone: m.icone || 'porte-voix', accuse_demande: !!m.accuse_demande,
+    accuse_le: m.accuse_le || accuseIci.get(m.id, id)?.accuse_le || null, pieces: m.pieces ? JSON.parse(m.pieces) : [],
     fil: [...fil.all(m.id, id), ...enAttente.all(m.id, id).map(r => ({ de: 'etudiant', corps: r.corps, le: r.le, en_cours: true }))] }))]);
 });
 const monMessage = (req, res) => {
@@ -959,6 +962,28 @@ pub.post('/api/portail/messages/:id/lu', connecte, exige('messages'), (req, res)
 /* ÉCRIRE À LA DIRECTION (3.5.538, Charles : « ajoute le bouton Écrire à la direction ») : un message de l'étudiant SANS message de
    départ. Noté ici (message_id = 0, avec son objet) ; Lucie le relève, l'ouvre comme un fil adressé à la direction, et le redépose. */
 try { db.exec('ALTER TABLE message_reponse ADD COLUMN objet TEXT'); } catch { /* déjà là */ }
+/* COMME LA COMMUNICATION DU PERSONNEL (3.5.607) : importance, pictogramme, accusé demandé, documents joints ; l'accusé de l'étudiant
+   est noté ici (message_accuse) et relevé par Lucie. Les documents arrivent une fois chacun (message_piece). */
+for (const c of ["importance TEXT", "icone TEXT", "accuse_demande INTEGER", "pieces TEXT"]) { try { db.exec(`ALTER TABLE message ADD COLUMN ${c}`); } catch { /* */ } }
+try { db.exec('ALTER TABLE message_dest ADD COLUMN accuse_le TEXT'); } catch { /* */ }
+db.exec(`CREATE TABLE IF NOT EXISTS message_accuse (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, etudiant_id INTEGER NOT NULL,
+  accuse_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, UNIQUE (message_id, etudiant_id));
+  CREATE TABLE IF NOT EXISTS message_piece (id INTEGER PRIMARY KEY, message_id INTEGER NOT NULL, nom TEXT, mime TEXT, contenu BLOB);`);
+pub.post('/api/portail/messages/:id/accuse', connecte, exige('messages'), (req, res) => {
+  if (!monMessage(req, res)) return;
+  db.prepare('INSERT OR IGNORE INTO message_lu (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
+  db.prepare('INSERT OR IGNORE INTO message_accuse (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
+  res.json({ ok: true });
+});
+pub.get('/api/portail/messages/:id/piece/:pid', connecte, exige('messages'), (req, res) => {
+  if (!monMessage(req, res)) return;
+  const p = db.prepare('SELECT nom, mime, contenu FROM message_piece WHERE id = ? AND message_id = ?').get(Number(req.params.pid), Number(req.params.id));
+  if (!p?.contenu) return res.status(404).json({ error: 'Le document arrive : réessayez dans une minute.' });
+  res.setHeader('Content-Type', p.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(p.nom || 'document')}`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(p.contenu);
+});
 pub.post('/api/portail/messages/nouveau', connecte, exige('messages'), (req, res) => {
   const objet = String(req.body?.objet || '').trim().slice(0, 150);
   const corps = String(req.body?.corps || '').trim();
@@ -1223,15 +1248,26 @@ int.post('/interne/messages', (req, res) => {
   const b = req.body || {};
   db.transaction(() => {
     db.exec('DELETE FROM message; DELETE FROM message_dest; DELETE FROM message_fil;');
-    const im = db.prepare('INSERT INTO message (id, objet, corps, auteur, envoye_le) VALUES (?,?,?,?,?)');
-    for (const m of b.messages || []) im.run(Number(m.id), String(m.objet || ''), String(m.corps || ''), String(m.auteur || ''), String(m.envoye_le || ''));
-    const id = db.prepare('INSERT OR IGNORE INTO message_dest (message_id, etudiant_id, lu_le) VALUES (?,?,?)');
-    for (const d of b.destinations || []) id.run(Number(d.message_id), Number(d.etudiant_id), d.lu_le || null);
+    const im = db.prepare('INSERT INTO message (id, objet, corps, auteur, envoye_le, importance, icone, accuse_demande, pieces) VALUES (?,?,?,?,?,?,?,?,?)');
+    for (const m of b.messages || []) im.run(Number(m.id), String(m.objet || ''), String(m.corps || ''), String(m.auteur || ''), String(m.envoye_le || ''),
+      String(m.importance || 'info'), String(m.icone || 'porte-voix'), m.accuse_demande ? 1 : 0, JSON.stringify((m.pieces || []).map(p => ({ id: Number(p.id), nom: String(p.nom || ''), taille: Number(p.taille) || 0 }))));
+    const id = db.prepare('INSERT OR IGNORE INTO message_dest (message_id, etudiant_id, lu_le, accuse_le) VALUES (?,?,?,?)');
+    for (const d of b.destinations || []) id.run(Number(d.message_id), Number(d.etudiant_id), d.lu_le || null, d.accuse_le || null);
+    // Les documents d'un message retiré (ou trop ancien) partent avec lui.
+    db.exec('DELETE FROM message_piece WHERE message_id NOT IN (SELECT id FROM message)');
     const ifl = db.prepare('INSERT INTO message_fil (id, message_id, etudiant_id, de, auteur, corps, le) VALUES (?,?,?,?,?,?,?)');
     for (const f of b.fils || []) ifl.run(Number(f.id), Number(f.message_id), Number(f.etudiant_id), String(f.de || ''), String(f.auteur || ''), String(f.corps || ''), String(f.le || ''));
     // Une réponse déjà relevée ET déjà revenue dans le fil n'a plus à vivre ici.
     db.exec("DELETE FROM message_reponse WHERE releve_le IS NOT NULL AND releve_le < datetime('now', '-1 day')");
   })();
+  res.json({ ok: true });
+});
+
+int.get('/interne/messages/pieces', (req, res) => res.json({ ids: db.prepare('SELECT id FROM message_piece').all().map(x => x.id) }));
+int.post('/interne/messages/piece', (req, res) => {
+  const b = req.body || {};
+  db.prepare('INSERT OR REPLACE INTO message_piece (id, message_id, nom, mime, contenu) VALUES (?,?,?,?,?)')
+    .run(Number(b.id), Number(b.message_id), String(b.nom || '').slice(0, 150), String(b.mime || ''), Buffer.from(String(b.contenu || ''), 'base64'));
   res.json({ ok: true });
 });
 
@@ -1320,6 +1356,7 @@ int.get('/interne/releve', (req, res) => {
     ph: db.prepare('SELECT id, etudiant_id, taille FROM ph_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
+    messages_accuses: db.prepare('SELECT id, message_id, etudiant_id, accuse_le FROM message_accuse WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le, objet FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
   });
 });
@@ -1336,6 +1373,7 @@ int.post('/interne/acquitter', (req, res) => {
     }
     db.prepare("DELETE FROM va_geste WHERE releve_le < datetime('now', '-30 days')").run();
     for (const id of ids('messages_lus')) db.prepare("UPDATE message_lu SET releve_le = datetime('now') WHERE id = ?").run(id);
+    for (const id of ids('messages_accuses')) db.prepare("UPDATE message_accuse SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const id of ids('messages_reponses')) db.prepare("UPDATE message_reponse SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const g of Array.isArray(req.body?.ts) ? req.body.ts : []) {
       db.prepare("UPDATE ts_geste SET releve_le = datetime('now'), erreur = ?, contenu = NULL WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
