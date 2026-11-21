@@ -8,8 +8,10 @@ production y restent illisibles — c'est voulu.
 1. Fabriquer la clé (une fois) :
 
    ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   openssl rand -base64 32
    ```
+
+   (Node n'est pas installé sur le VPS : `node -e …` y répond « command not found ».)
 
 2. L'ajouter au `.env` de `/opt/lucie` : `EVAL_KEY=<la valeur>`. Ne l'écrire nulle part ailleurs (ni dépôt, ni courriel, ni
    conversation). La garder aussi dans le coffre de l'école : **perdue, elle rend toutes les évaluations illisibles ; elle ne se

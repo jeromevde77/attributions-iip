@@ -153,6 +153,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS cm_geste (id INTEGER PRIMARY KEY AUTOINCREME
   du TEXT NOT NULL, au TEXT NOT NULL, nom TEXT, taille INTEGER, contenu BLOB,
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
 
+/* MA PHOTO D'IDENTITÉ (3.5.606) : l'étudiant dépose sa photo ; elle n'attend ici que le relevé de Lucie, qui la range « à valider ». */
+db.exec(`CREATE TABLE IF NOT EXISTS ph_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, taille INTEGER, contenu BLOB,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
+try { db.exec('ALTER TABLE espace_lot ADD COLUMN photo TEXT'); } catch { /* déjà là */ }
+
 /* L'AMÉNAGEMENT RAISONNABLE EN LIGNE (3.5.235) : la demande (cadre A, sa pièce) ou un message à la personne de référence ; noté ici,
    jugé et écrit par Lucie au relevé. */
 db.exec(`CREATE TABLE IF NOT EXISTS ar_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
@@ -438,7 +443,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'desinscription'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'photo', 'desinscription'];
 // L'aperçu voit ce que Lucie dit (`vues`, 3.5.548 : sans les frais tant qu'ils sont éteints), à défaut tout.
 const vuesDe = id => { try { const v = db.prepare('SELECT vues FROM etudiant WHERE id = ?').get(id)?.vues; return v ? JSON.parse(v) : null; } catch { return null; } };
 const fonctionsVues = req => (req.apercu ? (vuesDe(req.etudiant?.id) || TOUTES) : fonctionsDe(req.etudiant?.id));
@@ -868,6 +873,26 @@ pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw(
 pub.use('/api/portail/certificat', (err, req, res, next) => (err?.type === 'entity.too.large'
   ? res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' }) : next(err)));
 
+// ── MA PHOTO (3.5.606) : l'état déposé par Lucie, et le dépôt en attente de relevé. ──
+pub.get('/api/portail/photo', connecte, exige('photo'), (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  const g = db.prepare('SELECT id, cree_le, releve_le, erreur, resultat FROM ph_geste WHERE etudiant_id = ? ORDER BY id DESC LIMIT 1').get(req.etudiant.id);
+  res.json({ pret: !!l, photo: l?.photo ? JSON.parse(l.photo) : null, dernier_envoi: g || null });
+});
+pub.post('/api/portail/photo', connecte, exige('photo'), express.raw({ type: 'application/octet-stream', limit: '6mb' }), (req, res) => {
+  const b = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!b || !b.length) return res.status(400).json({ error: 'Joignez votre photo.' });
+  const h = b.toString('hex', 0, 4);
+  if (!(h.startsWith('ffd8ff') || h === '89504e47')) return res.status(400).json({ error: 'La photo doit être une image JPEG ou PNG.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM ph_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 5) {
+    return res.status(429).json({ error: 'Trop de dépôts en une heure. Réessayez plus tard.' });
+  }
+  db.prepare('INSERT INTO ph_geste (etudiant_id, taille, contenu) VALUES (?,?,?)').run(req.etudiant.id, b.length, b);
+  res.json({ ok: true });
+});
+pub.use('/api/portail/photo', (err, req, res, next) => (err?.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'Photo trop lourde (5 Mo au plus).' }) : next(err)));
+
 // ── MA SANTÉ (3.5.286) : la visite médicale du CESI, déposée par Lucie (sans le formulaire). ──
 pub.get('/api/portail/sante', connecte, exige('sante'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
@@ -906,7 +931,7 @@ pub.use('/api/portail/amenagement', (err, req, res, next) => (err?.type === 'ent
 // ── LES MESSAGES (3.1.516) ──
 pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const id = req.etudiant.id;
-  const l = db.prepare(`SELECT m.*, d.lu_le AS lu_lucie, (SELECT lu_le FROM message_lu WHERE message_id = m.id AND etudiant_id = ?) AS lu_ici
+  const l = db.prepare(`SELECT m.*, d.lu_le AS lu_lucie, d.accuse_le, (SELECT lu_le FROM message_lu WHERE message_id = m.id AND etudiant_id = ?) AS lu_ici
     FROM message m JOIN message_dest d ON d.message_id = m.id AND d.etudiant_id = ? ORDER BY m.envoye_le DESC`).all(id, id);
   const fil = db.prepare('SELECT de, auteur, corps, le FROM message_fil WHERE message_id = ? AND etudiant_id = ? ORDER BY id');
   // Ses réponses que le fil déposé par Lucie ne porte pas encore (relevées ou non) : on les montre « en cours ».
@@ -917,8 +942,11 @@ pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const nouveaux = db.prepare(`SELECT id, objet, corps, le FROM message_reponse WHERE message_id = 0 AND etudiant_id = ?
     AND (releve_le IS NULL OR releve_le > datetime('now', '-10 minutes')) ORDER BY id DESC`).all(id)
     .filter(r => !l.some(m => m.objet && r.objet && m.objet.endsWith(r.objet) && m.envoye_le >= r.le.slice(0, 10)));
+  const accuseIci = db.prepare('SELECT accuse_le FROM message_accuse WHERE message_id = ? AND etudiant_id = ?');
   res.json([...nouveaux.map(r => ({ id: `n${r.id}`, objet: r.objet, corps: r.corps, auteur: 'Vous → la direction', envoye_le: r.le, lu: true, fil: [], en_cours: true })),
     ...l.map(m => ({ id: m.id, objet: m.objet, corps: m.corps, auteur: m.auteur, envoye_le: m.envoye_le, lu: !!(m.lu_lucie || m.lu_ici),
+    importance: m.importance || 'info', icone: m.icone || 'porte-voix', accuse_demande: !!m.accuse_demande,
+    accuse_le: m.accuse_le || accuseIci.get(m.id, id)?.accuse_le || null, pieces: m.pieces ? JSON.parse(m.pieces) : [],
     fil: [...fil.all(m.id, id), ...enAttente.all(m.id, id).map(r => ({ de: 'etudiant', corps: r.corps, le: r.le, en_cours: true }))] }))]);
 });
 const monMessage = (req, res) => {
@@ -934,6 +962,28 @@ pub.post('/api/portail/messages/:id/lu', connecte, exige('messages'), (req, res)
 /* ÉCRIRE À LA DIRECTION (3.5.538, Charles : « ajoute le bouton Écrire à la direction ») : un message de l'étudiant SANS message de
    départ. Noté ici (message_id = 0, avec son objet) ; Lucie le relève, l'ouvre comme un fil adressé à la direction, et le redépose. */
 try { db.exec('ALTER TABLE message_reponse ADD COLUMN objet TEXT'); } catch { /* déjà là */ }
+/* COMME LA COMMUNICATION DU PERSONNEL (3.5.607) : importance, pictogramme, accusé demandé, documents joints ; l'accusé de l'étudiant
+   est noté ici (message_accuse) et relevé par Lucie. Les documents arrivent une fois chacun (message_piece). */
+for (const c of ["importance TEXT", "icone TEXT", "accuse_demande INTEGER", "pieces TEXT"]) { try { db.exec(`ALTER TABLE message ADD COLUMN ${c}`); } catch { /* */ } }
+try { db.exec('ALTER TABLE message_dest ADD COLUMN accuse_le TEXT'); } catch { /* */ }
+db.exec(`CREATE TABLE IF NOT EXISTS message_accuse (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, etudiant_id INTEGER NOT NULL,
+  accuse_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, UNIQUE (message_id, etudiant_id));
+  CREATE TABLE IF NOT EXISTS message_piece (id INTEGER PRIMARY KEY, message_id INTEGER NOT NULL, nom TEXT, mime TEXT, contenu BLOB);`);
+pub.post('/api/portail/messages/:id/accuse', connecte, exige('messages'), (req, res) => {
+  if (!monMessage(req, res)) return;
+  db.prepare('INSERT OR IGNORE INTO message_lu (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
+  db.prepare('INSERT OR IGNORE INTO message_accuse (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
+  res.json({ ok: true });
+});
+pub.get('/api/portail/messages/:id/piece/:pid', connecte, exige('messages'), (req, res) => {
+  if (!monMessage(req, res)) return;
+  const p = db.prepare('SELECT nom, mime, contenu FROM message_piece WHERE id = ? AND message_id = ?').get(Number(req.params.pid), Number(req.params.id));
+  if (!p?.contenu) return res.status(404).json({ error: 'Le document arrive : réessayez dans une minute.' });
+  res.setHeader('Content-Type', p.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(p.nom || 'document')}`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(p.contenu);
+});
 pub.post('/api/portail/messages/nouveau', connecte, exige('messages'), (req, res) => {
   const objet = String(req.body?.objet || '').trim().slice(0, 150);
   const corps = String(req.body?.corps || '').trim();
@@ -1135,6 +1185,7 @@ int.post('/interne/va', (req, res) => {
   const its = db.prepare(`UPDATE espace_lot SET tfe = ?, stage = ? WHERE etudiant_id = ?`);
   const iar = db.prepare(`INSERT INTO espace_lot (etudiant_id, ar, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET ar = excluded.ar`);
   const isa = db.prepare(`INSERT INTO espace_lot (etudiant_id, sante, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET sante = excluded.sante`);
+  const iph = db.prepare(`INSERT INTO espace_lot (etudiant_id, photo, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET photo = excluded.photo`);
   const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
   db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
@@ -1144,6 +1195,7 @@ int.post('/interne/va', (req, res) => {
     if (x.tfe !== undefined || x.stage !== undefined) its.run(JSON.stringify(x.tfe ?? null), JSON.stringify(x.stage ?? null), Number(x.etudiant_id));
     if (x.ar !== undefined) iar.run(Number(x.etudiant_id), JSON.stringify(x.ar ?? null));
     if (x.sante !== undefined) isa.run(Number(x.etudiant_id), JSON.stringify(x.sante ?? null));
+    if (x.photo !== undefined) iph.run(Number(x.etudiant_id), JSON.stringify(x.photo ?? null));
   } })();
   res.json({ ok: true, n: l.length });
 });
@@ -1175,6 +1227,11 @@ int.get('/interne/ar/piece/:id', (req, res) => {
   if (!g?.contenu) return res.status(404).end();
   res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
 });
+int.get('/interne/ph/piece/:id', (req, res) => {
+  const g = db.prepare('SELECT contenu FROM ph_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
+  if (!g?.contenu) return res.status(404).end();
+  res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
+});
 int.get('/interne/cm/piece/:id', (req, res) => {
   const g = db.prepare('SELECT contenu FROM cm_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
   if (!g?.contenu) return res.status(404).end();
@@ -1191,15 +1248,26 @@ int.post('/interne/messages', (req, res) => {
   const b = req.body || {};
   db.transaction(() => {
     db.exec('DELETE FROM message; DELETE FROM message_dest; DELETE FROM message_fil;');
-    const im = db.prepare('INSERT INTO message (id, objet, corps, auteur, envoye_le) VALUES (?,?,?,?,?)');
-    for (const m of b.messages || []) im.run(Number(m.id), String(m.objet || ''), String(m.corps || ''), String(m.auteur || ''), String(m.envoye_le || ''));
-    const id = db.prepare('INSERT OR IGNORE INTO message_dest (message_id, etudiant_id, lu_le) VALUES (?,?,?)');
-    for (const d of b.destinations || []) id.run(Number(d.message_id), Number(d.etudiant_id), d.lu_le || null);
+    const im = db.prepare('INSERT INTO message (id, objet, corps, auteur, envoye_le, importance, icone, accuse_demande, pieces) VALUES (?,?,?,?,?,?,?,?,?)');
+    for (const m of b.messages || []) im.run(Number(m.id), String(m.objet || ''), String(m.corps || ''), String(m.auteur || ''), String(m.envoye_le || ''),
+      String(m.importance || 'info'), String(m.icone || 'porte-voix'), m.accuse_demande ? 1 : 0, JSON.stringify((m.pieces || []).map(p => ({ id: Number(p.id), nom: String(p.nom || ''), taille: Number(p.taille) || 0 }))));
+    const id = db.prepare('INSERT OR IGNORE INTO message_dest (message_id, etudiant_id, lu_le, accuse_le) VALUES (?,?,?,?)');
+    for (const d of b.destinations || []) id.run(Number(d.message_id), Number(d.etudiant_id), d.lu_le || null, d.accuse_le || null);
+    // Les documents d'un message retiré (ou trop ancien) partent avec lui.
+    db.exec('DELETE FROM message_piece WHERE message_id NOT IN (SELECT id FROM message)');
     const ifl = db.prepare('INSERT INTO message_fil (id, message_id, etudiant_id, de, auteur, corps, le) VALUES (?,?,?,?,?,?,?)');
     for (const f of b.fils || []) ifl.run(Number(f.id), Number(f.message_id), Number(f.etudiant_id), String(f.de || ''), String(f.auteur || ''), String(f.corps || ''), String(f.le || ''));
     // Une réponse déjà relevée ET déjà revenue dans le fil n'a plus à vivre ici.
     db.exec("DELETE FROM message_reponse WHERE releve_le IS NOT NULL AND releve_le < datetime('now', '-1 day')");
   })();
+  res.json({ ok: true });
+});
+
+int.get('/interne/messages/pieces', (req, res) => res.json({ ids: db.prepare('SELECT id FROM message_piece').all().map(x => x.id) }));
+int.post('/interne/messages/piece', (req, res) => {
+  const b = req.body || {};
+  db.prepare('INSERT OR REPLACE INTO message_piece (id, message_id, nom, mime, contenu) VALUES (?,?,?,?,?)')
+    .run(Number(b.id), Number(b.message_id), String(b.nom || '').slice(0, 150), String(b.mime || ''), Buffer.from(String(b.contenu || ''), 'base64'));
   res.json({ ok: true });
 });
 
@@ -1285,8 +1353,10 @@ int.get('/interne/releve', (req, res) => {
     pae_avis: db.prepare('SELECT id, etudiant_id, annee, message, cree_le FROM pae_avis WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     ts: db.prepare('SELECT id, etudiant_id, type, tfe_id, jalon_id, nom, taille, texte FROM ts_geste WHERE releve_le IS NULL ORDER BY id LIMIT 30').all(),
     cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
+    ph: db.prepare('SELECT id, etudiant_id, taille FROM ph_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
+    messages_accuses: db.prepare('SELECT id, message_id, etudiant_id, accuse_le FROM message_accuse WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le, objet FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
   });
 });
@@ -1303,6 +1373,7 @@ int.post('/interne/acquitter', (req, res) => {
     }
     db.prepare("DELETE FROM va_geste WHERE releve_le < datetime('now', '-30 days')").run();
     for (const id of ids('messages_lus')) db.prepare("UPDATE message_lu SET releve_le = datetime('now') WHERE id = ?").run(id);
+    for (const id of ids('messages_accuses')) db.prepare("UPDATE message_accuse SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const id of ids('messages_reponses')) db.prepare("UPDATE message_reponse SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const g of Array.isArray(req.body?.ts) ? req.body.ts : []) {
       db.prepare("UPDATE ts_geste SET releve_le = datetime('now'), erreur = ?, contenu = NULL WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
@@ -1313,6 +1384,11 @@ int.post('/interne/acquitter', (req, res) => {
         .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM cm_geste WHERE releve_le < datetime('now', '-180 days')").run();
+    for (const g of Array.isArray(req.body?.ph) ? req.body.ph : []) {
+      db.prepare("UPDATE ph_geste SET releve_le = datetime('now'), erreur = ?, resultat = ?, contenu = NULL WHERE id = ?")
+        .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
+    }
+    db.prepare("DELETE FROM ph_geste WHERE releve_le < datetime('now', '-90 days')").run();
     for (const g of Array.isArray(req.body?.ar) ? req.body.ar : []) {
       db.prepare("UPDATE ar_geste SET releve_le = datetime('now'), erreur = ?, resultat = ?, contenu = NULL WHERE id = ?")
         .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));

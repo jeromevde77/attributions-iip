@@ -55,6 +55,7 @@ export const SANS_MODULE = {
   'suivi-etudiant': 'le dossier confidentiel d’un étudiant — chaque route vérifie le lien (ses enseignants, sa coordination, la direction)',
   due:             'le descriptif d’UE : ses TITULAIRES l’écrivent (rôle professeur sans module « etudiants ») — chaque route juge périmètre de section et attributions',
   historique:      'journal transverse, filtré en son sein selon ce qu’on peut lire',
+  photos:          'la photo d’identité — chaque route juge : secrétariat et direction, coordination de la section, professeur du cours',
   evaluations:     'l’évaluation du personnel — chaque route juge le rôle SUR l’évaluation (évalué, évaluateur, direction), jamais par fonction',
   audit:           'qui a fait quoi — déjà réservé à la direction par `niveauDirection`',
 };

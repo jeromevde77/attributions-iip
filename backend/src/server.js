@@ -18,6 +18,7 @@ import { migrerBesoinsOffres } from './db/migrations_besoins.js';
 import { migrerJournalPersonnel } from './db/migrations_journal.js';
 import mfaRoutes, { migrerMfa } from './routes/mfa.js';
 import evaluationsRoutes from './routes/evaluations.js';
+import photosRoutes from './routes/photos.js';
 import { garderModule, garderModuleSauf } from './middleware/garde.js';
 import { migrerConstat } from './middleware/garde.js';
 import { verifierCleMfa } from './lib/secret-box.js';
@@ -3091,9 +3092,11 @@ app.use('/api/impression', express.json({ limit: '120mb' }));
 app.use('/api/documentation/mode-emploi/pdf', express.json({ limit: '60mb' }));
 app.use('/api/calendrier/comparer-excel', express.json({ limit: '20mb' }));
 app.use('/api/pilotage/sources', express.json({ limit: '40mb' }));   // sources des référentiels (3.5.450)
+app.use('/api/photos', express.json({ limit: '8mb' }));   // la photo d'identité en data URL (3.5.606)
 app.use('/api/reunions/importer', express.json({ limit: '30mb' }));   // compte rendu à importer (3.5.379)   // horaire d'examens à comparer (3.5.361)
 app.use('/api/nominations/import', express.json({ limit: '20mb' }));   // Word des définitifs (3.5.567)
-app.use('/api/communication', express.json({ limit: '30mb' }));   // pièces jointes des messages (3.5.131)
+app.use('/api/communication', express.json({ limit: '30mb' }));
+app.use('/api/messages-etudiants', express.json({ limit: '30mb' }));   // documents joints aux messages des étudiants (3.5.607)   // pièces jointes des messages (3.5.131)
 app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)
 app.use('/api/mes-cours/supports', express.json({ limit: '25mb' }));   // supports de cours (3.5.211) : 15 Mo en base64
 app.use(express.json({ limit: '5mb' }));
@@ -3271,6 +3274,8 @@ app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
 // L'ÉVALUATION DU PERSONNEL (3.5.605) : sans module, chaque route juge le rôle sur l'évaluation ; la conservation se vérifie chaque jour.
 app.use('/api/evaluations', garderModule('evaluations'), evaluationsRoutes);
+// LA PHOTO D'IDENTITÉ (3.5.606) : sans module, chaque route juge qui voit (fiche, cours) ou décide (secrétariat, direction).
+app.use('/api/photos', garderModule('photos'), photosRoutes);
 { const tour = () => import('./lib/evaluationPersonnel.js').then(m => m.purgerEchues()).catch(e => console.error('[évaluations] conservation :', e.message));
   setTimeout(tour, 60 * 1000).unref?.(); setInterval(tour, 24 * 60 * 60 * 1000).unref?.(); }
 app.use('/api/attributions', garderModule('attributions'), attrRoutes);

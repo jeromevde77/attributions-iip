@@ -13,6 +13,25 @@ import { getUserSections, professeurDe } from '../middleware/auth.js';
 import { sectionPropre } from '../routes/etudiants.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { fonctionPour } from './fonctions.js';
+import fs from 'fs';
+import path from 'path';
+
+export const IMPORTANCES = ['info', 'important', 'urgent', 'positif'];
+export const ICONES = ['porte-voix', 'info', 'calendrier', 'examen', 'document', 'alerte', 'fete', 'reunion', 'horaire', 'lucie'];
+const DATA_DIR = () => process.env.DATA_DIR || '/app/data';
+const fichierPiece = p => path.join(DATA_DIR(), 'messages-etudiants', String(p.message_id), String(p.id));
+const MIMES = { '25504446': 'application/pdf', '89504e47': 'image/png', '504b0304': 'application/zip' };
+function mimePiece(buf, nom) {
+  const h = buf.toString('hex', 0, 4);
+  if (h.startsWith('ffd8ff')) return 'image/jpeg';
+  const m = MIMES[h]; if (!m) return null;
+  if (m !== 'application/zip') return m;
+  const ext = String(nom || '').toLowerCase().split('.').pop();
+  return { docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }[ext] || null;
+}
+export const piecesDe = id => db.prepare('SELECT id, message_id, nom, mime, taille FROM message_etudiant_piece WHERE message_id = ? ORDER BY id').all(Number(id));
+export const lirePiece = p => { try { return fs.readFileSync(fichierPiece(p)); } catch { return null; } };
 
 export function migrerMessages(dbx = db) {
   dbx.exec(`
@@ -28,7 +47,16 @@ export function migrerMessages(dbx = db) {
     CREATE TABLE IF NOT EXISTS message_etudiant_avis (etudiant_id INTEGER PRIMARY KEY, depuis TEXT, avise_le TEXT);
     CREATE TRIGGER IF NOT EXISTS message_fil_sans_effacement BEFORE DELETE ON message_etudiant_fil
       BEGIN SELECT RAISE(ABORT, 'Le fil d''un message ne s''efface pas.'); END;
+    CREATE TABLE IF NOT EXISTS message_etudiant_piece (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, nom TEXT NOT NULL,
+      mime TEXT NOT NULL, taille INTEGER);
   `);
+  /* COMME LA COMMUNICATION DU PERSONNEL (3.5.607, Charles : « il doit ressembler à celui pour les profs ; les pictogrammes ; les accusés de
+     réception, la copie mail ») : importance, pictogramme, accusé demandé, copie par courriel, documents joints. */
+  for (const [t, c] of [['message_etudiant', "importance TEXT DEFAULT 'info'"], ['message_etudiant', "icone TEXT DEFAULT 'porte-voix'"],
+    ['message_etudiant', 'accuse_demande INTEGER DEFAULT 0'], ['message_etudiant', 'canal_email INTEGER DEFAULT 0'],
+    ['message_etudiant_dest', 'accuse_le TEXT'], ['message_etudiant_dest', 'courriel_le TEXT']]) {
+    try { dbx.exec(`ALTER TABLE ${t} ADD COLUMN ${c}`); } catch { /* déjà là */ }
+  }
 }
 
 const TOUT = ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur'];
@@ -98,21 +126,58 @@ const aviser = db => ids => {
   for (const id of ids) s.run(id);
 };
 
-/** Envoyer : le message, ses destinataires (ceux qui ont un espace), l'avis par courriel à venir. */
-export function envoyer({ objet, corps, critere }, user, nomAuteur, annee) {
+/** Envoyer : le message, ses destinataires (ceux qui ont un espace), ses documents ; l'avis par courriel à venir, ou la copie entière. */
+export function envoyer({ objet, corps, critere, importance, icone, accuse_demande, canal_email, pieces }, user, nomAuteur, annee) {
   migrerMessages();
   if (!String(objet || '').trim() || !String(corps || '').trim()) return { erreur: 'Un objet et un texte.' };
   const dest = resoudre(critere, user, annee).filter(d => d.espace);
   if (!dest.length) return { erreur: 'Aucun destinataire avec un espace étudiant.' };
+  // Les documents : 5 au plus, 10 Mo chacun, 20 Mo en tout, reconnus à leurs premiers octets.
+  const docs = [];
+  for (const p of (Array.isArray(pieces) ? pieces : []).slice(0, 5)) {
+    const m = String(p?.contenu || '').match(/^data:[^;]*;base64,(.+)$/);
+    if (!m) return { erreur: `Document illisible : ${p?.nom || '?'}.` };
+    const buf = Buffer.from(m[1], 'base64');
+    const mime = mimePiece(buf, p.nom);
+    if (!mime) return { erreur: `Format non accepté : ${p.nom} (PDF, image, Word, Excel ou PowerPoint).` };
+    if (buf.length > 10 * 1024 * 1024) return { erreur: `${p.nom} dépasse 10 Mo.` };
+    docs.push({ nom: String(p.nom || 'document').replace(/[\\/]/g, '_').slice(0, 150), mime, buf });
+  }
+  if (docs.reduce((t, d) => t + d.buf.length, 0) > 20 * 1024 * 1024) return { erreur: 'Les documents dépassent 20 Mo en tout.' };
   const id = db.transaction(() => {
-    const m = db.prepare(`INSERT INTO message_etudiant (objet, corps, auteur_id, auteur_nom, auteur_role, annee_scolaire, resume)
-      VALUES (?,?,?,?,?,?,?)`).run(String(objet).trim().slice(0, 200), String(corps).trim().slice(0, 10000), user?.id || null, nomAuteur, user?.role || null, annee, resume(critere || {}));
+    const m = db.prepare(`INSERT INTO message_etudiant (objet, corps, auteur_id, auteur_nom, auteur_role, annee_scolaire, resume, importance, icone, accuse_demande, canal_email)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(String(objet).trim().slice(0, 200), String(corps).trim().slice(0, 10000), user?.id || null, nomAuteur, user?.role || null, annee,
+        resume(critere || {}), IMPORTANCES.includes(importance) ? importance : 'info', ICONES.includes(icone) ? icone : 'porte-voix', accuse_demande ? 1 : 0, canal_email ? 1 : 0);
     const ins = db.prepare('INSERT OR IGNORE INTO message_etudiant_dest (message_id, etudiant_id) VALUES (?,?)');
     for (const d of dest) ins.run(m.lastInsertRowid, d.id);
-    aviser(db)(dest.map(d => d.id));
+    // Avec la copie par courriel, l'avis « un message vous attend » ne part pas en plus.
+    if (!canal_email) aviser(db)(dest.map(d => d.id));
+    for (const d of docs) {
+      const p = db.prepare('INSERT INTO message_etudiant_piece (message_id, nom, mime, taille) VALUES (?,?,?,?)').run(m.lastInsertRowid, d.nom, d.mime, d.buf.length);
+      const f = fichierPiece({ message_id: m.lastInsertRowid, id: p.lastInsertRowid });
+      fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, d.buf);
+    }
     return m.lastInsertRowid;
   })();
+  if (canal_email) envoyerCopies(id, nomAuteur).catch(e => console.error('[messages] copie courriel :', e.message));
   return { ok: true, id, n: dest.length };
+}
+
+/** LA COPIE PAR COURRIEL : le message entier, ses documents joints, à l'adresse d'institut (le candidat : son adresse privée). */
+async function envoyerCopies(id, nomAuteur) {
+  const m = db.prepare('SELECT * FROM message_etudiant WHERE id = ?').get(Number(id));
+  const docs = piecesDe(id).map(p => ({ filename: p.nom, content: lirePiece(p), contentType: p.mime })).filter(x => x.content);
+  const esc = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  for (const d of db.prepare(`SELECT d.etudiant_id, e.prenom, e.email_ecole, e.email_perso FROM message_etudiant_dest d JOIN etudiant e ON e.id = d.etudiant_id
+      WHERE d.message_id = ? AND d.courriel_le IS NULL`).all(id)) {
+    const to = String(d.email_ecole || '').includes('@') ? d.email_ecole : d.email_perso;
+    if (!to) continue;
+    const html = templateNotif({ titre: m.objet, corps: `<p>Bonjour ${esc(d.prenom)},</p>${esc(m.corps).split(/\n{2,}/).map(x => `<p>${x.replace(/\n/g, '<br>')}</p>`).join('')}
+      <p style="color:#555">${esc(nomAuteur)}</p>${m.accuse_demande ? '<p><b>Merci de confirmer que vous en avez pris connaissance, dans votre espace étudiant (Messages).</b></p>' : ''}
+      <p style="color:#888;font-size:12px">Ce message est aussi dans votre espace étudiant, où vous pouvez y répondre.</p>` });
+    const r = await envoyerEmail({ to, subject: `Institut Ilya Prigogine — ${m.objet}`, html, attachments: docs }).catch(e => ({ ok: false, erreur: e.message }));
+    if (r?.ok !== false) db.prepare("UPDATE message_etudiant_dest SET courriel_le = datetime('now') WHERE message_id = ? AND etudiant_id = ?").run(id, d.etudiant_id);
+  }
 }
 
 /** Ce que l'auteur peut voir : les siens (la direction : tous). */
@@ -124,6 +189,8 @@ export function envoyes(user) {
   migrerMessages();
   const l = db.prepare(`SELECT m.*, (SELECT COUNT(*) FROM message_etudiant_dest d WHERE d.message_id = m.id) n,
       (SELECT COUNT(*) FROM message_etudiant_dest d WHERE d.message_id = m.id AND d.lu_le IS NOT NULL) lus,
+      (SELECT COUNT(*) FROM message_etudiant_dest d WHERE d.message_id = m.id AND d.accuse_le IS NOT NULL) accuses,
+      (SELECT COUNT(*) FROM message_etudiant_piece p WHERE p.message_id = m.id) nb_pieces,
       (SELECT COUNT(*) FROM message_etudiant_fil f WHERE f.message_id = m.id AND f.de = 'etudiant' AND f.lu_le IS NULL) reponses_non_lues,
       (SELECT COUNT(*) FROM message_etudiant_fil f WHERE f.message_id = m.id AND f.de = 'etudiant') reponses
     FROM message_etudiant m ORDER BY m.envoye_le DESC LIMIT 300`).all();
@@ -134,10 +201,10 @@ export function detail(id) {
   migrerMessages();
   const m = db.prepare('SELECT * FROM message_etudiant WHERE id = ?').get(Number(id));
   if (!m) return null;
-  const dest = db.prepare(`SELECT d.etudiant_id, d.lu_le, e.nom, e.prenom FROM message_etudiant_dest d JOIN etudiant e ON e.id = d.etudiant_id
+  const dest = db.prepare(`SELECT d.etudiant_id, d.lu_le, d.accuse_le, d.courriel_le, e.nom, e.prenom FROM message_etudiant_dest d JOIN etudiant e ON e.id = d.etudiant_id
     WHERE d.message_id = ? ORDER BY e.nom, e.prenom`).all(m.id);
   const fil = db.prepare('SELECT id, etudiant_id, de, auteur, corps, le, lu_le FROM message_etudiant_fil WHERE message_id = ? ORDER BY id').all(m.id);
-  return { ...m, destinataires: dest.map(d => ({ ...d, nom: `${String(d.nom || '').toUpperCase()} ${d.prenom || ''}`.trim(),
+  return { ...m, pieces: piecesDe(m.id), destinataires: dest.map(d => ({ ...d, nom: `${String(d.nom || '').toUpperCase()} ${d.prenom || ''}`.trim(),
     fil: fil.filter(f => f.etudiant_id === d.etudiant_id) })) };
 }
 
@@ -165,10 +232,10 @@ export function retirer(id, par) {
 export function aDeposer(idsConnus) {
   migrerMessages();
   const connus = new Set(idsConnus);
-  const messages = db.prepare(`SELECT id, objet, corps, auteur_nom AS auteur, envoye_le FROM message_etudiant WHERE retire_le IS NULL
-    AND envoye_le >= datetime('now', '-400 days')`).all();
+  const messages = db.prepare(`SELECT id, objet, corps, auteur_nom AS auteur, envoye_le, importance, icone, accuse_demande FROM message_etudiant WHERE retire_le IS NULL
+    AND envoye_le >= datetime('now', '-400 days')`).all().map(m => ({ ...m, pieces: piecesDe(m.id).map(p => ({ id: p.id, nom: p.nom, mime: p.mime, taille: p.taille })) }));
   const ids = new Set(messages.map(m => m.id));
-  const destinations = db.prepare('SELECT message_id, etudiant_id, lu_le FROM message_etudiant_dest').all()
+  const destinations = db.prepare('SELECT message_id, etudiant_id, lu_le, accuse_le FROM message_etudiant_dest').all()
     .filter(d => ids.has(d.message_id) && connus.has(d.etudiant_id));
   const fils = db.prepare('SELECT id, message_id, etudiant_id, de, auteur, corps, le FROM message_etudiant_fil ORDER BY id').all()
     .filter(f => ids.has(f.message_id) && connus.has(f.etudiant_id));
@@ -187,9 +254,15 @@ export function directionDestinataire() {
 }
 
 /** Relevé : un message ouvert (✓ lu), une réponse de l'étudiant (au fil, et l'auteur prévenu). */
-export function recevoir({ lus = [], reponses = [] }) {
+export function recevoir({ lus = [], reponses = [], accuses = [] }) {
   migrerMessages();
-  const ok = { lus: [], reponses: [] };
+  const ok = { lus: [], reponses: [], accuses: [] };
+  // L'ACCUSÉ (3.5.607) : « J'en ai pris connaissance », depuis l'espace. Il vaut aussi lecture.
+  for (const a of accuses) {
+    db.prepare('UPDATE message_etudiant_dest SET accuse_le = COALESCE(accuse_le, ?), lu_le = COALESCE(lu_le, ?) WHERE message_id = ? AND etudiant_id = ?')
+      .run(String(a.accuse_le || ''), String(a.accuse_le || ''), Number(a.message_id), Number(a.etudiant_id));
+    ok.accuses.push(a.id);
+  }
   for (const l of lus) {
     db.prepare('UPDATE message_etudiant_dest SET lu_le = COALESCE(lu_le, ?) WHERE message_id = ? AND etudiant_id = ?')
       .run(String(l.lu_le || ''), Number(l.message_id), Number(l.etudiant_id));

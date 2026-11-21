@@ -3,6 +3,8 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
+import MaPhoto from './MaPhoto.jsx';
+import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
 import MonAmenagement from './MonAmenagement.jsx';
 import VisiteGuidee, { visiteVue } from './VisiteGuidee.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
@@ -10,7 +12,7 @@ import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
 import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
-import { IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
+import { IconCamera, IconPaperclip, IconChecks, IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -1077,12 +1079,24 @@ function MesMessages({ onErreur, onLus, signature = '' }) {
     {!l.length && <p className="text-sm text-slate-500">Aucun message pour l’instant. Les messages du secrétariat, de votre coordination et de vos enseignants paraîtront ici.</p>}
     {l.length > 0 && <ListeEtats>
       {l.map(m => (
-        <LigneEtat key={m.id} etat={m.lu ? 'neutre' : 'disponible'} icone={IconMessages} titre={m.objet}
-          meta={!m.lu ? <PastilleEtat etat="disponible">non lu</PastilleEtat> : null}
+        <LigneEtat key={m.id} etat={!m.lu ? 'disponible' : m.accuse_demande && !m.accuse_le ? 'surveiller' : (IMPORTANCES_MESSAGE[m.importance]?.etat === 'corriger' ? 'corriger' : 'neutre')}
+          icone={(ICONES_MESSAGE[m.icone] || ICONES_MESSAGE['porte-voix']).Icone} titre={m.objet}
+          meta={!m.lu ? <PastilleEtat etat="disponible">non lu</PastilleEtat>
+            : m.accuse_demande && !m.accuse_le ? <PastilleEtat etat="surveiller">à confirmer</PastilleEtat>
+            : m.importance && m.importance !== 'info' ? <PastilleEtat etat={IMPORTANCES_MESSAGE[m.importance]?.etat}>{IMPORTANCES_MESSAGE[m.importance]?.libelle}</PastilleEtat> : null}
           sous={`${m.auteur} · ${jourFr(m.envoye_le)}${m.fil.length ? ` · ${m.fil.length} réponse${m.fil.length > 1 ? 's' : ''}` : ''}`}
           onClick={() => ouvrir(m)} ouverte={ouvert === m.id}>
           {ouvert === m.id && <div className="space-y-2">
             <div className="text-sm text-slate-700 whitespace-pre-line break-words">{m.corps}</div>
+            {(m.pieces || []).length > 0 && <div className="flex flex-wrap gap-1.5">{m.pieces.map(p => (
+              <button key={p.id} type="button" className="inline-flex items-center gap-1 text-second border border-slate-200 rounded-full px-2 py-0.5 hover:bg-slate-50"
+                onClick={async () => { try { const r = await appel('GET', `/messages/${m.id}/piece/${p.id}`, null, true); window.open(URL.createObjectURL(await r.blob()), '_blank'); } catch (e) { onErreur(e); } }}>
+                <IconPaperclip size={12} /> {p.nom}</button>))}</div>}
+            {/* L'ACCUSÉ (3.5.607) : demandé par l'école, il se donne d'un geste. */}
+            {m.accuse_demande && (m.accuse_le
+              ? <div className="text-second flex items-center gap-1" style={{ color: 'var(--c-reussi)' }}><IconChecks size={14} /> Vous avez confirmé en avoir pris connaissance le {jourFr(m.accuse_le)}.</div>
+              : <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={async () => { try { await appel('POST', `/messages/${m.id}/accuse`); charger(); } catch (e) { onErreur(e); } }}>
+                <IconChecks size={15} /> J’en ai pris connaissance</button>)}
             {m.fil.map((f, i) => (
               <div key={i} className={`text-sm pl-3 border-l-2 whitespace-pre-line break-words ${f.de === 'etudiant' ? 'ml-6' : ''}`}
                 style={{ borderColor: f.de === 'etudiant' ? 'rgb(var(--gris-300))' : 'var(--c-disponible)' }}>
@@ -1608,6 +1622,10 @@ function Espace() {
   }
 
   // L'OUVERTURE SE VOIT (3.5.208) : connecté, en attendant ses données, le logo et les étoiles plutôt qu'une page vide.
+  // MA PHOTO (3.5.606) : son état, pour le rappel d'« Aujourd'hui » (avant tout retour anticipé : règle des hooks).
+  const [etatPhoto, setEtatPhoto] = useState(null);
+  const photoOuverte = (d?.fonctions || []).includes('photo');
+  useEffect(() => { if (photoOuverte) appel('GET', '/photo').then(setEtatPhoto).catch(() => {}); }, [photoOuverte, face]);
   if (!d && !erreur) return <ChargementLucie pleine texte="Ouverture de votre espace…" />;
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const docsASigner = [];   // 3.5.398 : plus de pièces déposées à signer — elles se génèrent.
@@ -1619,9 +1637,11 @@ function Espace() {
      Lucie a ouvert au moins une de ses fonctions pour cet étudiant (3.5.001). */
   const ouvertes = d?.fonctions || [];
   const a_ = k => ouvertes.includes(k);
+  const photoManque = (() => { const p = etatPhoto?.photo; if (!p || (etatPhoto?.dernier_envoi && !etatPhoto.dernier_envoi.releve_le)) return null;
+    if (p.derniere?.statut === 'refusee') return 'refusee'; if (p.a_photo || p.derniere?.statut === 'a_valider') return null; return 'manque'; })();
   const SOUS = {
     parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
-    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['photo', 'Ma photo'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
   };
   const FACES = [
     ['aujourdhui', 'Aujourd’hui', IconHome],
@@ -1685,6 +1705,10 @@ function Espace() {
           const lignes = [
             docsASigner.length > 0 && { k: 'docs', etat: 'surveiller', I: IconSignature, t: `${docsASigner.length} document(s) à ouvrir et à signer`, s: docsASigner.slice(0, 3).map(x => x.sujet).join(' · '), go: () => aller('documents') },
             reglASigner.length > 0 && { k: 'regl', etat: 'surveiller', I: IconBook, t: `${reglASigner.length} règlement(s) à lire et à signer`, s: reglASigner.map(x => x.titre).join(' · '), go: () => aller('documents') },
+            // MA PHOTO (3.5.606) : rappelée tant qu'aucune n'est acceptée ni en attente, ou qu'elle a été refusée.
+            photoManque && { k: 'photo', etat: photoManque === 'refusee' ? 'corriger' : 'surveiller', I: IconCamera,
+              t: photoManque === 'refusee' ? 'Votre photo d’identité n’a pas été acceptée' : 'Déposez votre photo d’identité',
+              s: 'Une photo récente, sur fond blanc, pour votre dossier et votre carte d’étudiant', go: () => aller('demarches', 'photo') },
             nonLus > 0 && { k: 'msg', etat: 'disponible', I: IconMessages, t: `${nonLus} message(s) non lu(s)`, s: 'De l’école, de votre coordination, de vos enseignants', go: () => aller('messages') },
             a_('pae') && { k: 'pae', etat: 'neutre', I: IconListCheck, t: 'Mon PAE', s: 'Les unités de mon programme, et ma proposition quand la fenêtre est ouverte', go: () => aller('parcours', 'pae') },
             a_('resultats') && { k: 'res', etat: 'neutre', I: IconCertificate, t: 'Mes résultats', s: 'Les décisions des délibérations closes', go: () => aller('parcours', 'resultats') },
@@ -1758,6 +1782,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'sante' && <MaSante onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'photo' && <MaPhoto appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'desinscription' && <MaDesinscription />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}

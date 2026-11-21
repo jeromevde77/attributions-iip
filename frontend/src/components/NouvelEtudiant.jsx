@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconUserPlus, IconId } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
@@ -33,6 +33,7 @@ import { eidReadAll, eidToProf } from '../lib/eid.js';
  * la date et le lieu de naissance, le registre national, l'adresse et la
  * nationalité : le registre national est la clé qui reconnaît un doublon. */
 export default function NouvelEtudiant({ onClose, onCree }) {
+  const photoCarte = useRef(null);
   const [form, setForm] = useState({ nom: '', prenom: '' });
   const [carte, setCarte] = useState(null);      // ce que la carte a apporté
   const [doublons, setDoublons] = useState(null);
@@ -72,6 +73,8 @@ export default function NouvelEtudiant({ onClose, onCree }) {
       };
       setForm(f => ({ ...f, nom: c.nom || f.nom, prenom: c.prenom || f.prenom }));
       setCarte(c); setDoublons(null);
+      // LA PHOTO DE LA CARTE (3.5.606) : gardée à part, posée sur la fiche après la création.
+      photoCarte.current = /^data:image\/(jpeg|png);base64,/.test(String(m.photo || '')) ? m.photo : null;
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
@@ -85,6 +88,9 @@ export default function NouvelEtudiant({ onClose, onCree }) {
       const j = await rep.json();
       if (rep.status === 409) { setDoublons(j.candidats || []); return; }
       if (!rep.ok) throw new Error(j.error || 'Erreur');
+      if (photoCarte.current) {
+        await fetch(`/api/photos/etudiant/${j.id}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ data: photoCarte.current, source: 'eid' }) }).catch(() => {});
+      }
       onCree?.(j.id);
       onClose?.();
     } catch (e) { setErreur(e.message); }

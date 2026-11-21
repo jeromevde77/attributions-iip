@@ -10,7 +10,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { nomEcranDuCompte } from '../lib/nom.js';
 import { deposerBientot } from '../lib/portailSync.js';
 import { migrerMessages, peutEcrire, perimetre, resoudre, resume, envoyer, envoyes, detail, messageVisible,
-  marquerReponsesLues, repondre, retirer } from '../lib/messagesEtudiants.js';
+  marquerReponsesLues, repondre, retirer, piecesDe, lirePiece } from '../lib/messagesEtudiants.js';
 
 const r = Router();
 const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || req.user?.email || '?';
@@ -57,6 +57,16 @@ r.get('/:id', authRequired, (req, res) => {
   const d = detail(m.id);
   if (m.auteur_id === req.user?.id) marquerReponsesLues(m.id);   // l'auteur a lu les réponses
   res.json(d);
+});
+/* Un document joint, pour l'auteur (et la direction). */
+r.get('/:id/piece/:pid', authRequired, (req, res) => {
+  const m = visible(req, res); if (!m) return;
+  const p = piecesDe(m.id).find(x => x.id === Number(req.params.pid));
+  const b = p && lirePiece(p);
+  if (!b) return res.status(404).json({ error: 'Document introuvable.' });
+  res.setHeader('Content-Type', p.mime);
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(p.nom)}`);
+  res.end(b);
 });
 r.post('/:id/repondre', authRequired, (req, res) => {
   const m = visible(req, res); if (!m) return;

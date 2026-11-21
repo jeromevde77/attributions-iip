@@ -1,6 +1,7 @@
 // (CS)
 import NettoyerArchives from '../components/NettoyerArchives.jsx';
 import SuiviEspace from '../components/SuiviEspace.jsx';
+import { BlocPhoto, PhotosAValider } from '../components/PhotoEtudiant.jsx';
 import SuiviSante from '../components/SuiviSante.jsx';
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import ImportTfe from '../components/ImportTfe.jsx';
@@ -21,7 +22,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconListSearch, IconEye, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconCamera, IconListSearch, IconEye, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -2593,6 +2594,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
           {onglet === 'identite' && (
             <div className="p-5">
+              <BlocPhoto etudId={id} />
               <IdentiteEtudiant etudId={id} onModifie={charger} />
             </div>
           )}
@@ -3057,6 +3059,8 @@ export default function Etudiants() {
   // LES REFUS EN 2E SESSION (3.5.029) : ouverts aussi depuis la notification (/etudiants?outil=refus2).
   const [refus2, setRefus2] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'refus2'; } catch { return false; } });
   const [messagesEtud, setMessagesEtud] = useState(false);
+  // LES PHOTOS À VALIDER (3.5.606) : ouvertes aussi depuis la notification (/etudiants?outil=photos).
+  const [photos, setPhotos] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'photos'; } catch { return false; } });
   const [visitesStage, setVisitesStage] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
@@ -3675,6 +3679,8 @@ export default function Etudiants() {
       /* LES MESSAGES AUX ÉTUDIANTS (3.1.516) : lus dans leur espace ; leurs réponses reviennent à l'auteur. */
       ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'messages-etudiants', label: 'Écrire aux étudiants — messages dans leur espace',
         icon: IconMessages, onClick: () => setMessagesEtud(true) }] : []),
+      ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'photos', label: 'Photos d’identité à valider',
+        icon: IconCamera, onClick: () => setPhotos(true) }] : []),
       /* LES VISITES DE STAGE ont quitté ce rail (3.5.075) : Organisation → Stages → Visites et trajets. */
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'extraits-bancaires', label: 'Extraits de compte — versements des étudiants',
         icon: IconCash, onClick: () => setExtraits(true) }] : []),
@@ -4195,6 +4201,7 @@ export default function Etudiants() {
         <Suspense fallback={null}><ExtraitsBancaires onFermer={() => setExtraits(false)} /></Suspense>
       )}
       {visitesStage && <Suspense fallback={null}><VisitesStage onFermer={() => setVisitesStage(false)} /></Suspense>}
+      {photos && <PhotosAValider onFermer={() => setPhotos(false)} />}
       {messagesEtud && (
         <Suspense fallback={null}><MessagesEtudiants onFermer={() => setMessagesEtud(false)} /></Suspense>
       )}
