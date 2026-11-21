@@ -1865,3 +1865,35 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    filet fin et un rayon ordinaire. */
 .carte .carte { border: 1px solid var(--c-filet, rgb(var(--gris-200))) !important; border-radius: var(--d-forme-champ, 8px) !important; }
 .carte .carte::before { content: none; }
+/* (3.5.619) TOUS LES TABLEAUX DE LA MÊME MANIÈRE : un tableau posé seul sur la page (hors carte) prend le dessin des documents. */
+.tableau-cadre:not(.carte .tableau-cadre) { position: relative; border: 0 !important; background: var(--c-fond_tuile, #fff) !important;
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; }
+.tableau-cadre:not(.carte .tableau-cadre)::before { content: ''; position: absolute; pointer-events: none; z-index: 2;
+  top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
+/* (3.5.619) DES CARTES QUI SE SUIVENT À LA VERTICALE FORMENT UNE PILE, quel que soit l'écran : dans une colonne (space-y), une carte
+   qui suit une carte s'y colle ; elle perd l'arc (le bord gauche reste complet), un filet aligné sur la première lettre la sépare de
+   la précédente ; seule la dernière arrondit l'angle inférieur droit. Même chose pour les tuiles et encadrés de bloc. */
+[class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) {
+  margin-top: 0 !important; border-top-left-radius: 0 !important; }
+[class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)):has(+ :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))) {
+  border-bottom-right-radius: 0 !important; }
+[class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::before {
+  width: 0; border-top: 0; border-top-left-radius: 0; }
+[class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::after {
+  content: ''; position: absolute; pointer-events: none; z-index: 1; top: 0; left: 1.25rem; right: var(--doc-retrait);
+  border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+/* (3.5.619) DANS UNE FENÊTRE, JUSTE LA LIGNE LATÉRALE GAUCHE (Charles : « si dans une fenêtre on a cela, juste ligne latérale
+   gauche ») : la fenêtre porte déjà un cadre ; un encadré ou une carte qu'elle contient n'a ni arc, ni trait du haut, ni coin. */
+.fenetre-lucie :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) { border-radius: 0 !important; }
+.fenetre-lucie :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::before { width: 0; border-top: 0; border-top-left-radius: 0; }
+
+/* (3.5.619) LES PILES TROUVÉES À L'ÉCRAN (lib/groupesVisuels.js) : deux cartes l'une sous l'autre, même largeur, se collent. */
+[data-voisin-haut] { margin-top: calc(-1 * var(--doc-colle, 0px)) !important; border-top-left-radius: 0 !important; }
+[data-voisin-bas] { border-bottom-right-radius: 0 !important; }
+[data-voisin-haut]::before { width: 0 !important; border-top: 0 !important; border-top-left-radius: 0 !important; }
+[data-voisin-haut]::after { content: ''; position: absolute; pointer-events: none; z-index: 1; top: 0; left: 1.25rem; right: var(--doc-retrait);
+  border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+/* (3.5.619) SOUS DES ONGLETS, PAS DE LIGNE (Charles : « pourquoi cette ligne horizontale ? Pas besoin ; on garde juste le trait sous
+   le menu actif ») : la rangée d'onglets perd son filet ; seul l'onglet ouvert reste souligné. */
+:has(> .onglet-page) { border-bottom-color: transparent !important; box-shadow: none !important; }

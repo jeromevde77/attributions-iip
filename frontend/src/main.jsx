@@ -13,6 +13,8 @@ import { installerTaille } from './lib/tailleEcran.js';
 installerTaille();
 // UN PAE VALIDÉ NE SE MODIFIE PAS SANS LE DIRE (3.5.233) : la fenêtre commune qui demande avant de forcer.
 import { installerGardePAE } from './lib/paeValide.js';
+import { installerGroupesVisuels } from './lib/groupesVisuels.js';
+installerGroupesVisuels();   // les cartes qui se touchent forment une pile (3.5.619)
 installerGardePAE();
 // LES COULEURS DE SIGNIFICATION SE POSENT AVANT LE PREMIER RENDU : un badge
 // HELB qui change de couleur une seconde après l'affichage se remarque plus

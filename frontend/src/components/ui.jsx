@@ -1232,7 +1232,7 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
        * dont le contenu varie vraiment d'un onglet à l'autre demandent
        * `hauteurFixe` — c'est alors un choix, écrit, et non le défaut subi par
        * les autres. */}
-      <div style={{ background: 'var(--c-fenetre_corps, #fff)' }} className={`relative rounded-fenetre shadow-dessus overflow-hidden
+      <div style={{ background: 'var(--c-fenetre_corps, #fff)' }} className={`fenetre-lucie relative rounded-fenetre shadow-dessus overflow-hidden
                        flex flex-col max-w-full
                        ${hauteurFixe ? 'h-[88vh]' : 'max-h-[88vh]'}
                        ${largeurs[large] || largeurs.moyenne}`}>
