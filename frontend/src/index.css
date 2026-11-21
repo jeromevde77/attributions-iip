@@ -2023,3 +2023,10 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    la police dans la même couleur ») : dans une carte, sous Lucie V4, le chiffre d'une tuile est de la couleur de son état. Le libellé et
    la précision restent à l'encre. */
 :root[data-theme="v4"] .carte .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat) .tuile-chiffre { color: var(--e-doc, var(--c-principal)); }
+
+/* (3.5.636) AUCUN TRAIT NI FOND DE LIGNE NE TOUCHE LE BORD (Charles : « ligne contre, sans espace ! ») : sous Lucie V4, les traits
+   posés au-dessus d'une ligne (border-t) et ceux d'une ligne de total s'effacent aussi — seuls restent les filets dessinés dans les cases,
+   qui partent du contenu ; la ligne de total et la ligne de regroupement n'ont plus de bande de fond : elles se lisent à leur graisse. */
+:root[data-theme="v4"] #root :is(tbody, tfoot) > tr { border-top-color: transparent !important; border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root :is(tbody, tfoot) > tr > td { border-top-color: transparent !important; border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root :is(.ligne-total, .tab-repere, tr.ligne-total > td, tr.tab-repere > td) { background-color: transparent !important; box-shadow: none !important; }
