@@ -31,6 +31,9 @@ export default function Budget() {
   const [categories, setCategories] = useState([]);
   const [detaille, setDetaille] = useState(() => { try { return localStorage.getItem('lucie.budgetDetaille') === '1'; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem('lucie.budgetDetaille', detaille ? '1' : '0'); } catch { /* sans mémoire */ } }, [detaille]);
+  // MODIFIER DANS LA LISTE (3.5.623, Charles : « une liste complète de toutes les lignes, et pouvoir changer dans la liste »).
+  const [grille, setGrille] = useState(() => { try { return localStorage.getItem('lucie.budgetGrille') === '1'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('lucie.budgetGrille', grille ? '1' : '0'); } catch { /* sans mémoire */ } }, [grille]);
   const [form, setForm] = useState(null);           // ligne en cours d'édition
   const [depenseFor, setDepenseFor] = useState(null);
   const [message, setMessage] = useState(null);
@@ -54,7 +57,7 @@ export default function Budget() {
     // eslint-disable-next-line
   }, []);
 
-  async function charger() {
+  async function charger(silencieux = false) {
     if (!annee) return;
     if (!['section', 'synthese'].includes(vue)) return;
     if (vue === 'synthese') {
@@ -63,7 +66,7 @@ export default function Budget() {
       return;
     }
     if (!section) return;
-    setData(null);
+    if (!silencieux) setData(null);
     // TOUTES LES LIGNES (3.5.422, Charles : « une version où on voit toutes les lignes des finances ») : sans section, le serveur
     // rend toutes celles du périmètre.
     const rep = await fetch(`/api/budget?annee=${annee}${section === TOUTES ? '' : `&section=${encodeURIComponent(section)}`}`,
@@ -279,11 +282,15 @@ export default function Budget() {
             {/* TOUT LE DÉTAIL DE CHAQUE LIGNE (3.5.424, Charles : « la vue complète de chaque ligne du budget », toutes sections
                 comprises) : un grand tableau de toutes les colonnes, et son export Excel. */}
             <div className="segments" role="radiogroup" aria-label="Présentation des lignes">
-              {[[false, 'Résumé'], [true, 'Tout le détail']].map(([v, l]) => (
-                <button key={l} type="button" role="radio" aria-checked={detaille === v} onClick={() => setDetaille(v)}
-                  className={`px-3 py-1.5 text-sm ${detaille === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>))}
+              {[['resume', 'Résumé'], ['detail', 'Tout le détail'], ...(data?.peut_ecrire ? [['grille', 'Modifier dans la liste']] : [])].map(([v, l]) => {
+                const actif = v === 'grille' ? grille : !grille && (v === 'detail') === detaille;
+                return (
+                  <button key={l} type="button" role="radio" aria-checked={actif}
+                    onClick={() => { setGrille(v === 'grille'); if (v !== 'grille') setDetaille(v === 'detail'); }}
+                    className={`px-3 py-1.5 text-sm ${actif ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>);
+              })}
             </div>
-            {detaille && data?.lignes?.length > 0 && (
+            {(detaille || grille) && data?.lignes?.length > 0 && (
               <button type="button" className="bouton" onClick={() => exporterLignes(data.lignes, categories, comptes, annee, section === TOUTES ? 'toutes' : section)}>Excel</button>)}
           </>
         )}
@@ -335,6 +342,9 @@ export default function Budget() {
             <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
               Aucune prévision pour {section === TOUTES ? 'aucune section' : section} en {annee}.
             </div>
+          ) : grille && data.peut_ecrire ? (
+            <GrilleBudget lignes={data.lignes} comptes={comptes} sections={sections} categories={categories}
+              onSauve={() => charger(true)} onSupprimer={supprimerLigne} />
           ) : detaille ? (
             <TableauDetaille lignes={data.lignes} categories={categories} peutEcrire={data.peut_ecrire} onEditer={l => setForm({ ...l })} />
           ) : (
@@ -430,6 +440,90 @@ async function exporterLignes(lignes, categories, comptes, annee, nom) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, `Budget ${annee}`);
   XLSX.writeFile(wb, `Budget_${annee}_${nom}.xlsx`);
+}
+/* LA GRILLE DU BUDGET (3.5.623) : toutes les lignes, chaque case se modifie sur place ; la ligne s'enregistre quand on quitte une
+   case (ou au choix d'une liste), par la même porte que la fiche (PUT /api/budget/ligne/:id). */
+function GrilleBudget({ lignes, comptes, sections, categories, onSauve, onSupprimer }) {
+  const [rows, setRows] = useState(lignes);
+  const [etat, setEtat] = useState({});            // id → 'enreg' | 'ok' | message d'erreur
+  // Une relecture du serveur ne doit pas effacer une case qu'on est en train de taper sur une autre ligne.
+  useEffect(() => { setRows(rs => lignes.map(n => { const v = rs.find(r => r.id === n.id); return v?._modifie ? v : n; })); }, [lignes]);
+  const groupes = [...new Set(categories.map(c => c.groupe))];
+  const maj = (id, k, v) => setRows(rs => rs.map(r => r.id === id ? { ...r, [k]: v, _modifie: true } : r));
+  async function sauver(id, patch) {
+    let ligne = rows.find(r => r.id === id);
+    if (!ligne) return;
+    if (patch) { ligne = { ...ligne, ...patch }; setRows(rs => rs.map(r => r.id === id ? ligne : r)); }
+    else if (!ligne._modifie) return;
+    setEtat(e => ({ ...e, [id]: 'enreg' }));
+    try {
+      const rep = await fetch(`/api/budget/ligne/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(ligne) });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) { setEtat(e => ({ ...e, [id]: j.error || 'Non enregistré' })); return; }
+      setRows(rs => rs.map(r => r.id === id ? { ...r, _modifie: false } : r));
+      setEtat(e => ({ ...e, [id]: 'ok' }));
+      onSauve?.();
+    } catch { setEtat(e => ({ ...e, [id]: 'Non enregistré (réseau)' })); }
+  }
+  const champ = 'w-full border border-slate-200 rounded px-1.5 py-1 text-second bg-white focus:border-iip-blue focus:outline-none';
+  const totalHt = rows.reduce((t, l) => t + Number(l.prix_unitaire || 0) * Number(l.quantite || 0), 0);
+  const totalTvac = rows.reduce((t, l) => t + Number(l.prix_unitaire || 0) * Number(l.quantite || 0) * (1 + Number(l.taux_tva || 0)), 0);
+  return (
+    <div className="overflow-x-auto carte">
+      <datalist id="budget-comptes">{comptes.map(c => <option key={c.reference} value={c.reference}>{c.libelle}</option>)}</datalist>
+      <table className="text-second min-w-full">
+        <thead><tr>
+          {['', 'Section', 'Compte', 'Prévision', 'Catégorie', 'À charge de', 'Priorité', 'Mois', 'P.U. HTVA', 'Qté', 'TVA', 'Total HTVA', 'Total TVAC', 'Engagé', 'Justification', 'Devis', 'Remarque', '']
+            .map((k, i) => <th key={i} className={`px-1.5 py-1.5 whitespace-nowrap ${['P.U. HTVA', 'Qté', 'Total HTVA', 'Total TVAC', 'Engagé'].includes(k) ? 'text-right' : 'text-left'}`}>{k}</th>)}
+        </tr></thead>
+        <tbody>
+          <tr className="ligne-total font-semibold">
+            <td /><td colSpan={10} className="px-1.5 py-1.5">Total · {rows.length} lignes</td>
+            <td className="px-1.5 py-1.5 text-right whitespace-nowrap">{eurD(totalHt)}</td>
+            <td className="px-1.5 py-1.5 text-right whitespace-nowrap">{eurD(totalTvac)}</td>
+            <td className="px-1.5 py-1.5 text-right whitespace-nowrap">{eurD(rows.reduce((t, l) => t + Number(l.engage || 0), 0))}</td>
+            <td colSpan={4} />
+          </tr>
+          {rows.map(l => {
+            const ht = Number(l.prix_unitaire || 0) * Number(l.quantite || 0);
+            const e = etat[l.id];
+            const quitter = () => sauver(l.id);
+            const texte = (k, larg) => <input value={l[k] ?? ''} onChange={ev => maj(l.id, k, ev.target.value)} onBlur={quitter} className={`${champ} ${larg}`} />;
+            return (
+              <tr key={l.id} className="border-b border-slate-100 align-top">
+                <td className="px-1 py-1 w-5 text-center" title={e && e !== 'ok' && e !== 'enreg' ? e : undefined}>
+                  {e === 'enreg' ? <span className="text-slate-400">…</span> : e === 'ok' ? <span style={{ color: 'var(--c-reussi)' }}>✓</span>
+                    : e ? <span style={{ color: 'var(--c-refuse)' }}>!</span> : l._modifie ? <span className="text-slate-400">•</span> : null}
+                </td>
+                <td className="px-1 py-1"><select value={l.section || ''} onChange={ev => sauver(l.id, { section: ev.target.value })} className={`${champ} w-28`}>
+                  {[...new Set([l.section, ...sections])].filter(Boolean).map(s0 => <option key={s0} value={s0}>{s0}</option>)}</select></td>
+                <td className="px-1 py-1"><input list="budget-comptes" value={l.compte_ref ?? ''} onChange={ev => maj(l.id, 'compte_ref', ev.target.value)} onBlur={quitter}
+                  title={comptes.find(c => c.reference === l.compte_ref)?.libelle || ''} className={`${champ} w-24`} /></td>
+                <td className="px-1 py-1">{texte('details', 'min-w-[16rem]')}</td>
+                <td className="px-1 py-1"><select value={l.categorie_id || ''} onChange={ev => sauver(l.id, { categorie_id: ev.target.value ? Number(ev.target.value) : null })} className={`${champ} w-44`}>
+                  <option value="">—</option>
+                  {groupes.map(g => <optgroup key={g} label={g}>{categories.filter(c => c.groupe === g).map(c => <option key={c.id} value={c.id}>{c.libelle}</option>)}</optgroup>)}</select></td>
+                <td className="px-1 py-1">{texte('a_charge', 'w-28')}</td>
+                <td className="px-1 py-1"><select value={l.priorite || 'souhaitable'} onChange={ev => sauver(l.id, { priorite: ev.target.value })} className={`${champ} w-32`}>
+                  {Object.entries(PRIORITES).map(([k, lib]) => <option key={k} value={k}>{lib}</option>)}</select></td>
+                <td className="px-1 py-1"><select value={l.mois || ''} onChange={ev => sauver(l.id, { mois: ev.target.value ? Number(ev.target.value) : null })} className={`${champ} w-24`}>
+                  <option value="">—</option>{MOIS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></td>
+                <td className="px-1 py-1"><input type="number" step="0.01" value={l.prix_unitaire ?? ''} onChange={ev => maj(l.id, 'prix_unitaire', ev.target.value)} onBlur={quitter} className={`${champ} w-24 text-right`} /></td>
+                <td className="px-1 py-1"><input type="number" step="0.5" value={l.quantite ?? ''} onChange={ev => maj(l.id, 'quantite', ev.target.value)} onBlur={quitter} className={`${champ} w-16 text-right`} /></td>
+                <td className="px-1 py-1"><select value={l.taux_tva ?? 0.21} onChange={ev => sauver(l.id, { taux_tva: Number(ev.target.value) })} className={`${champ} w-20`}>
+                  {[0, 0.06, 0.12, 0.21].map(t => <option key={t} value={t}>{Math.round(t * 100)} %</option>)}</select></td>
+                <td className="px-1.5 py-1.5 text-right whitespace-nowrap">{eurD(ht)}</td>
+                <td className="px-1.5 py-1.5 text-right whitespace-nowrap">{eurD(ht * (1 + Number(l.taux_tva || 0)))}</td>
+                <td className="px-1.5 py-1.5 text-right whitespace-nowrap">{eurD(l.engage || 0)}</td>
+                <td className="px-1 py-1">{texte('justification', 'min-w-[14rem]')}</td>
+                <td className="px-1 py-1">{texte('devis', 'w-32')}</td>
+                <td className="px-1 py-1">{texte('remarque', 'min-w-[12rem]')}</td>
+                <td className="px-1 py-1"><button type="button" onClick={() => onSupprimer(l.id)} className="text-slate-400 hover:text-red-600" title="Supprimer cette ligne"><IconTrash size={14} /></button></td>
+              </tr>);
+          })}
+        </tbody>
+      </table>
+    </div>);
 }
 function TableauDetaille({ lignes, categories, peutEcrire, onEditer }) {
   const lignesC = lignes.map(l => ({ l, c: colonnesLigne(l, categories) }));
