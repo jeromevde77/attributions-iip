@@ -3200,6 +3200,20 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
       try { res.json(await inviter({ ids: req.body?.ids, section: req.body?.section || null, ue: req.body?.ue || null, prof: req.body?.prof ? Number(req.body.prof) : null, message: String(req.body?.message || '').slice(0, 3000), simulation: req.body?.simulation !== false, deja: !!req.body?.deja }, qui(req))); }
       catch (e) { res.status(500).json({ error: e.message }); }
     });
+    // L'INVITATION PROGRAMMÉE (3.5.604) : avant les routes paramétriques ; le tour passe chaque minute (production seulement).
+    const { programmer, programmees, annulerProgrammee, executerProgrammees, MOT_ACCUEIL } = await import('./lib/invitationEspace.js');
+    app.get('/api/portail-suivi/mot-accueil', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => res.json({ texte: MOT_ACCUEIL }));
+    app.get('/api/portail-suivi/programmees', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => res.json(programmees()));
+    app.post('/api/portail-suivi/programmer', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {
+      const b = req.body || {};
+      const r = programmer({ cible: b.cible, libelle: b.libelle, quand: b.quand, message: b.message, deja: !!b.deja }, qui(req));
+      res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
+    });
+    app.delete('/api/portail-suivi/programmees/:pid', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {
+      const r = annulerProgrammee(Number(req.params.pid), qui(req));
+      res.status(r.erreur ? 409 : 200).json(r.erreur ? { error: r.erreur } : r);
+    });
+    setInterval(() => { executerProgrammees().catch(e => console.error('[invitation programmée]', e.message)); }, 60 * 1000).unref?.();
     app.get('/api/portail-suivi/:id/invitation', exigerCompte, (req, res) => res.json(etatInvitation(Number(req.params.id))));
   }
   app.get('/api/portail-suivi/:id', exigerCompte, (req, res) => res.json(suiviPortail(Number(req.params.id))));

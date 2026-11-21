@@ -4668,6 +4668,13 @@ Qui est là et Quoi de neuf restent au-dessus, ouverts.
 **LE SUIVI DES STAGES NE MONTRE QUE LES INSCRITS D'UNE UE DE STAGE** (3.5.593, Charles : « si un étudiant n'est pas inscrit en stage, il
 ne doit pas apparaître ») : `GET /api/stages` ne rend que les stages d'étudiants inscrits l'année même à une UE à cours `is_stage`
 (`?tous=1` pour tout) ; tuiles, étapes et compteurs suivent. Au 19/11/2026 : 5 des 10 stages de 2026-2027 sortaient ainsi de l'écran.
+**L'INVITATION SE PROGRAMME, ET LE MOT D'ACCUEIL EST PROPOSÉ** (3.5.604, Charles, 21 novembre 2026 : « que les accès se fassent à
+minuit une, lundi, mardi… comme ça je prépare le travail ; et un mot d'accueil déjà rédigé »). Mise en service → Inviter : « Programmer
+l'invitation » (jour et heure de Bruxelles, défaut : lundi 00:01) → `portail_invitation_programmee` (cible, mot, auteur) ; un tour chaque
+minute (`executerProgrammees`, `lib/invitationEspace.js`, PRODUCTION SEULEMENT) appelle `inviter` à l'heure dite, au nom de qui l'a
+programmée ; la liste « Invitations programmées » dit prévue / partie (nombre) / annulée. `MOT_ACCUEIL` pré-remplit le mot ; la
+signature du courriel est « Prénom NOM » (`signataire`). Les fonctions de l'espace sont déjà ouvertes : c'est l'INVITATION qui se
+programme, pas l'accès.
 **INVITER UNE SECTION, C'EST SA SECTION DÉDUITE AUSSI** (3.5.603, Charles : « Psychomotricité lundi, opto mardi, le reste mercredi ») :
 `etudiantsDeSection` (`lib/invitationEspace.js`) = inscrits de l'année active dont `sectionPropre` est la section ; l'invitation et
 « Qui s'est connecté » le lisent. `section_rattachement` seul oubliait 343 étudiants de 2026-2027.
