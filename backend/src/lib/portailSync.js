@@ -294,7 +294,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ph: [], ar: [], messages_lus: [], messages_reponses: [], messages_accuses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ph: [], ar: [], pd: [], messages_lus: [], messages_reponses: [], messages_accuses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -462,6 +462,16 @@ async function relever() {
     ok.ar.push({ id: g.id, erreur, resultat });
     touches.add(Number(g.etudiant_id));
   }
+  // LES DEMANDES DE PIÈCES (3.5.645) : rangées, le secrétariat prévenu.
+  for (const g of r.pd || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null;
+    try {
+      if (!e) erreur = 'Votre accès à l’espace n’est plus valable : adressez-vous au secrétariat.';
+      else { const x = (await import('./demandesPieces.js')).recevoirDemande(e, g); erreur = x.erreur || null; }
+    } catch (x) { console.error('[portail] demande de pièce :', x.message); erreur = 'Votre demande n’a pas pu être enregistrée : réessayez.'; }
+    ok.pd.push({ id: g.id, erreur });
+  }
   // LES MESSAGES (3.1.516) : ✓ lu, et les réponses (au fil, l'auteur prévenu).
   if ((r.messages_lus || []).length || (r.messages_reponses || []).length || (r.messages_accuses || []).length) {
     const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [], accuses: r.messages_accuses || [] });
@@ -484,8 +494,14 @@ async function relever() {
     } catch (x) { console.error('[portail] désaccord PAE :', x.message); }
     ok.pae_avis.push(Number(a.id));
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ph.length || ok.ar.length
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ph.length || ok.ar.length || ok.pd.length
     || ok.messages_lus.length || ok.messages_reponses.length || ok.messages_accuses.length) await appel('POST', '/interne/acquitter', ok);
+  // L'ÉTAT DES DEMANDES DE PIÈCES (3.5.645) : ce que le secrétariat a décidé repart au portail.
+  try {
+    const DP = await import('./demandesPieces.js');
+    const etats = DP.etatsAEnvoyer();
+    if (etats.length) { await appel('POST', '/interne/pd/etat', { etats: etats.map(x => ({ id: x.portail_id, statut: x.statut, reponse: x.reponse })) }); DP.marquerEnvoyes(etats.map(x => x.id)); }
+  } catch (x) { console.error('[portail] état des demandes de pièces :', x.message); }
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);
 }

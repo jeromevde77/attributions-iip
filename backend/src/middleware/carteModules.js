@@ -37,6 +37,7 @@
  *      les fermerait à ceux-là mêmes qu'ils concernent.
  */
 export const SANS_MODULE = {
+  'demandes-pieces': 'les demandes de pièces des étudiants — la route juge le rôle (3.5.645)',
   auth:            'la porte d’entrée',
   mfa:             'le second facteur, qui EST l’authentification',
   users:           'administration de l’outil — roleRequired(admin)',

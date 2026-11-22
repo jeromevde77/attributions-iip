@@ -1340,6 +1340,31 @@ int.post('/interne/documents/retirer', (req, res) => {
   res.json({ ok: true });
 });
 
+/* LES DEMANDES DE PIÈCES (3.5.645) : l'étudiant demande une pièce qui n'est pas dans Mes documents ; Lucie la relève, le secrétariat
+   la traite et en redonne l'état. */
+const TYPES_PIECE = ['inscription_autre', 'frequentation', 'releve', 'reussite', 'duplicata', 'employeur', 'organisme', 'autre'];
+db.exec(`CREATE TABLE IF NOT EXISTS pd_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, type TEXT NOT NULL, texte TEXT,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, statut TEXT, reponse TEXT, maj_le TEXT)`);
+pub.get('/api/portail/pieces-demandees', connecte, exige('documents'), (req, res) => {
+  res.json(db.prepare('SELECT id, type, texte, cree_le, releve_le, erreur, statut, reponse, maj_le FROM pd_geste WHERE etudiant_id = ? ORDER BY id DESC LIMIT 30').all(req.etudiant.id));
+});
+pub.post('/api/portail/pieces-demandees', connecte, exige('documents'), (req, res) => {
+  const type = String(req.body?.type || ''), texte = String(req.body?.texte || '').trim();
+  if (!TYPES_PIECE.includes(type)) return res.status(400).json({ error: 'Choisissez la pièce dans la liste.' });
+  if (type === 'autre' && !texte) return res.status(400).json({ error: 'Dites quel document vous demandez.' });
+  if (texte.length > 500) return res.status(400).json({ error: 'Cinq cents caractères au plus.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM pd_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 day')`).get(req.etudiant.id).n >= 10) {
+    return res.status(429).json({ error: 'Dix demandes par jour au plus. Réessayez demain.' });
+  }
+  db.prepare('INSERT INTO pd_geste (etudiant_id, type, texte) VALUES (?,?,?)').run(req.etudiant.id, type, texte || null);
+  res.json({ ok: true });
+});
+int.post('/interne/pd/etat', (req, res) => {
+  const u = db.prepare("UPDATE pd_geste SET statut = ?, reponse = ?, maj_le = datetime('now') WHERE id = ?");
+  for (const x of Array.isArray(req.body?.etats) ? req.body.etats : []) u.run(String(x.statut || ''), x.reponse ? String(x.reponse).slice(0, 600) : null, Number(x.id));
+  res.json({ ok: true });
+});
+
 int.get('/interne/releve', (req, res) => {
   res.json({
     demandes: db.prepare('SELECT id, type, etudiant_id, valeur, cree_le FROM demande WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
@@ -1355,6 +1380,7 @@ int.get('/interne/releve', (req, res) => {
     cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ph: db.prepare('SELECT id, etudiant_id, taille FROM ph_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
+    pd: db.prepare('SELECT id, etudiant_id, type, texte, cree_le FROM pd_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
     messages_accuses: db.prepare('SELECT id, message_id, etudiant_id, accuse_le FROM message_accuse WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le, objet FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
@@ -1394,6 +1420,9 @@ int.post('/interne/acquitter', (req, res) => {
         .run(g.erreur ? String(g.erreur).slice(0, 300) : null, g.resultat ? String(g.resultat).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM ar_geste WHERE releve_le < datetime('now', '-365 days')").run();
+    for (const g of Array.isArray(req.body?.pd) ? req.body.pd : []) {
+      db.prepare("UPDATE pd_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
+    }
     for (const id of ids('pae_avis')) db.prepare("UPDATE pae_avis SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {
       db.prepare("UPDATE pae_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));

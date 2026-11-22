@@ -2,6 +2,7 @@
 import NettoyerArchives from '../components/NettoyerArchives.jsx';
 import SuiviEspace from '../components/SuiviEspace.jsx';
 import { BlocPhoto, PhotosAValider } from '../components/PhotoEtudiant.jsx';
+import DemandesPieces from '../components/DemandesPieces.jsx';
 import SuiviSante from '../components/SuiviSante.jsx';
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import ImportTfe from '../components/ImportTfe.jsx';
@@ -26,7 +27,7 @@ import {
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
-  IconUserMinus,
+  IconUserMinus, IconFileDescription,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -3061,6 +3062,8 @@ export default function Etudiants() {
   const [messagesEtud, setMessagesEtud] = useState(false);
   // LES PHOTOS À VALIDER (3.5.606) : ouvertes aussi depuis la notification (/etudiants?outil=photos).
   const [photos, setPhotos] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'photos'; } catch { return false; } });
+  // LES PIÈCES DEMANDÉES PAR LES ÉTUDIANTS (3.5.645) : ouvertes aussi depuis la notification (/etudiants?outil=demandes-pieces).
+  const [demandesPieces, setDemandesPieces] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'demandes-pieces'; } catch { return false; } });
   const [visitesStage, setVisitesStage] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
@@ -3681,6 +3684,8 @@ export default function Etudiants() {
         icon: IconMessages, onClick: () => setMessagesEtud(true) }] : []),
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'photos', label: 'Photos d’identité à valider',
         icon: IconCamera, onClick: () => setPhotos(true) }] : []),
+      ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'demandes-pieces', label: 'Pièces demandées par les étudiants',
+        icon: IconFileDescription, onClick: () => setDemandesPieces(true) }] : []),
       /* LES VISITES DE STAGE ont quitté ce rail (3.5.075) : Organisation → Stages → Visites et trajets. */
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'extraits-bancaires', label: 'Extraits de compte — versements des étudiants',
         icon: IconCash, onClick: () => setExtraits(true) }] : []),
@@ -4202,6 +4207,7 @@ export default function Etudiants() {
       )}
       {visitesStage && <Suspense fallback={null}><VisitesStage onFermer={() => setVisitesStage(false)} /></Suspense>}
       {photos && <PhotosAValider onFermer={() => setPhotos(false)} />}
+      {demandesPieces && <DemandesPieces onFermer={() => setDemandesPieces(false)} />}
       {messagesEtud && (
         <Suspense fallback={null}><MessagesEtudiants onFermer={() => setMessagesEtud(false)} /></Suspense>
       )}

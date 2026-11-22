@@ -3276,6 +3276,9 @@ app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
 app.use('/api/evaluations', garderModule('evaluations'), evaluationsRoutes);
 // LA PHOTO D'IDENTITÉ (3.5.606) : sans module, chaque route juge qui voit (fiche, cours) ou décide (secrétariat, direction).
 app.use('/api/photos', garderModule('photos'), photosRoutes);
+// LES DEMANDES DE PIÈCES DES ÉTUDIANTS (3.5.645) : sans module, la route juge le rôle (secrétariat, direction).
+try { (await import('./lib/demandesPieces.js')).migrerDemandesPieces(); } catch (e) { console.error('[migration] demandes de pièces :', e.message); }
+app.use('/api/demandes-pieces', garderModule('demandes-pieces'), (await import('./routes/demandesPieces.js')).default);
 { const tour = () => import('./lib/evaluationPersonnel.js').then(m => m.purgerEchues()).catch(e => console.error('[évaluations] conservation :', e.message));
   setTimeout(tour, 60 * 1000).unref?.(); setInterval(tour, 24 * 60 * 60 * 1000).unref?.(); }
 app.use('/api/attributions', garderModule('attributions'), attrRoutes);
