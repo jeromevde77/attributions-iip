@@ -1440,6 +1440,12 @@ function Espace() {
   const aD = !!d;
   useEffect(() => { if (aD) appel('GET', '/messages').then(x => setNonLus(x.filter(m => !m.lu).length)).catch(() => {}); }, [aD]);
 
+  // MA PHOTO (3.5.606) : son état, pour le rappel d'« Aujourd'hui ». (3.5.644) ICI, AVANT TOUT RETOUR ANTICIPÉ : posés plus bas, après
+  // l'écran de connexion, ces deux hooks n'existaient pas au premier rendu — l'entrée dans l'espace cassait (React #310, écran blanc).
+  const [etatPhoto, setEtatPhoto] = useState(null);
+  const photoOuverte = (d?.fonctions || []).includes('photo');
+  useEffect(() => { if (photoOuverte) appel('GET', '/photo').then(setEtatPhoto).catch(() => {}); }, [photoOuverte, face]);
+
   const echec = e => {
     if (e.donnees?.hors_belgique) { setHorsBe(e.message); setConnecte(false); setD(null); poser(null); return; }
     setErreur(e.message); if (e.session) { setConnecte(false); setD(null); }
@@ -1622,10 +1628,6 @@ function Espace() {
   }
 
   // L'OUVERTURE SE VOIT (3.5.208) : connecté, en attendant ses données, le logo et les étoiles plutôt qu'une page vide.
-  // MA PHOTO (3.5.606) : son état, pour le rappel d'« Aujourd'hui » (avant tout retour anticipé : règle des hooks).
-  const [etatPhoto, setEtatPhoto] = useState(null);
-  const photoOuverte = (d?.fonctions || []).includes('photo');
-  useEffect(() => { if (photoOuverte) appel('GET', '/photo').then(setEtatPhoto).catch(() => {}); }, [photoOuverte, face]);
   if (!d && !erreur) return <ChargementLucie pleine texte="Ouverture de votre espace…" />;
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const docsASigner = [];   // 3.5.398 : plus de pièces déposées à signer — elles se génèrent.
