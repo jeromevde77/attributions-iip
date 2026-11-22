@@ -31,6 +31,7 @@ import { photoPortail, deposerPhoto, mimeDe as mimePhoto } from './photoEtudiant
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { deposer as deposerCertificat } from './certificatMedical.js';
 import { offreAR, demandeEnLigne, messageAR } from './portailAmenagements.js';
+import { offreRecours, introduireRecours } from './recoursEnLigne.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
 import { supportsActifs, contenuDe as contenuSupport } from './supportsCours.js';
@@ -284,7 +285,9 @@ async function deposerVA(ids) {
         // MA SANTÉ (3.5.286) : la visite médicale du CESI, telle que la fiche la connaît.
         sante: f.has('sante') ? santePortail(e) : null,
         // MA PHOTO (3.5.606) : l'état de sa photo d'identité (acceptée, à valider, refusée et pourquoi).
-        photo: f.has('photo') ? photoPortail(e.id) : null });
+        photo: f.has('photo') ? photoPortail(e.id) : null,
+        // LE RECOURS EN LIGNE (3.5.658) : ses refus publiés, leur délai, l'état de son recours.
+        recours: f.has('recours') ? offreRecours(e, anneeActive()) : null });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
@@ -294,7 +297,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ph: [], ar: [], pd: [], messages_lus: [], messages_reponses: [], messages_accuses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], pae_avis: [], ts: [], cm: [], ph: [], ar: [], pd: [], rc: [], messages_lus: [], messages_reponses: [], messages_accuses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -462,6 +465,27 @@ async function relever() {
     ok.ar.push({ id: g.id, erreur, resultat });
     touches.add(Number(g.etudiant_id));
   }
+  // LE RECOURS EN LIGNE (3.5.658) : la plainte (griefs, pièces), jugée et écrite dans le circuit des procédures.
+  for (const g of r.rc || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null, resultat = null;
+    try {
+      if (!e) erreur = 'Votre accès à l’espace n’est plus valable : adressez-vous au secrétariat.';
+      else if (!fonctionPour('espace.recours', { etudiantId: e.id })) erreur = 'Le recours en ligne n’est pas ouvert : adressez-vous à la direction.';
+      else {
+        const x = JSON.parse(g.texte || '{}');
+        const pieces = [];
+        for (const p of g.pieces || []) {
+          const buffer = await lireBinaire(`/interne/rc/piece/${p.id}`);
+          if (!buffer?.length) { erreur = 'Une pièce n’a pas pu être reçue : envoyez votre recours à nouveau.'; break; }
+          pieces.push({ nom: p.nom, buffer });
+        }
+        if (!erreur) { const d = introduireRecours(e, anneeActive(), x, pieces, g.cree_le); erreur = d.erreur || null; resultat = d.resultat || null; }
+      }
+    } catch (x) { console.error('[portail] recours :', x.message); erreur = 'Votre recours n’a pas pu être enregistré : réessayez, ou remettez-le à la direction.'; }
+    ok.rc.push({ id: g.id, erreur, resultat });
+    touches.add(Number(g.etudiant_id));
+  }
   // LES DEMANDES DE PIÈCES (3.5.645) : rangées, le secrétariat prévenu.
   for (const g of r.pd || []) {
     const e = etudiantDuPortail(g.etudiant_id);
@@ -494,7 +518,7 @@ async function relever() {
     } catch (x) { console.error('[portail] désaccord PAE :', x.message); }
     ok.pae_avis.push(Number(a.id));
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ph.length || ok.ar.length || ok.pd.length
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.pae_avis.length || ok.ts.length || ok.cm.length || ok.ph.length || ok.ar.length || ok.pd.length || ok.rc.length
     || ok.messages_lus.length || ok.messages_reponses.length || ok.messages_accuses.length) await appel('POST', '/interne/acquitter', ok);
   // L'ÉTAT DES DEMANDES DE PIÈCES (3.5.645) : ce que le secrétariat a décidé repart au portail.
   try {

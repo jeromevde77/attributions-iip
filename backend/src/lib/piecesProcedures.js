@@ -25,7 +25,8 @@ function jour(iso) {
   return m ? `${Number(m[3])} ${MOIS[Number(m[2]) - 1]} ${m[1]}` : '……………';
 }
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
-const MODE = { recommande: 'par courrier recommandé avec accusé de réception', main_propre: 'par remise en main propre contre accusé de réception' };
+const MODE = { recommande: 'par courrier recommandé avec accusé de réception', main_propre: 'par remise en main propre contre accusé de réception',
+  en_ligne: 'en ligne, depuis son espace étudiant' };
 
 export const PIECES = {
   accuse_reception:       { type: 'recours',       titre: 'Accusé de réception d’une plainte', etape: 'plainte' },

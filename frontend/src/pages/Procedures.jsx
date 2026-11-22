@@ -98,7 +98,7 @@ function PastilleType({ dossier }) {
   );
 }
 
-const MODES_REMISE = [['main_propre', 'Remise en main propre'], ['recommande', 'Recommandé']];
+const MODES_REMISE = [['main_propre', 'Remise en main propre'], ['recommande', 'Recommandé'], ['en_ligne', 'En ligne (espace de l’étudiant)']];
 const ISSUES_EXTERNES = [['accueilli', 'Accueilli'], ['rejete', 'Rejeté']];
 const PV_AUDITION = [
   ['signe', "PV signé par l'étudiant"],
@@ -209,7 +209,10 @@ function Bloc({ titre, children, actions }) {
 export default function Procedures() {
   const annee = getAnnee();
   const [vue, setVue] = useState('registre');          // registre | anciens
-  const [dossierId, setDossierId] = useState(null);
+  // Un lien de notification (recours introduit en ligne, 3.5.658) ouvre le dossier : /procedures?dossier=<id>.
+  const [dossierId, setDossierId] = useState(() => {
+    try { return Number(new URLSearchParams(window.location.search).get('dossier')) || null; } catch { return null; }
+  });
   const [ouvrir, setOuvrir] = useState(false);
   const [ref, setRef] = useState(null);
   const [refErreur, setRefErreur] = useState(null);

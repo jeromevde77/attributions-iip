@@ -19,7 +19,7 @@ import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import {
   migrerProcedures, lireDossier, verifierEtape, ETAPES, TYPES, NATURES, TYPES_FRAUDE, SANCTIONS,
-  est_recourable,
+  est_recourable, proposerMembresRecours,
 } from '../lib/procedures.js';
 import { structureUE } from './acquis.js';
 import { composerPieceProcedure, PIECES } from '../lib/piecesProcedures.js';
@@ -170,19 +170,8 @@ r.post('/', authRequired, gesteRequis('procedures.instruire'), (req, res) => {
     const did = Number(info.lastInsertRowid);
     const ajAcq = db.prepare('INSERT OR IGNORE INTO proc_acquis (dossier_id, cours_code, aa_code) VALUES (?,?,?)');
     for (const a of (Array.isArray(b.acquis) ? b.acquis : [])) if (a?.aa_code) ajAcq.run(did, a.cours_code || null, a.aa_code);
-    // LE CDE RESTREINT SE PROPOSE, IL NE SE TAPE PAS : le président de la
-    // séance, puis les chargés de cours de l'UE — à cocher présents.
-    if (type === 'recours' && ueNum) {
-      const s = db.prepare(`SELECT president_nom FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?
-        ORDER BY session DESC LIMIT 1`).get(ueNum, annee);
-      const ajM = db.prepare('INSERT INTO proc_membre (dossier_id, role, cle, nom, present) VALUES (?,?,?,?,?)');
-      if (s?.president_nom) ajM.run(did, 'president', null, s.president_nom, 1);
-      for (const p of db.prepare(`SELECT DISTINCT a.professeur_id AS id, p.nom, p.prenom FROM attribution a
-          JOIN professeur p ON p.id = a.professeur_id WHERE a.ue_num = ? AND a.annee_scolaire = ?
-          AND a.professeur_id IS NOT NULL AND COALESCE(a.type_cours,'') <> 'Z' ORDER BY p.nom`).all(ueNum, annee)) {
-        ajM.run(did, 'membre', `p:${p.id}`, `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), 0);
-      }
-    }
+    // LE CDE RESTREINT SE PROPOSE, IL NE SE TAPE PAS (lib/procedures.js).
+    if (type === 'recours' && ueNum) proposerMembresRecours(did, ueNum, annee);
     return did;
   })();
   res.json(lireDossier(id));
