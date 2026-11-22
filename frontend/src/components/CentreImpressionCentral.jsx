@@ -827,9 +827,13 @@ function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
   }, [catalogue, domaine]);
   // Les codes, dans l'ordre où les listes paraissent (famille par famille), la liste sur mesure en dernier.
   const codes = useMemo(() => {
+    /* LE MÊME CODE POUR TOUS (3.5.654) : numérotés d'après le catalogue complet des familles, pas d'après ce que la personne voit
+       — une coordination, qui n'a pas le registre matricule (L-05), lisait sinon d'autres codes que le secrétariat. */
     const m = {}; let n = 0; const px = PREFIXE_LISTE[domaine] || 'X';
-    for (const [, rs] of familles) for (const r of rs) m[r.id] = `${px}-${String(++n).padStart(2, '0')}`;
-    m.schemas = `${px}-${String(++n).padStart(2, '0')}`; m.composer = `${px}-${String(Math.max(10, n + 1)).padStart(2, '0')}`;
+    for (const [, ids] of FAMILLES_RAPPORTS[domaine] || []) for (const id of ids) m[id] = `${px}-${String(++n).padStart(2, '0')}`;
+    for (const [, rs] of familles) for (const r of rs) if (!m[r.id]) m[r.id] = `${px}-${String(++n).padStart(2, '0')}`;
+    if (domaine === 'organisation') m.schemas = `${px}-${String(++n).padStart(2, '0')}`;
+    m.composer = `${px}-${String(Math.max(10, n + 1)).padStart(2, '0')}`;
     return m;
   }, [familles, domaine]);
   const ligne = (cle, libelle, sous = null) => (
@@ -852,53 +856,50 @@ function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
   const ouverte = questions.find(q => q.t === question) || famDuChoix || questions[0];
   const nb = q => (q.rs?.length || 0) + (LIENS_LISTES[domaine]?.[q.t]?.length || 0) || (q.schemas || q.composer ? 1 : 0);
   return (
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] items-start">
+    /* LA MISE EN PAGE (3.5.655, Charles : « la colonne 1 à gauche, l'aperçu sur tout le reste de la largeur, la colonne 2 au-dessus ») :
+       les questions à gauche ; à droite, les listes de la question, puis les réglages et l'aperçu sur toute la largeur restante. */
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)] items-start">
       <div className="rounded-carte p-3 space-y-2" style={ZONE}>
         <Etape n={debut + 1} titre={domaine === 'gestion' ? 'Quelle pièce ?' : 'Quelle liste ?'} fait={!!choisi} />
         {!catalogue ? <p className="text-second text-slate-400">Chargement…</p> : (
-          <div className="space-y-2">
+          <div className="flex flex-col">
+            {questions.map(q => {
+              const actif = q === ouverte;
+              return (
+                <button key={q.t} type="button" onClick={() => setQuestion(q.t)}
+                  className={`flex items-center gap-1.5 text-left text-sm py-1.5 px-2 rounded-champ ${actif ? 'bg-white font-semibold text-iip-blue' : 'text-slate-600 hover:text-iip-blue'}`}>
+                  <span className="min-w-0 flex-1">{q.t}</span>
+                  <span className="text-mention text-slate-400 tabular-nums">{nb(q)}</span>
+                  <span aria-hidden className={actif ? 'text-iip-blue' : 'text-slate-300'}>›</span>
+                </button>);
+            })}
             {/* LE DOSSIER DU COPIL (3.5.485) : il se compose dans Gestion (les écrans eux-mêmes) ; la direction seule. */}
             {domaine === 'gestion' && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && (
-              <div>
-                <div className="intertitre mt-1">Les dossiers</div>
-                <button type="button" className="flex items-start gap-2 py-1 text-sm text-left text-iip-blue hover:underline" onClick={() => naviguer('/gestion?copil=1')}>
-                  Dossier pour le comité de pilotage — une section →
-                </button>
-                <span className="block text-mention text-slate-400">population, attributions, positionnement, réussite, textes ; s’ouvre dans Gestion</span>
-              </div>)}
-            <div className="grid grid-cols-[minmax(0,190px)_minmax(0,1fr)] gap-3">
-              <div className="flex flex-col border-r border-slate-200 pr-2">
-                {questions.map(q => {
-                  const actif = q === ouverte;
-                  return (
-                    <button key={q.t} type="button" onClick={() => setQuestion(q.t)}
-                      className={`flex items-center gap-1.5 text-left text-sm py-1.5 px-2 rounded-champ ${actif ? 'bg-white font-semibold text-iip-blue' : 'text-slate-600 hover:text-iip-blue'}`}>
-                      <span className="min-w-0 flex-1">{q.t}</span>
-                      <span className="text-mention text-slate-400 tabular-nums">{nb(q)}</span>
-                      <span aria-hidden className={actif ? 'text-iip-blue' : 'text-slate-300'}>›</span>
-                    </button>);
-                })}
-              </div>
-              <div key={ouverte?.t} className="min-w-0">
-                <div className="intertitre mt-1">{ouverte?.t}</div>
-                {ouverte?.rs?.map(r => ligne(r.id, nomDe(r)[0], nomDe(r)[1]))}
-                {(LIENS_LISTES[domaine]?.[ouverte?.t] || []).map(([libelle, ou, cible]) => (
-                  <button key={libelle} type="button" className="flex items-start gap-2 py-1.5 text-sm text-left w-full hover:text-iip-blue"
-                    onClick={() => { if (cible.famille && allerA) { allerA(cible.famille); return; } fermer?.(); naviguer(cible.route || '/'); }}>
-                    <span className="mt-0.5 flex-none text-slate-400" aria-hidden>→</span>
-                    <span className="min-w-0">{libelle}<span className="block text-mention text-slate-500">dans {ou}</span></span>
-                  </button>))}
-                {ouverte?.schemas && ligne('schemas', 'Schéma de capitalisation d’une section')}
-                {ouverte?.composer && ligne('composer', 'Une liste sur mesure', 'vous choisissez les colonnes : nom, matricule, courriel, section…')}
-              </div>
-            </div>
+              <button type="button" className="mt-2 pt-2 border-t border-slate-200 text-left text-sm px-2 text-iip-blue hover:underline" onClick={() => naviguer('/gestion?copil=1')}>
+                Dossier du comité de pilotage →
+              </button>)}
           </div>)}
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 space-y-3">
+        {catalogue && ouverte && (
+          <div className="rounded-carte p-3" style={ZONE}>
+            <div className="intertitre mt-0">{ouverte.t}</div>
+            <div className="grid gap-x-6 md:grid-cols-2 xl:grid-cols-3">
+              {ouverte.rs?.map(r => ligne(r.id, nomDe(r)[0], nomDe(r)[1]))}
+              {(LIENS_LISTES[domaine]?.[ouverte.t] || []).map(([libelle, ou, cible]) => (
+                <button key={libelle} type="button" className="flex items-start gap-2 py-1.5 text-sm text-left w-full hover:text-iip-blue"
+                  onClick={() => { if (cible.famille && allerA) { allerA(cible.famille); return; } fermer?.(); naviguer(cible.route || '/'); }}>
+                  <span className="mt-0.5 flex-none text-slate-400" aria-hidden>→</span>
+                  <span className="min-w-0">{libelle}<span className="block text-mention text-slate-500">dans {ou}</span></span>
+                </button>))}
+              {ouverte.schemas && ligne('schemas', 'Schéma de capitalisation d’une section')}
+              {ouverte.composer && ligne('composer', 'Une liste sur mesure', 'vous choisissez les colonnes : nom, matricule, courriel, section…')}
+            </div>
+          </div>)}
         {!choisi ? (
           <div className="rounded-carte p-3 space-y-2" style={ZONE}>
             <Etape n={debut + 2} titre="Pour qui ?" attend />
-            <p className="text-second text-slate-500 m-0">Choisissez d’abord une liste à gauche : ici viennent seulement les réglages qu’elle demande (année, section, unité, période), puis l’aperçu.</p>
+            <p className="text-second text-slate-500 m-0">Choisissez d’abord une liste ci-dessus : ici viennent seulement les réglages qu’elle demande (année, section, unité, période), puis l’aperçu.</p>
           </div>
         ) : choisi === 'schemas' ? <OngletSchemas />
           : choisi === 'composer' ? (
