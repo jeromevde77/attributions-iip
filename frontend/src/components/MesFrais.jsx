@@ -11,9 +11,12 @@ import ChampsAdresse from './ChampsAdresse.jsx';
    avec ses justificatifs à la suite. Personne d'autre ne voit vos pièces : le serveur ne les rend qu'à vous. */
 const NATURES = {
   note: { l: 'Note de frais', I: IconReceipt },
-  carte: { l: 'Dépense par carte de l’ASBL', I: IconCreditCard },
+  carte: { l: 'Dépense Visa (carte de l’ASBL)', I: IconCreditCard },
   km: { l: 'Frais de parcours', I: IconCar },
 };
+// Les cases « À charge de » du formulaire Visa de l'ASBL (3.5.653), les mêmes que A_CHARGE_CARTE du serveur.
+const A_CHARGE_CARTE = ['Institut Ilya Prigogine — GDE', 'Institut Ilya Prigogine — Agence qualité', 'Institut Ilya Prigogine — Optique-optométrie',
+  'Institut Ilya Prigogine — Psychomotricité', 'Institut Ilya Prigogine — TIM', 'ASBL — GDA', 'ASBL — GDI'];
 const eur = n => (n == null || n === '' ? '—' : `${Number(n).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
 const jj = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 const auj = () => new Date().toISOString().slice(0, 10);
@@ -36,7 +39,7 @@ export default function MesFrais() {
 
   const creer = async (nature) => {
     try {
-      const j = await appel('POST', '/piece', { nature, date: auj(), date_piece: auj(), a_charge: d?.profil?.entite || 'Institut Ilya Prigogine',
+      const j = await appel('POST', '/piece', { nature, date: auj(), date_piece: auj(), a_charge: nature === 'carte' ? A_CHARGE_CARTE[0] : (d?.profil?.entite || 'Institut Ilya Prigogine'), ...(nature === 'carte' ? { carte: 'credit' } : {}),
         ...(nature === 'km' ? { periode: `${new Date().getFullYear()}` } : {}) });
       await charger(); setOuverte(j.id);
     } catch (e) { setErreur(e.message); }
@@ -55,7 +58,7 @@ export default function MesFrais() {
       <div className="flex flex-wrap gap-2">
         <button className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => creer('note')}><IconPlus size={15} />Note de frais</button>
         <button className="bouton inline-flex items-center gap-1.5" onClick={gsm}><IconDeviceMobile size={15} />Note GSM du semestre</button>
-        <button className="bouton inline-flex items-center gap-1.5" onClick={() => creer('carte')}><IconCreditCard size={15} />Dépense par carte</button>
+        <button className="bouton inline-flex items-center gap-1.5" onClick={() => creer('carte')}><IconCreditCard size={15} />Dépense Visa (carte de l’ASBL)</button>
         <button className="bouton inline-flex items-center gap-1.5" onClick={() => creer('km')}><IconCar size={15} />Frais de parcours</button>
         <span className="flex-1" />
         <button className="bouton inline-flex items-center gap-1.5" onClick={() => setProfil(true)}><IconUser size={15} />Mes coordonnées</button>
@@ -207,11 +210,13 @@ function FenetrePiece({ p, profil, lieux, onFermer, recharger }) {
         <div className="grid sm:grid-cols-3 gap-3">
           <Champ l="Date de la dépense"><input type="date" {...c('date')} /></Champ>
           <Champ l="Date de la pièce (signature)"><input type="date" {...c('date_piece')} /></Champ>
-          {p.nature === 'carte' && <Champ l="Carte"><select {...c('carte')} onChange={e => maj({ carte: e.target.value })}><option value="debit">Carte de débit</option><option value="credit">Carte de crédit (VISA)</option></select></Champ>}
+          {p.nature === 'carte' && <Champ l="Carte"><select {...c('carte')} value={v.carte || 'credit'} onChange={e => maj({ carte: e.target.value })}><option value="credit">Carte de crédit (VISA)</option><option value="debit">Carte de débit</option></select></Champ>}
           {p.nature !== 'km' && <Champ l="Fournisseur"><input {...c('fournisseur')} /></Champ>}
           {p.nature !== 'km' && <Champ l="Montant EUR TTC"><input type="number" step="0.01" {...c('montant')} /></Champ>}
           <Champ l="Période (facultatif)"><input {...c('periode')} placeholder="juillet-décembre 2026" /></Champ>
-          <Champ l="À charge de"><input {...c('a_charge')} /></Champ>
+          {p.nature === 'carte'
+            ? <Champ l="À charge de (case du formulaire)"><select {...c('a_charge')} onChange={e => maj({ a_charge: e.target.value })}>{!A_CHARGE_CARTE.includes(v.a_charge) && <option value={v.a_charge || ''}>{v.a_charge || '—'}</option>}{A_CHARGE_CARTE.map(o => <option key={o} value={o}>{o}</option>)}</select></Champ>
+            : <Champ l="À charge de"><input {...c('a_charge')} /></Champ>}
         </div>
         {p.nature !== 'km' && <Champ l="Objet et localisation de la dépense"><textarea rows={3} {...c('objet')} className="controle w-full h-auto py-1.5" /></Champ>}
         {p.nature === 'km' && (
