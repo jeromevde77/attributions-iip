@@ -9,22 +9,25 @@ import { authRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { nomEcranDuCompte } from '../lib/nom.js';
 import { deposerBientot } from '../lib/portailSync.js';
-import { migrerMessages, peutEcrire, perimetre, resoudre, resume, envoyer, envoyes, detail, messageVisible,
+import { migrerMessages, peutEcrire, peutEnvoyer, perimetre, resoudre, resume, envoyer, envoyes, detail, messageVisible,
   marquerReponsesLues, repondre, retirer, piecesDe, lirePiece } from '../lib/messagesEtudiants.js';
 
 const r = Router();
 const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || req.user?.email || '?';
 const garde = (req, res) => { if (peutEcrire(req.user)) return true; res.status(403).json({ error: 'Réservé à la direction, au secrétariat, aux coordinations et aux enseignants.' }); return false; };
+// Écrire un NOUVEAU message (3.5.650) : coupé pour professeurs et coordinations tant que la fonction n'est pas ouverte.
+const gardeEnvoi = (req, res) => { if (!garde(req, res)) return false; if (peutEnvoyer(req.user)) return true;
+  res.status(403).json({ error: 'Écrire aux étudiants est réservé, pour le moment, au secrétariat et à la direction.', ferme: true }); return false; };
 
 r.get('/cibles', authRequired, (req, res) => {
-  if (!garde(req, res)) return;
+  if (!gardeEnvoi(req, res)) return;
   const annee = anneeDeTravail(req);
   const p = perimetre(req.user, annee);
   res.json({ annee, sections: p.sections, ues: p.ues, tous: !p.etudiants });
 });
 /** Chercher un étudiant à qui écrire, dans son périmètre. */
 r.get('/etudiants', authRequired, (req, res) => {
-  if (!garde(req, res)) return;
+  if (!gardeEnvoi(req, res)) return;
   const q = String(req.query.q || '').trim().toLowerCase();
   if (q.length < 2) return res.json([]);
   const p = perimetre(req.user, anneeDeTravail(req));
@@ -34,12 +37,12 @@ r.get('/etudiants', authRequired, (req, res) => {
   res.json(l.map(e => ({ id: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), matricule: e.id_ecampus })));
 });
 r.post('/apercu', authRequired, (req, res) => {
-  if (!garde(req, res)) return;
+  if (!gardeEnvoi(req, res)) return;
   const d = resoudre(req.body?.critere, req.user, anneeDeTravail(req));
   res.json({ destinataires: d, nb: d.filter(x => x.espace).length, sans_espace: d.filter(x => !x.espace).length, resume: resume(req.body?.critere || {}) });
 });
 r.post('/', authRequired, (req, res) => {
-  if (!garde(req, res)) return;
+  if (!gardeEnvoi(req, res)) return;
   const x = envoyer(req.body || {}, req.user, qui(req), anneeDeTravail(req));
   if (!x.erreur) deposerBientot();
   res.status(x.erreur ? 400 : 200).json(x.erreur ? { error: x.erreur } : x);

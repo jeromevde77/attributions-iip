@@ -61,6 +61,9 @@ export function migrerMessages(dbx = db) {
 
 const TOUT = ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur'];
 export const peutEcrire = u => TOUT.includes(u?.role) || u?.role === 'coordination' || (u?.role === 'professeur' && !!professeurDe(u));
+/** Envoyer un nouveau message : le secrétariat et la direction toujours ; professeurs et coordinations seulement si la fonction
+ *  « Écrire aux étudiants — professeurs et coordinations » leur est ouverte (Mise en service, 3.5.650). Lire ses envoyés reste permis. */
+export const peutEnvoyer = u => TOUT.includes(u?.role) || (peutEcrire(u) && fonctionPour('messages.personnel', { userId: u?.id }));
 export const litTout = u => ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role);
 
 /** Les étudiants qu'on peut atteindre : actifs, non archivés, avec un espace (adresse d'institut, ou code de candidat). */

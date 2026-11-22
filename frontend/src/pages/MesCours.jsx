@@ -1,4 +1,6 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import { useEcrireEtudiants } from '../lib/ecrireEtudiants.js';
+import { useDroits } from '../lib/droits.js';
 import MotivationsCours from '../components/MotivationsCours.jsx';
 import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -95,6 +97,9 @@ export default function MesCours({ espace = null }) {
   const [faceDue, setFaceDue] = useState('croisement');
   const [agenda, setAgenda] = useState(false);       // mon horaire dans mon agenda
   const [messages, setMessages] = useState(false);   // écrire à mes étudiants (3.1.516)
+  // ÉCRIRE À MES ÉTUDIANTS, COUPÉ POUR LE MOMENT (3.5.650) sauf secrétariat et direction : le bouton suit la fonction de Mise en service.
+  const { passe: passeDroit } = useDroits();
+  const ecrireOuvert = useEcrireEtudiants(passeDroit('admin', 'editeur'));
   const [semaine, setSemaine] = useState(false);     // mon horaire de la semaine (3.1.464)
   const [visites, setVisites] = useState(false);     // mes visites de stage (3.5.058)
   const [tfe, setTfe] = useState(false);             // mes TFE (3.5.210)
@@ -838,7 +843,7 @@ export default function MesCours({ espace = null }) {
         { key: 'stages', label: 'Mes stages (superviseur)', icon: IconBriefcase, onClick: () => setStages(true) },
         { key: 'absence', label: 'Signaler une absence', icon: IconUserOff, onClick: () => setAbsence(true) },
         // LES MESSAGES AUX ÉTUDIANTS (3.1.516) : les inscrits de ses UE ; leurs réponses reviennent ici.
-        { key: 'messages', label: 'Écrire à mes étudiants', icon: IconMessages, onClick: () => setMessages(true) },
+        ...(ecrireOuvert ? [{ key: 'messages', label: 'Écrire à mes étudiants', icon: IconMessages, onClick: () => setMessages(true) }] : []),
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
         ...(vueDue ? [

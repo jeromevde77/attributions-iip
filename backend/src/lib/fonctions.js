@@ -54,6 +54,9 @@ export const CATALOGUE = [
     quoi: "Un candidat sans adresse d'institut reçoit à son adresse privée un code pour entrer dans l'espace (demande de VA, documents, frais, messages)." },
   { cle: 'enseignant.espace', famille: 'personnel', titre: 'L’espace enseignant',
     quoi: "Le site à part des enseignants (enseignants.lucie-iip.be), derrière le mur : Ma journée, les présences, l'horaire. Ouvert compte par compte en essai, puis pour tous." },
+  // (3.5.650, Charles, 22 novembre 2026 : « pour le moment, écrire à mes étudiants doit être bloqué pour profs et coordination »).
+  { cle: 'messages.personnel', famille: 'personnel', titre: 'Écrire aux étudiants — professeurs et coordinations',
+    quoi: "Les professeurs (Écrire à mes étudiants) et les coordinations écrivent aux étudiants dans leur espace. Éteinte, seuls le secrétariat et la direction écrivent ; les messages déjà envoyés restent lisibles." },
   { cle: 'presence.qr', famille: 'personnel', titre: 'La présence par QR et le ticket de sortie',
     quoi: "Dans Mes cours → Ma journée, le professeur projette le QR de présence et le ticket de sortie. Éteinte, la présence s'encode à la main comme avant." },
 ];

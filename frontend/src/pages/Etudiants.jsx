@@ -3,6 +3,7 @@ import NettoyerArchives from '../components/NettoyerArchives.jsx';
 import SuiviEspace from '../components/SuiviEspace.jsx';
 import { BlocPhoto, PhotosAValider } from '../components/PhotoEtudiant.jsx';
 import DemandesPieces from '../components/DemandesPieces.jsx';
+import { useEcrireEtudiants } from '../lib/ecrireEtudiants.js';
 import SuiviSante from '../components/SuiviSante.jsx';
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import ImportTfe from '../components/ImportTfe.jsx';
@@ -3061,6 +3062,8 @@ export default function Etudiants() {
   const [refus2, setRefus2] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'refus2'; } catch { return false; } });
   const [messagesEtud, setMessagesEtud] = useState(false);
   // LES PHOTOS À VALIDER (3.5.606) : ouvertes aussi depuis la notification (/etudiants?outil=photos).
+  // ÉCRIRE AUX ÉTUDIANTS, COUPÉ POUR LE MOMENT POUR LA COORDINATION (3.5.650) : suit la fonction de Mise en service.
+  const ecrireCoord = useEcrireEtudiants(false);
   const [photos, setPhotos] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'photos'; } catch { return false; } });
   // LES PIÈCES DEMANDÉES PAR LES ÉTUDIANTS (3.5.645) : ouvertes aussi depuis la notification (/etudiants?outil=demandes-pieces).
   const [demandesPieces, setDemandesPieces] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'demandes-pieces'; } catch { return false; } });
@@ -3680,7 +3683,7 @@ export default function Etudiants() {
       /* LES EXTRAITS DE COMPTE (3.1.444) : ce que la banque a reçu, rattaché aux étudiants
          par leur communication structurée. Secrétariat et direction. */
       /* LES MESSAGES AUX ÉTUDIANTS (3.1.516) : lus dans leur espace ; leurs réponses reviennent à l'auteur. */
-      ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'messages-etudiants', label: 'Écrire aux étudiants — messages dans leur espace',
+      ...(droitsRail.passe('admin', 'editeur') || (droitsRail.passe('coordination') && ecrireCoord) ? [{ key: 'messages-etudiants', label: 'Écrire aux étudiants — messages dans leur espace',
         icon: IconMessages, onClick: () => setMessagesEtud(true) }] : []),
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'photos', label: 'Photos d’identité à valider',
         icon: IconCamera, onClick: () => setPhotos(true) }] : []),
