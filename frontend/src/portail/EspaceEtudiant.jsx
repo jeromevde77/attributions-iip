@@ -49,6 +49,59 @@ async function appel(methode, chemin, corps, brut = false) {
 // Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
 const COURT = { aujourdhui: 'Aujourd’hui', messages: 'Messages', parcours: 'Parcours', documents: 'Documents', demarches: 'Démarches', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
 
+/* DEMANDER UNE AUTRE PIÈCE (3.5.645, Charles : « un étudiant peut-il faire une demande de document qu'il n'aurait pas ? » ; tranché : au
+   secrétariat). Une liste fermée, « autre » avec une phrase ; la demande part au secrétariat, qui la traite ; l'état se lit ici. */
+const PIECES_DEMANDABLES = [
+  ['inscription_autre', 'Attestation d’inscription (une autre année)'], ['frequentation', 'Attestation de fréquentation (présences)'],
+  ['releve', 'Relevé de notes détaillé'], ['reussite', 'Attestation de réussite'], ['duplicata', 'Duplicata de diplôme ou de titre'],
+  ['employeur', 'Document pour un employeur (congé-éducation…)'], ['organisme', 'Document pour un organisme (CPAS, ONEM, allocations…)'],
+  ['autre', 'Autre document'],
+];
+const ETAT_DEMANDE = { recue: ['En cours au secrétariat', 'disponible'], traitee: ['Traitée', 'reussi'], refusee: ['Refusée', 'corriger'] };
+function DemanderPiece({ apercu }) {
+  const [l, setL] = useState(null);
+  const [type, setType] = useState('');
+  const [texte, setTexte] = useState('');
+  const [msg, setMsg] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  const charger = useCallback(() => appel('GET', '/pieces-demandees').then(setL).catch(() => setL([])), []);
+  useEffect(() => { charger(); const t = setInterval(charger, 15000); return () => clearInterval(t); }, [charger]);
+  const envoyer = async () => {
+    setMsg(null);
+    if (!type) { setMsg({ etat: 'corriger', t: 'Choisissez la pièce.' }); return; }
+    if (type === 'autre' && !texte.trim()) { setMsg({ etat: 'corriger', t: 'Dites quel document vous demandez.' }); return; }
+    setEnvoi(true);
+    try { await appel('POST', '/pieces-demandees', { type, texte }); setType(''); setTexte(''); setMsg({ etat: 'reussi', t: 'Demande envoyée au secrétariat.' }); charger(); }
+    catch (e) { setMsg({ etat: 'corriger', t: e.message }); } finally { setEnvoi(false); }
+  };
+  const lib = k => (PIECES_DEMANDABLES.find(([x]) => x === k) || [k, k])[1];
+  return (
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Une pièce qui n’est pas dans la liste ?" sous="Demandez-la au secrétariat : il la prépare et vous répond ici." />
+      <div className="p-4 space-y-3">
+        {msg && <Encadre etat={msg.etat}>{msg.t}</Encadre>}
+        {!apercu && <div className="flex flex-col sm:flex-row gap-2">
+          <select className="controle sm:w-80" value={type} onChange={e => { setType(e.target.value); setMsg(null); }} aria-label="La pièce demandée">
+            <option value="">Choisir la pièce…</option>
+            {PIECES_DEMANDABLES.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+          </select>
+          <input className="controle flex-1 min-w-0" value={texte} maxLength={500} onChange={e => setTexte(e.target.value)}
+            placeholder={type === 'autre' ? 'Quel document ? (obligatoire)' : 'Précision : l’année, pour qui… (facultatif)'} />
+          <button type="button" className="bouton bouton-fort" disabled={envoi} onClick={envoyer}>{envoi ? 'Envoi…' : 'Demander'}</button>
+        </div>}
+        {l && l.length > 0 && (
+          <ListeEtats>
+            {l.map(x => {
+              const [et, etat] = x.erreur ? ['Non transmise', 'corriger'] : (ETAT_DEMANDE[x.statut] || (x.releve_le ? ETAT_DEMANDE.recue : ['Envoyée', 'neutre']));
+              return <LigneEtat key={x.id} etat={etat} titre={lib(x.type)}
+                sous={[x.texte, x.erreur || x.reponse].filter(Boolean).join(' — ') || `Demandée le ${String(x.cree_le).slice(0, 10).split('-').reverse().join('/')}`}
+                meta={<PastilleEtat etat={etat}>{et}</PastilleEtat>} />;
+            })}
+          </ListeEtats>)}
+      </div>
+    </section>);
+}
+
 /**
  * LE CENTRE DE DOCUMENTS (3.5.382, Charles, 12 novembre 2026 : « une liste de documents en fonction de la situation de l'étudiant ;
  * il clique sur ce dont il a besoin ; Lucie génère avec signature et QR » ; deux demandes par pièce et par année). La liste vient de
@@ -1764,6 +1817,7 @@ function Espace() {
           {/* PLUS DE PIÈCES DÉPOSÉES ICI (3.5.398, Charles : « ne devrait plus y être ; on génère ! ») : l'étudiant obtient chaque
               pièce, à jour, dans le centre de documents ; les dépôts restent au registre des envois de l'école. */}
           {a_('documents') && <CentreDocuments onErreur={echec} />}
+          {a_('documents') && <DemanderPiece apercu={!!d?.apercu} />}
           {d.reglements.length > 0 && (<>
             <h2 className="intertitre pt-2">Les règlements</h2>
             <ListeEtats>

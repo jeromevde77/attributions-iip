@@ -219,12 +219,15 @@ export async function suiviInvitations({ section = null, ue = null } = {}) {
   else if (section) ids = await etudiantsDeSection(section);
   else ids = db.prepare('SELECT DISTINCT etudiant_id id FROM portail_invitation').all().map(x => x.id);
   const lignes = [];
+  // LA SECTION LUE COMME PARTOUT (3.5.645, Charles : « on ne voit pas leur section ») : la règle de la fiche, posée ou déduite —
+  // section_rattachement seule est vide pour la plupart.
+  let sectionPropre = null; try { ({ sectionPropre } = await import('../routes/etudiants.js')); } catch { /* repli sur la colonne */ }
   for (const id of [...new Set(ids)]) {
     const e = db.prepare('SELECT id, nom, prenom, email_ecole, sortie_statut, section_rattachement FROM etudiant WHERE id = ?').get(id);
     if (!e) continue;
     const inv = db.prepare(`SELECT MAX(le) le, COUNT(*) n FROM portail_invitation WHERE etudiant_id = ? AND statut <> 'echec'`).get(id) || {};
     let c = {}; try { c = db.prepare('SELECT MIN(le) premiere, MAX(le) derniere, COUNT(*) n FROM portail_connexion WHERE etudiant_id = ?').get(id) || {}; } catch { c = {}; }
-    lignes.push({ id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), section: e.section_rattachement || null, email: e.email_ecole || null,
+    lignes.push({ id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), section: (sectionPropre ? (() => { try { return sectionPropre(id); } catch { return null; } })() : null) || e.section_rattachement || null, email: e.email_ecole || null,
       invitable: invitable(e).ok, invite_le: inv.le || null, invitations: inv.n || 0, premiere: c.premiere || null, derniere: c.derniere || null, connexions: c.n || 0 });
   }
   lignes.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
