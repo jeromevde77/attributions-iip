@@ -1819,7 +1819,7 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 /* Les tableaux : l'en-tête sans bande, une fine ligne dessous ; les filets entre les lignes restent pleins (ils guident l'œil). */
 /* (3.5.618) blanc, pas transparent : un en-tête qui reste en haut quand on défile laissait voir les lignes dessous. */
 :root[data-theme="v4"] .tab-entete { background: var(--c-fond_tuile, #fff) !important; }
-:root[data-theme="v4"] #root thead > tr > th { background: var(--c-fond_tuile, #fff) !important; }
+:root[data-theme="v4"] #root thead > tr > th { background-color: var(--c-fond_tuile, #fff) !important; }
 :root[data-theme="v4"] :is(.carte) .tableau-cadre { border: 0; border-radius: 0; background: transparent; }
 
 /* 2. LES TUILES ET ENCADRÉS : un groupe d'un. */
@@ -2036,3 +2036,8 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 /* (3.5.638) L'ÉDITEUR : LA GAUCHE S'ARRÊTE, LE COIN PREND LE RELAIS (Charles : « B, mais avec le coin droit comme C ») — le trait de
    gauche s'arrête à 1 cm du bas ; en bas à droite, le rappel ordinaire (arc et 1 cm de trait de chaque côté). */
 :root[data-theme="v4"] .cadre-editeur::before { bottom: 1cm; }
+
+/* (3.5.639) L'EN-TÊTE D'UN TABLEAU RETROUVE SON FILET (le fond blanc posé en raccourci l'effaçait : la case à cocher de l'en-tête
+   flottait, sans limite dessous) ; LA DERNIÈRE LIGNE N'EN A PAS : le bas de la tuile et son rappel la ferment déjà (Charles : « pas de
+   bon alignement en bas avec l'angle inférieur droit »). */
+:root[data-theme="v4"] #root tbody > tr:last-child > td { background-image: none !important; }
