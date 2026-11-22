@@ -65,8 +65,7 @@ export function refusRecourables(etudiantId, annee) {
     const publie = String(s.publie_le).slice(0, 10);
     const limite = ajouterJours(publie, n);
     const did = dossierExistant(etudiantId, l.ue_num, l.annee_scolaire, l.session);
-    // Un refus dont le délai est passé depuis plus d'un mois, sans recours, n'a plus rien à dire ici.
-    if (!did && ajouterJours(limite, 30) < jour) continue;
+    // Un refus dont le délai est passé reste listé : l'espace le dit, en gris, sous l'unité (Charles, 23 novembre 2026).
     out.push({ ue_num: l.ue_num, ue_nom: nomUE(l.ue_num, l.annee_scolaire), annee: l.annee_scolaire, session: l.session,
       org: l.org, publie_le: publie, limite, ouvert: !did && jour <= limite, delai_jours: n,
       dossier: did ? etatPourLEtudiant(lireDossier(did)) : null });

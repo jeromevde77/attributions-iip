@@ -215,7 +215,7 @@ export default function MonRecours({ appel, onErreur, initial = null }) {
 
       {!ouverts.length && !refus.some(r => r.dossier) && (
         <div className="carte px-4 py-3 text-sm text-slate-600">
-          {refus.length ? <>Le délai de recours est passé pour vos refus récents ({refus.map(r => `UE ${r.ue_num}, jusqu’au ${jourFr(r.limite)}`).join(' ; ')}). Pour toute question, adressez-vous à la direction.</>
+          {refus.length ? <>Le délai de recours est passé pour vos refus ({refus.map(r => `UE ${r.ue_num} : jusqu’au ${jourFr(r.limite)}`).join(' ; ')}). Pour toute question, adressez-vous à la direction.</>
             : <>Aucune décision de refus publiée ne vous concerne : il n’y a rien à contester.</>}
         </div>)}
 
