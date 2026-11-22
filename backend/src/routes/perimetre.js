@@ -27,6 +27,8 @@ import { niveauEtudiant } from './etudiants.js';
 import { authRequired, getUserSections, clauseSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession } from './acquis.js';
+import { ROLES_AMENAGEMENT } from '../lib/gestes.js';
+import { peut } from '../middleware/permissions.js';
 
 const r = Router();
 
@@ -158,11 +160,15 @@ r.post('/etudiants', authRequired, (req, res) => {
   if (!liste.length) return res.json({ etudiants: [], unites: [], session, annee });
 
   const marques = liste.map(() => '?').join(',');
+  let voitAR = ROLES_AMENAGEMENT.includes(req.user?.role) || peut(req.user, 'amenagements', 'lire');
+  try { db.prepare('SELECT 1 FROM amenagement_dossier LIMIT 1').get(); } catch { voitAR = false; }
   const inscrits = db.prepare(`
     SELECT i.etudiant_id, i.ue_num, e.nom, e.prenom, COALESCE(e.sejour_limite_etudes, 0) AS sle,
       -- Au congé-éducation payé cette année, hors Flandre (qui n'utilise pas nos pièces).
       EXISTS (SELECT 1 FROM etudiant_cep c WHERE c.etudiant_id = e.id AND c.annee_scolaire = i.annee_scolaire
-                AND COALESCE(c.region, '') <> 'flandre') AS cep
+                AND COALESCE(c.region, '') <> 'flandre') AS cep,
+      -- UN DOSSIER D'AMÉNAGEMENT CETTE ANNÉE (3.5.656) : marqué pour qui a accès aux AR, et pour lui seul (confidentiel).
+      ${voitAR ? `EXISTS (SELECT 1 FROM amenagement_dossier a WHERE a.etudiant_id = e.id AND a.annee_scolaire = i.annee_scolaire)` : '0'} AS ar
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num IN (${marques}) ${seulId ? 'AND i.etudiant_id = ?' : ''}
     ORDER BY e.nom, e.prenom, i.ue_num`).all(annee, ...liste, ...(seulId ? [seulId] : []));
@@ -186,7 +192,7 @@ r.post('/etudiants', authRequired, (req, res) => {
     if (!suitLeCours(i.etudiant_id, i.ue_num)) continue;
     if (!parEtud.has(i.etudiant_id)) {
       parEtud.set(i.etudiant_id, {
-        id: i.etudiant_id, nom: i.nom, prenom: i.prenom, sle: !!Number(i.sle), cep: !!Number(i.cep), unites: [],
+        id: i.etudiant_id, nom: i.nom, prenom: i.prenom, sle: !!Number(i.sle), cep: !!Number(i.cep), ar: !!Number(i.ar), unites: [],
       });
     }
     const d = decisionDeSession(i.etudiant_id, i.ue_num, annee, session);

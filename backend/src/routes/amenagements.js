@@ -522,6 +522,22 @@ r.get('/dossier/:id/piece/:type', authRequired, (req, res) => {
              etudiant_id: d.etudiant_id });
 });
 
+/* LES PIÈCES DEPUIS ÉDITIONS (3.5.656, Charles : « toujours aller dans Éditions ») : par étudiant et par année, le dossier de
+   l'année — mêmes droits, même périmètre, mêmes refus que la pièce demandée depuis le registre. */
+r.get('/etudiant/:etudiantId/piece/:type', authRequired, (req, res) => {
+  const annee = String(req.query.annee || '').trim();
+  const dos = db.prepare(`SELECT id FROM amenagement_dossier WHERE etudiant_id = ? ${annee ? 'AND annee_scolaire = ?' : ''}
+    ORDER BY annee_scolaire DESC LIMIT 1`).get(Number(req.params.etudiantId), ...(annee ? [annee] : []));
+  if (!dos) return res.status(404).json({ error: `pas de dossier d’aménagement${annee ? ` en ${annee}` : ''}` });
+  req.params.id = String(dos.id);
+  const d = dossierLisible(req, res);
+  if (!d) return;
+  if (!TYPES_PIECE[req.params.type]) return res.status(400).json({ error: 'pièce inconnue' });
+  const p = composerPiece(req.params.type, d);
+  if (p.erreur) return res.status(p.code || 400).json({ error: p.erreur, manques: p.manques || [] });
+  res.json({ html: p.html, nom: p.nom, titre: TYPES_PIECE[req.params.type], etudiant_id: d.etudiant_id });
+});
+
 // ── Les chargés de cours des unités concernées ──────────────────────────────
 // Ceux qui portent une attribution, cette année, dans une unité visée par la
 // demande (aucune cochée : tout le programme de l'année).
