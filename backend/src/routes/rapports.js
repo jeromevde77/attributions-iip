@@ -1,4 +1,5 @@
 import { dispensesDeLUE } from '../lib/dispenses.js';
+import * as LE from '../lib/listesEtudiants.js';
 /**
  * LES RAPPORTS — ce que Lucie sait dire d'elle-même, en tableur.
  *
@@ -2930,6 +2931,38 @@ export const RAPPORTS = [
           mention: 'Document de travail interne — à régulariser par le secrétariat et les coordinations.' },
         styles: STYLES_CONTROLE_PAE, corps: corpsControlePae(c) };
     },
+  },
+  /* QUATRE LISTES QUI MANQUAIENT (3.5.652, lib/listesEtudiants.js). */
+  {
+    id: 'mouvements-annee', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Les mouvements de l’année',
+    aide: "Les nouveaux inscrits (primo), les sorties (archivé, sorti, diplômé) et les désinscriptions, avec leur date.",
+    colonnes: COLS([['section', 'Section', 16], ['etudiant', 'Étudiant', 28], ['matricule', 'Matricule', 12], ['mouvement', 'Mouvement', 34],
+      ['date', 'Date', 12], ['detail', 'Détail', 40]]),
+    lignes: (p) => LE.mouvements(p.annee, sectionsControle(p)),
+  },
+  {
+    id: 'pae-a-regulariser', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Les PAE à régulariser',
+    aide: "Les PAE non confirmés par l'école, non validés par l'étudiant dans son espace, ou signalés comme faux par l'étudiant — ces derniers en tête.",
+    colonnes: COLS([['section', 'Section', 16], ['etudiant', 'Étudiant', 28], ['matricule', 'Matricule', 12], ['etat', 'À régulariser', 44],
+      ['signale', 'Ce que l’étudiant a signalé', 60]]),
+    lignes: (p) => LE.paeAReguler(p.annee, sectionsControle(p)),
+  },
+  {
+    id: 'seconde-session', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'La seconde session et les décisions',
+    aide: "Unité par unité : les ajournés et ce qu'ils représentent (cours, acquis, date d'examen), les refusés, les réussites par faveur.",
+    colonnes: COLS([['section', 'Section', 14], ['ue', 'Unité', 36], ['etudiant', 'Étudiant', 28], ['matricule', 'Matricule', 12],
+      ['decision', 'Décision', 18], ['a_representer', 'À représenter (cours, acquis — date)', 60]]),
+    lignes: (p) => LE.secondeSession(p.annee, sectionsControle(p)),
+  },
+  {
+    id: 'dossiers-incomplets', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Les dossiers incomplets',
+    aide: "Les étudiants de l'année à qui il manque l'adresse de l'institut, la section, la photo d'identité ou la visite médicale (s'ils ont un stage).",
+    colonnes: COLS([['section', 'Section', 16], ['etudiant', 'Étudiant', 28], ['matricule', 'Matricule', 12], ['manque', 'Ce qui manque', 60]]),
+    lignes: (p) => LE.dossiersIncomplets(p.annee, sectionsControle(p)),
   },
   {
     /* LES EFFECTIFS PAR UNITÉ — « étudiants par UE » de l'ancien écran. C'est

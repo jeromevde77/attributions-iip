@@ -575,7 +575,7 @@ chargerIdentite().then(i => { LOGO_IIP = i.logo || LOGO_IIP; });
  * Passé un `domaine`, l'écran ne montre que les listes de cet axe. Sans
  * `domaine`, il les montre toutes — c'est l'écran plein, hors du centre.
  */
-export default function Listes({ integre = false, domaine = null, rapports = null, renduRapport = null }) {
+export default function Listes({ integre = false, domaine = null, rapports = null, renduRapport = null, sansTypes = false }) {
   // Un rapport du catalogue choisi dans la colonne (« Listes et rapports »).
   const [rapportVu, setRapportVu] = useState(null);
   const navigate = useNavigate();
@@ -1587,7 +1587,9 @@ ${methodologie}
       {/* LA LISTE DES TYPES : colonne de la fenêtre quand on est intégré, rail
           flottant quand l'écran est à soi. Un rail n'a rien à faire dans une
           fenêtre, et une colonne perdue au milieu d'un écran non plus. */}
-      {integre ? (
+      {/* SANS LA COLONNE DES TYPES (3.5.651, Charles : « trop de colonnes, on ne sait pas ce que l'on fait ») : appelé depuis
+          « Quelle liste ? », le choix est déjà fait à gauche ; s'il y a plusieurs listes sur mesure, un menu en tête de la zone. */}
+      {integre && sansTypes ? null : integre ? (
         <div className="w-[240px] border-r border-slate-200 overflow-auto p-2 space-y-3 flex-shrink-0">
           {groupesTypes.map(g => (
             <div key={g.label}>
@@ -1638,6 +1640,16 @@ ${methodologie}
       {/* ── Colonne droite : filtres + contenu ── */}
       <div className={`${integre ? 'flex-1 flex flex-col min-w-0 min-h-0'
                               : 'gouttiere-rail flex flex-col min-w-0'} ${rapportVu && renduRapport ? 'hidden' : ''}`}>
+        {integre && sansTypes && (() => {
+          const choix = Object.entries(ENTITES).filter(deLAxe).filter(([, e]) => (e.groupe || 'data') === 'data');
+          return choix.length > 1 ? (
+            <label className="flex items-center gap-2 px-4 pt-3 text-sm">
+              <span className="text-slate-600">Une liste de</span>
+              <select className="controle" value={entite} onChange={e => changerEntite(e.target.value)}>
+                {choix.map(([k, e]) => <option key={k} value={k}>{e.label}</option>)}
+              </select>
+            </label>) : null;
+        })()}
 
       {/* ── Barre de filtres + actions ── */}
       <div className="flex-shrink-0 border-b px-5 py-2.5 flex items-center gap-3 flex-wrap" style={{ borderColor: 'var(--c-filet)' }}>

@@ -3055,7 +3055,7 @@ export default function Etudiants() {
   const [nouvel, setNouvel] = useState(false);
   // Les contrôles des dossiers, venus de Configuration (lot 4) : la face ouverte.
   const [controles, setControles] = useState(null);
-  const [suiviQR, setSuiviQR] = useState(false);
+  const [suiviQR, setSuiviQR] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'suivi-presences'; } catch { return false; } });
   const [extraits, setExtraits] = useState(false);
   const [paeEnLigne, setPaeEnLigne] = useState(false);
   // LES REFUS EN 2E SESSION (3.5.029) : ouverts aussi depuis la notification (/etudiants?outil=refus2).

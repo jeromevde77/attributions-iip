@@ -717,10 +717,10 @@ function OngletSchemas() {
  * télécharger : un tableur qu'on découvre après coup se refait deux fois.
  */
 /** Le générateur, servi dans une fenêtre — filtré sur un axe, ou complet. */
-function CadreListes({ domaine = null }) {
+function CadreListes({ domaine = null, sansTypes = false }) {
   return (
     <Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}>
-      <Listes integre domaine={domaine} />
+      <Listes integre domaine={domaine} sansTypes={sansTypes} />
     </Suspense>
   );
 }
@@ -749,10 +749,15 @@ function ListesEtRapports({ domaine }) {
    famille, chaque pièce une seule fois ; 2 « Pour quoi ? », l'année, la section, la portée ou la période qu'elle demande ;
    3 l'aperçu, et les sorties dans la barre bleue. « Composer une liste… » ouvre le générateur (colonnes au choix). */
 const FAMILLES_RAPPORTS = {
+  /* UNE SEULE PORTE, PAR QUESTION (3.5.652, Charles : « avons-nous pensé à toutes les listes utiles ? J'ai l'impression que rien n'est
+     clair »). Ce qui vit dans un autre onglet ou un autre écran y figure aussi, en lien (LIENS_LISTES) : on ne cherche plus. */
   etudiants: [
-    ['Les inscriptions', ['inscrits-par-ue', 'listes-par-ue', 'organisation-effectifs', 'pae-hors-regle', 'registre-matricule']],
-    ['Les présences', ['grille-presences']],
-    ['Les résultats', ['resultats-section']],
+    ['Qui est inscrit ?', ['inscrits-par-ue', 'listes-par-ue', 'organisation-effectifs', 'mouvements-annee', 'registre-matricule', 'pae-a-regulariser', 'pae-hors-regle']],
+    ['Qui est présent ?', ['grille-presences']],
+    ['Qui passe quel examen ?', []],
+    ['Quels résultats ?', ['resultats-section', 'seconde-session']],
+    ['Qui a besoin de quoi ?', ['dossiers-incomplets']],
+    ['Qui contacter ?', []],
   ],
   personnel: [
     ['Le personnel', ['personnel-liste', 'personnel-par-section', 'personnel-temporaires', 'statistiques-personnel']],
@@ -770,7 +775,41 @@ const FAMILLES_RAPPORTS = {
     ['Les chiffres', ['chiffres-cles', 'cout-formations']],
   ],
 };
-function RapportsEnZones({ domaine, debut = 0 }) {
+/* DES NOMS QUI DISENT CE QU'ON OBTIENT, ET UN CODE (3.5.651, Charles : « pas clair, noms pas clairs, pièces pas identifiées »). Un code
+   par liste (L pour les étudiants, P le personnel, O l'organisation, G la gestion), un nom qui dit ce qu'on obtient, une phrase qui dit ce
+   qu'il y a dedans. Une liste nouvelle prend le code suivant de son domaine ; sans nom ici, elle garde celui du serveur. */
+const NOMS_LISTES = {
+  'inscrits-par-ue': ['Les inscrits de chaque unité', 'nom par nom, avec les reprises et les dispenses'],
+  'listes-par-ue': ['Qui suit quoi, unité par unité', 'à suivre, dispensés, déjà acquis'],
+  'organisation-effectifs': ['Combien d’étudiants par unité', 'effectif, charge, étudiants par période'],
+  'registre-matricule': ['Le registre matricule et le droit d’inscription', 'tous les apprenants, le DI ou le motif d’exemption'],
+  'pae-hors-regle': ['Les PAE qui ne respectent pas un prérequis', 'inscriptions sans prérequis acquis ni dérogation'],
+  'grille-presences': ['La grille de présence', 'étudiants × séances (P, A, J), pour une unité ou un cours'],
+  'resultats-section': ['Les résultats d’une session', 'réussites, ajournements et refus, unité par unité'],
+  'mouvements-annee': ['Les mouvements de l’année', 'nouveaux inscrits, sorties, désinscriptions, avec leur date'],
+  'pae-a-regulariser': ['Les PAE à régulariser', 'non confirmés, non validés par l’étudiant, signalés comme faux'],
+  'seconde-session': ['La seconde session et les décisions', 'ajournés et ce qu’ils représentent, refusés, faveurs'],
+  'dossiers-incomplets': ['Les dossiers incomplets', 'sans adresse de l’institut, section, photo ou visite médicale'],
+};
+const PREFIXE_LISTE = { etudiants: 'L', personnel: 'P', organisation: 'O', gestion: 'G' };
+/* LES LISTES QUI VIVENT AILLEURS, montrées à leur question : un clic y mène (un onglet d'Éditions, ou l'écran où elles se tiennent). */
+const LIENS_LISTES = {
+  etudiants: {
+    'Qui est présent ?': [['Les absences au-delà du seuil (10 % et 40 %)', 'Suivi des présences', { route: '/etudiants?outil=suivi-presences' }]],
+    'Qui passe quel examen ?': [['Les listes d’examens à émarger, épreuve par épreuve', 'onglet Examens', { famille: 'examens' }]],
+    'Quels résultats ?': [['Les diplômables et les diplômés, par mention', 'onglet Diplômes et titres', { famille: 'diplomes' }]],
+    'Qui a besoin de quoi ?': [
+      ['Les aménagements raisonnables', 'registre des aménagements', { route: '/etudiants?onglet=amenagements' }],
+      ['Les valorisations des acquis en cours', 'écran Valorisation', { route: '/etudiants?onglet=valorisation' }],
+      ['Les stages et leurs pièces manquantes', 'Organisation → Stages', { route: '/organisation?onglet=stages' }],
+      ['Les pièces et les photos demandées par les étudiants', 'Étudiants → rail', { route: '/etudiants?outil=demandes-pieces' }],
+    ],
+    'Qui contacter ?': [['Qui s’est connecté à son espace', 'Mise en service', { route: '/configuration?onglet=mise-en-service' }]],
+  },
+};
+const phraseCourte = t => { const x = String(t || '').split(/(?<=[.:;])\s/)[0].replace(/[.:;]$/, ''); return x.length > 90 ? `${x.slice(0, 88)}…` : x; };
+
+function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
   const naviguer = useNavigate();
   const [catalogue, setCatalogue] = useState(null);
   const [choisi, setChoisi] = useState(null);      // id d'un rapport, 'schemas' ou 'composer'
@@ -784,17 +823,27 @@ function RapportsEnZones({ domaine, debut = 0 }) {
     const rangees = (FAMILLES_RAPPORTS[domaine] || []).map(([t, ids]) => [t, ids.map(id => l.find(r => r.id === id)).filter(Boolean)]);
     const vus = new Set(rangees.flatMap(([, rs]) => rs.map(r => r.id)));
     const autres = l.filter(r => !vus.has(r.id));
-    return [...rangees, ...(autres.length ? [['Autres pièces', autres]] : [])].filter(([, rs]) => rs.length);
+    return [...rangees, ...(autres.length ? [['Autres pièces', autres]] : [])].filter(([t, rs]) => rs.length || LIENS_LISTES[domaine]?.[t]?.length);
   }, [catalogue, domaine]);
+  // Les codes, dans l'ordre où les listes paraissent (famille par famille), la liste sur mesure en dernier.
+  const codes = useMemo(() => {
+    const m = {}; let n = 0; const px = PREFIXE_LISTE[domaine] || 'X';
+    for (const [, rs] of familles) for (const r of rs) m[r.id] = `${px}-${String(++n).padStart(2, '0')}`;
+    m.schemas = `${px}-${String(++n).padStart(2, '0')}`; m.composer = `${px}-${String(Math.max(10, n + 1)).padStart(2, '0')}`;
+    return m;
+  }, [familles, domaine]);
   const ligne = (cle, libelle, sous = null) => (
-    <label key={cle} className="flex items-start gap-2 py-1 text-sm cursor-pointer">
-      <input type="radio" name={`piece-${domaine}`} className="mt-0.5 flex-none" checked={choisi === cle} onChange={() => setChoisi(cle)} />
-      <span className="min-w-0">{libelle}{sous && <span className="block text-mention text-slate-400">{sous}</span>}</span>
+    <label key={cle} className="flex items-start gap-2 py-1.5 text-sm cursor-pointer">
+      <input type="radio" name={`piece-${domaine}`} className="mt-1 flex-none" checked={choisi === cle} onChange={() => setChoisi(cle)} />
+      <span className="min-w-0"><span className="text-mention font-semibold text-slate-400 tabular-nums mr-1.5">{codes[cle]}</span>
+        <span className={choisi === cle ? 'font-semibold text-iip-blue' : ''}>{libelle}</span>
+        {sous && <span className="block text-mention text-slate-500">{sous}</span>}</span>
     </label>);
+  const nomDe = r => (NOMS_LISTES[r.id] || [r.libelle, phraseCourte(r.aide)]);
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] items-start">
       <div className="rounded-carte p-3 space-y-2" style={ZONE}>
-        <Etape n={debut + 1} titre="Quelle pièce ?" fait={!!choisi} />
+        <Etape n={debut + 1} titre={domaine === 'gestion' ? 'Quelle pièce ?' : 'Quelle liste ?'} fait={!!choisi} />
         {!catalogue ? <p className="text-second text-slate-400">Chargement…</p> : (
           <div className="space-y-2">
             {/* LE DOSSIER DU COPIL (3.5.485) : il se compose dans Gestion (les écrans eux-mêmes) ; la direction seule. */}
@@ -809,24 +858,34 @@ function RapportsEnZones({ domaine, debut = 0 }) {
             {familles.map(([t, rs]) => (
               <div key={t}>
                 <div className="intertitre mt-1">{t}</div>
-                {rs.map(r => ligne(r.id, r.libelle, r.piece ? null : 'tableau'))}
+                {rs.map(r => ligne(r.id, nomDe(r)[0], nomDe(r)[1]))}
+                {(LIENS_LISTES[domaine]?.[t] || []).map(([libelle, ou, cible]) => (
+                  <button key={libelle} type="button" className="flex items-start gap-2 py-1.5 text-sm text-left w-full hover:text-iip-blue"
+                    onClick={() => { if (cible.famille && allerA) { allerA(cible.famille); return; } fermer?.(); naviguer(cible.route || '/'); }}>
+                    <span className="mt-0.5 flex-none text-slate-400" aria-hidden>→</span>
+                    <span className="min-w-0">{libelle}<span className="block text-mention text-slate-500">dans {ou}</span></span>
+                  </button>))}
               </div>))}
             {domaine === 'organisation' && (
               <div><div className="intertitre mt-1">Les schémas</div>{ligne('schemas', 'Schéma de capitalisation d’une section')}</div>)}
             <div className="pt-2 border-t border-slate-200">
-              {ligne('composer', 'Composer une liste…', 'les colonnes au choix')}
+              {ligne('composer', 'Une liste sur mesure', 'vous choisissez les colonnes : nom, matricule, courriel, section…')}
             </div>
           </div>)}
       </div>
       <div className="min-w-0">
         {!choisi ? (
           <div className="rounded-carte p-3 space-y-2" style={ZONE}>
-            <Etape n={debut + 2} titre="Pour quoi ?" attend />
-            <p className="text-second text-slate-500 m-0">Choisissez d’abord une pièce : ses réglages (année, section, unité, période) viennent ici, puis l’aperçu.</p>
+            <Etape n={debut + 2} titre="Pour qui ?" attend />
+            <p className="text-second text-slate-500 m-0">Choisissez d’abord une liste à gauche : ici viennent seulement les réglages qu’elle demande (année, section, unité, période), puis l’aperçu.</p>
           </div>
         ) : choisi === 'schemas' ? <OngletSchemas />
-          : choisi === 'composer' ? <div className="flex min-h-[32rem]"><CadreListes domaine={domaine} /></div>
-          : <OngletRapports key={choisi} domaine={domaine} sansListe rapportId={choisi} zones={{ debut }} />}
+          : choisi === 'composer' ? (
+            <div className="rounded-carte p-3 space-y-2" style={ZONE}>
+              <Etape n={debut + 2} titre="Pour qui, et quelles colonnes ?" />
+              <div className="flex min-h-[32rem] bg-white rounded-carte"><CadreListes domaine={domaine} sansTypes /></div>
+            </div>)
+          : <OngletRapports key={choisi} domaine={domaine} sansListe rapportId={choisi} zones={{ debut: debut + 1 }} />}
       </div>
     </div>);
 }
@@ -1149,7 +1208,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = 
 
       <div className={zones ? 'space-y-3 min-w-0' : 'flex-1 flex flex-col min-h-0'}>
         <div className={zones ? 'rounded-carte p-3 space-y-2' : 'px-3 py-2 border-b border-slate-200'} style={zones ? ZONE : undefined}>
-        {zones && <Etape n={zones.debut + 1} titre="Pour quoi ?" fait={!!apercu} attend={!choisi} />}
+        {zones && <Etape n={zones.debut + 1} titre={domaine === 'gestion' ? 'Pour quoi ?' : 'Pour qui ?'} fait={!!apercu} attend={!choisi} />}
         <div className="flex flex-wrap items-center gap-2">
           {choisi?.params?.includes('annees') ? (() => {
             const sel = anneesSel || [...annees].sort().filter(a => a <= annee).slice(-4);
@@ -3080,7 +3139,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             : famille === 'examens' ? <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
                 <ExamensPreparer annee={getAnnee()} integre initial={perimetre?.examen || null} /></Suspense>
             : famille === 'lettres' ? <LettresModele annee={getAnnee()} />
-            : <RapportsEnZones domaine="etudiants" />}
+            : <RapportsEnZones domaine="etudiants" allerA={setFamille} fermer={onClose} />}
         </>
       ) : (
         /* CHAQUE AXE PORTE SES DEUX FAMILLES, ET LE GÉNÉRATEUR N'EST PLUS UN
