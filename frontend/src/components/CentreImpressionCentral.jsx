@@ -717,10 +717,10 @@ function OngletSchemas() {
  * télécharger : un tableur qu'on découvre après coup se refait deux fois.
  */
 /** Le générateur, servi dans une fenêtre — filtré sur un axe, ou complet. */
-function CadreListes({ domaine = null }) {
+function CadreListes({ domaine = null, sansTypes = false }) {
   return (
     <Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}>
-      <Listes integre domaine={domaine} />
+      <Listes integre domaine={domaine} sansTypes={sansTypes} />
     </Suspense>
   );
 }
@@ -770,6 +770,21 @@ const FAMILLES_RAPPORTS = {
     ['Les chiffres', ['chiffres-cles', 'cout-formations']],
   ],
 };
+/* DES NOMS QUI DISENT CE QU'ON OBTIENT, ET UN CODE (3.5.651, Charles : « pas clair, noms pas clairs, pièces pas identifiées »). Un code
+   par liste (L pour les étudiants, P le personnel, O l'organisation, G la gestion), un nom qui dit ce qu'on obtient, une phrase qui dit ce
+   qu'il y a dedans. Une liste nouvelle prend le code suivant de son domaine ; sans nom ici, elle garde celui du serveur. */
+const NOMS_LISTES = {
+  'inscrits-par-ue': ['Les inscrits de chaque unité', 'nom par nom, avec les reprises et les dispenses'],
+  'listes-par-ue': ['Qui suit quoi, unité par unité', 'à suivre, dispensés, déjà acquis'],
+  'organisation-effectifs': ['Combien d’étudiants par unité', 'effectif, charge, étudiants par période'],
+  'registre-matricule': ['Le registre matricule et le droit d’inscription', 'tous les apprenants, le DI ou le motif d’exemption'],
+  'pae-hors-regle': ['Les PAE qui ne respectent pas un prérequis', 'inscriptions sans prérequis acquis ni dérogation'],
+  'grille-presences': ['La grille de présence', 'étudiants × séances (P, A, J), pour une unité ou un cours'],
+  'resultats-section': ['Les résultats d’une session', 'réussites, ajournements et refus, unité par unité'],
+};
+const PREFIXE_LISTE = { etudiants: 'L', personnel: 'P', organisation: 'O', gestion: 'G' };
+const phraseCourte = t => { const x = String(t || '').split(/(?<=[.:;])\s/)[0].replace(/[.:;]$/, ''); return x.length > 90 ? `${x.slice(0, 88)}…` : x; };
+
 function RapportsEnZones({ domaine, debut = 0 }) {
   const naviguer = useNavigate();
   const [catalogue, setCatalogue] = useState(null);
@@ -786,15 +801,25 @@ function RapportsEnZones({ domaine, debut = 0 }) {
     const autres = l.filter(r => !vus.has(r.id));
     return [...rangees, ...(autres.length ? [['Autres pièces', autres]] : [])].filter(([, rs]) => rs.length);
   }, [catalogue, domaine]);
+  // Les codes, dans l'ordre où les listes paraissent (famille par famille), la liste sur mesure en dernier.
+  const codes = useMemo(() => {
+    const m = {}; let n = 0; const px = PREFIXE_LISTE[domaine] || 'X';
+    for (const [, rs] of familles) for (const r of rs) m[r.id] = `${px}-${String(++n).padStart(2, '0')}`;
+    m.schemas = `${px}-${String(++n).padStart(2, '0')}`; m.composer = `${px}-${String(Math.max(10, n + 1)).padStart(2, '0')}`;
+    return m;
+  }, [familles, domaine]);
   const ligne = (cle, libelle, sous = null) => (
-    <label key={cle} className="flex items-start gap-2 py-1 text-sm cursor-pointer">
-      <input type="radio" name={`piece-${domaine}`} className="mt-0.5 flex-none" checked={choisi === cle} onChange={() => setChoisi(cle)} />
-      <span className="min-w-0">{libelle}{sous && <span className="block text-mention text-slate-400">{sous}</span>}</span>
+    <label key={cle} className="flex items-start gap-2 py-1.5 text-sm cursor-pointer">
+      <input type="radio" name={`piece-${domaine}`} className="mt-1 flex-none" checked={choisi === cle} onChange={() => setChoisi(cle)} />
+      <span className="min-w-0"><span className="text-mention font-semibold text-slate-400 tabular-nums mr-1.5">{codes[cle]}</span>
+        <span className={choisi === cle ? 'font-semibold text-iip-blue' : ''}>{libelle}</span>
+        {sous && <span className="block text-mention text-slate-500">{sous}</span>}</span>
     </label>);
+  const nomDe = r => (NOMS_LISTES[r.id] || [r.libelle, phraseCourte(r.aide)]);
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] items-start">
       <div className="rounded-carte p-3 space-y-2" style={ZONE}>
-        <Etape n={debut + 1} titre="Quelle pièce ?" fait={!!choisi} />
+        <Etape n={debut + 1} titre={domaine === 'gestion' ? 'Quelle pièce ?' : 'Quelle liste ?'} fait={!!choisi} />
         {!catalogue ? <p className="text-second text-slate-400">Chargement…</p> : (
           <div className="space-y-2">
             {/* LE DOSSIER DU COPIL (3.5.485) : il se compose dans Gestion (les écrans eux-mêmes) ; la direction seule. */}
@@ -809,24 +834,28 @@ function RapportsEnZones({ domaine, debut = 0 }) {
             {familles.map(([t, rs]) => (
               <div key={t}>
                 <div className="intertitre mt-1">{t}</div>
-                {rs.map(r => ligne(r.id, r.libelle, r.piece ? null : 'tableau'))}
+                {rs.map(r => ligne(r.id, nomDe(r)[0], nomDe(r)[1]))}
               </div>))}
             {domaine === 'organisation' && (
               <div><div className="intertitre mt-1">Les schémas</div>{ligne('schemas', 'Schéma de capitalisation d’une section')}</div>)}
             <div className="pt-2 border-t border-slate-200">
-              {ligne('composer', 'Composer une liste…', 'les colonnes au choix')}
+              {ligne('composer', 'Une liste sur mesure', 'vous choisissez les colonnes : nom, matricule, courriel, section…')}
             </div>
           </div>)}
       </div>
       <div className="min-w-0">
         {!choisi ? (
           <div className="rounded-carte p-3 space-y-2" style={ZONE}>
-            <Etape n={debut + 2} titre="Pour quoi ?" attend />
-            <p className="text-second text-slate-500 m-0">Choisissez d’abord une pièce : ses réglages (année, section, unité, période) viennent ici, puis l’aperçu.</p>
+            <Etape n={debut + 2} titre="Pour qui ?" attend />
+            <p className="text-second text-slate-500 m-0">Choisissez d’abord une liste à gauche : ici viennent seulement les réglages qu’elle demande (année, section, unité, période), puis l’aperçu.</p>
           </div>
         ) : choisi === 'schemas' ? <OngletSchemas />
-          : choisi === 'composer' ? <div className="flex min-h-[32rem]"><CadreListes domaine={domaine} /></div>
-          : <OngletRapports key={choisi} domaine={domaine} sansListe rapportId={choisi} zones={{ debut }} />}
+          : choisi === 'composer' ? (
+            <div className="rounded-carte p-3 space-y-2" style={ZONE}>
+              <Etape n={debut + 2} titre="Pour qui, et quelles colonnes ?" />
+              <div className="flex min-h-[32rem] bg-white rounded-carte"><CadreListes domaine={domaine} sansTypes /></div>
+            </div>)
+          : <OngletRapports key={choisi} domaine={domaine} sansListe rapportId={choisi} zones={{ debut: debut + 1 }} />}
       </div>
     </div>);
 }
@@ -1149,7 +1178,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null, zones = 
 
       <div className={zones ? 'space-y-3 min-w-0' : 'flex-1 flex flex-col min-h-0'}>
         <div className={zones ? 'rounded-carte p-3 space-y-2' : 'px-3 py-2 border-b border-slate-200'} style={zones ? ZONE : undefined}>
-        {zones && <Etape n={zones.debut + 1} titre="Pour quoi ?" fait={!!apercu} attend={!choisi} />}
+        {zones && <Etape n={zones.debut + 1} titre={domaine === 'gestion' ? 'Pour quoi ?' : 'Pour qui ?'} fait={!!apercu} attend={!choisi} />}
         <div className="flex flex-wrap items-center gap-2">
           {choisi?.params?.includes('annees') ? (() => {
             const sel = anneesSel || [...annees].sort().filter(a => a <= annee).slice(-4);
