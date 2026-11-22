@@ -368,6 +368,7 @@ function MesTaches({ signal = 0 }) {
  * file de travail se présente là où l'on arrive, et seulement à qui tranche.
  */
 const Demandes = lazy(() => import('./Demandes.jsx'));
+const DueAValider = lazy(() => import('../components/DueAValider.jsx'));
 /* LES AMÉNAGEMENTS RAISONNABLES DE MES SECTIONS (3.5.393, Charles : « je ne vois pas les demandes d'AR sur les tableaux de bord des
    coordinations concernées »). Coordination (ses sections) et direction : le nom, ce qui reste à faire, les unités et les mesures
    accordées — jamais la nature de la difficulté (secret professionnel). */
@@ -409,14 +410,16 @@ function AmenagementsSections() {
    la décision. Chaque ligne ouvre l'écran où le geste se pose. */
 function ASignerDirection() {
   const [d, setD] = useState(null);
+  const [dues, setDues] = useState(false);
   const navigate = useNavigate();
-  useEffect(() => {
+  const charger = useCallback(() => {
     fetch('/api/a-signer', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setD).catch(() => {});
   }, []);
-  if (!d?.direction || (!d.va.length && !d.ar)) return null;
+  useEffect(() => { charger(); }, [charger]);
+  if (!d?.direction || (!d.va.length && !d.ar && !d.due && !dues)) return null;
   return (
     <section className="carte overflow-hidden mb-5">
-      <EnteteCarte titre="À valider par la direction" sous="valorisations décidées et aménagements raisonnables à décider" />
+      <EnteteCarte titre="À valider par la direction" sous="valorisations décidées, aménagements raisonnables à décider, DUE soumises" />
       <ListeEtats className="!border-0 !rounded-none !py-0">
         {d.va.map(v => (
           <LigneEtat key={v.annee} etat="surveiller" icone={IconSignature}
@@ -430,7 +433,17 @@ function ASignerDirection() {
             sous="le rapport (volet B) est validé : la décision du Conseil est attendue"
             onClick={() => navigate('/etudiants?onglet=amenagements')}
             droite={<span className="text-second text-iip-blue font-semibold">Ouvrir</span>} />)}
+        {d.due > 0 && (
+          <LigneEtat etat="surveiller" icone={IconSignature}
+            titre={`${d.due} DUE soumise${d.due > 1 ? 's' : ''} à valider`}
+            sous="rédigées et soumises : fixer les pondérations et valider"
+            onClick={() => setDues(true)}
+            droite={<span className="text-second text-iip-blue font-semibold">Ouvrir</span>} />)}
       </ListeEtats>
+      {dues && (
+        <Fenetre titre="DUE à valider" large="pleine" onFermer={() => { setDues(false); charger(); }}>
+          <Suspense fallback={<p className="text-sm text-slate-400">Chargement…</p>}><DueAValider /></Suspense>
+        </Fenetre>)}
     </section>);
 }
 

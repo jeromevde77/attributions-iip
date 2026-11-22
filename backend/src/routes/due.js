@@ -611,6 +611,22 @@ r.get('/', authRequired, (req, res) => {
   });
 });
 
+/* LES DUE À VALIDER (3.5.657, Charles : « je veux valider » — Loubna ROUGUI avait soumis quatorze DUE de Psychomotricité, et rien
+   ne les rassemblait pour la direction). Les DUE soumises par leur rédacteur, pas encore validées, de l'année de travail. */
+r.get('/a-valider', authRequired, (req, res) => {
+  if (!NIVEAU_DIRECTION.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const annee = anneeDeTravail(req);
+  const lignes = db.prepare(`SELECT d.*, (SELECT ue_nom FROM ue u WHERE u.ue_num = d.ue_num AND u.annee_scolaire = d.annee_scolaire LIMIT 1) AS ue_nom,
+      (SELECT section FROM ue u WHERE u.ue_num = d.ue_num AND u.annee_scolaire = d.annee_scolaire LIMIT 1) AS section
+    FROM due d WHERE d.annee_scolaire = ? AND d.soumis_le IS NOT NULL AND d.statut <> 'validee' ORDER BY section, d.ue_num`).all(annee);
+  res.json({ annee, dues: lignes.map(d => {
+    let contenu = {}; try { contenu = JSON.parse(d.contenu || '{}'); } catch { /* */ }
+    return { ue_num: d.ue_num, ue_nom: d.ue_nom, section: d.section, soumis_le: d.soumis_le, soumis_par: d.soumis_par,
+      ponderation_fixee_le: d.ponderation_fixee_le, ponderation_fixee_par: d.ponderation_fixee_par, maj_le: d.maj_le, maj_par: d.maj_par,
+      etapes: etapesDUE({ ...d, contenu }) };
+  }) });
+});
+
 // ── Une DUE ──────────────────────────────────────────────────────────────────
 
 r.get('/:ueNum', authRequired, (req, res) => {

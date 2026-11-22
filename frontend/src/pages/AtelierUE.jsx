@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PastilleEtape, LienEtape } from '../components/graphiques.jsx';
 import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight, IconArrowLeft, IconLock, IconBook } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { informer } from '../lib/dialogue.jsx';
+import { informer, demander } from '../lib/dialogue.jsx';
 import { Fiche } from './DUE.jsx';
 import { UEModal } from './Referentiels.jsx';
 import ApercuDossier from '../components/ApercuDossier.jsx';
@@ -38,7 +38,7 @@ const FACES = [
 
 /* L'AVANCEMENT SE LIT DES TRACES, IL NE SE DÉCLARE PAS — la règle de la frise de
    la valorisation : rien n'est coché à la main. */
-function etats(due, liens) {
+export function etats(due, liens) {
   const o = {};
   if (due) {
     const cours = (due.cours || []).filter(x => String(x.ct_pp || '').toUpperCase() !== 'Z');
@@ -285,6 +285,20 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
       {ue && face === 'dossier' && <ApercuDossier key={ue} ueNum={ue} onSuivante={() => setFace('croisement')} />}
       {ue && face === 'croisement' && <CroisementUE key={ue} ueNum={ue} onEnregistre={() => lireSuivi(ue)}
         suivante={ouvertes.find(f => f[3] === 2) ? () => setFace('ponderation') : ouvertes.find(f => f[3] === 3) ? () => setFace('descriptif') : null} />}
+      {/* FIXER DES PONDÉRATIONS DÉJÀ JUSTES (3.5.657) : seule la direction les fixe, et elle n'avait aucun geste pour le faire sans
+          les modifier — la DUE restait alors invalidable. */}
+      {ue && face === 'ponderation' && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && suivi.descriptif?.etat !== 'fait'
+        && !suivi.ponderation_fixee && suivi.ponderation && (
+        <Encadre etat={suivi.ponderation.etat === 'fait' ? 'disponible' : 'surveiller'} className="mb-3 flex items-center gap-3">
+          <span className="flex-1">Pondérations non encore fixées par la direction — {suivi.ponderation.detail}.</span>
+          <button className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={async () => {
+            if (suivi.ponderation.etat !== 'fait' && !(await demander('Les pondérations ne sont pas conformes au croisement. Les fixer telles quelles ?'))) return;
+            const r = await fetch(`/api/due/${ue}/ponderations-fixees`, { method: 'POST', headers: authHeaders(), body: '{}' });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) { informer(j.error || 'Refusé'); return; }
+            lireSuivi(ue);
+          }}><IconLock size={14} />Fixer les pondérations</button>
+        </Encadre>)}
       {ue && face === 'ponderation' && faces.includes('ponderation') && (!verrouDe('ponderation', suivi) || passe) && <PonderationsUE key={ue} ueFixe={ue} />}
       {ue && face === 'descriptif' && (!verrouDe('descriptif', suivi) || passe) && <Fiche key={ue} ueNum={ue} integree />}
       {ue && <NavEtapes ouvertes={ouvertes} face={face} setFace={setFace} bas />}
