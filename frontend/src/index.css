@@ -2041,3 +2041,10 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
    flottait, sans limite dessous) ; LA DERNIÈRE LIGNE N'EN A PAS : le bas de la tuile et son rappel la ferment déjà (Charles : « pas de
    bon alignement en bas avec l'angle inférieur droit »). */
 :root[data-theme="v4"] #root tbody > tr:last-child > td { background-image: none !important; }
+
+/* (3.5.640) LA CASE DE L'EN-TÊTE À ÉGALE DISTANCE DES DEUX TRAITS (Charles : « la ligne bleue est à XX px du bord gauche du carré, mais
+   pas à la même distance de la ligne bleue au-dessus ») : l'en-tête prend en haut et en bas la marge intérieure de sa première colonne
+   (--tab-g), et sa hauteur de ligne est celle d'une case (16 px) ; le carré est alors aussi loin du trait du haut que du trait de gauche. */
+:root[data-theme="v4"] #root thead > tr > th { padding-top: var(--tab-g, .75rem) !important; padding-bottom: var(--tab-g, .75rem) !important; line-height: 16px; }
+:root[data-theme="v4"] #root thead > tr > th > input[type="checkbox"] { display: block; margin: 0; }
+:root[data-theme="v4"] #root thead > tr > th:has(> input[type="checkbox"]:only-child) { vertical-align: top; }
