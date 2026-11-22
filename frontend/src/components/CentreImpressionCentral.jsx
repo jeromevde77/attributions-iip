@@ -749,10 +749,15 @@ function ListesEtRapports({ domaine }) {
    famille, chaque pièce une seule fois ; 2 « Pour quoi ? », l'année, la section, la portée ou la période qu'elle demande ;
    3 l'aperçu, et les sorties dans la barre bleue. « Composer une liste… » ouvre le générateur (colonnes au choix). */
 const FAMILLES_RAPPORTS = {
+  /* UNE SEULE PORTE, PAR QUESTION (3.5.652, Charles : « avons-nous pensé à toutes les listes utiles ? J'ai l'impression que rien n'est
+     clair »). Ce qui vit dans un autre onglet ou un autre écran y figure aussi, en lien (LIENS_LISTES) : on ne cherche plus. */
   etudiants: [
-    ['Les inscriptions', ['inscrits-par-ue', 'listes-par-ue', 'organisation-effectifs', 'pae-hors-regle', 'registre-matricule']],
-    ['Les présences', ['grille-presences']],
-    ['Les résultats', ['resultats-section']],
+    ['Qui est inscrit ?', ['inscrits-par-ue', 'listes-par-ue', 'organisation-effectifs', 'mouvements-annee', 'registre-matricule', 'pae-a-regulariser', 'pae-hors-regle']],
+    ['Qui est présent ?', ['grille-presences']],
+    ['Qui passe quel examen ?', []],
+    ['Quels résultats ?', ['resultats-section', 'seconde-session']],
+    ['Qui a besoin de quoi ?', ['dossiers-incomplets']],
+    ['Qui contacter ?', []],
   ],
   personnel: [
     ['Le personnel', ['personnel-liste', 'personnel-par-section', 'personnel-temporaires', 'statistiques-personnel']],
@@ -781,11 +786,30 @@ const NOMS_LISTES = {
   'pae-hors-regle': ['Les PAE qui ne respectent pas un prérequis', 'inscriptions sans prérequis acquis ni dérogation'],
   'grille-presences': ['La grille de présence', 'étudiants × séances (P, A, J), pour une unité ou un cours'],
   'resultats-section': ['Les résultats d’une session', 'réussites, ajournements et refus, unité par unité'],
+  'mouvements-annee': ['Les mouvements de l’année', 'nouveaux inscrits, sorties, désinscriptions, avec leur date'],
+  'pae-a-regulariser': ['Les PAE à régulariser', 'non confirmés, non validés par l’étudiant, signalés comme faux'],
+  'seconde-session': ['La seconde session et les décisions', 'ajournés et ce qu’ils représentent, refusés, faveurs'],
+  'dossiers-incomplets': ['Les dossiers incomplets', 'sans adresse de l’institut, section, photo ou visite médicale'],
 };
 const PREFIXE_LISTE = { etudiants: 'L', personnel: 'P', organisation: 'O', gestion: 'G' };
+/* LES LISTES QUI VIVENT AILLEURS, montrées à leur question : un clic y mène (un onglet d'Éditions, ou l'écran où elles se tiennent). */
+const LIENS_LISTES = {
+  etudiants: {
+    'Qui est présent ?': [['Les absences au-delà du seuil (10 % et 40 %)', 'Suivi des présences', { route: '/etudiants?outil=suivi-presences' }]],
+    'Qui passe quel examen ?': [['Les listes d’examens à émarger, épreuve par épreuve', 'onglet Examens', { famille: 'examens' }]],
+    'Quels résultats ?': [['Les diplômables et les diplômés, par mention', 'onglet Diplômes et titres', { famille: 'diplomes' }]],
+    'Qui a besoin de quoi ?': [
+      ['Les aménagements raisonnables', 'registre des aménagements', { route: '/etudiants?onglet=amenagements' }],
+      ['Les valorisations des acquis en cours', 'écran Valorisation', { route: '/etudiants?onglet=valorisation' }],
+      ['Les stages et leurs pièces manquantes', 'Organisation → Stages', { route: '/organisation?onglet=stages' }],
+      ['Les pièces et les photos demandées par les étudiants', 'Étudiants → rail', { route: '/etudiants?outil=demandes-pieces' }],
+    ],
+    'Qui contacter ?': [['Qui s’est connecté à son espace', 'Mise en service', { route: '/configuration?onglet=mise-en-service' }]],
+  },
+};
 const phraseCourte = t => { const x = String(t || '').split(/(?<=[.:;])\s/)[0].replace(/[.:;]$/, ''); return x.length > 90 ? `${x.slice(0, 88)}…` : x; };
 
-function RapportsEnZones({ domaine, debut = 0 }) {
+function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
   const naviguer = useNavigate();
   const [catalogue, setCatalogue] = useState(null);
   const [choisi, setChoisi] = useState(null);      // id d'un rapport, 'schemas' ou 'composer'
@@ -799,7 +823,7 @@ function RapportsEnZones({ domaine, debut = 0 }) {
     const rangees = (FAMILLES_RAPPORTS[domaine] || []).map(([t, ids]) => [t, ids.map(id => l.find(r => r.id === id)).filter(Boolean)]);
     const vus = new Set(rangees.flatMap(([, rs]) => rs.map(r => r.id)));
     const autres = l.filter(r => !vus.has(r.id));
-    return [...rangees, ...(autres.length ? [['Autres pièces', autres]] : [])].filter(([, rs]) => rs.length);
+    return [...rangees, ...(autres.length ? [['Autres pièces', autres]] : [])].filter(([t, rs]) => rs.length || LIENS_LISTES[domaine]?.[t]?.length);
   }, [catalogue, domaine]);
   // Les codes, dans l'ordre où les listes paraissent (famille par famille), la liste sur mesure en dernier.
   const codes = useMemo(() => {
@@ -835,6 +859,12 @@ function RapportsEnZones({ domaine, debut = 0 }) {
               <div key={t}>
                 <div className="intertitre mt-1">{t}</div>
                 {rs.map(r => ligne(r.id, nomDe(r)[0], nomDe(r)[1]))}
+                {(LIENS_LISTES[domaine]?.[t] || []).map(([libelle, ou, cible]) => (
+                  <button key={libelle} type="button" className="flex items-start gap-2 py-1.5 text-sm text-left w-full hover:text-iip-blue"
+                    onClick={() => { if (cible.famille && allerA) { allerA(cible.famille); return; } fermer?.(); naviguer(cible.route || '/'); }}>
+                    <span className="mt-0.5 flex-none text-slate-400" aria-hidden>→</span>
+                    <span className="min-w-0">{libelle}<span className="block text-mention text-slate-500">dans {ou}</span></span>
+                  </button>))}
               </div>))}
             {domaine === 'organisation' && (
               <div><div className="intertitre mt-1">Les schémas</div>{ligne('schemas', 'Schéma de capitalisation d’une section')}</div>)}
@@ -3109,7 +3139,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             : famille === 'examens' ? <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
                 <ExamensPreparer annee={getAnnee()} integre initial={perimetre?.examen || null} /></Suspense>
             : famille === 'lettres' ? <LettresModele annee={getAnnee()} />
-            : <RapportsEnZones domaine="etudiants" />}
+            : <RapportsEnZones domaine="etudiants" allerA={setFamille} fermer={onClose} />}
         </>
       ) : (
         /* CHAQUE AXE PORTE SES DEUX FAMILLES, ET LE GÉNÉRATEUR N'EST PLUS UN
