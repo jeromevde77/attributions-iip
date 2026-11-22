@@ -827,8 +827,11 @@ function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
   }, [catalogue, domaine]);
   // Les codes, dans l'ordre où les listes paraissent (famille par famille), la liste sur mesure en dernier.
   const codes = useMemo(() => {
+    /* LE MÊME CODE POUR TOUS (3.5.654) : numérotés d'après le catalogue complet des familles, pas d'après ce que la personne voit
+       — une coordination, qui n'a pas le registre matricule (L-05), lisait sinon d'autres codes que le secrétariat. */
     const m = {}; let n = 0; const px = PREFIXE_LISTE[domaine] || 'X';
-    for (const [, rs] of familles) for (const r of rs) m[r.id] = `${px}-${String(++n).padStart(2, '0')}`;
+    for (const [, ids] of FAMILLES_RAPPORTS[domaine] || []) for (const id of ids) m[id] = `${px}-${String(++n).padStart(2, '0')}`;
+    for (const [, rs] of familles) for (const r of rs) if (!m[r.id]) m[r.id] = `${px}-${String(++n).padStart(2, '0')}`;
     m.schemas = `${px}-${String(++n).padStart(2, '0')}`; m.composer = `${px}-${String(Math.max(10, n + 1)).padStart(2, '0')}`;
     return m;
   }, [familles, domaine]);
