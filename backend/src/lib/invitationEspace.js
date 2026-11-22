@@ -33,7 +33,7 @@ function invitable(e) {
 }
 
 /** Invite (ou simule). `ids` : les étudiants ; `section` : toute une section à la place. `deja` : réinviter aussi ceux déjà invités. */
-export async function inviter({ ids = [], section = null, ue = null, prof = null, simulation = true, deja = false, message = '' }, par) {
+export async function inviter({ ids = [], section = null, ue = null, prof = null, simulation = true, deja = false, message = '', limite = null }, par) {
   migrerInvitation();
   let liste = (Array.isArray(ids) ? ids : []).map(Number).filter(Boolean);
   if (!liste.length && section) {
@@ -51,7 +51,7 @@ export async function inviter({ ids = [], section = null, ue = null, prof = null
     const nom = `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
     const v = invitable(e);
     if (!v.ok) { ecartes.push({ id, nom, raison: v.raison }); continue; }
-    const d = db.prepare('SELECT le FROM portail_invitation WHERE etudiant_id = ? ORDER BY id DESC LIMIT 1').get(id);
+    const d = db.prepare("SELECT le FROM portail_invitation WHERE etudiant_id = ? AND statut <> 'echec' ORDER BY id DESC LIMIT 1").get(id);
     if (d && !deja) { dejaInvites.push({ id, nom, le: d.le }); continue; }
     prets.push({ id, nom, prenom: e.prenom || '', email: e.email_ecole });
   }
@@ -59,7 +59,11 @@ export async function inviter({ ids = [], section = null, ue = null, prof = null
 
   const url = URL_ESPACE();
   const faits = [], echecs = [];
-  for (const p of prets) {
+  // LE QUOTA DU SERVEUR DE COURRIEL (3.5.649) : 200 messages par heure ; une invitation programmée part par tranches (`limite`), la suite
+  // à l'heure suivante.
+  const aEnvoyer = limite == null ? prets : prets.slice(0, Math.max(0, limite));
+  const restants = prets.length - aEnvoyer.length;
+  for (const p of aEnvoyer) {
     const html = templateNotif({
       titre: 'Votre espace étudiant est ouvert',
       /* UN MOT DE CELUI QUI INVITE (3.5.537, Charles : « je souhaite qu'ils reçoivent un mail de ma part ») : son texte en tête, signé de son
@@ -83,7 +87,7 @@ export async function inviter({ ids = [], section = null, ue = null, prof = null
     } catch { /* le registre des envois a sa propre forme : l'invitation reste notée dans portail_invitation */ }
     (statut === 'echec' ? echecs : faits).push({ id: p.id, nom: p.nom, erreur: r?.erreur || null });
   }
-  return { simulation: false, invites: faits, echecs, ecartes, deja_invites: dejaInvites };
+  return { simulation: false, invites: faits, echecs, ecartes, deja_invites: dejaInvites, restants };
 }
 
 /** La signature d'un courriel : « Prénom NOM » (le nom d'écran est « NOM Prénom » ; un courriel qui sort garde l'ordre des documents). */
@@ -142,6 +146,14 @@ export function annulerProgrammee(id, par) {
   return r.changes ? { ok: true } : { erreur: 'Déjà partie ou annulée.' };
 }
 let tourEnCours = false;
+/** Les invitations que l'heure permet encore : 150, moins les invitations et les courriels aux étudiants partis dans l'heure. */
+function placesInvitations() {
+  let n = 0;
+  try { n += db.prepare("SELECT COUNT(*) n FROM portail_invitation WHERE le >= datetime('now', '-1 hour')").get().n; } catch { /* */ }
+  try { n += db.prepare("SELECT COUNT(*) n FROM message_etudiant_avis WHERE avise_le >= datetime('now', '-1 hour')").get().n; } catch { /* */ }
+  try { n += db.prepare("SELECT COUNT(*) n FROM message_etudiant_dest WHERE courriel_le >= datetime('now', '-1 hour')").get().n; } catch { /* */ }
+  return Math.max(0, 150 - n);
+}
 export async function executerProgrammees() {
   if (process.env.NODE_ENV !== 'production' || tourEnCours) return;
   tourEnCours = true;
@@ -152,9 +164,20 @@ export async function executerProgrammees() {
       // Prise une seule fois : seul celui qui passe « prevue » → « en_cours » envoie.
       if (!db.prepare("UPDATE portail_invitation_programmee SET statut = 'en_cours' WHERE id = ? AND statut = 'prevue'").run(p.id).changes) continue;
       try {
-        const r = await inviter({ ...JSON.parse(p.cible), message: p.message, deja: !!p.deja, simulation: false }, p.par);
-        db.prepare("UPDATE portail_invitation_programmee SET statut = 'faite', fait_le = datetime('now'), resultat = ? WHERE id = ?")
-          .run(JSON.stringify({ invites: r.invites?.length || 0, echecs: r.echecs?.length || 0, ecartes: r.ecartes?.length || 0, deja_invites: r.deja_invites?.length || 0 }), p.id);
+        /* PAR TRANCHES, SOUS LE QUOTA (3.5.649) : au plus ce que l'heure permet encore (150 invitations, moins ce qui est parti dans
+           l'heure : invitations et courriels aux étudiants) ; s'il en reste, la programmation reste « prévue » et reprend au passage
+           suivant — les déjà invités sont alors sautés (deja remis à faux). */
+        const places = placesInvitations();
+        if (!places) { db.prepare("UPDATE portail_invitation_programmee SET statut = 'prevue' WHERE id = ?").run(p.id); continue; }
+        const avant = p.resultat ? (() => { try { return JSON.parse(p.resultat); } catch { return {}; } })() : {};
+        const r = await inviter({ ...JSON.parse(p.cible), message: p.message, deja: !!p.deja, simulation: false, limite: places }, p.par);
+        const res = { invites: (avant.invites || 0) + (r.invites?.length || 0), echecs: (avant.echecs || 0) + (r.echecs?.length || 0),
+          ecartes: r.ecartes?.length || 0, deja_invites: r.deja_invites?.length || 0, restants: r.restants || 0 };
+        if (r.restants > 0) {
+          db.prepare("UPDATE portail_invitation_programmee SET statut = 'prevue', deja = 0, resultat = ? WHERE id = ?").run(JSON.stringify(res), p.id);
+        } else {
+          db.prepare("UPDATE portail_invitation_programmee SET statut = 'faite', fait_le = datetime('now'), resultat = ? WHERE id = ?").run(JSON.stringify(res), p.id);
+        }
       } catch (e) {
         db.prepare("UPDATE portail_invitation_programmee SET statut = 'echec', fait_le = datetime('now'), resultat = ? WHERE id = ?").run(JSON.stringify({ erreur: e.message }), p.id);
       }
