@@ -15,9 +15,10 @@ import { installerRelais } from './relais.js';
 // L'APERÇU DES PIÈCES (3.5.165, Charles : « le PDF ne marche pas pour la liste ») : monté une fois, comme dans Lucie (App.jsx) ;
 // sans lui, « Aperçu et PDF » de Ma liste ne montrait rien.
 import ApercuGlobal from '../components/ApercuGlobal.jsx';
+import FiletErreur from '../components/FiletErreur.jsx';
 import { installerGroupesVisuels } from '../lib/groupesVisuels.js';
 installerGroupesVisuels();   // les cartes qui se touchent forment une pile (3.5.619)
 
 // LES ÉCRANS DE MES COURS (3.5.137) parlent à Lucie par le relais de l'espace, jamais en direct.
 installerRelais();
-ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><EspaceEnseignant /><ApercuGlobal /><Dialogues /><ReponsesTypesHote /></React.StrictMode>);
+ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><FiletErreur><EspaceEnseignant /></FiletErreur><ApercuGlobal /><Dialogues /><ReponsesTypesHote /></React.StrictMode>);
