@@ -162,6 +162,63 @@ export default function Budget() {
         }
       }
 
+      // LE TABLEAU EXPORTÉ PAR LUCIE (« Excel » de Tout le détail), repris et corrigé dans Excel (3.5.624) : en-têtes en ligne 1,
+      // « Section » et « Prévision ». Il remplace les lignes de l'année des sections qu'il porte, champ par champ.
+      const premier = wb.Sheets[wb.SheetNames[0]];
+      const tete = (XLSX.utils.sheet_to_json(premier, { header: 1, defval: null })[0] || []).map(v => String(v || '').trim());
+      if (tete.includes('Section') && tete.includes('Prévision')) {
+        const lignesX = XLSX.utils.sheet_to_json(premier, { defval: null });
+        const prioDe = Object.fromEntries(Object.entries(PRIORITES).map(([k, v]) => [String(v).toLowerCase(), k]));
+        const statutDe = { 'prévue': 'prevu', 'retenue': 'arbitre', 'refusée': 'refuse' };
+        const catDe = t => { const x = String(t || '').trim(); if (!x) return null;
+          const c = categories.find(c0 => `${c0.groupe} — ${c0.libelle}` === x || c0.libelle === x); return c ? c.id : null; };
+        const num = v => (v == null || v === '' ? null : Number(String(v).replace(',', '.')));
+        const prev = [], sansSection = [], catInconnues = [];
+        lignesX.forEach((r, i) => {
+          const details = String(r['Prévision'] ?? '').trim();
+          const sec = String(r['Section'] ?? '').trim();
+          if (!details || sec.toUpperCase() === 'TOTAL') return;
+          if (!sec) { sansSection.push(`ligne ${i + 2} : ${details.slice(0, 60)}`); return; }
+          const cat = catDe(r['Catégorie']);
+          if (r['Catégorie'] && !cat) catInconnues.push(`ligne ${i + 2} : ${r['Catégorie']}`);
+          const tva = num(r['TVA %']);
+          const mois = MOIS.findIndex(m => m.toLowerCase() === String(r['Mois'] || '').trim().toLowerCase());
+          prev.push({
+            section: sec, compte_ref: String(r['Compte'] ?? '').trim() || null, details,
+            a_charge: String(r['À charge de'] ?? '').trim() || 'IIP',
+            categorie_id: cat, priorite: prioDe[String(r['Priorité'] || '').trim().toLowerCase()] || 'souhaitable',
+            mois: mois >= 0 ? mois + 1 : null,
+            prix_unitaire: num(r['P.U. HTVA']) || 0, quantite: num(r['Quantité']) ?? 1,
+            taux_tva: tva == null ? 0.21 : (tva > 1 ? tva / 100 : tva),
+            statut: statutDe[String(r['Statut'] || '').trim().toLowerCase()] || 'prevu',
+            justification: r['Justification'] || null, devis: r['Devis'] || null, remarque: r['Remarque'] || null,
+            tronc_commun: String(r['Tronc commun'] || '').toLowerCase() === 'oui',
+          });
+        });
+        if (sansSection.length) {
+          setMessage({ type: 'err', texte: `Rien n'est importé : ${sansSection.length} ligne(s) sans section — ${sansSection.join(' ; ')}. Indiquez la section dans le fichier.` });
+          return;
+        }
+        const parSec = {};
+        prev.forEach(p => { parSec[p.section] = (parSec[p.section] || 0) + 1; });
+        const total = prev.reduce((t, p) => t + p.prix_unitaire * p.quantite, 0);
+        if (!await demander(
+          `${prev.length} ligne(s) pour ${annee}, ${eur(total)} HTVA :\n` +
+          Object.entries(parSec).map(([k, v]) => `${k} : ${v}`).join(' · ') +
+          (catInconnues.length ? `\n\nCatégorie non reconnue (laissée vide) : ${catInconnues.join(' ; ')}` : '') +
+          `\n\nLes lignes ${annee} de ces sections dans Lucie seront remplacées par celles du fichier. Continuer ?`
+        )) return;
+        const rep = await fetch('/api/budget/import', {
+          method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, lignes: prev, remplacer: true }),
+        });
+        const j = await rep.json();
+        if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+        setMessage({ type: 'ok', texte: `Importé pour ${annee} : ${j.importees} ligne(s), ${j.supprimees} ancienne(s) remplacée(s).`
+          + (j.refusees?.length ? ` Refusées hors périmètre : ${j.refusees.join(', ')}.` : '') });
+        await charger();
+        return;
+      }
+
       // Onglet « Budget » — les prévisions. Les en-têtes sont en ligne 5.
       const ongletB = wb.SheetNames.find(n => /budget/i.test(n));
       if (ongletB) {
@@ -238,9 +295,9 @@ export default function Budget() {
           </p>
         </div>
         <label className="bouton flex items-center gap-2 cursor-pointer">
-          <IconUpload size={14} /> Importer le canevas ({annee})
+          <IconUpload size={14} /> Importer un fichier Excel ({annee})
           <input type="file" accept=".xlsx,.xlsm" className="hidden"
-            onChange={e => e.target.files[0] && importerCanevas(e.target.files[0])} />
+            onChange={e => { const f = e.target.files[0]; e.target.value = ''; if (f) importerCanevas(f); }} />
         </label>
       </div>
 

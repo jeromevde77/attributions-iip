@@ -1819,7 +1819,7 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 /* Les tableaux : l'en-tête sans bande, une fine ligne dessous ; les filets entre les lignes restent pleins (ils guident l'œil). */
 /* (3.5.618) blanc, pas transparent : un en-tête qui reste en haut quand on défile laissait voir les lignes dessous. */
 :root[data-theme="v4"] .tab-entete { background: var(--c-fond_tuile, #fff) !important; }
-:root[data-theme="v4"] #root thead > tr > th { background: var(--c-fond_tuile, #fff) !important; }
+:root[data-theme="v4"] #root thead > tr > th { background-color: var(--c-fond_tuile, #fff) !important; }
 :root[data-theme="v4"] :is(.carte) .tableau-cadre { border: 0; border-radius: 0; background: transparent; }
 
 /* 2. LES TUILES ET ENCADRÉS : un groupe d'un. */
@@ -1838,7 +1838,7 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 :root[data-theme="v4"] .pile-etats > :first-child.bloc-etat, :root[data-theme="v4"] .pile-etats > :first-child .bloc-etat { border-top-left-radius: var(--doc-arc) !important; }
 :root[data-theme="v4"] .pile-etats > :first-child.bloc-etat::before, :root[data-theme="v4"] .pile-etats > :first-child .bloc-etat::before { width: min(var(--doc-haut), 7rem);
   border-top: var(--doc-trait) solid var(--e-doc); border-top-left-radius: var(--doc-arc); }
-:root[data-theme="v4"] .pile-etats > :first-child::before { content: none; }
+:root[data-theme="v4"] .pile-etats > :first-child:not(.bloc-etat)::before { content: none; }
 :root[data-theme="v4"] .pile-etats > :last-child.bloc-etat, :root[data-theme="v4"] .pile-etats > :last-child .bloc-etat { border-bottom-right-radius: var(--doc-arc) !important; }
 :root[data-theme="v4"] .pile-etats > * + *.bloc-etat::after, :root[data-theme="v4"] .pile-etats > * + * .bloc-etat::after { content: ''; position: absolute; pointer-events: none;
   top: 0; left: 2.5rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
@@ -1873,14 +1873,15 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
   border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
 /* (3.5.619) DES CARTES QUI SE SUIVENT À LA VERTICALE FORMENT UNE PILE, quel que soit l'écran : dans une colonne (space-y), une carte
    qui suit une carte s'y colle ; elle perd l'arc (le bord gauche reste complet), un filet aligné sur la première lettre la sépare de
-   la précédente ; seule la dernière arrondit l'angle inférieur droit. Même chose pour les tuiles et encadrés de bloc. */
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) {
+   la précédente ; seule la dernière arrondit l'angle inférieur droit. (3.5.628) Des CARTES seulement : un encadré (une alerte, un
+   état) reste à part — collé à la pile, son orange se lisait comme un bloc. */
+:root[data-theme="v4"] [class*="space-y-"] > .carte + .carte {
   margin-top: 0 !important; border-top-left-radius: 0 !important; }
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)):has(+ :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))) {
+:root[data-theme="v4"] [class*="space-y-"] > .carte:has(+ .carte) {
   border-bottom-right-radius: 0 !important; }
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::before {
+:root[data-theme="v4"] [class*="space-y-"] > .carte + .carte::before {
   width: 0; border-top: 0; border-top-left-radius: 0; }
-:root[data-theme="v4"] [class*="space-y-"] > :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block)) + :is(.carte, .bloc-etat:not(span, .inline-flex, .inline-block))::after {
+:root[data-theme="v4"] [class*="space-y-"] > .carte + .carte::after {
   content: ''; position: absolute; pointer-events: none; z-index: 1; top: 0; left: 1.25rem; right: var(--doc-retrait);
   border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
 /* (3.5.619) DANS UNE FENÊTRE, JUSTE LA LIGNE LATÉRALE GAUCHE (Charles : « si dans une fenêtre on a cela, juste ligne latérale
@@ -1897,3 +1898,162 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 /* (3.5.619) SOUS DES ONGLETS, PAS DE LIGNE (Charles : « pourquoi cette ligne horizontale ? Pas besoin ; on garde juste le trait sous
    le menu actif ») : la rangée d'onglets perd son filet ; seul l'onglet ouvert reste souligné. */
 :root[data-theme="v4"] :has(> .onglet-page) { border-bottom-color: transparent !important; box-shadow: none !important; }
+
+/* (3.5.621) PLUS LÉGER (Charles : « fort lourd », « toutes ces lignes horizontales, cela ne va pas dans le sens du design simple »).
+   Dans la pile de l'Accueil : un seul bord, celui de la pile, dans la couleur principale — l'urgence se dit par le point après le
+   titre ; un seul filet entre deux volets ; pas de filet sous un titre fermé ; un volet ouvert reste dans la pile. */
+:root[data-theme="v4"] .volet .carte[data-rang] { --e-doc: var(--c-principal) !important; }
+:root[data-theme="v4"] .volet .carte[data-rang] > .entete-carte::after { content: none; }
+:root[data-theme="v4"] .volet:not([data-ferme="1"]) .carte[data-rang] > .entete-carte::after { content: ''; }
+:root[data-theme="v4"] .pile-volets > .volet:has(.carte[data-rang="milieu"], .carte[data-rang="bas"]) { margin-top: 0 !important; }
+:root[data-theme="v4"] .volet .carte .pile-etats > * + * .bloc-etat::after,
+:root[data-theme="v4"] .volet .carte .pile-etats > * + *.bloc-etat::after { left: 2.5rem; }
+/* Dans un volet ouvert, les lignes de son contenu n'ont pas d'arc : la pile du volet a déjà le sien. */
+:root[data-theme="v4"] .carte .pile-etats .bloc-etat::before { width: 0 !important; border-top: 0 !important; border-top-left-radius: 0 !important; border-left-width: 0 !important; }
+:root[data-theme="v4"] .carte .pile-etats .bloc-etat { border-radius: 0 !important; }
+
+/* (3.5.625) UNE GRILLE DE CARTES = UNE TUILE COUPÉE EN MORCEAUX (lib/groupesVisuels.js, `data-grille-doc`). Le conteneur porte le bord
+   gauche complet, l'arc et le coin inférieur droit ; les cartes n'ont plus rien à elles ; entre deux rangées, un filet qui part de la
+   première lettre ; entre deux colonnes, un trait gris court et centré. */
+:root[data-theme="v4"] [data-grille-doc] { position: relative; gap: 0 !important; background: var(--c-fond_tuile, #fff);
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0; }
+:root[data-theme="v4"] [data-grille-doc]::before { content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
+:root[data-theme="v4"] [data-grille-doc] > :is(.carte, .bloc-etat) { border-radius: 0 !important; background: transparent !important; margin: 0 !important; }
+:root[data-theme="v4"] [data-grille-doc] > :is(.carte, .bloc-etat)::before { content: none !important; }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-ligne]::after { content: ''; position: absolute; pointer-events: none; z-index: 1;
+  top: 0; left: 1.25rem; right: var(--doc-retrait); border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-col] { box-shadow: none; }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-col] > :first-child::before { content: none; }
+:root[data-theme="v4"] [data-grille-doc] > [data-g-col] { background-image: linear-gradient(var(--c-filet, rgb(var(--gris-200))), var(--c-filet, rgb(var(--gris-200)))) !important;
+  background-size: 1px var(--doc-sep) !important; background-position: left center !important; background-repeat: no-repeat !important; }
+
+/* (3.5.626) LES MORCEAUX D'UNE TUILE (`.morceau-doc` : les cours d'un bloc dans Mes cours). Sous Lucie V4, pas de filet plein : entre
+   deux rangées un filet qui part de la première lettre ; entre deux colonnes un trait court et centré. */
+:root[data-theme="v4"] .morceau-doc { border-top-color: transparent !important; position: relative; }
+:root[data-theme="v4"] .morceau-doc[data-g-ligne]::after { content: ''; position: absolute; pointer-events: none; top: 0; left: 1rem; right: var(--doc-retrait);
+  border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); }
+:root[data-theme="v4"] .morceau-doc[data-g-col] { background-image: linear-gradient(var(--c-filet, rgb(var(--gris-200))), var(--c-filet, rgb(var(--gris-200))));
+  background-size: 1px var(--doc-sep); background-position: left center; background-repeat: no-repeat; }
+:root[data-theme="v4"] .morceau-doc[data-g-col]:hover { background-color: rgb(var(--gris-50, 248 250 252)); }
+
+/* (3.5.628) PAS DE TUILE DANS UNE TUILE (Charles, 21 novembre 2026 : « ligne dans ligne ou tuile dans tuile, ça fait redondance ; la
+   structure n'est pas claire »). Dans une carte, une tuile ou un encadré n'a plus de bord ni d'arc : la carte porte déjà le dessin ;
+   son état se dit par un point de sa couleur devant le contenu. (Les lignes d'une pile gardent leur règle.) */
+:root[data-theme="v4"] .carte .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat) { border-radius: 0 !important; background: transparent !important;
+  padding-left: 1.6rem !important; }
+:root[data-theme="v4"] .carte .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat)::before { width: 7px !important; height: 7px !important; bottom: auto !important;
+  top: 0.95rem !important; left: 0.6rem !important; border: 0 !important; border-radius: 50% !important; background: var(--e-doc, var(--c-principal)); }
+/* Les sous-titres d'un texte du dossier pédagogique : ni barre dorée ni fond ; un titre, simplement. */
+:root[data-theme="v4"] .texte-dossier h4 { border-left: 0; background: transparent; padding-left: 0; }
+
+/* (3.5.628) PAS DE DOUBLE LIGNE (Charles : « double ligne ? ») : quand un tableau suit le titre d'une carte, le filet sous le titre
+   s'efface — la ligne sous l'en-tête du tableau suffit. */
+:root[data-theme="v4"] .entete-carte:has(+ :is(table, .tableau-cadre, .overflow-x-auto))::after,
+:root[data-theme="v4"] .entete-carte:has(+ * > :first-child:is(table, .tableau-cadre, .overflow-x-auto))::after { content: none; }
+
+/* (3.5.629) LE CADRE D'UN ÉDITEUR DE TEXTE (Charles, 21 novembre 2026 : « le principe de la tuile — côté, haut et arc ; et dans le coin
+   inférieur droit, un rappel : un arc et le côté coloré sur 1 cm, en haut et en bas »). Côté gauche complet, trait du haut et arc en
+   haut à gauche ; en bas à droite, le même arc, avec 1 cm de trait sur le côté droit et 1 cm sur le bas. Plus de cadre gris. */
+:root[data-theme="v4"] .cadre-editeur { position: relative; border: 0 !important; overflow: visible !important;
+  border-radius: var(--doc-arc) 0 var(--doc-arc) 0 !important; }
+:root[data-theme="v4"] .cadre-editeur::before, :root[data-theme="v4"] .cadre-editeur::after { content: ''; position: absolute; pointer-events: none; z-index: 2; }
+:root[data-theme="v4"] .cadre-editeur::before { top: 0; left: 0; bottom: 0; width: min(var(--doc-haut), 7rem);
+  border-top: var(--doc-trait) solid var(--c-principal); border-left: var(--doc-trait) solid var(--c-principal); border-top-left-radius: var(--doc-arc); }
+:root[data-theme="v4"] .cadre-editeur::after { right: 0; bottom: 0; width: 1cm; height: 1cm;
+  border-right: var(--doc-trait) solid var(--c-principal); border-bottom: var(--doc-trait) solid var(--c-principal); border-bottom-right-radius: var(--doc-arc); }
+:root[data-theme="v4"] .cadre-editeur:focus-within::before, :root[data-theme="v4"] .cadre-editeur:focus-within::after { border-color: var(--c-accent, var(--c-principal)); }
+/* La barre d'outils : pas de fond gris ; un filet fin qui part de la première icône. */
+:root[data-theme="v4"] .cadre-editeur > div > .border-b:first-child, :root[data-theme="v4"] .cadre-editeur > .border-b:first-child { background: transparent !important; }
+
+/* (3.5.630) LE RAPPEL EN BAS À DROITE, PARTOUT (Charles, 21 novembre 2026 : « oui, partout »). Toute tuile qui ferme un groupe — une carte
+   seule, la dernière d'une pile, une tuile ou un encadré seul, la dernière ligne d'une pile d'états, la dernière d'une bande, une grille
+   fondue, un tableau posé seul — porte en bas à droite l'arc de la couleur de son bord, et 1 cm de trait sur le côté droit et sur le bas.
+   Dessiné en fond (trois dégradés) : le ::before et le ::after servent déjà aux bords et aux filets des piles. */
+:root[data-theme="v4"] :is(
+  .carte:not([data-voisin-bas], [data-rang="haut"], [data-rang="milieu"], .carte .carte, [data-grille-doc] > .carte, .fenetre-lucie .carte, [class*="space-y-"] > .carte:has(+ .carte)),
+  .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat, .carte .bloc-etat, .fenetre-lucie .bloc-etat, [data-voisin-bas], [data-grille-doc] > *, .tuile-grande:has(+ .tuile-grande),
+    :is([data-etat="neutre"], :not([data-etat])):not(.tuile-grande, .tuile-compacte, .etat-reussi, .etat-faveur, .etat-disponible, .etat-surveiller, .etat-corriger, .etat-neutre, button, label, a)),
+  .pile-etats:not(.carte .pile-etats) > :last-child.bloc-etat,
+  [data-grille-doc],
+  .tableau-cadre:not(.carte .tableau-cadre)
+) {
+  --coin: var(--e-doc, var(--c-principal));
+  background-image:
+    radial-gradient(circle at 0 0, transparent calc(var(--doc-arc) - var(--doc-trait)), var(--coin) calc(var(--doc-arc) - var(--doc-trait)), var(--coin) var(--doc-arc), transparent calc(var(--doc-arc) + 0.5px)),
+    linear-gradient(var(--coin), var(--coin)), linear-gradient(var(--coin), var(--coin)) !important;
+  /* (3.5.637) Sur un élément bas (un encadré d'une ligne), le rappel se réduit : 40 % de la hauteur au plus. */
+  background-size: var(--doc-arc) var(--doc-arc), var(--doc-trait) max(0px, calc(min(1cm, 40%) - var(--doc-arc))), calc(1cm - var(--doc-arc)) var(--doc-trait) !important;
+  background-position: right bottom, right bottom var(--doc-arc), right var(--doc-arc) bottom !important;
+  background-repeat: no-repeat !important;
+}
+
+/* (3.5.632) LA CASE À COCHER D'UN TABLEAU EST AU MILIEU de sa ligne (Charles : « espace haut et bas différents autour de la case à
+   cocher ») : en ligne, elle se posait sur la ligne de base du texte, plus haut que le milieu. */
+#root :is(th, td) > input[type="checkbox"] { vertical-align: middle; margin-top: 0; margin-bottom: 0; }
+#root :is(th, td):has(> input[type="checkbox"]:only-child) { vertical-align: middle; line-height: 0; }
+
+/* (3.5.632) SOUS LUCIE V4, LA LIGNE D'UN TABLEAU NE TOUCHE PAS LE BORD (Charles : « ligne grise qui touche… non-respect du modèle ») :
+   elle part du début du contenu de la première colonne et s'arrête à la fin de celui de la dernière. Les filets sont dessinés dans les
+   cases (un dégradé d'un pixel en bas) ; --tab-g et --tab-d, posés par lib/groupesVisuels.js, valent les marges intérieures. */
+:root[data-theme="v4"] #root tbody > tr { border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root thead > tr > th { border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root :is(thead > tr > th, tbody > tr > td) { --tab-f: var(--c-filet, rgb(var(--gris-200)));
+  background-image: linear-gradient(var(--tab-f), var(--tab-f)); background-size: 100% 1px; background-position: left bottom; background-repeat: no-repeat; }
+:root[data-theme="v4"] #root thead > tr > th { --tab-f: var(--menu-bord, rgb(var(--gris-300))); }
+:root[data-theme="v4"] #root :is(thead > tr > th, tbody > tr > td):first-child {
+  background-image: linear-gradient(to right, transparent var(--tab-g, 0px), var(--tab-f) var(--tab-g, 0px)); }
+:root[data-theme="v4"] #root :is(thead > tr > th, tbody > tr > td):last-child:not(:first-child) {
+  background-image: linear-gradient(to left, transparent var(--tab-d, 0px), var(--tab-f) var(--tab-d, 0px)); }
+
+/* (3.5.632) L'UE OUVERTE DES ATTRIBUTIONS : elle s'avance, sans cadre. */
+.ue-active-anim { transition: transform .22s var(--ease-ios, cubic-bezier(.32,.72,0,1)), box-shadow .22s ease, background-color .22s ease; }
+.ue-active { position: relative; z-index: 2; transform: scale(1.006); background: var(--c-fond_tuile, #fff);
+  box-shadow: 0 8px 24px -10px rgb(var(--c-texte-rgb, 22 64 106) / .28), 0 2px 6px -2px rgb(var(--c-texte-rgb, 22 64 106) / .12);
+  border-radius: 10px; margin-block: 4px; }
+@media (prefers-reduced-motion: reduce) { .ue-active-anim { transition: none; } }
+
+/* (3.5.632) LE PETIT TRAIN SOUS LUCIE V4 : une tuile en miniature — bord gauche d'1 px à la couleur du bloc, petit arc en haut à
+   gauche, contour gris fin ailleurs (Charles : « pas conforme niveau épaisseur »). */
+:root[data-theme="v4"] :is(.gelule, span.bloc-etat.inline-flex, .bloc-etat.inline-flex) { border-left-width: 1px !important; border-top-left-radius: 6px !important; }
+
+/* (3.5.633) Le plafond d'une colonne, dans son titre : en minuscules, sans graisse, en gris. */
+.plafond-entete { text-transform: none; font-weight: 400; letter-spacing: 0; color: rgb(var(--gris-400)); white-space: nowrap; }
+
+/* (3.5.635) LE CHIFFRE PREND LA COULEUR DE SON POINT (Charles : « l'idée du point de couleur est top, ça allège ; allons plus loin, mets
+   la police dans la même couleur ») : dans une carte, sous Lucie V4, le chiffre d'une tuile est de la couleur de son état. Le libellé et
+   la précision restent à l'encre. */
+:root[data-theme="v4"] .carte .bloc-etat:not(span, .inline-flex, .inline-block, .pile-etats .bloc-etat) .tuile-chiffre { color: var(--e-doc, var(--c-principal)); }
+
+/* (3.5.636) AUCUN TRAIT NI FOND DE LIGNE NE TOUCHE LE BORD (Charles : « ligne contre, sans espace ! ») : sous Lucie V4, les traits
+   posés au-dessus d'une ligne (border-t) et ceux d'une ligne de total s'effacent aussi — seuls restent les filets dessinés dans les cases,
+   qui partent du contenu ; la ligne de total et la ligne de regroupement n'ont plus de bande de fond : elles se lisent à leur graisse. */
+:root[data-theme="v4"] #root :is(tbody, tfoot) > tr { border-top-color: transparent !important; border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root :is(tbody, tfoot) > tr > td { border-top-color: transparent !important; border-bottom-color: transparent !important; }
+:root[data-theme="v4"] #root :is(.ligne-total, .tab-repere, tr.ligne-total > td, tr.tab-repere > td) { background-color: transparent !important; box-shadow: none !important; }
+
+/* (3.5.638) L'ÉDITEUR : LA GAUCHE S'ARRÊTE, LE COIN PREND LE RELAIS (Charles : « B, mais avec le coin droit comme C ») — le trait de
+   gauche s'arrête à 1 cm du bas ; en bas à droite, le rappel ordinaire (arc et 1 cm de trait de chaque côté). */
+:root[data-theme="v4"] .cadre-editeur::before { bottom: 1cm; }
+
+/* (3.5.639) L'EN-TÊTE D'UN TABLEAU RETROUVE SON FILET (le fond blanc posé en raccourci l'effaçait : la case à cocher de l'en-tête
+   flottait, sans limite dessous) ; LA DERNIÈRE LIGNE N'EN A PAS : le bas de la tuile et son rappel la ferment déjà (Charles : « pas de
+   bon alignement en bas avec l'angle inférieur droit »). */
+:root[data-theme="v4"] #root tbody > tr:last-child > td { background-image: none !important; }
+
+/* (3.5.640) LA CASE DE L'EN-TÊTE À ÉGALE DISTANCE DES DEUX TRAITS (Charles : « la ligne bleue est à XX px du bord gauche du carré, mais
+   pas à la même distance de la ligne bleue au-dessus ») : l'en-tête prend en haut et en bas la marge intérieure de sa première colonne
+   (--tab-g), et sa hauteur de ligne est celle d'une case (16 px) ; le carré est alors aussi loin du trait du haut que du trait de gauche. */
+:root[data-theme="v4"] #root thead > tr > th { padding-top: var(--tab-g, .75rem) !important; padding-bottom: var(--tab-g, .75rem) !important; line-height: 16px; }
+:root[data-theme="v4"] #root thead > tr > th > input[type="checkbox"] { display: block; margin: 0; }
+:root[data-theme="v4"] #root thead > tr > th:has(> input[type="checkbox"]:only-child) { vertical-align: top; }
+
+/* (3.5.641) PAREIL POUR LES CASES DES LIGNES (Charles) : dans une ligne qui porte une case à cocher, toutes les cases prennent en haut et en
+   bas la marge de la première colonne, et la case se cale en haut : le carré est aussi loin du filet du dessus que du trait de gauche. */
+:root[data-theme="v4"] #root tbody > tr:has(> td > input[type="checkbox"]:only-child) > td { padding-top: var(--tab-g, .75rem) !important; padding-bottom: var(--tab-g, .75rem) !important; }
+:root[data-theme="v4"] #root tbody > tr > td:has(> input[type="checkbox"]:only-child) { vertical-align: top; line-height: 0; }
+:root[data-theme="v4"] #root tbody > tr > td > input[type="checkbox"]:only-child { display: block; margin: 0; }
+/* Les traits effacés n'occupent plus de place (une demi-épaisseur restait dans le calcul du tableau). */
+:root[data-theme="v4"] #root :is(tbody, tfoot) > tr, :root[data-theme="v4"] #root :is(tbody, tfoot) > tr > td,
+:root[data-theme="v4"] #root thead > tr, :root[data-theme="v4"] #root thead > tr > th { border-top-width: 0 !important; border-bottom-width: 0 !important; }

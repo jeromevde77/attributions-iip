@@ -3074,6 +3074,17 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
+**LUCIE V4 : TROIS NIVEAUX, JAMAIS UNE TUILE DANS UNE TUILE** (3.5.616 → 3.5.630, Charles, 21 novembre 2026 ; thème « Lucie V4 » de la
+palette, direction seulement, à l'essai). (1) **La zone** : un intertitre, sans trait (« Bloc 1 », « Les cours de ma section ») ; une
+fenêtre est une zone, son bandeau suffit (dedans, seule la ligne gauche). (2) **La tuile** : bord gauche coloré complet, arc en haut à
+gauche avec un trait du haut court, **rappel en bas à droite** (arc + 1 cm de trait sur le côté et sur le bas) ; des tuiles de même nature
+qui se touchent (pile verticale, bande, grille de cartes — `lib/groupesVisuels.js`) n'en font qu'une : un seul arc, un seul rappel ; une
+alerte ne se colle jamais à des cartes. (3) **Le morceau** : le contenu d'une tuile (lignes, cours, chiffres), sans bord, séparé par un
+filet gris fin qui part de la première lettre et s'arrête avant le bord droit (trait court centré entre deux colonnes) ; un état s'y dit
+par un point de couleur. Pas de double ligne (un tableau sous un titre efface le filet du titre). Une liste d'unités se range PAR BLOC
+(une tuile par bloc, à sa couleur ; Mes cours : « Par bloc · Par section »). Tout le dessin est dans `index.css` sous
+`:root[data-theme="v4"]` ; une nouvelle forme se range dans l'un des trois niveaux, jamais à côté.
+
 **UN SEUL EN-TÊTE DE CARTE, LES SORTIES AU BANDEAU DES FENÊTRES** (3.5.032, Charles, 1er novembre 2026 : « l'en-tête est blanche
 ici, bleu clair ailleurs… fais le tour de TOUS les écrans et TOUTES les fenêtres » ; modèle retenu : la bande de « Envoi de documents
 par courriel » ; « pour les FENÊTRES comme Éditions on garde le bleu ; un bouton IMPRIMER, ENVOYER ou APERÇU doit être dans le bandeau

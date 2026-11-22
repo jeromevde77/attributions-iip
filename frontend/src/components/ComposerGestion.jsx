@@ -171,7 +171,7 @@ export default function ComposerGestion({ annee, annees = [], direction = false,
           </div>
         </section>)}
       <section className="carte overflow-hidden">
-        <EnteteCarte titre="Composer" sous="Dites ce que vous voulez faire : Lucie propose ce qu’il faut sortir." />
+        {/* UN TITRE NE S'ÉCRIT QU'UNE FOIS (3.5.634, Charles : « double titre ? ») : l'écran dit déjà « Composer » et ce qu'on y fait. */}
         <div className="p-4 grid gap-4 lg:grid-cols-3">
           <div>
             <div className="intertitre">1. Sur quoi ?</div>

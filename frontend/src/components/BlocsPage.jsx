@@ -57,8 +57,10 @@ export default function BlocsPage({ page, blocs, volets = false }) {
       const lignes = [];
       for (const v of conteneur.children) {
         if (v.dataset.vide) continue;
-        if (v.dataset.ferme !== '1') { lignes.push(null); continue; }
-        const cartes = [...v.querySelectorAll('.carte')].filter(c => c.querySelector(':scope > .entete-carte') && c.offsetHeight > 0);
+        /* (3.5.621, Charles : « si j'ouvre la tuile, tu crées des zones ; non : tu ouvres et les autres restent collées dans le même
+           tableau ») — un volet ouvert reste dans la pile : son contenu se déplie sous sa ligne, sans couper le groupe. */
+        const cartes = [...v.querySelectorAll('.carte')].filter(c => c.querySelector(':scope > .entete-carte') && c.offsetHeight > 0
+          && !c.parentElement?.closest('.carte'));
         if (!cartes.length) { lignes.push(null); continue; }
         lignes.push(...cartes);
       }

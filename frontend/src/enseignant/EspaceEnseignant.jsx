@@ -9,7 +9,7 @@ import { FournisseurRail, ListeEtats, LigneEtat, Encadre, Tableau, TableauEntete
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { EvaluationsDeliberations } from '../components/DatesDeliberation.jsx';
 import { preparerLucie } from './relais.js';
-import { rangBloc } from '../lib/blocs.js';
+import { blocDe, couleurBloc, rangBloc } from '../lib/blocs.js';
 import TrainUE from '../components/TrainUE.jsx';
 import { BoutonRail as BoutonFace } from '../components/RailEspace.jsx';
 import VisiteGuidee, { visiteVue } from '../portail/VisiteGuidee.jsx';
@@ -344,8 +344,12 @@ function MesUE() {
         <h1 className="titre-ecran !mb-0 flex-1">Mes étudiants{t.annee ? <span className="compte">{t.annee}</span> : null}</h1>
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>
       </div>
-      {[...t.ues].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num).map(u => (
-        <section key={u.ue_num} className="carte overflow-hidden">
+      {/* PAR BLOC (3.5.627, Charles : « tout ce qui est B1, une tuile avec parties ; B2 idem ») : les unités d'un bloc forment une pile
+          à la couleur du bloc ; deux blocs, deux piles. */}
+      {Object.values([...t.ues].sort((a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num)
+        .reduce((acc, u) => { const b = blocDe(u.ue_niv) || 'Autres'; (acc[b] = acc[b] || []).push(u); return acc; }, {})).map(ues => (
+      <div key={ues[0].ue_num} className="space-y-3">{ues.map(u => (
+        <section key={u.ue_num} className="carte overflow-hidden" style={couleurBloc(u.ue_niv) ? { '--e-doc': couleurBloc(u.ue_niv) } : undefined}>
           <EnteteCarte titre={`UE ${u.ue_num} — ${u.ue_nom}`} sous={u.section || null}><TrainDeLUE u={u} /></EnteteCarte>
           {u.cours.map(c => {
             const k = `${u.ue_num}|${c.code}`;
@@ -365,7 +369,7 @@ function MesUE() {
                 {ouvert[k] && <ListeParGroupe etudiants={c.etudiants} onFiche={setFiche} />}
               </div>);
           })}
-        </section>))}
+        </section>))}</div>))}
       {fiche && <FicheEtudiant id={fiche} onFermer={() => setFiche(null)} />}
       <Suspense fallback={null}>{ecrire && <MessagesEtudiantsLucie titre="Écrire à mes étudiants" onFermer={() => setEcrire(false)} />}</Suspense>
       {liste && <Suspense fallback={null}><ListeSurMesureLucie cours={liste} annee={t.annee || undefined} onFermer={() => setListe(null)} /></Suspense>}

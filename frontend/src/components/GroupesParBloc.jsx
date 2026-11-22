@@ -83,14 +83,16 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
     </div>);
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(groupes.length + 1, 6)}, minmax(0, 1fr))` }}>
         {tuile('', (items || []).length, `Toutes les ${libelle.replace('(s)', 's')}`, 'rgb(var(--gris-300))')}
         {groupes.map(g => tuile(g.cle, g.liste.length, g.titre, g.couleur))}
       </div>
       {visibles.map(g => (
-        <section key={g.cle} className="carte overflow-hidden"
-          style={{ borderLeft: `4px solid ${g.couleur}`, borderRadius: '0 14px 14px 0' }}>
+        /* UNE TUILE PAR BLOC (3.5.627) : sous Lucie V4, le bord de la tuile prend la couleur du bloc (--e-doc) et elle ne se colle pas
+           à la suivante (data-tuile-seule). */
+        <section key={g.cle} data-tuile-seule className="carte overflow-hidden"
+          style={{ borderLeft: `4px solid ${g.couleur}`, borderRadius: '0 14px 14px 0', '--e-doc': g.couleur }}>
           <EnteteCarte titre={g.titre} sous={`${g.liste.length} ${libelle}`} />
           {children(g.liste, g)}
         </section>

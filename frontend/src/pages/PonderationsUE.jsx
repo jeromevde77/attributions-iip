@@ -66,7 +66,8 @@ function Zone({ lettre, titre, sous, children, droite }) {
         {titre}</>}>
         {droite || null}
       </EnteteCarte>
-      <div className="p-3 space-y-2">{children}</div>
+      {/* (3.5.628) Le corps commence où commence le titre : même marge (1 rem), pour que tout s’aligne sous la première lettre. */}
+      <div className="px-4 py-3 space-y-2">{children}</div>
     </section>
   );
 }
@@ -376,7 +377,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                   <table className="w-full border-separate border-spacing-0 text-second" style={{ minWidth: 260 + coursEval.length * 86 }}>
                     <thead>
                       <tr>
-                        <th className="tab-entete sticky left-0 z-10 text-left px-2.5 py-2 min-w-[240px]">Acquis · poids réel dans l'UE</th>
+                        <th className="tab-entete sticky left-0 z-10 text-left pl-0 pr-2.5 py-2 min-w-[240px]">Acquis · poids réel dans l'UE</th>
                         {coursEval.map(c => (
                           <th key={c.cours_code} className="tab-entete px-2 py-2 text-center">
                             <div className="text-slate-800">{c.cours_code}</div>
@@ -392,7 +393,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                         const eteint = aaSuivi && aaSuivi !== a.aa_code;
                         return (
                           <tr key={a.aa_code} className={eteint ? 'opacity-35' : ''}>
-                            <td className="sticky left-0 z-[1] border-t border-slate-200 px-2.5 py-1.5 cursor-pointer" style={{ background: 'var(--c-fond_ligne, #fff)' }}
+                            <td className="sticky left-0 z-[1] border-t border-slate-200 pl-0 pr-2.5 py-1.5 cursor-pointer" style={{ background: 'var(--c-fond_ligne, #fff)' }}
                               onClick={() => setAaSuivi(s => (s === a.aa_code ? null : a.aa_code))}>
                               <div className="font-bold text-slate-800">{a.aa_code}</div>
                               <div className="text-slate-500 truncate max-w-[260px]" title={a.description}>{a.description}</div>
@@ -434,7 +435,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                     </tbody>
                     <tfoot>
                       <tr>
-                        <td className="tab-entete sticky left-0 z-10 px-2.5 py-1.5 text-slate-600">Points répartis dans le cours</td>
+                        <td className="tab-entete sticky left-0 z-10 pl-0 pr-2.5 py-1.5 text-slate-600">Points répartis dans le cours</td>
                         {coursEval.map(c => (
                           <td key={c.cours_code} className="tab-entete px-1.5 py-1.5 text-center">
                             <div className={`font-bold tabular-nums ${coursJuste(c.cours_code) ? 'text-slate-700' : 'text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</div>

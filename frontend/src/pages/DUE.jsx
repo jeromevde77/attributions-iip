@@ -229,7 +229,7 @@ function Riche({ valeur, onChange, lecture }) {
       : <div className="text-sm text-slate-700 whitespace-pre-wrap">{valeur}</div>;
   }
   return (
-    <div className="border border-slate-300 rounded-champ overflow-hidden" style={{ background: 'var(--c-fond_champ, #fff)' }}>
+    <div className="cadre-editeur border border-slate-300 rounded-champ overflow-hidden" style={{ background: 'var(--c-fond_champ, #fff)' }}>
       <EditeurDUE valeur={enHtml(valeur)} onChange={onChange} />
     </div>);
 }

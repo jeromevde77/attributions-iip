@@ -3,7 +3,7 @@ import MotivationsCours from '../components/MotivationsCours.jsx';
 import FicheCours from '../components/FicheCours.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard, IconSchool, IconUserOff, IconBriefcase, IconSend } from '@tabler/icons-react';
-import { couleurBloc, rangBloc } from '../lib/blocs.js';
+import { blocDe, couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useRef, useState } from 'react';
 import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2, IconChevronRight, IconChevronDown, IconListDetails, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
@@ -84,6 +84,9 @@ export default function MesCours({ espace = null }) {
   const [enCours, setEnCours] = useState(false);
   const [filtre, setFiltre] = useState('');
   const [filtreSection, setFiltreSection] = useState('');
+  // RANGER PAR BLOC OU PAR SECTION (3.5.627, Charles : « la possibilité de trier par section ou par bloc »), gardé sur l'appareil.
+  const [rangement, setRangement] = useState(() => { try { return localStorage.getItem('lucie.mesCoursRangement') || 'bloc'; } catch { return 'bloc'; } });
+  useEffect(() => { try { localStorage.setItem('lucie.mesCoursRangement', rangement); } catch { /* sans mémoire */ } }, [rangement]);
   /* LES DUE DE MES UNITÉS (Charles, 8 octobre 2026 : « elle ne voit pas ses DUE…
      que cela paraisse dans Mes cours ») : l'écran vivait dans Organisation, où un
      professeur n'entre pas. Le même écran, ici ; le serveur ne lui rend que les
@@ -903,23 +906,18 @@ export default function MesCours({ espace = null }) {
            clair, marine —, la couleur du bloc et rien d'autre. */
         const tri = (a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || (a.ue_num - b.ue_num)
           || String(a.cours_code).localeCompare(String(b.cours_code), 'fr', { numeric: true });
-        const parSection = [];
-        for (const x of [...miens].sort(tri)) {
-          const s0 = x.section || 'Sans section';
-          const g = parSection.find(y => y.section === s0);
-          if (g) g.cours.push(x); else parSection.push({ section: s0, cours: [x] });
-        }
-        parSection.sort((a, b) => a.section.localeCompare(b.section, 'fr'));
         section.sort(tri);
         const parUe = [];
         for (const x of section) {
           const g = parUe.find(y => y.ue_num === x.ue_num);
           if (g) g.cours.push(x); else parUe.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, cours: [x] });
         }
-        const carte = x => (
-          <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-            style={{ '--e': couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }} data-etat="fort"
-            className="bloc-etat w-full text-left px-3 py-2 hover:brightness-[.98] flex items-center gap-3">
+        /* UNE TUILE PAR BLOC (3.5.626, Charles, 21 novembre 2026 : « au-delà de l'UE, c'est la fenêtre qui doit gérer cela, par
+           année : tout ce qui est B1, une tuile avec parties ; B2 idem »). Le bloc est la tuile — son bord a la couleur du bloc ; les
+           unités en sont les parties, chacune avec son titre ; chaque cours un morceau, séparé du voisin par un filet. */
+        const morceau = x => (
+          <button key={x.cours_code} type="button" onClick={() => ouvrir(x.cours_code)}
+            className="morceau-doc w-full text-left px-4 py-2.5 border-t border-slate-100 hover:bg-slate-50 flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>
               <div className="text-second text-slate-500 truncate">
@@ -931,17 +929,44 @@ export default function MesCours({ espace = null }) {
             </div>
             <span className="flex-none text-second font-semibold text-iip-turquoise-dark text-right">
               {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
-              {!x.repartition && x.nb_etudiants > 0 && (
-                <span className="block font-normal text-slate-400">toute l'unité</span>
-              )}
+              {!x.repartition && x.nb_etudiants > 0 && <span className="block font-normal text-slate-400">toute l'unité</span>}
             </span>
           </button>
         );
+        const tuilesParBloc = (liste, parUnite) => {
+          const blocs = [];
+          const parSec = rangement === 'section';
+          const plusieursSections = new Set(liste.map(x => x.section)).size > 1;
+          for (const x of [...liste].sort((a, b) => (parSec ? String(a.section || '').localeCompare(String(b.section || ''), 'fr') : 0) || tri(a, b))) {
+            const b = parSec ? (x.section || 'Sans section') : (blocDe(x.ue_niv) || 'Autres');
+            let g = blocs.find(y => y.bloc === b);
+            if (!g) blocs.push(g = { bloc: b, niv: parSec ? null : x.ue_niv, unites: [] });
+            let u = g.unites.find(y => y.ue_num === x.ue_num && y.section === x.section);
+            if (!u) g.unites.push(u = { ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, niv: x.ue_niv, cours: [] });
+            u.cours.push(x);
+          }
+          const titre = g => (parSec ? g.bloc : g.bloc === 'Autres' ? 'Hors bloc' : g.bloc.replace('BA', 'Bloc '));
+          return <div className="flex flex-col gap-4">{blocs.map(g => (
+            <section key={g.bloc} data-tuile-seule className="carte overflow-hidden" style={couleurBloc(g.niv) ? { '--e-doc': couleurBloc(g.niv) } : undefined}>
+              <div className="entete-carte px-4 py-2 flex items-center gap-2">
+                <span className="font-semibold text-iip-texte">{titre(g)}</span>
+                <span className="text-second text-slate-500">· {g.unites.reduce((t, u) => t + u.cours.length, 0)} cours</span>
+              </div>
+              {g.unites.map(u => (
+                <div key={`${u.ue_num}|${u.section}`}>
+                  {(parUnite || parSec) && <div className="px-4 pt-3 pb-1 text-second font-semibold text-iip-blue flex items-center gap-2">
+                    {parSec && couleurBloc(u.niv) && <span className="w-2 h-2 rounded-full flex-none" style={{ background: couleurBloc(u.niv) }} title={blocDe(u.niv) || ''} />}
+                    <span>UE {u.ue_num}{u.ue_nom ? ` — ${u.ue_nom}` : ''}{!parSec && plusieursSections && u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : null}</span>
+                  </div>}
+                  <div className="grid md:grid-cols-2 2xl:grid-cols-3">{u.cours.map(morceau)}</div>
+                </div>))}
+            </section>))}</div>;
+        };
         const aSection = cours.some(x => x.a_moi === false);
         return (
           <div className="space-y-3">
-            {(aSection || sectionsDispo.length > 1) && (
-              <div className="flex flex-wrap items-center gap-2">
+            {(aSection || sectionsDispo.length > 1 || !espace) && (
+              <div className="flex flex-nowrap items-center gap-2">
                 {sectionsDispo.length > 1 && (
                   <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)} aria-label="Section"
                     className="controle">
@@ -949,6 +974,11 @@ export default function MesCours({ espace = null }) {
                     {sectionsDispo.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
                   </select>
                 )}
+                {!espace && <div className="segments" role="radiogroup" aria-label="Ranger les cours">
+                  {[['bloc', 'Par bloc'], ['section', 'Par section']].map(([v, l]) => (
+                    <button key={v} type="button" role="radio" aria-checked={rangement === v} onClick={() => setRangement(v)}
+                      className={`px-3 py-1.5 text-sm ${rangement === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>))}
+                </div>}
                 {aSection && (
                   <input value={filtre} onChange={e => setFiltre(e.target.value)}
                     placeholder="Chercher un cours, une unité, un enseignant…"
@@ -968,7 +998,11 @@ export default function MesCours({ espace = null }) {
                     const g = parUnite.find(y => y.ue_num === x.ue_num && y.section === x.section);
                     if (g) g.cours.push(x); else parUnite.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, section: x.section, ue_niv: x.ue_niv, ects: x.ects, cours: [x] });
                   }
-                  return parUnite.map(u => (
+                  /* PAR BLOC (3.5.627, Charles : « tout ce qui est B1, une tuile avec parties ») : les unités d'un même bloc forment une
+                     pile ; deux blocs, deux piles. */
+                  const blocsU = [];
+                  for (const u of parUnite) { const b = blocDe(u.ue_niv) || 'Autres'; let g = blocsU.find(y => y.b === b); if (!g) blocsU.push(g = { b, unites: [] }); g.unites.push(u); }
+                  return <div className="flex flex-col gap-4">{blocsU.map(gb => <div key={gb.b} className="space-y-1.5">{gb.unites.map(u => (
                     <section key={`${u.ue_num}|${u.section}`} data-etat="fort" className="bloc-etat overflow-hidden"
                       style={couleurBloc(u.ue_niv) ? { '--e': couleurBloc(u.ue_niv) } : undefined}>
                       <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b border-slate-100">
@@ -1005,14 +1039,9 @@ export default function MesCours({ espace = null }) {
                         </button>
                         {ouvert === x.cours_code && <div className="px-4 pb-4 pt-1 border-t border-slate-100">{rendreOuvert()}</div>}
                       </div>))}
-                    </section>));
+                    </section>))}</div>)}</div>;
                 })()}
-                {!espace && parSection.map(g => (
-                  <div key={g.section} className="space-y-1.5">
-                    {(parSection.length > 1 || aSection) && <div className="text-sm font-semibold text-iip-blue pt-1">{g.section}</div>}
-                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
-                  </div>
-                ))}
+                {!espace && miens.length > 0 && tuilesParBloc(miens, false)}
               </div>
             )}
             {parUe.length > 0 && (
@@ -1020,12 +1049,7 @@ export default function MesCours({ espace = null }) {
                 <div className="intertitre">
                   Les cours de ma section <span className="normal-case font-normal">— en tant que coordination</span>
                 </div>
-                {parUe.map(g => (
-                  <div key={g.ue_num} className="space-y-1">
-                    <div className="text-second font-semibold text-iip-blue">UE {g.ue_num}{g.ue_nom ? ` — ${g.ue_nom}` : ''}</div>
-                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
-                  </div>
-                ))}
+                {tuilesParBloc(section, true)}
               </div>
             )}
             {q && !miens.length && !parUe.length && <p className="text-sm text-slate-400">Aucun cours ne correspond.</p>}

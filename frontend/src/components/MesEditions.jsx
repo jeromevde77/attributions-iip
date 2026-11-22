@@ -123,8 +123,11 @@ export default function MesEditions({ annee: anneeProp = null }) {
       {erreur && <Encadre etat="corriger" icone={IconAlertTriangle} titre={erreur} />}
       {!catalogue && <Encadre etat="surveiller" titre="Le catalogue des pièces ne se lit pas." />}
 
+      {/* TROIS VOLETS CÔTE À CÔTE (3.5.631, Charles : « cela ne respecte pas la règle des volets verticaux ; on ne comprend pas qu'on
+          doit aller plus bas ») : 1 quoi · 2 pour quels cours · 3 sortir, de gauche à droite, chacun défile seul ; empilés sur téléphone. */}
+      <div className="grid gap-3 items-start lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,0.75fr)]">
       {/* 1 — QUELLE PIÈCE ? */}
-      <section className="rounded-carte p-3 space-y-3" style={ZONE}>
+      <section className="rounded-carte p-3 space-y-3 lg:max-h-[72vh] lg:overflow-y-auto" style={ZONE}>
         <Etape n={1} titre="Quelle pièce ?" fait={!!def} />
         {catalogue && catalogue.familles.map(f => {
           const Ic = ICONES[f.k] || IconFileText;
@@ -142,7 +145,7 @@ export default function MesEditions({ annee: anneeProp = null }) {
       </section>
 
       {/* 2 — POUR QUELS COURS ? */}
-      <section className="rounded-carte p-3 space-y-3" style={ZONE}>
+      <section className="rounded-carte p-3 space-y-3 lg:max-h-[72vh] lg:overflow-y-auto" style={ZONE}>
         <Etape n={2} titre={def?.sansCours ? 'Pour quels cours ? — sans objet : tous vos cours' : 'Pour quels cours ?'}
           fait={!!def && codes.length > 0} attend={!def}>
           {def && !def.sansCours && <span className="text-second font-normal text-slate-500">{choisis.length} cours · {nbEtudiants} étudiant(s)</span>}
@@ -159,7 +162,7 @@ export default function MesEditions({ annee: anneeProp = null }) {
       </section>
 
       {/* 3 — SORTIR */}
-      <section className="rounded-carte p-3 space-y-3" style={ZONE}>
+      <section className="rounded-carte p-3 space-y-3 lg:sticky lg:top-0" style={ZONE}>
         <Etape n={3} titre="Sortir" attend={!pret}>
           {pret && <span className="text-second font-normal text-slate-500">
             {def.libelle}{def.sansCours ? '' : ` · ${codes.length} cours${codes.length > 1 ? ', chacun sur sa page' : ''}`}</span>}
@@ -174,6 +177,7 @@ export default function MesEditions({ annee: anneeProp = null }) {
           {!pret && <span className="text-second text-slate-500">{!def ? 'Choisissez une pièce.' : 'Cochez au moins un cours.'}</span>}
         </div>
       </section>
+      </div>
       <p className="text-mention text-slate-400">Ces pièces portent vos cotes de travail : elles sont pour vous, pas pour les étudiants.</p>
     </div>
   );

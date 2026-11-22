@@ -119,7 +119,7 @@ export default function EditeurTexte({ valeur, onChange, importer = true }) {
         </div>
       ))}
 
-      <div className="rounded-champ border border-slate-300 bg-white overflow-hidden">
+      <div className="cadre-editeur rounded-champ border border-slate-300 bg-white overflow-hidden">
         <Toolbar editor={editor} sobre />
         <div className="max-h-[55vh] overflow-auto">
           <EditorContent editor={editor} />
