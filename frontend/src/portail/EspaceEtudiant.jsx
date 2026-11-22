@@ -81,16 +81,16 @@ function DemanderPiece({ apercu }) {
       <div className="p-4 space-y-3">
         {msg && <Encadre etat={msg.etat}>{msg.t}</Encadre>}
         {/* EN APERÇU, LE FORMULAIRE SE VOIT, GRISÉ (Charles : « pas de bouton ») : la direction voit ce que voit l'étudiant. */}
-        {apercu && <p className="text-second text-slate-500 m-0">Aperçu de la direction : l’étudiant choisit ici la pièce et clique sur « Demander » ; l’envoi est désactivé en aperçu.</p>}
-        {<fieldset disabled={apercu} className="flex flex-col sm:flex-row gap-2 m-0 p-0 border-0 min-w-0">
+        {apercu && <p className="text-second text-slate-500 m-0">Aperçu de la direction : la liste se parcourt comme pour l’étudiant ; seul l’envoi est désactivé.</p>}
+        {<div className="flex flex-col sm:flex-row gap-2 min-w-0">
           <select className="controle sm:w-80" value={type} onChange={e => { setType(e.target.value); setMsg(null); }} aria-label="La pièce demandée">
             <option value="">Choisir la pièce…</option>
             {PIECES_DEMANDABLES.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
           </select>
           <input className="controle flex-1 min-w-0" value={texte} maxLength={500} onChange={e => setTexte(e.target.value)}
             placeholder={type === 'autre' ? 'Quel document ? (obligatoire)' : 'Précision : l’année, pour qui… (facultatif)'} />
-          <button type="button" className="bouton bouton-fort" disabled={envoi} onClick={envoyer}>{envoi ? 'Envoi…' : 'Demander'}</button>
-        </fieldset>}
+          <button type="button" className="bouton bouton-fort" disabled={envoi || apercu} onClick={envoyer}>{envoi ? 'Envoi…' : 'Demander'}</button>
+        </div>}
         {l && l.length > 0 && (
           <ListeEtats>
             {l.map(x => {
