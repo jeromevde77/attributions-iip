@@ -7,7 +7,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import '../index.css';
 import EspaceEtudiant from './EspaceEtudiant.jsx';
+import FiletErreur from '../components/FiletErreur.jsx';
 import { installerGroupesVisuels } from '../lib/groupesVisuels.js';
 installerGroupesVisuels();   // les cartes qui se touchent forment une pile (3.5.619)
 
-ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><EspaceEtudiant /></React.StrictMode>);
+ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><FiletErreur><EspaceEtudiant /></FiletErreur></React.StrictMode>);
