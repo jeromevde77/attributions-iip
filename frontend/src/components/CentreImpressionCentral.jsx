@@ -840,8 +840,19 @@ function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
         {sous && <span className="block text-mention text-slate-500">{sous}</span>}</span>
     </label>);
   const nomDe = r => (NOMS_LISTES[r.id] || [r.libelle, phraseCourte(r.aide)]);
+  /* UN VOLET QUI S'OUVRE À L'HORIZONTALE (3.5.653, Charles : « sinon la liste est trop longue verticalement ») : à gauche les
+     questions, à droite les listes de la question ouverte, une seule à la fois. */
+  const questions = useMemo(() => [
+    ...familles.map(([t, rs]) => ({ t, rs })),
+    ...(domaine === 'organisation' ? [{ t: 'Les schémas', schemas: true }] : []),
+    { t: 'Une liste sur mesure', composer: true },
+  ], [familles, domaine]);
+  const [question, setQuestion] = useState(null);
+  const famDuChoix = questions.find(q => (choisi === 'composer' && q.composer) || (choisi === 'schemas' && q.schemas) || q.rs?.some(r => r.id === choisi));
+  const ouverte = questions.find(q => q.t === question) || famDuChoix || questions[0];
+  const nb = q => (q.rs?.length || 0) + (LIENS_LISTES[domaine]?.[q.t]?.length || 0) || (q.schemas || q.composer ? 1 : 0);
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] items-start">
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,640px)_minmax(0,1fr)] items-start">
       <div className="rounded-carte p-3 space-y-2" style={ZONE}>
         <Etape n={debut + 1} titre={domaine === 'gestion' ? 'Quelle pièce ?' : 'Quelle liste ?'} fait={!!choisi} />
         {!catalogue ? <p className="text-second text-slate-400">Chargement…</p> : (
@@ -855,21 +866,31 @@ function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
                 </button>
                 <span className="block text-mention text-slate-400">population, attributions, positionnement, réussite, textes ; s’ouvre dans Gestion</span>
               </div>)}
-            {familles.map(([t, rs]) => (
-              <div key={t}>
-                <div className="intertitre mt-1">{t}</div>
-                {rs.map(r => ligne(r.id, nomDe(r)[0], nomDe(r)[1]))}
-                {(LIENS_LISTES[domaine]?.[t] || []).map(([libelle, ou, cible]) => (
+            <div className="grid grid-cols-[minmax(0,190px)_minmax(0,1fr)] gap-3">
+              <div className="flex flex-col border-r border-slate-200 pr-2">
+                {questions.map(q => {
+                  const actif = q === ouverte;
+                  return (
+                    <button key={q.t} type="button" onClick={() => setQuestion(q.t)}
+                      className={`flex items-center gap-1.5 text-left text-sm py-1.5 px-2 rounded-champ ${actif ? 'bg-white font-semibold text-iip-blue' : 'text-slate-600 hover:text-iip-blue'}`}>
+                      <span className="min-w-0 flex-1">{q.t}</span>
+                      <span className="text-mention text-slate-400 tabular-nums">{nb(q)}</span>
+                      <span aria-hidden className={actif ? 'text-iip-blue' : 'text-slate-300'}>›</span>
+                    </button>);
+                })}
+              </div>
+              <div key={ouverte?.t} className="min-w-0">
+                <div className="intertitre mt-1">{ouverte?.t}</div>
+                {ouverte?.rs?.map(r => ligne(r.id, nomDe(r)[0], nomDe(r)[1]))}
+                {(LIENS_LISTES[domaine]?.[ouverte?.t] || []).map(([libelle, ou, cible]) => (
                   <button key={libelle} type="button" className="flex items-start gap-2 py-1.5 text-sm text-left w-full hover:text-iip-blue"
                     onClick={() => { if (cible.famille && allerA) { allerA(cible.famille); return; } fermer?.(); naviguer(cible.route || '/'); }}>
                     <span className="mt-0.5 flex-none text-slate-400" aria-hidden>→</span>
                     <span className="min-w-0">{libelle}<span className="block text-mention text-slate-500">dans {ou}</span></span>
                   </button>))}
-              </div>))}
-            {domaine === 'organisation' && (
-              <div><div className="intertitre mt-1">Les schémas</div>{ligne('schemas', 'Schéma de capitalisation d’une section')}</div>)}
-            <div className="pt-2 border-t border-slate-200">
-              {ligne('composer', 'Une liste sur mesure', 'vous choisissez les colonnes : nom, matricule, courriel, section…')}
+                {ouverte?.schemas && ligne('schemas', 'Schéma de capitalisation d’une section')}
+                {ouverte?.composer && ligne('composer', 'Une liste sur mesure', 'vous choisissez les colonnes : nom, matricule, courriel, section…')}
+              </div>
             </div>
           </div>)}
       </div>

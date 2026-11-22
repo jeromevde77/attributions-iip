@@ -20,6 +20,68 @@ import { authRequired } from '../middleware/auth.js';
 import { kmAllerRetour } from '../lib/distanceRoute.js';
 import { rendrePdf } from '../services/pdf.js';
 import { signatureCourante } from '../lib/identite.js';
+import { fileURLToPath } from 'node:url';
+
+/* LE FORMULAIRE VISA DE L'ASBL (3.5.653, Charles : « ajoute ce formulaire dans Frais, c'est pour mes dépenses Visa »). La pièce
+   « Dépense par carte » n'est plus recomposée : Lucie remplit le formulaire officiel lui-même (« Remboursement carte bancaire –
+   ASBL Ilya Prigogine », SFC_2025-2026, assets/formulaires-frais/carte_asbl.pdf, vidé de ses annotations). Les positions sont
+   celles des cases et des lignes du modèle, relevées sur le PDF (points, origine en haut à gauche). */
+const FORMULAIRE_CARTE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/formulaires-frais/carte_asbl.pdf');
+export const A_CHARGE_CARTE = [
+  ['Institut Ilya Prigogine — GDE', [165.5, 444]], ['Institut Ilya Prigogine — Agence qualité', [222.2, 444]],
+  ['Institut Ilya Prigogine — Optique-optométrie', [313.9, 444]], ['Institut Ilya Prigogine — Psychomotricité', [413.1, 444]],
+  ['Institut Ilya Prigogine — TIM', [516.7, 444]], ['ASBL — GDA', [165.5, 365.5]], ['ASBL — GDI', [222.2, 365.5]],
+];
+const FONCTIONS_CARTE = [['Directeur(rice)', 167.9], ['Directeur(rice) adjoint(e)', 255.5], ['Responsable', 385.4], ['Facility manager', 463.4]];
+
+function caseACharge(v) {
+  const t = String(v || '').toLowerCase();
+  return A_CHARGE_CARTE.find(([l]) => l.toLowerCase() === t)
+    || A_CHARGE_CARTE.find(([l]) => { const k = l.split('—')[1].trim().toLowerCase(); return t.includes(k.split('-')[0]); })
+    || A_CHARGE_CARTE[0];
+}
+
+export async function formulaireCarte(p, prof) {
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const doc = await PDFDocument.load(fs.readFileSync(FORMULAIRE_CARTE));
+  const pg = doc.getPage(0);
+  const H = pg.getSize().height;
+  const f = await doc.embedFont(StandardFonts.Helvetica);
+  const fb = await doc.embedFont(StandardFonts.HelveticaBold);
+  const bleu = rgb(0.05, 0.16, 0.36);
+  const propre = s => String(s ?? '').replace(/[^\x20-\x7E\u00A0-\u00FF\u2019\u20AC\u2013\u2014\u2026\u0152\u0153]/g, '?');
+  const texte = (s, x, haut, taille = 10) => pg.drawText(propre(s), { x, y: H - haut, size: taille, font: f, color: bleu });
+  // Une croix au centre d'une case de 10 pt dont le coin haut gauche est (x, haut).
+  const croix = (x, haut, cote = 10) => pg.drawText('X', { x: x + cote / 2 - 3.3, y: H - haut - cote / 2 - 3.6, size: 10, font: fb, color: bleu });
+  croix(p.carte === 'debit' ? 271 : 387.4, 116.1, 12.5);
+  const fct = FONCTIONS_CARTE.find(([l]) => l === (prof.fonction || 'Directeur(rice)')) || FONCTIONS_CARTE[0];
+  croix(fct[1], 244, 9.8);
+  texte(prof.prenom, 167, 214.8);
+  texte(String(prof.nom || '').toUpperCase(), 167, 231.9);
+  texte(jj(p.date), 167, 300.3);
+  texte(p.fournisseur, 167, 317.4);
+  texte(p.montant == null ? '' : Number(p.montant).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 167, 334.5);
+  const [, [cx, ch]] = caseACharge(p.a_charge);
+  croix(cx, ch, 9);
+  // L'objet, sur les cinq lignes pointillées (515 pt de large).
+  const mots = propre(p.objet).split(/\s+/).filter(Boolean); const lignes = []; let l = '';
+  for (const m of mots) { const t = l ? `${l} ${m}` : m; if (f.widthOfTextAtSize(t, 9) > 510 && l) { lignes.push(l); l = m; } else l = t; }
+  if (l) lignes.push(l);
+  lignes.slice(0, 5).forEach((t, i) => pg.drawText(t, { x: 42, y: H - (507.5 + 17.12 * i), size: 9, font: f, color: bleu }));
+  // Le titulaire date et signe ; l'Autorité signe à la main.
+  texte(`${prof.prenom || ''} ${String(prof.nom || '').toUpperCase()} · ${jj(p.date_piece || new Date().toISOString())}`, 385, 633, 8.5);
+  try {
+    const sig = signatureCourante();
+    const m = /^data:image\/(png|jpe?g);base64,(.*)$/i.exec(sig || '');
+    if (m) {
+      const img = m[1].toLowerCase() === 'png' ? await doc.embedPng(Buffer.from(m[2], 'base64')) : await doc.embedJpg(Buffer.from(m[2], 'base64'));
+      const k = Math.min(40 / img.height, 150 / img.width);
+      pg.drawImage(img, { x: 395, y: H - 640 - img.height * k, width: img.width * k, height: img.height * k });
+    }
+  } catch { /* sans signature, le titulaire signe à la main */ }
+  return doc;
+}
+
 
 const r = Router();
 const DATA_DIR = () => process.env.DATA_DIR || '/app/data';
@@ -302,11 +364,14 @@ r.get('/piece/:id/pdf', async (req, res) => {
   if (!p) return res.status(404).json({ error: 'Pièce introuvable.' });
   const prof = profilDe(req.user.id);
   try {
-    const html = `<!doctype html><html><head><meta charset="utf-8">${STYLE}</head><body>${corpsPiece(p, prof)}</body></html>`;
-    const base = await rendrePdf(html, { pageCss: true });
-    // Les justificatifs, à la suite : un PDF tel quel, une image sur sa page.
     const { PDFDocument } = await import('pdf-lib');
-    const doc = await PDFDocument.load(base);
+    let doc;
+    if (p.nature === 'carte') doc = await formulaireCarte(p, prof);
+    else {
+      const html = `<!doctype html><html><head><meta charset="utf-8">${STYLE}</head><body>${corpsPiece(p, prof)}</body></html>`;
+      doc = await PDFDocument.load(await rendrePdf(html, { pageCss: true }));
+    }
+    // Les justificatifs, à la suite : un PDF tel quel, une image sur sa page.
     for (const j of db.prepare('SELECT * FROM frais_justificatif WHERE piece_id = ? ORDER BY id').all(p.id)) {
       try {
         const buf = fs.readFileSync(j.fichier);
