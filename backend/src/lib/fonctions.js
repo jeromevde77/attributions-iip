@@ -46,6 +46,8 @@ export const CATALOGUE = [
     quoi: "L'étudiant voit ce que dit le RDE (art. 19) pour sa situation — remboursement avant le premier dixième, frais dus après — et demande sa désinscription, de toute l'année ou d'unités ; la date de la demande fait foi. Le secrétariat confirme dans la fiche → Finances." },
   { cle: 'espace.amenagements', famille: 'espace', titre: 'Aménagement raisonnable — la demande en ligne',
     quoi: "L'étudiant remplit la demande (cadre A : unités, aménagements demandés, difficultés, pièce jointe) au moins 10 jours ouvrables avant l'ouverture de l'unité ; au-delà, il est renvoyé vers la personne de référence, à qui il écrit depuis son espace. La personne de référence est prévenue et reprend le dossier." },
+  { cle: 'espace.recours', famille: 'espace', titre: 'Le recours en ligne',
+    quoi: "Après un REFUS publié (en seconde session surtout ; jamais un ajournement), l'étudiant introduit sa plainte depuis son espace dans les 4 jours calendrier de la publication (RDE art. 87-88) : les irrégularités invoquées, ses pièces. Lucie ouvre le dossier de recours (Procédures, plainte « en ligne ») et l'envoie à la direction, la coordination de la section en copie ; l'étudiant suit la recevabilité, puis la décision une fois envoyée." },
   { cle: 'espace.photo', famille: 'espace', titre: 'Ma photo d’identité',
     quoi: "L'étudiant dépose une photo de type identité, sur fond blanc, pour son dossier ; le secrétariat l'accepte ou la refuse avec un motif (Étudiants → Photos à valider). Acceptée, elle paraît sur la fiche, dans les listes des professeurs et sur la carte d'étudiant. Tant qu'elle manque, l'espace la rappelle." },
   { cle: 'espace.sante', famille: 'espace', titre: 'Ma santé — la visite médicale',

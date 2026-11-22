@@ -3533,6 +3533,18 @@ dans `envelopperDocument` avec `entete` (un seul en-tête : ne jamais appeler `e
 (3) `lib/ongletAttente.js` (`ouvrirOngletAttente`) : tout onglet ouvert avant la composition porte les étoiles et le message ;
 **on n'écrit plus `window.open('', '_blank')`**. (4) `offrePAE` marque `va` (VA complète retenue de l'année) : vert + « VA · réussie ».
 
+**LE RECOURS EN LIGNE** (3.5.658, Charles, 23 novembre 2026 : « la possibilité de faire un recours s'il reçoit des résultats en
+deuxième session » ; « accessible seulement si l'étudiant est refusé pour l'UE ; un bouton à côté ; guider l'étudiant pour que le
+dossier soit bien rempli ; rappeler le cadre légal ; documents ou photos en preuve ; terminé, envoyé à la direction, la coordinatrice en
+copie »). Fonction `espace.recours` (née éteinte). `lib/recoursEnLigne.js` : `refusRecourables` (refus de `deliberation_resultat`, séance
+close de son organisation ou org 0 avec `publie_le`, limite = publication + 4 jours — paramètre `procedures.delai_recours_jours`),
+`etatPourLEtudiant` (recevabilité ; décision seulement après l'étape `envoi`), `introduireRecours` (refuse ajournement, hors délai jugé
+sur la date du geste, doublon ; ouvre `proc_dossier` + étape `plainte` mode `en_ligne` + `proposerMembresRecours`, pièces
+`proc_piece` catégorie `plainte_en_ligne` ; notifie direction à sa personne et coordination de la section, lien
+`/procedures?dossier=<id>`). Portail : `rc_geste`, `rc_piece`, `espace_lot.recours`, routes `/api/portail/recours` (36 Mo, nginx
+compris). Écran `portail/MonRecours.jsx` (cinq étapes) ; bouton sous l'UE refusée dans Mes résultats ; rappel à Aujourd'hui. Banc
+`test/recoursEnLigne.mjs` (21 ok).
+
 **LA VALIDATION DES VA TRAVERSE LES UNITÉS** (3.5.389, Charles : « déjà validé par les coordinations ; en tant que directeur je signe ;
 cela doit être possible »). `POST /valorisations/lot/validation` n'appelle plus `memeSeance` ; l'écran ne borne plus le geste
 « validation » (`melangeSeance`). La DÉCISION reste bornée à une section et une date de séance.

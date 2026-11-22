@@ -153,6 +153,13 @@ db.exec(`CREATE TABLE IF NOT EXISTS cm_geste (id INTEGER PRIMARY KEY AUTOINCREME
   du TEXT NOT NULL, au TEXT NOT NULL, nom TEXT, taille INTEGER, contenu BLOB,
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
 
+/* LE RECOURS EN LIGNE (3.5.658) : la plainte contre un refus (griefs) et ses pièces ; notée ici, jugée et écrite par Lucie au
+   relevé (lib/recoursEnLigne.js), qui dépose en retour les refus publiés et l'état du recours (espace_lot.recours). */
+db.exec(`CREATE TABLE IF NOT EXISTS rc_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, texte TEXT,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
+db.exec(`CREATE TABLE IF NOT EXISTS rc_piece (id INTEGER PRIMARY KEY AUTOINCREMENT, geste_id INTEGER NOT NULL, nom TEXT, taille INTEGER, contenu BLOB)`);
+try { db.exec('ALTER TABLE espace_lot ADD COLUMN recours TEXT'); } catch { /* déjà là */ }
+
 /* MA PHOTO D'IDENTITÉ (3.5.606) : l'étudiant dépose sa photo ; elle n'attend ici que le relevé de Lucie, qui la range « à valider ». */
 db.exec(`CREATE TABLE IF NOT EXISTS ph_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, taille INTEGER, contenu BLOB,
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
@@ -199,7 +206,7 @@ pub.set('trust proxy', 2);
 // Le relais de Mes cours (3.5.137) lit lui-même son corps, brut, jusqu'à 25 Mo : il ne passe pas par la limite de 50 Ko.
 const json50 = express.json({ limit: '50kb' });
 // La demande d'aménagement porte sa pièce (3.5.235) : elle a son propre lecteur, à 16 Mo.
-pub.use((req, res, next) => (req.path.startsWith('/api/enseignant/relais/') || req.path === '/api/portail/amenagement' ? next() : json50(req, res, next)));
+pub.use((req, res, next) => (req.path.startsWith('/api/enseignant/relais/') || (req.path === '/api/portail/amenagement' || req.path === '/api/portail/recours') ? next() : json50(req, res, next)));
 pub.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 const essais = new Map();
@@ -443,7 +450,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'photo', 'desinscription'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage', 'certificats', 'supports', 'amenagements', 'sante', 'photo', 'desinscription', 'recours'];
 // L'aperçu voit ce que Lucie dit (`vues`, 3.5.548 : sans les frais tant qu'ils sont éteints), à défaut tout.
 const vuesDe = id => { try { const v = db.prepare('SELECT vues FROM etudiant WHERE id = ?').get(id)?.vues; return v ? JSON.parse(v) : null; } catch { return null; } };
 const fonctionsVues = req => (req.apercu ? (vuesDe(req.etudiant?.id) || TOUTES) : fonctionsDe(req.etudiant?.id));
@@ -873,6 +880,43 @@ pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw(
 pub.use('/api/portail/certificat', (err, req, res, next) => (err?.type === 'entity.too.large'
   ? res.status(413).json({ error: 'Fichier trop lourd (10 Mo au plus).' }) : next(err)));
 
+// ── LE RECOURS EN LIGNE (3.5.658) : les refus publiés (déposés par Lucie) et la plainte. ──
+pub.get('/api/portail/recours', connecte, exige('recours'), (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  res.json({ pret: !!l?.recours, recours: l?.recours ? JSON.parse(l.recours) : null,
+    gestes: db.prepare('SELECT id, texte, cree_le, releve_le, erreur, resultat FROM rc_geste WHERE etudiant_id = ? ORDER BY id DESC LIMIT 20').all(req.etudiant.id)
+      .map(g => { let x = {}; try { x = JSON.parse(g.texte || '{}'); } catch { /* */ } return { ...g, texte: undefined, ue_num: x.ue_num, session: x.session }; }) });
+});
+pub.post('/api/portail/recours', connecte, exige('recours'), express.json({ limit: '36mb' }), (req, res) => {
+  const b = req.body || {};
+  const ue = Number(b.ue_num), session = Number(b.session), annee = String(b.annee || '');
+  const griefs = String(b.griefs || '').trim();
+  if (!ue || ![1, 2].includes(session) || !/^\d{4}-\d{4}$/.test(annee)) return res.status(400).json({ error: 'Choisissez la décision que vous contestez.' });
+  if (!griefs) return res.status(400).json({ error: 'Décrivez les irrégularités que vous invoquez.' });
+  if (griefs.length > 8000) return res.status(400).json({ error: 'Huit mille caractères au plus.' });
+  const fichiers = Array.isArray(b.pieces) ? b.pieces : [];
+  if (fichiers.length > 5) return res.status(400).json({ error: 'Cinq pièces au plus.' });
+  const bufs = [];
+  for (const f of fichiers) {
+    const buf = f?.fichier ? Buffer.from(String(f.fichier), 'base64') : null;
+    if (!buf?.length || !estImageOuPdf(buf)) return res.status(400).json({ error: 'Chaque pièce doit être un PDF ou une photo (JPEG, PNG).' });
+    if (buf.length > 10 * 1024 * 1024) return res.status(413).json({ error: 'Une pièce dépasse 10 Mo.' });
+    bufs.push({ nom: String(f.nom || 'piece').slice(0, 150), buf });
+  }
+  if (db.prepare(`SELECT COUNT(*) n FROM rc_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 5) {
+    return res.status(429).json({ error: 'Trop d’envois en une heure. Réessayez plus tard.' });
+  }
+  db.transaction(() => {
+    const g = Number(db.prepare('INSERT INTO rc_geste (etudiant_id, texte) VALUES (?,?)')
+      .run(req.etudiant.id, JSON.stringify({ ue_num: ue, session, annee, griefs })).lastInsertRowid);
+    const ip = db.prepare('INSERT INTO rc_piece (geste_id, nom, taille, contenu) VALUES (?,?,?,?)');
+    for (const f of bufs) ip.run(g, f.nom, f.buf.length, f.buf);
+  })();
+  res.json({ ok: true });
+});
+pub.use('/api/portail/recours', (err, req, res, next) => (err?.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'Pièces trop lourdes (10 Mo chacune, cinq au plus).' }) : next(err)));
+
 // ── MA PHOTO (3.5.606) : l'état déposé par Lucie, et le dépôt en attente de relevé. ──
 pub.get('/api/portail/photo', connecte, exige('photo'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
@@ -1186,6 +1230,7 @@ int.post('/interne/va', (req, res) => {
   const iar = db.prepare(`INSERT INTO espace_lot (etudiant_id, ar, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET ar = excluded.ar`);
   const isa = db.prepare(`INSERT INTO espace_lot (etudiant_id, sante, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET sante = excluded.sante`);
   const iph = db.prepare(`INSERT INTO espace_lot (etudiant_id, photo, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET photo = excluded.photo`);
+  const irc = db.prepare(`INSERT INTO espace_lot (etudiant_id, recours, maj_le) VALUES (?,?, datetime('now')) ON CONFLICT(etudiant_id) DO UPDATE SET recours = excluded.recours`);
   const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
   db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
@@ -1196,6 +1241,7 @@ int.post('/interne/va', (req, res) => {
     if (x.ar !== undefined) iar.run(Number(x.etudiant_id), JSON.stringify(x.ar ?? null));
     if (x.sante !== undefined) isa.run(Number(x.etudiant_id), JSON.stringify(x.sante ?? null));
     if (x.photo !== undefined) iph.run(Number(x.etudiant_id), JSON.stringify(x.photo ?? null));
+    if (x.recours !== undefined) irc.run(Number(x.etudiant_id), JSON.stringify(x.recours ?? null));
   } })();
   res.json({ ok: true, n: l.length });
 });
@@ -1231,6 +1277,11 @@ int.get('/interne/ph/piece/:id', (req, res) => {
   const g = db.prepare('SELECT contenu FROM ph_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
   if (!g?.contenu) return res.status(404).end();
   res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
+});
+int.get('/interne/rc/piece/:id', (req, res) => {
+  const p = db.prepare(`SELECT p.contenu FROM rc_piece p JOIN rc_geste g ON g.id = p.geste_id WHERE p.id = ? AND g.releve_le IS NULL`).get(Number(req.params.id));
+  if (!p?.contenu) return res.status(404).end();
+  res.setHeader('Content-Type', 'application/octet-stream'); res.send(p.contenu);
 });
 int.get('/interne/cm/piece/:id', (req, res) => {
   const g = db.prepare('SELECT contenu FROM cm_geste WHERE id = ? AND releve_le IS NULL').get(Number(req.params.id));
@@ -1381,6 +1432,8 @@ int.get('/interne/releve', (req, res) => {
     ph: db.prepare('SELECT id, etudiant_id, taille FROM ph_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     pd: db.prepare('SELECT id, etudiant_id, type, texte, cree_le FROM pd_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
+    rc: db.prepare('SELECT id, etudiant_id, texte, cree_le FROM rc_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all()
+      .map(g => ({ ...g, pieces: db.prepare('SELECT id, nom, taille FROM rc_piece WHERE geste_id = ? ORDER BY id').all(g.id) })),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
     messages_accuses: db.prepare('SELECT id, message_id, etudiant_id, accuse_le FROM message_accuse WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le, objet FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
@@ -1422,6 +1475,11 @@ int.post('/interne/acquitter', (req, res) => {
     db.prepare("DELETE FROM ar_geste WHERE releve_le < datetime('now', '-365 days')").run();
     for (const g of Array.isArray(req.body?.pd) ? req.body.pd : []) {
       db.prepare("UPDATE pd_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
+    }
+    for (const g of Array.isArray(req.body?.rc) ? req.body.rc : []) {
+      db.prepare("UPDATE rc_geste SET releve_le = datetime('now'), erreur = ?, resultat = ? WHERE id = ?")
+        .run(g.erreur ? String(g.erreur).slice(0, 400) : null, g.resultat ? String(g.resultat).slice(0, 400) : null, Number(g.id));
+      db.prepare('DELETE FROM rc_piece WHERE geste_id = ?').run(Number(g.id));
     }
     for (const id of ids('pae_avis')) db.prepare("UPDATE pae_avis SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {

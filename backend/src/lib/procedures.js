@@ -164,6 +164,20 @@ export function migrerProcedures(dbx = db) {
 }
 const pret = () => { if (!pretes) migrerProcedures(); };
 
+/** LE CDE RESTREINT SE PROPOSE, IL NE SE TAPE PAS : le président de la séance, puis les chargés de cours de l'UE — à cocher
+ *  présents. Écrit une fois (3.5.658) : l'écran des procédures et le recours introduit en ligne le posent pareil. */
+export function proposerMembresRecours(dossierId, ueNum, annee) {
+  const s = db.prepare(`SELECT president_nom FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?
+    ORDER BY session DESC LIMIT 1`).get(ueNum, annee);
+  const ajM = db.prepare('INSERT INTO proc_membre (dossier_id, role, cle, nom, present) VALUES (?,?,?,?,?)');
+  if (s?.president_nom) ajM.run(dossierId, 'president', null, s.president_nom, 1);
+  for (const p of db.prepare(`SELECT DISTINCT a.professeur_id AS id, p.nom, p.prenom FROM attribution a
+      JOIN professeur p ON p.id = a.professeur_id WHERE a.ue_num = ? AND a.annee_scolaire = ?
+      AND a.professeur_id IS NOT NULL AND COALESCE(a.type_cours,'') <> 'Z' ORDER BY p.nom`).all(ueNum, annee)) {
+    ajM.run(dossierId, 'membre', `p:${p.id}`, `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), 0);
+  }
+}
+
 // ── Lecture ─────────────────────────────────────────────────────────────────
 /** Le dossier complet : ses étapes (dernière valeur), membres, acquis, pièces. */
 export function lireDossier(id) {

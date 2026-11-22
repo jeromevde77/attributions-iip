@@ -6,13 +6,14 @@ import MesAbsences from './MesAbsences.jsx';
 import MaPhoto from './MaPhoto.jsx';
 import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
 import MonAmenagement from './MonAmenagement.jsx';
+import MonRecours from './MonRecours.jsx';
 import VisiteGuidee, { visiteVue } from './VisiteGuidee.jsx';
 import { BoutonRail } from '../components/RailEspace.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
 import { ListeEtats, LigneEtat, Encadre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
-import { IconCamera, IconPaperclip, IconChecks, IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight } from '@tabler/icons-react';
+import { IconCamera, IconPaperclip, IconChecks, IconLoader2, IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase, IconStethoscope, IconHome, IconCalendarEvent, IconStar, IconChevronRight, IconScale } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -1077,7 +1078,7 @@ const GUIDE = [
   ['Mon parcours', "Trois onglets. « Schéma et unités » : votre schéma de capitalisation, puis chaque unité, ses cours, sa DUE et son dossier pédagogique. « Mes résultats » : les décisions du Conseil des études, une fois la délibération close (la grille ci-dessous dit comment les lire). « Mon PAE » : pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige ; une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
   ['Mes documents', "Vos attestations, les décisions qui vous concernent et les règlements de l'école. Ouvrez-les, puis signez l'accusé de réception (un code reçu par courriel). Téléchargement libre pendant 90 jours ; ensuite, un code est demandé."],
   ['Messages', "Ce que l'école vous écrit. Vous pouvez répondre : votre réponse va à la personne qui a écrit."],
-  ['Mes démarches', "Valorisation (faire reconnaître des études ou une expérience, une demande par unité, avec vos pièces), Mon TFE (question de recherche, remises, défense), Mon stage (lieu, pièces, visites), Mes absences (déposer un certificat médical)."],
+  ['Mes démarches', "Valorisation (faire reconnaître des études ou une expérience, une demande par unité, avec vos pièces), Mon TFE (question de recherche, remises, défense), Mon stage (lieu, pièces, visites), Mes absences (déposer un certificat médical), Recours (contester un refus publié, dans les 4 jours calendrier)."],
   ['Mes frais', 'Ce qui est dû, versé, ce qui reste ; et le QR à scanner pour payer avec la bonne communication.'],
   ['Mon compte', 'Changer votre mot de passe ; voir et oublier vos appareils reconnus (trois au plus).'],
 ];
@@ -1500,6 +1501,11 @@ function Espace() {
   const [etatPhoto, setEtatPhoto] = useState(null);
   const photoOuverte = (d?.fonctions || []).includes('photo');
   useEffect(() => { if (photoOuverte) appel('GET', '/photo').then(setEtatPhoto).catch(() => {}); }, [photoOuverte, face]);
+  // LE RECOURS EN LIGNE (3.5.658) : un refus publié dont le délai court se rappelle à « Aujourd'hui ». Ici, avant tout retour anticipé.
+  const [etatRecours, setEtatRecours] = useState(null);
+  const [recoursChoisi, setRecoursChoisi] = useState(null);
+  const recoursOuvert = (d?.fonctions || []).includes('recours');
+  useEffect(() => { if (recoursOuvert) appel('GET', '/recours').then(setEtatRecours).catch(() => {}); }, [recoursOuvert, face]);
 
   const echec = e => {
     if (e.donnees?.hors_belgique) { setHorsBe(e.message); setConnecte(false); setD(null); poser(null); return; }
@@ -1698,7 +1704,7 @@ function Espace() {
     if (p.derniere?.statut === 'refusee') return 'refusee'; if (p.a_photo || p.derniere?.statut === 'a_valider') return null; return 'manque'; })();
   const SOUS = {
     parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
-    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['photo', 'Ma photo'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['photo', 'Ma photo'], ['recours', 'Recours'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
   };
   const FACES = [
     ['aujourdhui', 'Aujourd’hui', IconHome],
@@ -1766,6 +1772,9 @@ function Espace() {
             photoManque && { k: 'photo', etat: photoManque === 'refusee' ? 'corriger' : 'surveiller', I: IconCamera,
               t: photoManque === 'refusee' ? 'Votre photo d’identité n’a pas été acceptée' : 'Déposez votre photo d’identité',
               s: 'Une photo récente, sur fond blanc, pour votre dossier et votre carte d’étudiant', go: () => aller('demarches', 'photo') },
+            ...((etatRecours?.recours?.refus || []).filter(r => r.ouvert).map(r => ({ k: `rec-${r.annee}-${r.ue_num}-${r.session}`, etat: 'surveiller', I: IconScale,
+              t: `Recours possible jusqu’au ${jourFr(r.limite)} — UE ${r.ue_num}`, s: `Refus en ${r.session === 2 ? 'seconde' : 'première'} session, publié le ${jourFr(r.publie_le)}`,
+              go: () => { setRecoursChoisi(`${r.annee}|${r.ue_num}|${r.session}`); aller('demarches', 'recours'); } }))),
             nonLus > 0 && { k: 'msg', etat: 'disponible', I: IconMessages, t: `${nonLus} message(s) non lu(s)`, s: 'De l’école, de votre coordination, de vos enseignants', go: () => aller('messages') },
             a_('pae') && { k: 'pae', etat: 'neutre', I: IconListCheck, t: 'Mon PAE', s: 'Les unités de mon programme, et ma proposition quand la fenêtre est ouverte', go: () => aller('parcours', 'pae') },
             a_('resultats') && { k: 'res', etat: 'neutre', I: IconCertificate, t: 'Mes résultats', s: 'Les décisions des délibérations closes', go: () => aller('parcours', 'resultats') },
@@ -1806,6 +1815,17 @@ function Espace() {
                     <Td>{cellule(1)}</Td><Td>{cellule(2)}</Td>
                     <Td align="droite">{avecDetail && <IconChevronRight size={14} className={`inline text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}</Td>
                   </Tr>
+                  {/* LE RECOURS, À CÔTÉ DU REFUS (3.5.658) : seulement pour une UE refusée dont le délai court, ou dont le recours est introduit. */}
+                  {(() => { const rc = a_('recours') && (etatRecours?.recours?.refus || []).filter(r => r.annee === a.annee && r.ue_num === u.ue_num && (r.ouvert || r.dossier)).slice(-1)[0];
+                    if (!rc) return null;
+                    return (<tr><td colSpan={5} className="pt-0 pb-2 px-3">
+                      <div className="flex flex-wrap items-center justify-end gap-2 text-second">
+                        {rc.dossier ? <span className="text-slate-600">Recours introduit le {jourFr(rc.dossier.introduit_le)}</span>
+                          : <span className="text-slate-600">Vous pouvez contester ce refus jusqu’au <b>{jourFr(rc.limite)}</b></span>}
+                        <button type="button" className={`bouton ${rc.dossier ? '' : 'bouton-fort'} inline-flex items-center gap-1.5`}
+                          onClick={e => { e.stopPropagation(); setRecoursChoisi(rc.dossier ? null : `${rc.annee}|${rc.ue_num}|${rc.session}`); aller('demarches', 'recours'); }}>
+                          <IconScale size={14} /> {rc.dossier ? 'Suivre mon recours' : 'Faire un recours'}</button>
+                      </div></td></tr>); })()}
                   {ouvert && <tr><td colSpan={5} className="p-0"><VoletResultat u={u} /></td></tr>}
                 </Fragment>); })}</tbody>
               </Tableau>
@@ -1844,6 +1864,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'sante' && <MaSante onErreur={echec} />}
         {face === 'demarches' && sousActif === 'photo' && <MaPhoto appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'desinscription' && <MaDesinscription />}
+        {face === 'demarches' && sousActif === 'recours' && <MonRecours key={recoursChoisi || 'r'} appel={appel} onErreur={echec} initial={recoursChoisi} />}
 
         {face === 'frais' && <MesFrais onErreur={echec} />}
         {d && face === 'aide' && <AideRegles onRevoir={() => { setVisiteDepart(0); setVisite(true); }} />}
