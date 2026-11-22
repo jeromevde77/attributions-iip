@@ -17,8 +17,9 @@ import * as gFinances from './guide/finances.js';
 import * as gConfig from './guide/config.js';
 import * as gEcole from './guide/ecole.js';
 import * as gNouveautes from './guide/nouveautes.js';
+import * as gNovembre22 from './guide/novembre22.js';
 
-export const VERSION_DECRITE = '3.5.216';
+export const VERSION_DECRITE = '3.5.646';
 
 export const RUBRIQUES = [
   {
@@ -1761,7 +1762,7 @@ export const RUBRIQUES = [
  * l'administration »). Les compléments vivent dans `lib/guide/*.js`, un fichier par domaine, sous la même forme :
  * `chapitres` (nouveaux), `ajouts` (points ajoutés à un chapitre), `remplacements` (« id|titre » → point refait). Ils
  * s'appliquent ici, une fois, au chargement ; puis les chapitres se rangent dans l'ordre du travail. */
-const COMPLEMENTS = [gMoi, gPresences, gPieces, gFinances, gConfig, gEcole, gNouveautes];
+const COMPLEMENTS = [gMoi, gPresences, gPieces, gFinances, gConfig, gEcole, gNouveautes, gNovembre22];
 const ORDRE_CHAPITRES = ['ensemble', 'demarrage', 'moi', 'accueil', 'equipe',
   'etudiants', 'pae', 'valorisation', 'amenagements', 'deliberation', 'procedures', 'diplomes', 'editions', 'pieces', 'espace',
   'mescours', 'presences', 'cep',
