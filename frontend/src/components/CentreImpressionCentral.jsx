@@ -172,7 +172,15 @@ const PIECES_DOSSIER = [
     route: (id, a) => `/api/cep/etudiant/${id}/piece/assiduite?annee=${a}` },
   { cle: 'cep_seconde_session', label: 'CEP — attestation de seconde session', cep: true,
     route: (id, a) => `/api/cep/etudiant/${id}/piece/seconde_session?annee=${a}` },
+  /* LES AMÉNAGEMENTS RAISONNABLES (3.5.656, Charles : « ajoute les aménagements dans Éditions » — tout se sort d'Éditions).
+     Confidentiels : la liste ne les marque (e.ar) que pour qui a accès aux AR, et seulement les étudiants qui ont un dossier
+     l'année choisie. Le serveur refuse, et nomme ce qui manque, tant que la décision n'est pas complète. */
+  { cle: 'amenagement_formulaire', label: 'AR — demande (cadres A et B)', ar: true, route: (id, a) => `/api/amenagements/etudiant/${id}/piece/formulaire?annee=${a}` },
+  { cle: 'amenagement_decision', label: 'AR — décision du Conseil des études', ar: true, route: (id, a) => `/api/amenagements/etudiant/${id}/piece/decision?annee=${a}` },
+  { cle: 'amenagement_notification', label: 'AR — notification de la décision', ar: true, route: (id, a) => `/api/amenagements/etudiant/${id}/piece/notification?annee=${a}` },
+  { cle: 'amenagement_mesures', label: 'AR — fiche « mesures » (chargés de cours)', ar: true, route: (id, a) => `/api/amenagements/etudiant/${id}/piece/mesures?annee=${a}` },
 ];
+const ROLES_AR = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
 
 /* ══ LA VALORISATION DES ACQUIS, DEPUIS ÉDITIONS ══════════════════════════
  *
@@ -1997,7 +2005,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     : (perimetre?.session || perimetre?.org != null || (perimetre?.pieces || []).some(c => PIECES.some(p => !p.nominatif && p.cle === c))) ? 'seance'
     : (perimetre?.coches?.length || perimetre?.sections?.length || perimetre?.ue_nums?.length || selectionEtudiants().ids.length) ? 'groupe' : 'personne');
   const seance = pourQui === 'seance';
-  const famillePieces = seance ? PIECES : [...PIECES.filter(p => p.nominatif), ...PIECES_DOSSIER];
+  const famillePiecesTout = seance ? PIECES : [...PIECES.filter(p => p.nominatif), ...PIECES_DOSSIER];
   /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
      longtemps ; celui des étudiants reprenait l'année de travail sans jamais
      la dire. Pour retirer une attestation de l'an dernier, il fallait changer
@@ -2165,6 +2173,9 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     if (seul) l = l.filter(e => e.id === seul.id);
     return q ? l.filter(e => `${e.nom} ${e.prenom}`.toLowerCase().includes(q)) : l;
   }, [liste, recherche, seul]);
+  // Les pièces des AR ne paraissent qu'à qui y a accès : le serveur ne marque e.ar que pour lui.
+  const voitAR = ROLES_AR.includes(getUser()?.role) || (liste?.etudiants || []).some(e => e.ar);
+  const famillePieces = famillePiecesTout.filter(p => !p.ar || voitAR);
 
   /* UNE SEULE RECHERCHE (3.1.497, Charles : « deux fois la recherche de l'étudiant ») : « Un nom… » filtre la liste
      du périmètre ; quand elle n'y trouve personne, elle cherche dans toute l'école et ouvre les pièces de celui
@@ -2505,10 +2516,10 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
      grisent, la liste ne montre que les étudiants en séjour limité aux études,
      et la sélection s'y réduit. On en sort en décochant les annexes. */
   // Le public d'une pièce : 'sle', 'cep', ou personne en particulier.
-  const publicDe = p => (p.sle ? 'sle' : p.cep ? 'cep' : null);
+  const publicDe = p => (p.sle ? 'sle' : p.cep ? 'cep' : p.ar ? 'ar' : null);
   const modePublic = seance ? null : (dossierChoisi.map(publicDe).find(Boolean) || null);
   const modeSLE = modePublic === 'sle';
-  const NOM_PUBLIC = { sle: 'SLE : seuls les étudiants en séjour limité aux études', cep: 'CEP : seuls les étudiants au congé-éducation payé' };
+  const NOM_PUBLIC = { sle: 'SLE : seuls les étudiants en séjour limité aux études', cep: 'CEP : seuls les étudiants au congé-éducation payé', ar: 'AR : seuls les étudiants qui ont un dossier d’aménagement' };
   const visibles = etudiants
     .filter(e => !seance || e.decide)
     .filter(e => !modePublic || e[modePublic])
@@ -2548,7 +2559,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     }
     if (choix.reussite) l.push(parcours ? 'Attestations — toutes les années' : 'Attestations de l’année');
     if (parcours) return l;
-    for (const p of PIECES_DOSSIER) if (choix[p.cle] && (!p.sle || e.sle) && (!p.cep || e.cep)) l.push(p.cep ? p.label.replace('CEP — attestation d’', 'CEP ') : p.label.split(' — ')[0]);
+    for (const p of PIECES_DOSSIER) if (choix[p.cle] && (!p.sle || e.sle) && (!p.cep || e.cep) && (!p.ar || e.ar)) l.push(p.cep ? p.label.replace('CEP — attestation d’', 'CEP ') : p.label.split(' — ')[0]);
     return l;
   };
   /** Une pièce à cocher — repère de couleur, case, intitulé, public, compte. */
@@ -2586,6 +2597,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       );
     })()}
     {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1 whitespace-nowrap">CEP · {etudiants.filter(e => e.cep).length}</span>}
+    {p.ar && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1 whitespace-nowrap">AR · {etudiants.filter(e => e.ar).length}</span>}
     {!seance && LIBELLE_HORS_SEANCE[p.cle] && <span className="ml-auto text-xs text-slate-400 tabular-nums">{decisionsPortee(p.cle).length}</span>}
     {p.nominatif && dispo(p) && seance && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
   </label>
@@ -2609,6 +2621,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     if (p.cle === 'listes') return session === 1 && etudiants.some(e => e.decide);
     if (p.sle && !etudiants.some(e => e.sle)) return false;
     if (p.cep && !etudiants.some(e => e.cep)) return false;
+    if (p.ar && !etudiants.some(e => e.ar)) return false;
     if (modePublic && PIECES_DOSSIER.includes(p) && publicDe(p) !== modePublic) return false;
     return true;
   };
@@ -2881,8 +2894,14 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             <div className={plusieursAnnees ? 'hidden' : 'mt-5'}>
               <div className="intertitre pl-3 mb-0">Inscription</div>
               <p className="text-second text-slate-500 mt-0 mb-2 pl-3">PAE, fiche, attestation d’inscription, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</p>
-              {famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle)).map(p => lignePiece(p))}
+              {famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle) && !p.ar).map(p => lignePiece(p))}
             </div>
+            {famillePieces.some(p => p.ar) && (
+              <div className={plusieursAnnees ? 'hidden' : 'mt-5'}>
+                <div className="intertitre pl-3 mb-0">Aménagements raisonnables</div>
+                <p className="text-second text-slate-500 mt-0 mb-2 pl-3">seulement les étudiants qui ont un dossier cette année — confidentiel</p>
+                {famillePieces.filter(p => p.ar).map(p => lignePiece(p))}
+              </div>)}
             </>}
           </div>
           {/* Hors séance, une pièce par document et par étudiant, toujours : la phrase qui le disait sous les listes est retirée. */}
