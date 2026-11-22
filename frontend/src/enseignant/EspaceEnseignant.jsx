@@ -1,4 +1,5 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
+import { useEcrireEtudiants } from '../lib/ecrireEtudiants.js';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
@@ -333,6 +334,8 @@ function MesUE() {
   const [fiche, setFiche] = useState(null);
   const [liste, setListe] = useState(null);
   const [ecrire, setEcrire] = useState(false);
+  // Écrire à mes étudiants, coupé pour le moment (3.5.650) : suit la fonction de Mise en service.
+  const ecrireOuvert = useEcrireEtudiants(false);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
   if (!t) return <ChargementLucie />;
   if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
@@ -342,7 +345,7 @@ function MesUE() {
           dossier pédagogique et la DUE dans Mes unités ; ici, les étudiants — et leur écrire. */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="titre-ecran !mb-0 flex-1">Mes étudiants{t.annee ? <span className="compte">{t.annee}</span> : null}</h1>
-        <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>
+        {ecrireOuvert && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setEcrire(true)}><IconMessages size={16} /> Écrire à mes étudiants</button>}
       </div>
       {/* PAR BLOC (3.5.627, Charles : « tout ce qui est B1, une tuile avec parties ; B2 idem ») : les unités d'un bloc forment une pile
           à la couleur du bloc ; deux blocs, deux piles. */}
