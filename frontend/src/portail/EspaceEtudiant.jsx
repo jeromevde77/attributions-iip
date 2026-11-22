@@ -1816,8 +1816,11 @@ function Espace() {
                     <Td align="droite">{avecDetail && <IconChevronRight size={14} className={`inline text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />}</Td>
                   </Tr>
                   {/* LE RECOURS, À CÔTÉ DU REFUS (3.5.658) : seulement pour une UE refusée dont le délai court, ou dont le recours est introduit. */}
-                  {(() => { const rc = a_('recours') && (etatRecours?.recours?.refus || []).filter(r => r.annee === a.annee && r.ue_num === u.ue_num && (r.ouvert || r.dossier)).slice(-1)[0];
+                  {(() => { const rc = a_('recours') && (etatRecours?.recours?.refus || []).filter(r => r.annee === a.annee && r.ue_num === u.ue_num).slice(-1)[0];
                     if (!rc) return null;
+                    // DÉLAI PASSÉ (Charles, 23 novembre 2026) : une mention grise, sans bouton.
+                    if (!rc.ouvert && !rc.dossier) return (<tr><td colSpan={5} className="pt-0 pb-2 px-3 text-right text-second text-slate-500">
+                      Délai de recours passé le {jourFr(rc.limite)} — pour toute question, adressez-vous à la direction.</td></tr>);
                     return (<tr><td colSpan={5} className="pt-0 pb-2 px-3">
                       <div className="flex flex-wrap items-center justify-end gap-2 text-second">
                         {rc.dossier ? <span className="text-slate-600">Recours introduit le {jourFr(rc.dossier.introduit_le)}</span>

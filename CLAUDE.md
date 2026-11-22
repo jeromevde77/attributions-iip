@@ -3543,7 +3543,7 @@ sur la date du geste, doublon ; ouvre `proc_dossier` + étape `plainte` mode `en
 `proc_piece` catégorie `plainte_en_ligne` ; notifie direction à sa personne et coordination de la section, lien
 `/procedures?dossier=<id>`). Portail : `rc_geste`, `rc_piece`, `espace_lot.recours`, routes `/api/portail/recours` (36 Mo, nginx
 compris). Écran `portail/MonRecours.jsx` (cinq étapes) ; bouton sous l'UE refusée dans Mes résultats ; rappel à Aujourd'hui. Banc
-`test/recoursEnLigne.mjs` (21 ok).
+`test/recoursEnLigne.mjs` (21 ok). Délai passé (3.5.659, Charles) : sous l'UE refusée, une mention grise, sans bouton ; `refusRecourables` garde tous les refus publiés.
 
 **LA VALIDATION DES VA TRAVERSE LES UNITÉS** (3.5.389, Charles : « déjà validé par les coordinations ; en tant que directeur je signe ;
 cela doit être possible »). `POST /valorisations/lot/validation` n'appelle plus `memeSeance` ; l'écran ne borne plus le geste
