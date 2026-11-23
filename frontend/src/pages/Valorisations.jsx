@@ -2688,7 +2688,10 @@ function AnalyserEnSerie({ annee, onClose, onChange, gesteInitial }) {
   const [q, setQ] = useState('');
   const [fSection, setFSection] = useState('');
   const [fUe, setFUe] = useState('');
-  const [fEtat, setFEtat] = useState(gesteInitial === 'validation' ? 'decidee' : '');
+  /* « À VALIDER » N'EST PAS UN ÉTAT (3.5.663, Charles : « je ne le trouve pas » — KRYGIER, UE 254, refus décidé puis NOTIFIÉ sans
+     avoir été validé : son état « notifiée » le cachait du filtre « Décidée », alors que le tableau de bord le comptait). Le
+     tableau de bord compte « décidé, non validé » ; le filtre lit la même chose. */
+  const [fEtat, setFEtat] = useState(gesteInitial === 'validation' ? '__a_valider' : '');
 
   // Le geste qu'on s'apprête à poser.
   const [geste, setGeste] = useState(gesteInitial || 'recevabilite');   // recevabilite | decision | validation
@@ -2755,7 +2758,8 @@ function AnalyserEnSerie({ annee, onClose, onChange, gesteInitial }) {
     return tous.filter(d => {
       if (fSection && d.section !== fSection) return false;
       if (fUe !== '' && String(d.ue_num) !== String(fUe)) return false;
-      if (fEtat && d.etat !== fEtat) return false;
+      if (fEtat === '__a_valider') { if (!d.decision_le || d.valide_le) return false; }
+      else if (fEtat && d.etat !== fEtat) return false;
       if (!t) return true;
       return `${d.nom} ${d.prenom}`.toLowerCase().includes(t)
         || String(d.id_ecampus || '').toLowerCase().includes(t);
@@ -3462,6 +3466,7 @@ function AnalyserEnSerie({ annee, onClose, onChange, gesteInitial }) {
             <select value={fEtat} onChange={e => setFEtat(e.target.value)}
               className="controle text-sm">
               <option value="">Tous les états</option>
+              <option value="__a_valider">À valider (décidées, pas encore validées)</option>
               {(donnees?.etats || []).map(e => (
                 <option key={e.val || e} value={e.val || e}>{e.label || e}</option>
               ))}
