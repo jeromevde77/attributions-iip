@@ -67,7 +67,7 @@ export function appliquer(cm, par) {
 
 /** Prévenir les professeurs des séances de la période et le secrétariat. */
 function notifier(cm, titre, corps, par) {
-  const lien = '/etudiants?outil=presence-qr';
+  const lien = '/etudiants?outil=suivi-presences&face=certificats';
   const ins = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_user_id, cible_role, cree_par)
     VALUES ('certificat_medical', ?, ?, ?, ?, ?, ?)`);
   try {

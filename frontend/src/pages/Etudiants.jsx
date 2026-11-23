@@ -3055,7 +3055,10 @@ export default function Etudiants() {
   const [nouvel, setNouvel] = useState(false);
   // Les contrôles des dossiers, venus de Configuration (lot 4) : la face ouverte.
   const [controles, setControles] = useState(null);
-  const [suiviQR, setSuiviQR] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'suivi-presences'; } catch { return false; } });
+  const [suiviQR, setSuiviQR] = useState(() => { try { return ['suivi-presences', 'presence-qr'].includes(new URLSearchParams(window.location.search).get('outil')); } catch { return false; } });
+  // La face demandée par un lien (« ?face=certificats » des notifications de certificat médical).
+  // L'ancien lien « ?outil=presence-qr » n'était porté que par ces notifications : il ouvre les certificats.
+  const faceSuiviQR = (() => { try { const q = new URLSearchParams(window.location.search); return q.get('face') || (q.get('outil') === 'presence-qr' ? 'certificats' : null); } catch { return null; } })();
   const [extraits, setExtraits] = useState(false);
   const [paeEnLigne, setPaeEnLigne] = useState(false);
   // LES REFUS EN 2E SESSION (3.5.029) : ouverts aussi depuis la notification (/etudiants?outil=refus2).
@@ -4220,7 +4223,7 @@ export default function Etudiants() {
         <Suspense fallback={null}><PropositionsPAE Revue={RevuePAE} onFermer={() => { setPaeEnLigne(false); charger(); }} /></Suspense>
       )}
       {suiviQR && (
-        <Suspense fallback={null}><PresenceQRSuivi onFermer={() => setSuiviQR(false)} /></Suspense>
+        <Suspense fallback={null}><PresenceQRSuivi faceInitiale={faceSuiviQR} onFermer={() => setSuiviQR(false)} /></Suspense>
       )}
 
       {nouvel && (

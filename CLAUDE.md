@@ -3545,6 +3545,10 @@ sur la date du geste, doublon ; ouvre `proc_dossier` + étape `plainte` mode `en
 compris). Écran `portail/MonRecours.jsx` (cinq étapes) ; bouton sous l'UE refusée dans Mes résultats ; rappel à Aujourd'hui. Banc
 `test/recoursEnLigne.mjs` (21 ok). Délai passé (3.5.659, Charles) : sous l'UE refusée, une mention grise, sans bouton ; `refusRecourables` garde tous les refus publiés.
 
+**LA NOTIFICATION D'UN CERTIFICAT MÉDICAL MÈNE AUX CERTIFICATS** (3.5.661, Charles : « je ne trouve pas les certificats médicaux ») : le lien
+`/etudiants?outil=presence-qr` n'ouvrait rien (Étudiants n'attendait que `suivi-presences`). Lien désormais
+`?outil=suivi-presences&face=certificats` ; `?face=` choisit l'onglet de Suivi des présences ; l'ancien lien ouvre les certificats.
+
 **UN PAE CONTESTÉ NE SE REDEMANDE PAS** (3.5.660, Charles, 23 novembre 2026 — premier jour de l'espace : un étudiant contestait
 trois fois, la confirmation lui étant redemandée à chaque connexion). `pae_avis.programme` (portail) garde le programme visé ;
 `signalementEnCours` : tant que le programme déposé est le même, `/moi` ne demande pas la confirmation, `/pae/signaler` répond 409,
