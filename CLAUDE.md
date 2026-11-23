@@ -3557,6 +3557,12 @@ prend le motif du justificatif (`appliquer`, `couvre` d'`ecrirePresences`). Les 
 d'institut : l'espace ouvrait le premier) : l'écran des doublons rapproche aussi les dossiers qui partagent une adresse d'institut.
 Banc : `test/certificats.mjs` (7 ok).
 
+**LE DOSSIER DE SUIVI CONFIDENTIEL : LA DIRECTION CHOISIT QUI LE VOIT** (3.5.662, Charles : « restreint à la direction et la
+coordination ; je dois choisir qui voit »). `rolesSuivi()` (`routes/suiviEtudiant.js`, `lucie_config` « suivi_etudiant_roles » ; défaut
+`['coordination']`) : la direction toujours ; la coordination cochée = ses sections ; un autre rôle coché = tous les dossiers ;
+« enseignants » = les enseignants de l'étudiant (attribution). `GET/PUT /api/suivi-etudiant/reglage` (direction), carte de
+Configuration → Accès → Rôles (`SuiviConfidentiel`, RolesPlafonds.jsx). Le bloc « Son espace étudiant » (SuiviEspace) n'en dépend pas.
+
 **UN PAE CONTESTÉ NE SE REDEMANDE PAS** (3.5.660, Charles, 23 novembre 2026 — premier jour de l'espace : un étudiant contestait
 trois fois, la confirmation lui étant redemandée à chaque connexion). `pae_avis.programme` (portail) garde le programme visé ;
 `signalementEnCours` : tant que le programme déposé est le même, `/moi` ne demande pas la confirmation, `/pae/signaler` répond 409,

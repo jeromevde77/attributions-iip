@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { Chevron as ChevronMaison } from '../components/ui.jsx';
+import { Chevron as ChevronMaison, EnteteCarte } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown, IconCheck, IconArrowBackUp, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
@@ -448,6 +448,47 @@ function JournalGestes({ lignes, g }) {
   );
 }
 
+/* LE DOSSIER DE SUIVI CONFIDENTIEL (3.5.662, Charles : « je dois choisir qui voit »). L'onglet Suivi de la fiche de l'étudiant :
+   ses notes, rapports et documents. La direction le voit toujours ; elle coche ici qui d'autre. Serveur : routes/suiviEtudiant.js. */
+function SuiviConfidentiel() {
+  const [d, setD] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [etat, setEtat] = useState(null);
+  useEffect(() => {
+    fetch('/api/suivi-etudiant/reglage', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null))
+      .then(j => { if (j) { setD(j); setRoles(j.roles); } }).catch(() => {});
+  }, []);
+  if (!d) return null;
+  const change = JSON.stringify([...roles].sort()) !== JSON.stringify([...d.roles].sort());
+  async function enregistrer() {
+    setEtat('…');
+    const r = await fetch('/api/suivi-etudiant/reglage', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ roles }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { setD(x => ({ ...x, roles: j.roles })); setRoles(j.roles); setEtat('Enregistré.'); } else setEtat(j.error || 'Erreur');
+  }
+  return (
+    <div className="carte overflow-hidden mt-4">
+      <EnteteCarte titre="Dossier de suivi confidentiel" sous="Fiche de l’étudiant → onglet Suivi : notes, rapports, documents" />
+      <div className="px-4 py-3 space-y-2">
+        <p className="text-sm text-slate-600 m-0">La direction le voit toujours. Cochez qui d’autre peut le lire et y écrire ; personne d’autre
+          ne l’ouvre, le serveur le refuse. Le bloc « Son espace étudiant » du même onglet n’est pas concerné.</p>
+        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1">
+          {d.choix.map(c => (
+            <label key={c.cle} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={roles.includes(c.cle)}
+                onChange={e => setRoles(x => (e.target.checked ? [...x, c.cle] : x.filter(k => k !== c.cle)))} />
+              {c.libelle}
+            </label>))}
+        </div>
+        <div className="flex items-center gap-3 pt-1">
+          <button type="button" className="bouton bouton-fort controle" disabled={!change} onClick={enregistrer}>Enregistrer</button>
+          {etat && <span className="text-second text-slate-500">{etat}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RolesPlafonds({ partie = 'roles' }) {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
@@ -624,6 +665,8 @@ export default function RolesPlafonds({ partie = 'roles' }) {
           </span>
         </Legende>
       </div>}
+
+      {partie === 'roles' && <SuiviConfidentiel />}
 
       {partie === 'gestes' && <Gestes plafonds={data.plafonds} onMessage={setMessage} />}
 

@@ -8,8 +8,8 @@ import { demander } from '../lib/dialogue.jsx';
  * LE DOSSIER DE SUIVI — l'onglet confidentiel de la fiche étudiant.
  *
  * Notes de suivi, rapports, documents joints : signés, datés, et réservés par
- * LE SERVEUR aux enseignants de l'étudiant, à la coordination de sa section
- * et à la direction. L'écran ne décide rien : si la porte est fermée, il le
+ * LE SERVEUR à la direction et à ceux qu'elle désigne (Configuration → Accès,
+ * 3.5.662 ; par défaut la coordination de sa section). L'écran ne décide rien : si la porte est fermée, il le
  * dit — il ne cache pas un onglet en espérant que personne ne trouve l'URL.
  */
 const TYPES = {

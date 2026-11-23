@@ -25,6 +25,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections, NIVEAU_DIRECTION } from '../middleware/auth.js';
+import { rolesConnus } from '../middleware/permissions.js';
 import { sectionRattachement } from './etudiants.js';
 import multer from 'multer';
 import { mkdirSync } from 'fs';
@@ -54,13 +55,27 @@ export function migrerSuiviEtudiant(dbx) {
   } catch (e) { console.error('[migration] etudiant_suivi :', e.message); }
 }
 
+/* QUI VOIT LE DOSSIER — LA DIRECTION CHOISIT (3.5.662, Charles, 23 novembre 2026 : « restreint à la direction et la
+ * coordination ; je dois choisir qui voit »). Réglage `lucie_config` « suivi_etudiant_roles » : une liste de rôles, plus
+ * « enseignants » (les enseignants de l'étudiant, par attribution). La direction le voit toujours. La coordination ne voit
+ * que les étudiants de ses sections ; un autre rôle coché voit tous les dossiers. Défaut : la coordination seule. */
+export const ENSEIGNANTS = 'enseignants';
+export function rolesSuivi() {
+  try {
+    const v = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'suivi_etudiant_roles'").get()?.valeur || 'null');
+    if (Array.isArray(v)) return v.map(String);
+  } catch { /* défaut */ }
+  return ['coordination'];
+}
+
 /* QUI VOIT LE DOSSIER DE CET ÉTUDIANT — la règle, écrite une fois. */
 function peutVoirSuivi(user, etudId) {
   if (!user) return false;
   if (NIVEAU_DIRECTION.includes(user.role)) return true;
+  const roles = rolesSuivi();
 
   // La coordination : sa section couvre celle de l'étudiant.
-  if (user.role === 'coordination') {
+  if (user.role === 'coordination' && roles.includes('coordination')) {
     const perim = getUserSections(user);            // null = toutes
     if (perim === null) return true;
     const { section } = sectionRattachement(etudId) || {};
@@ -79,7 +94,11 @@ function peutVoirSuivi(user, etudId) {
     return false;
   }
 
-  // Un enseignant : une attribution dans une UE où l'étudiant est inscrit.
+  // Un autre rôle coché : tous les dossiers.
+  if (user.role !== 'coordination' && roles.includes(user.role)) return true;
+
+  // Un enseignant de l'étudiant (si la direction l'a coché) : une attribution dans une UE où il est inscrit.
+  if (!roles.includes(ENSEIGNANTS)) return false;
   const profId = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?')
     .get(user.id)?.professeur_id || null;
   if (profId) {
@@ -98,8 +117,7 @@ function garde(req, res, next) {
   if (!Number.isFinite(etudId)) return res.status(400).json({ error: 'étudiant requis' });
   if (!peutVoirSuivi(req.user, etudId)) {
     return res.status(403).json({
-      error: 'Dossier confidentiel : réservé aux enseignants de cet étudiant, '
-           + 'à la coordination de sa section et à la direction.',
+      error: 'Dossier confidentiel : réservé à la direction et aux personnes qu’elle a désignées.',
     });
   }
   req._suiviEtudId = etudId;
@@ -121,6 +139,26 @@ const stockage = multer.diskStorage({
 const upload = multer({ storage: stockage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 // ── Lire le dossier ──────────────────────────────────────────────────────────
+/* LE RÉGLAGE — lu et écrit par la direction (Configuration → Accès). Avant les routes paramétriques. */
+r.get('/reglage', authRequired, (req, res) => {
+  if (!NIVEAU_DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const rc = rolesConnus();
+  const LIB = { coordination: 'Coordination (étudiants de ses sections)', secretariat: 'Secrétariat', professeur: 'Professeur (tous les dossiers)',
+    conseiller_qualite: 'Conseiller qualité', comptabilite: 'Comptabilité', consultation: 'Consultation', editeur: 'Éditeur' };
+  const choix = rc.codes.filter(c => !NIVEAU_DIRECTION.includes(c)).map(c => ({ cle: c, libelle: LIB[c] || rc.libelles?.[c] || c }));
+  choix.push({ cle: ENSEIGNANTS, libelle: 'Les enseignants de l’étudiant (une attribution dans une de ses UE)' });
+  res.json({ roles: rolesSuivi(), choix });
+});
+r.put('/reglage', authRequired, (req, res) => {
+  if (!NIVEAU_DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
+  const connus = new Set([...rolesConnus().codes, ENSEIGNANTS]);
+  const roles = [...new Set((Array.isArray(req.body?.roles) ? req.body.roles : []).map(String))]
+    .filter(c => connus.has(c) && !NIVEAU_DIRECTION.includes(c));
+  db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES ('suivi_etudiant_roles', ?)
+    ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(JSON.stringify(roles));
+  res.json({ ok: true, roles });
+});
+
 r.get('/:etudiantId', authRequired, garde, (req, res) => {
   migrerSuiviEtudiant(db);
   const notes = db.prepare(`
