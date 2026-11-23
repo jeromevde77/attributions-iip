@@ -582,7 +582,8 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
      tant que le programme de l'année n'est pas confirmé par l'étudiant — ou qu'il a changé depuis —, l'espace le lui demande. */
   const o = f.has('pae') ? offrePAEde(e.id) : null;
   const signeEnCours = !!db.prepare("SELECT 1 FROM pae_geste WHERE etudiant_id = ? AND type = 'signer' AND releve_le IS NULL").get(e.id);
-  const paeAValider = !req.candidat && !!(o?.programme?.length) && !(o.signature?.a_jour) && !signeEnCours;
+  const signale = o ? signalementEnCours(e.id, o) : null;
+  const paeAValider = !req.candidat && !!(o?.programme?.length) && !(o.signature?.a_jour) && !signeEnCours && !signale;
   res.json({ fonctions: [...f], apercu: req.apercu || null, essai: !!e.essai, pae_a_valider: paeAValider ? { annee: o.annee } : null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
     resultats: !f.has('resultats') ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })),
@@ -1054,9 +1055,28 @@ pub.post('/api/portail/messages/:id/repondre', connecte, exige('messages'), (req
 
 // ── LE PAE EN LIGNE (3.1.515) ──
 const offrePAEde = id => { try { return JSON.parse(db.prepare('SELECT offre FROM pae_lot WHERE etudiant_id = ?').get(id)?.offre || 'null'); } catch { return null; } };
+/* UN PAE CONTESTÉ NE SE REDEMANDE PAS (3.5.660, Charles, 23 novembre 2026 : un même étudiant contestait trois fois, la
+   confirmation lui étant redemandée à chaque connexion). Le signalement garde le programme qu'il visait : tant que ce programme
+   n'a pas changé, l'espace ne redemande pas la confirmation et ne laisse pas renvoyer le même signalement ; dès que la
+   coordination le corrige (le programme déposé diffère), la confirmation est redemandée. */
+try { db.exec('ALTER TABLE pae_avis ADD COLUMN programme TEXT'); } catch { /* déjà là */ }
+const progCle = o => JSON.stringify([...(o?.programme || [])].map(Number).sort((a, b) => a - b));
+try { // Les signalements d'avant : rattachés au programme déposé aujourd'hui (celui qu'ils contestaient).
+  for (const a of db.prepare('SELECT id, etudiant_id FROM pae_avis WHERE programme IS NULL').all()) {
+    const o = offrePAEde(a.etudiant_id);
+    if (o?.programme) db.prepare('UPDATE pae_avis SET programme = ? WHERE id = ?').run(progCle(o), a.id);
+  }
+} catch (x) { console.error('[portail] pae_avis :', x.message); }
+/** Le dernier signalement de l'étudiant sur le programme ACTUEL, s'il y en a un. */
+function signalementEnCours(id, o) {
+  if (!o?.programme?.length) return null;
+  return db.prepare(`SELECT cree_le AS le, message FROM pae_avis WHERE etudiant_id = ? AND COALESCE(annee, '') = COALESCE(?, '')
+    AND programme = ? ORDER BY id DESC LIMIT 1`).get(id, o.annee || null, progCle(o)) || null;
+}
 pub.get('/api/portail/pae', connecte, exige('pae'), (req, res) => {
   const id = req.etudiant.id;
-  res.json({ pret: !!db.prepare('SELECT 1 FROM pae_lot WHERE etudiant_id = ?').get(id), offre: offrePAEde(id),
+  const o = offrePAEde(id);
+  res.json({ pret: !!db.prepare('SELECT 1 FROM pae_lot WHERE etudiant_id = ?').get(id), offre: o, signale: signalementEnCours(id, o),
     en_attente: db.prepare('SELECT id, type, cree_le FROM pae_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id),
     refus: db.prepare('SELECT id, type, erreur FROM pae_geste WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL ORDER BY id').all(id) });
 });
@@ -1105,7 +1125,9 @@ pub.post('/api/portail/pae/signaler', connecte, exige('pae'), (req, res) => {
     return res.status(429).json({ error: 'Vous avez déjà signalé plusieurs fois aujourd’hui : votre coordination vous répondra.' });
   }
   const o = offrePAEde(req.etudiant.id);
-  db.prepare('INSERT INTO pae_avis (etudiant_id, annee, message) VALUES (?,?,?)').run(req.etudiant.id, o?.annee || null, message);
+  const deja = signalementEnCours(req.etudiant.id, o);
+  if (deja) return res.status(409).json({ error: 'Vous avez déjà signalé ce programme : votre coordination vous répondra. Pour ajouter quelque chose, écrivez-lui dans « Messages ».' });
+  db.prepare('INSERT INTO pae_avis (etudiant_id, annee, message, programme) VALUES (?,?,?,?)').run(req.etudiant.id, o?.annee || null, message, progCle(o));
   res.json({ ok: true });
 });
 /** Confirmer son PAE (celui que l'école a confirmé) : par le code reçu à l'adresse d'école (POST /code, objet « pae »). */
