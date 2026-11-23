@@ -409,9 +409,11 @@ async function relever() {
         if (!contenu?.length || !mime) erreur = 'Le fichier n’a pas pu être lu : déposez-le à nouveau (PDF ou photo).';
         else {
           const x = deposerCertificat({ etudiantId: e.id, du: g.du, au: g.au, fichier: { nom: g.nom || 'certificat', mime, buffer: contenu },
-            deposePar: 'etudiant', par: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} (étudiant, en ligne)`, annee: anneeActive() });
+            deposePar: 'etudiant', par: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} (étudiant, en ligne)`, annee: anneeActive(),
+            motif: g.motif || 'medical' });
           if (x.erreur) erreur = x.erreur;
-          else resultat = x.hors_delai ? `Reçu après la limite du ${String(x.limite).split('-').reverse().join('/')} : la direction décidera.`
+          else resultat = x.a_decider && !x.hors_delai ? 'Reçu : le secrétariat l’examine, puis vos absences de la période seront justifiées.'
+            : x.hors_delai ? `Reçu après la limite du ${String(x.limite).split('-').reverse().join('/')} : l’école décidera.`
             : 'Reçu dans le délai : vos absences de la période sont justifiées.';
         }
       }

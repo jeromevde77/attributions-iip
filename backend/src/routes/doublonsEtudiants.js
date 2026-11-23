@@ -92,10 +92,22 @@ function fiche(id) {
  * rien ne se fusionne tout seul et pourquoi la fusion en lot ne prend que les
  * groupes dont les dates de naissance ne se contredisent pas.
  */
+/* Une date de naissance s'écrit « 2004-06-22 » ou « 22 juin 2004 » selon l'import : on compare la date, pas l'écriture. */
+const MOIS = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12 };
+function dateIso(v) {
+  const t = String(v || '').trim();
+  if (!t) return '';
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  m = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().match(/^(\d{1,2})\s+([a-z]+)\s+(\d{4})$/);
+  if (m && MOIS[m[2]]) return `${m[3]}-${String(MOIS[m[2]]).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return t.slice(0, 10);
+}
+
 r.get('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
        'secretariat'), (req, res) => {
   const tous = db.prepare(`
-    SELECT id, nom, prenom, id_ecampus, date_naissance FROM etudiant
+    SELECT id, nom, prenom, id_ecampus, date_naissance, email_ecole FROM etudiant
     WHERE nom IS NOT NULL AND nom != ''
   `).all();
 
@@ -105,12 +117,25 @@ r.get('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
     if (k.length < 3) continue;
     (par.get(k) || par.set(k, []).get(k)).push(e);
   }
+  /* LA MÊME ADRESSE D'INSTITUT (3.5.661, Abena BRANDON BUSSE : un dossier « Abena » en optométrie, un « Abena Pit-Kevin » en TIM,
+     son espace ouvrait le premier). Une adresse d'institut appartient à une seule personne : deux dossiers qui la partagent sont
+     pressentis, même quand les prénoms diffèrent. Un groupe déjà trouvé par le nom n'est pas répété. */
+  const dejaVus = new Set([...par.values()].filter(l => l.length > 1).map(l => l.map(x => x.id).sort((a, b) => a - b).join(',')));
+  const parMail = new Map();
+  for (const e of tous) {
+    const m = String(e.email_ecole || '').trim().toLowerCase();
+    if (!m.includes('@')) continue;
+    (parMail.get(m) || parMail.set(m, []).get(m)).push(e);
+  }
+  for (const [m, l] of parMail) {
+    if (l.length < 2 || dejaVus.has(l.map(x => x.id).sort((a, b) => a - b).join(','))) continue;
+    par.set(`mail|${m}`, l);
+  }
 
   const groupes = [];
   for (const [, l] of par) {
     if (l.length < 2) continue;
-    const naiss = [...new Set(l.map(x => String(x.date_naissance || '').slice(0, 10))
-      .filter(Boolean))];
+    const naiss = [...new Set(l.map(x => dateIso(x.date_naissance)).filter(Boolean))];
     groupes.push({
       cle: `${l[0].nom} ${l[0].prenom}`,
       // SÛR : les dates de naissance connues ne se contredisent pas. C'est le

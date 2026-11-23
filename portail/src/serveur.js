@@ -152,6 +152,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS ts_geste (id INTEGER PRIMARY KEY AUTOINCREME
 db.exec(`CREATE TABLE IF NOT EXISTS cm_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
   du TEXT NOT NULL, au TEXT NOT NULL, nom TEXT, taille INTEGER, contenu BLOB,
   cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, resultat TEXT)`);
+// Le type de justificatif (3.5.661) : certificat médical, ou grève, employeur… — jugé par Lucie.
+if (!db.prepare("SELECT 1 FROM pragma_table_info('cm_geste') WHERE name = 'motif'").get()) db.exec("ALTER TABLE cm_geste ADD COLUMN motif TEXT NOT NULL DEFAULT 'medical'");
+const NATURES_CM = ['medical', 'medical_proche', 'greve', 'professionnel', 'petit_chomage', 'intemperies'];
 
 /* LE RECOURS EN LIGNE (3.5.658) : la plainte contre un refus (griefs) et ses pièces ; notée ici, jugée et écrite par Lucie au
    relevé (lib/recoursEnLigne.js), qui dépose en retour les refus publiés et l'état du recours (espace_lot.recours). */
@@ -860,7 +863,7 @@ pub.get('/api/portail/stage', connecte, exige('stage'), (req, res) => {
 const estImageOuPdf = b => { if (!b || b.length < 4) return false; const h = b.toString('hex', 0, 4);
   return b.toString('latin1', 0, 4) === '%PDF' || h.startsWith('ffd8ff') || h === '89504e47'; };
 pub.get('/api/portail/certificats', connecte, exige('certificats'), (req, res) => {
-  res.json({ delai: 3, certificats: db.prepare(`SELECT id, du, au, nom, cree_le, releve_le, erreur, resultat FROM cm_geste
+  res.json({ delai: 3, certificats: db.prepare(`SELECT id, du, au, nom, motif, cree_le, releve_le, erreur, resultat FROM cm_geste
     WHERE etudiant_id = ? ORDER BY id DESC LIMIT 30`).all(req.etudiant.id) });
 });
 pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw({ type: 'application/octet-stream', limit: '10mb' }), (req, res) => {
@@ -868,14 +871,16 @@ pub.post('/api/portail/certificat', connecte, exige('certificats'), express.raw(
   const du = String(req.query.du || ''), au = String(req.query.au || '');
   if (!j(du) || !j(au)) return res.status(400).json({ error: 'Indiquez les dates de votre absence (du … au …).' });
   if (au < du) return res.status(400).json({ error: 'La fin de l’absence précède son début.' });
+  const motif = String(req.query.motif || 'medical');
+  if (!NATURES_CM.includes(motif)) return res.status(400).json({ error: 'Choisissez le type de justificatif.' });
   const b = Buffer.isBuffer(req.body) ? req.body : null;
   if (!b || !b.length) return res.status(400).json({ error: 'Joignez votre certificat (PDF ou photo).' });
   if (!estImageOuPdf(b)) return res.status(400).json({ error: 'Le certificat doit être un PDF ou une photo (JPEG, PNG).' });
   if (db.prepare(`SELECT COUNT(*) n FROM cm_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 10) {
     return res.status(429).json({ error: 'Trop de dépôts en une heure. Réessayez plus tard.' });
   }
-  db.prepare('INSERT INTO cm_geste (etudiant_id, du, au, nom, taille, contenu) VALUES (?,?,?,?,?,?)')
-    .run(req.etudiant.id, du, au, String(req.query.nom || 'certificat').slice(0, 150), b.length, b);
+  db.prepare('INSERT INTO cm_geste (etudiant_id, du, au, nom, taille, contenu, motif) VALUES (?,?,?,?,?,?,?)')
+    .run(req.etudiant.id, du, au, String(req.query.nom || 'certificat').slice(0, 150), b.length, b, motif);
   res.json({ ok: true });
 });
 pub.use('/api/portail/certificat', (err, req, res, next) => (err?.type === 'entity.too.large'
@@ -1450,7 +1455,7 @@ int.get('/interne/releve', (req, res) => {
     pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     pae_avis: db.prepare('SELECT id, etudiant_id, annee, message, cree_le FROM pae_avis WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     ts: db.prepare('SELECT id, etudiant_id, type, tfe_id, jalon_id, nom, taille, texte FROM ts_geste WHERE releve_le IS NULL ORDER BY id LIMIT 30').all(),
-    cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
+    cm: db.prepare('SELECT id, etudiant_id, du, au, nom, taille, motif FROM cm_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ph: db.prepare('SELECT id, etudiant_id, taille FROM ph_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     ar: db.prepare('SELECT id, etudiant_id, type, texte, nom, taille FROM ar_geste WHERE releve_le IS NULL ORDER BY id LIMIT 20').all(),
     pd: db.prepare('SELECT id, etudiant_id, type, texte, cree_le FROM pd_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
