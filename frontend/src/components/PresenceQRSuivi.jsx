@@ -339,7 +339,7 @@ export default function PresenceQRSuivi({ faceInitiale = null, onFermer }) {
         ...(agit ? [{ cle: 'ue', label: 'Par UE', rendu: <PresencesUE /> }] : []),
         { cle: 'absences', label: 'Absences au-delà du seuil', rendu: <Absences /> },
         // LES CERTIFICATS MÉDICAUX (3.5.125) : encodés par le secrétariat, ou déposés par l'étudiant dans son espace.
-        { cle: 'certificats', label: 'Certificats médicaux', rendu: <CertificatsMedicaux /> },
+        { cle: 'certificats', label: 'Justificatifs d’absence', rendu: <CertificatsMedicaux /> },
         // LE REGISTRE DU CONGÉ-ÉDUCATION (audit du 28 octobre 2026) : la route existait, l'écran manquait.
         ...(agit ? [{ cle: 'cep', label: 'Congé-éducation', rendu: <RegistreCep /> }] : []),
         { cle: 'telephones', label: 'Téléphones liés', rendu: <Telephones /> },

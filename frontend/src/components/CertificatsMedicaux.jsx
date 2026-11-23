@@ -86,6 +86,7 @@ export default function CertificatsMedicaux() {
   return (
     <div className="space-y-3">
       <p className="text-second text-slate-500">
+        Les justificatifs d’ABSENCE seulement : la visite médicale CESI se tient dans la fiche de l’étudiant → onglet Santé.
         Un certificat médical au nom de l’étudiant, remis dans les {d?.delai ?? 3} jours ouvrables après le début de l’absence, est accepté
         d’office : les absences de la période deviennent « justifiées — certificat médical », y compris celles encodées plus tard ; au-delà,
         la direction décide. Tout autre justificatif (grève, employeur…) attend votre décision, et la présence prend son motif.

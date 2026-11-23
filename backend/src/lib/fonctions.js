@@ -40,7 +40,7 @@ export const CATALOGUE = [
     quoi: 'Le lieu, les dates, le superviseur et le maître de stage ; les pièces qui manquent (art. 51 et 55) ; les visites prévues ; les fiches d’évaluation du stage.' },
   { cle: 'espace.supports', famille: 'espace', titre: 'Les supports de cours',
     quoi: "Les fichiers que les professeurs déposent pour un cours (Mes cours → le cours → Supports) ; les inscrits les trouvent dans Mon parcours, sous le cours, avec la marque « nouveau » pendant une semaine." },
-  { cle: 'espace.certificats', famille: 'espace', titre: 'Mes absences — certificat médical',
+  { cle: 'espace.certificats', famille: 'espace', titre: 'Justifier une absence (certificat, grève…)',
     quoi: "L'étudiant dépose son certificat médical (PDF ou photo) et les dates de son absence ; remis dans les 3 jours ouvrables, ses absences de la période sont justifiées ; professeurs et secrétariat sont prévenus." },
   { cle: 'espace.desinscription', famille: 'espace', titre: 'Demander sa désinscription',
     quoi: "L'étudiant voit ce que dit le RDE (art. 19) pour sa situation — remboursement avant le premier dixième, frais dus après — et demande sa désinscription, de toute l'année ou d'unités ; la date de la demande fait foi. Le secrétariat confirme dans la fiche → Finances." },

@@ -11,7 +11,7 @@ const auj = () => new Date().toISOString().slice(0, 10);
 /* LE TYPE DE JUSTIFICATIF (3.5.661) : seul le certificat médical à son nom, remis dans le délai, est accepté d'office ; une attestation
    de grève ou de perturbation des transports, de l'employeur… est examinée par le secrétariat. Clés : MOTIFS_JUSTIFIES (cep.js). */
 const NATURES = [
-  ['medical', 'Un certificat médical à mon nom'],
+  ['medical', 'Un certificat médical d’incapacité à mon nom'],
   ['medical_proche', 'Un certificat médical pour un membre de ma famille'],
   ['greve', 'Une attestation de grève ou de perturbation des transports'],
   ['professionnel', 'Une attestation de mon employeur'],
@@ -20,7 +20,7 @@ const NATURES = [
 ];
 const libNature = m => (NATURES.find(n => n[0] === m) || NATURES[0])[1];
 
-export default function MesAbsences({ appel, jeton, onErreur }) {
+export default function MesAbsences({ appel, jeton, onErreur, versSante = null }) {
   const [p, setP] = useState(null);
   const [du, setDu] = useState(auj());
   const [au, setAu] = useState(auj());
@@ -59,6 +59,14 @@ export default function MesAbsences({ appel, jeton, onErreur }) {
           médical à votre nom, remis dans ce délai, justifie aussitôt vos absences de la période ; tout autre justificatif (grève,
           employeur…) est examiné par le secrétariat. Après le délai, l’école décide.
         </p>
+        {/* LA VISITE MÉDICALE CESI N'EST PAS UNE ABSENCE (3.5.661, Charles : « cela se confond avec les visites CESI ; ce n'est pas une
+            absence »). On le dit avant le dépôt, et l'on renvoie à « Ma santé ». */}
+        <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">
+          <b>Votre visite médicale (CESI, aptitude, formulaire de santé) ne se dépose pas ici</b> : ce n’est pas une absence. Remettez-la au
+          secrétariat ; son état se lit dans {versSante
+            ? <button type="button" className="underline font-semibold" onClick={versSante}>Ma santé</button>
+            : <b>Ma santé</b>}.
+        </div>
         <label className="block text-sm text-slate-600"><div className="mb-1">Je dépose</div>
           <select className="controle w-full sm:w-auto" value={nature} onChange={e => setNature(e.target.value)}>
             {NATURES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
