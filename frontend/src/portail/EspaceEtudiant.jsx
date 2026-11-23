@@ -1306,7 +1306,7 @@ function MonPAE({ onErreur, email }) {
         </div>
         <ListeEtats>{(o.programme || []).map(ligneUE)}</ListeEtats>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
-        {!signe && !attend && <DecisionPAE programme={o.programme || []} onFait={charger} onErreur={onErreur} />}
+        {!signe && !attend && <DecisionPAE programme={o.programme || []} signale={p.signale} onFait={charger} onErreur={onErreur} />}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
       </div>);
   }
@@ -1326,7 +1326,7 @@ function MonPAE({ onErreur, email }) {
         {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
         {prog.length > 0 && (o.signature?.a_jour
           ? <Encadre etat="reussi">Vous avez confirmé ce programme le {jourFr(o.signature.signe_le)}.</Encadre>
-          : !attend && <DecisionPAE programme={prog} onFait={charger} onErreur={onErreur} />)}
+          : !attend && <DecisionPAE programme={prog} signale={p.signale} onFait={charger} onErreur={onErreur} />)}
       </div>);
   }
 
@@ -1372,7 +1372,7 @@ function MonPAE({ onErreur, email }) {
  *  la coordination ; juste → le bouton vert ; pas juste → le bouton fraise, et la coordination de la section reçoit une
  *  notification sur son tableau de bord »). Confirmer = /pae/valider (sans code, comme la fenêtre d'entrée) ; pas juste =
  *  /pae/signaler (notification `pae_desaccord`, coordination et secrétariat de la section). */
-function DecisionPAE({ programme, onFait, onErreur }) {
+function DecisionPAE({ programme, signale = null, onFait, onErreur }) {
   const [ouvert, setOuvert] = useState(false);
   const [mot, setMot] = useState('');
   const [envoi, setEnvoi] = useState(false);
@@ -1388,6 +1388,12 @@ function DecisionPAE({ programme, onFait, onErreur }) {
     catch (e) { onErreur(e); } finally { setEnvoi(false); }
   };
   if (parti) return <Encadre etat="disponible">Votre message est parti à votre coordination : elle vous répondra dans « Messages ». Quand votre programme sera corrigé, vous pourrez le confirmer ici.</Encadre>;
+  // DÉJÀ SIGNALÉ (3.5.660) : on ne renvoie pas le même signalement ; on peut encore confirmer si la coordination dit qu'il est juste.
+  if (signale) return (
+    <div className="space-y-2">
+      <Encadre etat="disponible">Vous avez signalé ce programme le {jourFr(signale.le)} : « {signale.message} ». Votre coordination vous répondra dans « Messages ». Quand votre programme sera corrigé, il vous sera demandé de le confirmer ; pour ajouter quelque chose, écrivez-lui.</Encadre>
+      <button type="button" className="bouton inline-flex items-center gap-1.5" disabled={envoi} onClick={confirmer}><IconCheck size={15} /> Finalement, il est juste : je le confirme</button>
+    </div>);
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
