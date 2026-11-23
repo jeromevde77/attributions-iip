@@ -11,11 +11,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import db from '../db/index.js';
-import { ecrirePresences } from './cep.js';
+import { ecrirePresences, MOTIFS_JUSTIFIES } from './cep.js';
 import { joursFeries } from '../routes/horaire.js';
 
 const DATA_DIR = () => process.env.DATA_DIR || '/app/data';
 export const DELAI_JOURS_OUVRABLES = 3;
+
+/* LE TYPE DE JUSTIFICATIF (3.5.661, Charles, 23 novembre 2026 — quatre « attestations de perturbation » d'un jour de grève déposées
+ * comme certificats médicaux, acceptées sous motif médical : « ajouter un type »). Seul le certificat médical À SON NOM, remis dans
+ * le délai, est accepté d'office ; tout autre justificatif attend la décision du secrétariat (ou de la direction), et la présence
+ * prend SON motif (grève, employeur…), jamais « médical ». Les clés sont celles de `MOTIFS_JUSTIFIES` (cep.js). */
+export const NATURES_JUSTIFICATIF = ['medical', 'medical_proche', 'greve', 'professionnel', 'petit_chomage', 'intemperies'];
+export const libelleNature = m => (m === 'greve' ? 'Grève ou perturbation des transports' : MOTIFS_JUSTIFIES[m] || MOTIFS_JUSTIFIES.medical);
+export const estCertificatMedical = m => !m || m === 'medical';
 
 export function migrerCertificats(base = db) {
   base.exec(`CREATE TABLE IF NOT EXISTS certificat_medical (
@@ -29,6 +37,16 @@ export function migrerCertificats(base = db) {
     decide_par TEXT, decide_le TEXT, motif_refus TEXT,
     remarque TEXT, seances_justifiees INTEGER DEFAULT 0,
     cree_par TEXT, cree_le TEXT DEFAULT (datetime('now')))`);
+  if (!base.prepare("SELECT 1 FROM pragma_table_info('certificat_medical') WHERE name = 'motif'").get()) {
+    base.exec("ALTER TABLE certificat_medical ADD COLUMN motif TEXT NOT NULL DEFAULT 'medical'");
+  }
+  /* Les attestations de perturbation (grève) déposées comme certificats médicaux avant 3.5.661 : rangées comme telles et rendues
+     à la décision du secrétariat — tant qu'aucune séance n'a été justifiée par elles. */
+  try {
+    base.prepare(`UPDATE certificat_medical SET motif = 'greve', statut = 'a_decider'
+      WHERE motif = 'medical' AND statut = 'accepte' AND COALESCE(seances_justifiees, 0) = 0
+        AND lower(COALESCE(nom_fichier, '')) LIKE 'attestationdeperturbation%'`).run();
+  } catch (e) { console.error('[certificat médical] reclassement :', e.message); }
 }
 
 const iso = d => d.toISOString().slice(0, 10);
@@ -54,12 +72,12 @@ function seancesDeLaPeriode(etudId, du, au) {
     ORDER BY s.date, s.heure_debut`).all(du, au, etudId);
 }
 
-/** Appliquer un certificat accepté : ses absences dans la période deviennent justifiées (motif médical). */
+/** Appliquer un justificatif accepté : ses absences dans la période deviennent justifiées, sous SON motif. */
 export function appliquer(cm, par) {
   const seances = seancesDeLaPeriode(cm.etudiant_id, cm.du, cm.au);
   const absent = db.prepare("SELECT 1 FROM presence WHERE seance_id = ? AND etudiant_id = ? AND statut = 'absent'");
   const lignes = seances.filter(s => absent.get(s.id, cm.etudiant_id))
-    .map(s => ({ seance_id: s.id, etudiant_id: cm.etudiant_id, statut: 'justifie', motif: 'medical' }));
+    .map(s => ({ seance_id: s.id, etudiant_id: cm.etudiant_id, statut: 'justifie', motif: cm.motif || 'medical' }));
   const r = lignes.length ? ecrirePresences(lignes, par) : { ecrites: 0 };
   db.prepare('UPDATE certificat_medical SET seances_justifiees = ? WHERE id = ?').run(r.ecrites || 0, cm.id);
   return r.ecrites || 0;
@@ -67,7 +85,7 @@ export function appliquer(cm, par) {
 
 /** Prévenir les professeurs des séances de la période et le secrétariat. */
 function notifier(cm, titre, corps, par) {
-  const lien = '/etudiants?outil=presence-qr';
+  const lien = '/etudiants?outil=suivi-presences&face=certificats';
   const ins = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_user_id, cible_role, cree_par)
     VALUES ('certificat_medical', ?, ?, ?, ?, ?, ?)`);
   try {
@@ -85,8 +103,10 @@ const fr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
 const nomEtudiant = id => { const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {}; return `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(); };
 
 /** Déposer un certificat (secrétariat ou étudiant) : enregistrer, juger le délai, appliquer s'il est dans le délai, prévenir. */
-export function deposer({ etudiantId, du, au, recuLe, fichier = null, deposePar = 'secretariat', par, remarque = null, annee = null }) {
+export function deposer({ etudiantId, du, au, recuLe, fichier = null, deposePar = 'secretariat', par, remarque = null, annee = null, motif = 'medical' }) {
   migrerCertificats();
+  motif = String(motif || 'medical');
+  if (!NATURES_JUSTIFICATIF.includes(motif)) return { erreur: 'Type de justificatif inconnu.' };
   const j = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
   if (!etudiantId || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(Number(etudiantId))) return { erreur: 'Étudiant inconnu.' };
   if (!j(du) || !j(au)) return { erreur: 'Les dates de l’absence (du … au …) sont requises.' };
@@ -94,10 +114,11 @@ export function deposer({ etudiantId, du, au, recuLe, fichier = null, deposePar 
   const recu = j(recuLe) ? recuLe : iso(new Date());
   const limite = dateLimite(du);
   const hors = recu > limite ? 1 : 0;
+  const doffice = !hors && estCertificatMedical(motif);
   const r = db.prepare(`INSERT INTO certificat_medical (etudiant_id, annee_scolaire, du, au, recu_le, depose_par, nom_fichier, mime, taille,
-      limite, hors_delai, statut, remarque, cree_par) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      limite, hors_delai, statut, remarque, cree_par, motif) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(Number(etudiantId), annee, du, au, recu, deposePar, fichier?.nom || null, fichier?.mime || null, fichier?.buffer?.length || null,
-      limite, hors, hors ? 'a_decider' : 'accepte', remarque, par);
+      limite, hors, doffice ? 'accepte' : 'a_decider', remarque, par, motif);
   const id = Number(r.lastInsertRowid);
   // Le fichier, ou rien : un certificat enregistré sans le fichier qu'on croit avoir déposé serait un trou dans le dossier.
   if (fichier?.buffer) {
@@ -111,12 +132,14 @@ export function deposer({ etudiantId, du, au, recuLe, fichier = null, deposePar 
     }
   }
   const cm = db.prepare('SELECT * FROM certificat_medical WHERE id = ?').get(id);
-  const n = hors ? 0 : appliquer(cm, par);
+  const n = doffice ? appliquer(cm, par) : 0;
   const qui = nomEtudiant(etudiantId);
-  notifier(cm, `Certificat médical — ${qui}, du ${fr(du)} au ${fr(au)}`,
-    hors ? `Remis le ${fr(recu)}, après la limite du ${fr(limite)} (${DELAI_JOURS_OUVRABLES} jours ouvrables) : la direction décide.`
+  const medical = estCertificatMedical(motif);
+  notifier(cm, `${medical ? 'Certificat médical' : `Justificatif d’absence (${libelleNature(motif)})`} — ${qui}, du ${fr(du)} au ${fr(au)}`,
+    !medical ? `À décider par le secrétariat : accepté, les absences de la période seront justifiées (${libelleNature(motif)}).`
+      : hors ? `Remis le ${fr(recu)}, après la limite du ${fr(limite)} (${DELAI_JOURS_OUVRABLES} jours ouvrables) : la direction décide.`
       : `Accepté : les absences de la période sont justifiées (certificat médical)${n ? ` — ${n} séance(s) déjà encodée(s)` : ''}.`, par);
-  return { ok: true, id, hors_delai: !!hors, limite, seances_justifiees: n };
+  return { ok: true, id, hors_delai: !!hors, a_decider: !doffice, motif, limite, seances_justifiees: n };
 }
 
 /** La direction décide d'un certificat remis hors délai. */
@@ -129,8 +152,9 @@ export function decider(id, decision, motif, par) {
   db.prepare(`UPDATE certificat_medical SET statut = ?, motif_refus = ?, decide_par = ?, decide_le = datetime('now') WHERE id = ?`)
     .run(decision, decision === 'refuse' ? String(motif).trim() : null, par, cm.id);
   const n = decision === 'accepte' ? appliquer({ ...cm, statut: 'accepte' }, par) : 0;
-  notifier(cm, `Certificat médical ${decision === 'accepte' ? 'accepté' : 'refusé'} — ${nomEtudiant(cm.etudiant_id)}, du ${fr(cm.du)} au ${fr(cm.au)}`,
-    decision === 'accepte' ? `Accepté par la direction malgré le délai${n ? ` — ${n} séance(s) justifiée(s)` : ''}.` : `Refusé : ${String(motif).trim()}`, par);
+  const nature = estCertificatMedical(cm.motif) ? 'Certificat médical' : `Justificatif d’absence (${libelleNature(cm.motif)})`;
+  notifier(cm, `${nature} ${decision === 'accepte' ? 'accepté' : 'refusé'} — ${nomEtudiant(cm.etudiant_id)}, du ${fr(cm.du)} au ${fr(cm.au)}`,
+    decision === 'accepte' ? `Accepté${cm.hors_delai ? ' malgré le délai' : ''}${n ? ` — ${n} séance(s) justifiée(s)` : ''}.` : `Refusé : ${String(motif).trim()}`, par);
   return { ok: true, seances_justifiees: n };
 }
 

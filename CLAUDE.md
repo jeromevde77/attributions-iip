@@ -3545,6 +3545,18 @@ sur la date du geste, doublon ; ouvre `proc_dossier` + étape `plainte` mode `en
 compris). Écran `portail/MonRecours.jsx` (cinq étapes) ; bouton sous l'UE refusée dans Mes résultats ; rappel à Aujourd'hui. Banc
 `test/recoursEnLigne.mjs` (21 ok). Délai passé (3.5.659, Charles) : sous l'UE refusée, une mention grise, sans bouton ; `refusRecourables` garde tous les refus publiés.
 
+**LA NOTIFICATION D'UN CERTIFICAT MÉDICAL MÈNE AUX CERTIFICATS** (3.5.661, Charles : « je ne trouve pas les certificats médicaux ») : le lien
+`/etudiants?outil=presence-qr` n'ouvrait rien (Étudiants n'attendait que `suivi-presences`). Lien désormais
+`?outil=suivi-presences&face=certificats` ; `?face=` choisit l'onglet de Suivi des présences ; l'ancien lien ouvre les certificats.
+**Un justificatif d'absence a son type** (même version : quatre « attestations de perturbation » d'un jour de grève acceptées comme
+certificats médicaux). `certificat_medical.motif` (clé de `MOTIFS_JUSTIFIES` : `NATURES_JUSTIFICATIF` de `lib/certificatMedical.js`),
+choisi à l'espace (`cm_geste.motif` du portail) et au secrétariat. Seul `medical` dans le délai est accepté d'office ; tout autre type
+naît `a_decider`, que le secrétariat décide (`PUT /:id/decision`, la direction pour un certificat médical hors délai) ; la présence
+prend le motif du justificatif (`appliquer`, `couvre` d'`ecrirePresences`). Les attestations de perturbation d'avant sont reclassées
+« greve », à décider, par `migrerCertificats`. Le doublon d'Abena BRANDON BUSSE (dossiers 276 optométrie / 687 TIM, même adresse
+d'institut : l'espace ouvrait le premier) : l'écran des doublons rapproche aussi les dossiers qui partagent une adresse d'institut.
+Banc : `test/certificats.mjs` (7 ok).
+
 **UN PAE CONTESTÉ NE SE REDEMANDE PAS** (3.5.660, Charles, 23 novembre 2026 — premier jour de l'espace : un étudiant contestait
 trois fois, la confirmation lui étant redemandée à chaque connexion). `pae_avis.programme` (portail) garde le programme visé ;
 `signalementEnCours` : tant que le programme déposé est le même, `/moi` ne demande pas la confirmation, `/pae/signaler` répond 409,

@@ -1078,7 +1078,7 @@ const GUIDE = [
   ['Mon parcours', "Trois onglets. « Schéma et unités » : votre schéma de capitalisation, puis chaque unité, ses cours, sa DUE et son dossier pédagogique. « Mes résultats » : les décisions du Conseil des études, une fois la délibération close (la grille ci-dessous dit comment les lire). « Mon PAE » : pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige ; une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
   ['Mes documents', "Vos attestations, les décisions qui vous concernent et les règlements de l'école. Ouvrez-les, puis signez l'accusé de réception (un code reçu par courriel). Téléchargement libre pendant 90 jours ; ensuite, un code est demandé."],
   ['Messages', "Ce que l'école vous écrit. Vous pouvez répondre : votre réponse va à la personne qui a écrit."],
-  ['Mes démarches', "Valorisation (faire reconnaître des études ou une expérience, une demande par unité, avec vos pièces), Mon TFE (question de recherche, remises, défense), Mon stage (lieu, pièces, visites), Mes absences (déposer un certificat médical), Recours (contester un refus publié, dans les 4 jours calendrier)."],
+  ['Mes démarches', "Valorisation (faire reconnaître des études ou une expérience, une demande par unité, avec vos pièces), Mon TFE (question de recherche, remises, défense), Mon stage (lieu, pièces, visites), Justifier une absence (certificat médical, grève, employeur… — pas la visite médicale CESI, qui se lit dans Ma santé), Recours (contester un refus publié, dans les 4 jours calendrier)."],
   ['Mes frais', 'Ce qui est dû, versé, ce qui reste ; et le QR à scanner pour payer avec la bonne communication.'],
   ['Mon compte', 'Changer votre mot de passe ; voir et oublier vos appareils reconnus (trois au plus).'],
 ];
@@ -1710,7 +1710,7 @@ function Espace() {
     if (p.derniere?.statut === 'refusee') return 'refusee'; if (p.a_photo || p.derniere?.statut === 'a_valider') return null; return 'manque'; })();
   const SOUS = {
     parcours: [['parcours', 'Schéma et unités'], ['resultats', 'Mes résultats'], ['pae', 'Mon PAE']].filter(([k]) => a_(k)),
-    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Mes absences'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['photo', 'Ma photo'], ['recours', 'Recours'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
+    demarches: [['va', 'Valorisation'], ['tfe', 'Mon TFE'], ['stage', 'Mon stage'], ['certificats', 'Justifier une absence'], ['amenagements', 'Aménagement raisonnable'], ['sante', 'Ma santé'], ['photo', 'Ma photo'], ['recours', 'Recours'], ['desinscription', 'Me désinscrire']].filter(([k]) => a_(k)),
   };
   const FACES = [
     ['aujourdhui', 'Aujourd’hui', IconHome],
@@ -1868,7 +1868,7 @@ function Espace() {
         {face === 'demarches' && sousActif === 'va' && <MesValorisations onErreur={echec} />}
         {face === 'demarches' && sousActif === 'tfe' && <MonTfe appel={appel} jeton={lire} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'stage' && <MonStage appel={appel} onErreur={echec} />}
-        {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} />}
+        {face === 'demarches' && sousActif === 'certificats' && <MesAbsences appel={appel} jeton={lire} onErreur={echec} versSante={SOUS.demarches?.some(([k]) => k === 'sante') ? () => aller('demarches', 'sante') : null} />}
         {face === 'demarches' && sousActif === 'amenagements' && <MonAmenagement appel={appel} onErreur={echec} />}
         {face === 'demarches' && sousActif === 'sante' && <MaSante onErreur={echec} />}
         {face === 'demarches' && sousActif === 'photo' && <MaPhoto appel={appel} jeton={lire} onErreur={echec} />}

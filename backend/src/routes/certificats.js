@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import multer from 'multer';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { deposer, decider, liste, cheminFichier, migrerCertificats, dateLimite, DELAI_JOURS_OUVRABLES } from '../lib/certificatMedical.js';
+import { deposer, decider, liste, cheminFichier, migrerCertificats, dateLimite, DELAI_JOURS_OUVRABLES, NATURES_JUSTIFICATIF, libelleNature, estCertificatMedical } from '../lib/certificatMedical.js';
 import db from '../db/index.js';
 
 const r = Router();
@@ -30,7 +30,8 @@ r.get('/', authRequired, garde(LIT), (req, res) => {
   migrerCertificats();
   const sec = req.user.role === 'coordination' ? (getUserSections(req.user) || null) : null;
   res.json({ delai: DELAI_JOURS_OUVRABLES, certificats: liste({ annee: req.query.annee || null, sections: sec }),
-    peut_encoder: ECRIT.includes(req.user.role), peut_decider: DIRECTION.includes(req.user.role) });
+    peut_encoder: ECRIT.includes(req.user.role), peut_decider: DIRECTION.includes(req.user.role),
+    natures: NATURES_JUSTIFICATIF.map(cle => ({ cle, libelle: libelleNature(cle) })) });
 });
 
 /** La date limite pour un début d'absence donné (l'écran l'annonce avant d'enregistrer). */
@@ -49,12 +50,16 @@ r.post('/', authRequired, garde(ECRIT), televersement.single('fichier'), (req, r
   }
   const x = deposer({ etudiantId: Number(req.body?.etudiant_id), du: req.body?.du, au: req.body?.au, recuLe: req.body?.recu_le,
     fichier, deposePar: 'secretariat', par: qui(req), remarque: String(req.body?.remarque || '').trim() || null,
-    annee: req.body?.annee || anneeDeTravail(req) });
+    annee: req.body?.annee || anneeDeTravail(req), motif: req.body?.motif || 'medical' });
   if (x.erreur) return res.status(400).json({ error: x.erreur });
   res.json(x);
 });
 
-r.put('/:id/decision', authRequired, garde(DIRECTION), (req, res) => {
+/* Un certificat médical hors délai : la direction. Tout autre justificatif (grève, employeur…) : aussi le secrétariat (3.5.661). */
+r.put('/:id/decision', authRequired, garde(ECRIT), (req, res) => {
+  migrerCertificats();
+  const cm = db.prepare('SELECT motif FROM certificat_medical WHERE id = ?').get(Number(req.params.id));
+  if (cm && estCertificatMedical(cm.motif) && !DIRECTION.includes(req.user.role)) return res.status(403).json({ error: 'Un certificat médical remis hors délai se décide à la direction.' });
   const x = decider(req.params.id, req.body?.decision, req.body?.motif, qui(req));
   if (x.erreur) return res.status(400).json({ error: x.erreur });
   res.json(x);

@@ -12,7 +12,7 @@ const aujourdHui = () => new Date().toISOString().slice(0, 10);
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 const ETAT = {
   accepte: ['reussi', 'Accepté'],
-  a_decider: ['surveiller', 'Hors délai — à décider'],
+  a_decider: ['surveiller', 'À décider'],
   refuse: ['corriger', 'Refusé'],
 };
 
@@ -27,6 +27,7 @@ export default function CertificatsMedicaux() {
   const [au, setAu] = useState(aujourdHui());
   const [recu, setRecu] = useState(aujourdHui());
   const [fichier, setFichier] = useState(null);
+  const [nature, setNature] = useState('medical');
   const [limite, setLimite] = useState(null);
   const [envoi, setEnvoi] = useState(false);
 
@@ -48,16 +49,18 @@ export default function CertificatsMedicaux() {
     setErreur(null); setMessage(null); setEnvoi(true);
     try {
       const fd = new FormData();
-      fd.append('etudiant_id', etud.id); fd.append('du', du); fd.append('au', au); fd.append('recu_le', recu);
+      fd.append('etudiant_id', etud.id); fd.append('du', du); fd.append('au', au); fd.append('recu_le', recu); fd.append('motif', nature);
       if (fichier) fd.append('fichier', fichier);
       const h = authHeaders(); delete h['Content-Type'];
       const r = await fetch('/api/certificats-medicaux', { method: 'POST', headers: h, body: fd });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
-      setMessage(j.hors_delai
+      setMessage(j.a_decider && !j.hors_delai
+        ? 'Enregistré : à décider ci-dessous (Accepter ou Refuser). Professeurs et secrétariat sont prévenus.'
+        : j.hors_delai
         ? `Enregistré hors délai (limite : ${fr(j.limite)}) : la direction décide. Professeurs et secrétariat sont prévenus.`
         : `Accepté : les absences de la période sont justifiées${j.seances_justifiees ? ` (${j.seances_justifiees} séance(s) déjà encodée(s))` : ''}. Professeurs et secrétariat sont prévenus.`);
-      setEtud(null); setQ(''); setFichier(null);
+      setEtud(null); setQ(''); setFichier(null); setNature('medical');
       charger();
     } catch (e) { setErreur(e.message); } finally { setEnvoi(false); }
   }
@@ -66,7 +69,7 @@ export default function CertificatsMedicaux() {
     if (decision === 'refuse') {
       motif = await saisir({ titre: 'Refuser le certificat', message: 'Pourquoi ? Le motif est gardé et transmis.', valeur: '' });
       if (!motif || !motif.trim()) return;
-    } else if (!(await demander(`Accepter le certificat de ${c.nom} ${c.prenom} malgré le délai ? Les absences de la période deviendront justifiées.`))) return;
+    } else if (!(await demander(`Accepter le justificatif de ${c.nom} ${c.prenom}${c.hors_delai ? ' malgré le délai' : ''} ? Les absences de la période deviendront justifiées (${libNature(c.motif)}).`))) return;
     const r = await fetch(`/api/certificats-medicaux/${c.id}/decision`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ decision, motif }) });
     const j = await r.json(); if (!r.ok) setErreur(j.error); else charger();
   }
@@ -77,18 +80,23 @@ export default function CertificatsMedicaux() {
   }
 
   const horsDelai = limite && recu > limite;
+  const libNature = m => (d?.natures || []).find(n => n.cle === m)?.libelle || 'Certificat médical';
+  // Un certificat médical hors délai se décide à la direction ; tout autre justificatif aussi au secrétariat (3.5.661).
+  const peutDecider = c => (c.motif && c.motif !== 'medical' ? d?.peut_encoder : d?.peut_decider);
   return (
     <div className="space-y-3">
       <p className="text-second text-slate-500">
-        Un certificat remis dans les {d?.delai ?? 3} jours ouvrables après le début de l’absence est accepté d’office : les absences de la
-        période deviennent « justifiées — certificat médical », y compris celles encodées plus tard. Au-delà, la direction décide.
+        Les justificatifs d’ABSENCE seulement : la visite médicale CESI se tient dans la fiche de l’étudiant → onglet Santé.
+        Un certificat médical au nom de l’étudiant, remis dans les {d?.delai ?? 3} jours ouvrables après le début de l’absence, est accepté
+        d’office : les absences de la période deviennent « justifiées — certificat médical », y compris celles encodées plus tard ; au-delà,
+        la direction décide. Tout autre justificatif (grève, employeur…) attend votre décision, et la présence prend son motif.
       </p>
       {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
       {message && <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">{message}</div>}
 
       {d?.peut_encoder && (
         <div className="carte p-3 space-y-2">
-          <div className="intertitre">Encoder un certificat reçu</div>
+          <div className="intertitre">Encoder un justificatif reçu</div>
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-second text-slate-600 relative">
               <div className="mb-0.5">Étudiant</div>
@@ -108,6 +116,10 @@ export default function CertificatsMedicaux() {
                     </div>)}
                 </div>)}
             </label>
+            <label className="text-second text-slate-600"><div className="mb-0.5">Type</div>
+              <select className="controle" value={nature} onChange={e => setNature(e.target.value)}>
+                {(d?.natures || [{ cle: 'medical', libelle: 'Certificat médical' }]).map(n => <option key={n.cle} value={n.cle}>{n.libelle}</option>)}
+              </select></label>
             <label className="text-second text-slate-600"><div className="mb-0.5">Absent du</div>
               <input type="date" className="controle" value={du} onChange={e => { setDu(e.target.value); if (au < e.target.value) setAu(e.target.value); }} /></label>
             <label className="text-second text-slate-600"><div className="mb-0.5">au</div>
@@ -115,7 +127,7 @@ export default function CertificatsMedicaux() {
             <label className="text-second text-slate-600"><div className="mb-0.5">Reçu le</div>
               <input type="date" className="controle" value={recu} onChange={e => setRecu(e.target.value)} /></label>
             <label className="bouton controle inline-flex items-center gap-1.5 cursor-pointer">
-              <IconFileUpload size={15} /> {fichier ? fichier.name : 'Le certificat (PDF, photo)'}
+              <IconFileUpload size={15} /> {fichier ? fichier.name : 'Le justificatif (PDF, photo)'}
               <input type="file" accept="application/pdf,image/jpeg,image/png" className="hidden" onChange={e => setFichier(e.target.files?.[0] || null)} />
             </label>
             <button type="button" className="bouton bouton-fort controle" disabled={!etud || !du || !au || envoi} onClick={enregistrer}>
@@ -123,14 +135,14 @@ export default function CertificatsMedicaux() {
           </div>
           {limite && (
             <p className="text-second m-0" style={{ color: horsDelai ? 'var(--c-attente)' : undefined }}>
-              Limite de remise : <b>{fr(limite)}</b>{horsDelai ? ' — reçu après la limite : il attendra la décision de la direction.' : ' — dans le délai.'}
+              Limite de remise : <b>{fr(limite)}</b>{nature !== 'medical' ? ' — ce justificatif attendra votre décision.' : horsDelai ? ' — reçu après la limite : il attendra la décision de la direction.' : ' — dans le délai.'}
             </p>)}
         </div>)}
 
       <div className="carte overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="tab-entete">
-            <th className="px-3 py-1.5 text-left">Étudiant</th><th className="px-2 py-1.5 text-left">Absence</th>
+            <th className="px-3 py-1.5 text-left">Étudiant</th><th className="px-2 py-1.5 text-left">Type</th><th className="px-2 py-1.5 text-left">Absence</th>
             <th className="px-2 py-1.5 text-left">Reçu le</th><th className="px-2 py-1.5 text-left">Limite</th>
             <th className="px-2 py-1.5 text-left">État</th><th className="px-2 py-1.5 text-right">Séances justifiées</th>
             <th className="px-2 py-1.5 text-left">Déposé par</th><th className="px-2 py-1.5" />
@@ -142,6 +154,7 @@ export default function CertificatsMedicaux() {
                 <tr key={c.id} className="border-b border-slate-100">
                   <td className="px-3 py-1.5 whitespace-nowrap">{String(c.nom || '').toUpperCase()} {c.prenom}
                     {c.section && <span className="ml-1.5 text-mention text-slate-400">{c.section}</span>}</td>
+                  <td className="px-2 py-1.5">{libNature(c.motif)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">du {fr(c.du)} au {fr(c.au)}</td>
                   <td className="px-2 py-1.5">{fr(c.recu_le)}</td>
                   <td className="px-2 py-1.5">{fr(c.limite)}</td>
@@ -151,7 +164,7 @@ export default function CertificatsMedicaux() {
                   <td className="px-2 py-1.5 text-second text-slate-500">{c.depose_par === 'etudiant' ? 'l’étudiant (espace)' : c.cree_par || 'secrétariat'}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap text-right">
                     {c.nom_fichier && <button type="button" className="bouton controle mr-1 inline-flex items-center gap-1" onClick={() => ouvrir(c)}><IconFileText size={15} /> Voir</button>}
-                    {d.peut_decider && c.statut === 'a_decider' && <>
+                    {peutDecider(c) && c.statut === 'a_decider' && <>
                       <button type="button" className="bouton controle mr-1" onClick={() => decider(c, 'accepte')}>Accepter</button>
                       <button type="button" className="bouton bouton-detruire controle" onClick={() => decider(c, 'refuse')}>Refuser</button>
                     </>}
