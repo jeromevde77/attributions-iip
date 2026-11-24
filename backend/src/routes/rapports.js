@@ -1,5 +1,6 @@
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { declarerTitre, codeListe } from '../lib/codesPieces.js';
+import { coutMemo, viderMemoCout } from '../lib/rapportIipHelb.js';
 import * as LE from '../lib/listesEtudiants.js';
 /**
  * LES RAPPORTS — ce que Lucie sait dire d'elle-même, en tableur.
@@ -3165,14 +3166,16 @@ const CACHE_COUT = new Map();
 r.get('/cout-formations/donnees', authRequired, (req, res) => {
   try {
     const annee = String(req.query.annee || anneeDeTravail(req));
+    // LA MÊME MÉMOIRE QUE LE RESTE DE GESTION (3.5.695) : coutMemo, gardé tant que les données ne changent pas.
+    if (req.query.recalculer) { viderMemoCout(); CACHE_COUT.delete(annee); }
+    const d = coutMemo(annee);
     const c = CACHE_COUT.get(annee);
-    if (c && !req.query.recalculer && Date.now() - c.t < 600e3) return res.json({ ...c.v, calcule_le: c.le });
-    const d = donneesCout(annee);
+    if (c && c.d === d) return res.json({ ...c.v, calcule_le: c.le });
     const { missions, ...reste } = d;
     const v = { ...reste, nb_fonctions: missions.length, synthese: syntheseCout(d),
       remplacement_jours: getParamNum('cout.remplacement_jours', 10) };
     const le = new Date().toISOString();
-    CACHE_COUT.set(annee, { t: Date.now(), v, le });
+    CACHE_COUT.set(annee, { t: Date.now(), v, le, d });
     res.json({ ...v, calcule_le: le });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

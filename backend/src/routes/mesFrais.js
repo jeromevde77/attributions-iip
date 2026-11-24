@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { kmAllerRetour } from '../lib/distanceRoute.js';
-import { noircirPdf } from '../lib/casesNoircies.js';
+import { outilsFormulaire } from '../lib/formulairePdf.js';
 import { rendrePdf } from '../services/pdf.js';
 import { signatureCourante } from '../lib/identite.js';
 import { fileURLToPath } from 'node:url';
@@ -42,44 +42,83 @@ function caseACharge(v) {
     || A_CHARGE_CARTE[0];
 }
 
+const montantFr = v => (v == null || v === '' ? '' : `${Number(v).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
+
 export async function formulaireCarte(p, prof) {
-  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const { PDFDocument } = await import('pdf-lib');
   const doc = await PDFDocument.load(fs.readFileSync(FORMULAIRE_CARTE));
   const pg = doc.getPage(0);
-  const H = pg.getSize().height;
-  const f = await doc.embedFont(StandardFonts.Helvetica);
-  const fb = await doc.embedFont(StandardFonts.HelveticaBold);
-  const bleu = rgb(0.05, 0.16, 0.36);
-  const propre = s => String(s ?? '').replace(/[^\x20-\x7E\u00A0-\u00FF\u2019\u20AC\u2013\u2014\u2026\u0152\u0153]/g, '?');
-  const texte = (s, x, haut, taille = 10) => pg.drawText(propre(s), { x, y: H - haut, size: taille, font: f, color: bleu });
+  const o = await outilsFormulaire(doc, pg);
+  // LES POINTILLÉS SE RETIRENT (3.5.696) : prénom, nom, date, fournisseur, montant, les cinq lignes de l'objet.
+  for (const h of [214.8, 231.9, 300.3, 317.4, 334.5]) o.effacer(160, h - 6, 548, h + 3);
+  for (let i = 0; i < 5; i++) o.effacer(38, 507.5 + 17.12 * i - 6, 560, 507.5 + 17.12 * i + 3);
   // Une case de 10 pt dont le coin haut gauche est (x, haut) se NOIRCIT, elle ne se croise pas (3.5.678, Charles).
-  const croix = (x, haut, cote = 10) => noircirPdf(pg, x, haut, cote, bleu);
-  croix(p.carte === 'debit' ? 271 : 387.4, 116.1, 12.5);
+  o.cocher(p.carte === 'debit' ? 271 : 387.4, 116.1, 12.5);
   const fct = FONCTIONS_CARTE.find(([l]) => l === (prof.fonction || 'Directeur(rice)')) || FONCTIONS_CARTE[0];
-  croix(fct[1], 244, 9.8);
-  texte(prof.prenom, 167, 214.8);
-  texte(String(prof.nom || '').toUpperCase(), 167, 231.9);
-  texte(jj(p.date), 167, 300.3);
-  texte(p.fournisseur, 167, 317.4);
-  texte(p.montant == null ? '' : Number(p.montant).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 167, 334.5);
+  o.cocher(fct[1], 244);
+  o.texte(prof.prenom, 170, 214.8);
+  o.texte(String(prof.nom || '').toUpperCase(), 170, 231.9);
+  o.texte(jj(p.date), 170, 300.3);
+  o.texte(p.fournisseur, 170, 317.4);
+  o.texte(montantFr(p.montant), 170, 334.5);
   const [, [cx, ch]] = caseACharge(p.a_charge);
-  croix(cx, ch, 9);
-  // L'objet, sur les cinq lignes pointillées (515 pt de large).
-  const mots = propre(p.objet).split(/\s+/).filter(Boolean); const lignes = []; let l = '';
-  for (const m of mots) { const t = l ? `${l} ${m}` : m; if (f.widthOfTextAtSize(t, 9) > 510 && l) { lignes.push(l); l = m; } else l = t; }
-  if (l) lignes.push(l);
-  lignes.slice(0, 5).forEach((t, i) => pg.drawText(t, { x: 42, y: H - (507.5 + 17.12 * i), size: 9, font: f, color: bleu }));
+  o.remplirCarre(cx + 0.64, ch + 0.36, 6.42);   // le carré mesuré sur le modèle (3.5.696)
+  o.lignes(p.objet, 510).slice(0, 5).forEach((t, i) => o.texte(t, 42, 507.5 + 17.12 * i));
   // Le titulaire date et signe ; l'Autorité signe à la main.
-  texte(`${prof.prenom || ''} ${String(prof.nom || '').toUpperCase()} · ${jj(p.date_piece || new Date().toISOString())}`, 385, 633, 8.5);
-  try {
-    const sig = signatureCourante();
-    const m = /^data:image\/(png|jpe?g);base64,(.*)$/i.exec(sig || '');
-    if (m) {
-      const img = m[1].toLowerCase() === 'png' ? await doc.embedPng(Buffer.from(m[2], 'base64')) : await doc.embedJpg(Buffer.from(m[2], 'base64'));
-      const k = Math.min(40 / img.height, 150 / img.width);
-      pg.drawImage(img, { x: 395, y: H - 640 - img.height * k, width: img.width * k, height: img.height * k });
-    }
-  } catch { /* sans signature, le titulaire signe à la main */ }
+  o.texte(`${prof.prenom || ''} ${String(prof.nom || '').toUpperCase()} · ${jj(p.date_piece || new Date().toISOString())}`, 385, 631, 9);
+  // La signature, plus grande (3.5.698, Charles) : jusqu'au cadre de la comptabilité.
+  try { await o.signature(signatureCourante(), 395, 633, 46, 190); } catch { /* sans signature, le titulaire signe à la main */ }
+  return doc;
+}
+
+/* LA NOTE DE FRAIS SUR LE FORMULAIRE DE L'ASBL (3.5.696, Charles, 24 novembre 2026 : « le document note de frais GSM n'est pas
+   identique dans Lucie ; il faut que le format soit le bon »). Le modèle SFC_NF_2020-10-29 (assets/formulaires-frais/note_frais_asbl.pdf),
+   vidé des valeurs et de la signature de l'exemplaire fourni ; les positions sont relevées sur le PDF (x, haut depuis le haut). */
+const FORMULAIRE_NOTE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/formulaires-frais/note_frais_asbl.pdf');
+const FONCTIONS_NOTE = [['Directeur(rice)', 170, 123.2], ['Directeur(rice) adjoint(e)', 257.7, 123.2], ['Responsable', 385.4, 123.2],
+  ['Enseignant(e)', 170, 137.8], ['Administratif(ve)', 257.7, 137.8], ['Logisticien(ne)', 385.4, 137.8], ['Ouvrier(ère)', 477.6, 137.8]];
+export const A_CHARGE_NOTE = [
+  ['Institut Ilya Prigogine — GDE', [177.7, 331.1]], ['Institut Ilya Prigogine — Agence qualité', [222.3, 331.1]],
+  ['Institut Ilya Prigogine — Optique-optométrie', [300.3, 331.1]], ['Institut Ilya Prigogine — Psychomotricité', [406.8, 331.1]],
+  ['ASBL — GDA', [177.7, 252.4]], ['ASBL — GDI', [222.3, 252.4]],
+];
+function caseNote(v) {
+  const t = String(v || '').toLowerCase();
+  return A_CHARGE_NOTE.find(([l]) => l.toLowerCase() === t)
+    || A_CHARGE_NOTE.find(([l]) => { const k = l.split('—')[1].trim().toLowerCase(); return t.includes(k.split('-')[0]); })
+    || A_CHARGE_NOTE[0];
+}
+// Les quatorze cases de l'IBAN, après « BE » (centres relevés sur le modèle).
+const CASES_IBAN = [252, 270, 306.8, 325, 343, 361.3, 397.8, 416, 434.3, 452.3, 488.8, 507, 525.3, 543.3];
+
+export async function formulaireNote(p, prof) {
+  const { PDFDocument } = await import('pdf-lib');
+  const doc = await PDFDocument.load(fs.readFileSync(FORMULAIRE_NOTE));
+  const pg = doc.getPage(0);
+  const o = await outilsFormulaire(doc, pg);
+  // Les pointillés des lignes à remplir se retirent (le cadre de la comptabilité garde les siens).
+  for (const [x0, h, x1] of [[168, 96.1, 545], [168, 113.2, 545], [175, 190, 552], [175, 207.2, 552], [175, 224.2, 552],
+    [37, 395.3, 557], [37, 412.3, 557], [37, 429.5, 557], [37, 446.5, 557], [37, 463.7, 557], [266, 535.1, 553], [189, 557.6, 255], [280, 557.6, 377]]) {
+    o.effacer(x0, h - 6.5, x1, h + 0.5);
+  }
+  o.texte(prof.prenom, 172, 95);
+  o.texte(String(prof.nom || '').toUpperCase(), 172, 112);
+  const fct = FONCTIONS_NOTE.find(([l]) => l === (prof.fonction || 'Directeur(rice)')) || FONCTIONS_NOTE[0];
+  o.cocher(fct[1], fct[2]);
+  o.texte(jj(p.date), 179, 189);
+  o.texte(p.fournisseur, 179, 206);
+  o.texte(`${montantFr(p.montant)}${p.periode ? ` (forfait ${p.periode})` : ''}`, 179, 223);
+  const [, [cx, ch]] = caseNote(p.a_charge || prof.entite);
+  o.cocher(cx, ch, 8);
+  o.lignes(p.objet, 510).slice(0, 5).forEach((t, i) => o.texte(t, 42, 394 + 17.1 * i));
+  // Le remboursement par virement : la case, puis l'IBAN case par case (sans « BE », déjà imprimé).
+  o.cocher(39.7, 499.4);
+  const iban = String(prof.iban || '').replace(/\s+/g, '').toUpperCase().replace(/^BE/, '');
+  [...iban.slice(0, 14)].forEach((c, i) => o.texte(c, CASES_IBAN[i] - o.largeur(c, 11) / 2, 509.5, 11));
+  // Le membre du personnel date et signe ; l'Autorité signe à la main.
+  o.texte(jj(p.date_piece || new Date().toISOString()), 462, 591, 10);
+  // La signature, plus grande (3.5.698, Charles) : elle descend jusqu'au cadre de la comptabilité.
+  try { await o.signature(signatureCourante(), 392, 594, 60, 210); } catch { /* sans signature, il signe à la main */ }
   return doc;
 }
 
@@ -209,7 +248,7 @@ r.post('/gsm', (req, res) => {
   const mois = Number(req.body?.mois) || 6;
   const id = db.prepare(`INSERT INTO frais_piece (user_id, nature, date, fournisseur, montant, objet, a_charge, periode, date_piece)
     VALUES (?, 'note', ?, ?, ?, ?, ?, ?, date('now'))`).run(req.user.id, `${an}-${s2 ? '12' : '06'}-${s2 ? '19' : '30'}`, req.body?.fournisseur || 'Opérateur téléphonique',
-      20 * mois, 'Remboursement du forfait téléphonique à concurrence de 20 € par mois.', 'Institut Ilya Prigogine', periode).lastInsertRowid;
+      20 * mois, 'Remboursement du forfait téléphonique à concurrence de 20 € par mois.', 'Institut Ilya Prigogine — GDE', periode).lastInsertRowid;
   res.json({ ok: true, id: Number(id) });
 });
 
@@ -313,13 +352,13 @@ const eur = n => (n == null ? '' : `${Number(n).toLocaleString('fr-BE', { minimu
 const coche = (v, l) => `<span class="cc">${v ? '■' : '☐'} ${e(l)}</span>`;
 const FONCTIONS = ['Directeur(rice)', 'Directeur(rice) adjoint(e)', 'Responsable', 'Enseignant(e)', 'Administratif(ve)'];
 const ENTETE = `<div class="asbl">ILYA PRIGOGINE ASBL · NE 0458 339 252 · boulevard du Triomphe, Accès 2, CP 220/01, 1050 Bruxelles · +32 2 349 68 11</div>`;
-const STYLE = `<style>@page{size:A4;margin:14mm 14mm 16mm}body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#111}
+const STYLE = `<style>@page{size:A4;margin:14mm 14mm 16mm}body{font-family:Calibri,Carlito,Arial,Helvetica,sans-serif;font-size:10pt;color:#111}
 .asbl{text-align:center;font-size:8pt;border-bottom:.3mm solid #333;padding-bottom:2mm;margin-bottom:4mm}
 h1{font-size:11.5pt;text-align:center;margin:0 0 4mm}h2{font-size:9.5pt;margin:4mm 0 1.5mm;text-transform:uppercase}
 table.f{width:100%;border-collapse:collapse}table.f td{padding:1.2mm 1mm;vertical-align:top}table.f td.l{width:38mm;color:#333}
-.v{border-bottom:.2mm dotted #555;min-height:4mm}.cc{display:inline-block;margin-right:5mm;white-space:nowrap}
+.v{min-height:4mm;font-weight:700;color:#0D2A5C}.cc{display:inline-block;margin-right:5mm;white-space:nowrap}
 table.t{width:100%;border-collapse:collapse;font-size:8.5pt}table.t th,table.t td{border:.2mm solid #555;padding:1mm 1.2mm;text-align:left}
-table.t th{background:#eee}.r{text-align:right}.sig{display:flex;justify-content:space-between;margin-top:8mm}.sig div{width:45%}
+table.t th{background:#eee}table.t tbody td{font-weight:700;color:#0D2A5C}.r{text-align:right}.sig{display:flex;justify-content:space-between;margin-top:8mm}.sig div{width:45%}
 .sig img{height:16mm;display:block;margin-top:1mm}.note{font-size:7.5pt;color:#444;margin-top:5mm}</style>`;
 
 function corpsPiece(p, prof) {
@@ -365,6 +404,7 @@ async function pdfDePiece(p, prof) {
   const { PDFDocument } = await import('pdf-lib');
   let doc;
   if (p.nature === 'carte') doc = await formulaireCarte(p, prof);
+  else if (p.nature === 'note') doc = await formulaireNote(p, prof);
   else {
     const html = `<!doctype html><html><head><meta charset="utf-8">${STYLE}</head><body>${corpsPiece(p, prof)}</body></html>`;
     doc = await PDFDocument.load(await rendrePdf(html, { pageCss: true }));

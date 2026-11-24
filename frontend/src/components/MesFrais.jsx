@@ -17,6 +17,9 @@ const NATURES = {
 // Les cases « À charge de » du formulaire Visa de l'ASBL (3.5.653), les mêmes que A_CHARGE_CARTE du serveur.
 const A_CHARGE_CARTE = ['Institut Ilya Prigogine — GDE', 'Institut Ilya Prigogine — Agence qualité', 'Institut Ilya Prigogine — Optique-optométrie',
   'Institut Ilya Prigogine — Psychomotricité', 'Institut Ilya Prigogine — TIM', 'ASBL — GDA', 'ASBL — GDI'];
+// Les cases « À charge de » de la note de frais de l'ASBL (3.5.696), les mêmes que A_CHARGE_NOTE du serveur : son modèle ne porte pas TIM.
+const A_CHARGE_NOTE = ['Institut Ilya Prigogine — GDE', 'Institut Ilya Prigogine — Agence qualité', 'Institut Ilya Prigogine — Optique-optométrie',
+  'Institut Ilya Prigogine — Psychomotricité', 'ASBL — GDA', 'ASBL — GDI'];
 const eur = n => (n == null || n === '' ? '—' : `${Number(n).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
 const jj = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 const auj = () => new Date().toISOString().slice(0, 10);
@@ -43,7 +46,7 @@ export default function MesFrais() {
 
   const creer = async (nature) => {
     try {
-      const j = await appel('POST', '/piece', { nature, date: auj(), date_piece: auj(), a_charge: nature === 'carte' ? A_CHARGE_CARTE[0] : (d?.profil?.entite || 'Institut Ilya Prigogine'), ...(nature === 'carte' ? { carte: 'credit' } : {}),
+      const j = await appel('POST', '/piece', { nature, date: auj(), date_piece: auj(), a_charge: nature === 'carte' ? A_CHARGE_CARTE[0] : nature === 'note' ? A_CHARGE_NOTE[0] : (d?.profil?.entite || 'Institut Ilya Prigogine'), ...(nature === 'carte' ? { carte: 'credit' } : {}),
         ...(nature === 'km' ? { periode: `${new Date().getFullYear()}` } : {}) });
       await charger(); setOuverte(j.id);
     } catch (e) { setErreur(e.message); }
@@ -246,8 +249,9 @@ function FenetrePiece({ p, profil, lieux, onFermer, recharger }) {
           {p.nature !== 'km' && <Champ l="Fournisseur"><input {...c('fournisseur')} /></Champ>}
           {p.nature !== 'km' && <Champ l="Montant EUR TTC"><input type="number" step="0.01" {...c('montant')} /></Champ>}
           <Champ l="Période (facultatif)"><input {...c('periode')} placeholder="juillet-décembre 2026" /></Champ>
-          {p.nature === 'carte'
-            ? <Champ l="À charge de (case du formulaire)"><select {...c('a_charge')} onChange={e => maj({ a_charge: e.target.value })}>{!A_CHARGE_CARTE.includes(v.a_charge) && <option value={v.a_charge || ''}>{v.a_charge || '—'}</option>}{A_CHARGE_CARTE.map(o => <option key={o} value={o}>{o}</option>)}</select></Champ>
+          {p.nature !== 'km'
+            ? (() => { const liste = p.nature === 'carte' ? A_CHARGE_CARTE : A_CHARGE_NOTE; return (
+              <Champ l="À charge de (case du formulaire)"><select {...c('a_charge')} onChange={e => maj({ a_charge: e.target.value })}>{!liste.includes(v.a_charge) && <option value={v.a_charge || ''}>{v.a_charge || '—'}</option>}{liste.map(o => <option key={o} value={o}>{o}</option>)}</select></Champ>); })()
             : <Champ l="À charge de"><input {...c('a_charge')} /></Champ>}
         </div>
         {p.nature !== 'km' && <Champ l="Objet et localisation de la dépense"><textarea rows={3} {...c('objet')} className="controle w-full h-auto py-1.5" /></Champ>}

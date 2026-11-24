@@ -76,9 +76,21 @@ function empreinte(a) {
   } catch { return String(Date.now()); }
 }
 export function viderMemoCout() { MEMO_COUT.clear(); }
+/** La nuit : chaque année scolaire connue, calculée d'avance (une à une, sans rien renvoyer). */
+export function prechaufferCouts() {
+  const annees = db.prepare('SELECT code FROM annee_scolaire ORDER BY code').all().map(x => x.code);
+  const t = Date.now(); let n = 0;
+  for (const a of annees) { try { coutMemo(a); n++; } catch (e) { console.error('[coûts] préchauffe', a, e.message); } }
+  console.log(`[coûts] ${n} année(s) préparée(s) en ${Math.round((Date.now() - t) / 1000)} s`);
+}
+/* GARDÉE JUSQU'À CE QUE LES DONNÉES CHANGENT (3.5.695, Charles : « certaines pages sont terriblement lentes — budget, frais… ») :
+   dix minutes ne suffisaient pas — passé ce délai, le premier écran qui en avait besoin relançait ~20 s de calcul par année, et le
+   serveur faisait attendre tout le monde pendant ce temps. L'empreinte fait foi ; 24 h au plus ; « Recalculer » vide la mémoire, et
+   la nuit, Lucie prépare chaque année (`prechaufferCouts`). */
+const DUREE_MEMO_COUT = 24 * 3600e3;
 export function coutMemo(a) {
   const m = MEMO_COUT.get(a), e = empreinte(a);
-  if (m && m.e === e && Date.now() - m.t < 600e3) return m.d;
+  if (m && m.e === e && Date.now() - m.t < DUREE_MEMO_COUT) return m.d;
   const d = donneesCout(a);
   MEMO_COUT.set(a, { t: Date.now(), d, e });
   return d;
