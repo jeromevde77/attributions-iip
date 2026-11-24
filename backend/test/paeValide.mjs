@@ -44,5 +44,15 @@ let e2 = null; try { await dans({ method: 'PUT', headers: {} }, ecrire); } catch
 t('après le 1/10 : refus 409 « apres_dixieme »', e2?.code === 'apres_dixieme' && /abandon/.test(e2.message), e2?.message);
 const c = await dans({ method: 'PUT', headers: { 'x-lucie-apres-dixieme': '1' } }, ecrire);
 t('avec l’accord : retirée', c.retirees.length === 1);
+// Retrait forcé d'une UE déjà délibérée (3.5.665, réorientation) : la décision part avec l'inscription.
+db.exec("CREATE TABLE IF NOT EXISTS deliberation_resultat (etudiant_id INTEGER, annee_scolaire TEXT, ue_num INTEGER, session INTEGER, resultat TEXT, points REAL)");
+db.prepare("INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat) VALUES (1,'2026-2027',256,'refuse')").run();
+db.prepare("INSERT INTO deliberation_resultat VALUES (1,'2026-2027',256,1,'refuse',0)").run();
+const hd = { 'x-lucie-apres-dixieme': '1' };
+const g = await dans({ method: 'PUT', headers: hd }, ecrire);
+t('sans « forcer » : une UE décidée est conservée', g.conservees.length === 1 && g.retirees.length === 0);
+const f = await dans({ method: 'PUT', headers: hd }, () => E.ecrireProgramme({ etudId: 1, annee: '2026-2027', retirer: [256], origine: 'pae', par: 'dir', forcerRetrait: true }));
+t('forcée : retirée, et sa décision du Conseil aussi', f.retirees.length === 1
+  && !db.prepare('SELECT 1 FROM deliberation_resultat WHERE etudiant_id = 1 AND ue_num = 256').get());
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);
