@@ -455,7 +455,7 @@ export default function Attributions() {
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
   const [openUEs, setOpenUEs] = useState(new Set());
-  const [openActs, setOpenActs] = useState(new Set()); // volets d'activité dépliés (clé: coursKey|activite_id)
+  const [openActs, setOpenActs] = useState(new Set()); // activités REPLIÉES dans l'arbre de l'UE (clé: coursKey|activite_id) — dépliées par défaut (24/11/2026)
 
   const [colWidths, setColWidths] = useState(() => {
     try {
@@ -1388,8 +1388,150 @@ export default function Attributions() {
     return a;
   },{total:0,iip:0,helb:0}), [data]);
 
+  /* LA PASTILLE DU GROUPE, ÉCRITE UNE FOIS (24 novembre 2026, Charles : « l'arbre relié ») : elle se pose dans la colonne
+     « Gr. » de la vue à plat, et dans la colonne de l'arbre de l'UE ouverte. Mêmes couleurs, même menu de lettres,
+     mêmes ciseaux. */
+  function contenuGroupe(row, aGauche = false) {
+    const estSplit  = row.split_groupe === 'O';
+    const codeVal   = (row.code || '').toUpperCase();
+    const estGroupe = !!(codeVal && codeVal !== 'TS');
+    const lettre    = estGroupe ? codeVal : 'Ts';
+    // BADGE_COLORS défini au niveau composant
+    const badgeStyle = estGroupe
+      ? (badge(lettre) || { bg: 'rgb(var(--gris-100))', color: 'var(--c-texte)', border: 'var(--c-filet, rgb(var(--gris-200)))' })
+      : { bg: 'rgb(var(--gris-50))', color: 'rgb(var(--gris-400))', border: 'var(--c-filet, rgb(var(--gris-200)))' };
+
+    // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
+    const freres = data.filter(r =>
+      r.id !== row.id &&
+      r.section === row.section &&
+      r.code_cours === row.code_cours &&
+      (r.num_organisation||1) === (row.num_organisation||1) &&
+      r.split_groupe !== 'O' &&
+      (r.activite_id || null) === (row.activite_id || null)
+    );
+    const nbGroupes = freres.length + 1;
+    // Toutes les lettres du groupe (A..Z selon le nombre total)
+    const toutesLettres = groupCodeSeq(nbGroupes, row);
+    // Map lettre → frère qui l'a
+    const lettreAFrere = {};
+    freres.forEach(r => { const l = (r.code||'').toUpperCase(); if (l && l !== 'TS') lettreAFrere[l] = r; });
+    const menuOuvert = badgeMenuOpen === row.id;
+
+    // Assigner une lettre à cette ligne (swap si prise, direct sinon)
+    async function assignerLettre(newLettre) {
+      setBadgeMenuOpen(null);
+      if (newLettre === lettre) return; // déjà cette lettre
+      const frereAvecCetteLetttre = lettreAFrere[newLettre];
+      // Vérifier si la séquence sera respectée après l'opération
+      const codesApres = freres
+        .map(r => r.id === frereAvecCetteLetttre?.id ? lettre : (r.code||'').toUpperCase())
+        .concat([newLettre])
+        .filter(l => l && l !== 'TS');
+      codesApres.sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+      const attendu = groupCodeSeq(codesApres.length, row);
+      const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
+      if (!seqOk) {
+        if (!(await demander(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`))) return;
+      }
+      if (frereAvecCetteLetttre) {
+        // Switch : échanger les deux lettres
+        const ancienCode = row.code || null;
+        setData(prev => prev.map(r => {
+          if (r.id === row.id) return { ...r, code: newLettre };
+          if (r.id === frereAvecCetteLetttre.id) return { ...r, code: ancienCode };
+          return r;
+        }));
+        try {
+          await api.updateAttribution(row.id, { code: newLettre });
+          await api.updateAttribution(frereAvecCetteLetttre.id, { code: ancienCode });
+        } catch(e) {
+          setData(prev => prev.map(r => {
+            if (r.id === row.id) return { ...r, code: ancienCode };
+            if (r.id === frereAvecCetteLetttre.id) return { ...r, code: newLettre };
+            return r;
+          }));
+          informer('Erreur : ' + e.message);
+        }
+      } else {
+        // Lettre libre : assigner directement
+        const ancienCode = row.code || null;
+        setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
+        try { await api.updateAttribution(row.id, { code: newLettre }); }
+        catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); informer('Erreur : ' + e.message); }
+      }
+    }
+
+    return (
+      <div className={`flex items-center gap-0.5 ${aGauche ? 'justify-start' : 'justify-center'}`} style={{position:'relative'}}>
+        {/* Badge lettre — clic pour choisir, drag pour échanger */}
+        <span
+          onClick={e => { e.stopPropagation(); if (estGroupe) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
+          id={'badge-'+row.id}
+          title={estGroupe ? 'Cliquer pour changer la lettre' : ''}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            minWidth: lettre.length > 1 ? 30 : 22, height: 20, paddingInline: 5, borderRadius: 5,
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
+            background: badgeStyle.bg, color: badgeStyle.color,
+            border: `1px solid ${badgeStyle.border}`,
+            cursor: estGroupe ? 'pointer' : 'default',
+            userSelect: 'none',
+          }}>{lettre}</span>
+
+        {/* Mini-menu de sélection de lettre — position fixed pour éviter le clipping du td */}
+        {menuOuvert && (
+          <>
+            <div style={{position:'fixed',inset:0,zIndex:998}} onClick={e=>{e.stopPropagation();setBadgeMenuOpen(null);}} />
+            <div style={{position:'fixed',zIndex:999,background:'var(--blanc)',border:'1px solid var(--c-filet, rgb(var(--gris-200)))',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.15)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,
+              top: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.bottom + 4; })(),
+              left: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.left; })(),
+            }}>
+              {toutesLettres.map(l => {
+                const prise = !!lettreAFrere[l];
+                const courante = l === lettre;
+                const bs = badge(l) || { bg:'rgb(var(--gris-100))', color:'var(--c-texte)', border:'var(--c-filet, rgb(var(--gris-200)))' };
+                return (
+                  <span key={l}
+                    onClick={e => { e.stopPropagation(); assignerLettre(l); }}
+                    title={courante ? 'Lettre actuelle' : prise ? `Échanger avec le groupe ${l}` : `Assigner ${l}`}
+                    style={{
+                      display:'inline-flex',alignItems:'center',justifyContent:'center',
+                      width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,
+                      background: courante ? 'var(--c-principal)' : bs.bg,
+                      color: courante ? '#fff' : bs.color,
+                      border: `2px solid ${courante ? 'var(--c-principal)' : prise ? bs.color : bs.border}`,
+                      cursor: courante ? 'default' : 'pointer',
+                    }}>
+                    {l}
+                  </span>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Toggle split / groupe */}
+        {!row.is_z && <>
+          <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
+            style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? 'var(--c-texte)' : 'rgb(var(--gris-300))' }}
+            onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='var(--c-reussi)';}}
+            onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='rgb(var(--gris-300))';}}>
+            <IconScissors size={13}/>
+          </button>
+          <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
+            style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? 'var(--c-texte)' : 'rgb(var(--gris-300))' }}
+            onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='var(--c-reussi)';}}
+            onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='rgb(var(--gris-300))';}}>
+            <IconUsersGroup size={13}/>
+          </button>
+        </>}
+      </div>
+    );
+  }
+
   /* === Rendu d'une ligne de grille (cols paramétrable) === */
-  function renderRow(row, cols) {
+  function renderRow(row, cols, arbre = null) {
     // La vue à plat mélange les cours : elle seule garde le plafond en cellule.
     const vueAPlat = viewMode === 'flat';
     const colSet = cols || COLS;
@@ -1400,7 +1542,7 @@ export default function Attributions() {
     // Ligne Z : synthétique (activités 7.3), non éditable, sans prof ni charge.
     if (isZ) {
       return (
-        <tr key={row.id} className={rowBg} title="Activités Z : périodes étudiant, sans enseignant ni coût">
+        <tr key={row.id} className={rowBg} title="Activités Z : périodes étudiant, sans enseignant ni coût">{arbre}
           {colSet.map(c => {
             const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
             let v = '';
@@ -1417,7 +1559,7 @@ export default function Attributions() {
       );
     }
     return (
-      <tr key={row.id} className={`${rowBg}${peutEcrireAttr ? '' : ' ligne-lecture'}`} inert={peutEcrireAttr ? undefined : ''} style={aValider ? { boxShadow: 'inset 4px 0 0 var(--c-attente)' } : undefined}>
+      <tr key={row.id} className={`${rowBg}${peutEcrireAttr ? '' : ' ligne-lecture'}`} inert={peutEcrireAttr ? undefined : ''} style={aValider ? { boxShadow: 'inset 4px 0 0 var(--c-attente)' } : undefined}>{arbre}
         {colSet.map(c => {
           const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
@@ -1556,144 +1698,7 @@ export default function Attributions() {
               </div>
             </td>;
           }
-          if (c.key==='code') {
-            const estSplit  = row.split_groupe === 'O';
-            const codeVal   = (row.code || '').toUpperCase();
-            const estGroupe = !!(codeVal && codeVal !== 'TS');
-            const lettre    = estGroupe ? codeVal : 'Ts';
-            // BADGE_COLORS défini au niveau composant
-            const badgeStyle = estGroupe
-              ? (badge(lettre) || { bg: 'rgb(var(--gris-100))', color: 'var(--c-texte)', border: 'var(--c-filet, rgb(var(--gris-200)))' })
-              : { bg: 'rgb(var(--gris-50))', color: 'rgb(var(--gris-400))', border: 'var(--c-filet, rgb(var(--gris-200)))' };
-
-            // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
-            const freres = data.filter(r =>
-              r.id !== row.id &&
-              r.section === row.section &&
-              r.code_cours === row.code_cours &&
-              (r.num_organisation||1) === (row.num_organisation||1) &&
-              r.split_groupe !== 'O' &&
-              (r.activite_id || null) === (row.activite_id || null)
-            );
-            const nbGroupes = freres.length + 1;
-            // Toutes les lettres du groupe (A..Z selon le nombre total)
-            const toutesLettres = groupCodeSeq(nbGroupes, row);
-            // Map lettre → frère qui l'a
-            const lettreAFrere = {};
-            freres.forEach(r => { const l = (r.code||'').toUpperCase(); if (l && l !== 'TS') lettreAFrere[l] = r; });
-            const menuOuvert = badgeMenuOpen === row.id;
-
-            // Assigner une lettre à cette ligne (swap si prise, direct sinon)
-            async function assignerLettre(newLettre) {
-              setBadgeMenuOpen(null);
-              if (newLettre === lettre) return; // déjà cette lettre
-              const frereAvecCetteLetttre = lettreAFrere[newLettre];
-              // Vérifier si la séquence sera respectée après l'opération
-              const codesApres = freres
-                .map(r => r.id === frereAvecCetteLetttre?.id ? lettre : (r.code||'').toUpperCase())
-                .concat([newLettre])
-                .filter(l => l && l !== 'TS');
-              codesApres.sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
-              const attendu = groupCodeSeq(codesApres.length, row);
-              const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
-              if (!seqOk) {
-                if (!(await demander(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`))) return;
-              }
-              if (frereAvecCetteLetttre) {
-                // Switch : échanger les deux lettres
-                const ancienCode = row.code || null;
-                setData(prev => prev.map(r => {
-                  if (r.id === row.id) return { ...r, code: newLettre };
-                  if (r.id === frereAvecCetteLetttre.id) return { ...r, code: ancienCode };
-                  return r;
-                }));
-                try {
-                  await api.updateAttribution(row.id, { code: newLettre });
-                  await api.updateAttribution(frereAvecCetteLetttre.id, { code: ancienCode });
-                } catch(e) {
-                  setData(prev => prev.map(r => {
-                    if (r.id === row.id) return { ...r, code: ancienCode };
-                    if (r.id === frereAvecCetteLetttre.id) return { ...r, code: newLettre };
-                    return r;
-                  }));
-                  informer('Erreur : ' + e.message);
-                }
-              } else {
-                // Lettre libre : assigner directement
-                const ancienCode = row.code || null;
-                setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
-                try { await api.updateAttribution(row.id, { code: newLettre }); }
-                catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); informer('Erreur : ' + e.message); }
-              }
-            }
-
-            return <td key={c.key} style={sty}>
-              <div className="flex items-center gap-0.5 justify-center" style={{position:'relative'}}>
-                {/* Badge lettre — clic pour choisir, drag pour échanger */}
-                <span
-                  onClick={e => { e.stopPropagation(); if (estGroupe) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
-                  id={'badge-'+row.id}
-                  title={estGroupe ? 'Cliquer pour changer la lettre' : ''}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    minWidth: lettre.length > 1 ? 30 : 22, height: 20, paddingInline: 5, borderRadius: 5,
-                    fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
-                    background: badgeStyle.bg, color: badgeStyle.color,
-                    border: `1px solid ${badgeStyle.border}`,
-                    cursor: estGroupe ? 'pointer' : 'default',
-                    userSelect: 'none',
-                  }}>{lettre}</span>
-
-                {/* Mini-menu de sélection de lettre — position fixed pour éviter le clipping du td */}
-                {menuOuvert && (
-                  <>
-                    <div style={{position:'fixed',inset:0,zIndex:998}} onClick={e=>{e.stopPropagation();setBadgeMenuOpen(null);}} />
-                    <div style={{position:'fixed',zIndex:999,background:'var(--blanc)',border:'1px solid var(--c-filet, rgb(var(--gris-200)))',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.15)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,
-                      top: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.bottom + 4; })(),
-                      left: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.left; })(),
-                    }}>
-                      {toutesLettres.map(l => {
-                        const prise = !!lettreAFrere[l];
-                        const courante = l === lettre;
-                        const bs = badge(l) || { bg:'rgb(var(--gris-100))', color:'var(--c-texte)', border:'var(--c-filet, rgb(var(--gris-200)))' };
-                        return (
-                          <span key={l}
-                            onClick={e => { e.stopPropagation(); assignerLettre(l); }}
-                            title={courante ? 'Lettre actuelle' : prise ? `Échanger avec le groupe ${l}` : `Assigner ${l}`}
-                            style={{
-                              display:'inline-flex',alignItems:'center',justifyContent:'center',
-                              width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,
-                              background: courante ? 'var(--c-principal)' : bs.bg,
-                              color: courante ? '#fff' : bs.color,
-                              border: `2px solid ${courante ? 'var(--c-principal)' : prise ? bs.color : bs.border}`,
-                              cursor: courante ? 'default' : 'pointer',
-                            }}>
-                            {l}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-
-                {/* Toggle split / groupe */}
-                {!row.is_z && <>
-                  <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? 'var(--c-texte)' : 'rgb(var(--gris-300))' }}
-                    onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='var(--c-reussi)';}}
-                    onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='rgb(var(--gris-300))';}}>
-                    <IconScissors size={13}/>
-                  </button>
-                  <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? 'var(--c-texte)' : 'rgb(var(--gris-300))' }}
-                    onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='var(--c-reussi)';}}
-                    onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='rgb(var(--gris-300))';}}>
-                    <IconUsersGroup size={13}/>
-                  </button>
-                </>}
-              </div>
-            </td>;
-          }
+          if (c.key==='code') return <td key={c.key} style={sty}>{contenuGroupe(row)}</td>;
           if (c.key==='coordination_section') {
             if (row.ue_tc !== 'x') return <td key={c.key} style={sty} className="text-center text-gray-300" title="Réservé au tronc commun">—</td>;
             if (!peutSuperviser) return <td key={c.key} style={sty} className="text-center text-xs">{v || <span className="text-gray-300">—</span>}</td>;
@@ -1793,144 +1798,266 @@ export default function Attributions() {
     return { tPer, tAut, nBad, nConf, nProf, nCours };
   }
 
-  /* === Rendu d'un cours (niveau 3) === */
-  // Regroupe les lignes d'un cours par activité. Les activités à plusieurs groupes
-  // forment un volet repliable (fermé par défaut) ; celles à une seule ligne restent directes.
-  function renderActiviteGroups(cg, coursKey, COLS_COURS) {
-    const rows = cg.rows;
-    // Grouper par activite_id (null = sans activité)
+  /* === L'UE OUVERTE EN ARBRE RELIÉ (niveaux 3 et 4) ===
+     (24 novembre 2026, Charles : « ces volets, ces désalignements, on ne comprend pas de suite les liens » ; maquette A,
+     « l'arbre relié », validée : « ok ! Ne supprime pas les couleurs des groupes »)
+     Un en-tête répété sous chaque cours, une ligne « Sans activité · 40p sur 2 groupes » à déplier entre le cours et ses
+     groupes, un bandeau encadré au-dessus : trois objets pour dire une seule chose, qui appartient à quoi. Désormais
+     UN tableau par UE ouverte, UN en-tête, et un ARBRE dans la colonne de gauche — un trait descend de l'UE le long de
+     ses cours, une branche par cours, puis de chaque cours vers ses groupes ; le dernier ferme la branche. La colonne de
+     l'arbre a une largeur FIXE : toutes les autres sont au même x pour l'UE, ses cours et ses groupes, et la ligne d'un
+     cours porte ses sous-totaux dans les colonnes des nombres. Les vraies activités (théorie, TP…) sont un niveau de
+     l'arbre entre le cours et ses groupes ; « sans activité » n'en est pas un. */
+  const ARBRE_LARGEUR = 300;
+  const ARBRE_X0 = 14, ARBRE_PAS = 20, ARBRE_BRANCHE = 12;
+  const xArbre = n => ARBRE_X0 + (n - 1) * ARBRE_PAS;
+  const TRAIT_V = { position: 'absolute', width: 0, borderLeft: '1.5px solid rgb(var(--gris-400))', pointerEvents: 'none' };
+  const TRAIT_H = { position: 'absolute', height: 0, borderTop: '1.5px solid rgb(var(--gris-400))', pointerEvents: 'none' };
+  const nbFr = v => Number(v || 0).toLocaleString('fr-BE', { maximumFractionDigits: 2 });
+
+  /* La cellule de l'arbre. `suites` dit, pour chaque niveau au-dessus, si l'ancêtre a encore des frères plus bas (son
+     trait passe alors tout du long) ; `dernier` ferme la branche à mi-hauteur ; `enfants` fait partir, sous le libellé,
+     le trait qui descend vers les enfants. */
+  function celluleArbre({ niveau, suites = [], dernier = true, enfants = false, children, title }) {
+    const traits = [];
+    suites.forEach((suite, i) => {
+      if (suite) traits.push(<span key={'s' + i} style={{ ...TRAIT_V, left: xArbre(i + 1), top: 0, bottom: 0 }} />);
+    });
+    if (niveau >= 1) {
+      const x = xArbre(niveau);
+      traits.push(<span key="v" style={{ ...TRAIT_V, left: x, top: 0, ...(dernier ? { height: 'calc(50% + 0.75px)' } : { bottom: 0 }) }} />);
+      traits.push(<span key="h" style={{ ...TRAIT_H, left: x, top: '50%', width: ARBRE_BRANCHE }} />);
+    }
+    if (enfants) traits.push(<span key="e" style={{ ...TRAIT_V, left: xArbre(niveau + 1), top: 'calc(50% + 10px)', bottom: 0 }} />);
+    const retrait = niveau >= 1 ? xArbre(niveau) + ARBRE_BRANCHE + 4 : 6;
+    return (
+      <td key="__arbre" title={title}
+          style={{ position: 'relative', width: ARBRE_LARGEUR, minWidth: ARBRE_LARGEUR, maxWidth: ARBRE_LARGEUR, paddingLeft: 0, overflow: 'hidden' }}>
+        {traits}
+        <div className="flex items-center gap-1.5 min-w-0" style={{ paddingLeft: retrait }}>{children}</div>
+      </td>
+    );
+  }
+
+  /* Les cellules d'une ligne de regroupement (UE, cours, activité) : la case qui coche tout le groupe, une mention qui
+     s'étend jusqu'aux nombres, puis les sommes À L'APLOMB de leur colonne. */
+  function cellulesRegroupement(cols, lignes, { mention = null, fort = false, plafondPer = null, plafondAut = null } = {}) {
+    const reelles = lignes.filter(r => !r.is_z);
+    const tout = reelles.length > 0 && reelles.every(r => selected.has(r.id));
+    const iNum = cols.findIndex(c => c.key === 'periodes_attribuees');
+    const fin = iNum >= 0 ? iNum : cols.length;
+    const enH = unite === 'heures';
+    const somme = k => reelles.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+    const ton = fort ? 'font-semibold text-iip-gold' : 'text-gray-500';
+    const out = [];
+    let fusion = 0;
+    const pousserFusion = () => {
+      if (!fusion) return;
+      out.push(<td key={'m' + out.length} colSpan={fusion} style={{ overflow: 'hidden' }}>
+        <div className="flex items-center gap-2 min-w-0 text-mention text-gray-500 whitespace-nowrap overflow-hidden">{mention}</div>
+      </td>);
+      mention = null; fusion = 0;
+    };
+    cols.forEach((c, i) => {
+      const sty = c.flex ? {} : { width: c.width, minWidth: c.width, maxWidth: c.width };
+      if (i < fin) {
+        if (c.key === '__select') {
+          pousserFusion();
+          out.push(<td key={c.key} className="text-center" style={sty}>
+            {reelles.length > 0 && <input type="checkbox" checked={tout} className="cursor-pointer"
+              onClick={e => e.stopPropagation()}
+              onChange={() => setSelected(s => { const n = new Set(s); reelles.forEach(r => tout ? n.delete(r.id) : n.add(r.id)); return n; })} />}
+          </td>);
+        } else fusion++;
+        return;
+      }
+      pousserFusion();
+      if (c.key === 'periodes_attribuees' || c.key === 'autonomie_attribuee') {
+        const v = somme(c.key);
+        const plafond = c.key === 'periodes_attribuees' ? plafondPer : plafondAut;
+        const aff = x => enH ? perToH(x) : nbFr(x);
+        const depasse = plafond != null && v > plafond;
+        out.push(<td key={c.key} className="num whitespace-nowrap" style={sty}
+            title={plafond != null ? (c.key === 'periodes_attribuees' ? 'Périodes attribuées / prévues' : 'Autonomie attribuée / prévue') : undefined}>
+          <span className={depasse ? 'font-semibold text-amber-700' : ton}>{aff(v)}</span>
+          {plafond != null && <span className="text-gray-400"> / {aff(plafond)}</span>}
+        </td>);
+      } else if (c.key === 'total_attribue_professeur' || c.key === 'charge_en_heures') {
+        out.push(<td key={c.key} className={`num ${ton}`} style={sty}>{nbFr(somme(c.key))}</td>);
+      } else out.push(<td key={c.key} style={sty} />);
+    });
+    pousserFusion();
+    return out;
+  }
+
+  // Ce que disent les groupes d'un cours ou d'une activité : leur nombre, et ce qui les distingue.
+  function mentionsGroupes(lignes) {
+    const reelles = lignes.filter(r => !r.is_z);
+    if (reelles.length <= 1) return null;
+    const memeProf = reelles.every(l => l.professeur_id === reelles[0].professeur_id);
+    const memePer = reelles.every(l => Number(l.periodes_attribuees) === Number(reelles[0].periodes_attribuees));
+    return <>
+      <span>{reelles.length} groupes</span>
+      {!memeProf && <span>· profs différents</span>}
+      {!memePer && <span>· périodes variables</span>}
+    </>;
+  }
+
+  // Les lignes d'un cours, en arbre : un cours, puis ses activités s'il en a de vraies, puis ses groupes.
+  function lignesCours(ueKey, cg, cols, dernierCours) {
+    const key = 'cours:' + ueKey + '/' + cg.code_cours;
+    const open = openUEs.has(key);
+    const st = groupStats(cg.rows);
+    const isZCours = cg.type_cours === 'Z';
+    /* LES PLAFONDS SE LISENT UNE FOIS, ICI. Ils viennent de la table cours et sont constants sur toutes les attributions :
+       la ligne du cours les porte, à côté de sa somme (« 48 / 48 »). */
+    const prem = cg.rows[0] || {};
+    const plafondPer = prem.cours_per_prevu != null ? Number(prem.cours_per_prevu) : null;
+    const plafondAut = prem.ue_autonomie_prevu != null ? Number(prem.ue_autonomie_prevu) : null;
+
+    // Les activités : par activite_id, dans l'ordre des lignes.
     const groupes = new Map();
-    for (const r of rows) {
+    for (const r of cg.rows) {
       const k = r.activite_id ?? '__none__';
       if (!groupes.has(k)) groupes.set(k, []);
       groupes.get(k).push(r);
     }
-    const out = [];
-    for (const [actId, lignes] of groupes) {
-      // Une seule ligne pour cette activité → affichage direct (pas de volet)
-      if (lignes.length <= 1) {
-        for (const r of lignes) out.push(renderRow(r, COLS_COURS));
-        continue;
-      }
-      // Plusieurs lignes (groupes) pour la même activité → volet repliable
-      const voletKey = coursKey + '|' + actId;
-      const ouvert = openActs.has(voletKey);
-      const nom = lignes[0].activite_nom || <span className="text-gray-300 italic">Sans activité</span>;
-      // Tout identique ? (même prof, mêmes périodes, même autonomie) → éditable replié
-      const memeProf = lignes.every(l => l.professeur_id === lignes[0].professeur_id);
-      const memePer  = lignes.every(l => Number(l.periodes_attribuees) === Number(lignes[0].periodes_attribuees));
-      const tPer = lignes.reduce((s,l)=>s+(Number(l.periodes_attribuees)||0),0);
+    const vraiesActivites = [...groupes.keys()].some(k => k !== '__none__');
+    // Les enfants du cours : une activité qui a plusieurs groupes devient un nœud ; sinon, la ligne elle-même.
+    const enfants = [];
+    if (!vraiesActivites) cg.rows.forEach(r => enfants.push({ ligne: r }));
+    else for (const [actId, lignes] of groupes) {
+      if (lignes.length > 1) enfants.push({ actId, lignes });
+      else enfants.push({ ligne: lignes[0] });
+    }
+
+    const mention = <>
+      {(() => {
+        const gh = Number(cg.grille_heures) || 0;
+        const ev = (Number(cg.grille_ev1) || 0) + (Number(cg.grille_vc1) || 0);
+        if (gh === 0 && ev === 0) return null;
+        return <span title="Issu de la grille étudiant (répartiteur d'autonomie)">Grille : {gh}h{ev > 0 ? ` · examens et rem : ${ev}h` : ''}</span>;
+      })()}
+      {cg.type_cours && <PastilleEtat etat={isZCours ? 'indisponible' : cg.type_cours === 'CT' ? 'disponible' : 'neutre'}>{cg.type_cours}</PastilleEtat>}
+      {isZCours
+        ? <span className="italic">périodes étudiants — sans prof</span>
+        : <>
+            {(() => {
+              // Badge « multiple du DP » : ×N si net, sinon le ratio (non conforme)
+              const ctrlUE = ctrlPourUE(cg.ue_num, cg.num_organisation);
+              const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
+              if (!cc || !cc.dp) return null;
+              if (cc.est_multiple) return <PastilleEtat etat="reussi" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</PastilleEtat>;
+              return <PastilleEtat etat="surveiller" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</PastilleEtat>;
+            })()}
+            <span>{cg.rows.length} attr.</span>
+            {!vraiesActivites && mentionsGroupes(cg.rows) && <span className="inline-flex gap-1">· {mentionsGroupes(cg.rows)}</span>}
+            {st.nBad > 0 ? <span className="text-amber-700 font-bold">✗</span> : st.nConf > 0 ? <span className="text-green-600 font-bold">✓</span> : null}
+          </>}
+    </>;
+
+    const suitesCours = [!dernierCours];
+    const out = [
+      <tr key={key} id={'cours-' + cg.code_cours} className={isZCours ? 'opacity-70' : ''}>
+        {celluleArbre({
+          niveau: 1, dernier: dernierCours, enfants: open && enfants.length > 0, title: cg.nom_cours,
+          children: <button onClick={() => toggle(key)} className="flex items-center gap-1.5 min-w-0 text-left"
+                            title={open ? 'Replier ce cours' : 'Déplier ce cours'}>
+            <Chevron ouvert={open} size={14} className="text-gray-400 flex-shrink-0" />
+            <span className={`font-mono text-sm flex-shrink-0 ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
+            <span className={`truncate font-medium ${isZCours ? 'text-gray-400 italic' : 'text-iip-texte'}`}>{cg.nom_cours}</span>
+          </button>,
+        })}
+        {cellulesRegroupement(cols, cg.rows, { mention, plafondPer, plafondAut })}
+      </tr>,
+    ];
+    if (!open) return out;
+
+    const ligneGroupe = (r, niveau, suites, dernier) => renderRow(r, cols, celluleArbre({
+      niveau, suites, dernier,
+      children: r.is_z ? <span className="text-mention text-gray-400 italic">Z</span> : contenuGroupe(r, true),
+    }));
+
+    enfants.forEach((e, i) => {
+      const dernierEnfant = i === enfants.length - 1;
+      if (e.ligne) { out.push(ligneGroupe(e.ligne, 2, suitesCours, dernierEnfant)); return; }
+      // Une vraie activité à plusieurs groupes : un niveau de l'arbre, qui se replie.
+      const voletKey = key + '|' + e.actId;
+      const replie = openActs.has(voletKey);
+      const nom = e.lignes[0].activite_nom || 'Sans activité';
       out.push(
-        <tr key={voletKey} className="tab-repere cursor-pointer"
-            onClick={()=>setOpenActs(s=>{const n=new Set(s);n.has(voletKey)?n.delete(voletKey):n.add(voletKey);return n;})}>
-          <td className="text-center"><Chevron ouvert={ouvert} size={14} className="text-gray-400 text-xs" /></td>
-          <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5 h-9">
-            <span className="inline-flex items-center gap-2">
-              <PastilleEtat etat="fort">{lignes.length}</PastilleEtat>
-              <span className="text-sm font-medium text-gray-700">{nom}</span>
-              <span className="text-xs text-gray-400">· {tPer}p sur {lignes.length} groupes</span>
-              {!memeProf && <PastilleEtat etat="surveiller">profs différents</PastilleEtat>}
-              {!memePer && <span className="text-mention text-gray-400">périodes variables</span>}
-            </span>
-          </td>
+        <tr key={voletKey}>
+          {celluleArbre({
+            niveau: 2, suites: suitesCours, dernier: dernierEnfant, enfants: !replie, title: nom,
+            children: <button className="flex items-center gap-1.5 min-w-0 text-left"
+                onClick={() => setOpenActs(s => { const n = new Set(s); n.has(voletKey) ? n.delete(voletKey) : n.add(voletKey); return n; })}
+                title={replie ? 'Déplier cette activité' : 'Replier cette activité'}>
+              <Chevron ouvert={!replie} size={13} className="text-gray-400 flex-shrink-0" />
+              <span className={`truncate ${e.lignes[0].activite_nom ? 'text-gray-700' : 'text-gray-400 italic'}`}>{nom}</span>
+            </button>,
+          })}
+          {cellulesRegroupement(cols, e.lignes, { mention: <span className="inline-flex gap-1">{mentionsGroupes(e.lignes)}</span> })}
         </tr>
       );
-      if (ouvert) {
-        for (const r of lignes) out.push(renderRow(r, COLS_COURS));
-      }
-    }
+      if (!replie) e.lignes.forEach((r, j) =>
+        out.push(ligneGroupe(r, 3, [...suitesCours, !dernierEnfant], j === e.lignes.length - 1)));
+    });
     return out;
   }
 
-  function renderCours(ueKey, cg, montrerHeader = true, COLS_COURS = colsDeLUE(cg.rows)) {
-    const key = 'cours:'+ueKey+'/'+cg.code_cours;
-    const open = openUEs.has(key);
-    const st = groupStats(cg.rows);
-    const isZCours = cg.type_cours === 'Z';
-    /* LES PLAFONDS SE LISENT UNE FOIS, ICI. Ils viennent de la table cours et
-       sont constants sur toutes les attributions : les lire sur la première
-       ligne suffit, et c'est le cours qui les porte, pas ses enfants. */
-    const prem = cg.rows[0] || {};
-    const plafondPer = prem.cours_per_prevu != null ? Number(prem.cours_per_prevu) : null;
-    const plafondAut = prem.ue_autonomie_prevu != null ? Number(prem.ue_autonomie_prevu) : null;
-    const enH = unite === 'heures';
-    const affPlafond = v => v == null ? null
-      : (enH ? perToH(v) : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 }));
+  // L'UE ouverte : la phrase de l'autonomie, puis un seul tableau — en-tête, ligne de l'UE (ses totaux), et l'arbre.
+  function arbreUE(ue, ueKey) {
+    const cols = colsDeLUE(ue.rows).filter(c => c.key !== 'code'); // la pastille du groupe vit dans l'arbre
+    const st = groupStats(ue.rows);
+    const reelles = ue.rows.filter(r => !r.is_z);
+    const toutes = reelles.length > 0 && reelles.every(r => selected.has(r.id));
+    const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
+    /* QUAND TOUT VA BIEN, RIEN (Charles, 3 octobre 2026) : la pastille « ✓ aut. » de la ligne d'UE le dit. Pour un écart,
+       une PHRASE dans la couleur de l'état, sous la ligne d'UE — plus d'encadré posé sur l'arbre (24 novembre 2026). */
+    const phraseAut = (ctrl && ctrl.message && ctrl.etat !== 'ok') ? (
+      <p className="px-6 pt-2 pb-1 text-sm"
+         style={{ color: ctrl.etat === 'dépassement' ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
+        <b className="mr-1">Autonomie</b>{ctrl.message}
+        <span className="ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
+      </p>
+    ) : null;
+    const enTete = { position: 'sticky', top: 0, zIndex: 1, background: 'var(--blanc)' };
     return (
-      <div key={key} id={'cours-'+cg.code_cours} className="border-t border-gray-100">
-        {/* Ouverte, la bande prend le fond de son en-tête : les deux ne font
-            plus qu'un bloc, et c'est ce bloc qui dit « ce cours ». */}
-        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 transition text-left text-sm ${open ? 'tab-repere' : 'ligne-maison !border-b-0'} ${isZCours ? 'opacity-70' : ''}`}>
-          <Chevron ouvert={open} size={14} className="text-gray-400" />
-          <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
-          <span className={`truncate ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
-          {(() => {
-            const gh = Number(cg.grille_heures) || 0;
-            const ev = (Number(cg.grille_ev1) || 0) + (Number(cg.grille_vc1) || 0);
-            if (gh === 0 && ev === 0) return null;
-            return <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0" title="Issu de la grille étudiant (répartiteur d'autonomie)">
-              Grille : {gh}h{ev > 0 ? ` · examens et rem : ${ev}h` : ''}
-            </span>;
-          })()}
-          <span className="flex-1"></span>
-          {cg.type_cours && <PastilleEtat etat={isZCours ? 'indisponible' : cg.type_cours==='CT' ? 'disponible' : 'neutre'}>{cg.type_cours}</PastilleEtat>}
-          {isZCours
-            ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
-            : <>
-                {(() => {
-                  // Badge "multiple du DP" : ×N si net, sinon ratio en orange (non conforme)
-                  const ctrlUE = ctrlPourUE(cg.ue_num, cg.num_organisation);
-                  const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
-                  if (!cc || !cc.dp) return null;
-                  if (cc.est_multiple) {
-                    return <PastilleEtat etat="reussi" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</PastilleEtat>;
-                  }
-                  return <PastilleEtat etat="surveiller" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</PastilleEtat>;
-                })()}
-                <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
-                {/* « 159p sur 120 » dit d'un coup d'œil qu'on a dépassé — ce que
-                    « 159p » seul ne dit pas, et ce qu'aucune colonne ne montre. */}
-                <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
-                {plafondPer != null && (
-                  <span className="text-xs text-gray-400">sur {plafondPer}</span>
-                )}
-                {st.tAut>0 && <span className="text-sm text-gray-400">+{st.tAut}a</span>}
-                {st.tAut>0 && plafondAut != null && (
-                  <span className="text-xs text-gray-400">sur {plafondAut}</span>
-                )}
-                {st.nBad>0 ? <span className="text-sm text-amber-700 font-bold">✗</span> : st.nConf>0 ? <span className="text-sm text-green-600 font-bold">✓</span> : null}
-              </>
-          }
-        </button>
-        {open && (
-          <div className="overflow-y-auto overflow-x-hidden max-h-[40vh] fusion-cours" style={{ background: 'var(--blanc)' }}>
-            <table className="grid-excel-soft w-full" style={{tableLayout:'fixed'}}>
-              {montrerHeader && (<thead><tr>
-                {COLS_COURS.map(c => c.key==='__select'
-                  ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}>
-                      <input type="checkbox"
-                        checked={cg.rows.filter(r=>!r.is_z).length>0&&cg.rows.filter(r=>!r.is_z).every(r=>selected.has(r.id))}
-                        onChange={()=>{const real=cg.rows.filter(r=>!r.is_z);const all=real.every(r=>selected.has(r.id));setSelected(s=>{const n=new Set(s);real.forEach(r=>all?n.delete(r.id):n.add(r.id));return n;});}}
-                        className="cursor-pointer"/>
-                    </th>
-                  : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{
-                      <>{unite==='heures' && (c.key==='periodes_attribuees' || c.key==='autonomie_attribuee')
-                        ? (c.key==='periodes_attribuees' ? 'Heu.' : 'Aut.(h)')
-                        : c.label}
-                      {/* LE PLAFOND DANS LE TITRE DE SA COLONNE (3.5.633, Charles : « fusionne les lignes : je veux Per. /20 ») : une ligne
-                          d'en-tête au lieu de deux. */}
-                      {c.key==='periodes_attribuees' && plafondPer != null && <span className="plafond-entete"> / {affPlafond(plafondPer)}</span>}
-                      {c.key==='autonomie_attribuee' && plafondAut != null && <span className="plafond-entete"> / {affPlafond(plafondAut)}</span>}</>
-                    }</ResizableHeader>
-                )}
+      <>
+        {phraseAut}
+        <div className="overflow-y-auto overflow-x-hidden max-h-[70vh]" style={{ background: 'var(--blanc)' }}>
+          <table className="grid-excel-soft w-full" style={{ tableLayout: 'fixed' }}>
+            <thead><tr>
+              <th style={{ ...enTete, width: ARBRE_LARGEUR, minWidth: ARBRE_LARGEUR, maxWidth: ARBRE_LARGEUR, paddingLeft: 6 }}>Cours · groupes</th>
+              {cols.map(c => c.key === '__select'
+                ? <th key={c.key} style={{ ...enTete, width: c.width, minWidth: c.width, maxWidth: c.width }}>
+                    <input type="checkbox" checked={toutes} className="cursor-pointer" title="Cocher toutes les lignes de l'UE"
+                      onChange={() => setSelected(s => { const n = new Set(s); reelles.forEach(r => toutes ? n.delete(r.id) : n.add(r.id)); return n; })} />
+                  </th>
+                : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{
+                    unite === 'heures' && (c.key === 'periodes_attribuees' || c.key === 'autonomie_attribuee')
+                      ? (c.key === 'periodes_attribuees' ? 'Heu.' : 'Aut.(h)')
+                      : c.label
+                  }</ResizableHeader>
+              )}
+            </tr></thead>
+            <tbody>
+              {/* LA LIGNE DE L'UE PORTE SES TOTAUX, sous l'en-tête et à l'aplomb des colonnes ; le tronc de l'arbre en part. */}
+              <tr className="ligne-total">
+                {celluleArbre({
+                  niveau: 0, enfants: ue.cours.length > 0,
+                  children: <span className="font-semibold text-iip-gold whitespace-nowrap">UE {ue.ue_num}</span>,
+                })}
+                {cellulesRegroupement(cols, ue.rows, {
+                  fort: true,
+                  mention: <span>{st.nCours} cours · {ue.rows.length} attr. · {st.nProf} prof.</span>,
+                })}
               </tr>
-
-              </thead>)}
-              <tbody>{renderActiviteGroups(cg, key, COLS_COURS)}</tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              {ue.cours.flatMap((cg, i) => lignesCours(ueKey, cg, cols, i === ue.cours.length - 1))}
+            </tbody>
+          </table>
+        </div>
+      </>
     );
   }
 
@@ -1958,7 +2085,8 @@ export default function Attributions() {
               : 'border-b border-gray-100')
       }`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? 'ligne-active' : 'ligne-maison !border-b-0'}`}>
-          <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+          {/* L'UE QUI S'OUVRE MONTRE SON ARBRE ENTIER : ses cours dépliés (24 novembre 2026) ; chaque chevron les replie. */}
+          <div onClick={()=>{ setOpenUEs(s=>{ const x=new Set(s); if (x.has(key)) x.delete(key); else { x.add(key); ue.cours.forEach(c=>x.add('cours:'+ueKey+'/'+c.code_cours)); } return x; }); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 200px 1fr auto' }}>
             <Chevron ouvert={open} size={14} className="text-iip-gold" />
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
@@ -2129,31 +2257,7 @@ export default function Attributions() {
         </div>
         {open && (
           <div className={activeUE === key ? 'ligne-active' : ''}>
-            {(() => {
-              const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
-              /* QUAND TOUT VA BIEN, RIEN (Charles, 3 octobre 2026 : « la barre n'a
-                 pas d'intérêt, on a déjà au-dessus le ok ») : la pastille « ✓ aut. »
-                 de la ligne d'UE le dit. Le bandeau ne paraît que pour un écart,
-                 blanc à liseré, texte lisible — « on ne sait pas lire le gris ». */
-              if (!ctrl || !ctrl.message || ctrl.etat === 'ok') return null;
-              const etatAut = { sous: 'surveiller', 'dépassement': 'corriger', cours: 'surveiller' }[ctrl.etat] || 'neutre';
-              return (
-                /* Une marge (my-2) laissait voir le blanc du cadre entre l'en-tête de l'UE et le bandeau ; un
-                   remplissage garde le fond de l'UE ouverte (3.5.682, Charles : « ce moche espace blanc »). */
-                <div className="px-6 py-2">
-                  <Encadre etat={etatAut}>
-                    <b className="mr-1">Autonomie</b>{ctrl.message}
-                    <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
-                  </Encadre>
-                </div>
-              );
-            })()}
-            {/* CHAQUE COURS PORTE SON EN-TÊTE. Un seul en-tête était dessiné,
-                celui du premier cours ouvert : les suivants montraient des
-                colonnes sans nom, et l'en-tête affiché appartenait à un autre
-                cours que celui qu'on lisait. Fusionné à sa bande, il devient ce
-                qu'il est — la légende de CE cours, avec ses plafonds. */}
-            {ue.cours.map(cg => renderCours(ueKey, cg, true, colsDeLUE(ue.rows)))}
+            {arbreUE(ue, ueKey)}
           </div>
         )}
       </div>
