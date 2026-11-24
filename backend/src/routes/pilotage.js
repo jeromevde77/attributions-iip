@@ -97,6 +97,8 @@ function computeUsageDB(anneesCiviles) {
 // Usage d'une enveloppe externe pour une année civile :
 // L'enveloppe correspond à l'année scolaire YYYY-1 → YYYY (ex: civile 2026 = scolaire 2025-2026)
 // On prend la totalité des périodes B pondérées de cette année scolaire pour ce pot
+const POTS_CIVILS = new Set(['AESI']);
+
 function usageEnveloppe(anneeCivile) {
   const annee_scolaire = `${anneeCivile - 1}-${anneeCivile}`;
   return db.prepare(`
@@ -775,8 +777,13 @@ export function syntheseCivile() {
        encodées, elle a un plafond, donc une jauge, un solde et un dépassement. */
     const envYear = enveloppes.filter(e => e.annee_civile === y).map(e0 => {
       const e = { ...e0, illimite: e0.illimite && !(Number(e0.periodes_b) > 0) ? 1 : 0 };
+      /* L'AeSI SE LIT EN ANNÉE CIVILE (3.5.673, Charles : « 4 300 pour 2026 — la formation est neuve —, 3 560 pour
+         janvier-juin 2027, augmenté en septembre »). Comme l'organique : janvier-juin = le Q2 de l'année scolaire qui
+         finit, septembre-décembre = le Q1 de celle qui commence. Les autres enveloppes gardent leur règle (l'année civile
+         N = l'année scolaire qui finit en N). */
       const usage = e.usage_historique != null
         ? e.usage_historique
+        : POTS_CIVILS.has(e.code) ? usagePot(usageDB, y, e.code)
         : (usageEnvByAnnee[y]?.[e.code] ?? 0);
       // Enveloppe illimitée : ne déborde jamais sur l'organique
       const dot = e.illimite ? 0 : Math.max(0, Math.round((usage - e.periodes_b) * 100) / 100);
