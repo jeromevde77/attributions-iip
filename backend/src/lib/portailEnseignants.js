@@ -158,6 +158,12 @@ export function dossierPedagogiqueHtml(ueNum, annee, sectionAttr = null) {
   ${corps}</body></html>`;
 }
 
+/* Les documents d'unité d'un passage (vidé au début de chaque dépôt). */
+const DOCS_DU_PASSAGE = new Map();
+/* LAISSER PASSER LES CLICS (3.5.701, Charles : « certaines pages sont terriblement lentes ») : le dépôt figeait le serveur sept
+   secondes toutes les deux minutes ; entre deux professeurs, il rend la main aux requêtes en attente. */
+const respirer = () => new Promise(r => setImmediate(r));
+
 async function tableauDe(u, profId, annee, documentDUE) {
   const aFaire = [];
   if (u.id > 0) {
@@ -180,10 +186,14 @@ async function tableauDe(u, profId, annee, documentDUE) {
     if (!ues.has(a.ue_num)) {
       let statut = 'preparation';
       try { statut = statutDUE.get(a.ue_num, annee)?.statut || 'preparation'; } catch { /* */ }
-      let due = null;
-      try { due = documentDUE ? documentDUE(a.ue_num, annee) : null; } catch { due = null; }
-      let dp = null;
-      try { dp = dossierPedagogiqueHtml(a.ue_num, annee, a.section); } catch { dp = null; }
+      // UNE FOIS PAR PASSAGE (3.5.701) : la DUE et le dossier d'une unité ne se recomposent plus pour chacun de ses professeurs.
+      const cleDoc = `${a.ue_num}|${annee}|${a.section || ''}`;
+      if (!DOCS_DU_PASSAGE.has(cleDoc)) {
+        let d1 = null; try { d1 = documentDUE ? documentDUE(a.ue_num, annee) : null; } catch { d1 = null; }
+        let d2 = null; try { d2 = dossierPedagogiqueHtml(a.ue_num, annee, a.section); } catch { d2 = null; }
+        DOCS_DU_PASSAGE.set(cleDoc, [d1, d2]);
+      }
+      const [due, dp] = DOCS_DU_PASSAGE.get(cleDoc);
       /* LE PETIT TRAIN DE L'UNITÉ (3.5.156, Charles : « on ne comprend pas si c'est Bac 1, 2 ») : son bloc dans la section de
          l'attribution, ses ECTS. */
       let ects = null;
@@ -248,7 +258,9 @@ export async function deposerEnseignants(appel) {
   const rentree = an ? `${an.slice(0, 4)}-08-15` : decaler(jour, -30);
   const du = rentree < decaler(jour, -30) ? rentree : decaler(jour, -30), au = decaler(jour, 21);
   const enseignants = [], seances = [], etudiants = new Map(), presences = [];
+  DOCS_DU_PASSAGE.clear();
   for (const u of aDeposer()) {
+    await respirer();
     /* LE MOT DE PASSE DE LUCIE OUVRE L'ESPACE (3.5.242, Charles : « tu demandes de choisir un nouveau mot de passe alors qu'ils
        en avaient un » ; tranché : le mot de passe de Lucie). L'EMPREINTE bcrypt du compte part avec lui, jamais le mot de passe :
        le portail la compare ; un changement dans Lucie suit au dépôt suivant (deux minutes). Pas pour un aperçu. */
@@ -271,9 +283,11 @@ export async function deposerEnseignants(appel) {
   for (const u of aDeposer()) {
     const profId = u.apercuProfId || db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(u.id)?.professeur_id;
     if (!profId || !annee) continue;
+    await respirer();
     try { tableaux.push({ ens_id: u.id, contenu: await tableauDe(u, profId, annee, documentDUE) }); }
     catch (e) { console.error(`[espace enseignant] tableau ${u.id} :`, e.message); }
   }
+  DOCS_DU_PASSAGE.clear();
   await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [], tableaux, textes: [...versionsTextes.values()], guide: guideEnseignant(),
     agenda: annee ? await agendaEnseignant(annee) : [], contact: await contactMaintenant(), qr: reglagesQrEspace(),
     // La liste FERMÉE des motifs d'une absence justifiée : celle de Lucie, jamais une copie.
