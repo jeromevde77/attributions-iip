@@ -148,8 +148,11 @@ r.get('/etudiants', authRequired, (req, res) => {
      direction ; e-mail privé — aussi le secrétariat et les coordinations. Le
      tri se fait ICI : une colonne cachée à l'écran partirait encore dans
      l'export. */
+  /* LA COORDINATION AUSSI (3.5.670, Charles, 24 novembre 2026 : « la coordination doit y avoir accès pour les suivis dans
+     les hôpitaux ; elle peut imprimer une liste avec ces données ») — pour les étudiants de ses sections, le périmètre de
+     la liste restant celui de la coordination. */
   const role = req.user?.role;
-  const voitPrive = ['admin', 'directeur', 'directeur_adjoint'].includes(role);
+  const voitPrive = ['admin', 'directeur', 'directeur_adjoint', 'coordination'].includes(role);
   const voitMailPrive = voitPrive || ['secretariat', 'coordination', 'editeur'].includes(role);
   const champsFiche = id => {
     let f = fiches.get(id) || {};
