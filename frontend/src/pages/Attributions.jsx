@@ -2053,12 +2053,12 @@ export default function Attributions() {
           {viewMode!=='coord' && peutEcrireAttr && (
           <button onClick={(e)=>{e.stopPropagation(); reouvrirUE(ue, sec);}}
                   title="Réouvrir cette UE (nouvelle organisation)"
-                  className="bouton flex-shrink-0 ml-2 !w-7 !h-7 !px-0" style={{fontSize:'0.9rem'}}>⧉</button>
+                  className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center" style={{fontSize:'0.9rem'}}>⧉</button>
           )}
           {/* Bouton + : ajouter une ligne / un cours */}
           {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
-                  className="bouton flex-shrink-0 ml-2 !w-7 !h-7 !px-0 font-bold">+</button>}
+                  className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center font-bold">+</button>}
           {addMenuUE?.key===key && (
             <div className="fixed z-50 carte !bg-[var(--blanc)] shadow-dessus py-1 w-64"
               style={{top: menuPos.top, right: menuPos.right}}
