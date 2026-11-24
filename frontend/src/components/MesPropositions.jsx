@@ -4,6 +4,7 @@ import { IconBulb, IconChevronDown, IconChevronRight } from '@tabler/icons-react
 import { authHeaders, getUser } from '../lib/api.js';
 import FilSuggestion, { PastilleIdee, PastilleNouveau } from './FilSuggestion.jsx';
 import { nomDepuisChaine } from '../lib/nom.js';
+import { PiecesIdee } from './PiecesSuggestion.jsx';
 
 const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
 
@@ -96,6 +97,7 @@ export default function MesPropositions() {
                   {ouvert === s.id && (
                     <div className="px-3 pb-3 pl-9 space-y-2">
                       {s.detail && <div className="text-second text-slate-600 whitespace-pre-wrap">{s.detail}</div>}
+                      <PiecesIdee suggestionId={s.id} pieces={s.pieces} />
                       <label className="flex items-center gap-2 text-second text-slate-500">État
                         <select value={s.etat} onChange={e => poserEtat(s.id, e.target.value)} className="controle text-second h-7 py-0">
                           {etats.map(e2 => <option key={e2.cle} value={e2.cle}>{e2.libelle}</option>)}
@@ -136,6 +138,7 @@ export default function MesPropositions() {
                       {s.detail && (
                         <div className="text-second text-slate-500 whitespace-pre-wrap mb-1">{s.detail}</div>
                       )}
+                      <PiecesIdee suggestionId={s.id} pieces={s.pieces} />
                       <FilSuggestion id={s.id} invite="Votre réponse à la direction" />
                     </div>
                   )}

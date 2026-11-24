@@ -3100,6 +3100,7 @@ app.use('/api/photos', express.json({ limit: '8mb' }));   // la photo d'identit�
 app.use('/api/reunions/importer', express.json({ limit: '30mb' }));   // compte rendu à importer (3.5.379)   // horaire d'examens à comparer (3.5.361)
 app.use('/api/nominations/import', express.json({ limit: '20mb' }));   // Word des définitifs (3.5.567)
 app.use('/api/communication', express.json({ limit: '30mb' }));
+app.use('/api/suggestions', express.json({ limit: '25mb' }));   // captures jointes aux idées : 3 × 5 Mo en base64 (3.5.668)
 app.use('/api/messages-etudiants', express.json({ limit: '30mb' }));   // documents joints aux messages des étudiants (3.5.607)   // pièces jointes des messages (3.5.131)
 app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)
 app.use('/api/mes-cours/supports', express.json({ limit: '25mb' }));   // supports de cours (3.5.211) : 15 Mo en base64

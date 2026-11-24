@@ -5,6 +5,7 @@ import { Fenetre } from './ui.jsx';
 import { nomDepuisChaine } from '../lib/nom.js';
 import FilSuggestion, { PastilleIdee, PastilleNouveau } from './FilSuggestion.jsx';
 import { demander } from '../lib/dialogue.jsx';
+import { ChoixPieces, PiecesIdee, surCollage, piecesAEnvoyer } from './PiecesSuggestion.jsx';
 
 /**
  * LES AMÉLIORATIONS — CE QUE CEUX QUI S'EN SERVENT VOUDRAIENT.
@@ -34,6 +35,8 @@ export default function Ameliorations({ ecran, onClose }) {
   const [etat, setEtat] = useState(null);
   const [titre, setTitre] = useState('');
   const [detail, setDetail] = useState('');
+  const [pieces, setPieces] = useState([]);   // captures jointes, en préparation
+  const [erreurPiece, setErreurPiece] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
   // Les fils ouverts. Ouvrir un fil le marque vu côté serveur.
@@ -58,11 +61,11 @@ export default function Ameliorations({ ecran, onClose }) {
     try {
       const rep = await fetch('/api/suggestions', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titre, detail, ecran }),
+        body: JSON.stringify({ titre, detail, ecran, pieces: piecesAEnvoyer(pieces) }),
       });
-      const j = await rep.json();
+      const j = await rep.json().catch(() => ({ error: 'Réponse illisible (pièces trop lourdes ?).' }));
       if (!rep.ok) throw new Error(j.error || 'Erreur');
-      setTitre(''); setDetail('');
+      setTitre(''); setDetail(''); setPieces([]); setErreurPiece(null);
       await charger();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
@@ -113,8 +116,10 @@ export default function Ameliorations({ ecran, onClose }) {
             placeholder="En une phrase : ce qui manque ou ce qui gêne"
             className="controle w-full" />
           <textarea rows={3} value={detail} onChange={e => setDetail(e.target.value)}
+            onPaste={surCollage(pieces, setPieces, setErreurPiece)}
             placeholder="Le contexte : quand cela arrive, ce que vous faites aujourd'hui à la place, ce que cela coûte"
             className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm" />
+          <ChoixPieces pieces={pieces} setPieces={setPieces} erreur={erreurPiece} setErreur={setErreurPiece} />
           {ecran && (
             <span className="text-xs text-slate-400">
               Déposée depuis <b>{ecran}</b> — l'écran est enregistré avec elle.
@@ -177,6 +182,7 @@ export default function Ameliorations({ ecran, onClose }) {
                   {s.detail}
                 </div>
               )}
+              <PiecesIdee suggestionId={s.id} pieces={s.pieces} />
 
               {/* LE FIL, ET NON PLUS UNE RÉPONSE UNIQUE (3 octobre 2026).
                   La réponse se lit sous l'idée et à l'Accueil de l'auteur, qui
