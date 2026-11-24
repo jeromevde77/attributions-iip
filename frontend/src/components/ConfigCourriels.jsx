@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconBell, IconMail, IconCheck, IconAlertTriangle, IconPlugConnected, IconSend, IconRefresh, IconLoader2 } from '@tabler/icons-react';
+import { IconBell, IconMail, IconCheck, IconAlertTriangle, IconPlugConnected, IconSend, IconRefresh, IconLoader2, IconBrandTeams } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { chargerEtatEnvoi } from '../lib/envoiMail.js';
 import { EnteteCarte } from './ui.jsx';
@@ -114,6 +114,7 @@ export default function ConfigCourriels() {
 
       <RecapQuotidien />
       <Rappels />
+      <InvitationsTeams />
 
       {/* ── Expédition ── */}
       <section className="carte overflow-hidden">
@@ -420,6 +421,68 @@ function Rappels() {
               </table>
             </div>)}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* LES INVITATIONS TEAMS (3.5.666, lib/invitationsTeams.js) : la boîte organisatrice des réunions et leur durée, réglées par la
+   direction ; « Tester » crée puis efface un événement d'essai — Jérôme y voit si la permission Calendars.ReadWrite est posée
+   (scripts/vps/TEAMS.md). L'invitation se fait dans l'agenda de l'école (une semaine → Épreuves et délibérations). */
+function InvitationsTeams() {
+  const [r, setR] = useState(null);
+  const [f, setF] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [occupe, setOccupe] = useState(false);
+  const charger = () => fetch('/api/teams/reglage', { headers: authHeaders() }).then(x => (x.ok ? x.json() : null))
+    .then(j => { setR(j); if (j) setF({ organisateur: j.organisateur, duree_deliberation_min: j.duree_deliberation_min, duree_examen_min: j.duree_examen_min }); }).catch(() => {});
+  useEffect(() => { charger(); }, []);
+  if (!r || !f) return null;
+  const change = f.organisateur !== r.organisateur || Number(f.duree_deliberation_min) !== r.duree_deliberation_min || Number(f.duree_examen_min) !== r.duree_examen_min;
+  const enregistrer = async () => {
+    setMsg(null);
+    const x = await fetch('/api/teams/reglage', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ ...f,
+      duree_deliberation_min: Number(f.duree_deliberation_min), duree_examen_min: Number(f.duree_examen_min) }) });
+    const j = await x.json().catch(() => ({}));
+    setMsg(x.ok ? { ok: true, t: 'Enregistré.' } : { ok: false, t: j.error || 'Refusé.' });
+    charger();
+  };
+  const tester = async () => {
+    setMsg(null); setOccupe(true);
+    try {
+      const x = await fetch('/api/teams/tester', { method: 'POST', headers: authHeaders() });
+      const j = await x.json().catch(() => ({}));
+      setMsg(x.ok ? { ok: true, t: `Permission en place : un événement d’essai a été créé${j.teams ? ' avec sa réunion Teams' : ' (mais SANS réunion Teams : vérifiez que la boîte a une licence Teams)'}${j.efface ? ', puis effacé' : ''}.` }
+        : { ok: false, t: j.error || 'Refusé.' });
+    } finally { setOccupe(false); }
+  };
+  return (
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconBrandTeams} titre="Invitations Teams"
+        sous="Une vraie réunion Microsoft Teams pour une délibération ou un examen daté, envoyée aux professeurs attribués. On invite depuis l’agenda de l’école (une semaine → Épreuves et délibérations)." />
+      <div className="px-4 py-3 text-sm space-y-3">
+        {!r.fonction && <p className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">La fonction est éteinte pour votre compte : Configuration → Accès → Mise en service → « Les invitations Teams ».</p>}
+        {!r.pret && r.raison && <p className="text-second text-slate-600">{r.raison}</p>}
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 min-w-[16rem] flex-1">
+            <span className="text-second text-slate-600">Boîte organisatrice (Microsoft 365)</span>
+            <input className="controle" type="email" value={f.organisateur} placeholder="deliberations@domaine.be" onChange={e => setF(x => ({ ...x, organisateur: e.target.value }))} />
+          </label>
+          <label className="flex flex-col gap-1 w-40">
+            <span className="text-second text-slate-600">Délibération (min)</span>
+            <input className="controle" type="number" min={15} max={600} step={15} value={f.duree_deliberation_min} onChange={e => setF(x => ({ ...x, duree_deliberation_min: e.target.value }))} />
+          </label>
+          <label className="flex flex-col gap-1 w-40">
+            <span className="text-second text-slate-600">Examen (min)</span>
+            <input className="controle" type="number" min={15} max={600} step={15} value={f.duree_examen_min} onChange={e => setF(x => ({ ...x, duree_examen_min: e.target.value }))} />
+          </label>
+          <button type="button" className="bouton bouton-fort" disabled={!change} onClick={enregistrer}>Enregistrer</button>
+          <button type="button" className="bouton inline-flex items-center gap-1" disabled={occupe || change || !r.pret} title={change ? 'Enregistrez d’abord.' : r.raison || undefined} onClick={tester}>
+            {occupe ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlugConnected size={14} />} Tester la permission
+          </button>
+        </div>
+        <p className="text-second text-slate-500">La réunion naît dans le calendrier de cette boîte, qui en est l’organisatrice ; elle doit avoir une licence Teams. L’application de Lucie doit porter la permission d’application « Calendars.ReadWrite » (guide d’installation : scripts/vps/TEAMS.md).</p>
+        {msg && <p className={`text-second ${msg.ok ? 'text-emerald-700' : 'text-red-700'} flex items-center gap-1.5`}>{msg.ok ? <IconCheck size={14} /> : <IconAlertTriangle size={14} />} {msg.t}</p>}
       </div>
     </section>
   );

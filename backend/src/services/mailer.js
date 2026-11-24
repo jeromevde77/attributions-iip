@@ -148,6 +148,21 @@ async function obtenirJetonGraph(g) {
   return j.access_token;
 }
 
+/**
+ * LE JETON D'APPLICATION POUR UN AUTRE USAGE QUE LE COURRIEL (3.5.666 : les invitations Teams, lib/invitationsTeams.js).
+ * Même application Entra, même cache : on ne recopie ni le tenant ni le secret. `configGraph()` rend null quand
+ * l'application n'est pas réglée (tenant, identifiant, secret) dans Configuration → Courriels.
+ */
+export function configGraph() {
+  const g = lireConfigSmtp().graph;
+  return g.tenant && g.client_id && g.client_secret ? g : null;
+}
+export async function jetonGraphApplication() {
+  const g = configGraph();
+  if (!g) throw new Error("L'application Microsoft 365 (tenant, identifiant, secret) n'est pas réglée dans Configuration → Courriels.");
+  return obtenirJetonGraph(g);
+}
+
 /** Envoi par POST /users/{expéditeur}/sendMail. */
 async function envoyerParGraph(g, { to, subject, html, attachments }) {
   const jeton = await obtenirJetonGraph(g);

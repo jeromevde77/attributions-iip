@@ -3181,6 +3181,8 @@ app.use((req, res, next) => {
 // LES MESSAGES AUX ÉTUDIANTS (3.1.516) : écrits ici, lus dans leur espace.
 // LES FONCTIONS QU'ON ALLUME UNE À UNE (3.5.001) : Configuration → Fonctions.
 app.use('/api/fonctions', (await import('./routes/fonctions.js')).default);
+// LES INVITATIONS TEAMS DES DÉLIBÉRATIONS ET DES EXAMENS (3.5.666) : rôles et fonction gardés par la route.
+app.use('/api/teams', (await import('./routes/teams.js')).default);
 app.use('/api/messages-etudiants', (await import('./routes/messagesEtudiants.js')).default);
 app.use('/api/refus-seconde', (await import('./routes/refusSeconde.js')).default);
 // LE PAE EN LIGNE (3.1.515) : la fenêtre et les propositions des étudiants, côté école.
