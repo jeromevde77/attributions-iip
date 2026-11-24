@@ -11,11 +11,12 @@ import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import BasculeOrganisation from '../components/BasculeOrganisation.jsx';
+import CompleterAutonomie from '../components/CompleterAutonomie.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle, IconChevronsUp, IconChevronsDown } from '@tabler/icons-react';
+import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle, IconChevronsUp, IconChevronsDown, IconClockPlus } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -425,6 +426,7 @@ export default function Attributions() {
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
   const [secDel, setSecDel] = useState(null); // { section, lignes, count } | null
   const [groupesUE, setGroupesUE] = useState(null); // { portee, section, ues } | null
+  const [autonomieUE, setAutonomieUE] = useState(null); // { ueNum, section } | null — Compléter l'autonomie (3.5.676)
   const [rapportSectionChoix, setRapportSectionChoix] = useState(null); // section pour laquelle on demande le filtre TC
   // Le tronc commun se filtre aussi à l'ÉCRAN, pas seulement au rapport —
   // demandé pour l'Optométrie, utile partout où ue_tc est posé.
@@ -2049,6 +2051,13 @@ export default function Attributions() {
                   className="bouton flex-shrink-0 ml-2 !h-7 !px-2 text-xs">
                   <IconUsersGroup size={14}/>Groupes
           </button>
+          {/* COMPLÉTER L'AUTONOMIE (3.5.676, Charles, 24 novembre 2026) : la part du dossier, au prorata des
+              périodes de chaque ligne — seulement si le dossier prévoit de l'autonomie. */}
+          {peutEcrireAttr && ue.rows.some(r => Number(r.ue_autonomie_prevu) > 0) && (
+          <button onClick={(e)=>{e.stopPropagation(); setAutonomieUE({ ueNum: ue.ue_num, section: sec });}}
+                  title="Compléter l'autonomie de cette UE"
+                  className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center"><IconClockPlus size={15}/></button>
+          )}
           {/* Bouton Réouvrir : crée une nouvelle organisation */}
           {viewMode!=='coord' && peutEcrireAttr && (
           <button onClick={(e)=>{e.stopPropagation(); reouvrirUE(ue, sec);}}
@@ -2650,6 +2659,8 @@ export default function Attributions() {
       {basculeUE && <BasculeOrganisation ueNum={basculeUE} onClose={() => setBasculeUE(null)} onFait={() => load?.()} />}
       {doc23Modal && <Doc23Modal {...doc23Modal} annee={getAnnee()} onClose={() => setDoc23Modal(null)} />}
       {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
+      {autonomieUE && <CompleterAutonomie ueNum={autonomieUE.ueNum} section={autonomieUE.section}
+        onFermer={() => setAutonomieUE(null)} onFait={() => load()} />}
       {groupesUE && (
         <OrganiserGroupesModal
           portee={groupesUE.portee}

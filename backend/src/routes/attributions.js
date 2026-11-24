@@ -8,6 +8,7 @@ import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { peutPoserSupervision } from '../lib/supervisionGroupes.js';
 import { importerAttributions } from '../lib/importAttributions.js';
+import { proposerAutonomie } from '../lib/completerAutonomie.js';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -890,6 +891,46 @@ r.get('/autonomie-ue', authRequired, withSectionScope, (req, res) => {
     }
   }
   res.json(map);
+});
+
+/* COMPLÉTER L'AUTONOMIE D'UNE UE (Charles, 24 novembre 2026 : « Lucie propose pour chaque ligne l'autonomie au prorata
+   de ses périodes, montre l'avant et l'après ligne par ligne, et n'écrit qu'après confirmation ; les lignes en congé
+   restent à 0 »). Calcul : lib/completerAutonomie.js. Simulation par défaut ; l'écriture suit EXACTEMENT le PATCH d'une
+   ligne — mêmes droits (geste attributions.modifier, section accessible), instantané avant, updated_by, journal
+   modification_log, et une écriture par une coordination repasse la ligne « à valider ». Tout ou rien. */
+r.post('/autonomie/completer', authRequired, gesteRequis('attributions.modifier'), (req, res) => {
+  const b = req.body || {};
+  const annee = String(b.annee || anneeDeTravail(req) || '');
+  if (!annee) return res.status(400).json({ error: 'annee requise.' });
+  const ueNum = Number(b.ue_num);
+  if (!Number.isInteger(ueNum) || ueNum <= 0) return res.status(400).json({ error: 'ue_num requis.' });
+  const section = b.section ? String(b.section) : null;
+  if (section && (!sectionPermise(req, section) || !canAccessSection(req.user, section))) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  }
+  const p = proposerAutonomie({ annee, ueNum, section, sections: sectionsDe(req), arrondi: b.arrondi });
+  if (p.erreur) return res.status(409).json({ error: p.erreur });
+  if (!p.lignes.length) return res.status(404).json({ error: `Aucune ligne d'attribution pour l'UE ${ueNum} en ${annee}.` });
+  if (b.simulation !== false) return res.json({ simulation: true, ...p });
+
+  const aEcrire = p.lignes.filter(l => l.change);
+  if (!aEcrire.length) return res.json({ simulation: false, ecrites: 0, ...p });
+  const refusee = aEcrire.find(l => !canAccessSection(req.user, l.section));
+  if (refusee) return res.status(403).json({ error: `La ligne ${refusee.code_cours || refusee.id} est hors de votre périmètre (section ${refusee.section}).` });
+  const coordination = req.user.role === 'coordination';
+  const maj = db.prepare(`UPDATE attribution SET autonomie_attribuee = ?, updated_by = ?${coordination
+    ? ', valide = 0, valide_par = NULL, valide_le = NULL' : ''} WHERE id = ?`);
+  const journal = db.prepare('INSERT INTO modification_log (attribution_id, utilisateur_id, action) VALUES (?,?,?)');
+  try {
+    db.transaction(() => {
+      for (const l of aEcrire) {
+        saveSnapshot(l.id, 'update', req.user);
+        maj.run(l.apres, req.user.id, l.id);
+        journal.run(l.id, req.user.id, 'update');
+      }
+    })();
+  } catch (e) { return res.status(500).json({ error: `Rien n'a été écrit : ${e.message}` }); }
+  res.json({ simulation: false, ecrites: aEcrire.length, ...p });
 });
 
 // GET /ue-mention?section=&annee= — UE déterminantes (ue_det='x') et épreuve intégrée
