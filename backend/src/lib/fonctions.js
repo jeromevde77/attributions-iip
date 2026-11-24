@@ -59,6 +59,9 @@ export const CATALOGUE = [
   // (3.5.650, Charles, 22 novembre 2026 : « pour le moment, écrire à mes étudiants doit être bloqué pour profs et coordination »).
   { cle: 'messages.personnel', famille: 'personnel', titre: 'Écrire aux étudiants — professeurs et coordinations',
     quoi: "Les professeurs (Écrire à mes étudiants) et les coordinations écrivent aux étudiants dans leur espace. Éteinte, seuls le secrétariat et la direction écrivent ; les messages déjà envoyés restent lisibles." },
+  // (3.5.666, Charles, 24 novembre 2026 : une vraie réunion Teams par délibération et par examen, aux professeurs qui doivent y être.)
+  { cle: 'teams.invitations', famille: 'personnel', titre: 'Les invitations Teams des délibérations et des examens',
+    quoi: "Dans l'agenda de l'école (semaine → Épreuves et délibérations), la direction et le secrétariat créent une réunion Microsoft Teams pour une délibération ou un examen daté ; les professeurs attribués à l'UE (ou au cours) la reçoivent dans leur agenda Outlook. Demande la permission Calendars.ReadWrite sur l'application de Lucie et la boîte organisatrice (Configuration → Courriels)." },
   { cle: 'presence.qr', famille: 'personnel', titre: 'La présence par QR et le ticket de sortie',
     quoi: "Dans Mes cours → Ma journée, le professeur projette le QR de présence et le ticket de sortie. Éteinte, la présence s'encode à la main comme avant." },
 ];

@@ -6,10 +6,11 @@
  * (une séance close exige un motif) — : aucune règle n'est doublée.
  */
 import { useEffect, useState } from 'react';
-import { IconGavel, IconPencil, IconSchool, IconPlus } from '@tabler/icons-react';
+import { IconGavel, IconPencil, IconSchool, IconPlus, IconBrandTeams, IconExternalLink } from '@tabler/icons-react';
 import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
-import { informer, saisir } from '../lib/dialogue.jsx';
+import { informer, saisir, demander } from '../lib/dialogue.jsx';
+import { nomPropre } from '../lib/nom.js';
 
 const plus = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const fmt = d => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : '');
@@ -47,7 +48,67 @@ function LigneUnite({ it, annee, onFait }) {
     </div>);
 }
 
-function LigneSession({ it, annee, onFait }) {
+/* L'INVITATION TEAMS (3.5.666, Charles : « générer une invitation Microsoft Teams, envoyée à tous les profs qui doivent y
+   être »). La clé est celle du serveur (lib/invitationsTeams.js) : une séance, un passage, ou une épreuve (année, session,
+   unité, cours). Un clic : la simulation (qui est invité, qui n'a pas d'adresse), la confirmation, puis la réunion créée
+   — ou mise à jour si la date l'était déjà. */
+const cleTeams = (it, annee) => (it.quoi === 'deliberation' ? `deliberation:${it.id}`
+  : it.passage_id ? `passage:${it.passage_id}` : `examen:${annee}|${it.session}|${it.ue_num}|${it.cours_code || ''}`);
+const quandFr = d => (d ? new Date(`${String(d).replace(' ', 'T')}Z`).toLocaleString('fr-BE', { timeZone: 'Europe/Brussels', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' à') : '');
+
+function BoutonTeams({ it, annee, teams, onFait }) {
+  const [occupe, setOccupe] = useState(false);
+  if (!teams?.dispo?.autorise) return null;           // pas de droit, pas de bouton
+  if (it.quoi === 'deliberation' && !it.id) return null;
+  const inv = teams.etat?.[cleTeams(it, annee)];
+  const actif = inv && !inv.annule_le;
+  const raison = !teams.dispo.pret ? teams.dispo.raison : !it.date ? 'Posez d’abord la date.' : !String(it.heure || '').trim() ? 'Posez d’abord l’heure.' : null;
+  const q = it.quoi === 'deliberation' ? { type: 'deliberation', id: it.id }
+    : it.passage_id ? { type: 'examen', passage_id: it.passage_id } : { type: 'examen', annee, session: it.session, ue_num: it.ue_num, cours_code: it.cours_code || '' };
+  async function inviter() {
+    setOccupe(true);
+    try {
+      const r = await fetch('/api/teams/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify(q) });
+      const s = await r.json().catch(() => ({}));
+      if (!r.ok) { informer(s.error || `Refusé (${r.status})`); return; }
+      if (s.manque?.length) { informer(`Impossible d’inviter : il manque ${s.manque.join(', ')}.`); return; }
+      const nom = p => nomPropre(p.nom, p.prenom);
+      const lignes = [
+        `${s.evenement.sujet}`,
+        `Le ${s.evenement.date.split('-').reverse().join('/')} à ${s.evenement.heure}${s.evenement.lieu ? ` — ${s.evenement.lieu}` : ''}.`,
+        '',
+        s.deja && !s.deja.annule_le
+          ? `Déjà invitée le ${quandFr(s.deja.cree_le)} : la réunion sera MISE À JOUR (même lien Teams).${s.ajoutes.length ? ` Ajouté${s.ajoutes.length > 1 ? 's' : ''} : ${s.ajoutes.map(nom).join(', ')}.` : ''}`
+          : `Une réunion Teams sera créée et envoyée à ${s.invites.length} professeur${s.invites.length > 1 ? 's' : ''}.`,
+        '',
+        'Invités :',
+        ...s.invites.map(p => `• ${nom(p)} — ${p.email}`),
+        ...(s.sans_adresse.length ? ['', 'Sans adresse (non invités) :', ...s.sans_adresse.map(p => `• ${nom(p)}`)] : []),
+      ];
+      if (!(await demander({ titre: 'Inviter sur Teams', message: lignes.join('\n'), confirmer: actif ? 'Mettre à jour' : 'Envoyer l’invitation' }))) return;
+      const w = await fetch('/api/teams/inviter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...q, ecrire: true }) });
+      const j = await w.json().catch(() => ({}));
+      if (!w.ok) { informer(j.error || `Refusé (${w.status})`); return; }
+      informer({ ton: 'reussi', message: `${j.mise_a_jour ? 'Invitation mise à jour' : 'Invitation envoyée'} · ${j.invites.length} invité${j.invites.length > 1 ? 's' : ''}.` });
+      onFait();
+    } finally { setOccupe(false); }
+  }
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button type="button" className="bouton !h-8 inline-flex items-center gap-1" disabled={!!raison || occupe} title={raison || undefined} onClick={inviter}>
+        <IconBrandTeams size={15} /> {actif ? 'Mettre à jour Teams' : 'Inviter sur Teams'}
+      </button>
+      {raison && <span className="text-second text-slate-400">{raison}</span>}
+      {actif && (
+        <span className="text-second text-slate-500">
+          Invitation {inv.maj_le && inv.maj_le !== inv.cree_le ? 'mise à jour' : 'envoyée'} le {quandFr(inv.maj_le || inv.cree_le)} · {inv.invites.length} invité{inv.invites.length > 1 ? 's' : ''}
+          {inv.statut === 'changee' ? ' · la date a changé depuis : à mettre à jour' : ''}
+          {inv.join_url && <> · <a href={inv.join_url} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5">lien Teams <IconExternalLink size={12} /></a></>}
+        </span>)}
+    </span>);
+}
+
+function LigneSession({ it, annee, onFait, teams }) {
   const [date, setDate] = useState(it.date || ''), [heure, setHeure] = useState(String(it.heure || '').slice(0, 5));
   const change = date !== (it.date || '') || heure !== String(it.heure || '').slice(0, 5);
   async function enregistrer() {
@@ -67,7 +128,26 @@ function LigneSession({ it, annee, onFait }) {
       <input type="date" className="controle !h-8" value={date} onChange={e => setDate(e.target.value)} disabled={!!it.org || !!it.passage} aria-label="Date" />
       <input type="time" className="controle !h-8" value={heure} onChange={e => setHeure(e.target.value)} disabled={!!it.org || !!it.passage} aria-label="Heure" />
       <button type="button" className="bouton !h-8" disabled={!change || !!it.org || !!it.passage} onClick={enregistrer}>Enregistrer</button>
+      {teams?.dispo?.autorise && <div className="basis-full"><BoutonTeams it={it} annee={annee} teams={teams} onFait={teams.recharger} /></div>}
     </div>);
+}
+
+/** Les invitations Teams de l'année et ce qui manque pour inviter (lus une fois par fenêtre). */
+function useTeams(annee) {
+  const [dispo, setDispo] = useState(null), [etat, setEtat] = useState({}), [n, setN] = useState(0);
+  useEffect(() => {
+    let vivant = true;
+    fetch('/api/teams/disponible', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(d => {
+      if (!vivant) return;
+      setDispo(d);
+      if (d?.autorise && d.ouverte) {
+        fetch(`/api/teams/etat?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() }).then(r => (r.ok ? r.json() : []))
+          .then(l => vivant && setEtat(Object.fromEntries((Array.isArray(l) ? l : []).map(x => [x.cle, x])))).catch(() => {});
+      }
+    }).catch(() => setDispo(null));
+    return () => { vivant = false; };
+  }, [annee, n]);
+  return { dispo, etat, recharger: () => setN(k => k + 1) };
 }
 
 function Ajouter({ annee, lundi, onFait }) {
@@ -111,13 +191,27 @@ export default function AgendaDates({ annee, lundi, ag, onFermer, onFait }) {
   const sessions = ag.sessions?.[i]?.items || [];
   const [cle, setCle] = useState(0);
   const fait = () => { setCle(k => k + 1); onFait(); };
+  const teams = useTeams(annee);
   return (
     <Fenetre titre={`Semaine du ${fmt(lundi)} au ${fmt(plus(lundi, 6))}`} sous="Les dates des unités et des sessions — posées ici, lues partout" onFermer={onFermer}>
       <div className="space-y-5 text-sm" key={cle}>
         <section>
           <div className="intertitre flex items-center gap-1.5 mb-1"><IconGavel size={15} /> Épreuves et délibérations</div>
-          {sessions.length ? sessions.map((it, k) => <LigneSession key={`${it.quoi}-${it.ue_num}-${it.session}-${it.cours_code || ''}-${it.org || 0}-${k}`} it={it} annee={annee} onFait={fait} />)
+          {sessions.length ? sessions.map((it, k) => <LigneSession key={`${it.quoi}-${it.ue_num}-${it.session}-${it.cours_code || ''}-${it.org || 0}-${k}`} it={it} annee={annee} onFait={fait} teams={teams} />)
             : <p className="m-0 text-slate-500">Aucune épreuve ni délibération cette semaine.</p>}
+          {/* UNE DATE RETIRÉE DE LUCIE dont la réunion Teams court encore : on propose de l'annuler (Graph prévient les invités). */}
+          {Object.values(teams.etat).filter(x => x.statut === 'disparue' && String(x.debut || '').slice(0, 10) >= lundi && String(x.debut || '').slice(0, 10) <= plus(lundi, 6)).map(x => (
+            <div key={x.cle} className="flex flex-wrap items-center gap-2 py-1.5 border-t border-slate-100">
+              <IconBrandTeams size={15} className="text-slate-400" />
+              <span className="min-w-0 flex-1">{x.sujet} <span className="text-second text-slate-400">· la date n’existe plus dans Lucie, la réunion Teams court encore ({x.invites.length} invité{x.invites.length > 1 ? 's' : ''})</span></span>
+              <button type="button" className="bouton bouton-detruire !h-8" onClick={async () => {
+                if (!(await demander(`Annuler la réunion Teams « ${x.sujet} » ? Les ${x.invites.length} invités en sont prévenus.`))) return;
+                const r = await fetch('/api/teams/annuler', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ cle: x.cle }) });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok) { informer(j.error || `Refusé (${r.status})`); return; }
+                teams.recharger();
+              }}>Annuler la réunion</button>
+            </div>))}
           <div className="mt-3 pt-3 border-t border-slate-200">
             <div className="text-second text-slate-500 mb-1.5 inline-flex items-center gap-1"><IconPencil size={13} /> Ajouter une délibération ou une épreuve cette semaine</div>
             <Ajouter annee={annee} lundi={lundi} onFait={fait} />
