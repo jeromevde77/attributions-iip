@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 // (CS)
 import { ICONE_AXE } from './lib/iconesAxes.js';
 import OutilsBarre from './components/OutilsBarre.jsx';
@@ -62,25 +63,25 @@ import { useSousMenu } from './lib/sousMenu.js';
 import { useAlignerSurLeRail } from './lib/alignerTitre.js';
 import MonCompte from './components/MonCompte.jsx';
 import ApercuGlobal from './components/ApercuGlobal.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Attributions from './pages/Attributions.jsx';
-import Professeurs from './pages/Professeurs.jsx';
-import DCPP from './pages/DCPP.jsx';
-import Recrutement from './pages/Recrutement.jsx';
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Attributions = lazy(() => import('./pages/Attributions.jsx'));
+const Professeurs = lazy(() => import('./pages/Professeurs.jsx'));
+const DCPP = lazy(() => import('./pages/DCPP.jsx'));
+const Recrutement = lazy(() => import('./pages/Recrutement.jsx'));
 import Accueil from './pages/Accueil.jsx';
-import { lazy, Suspense } from 'react';
 const Procedures = lazy(() => import('./pages/Procedures.jsx'));
-import Configuration from './pages/Configuration.jsx';
-import EA12List from './pages/EA12List.jsx';
-import EA12Editor from './pages/EA12Editor.jsx';
-import Pilotage from './pages/Pilotage.jsx';
-import Planification from './pages/Planification.jsx';
+const Configuration = lazy(() => import('./pages/Configuration.jsx'));
+const EA12List = lazy(() => import('./pages/EA12List.jsx'));
+const EA12Editor = lazy(() => import('./pages/EA12Editor.jsx'));
+const Pilotage = lazy(() => import('./pages/Pilotage.jsx'));
+const Planification = lazy(() => import('./pages/Planification.jsx'));
 const Documentation = lazy(() => import('./pages/Documentation.jsx'));
 const MesCours = lazy(() => import('./pages/MesCours.jsx'));
 const Evaluations = lazy(() => import('./pages/Evaluations.jsx'));
-import Echeancier from './pages/Echeancier.jsx';
-import Organisation from './pages/Organisation.jsx';
-import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
+const Echeancier = lazy(() => import('./pages/Echeancier.jsx'));
+const Organisation = lazy(() => import('./pages/Organisation.jsx'));
+const AxeAccueil = lazy(() => import('./pages/Axes.jsx').then(m => ({ default: m.AxeAccueil })));
+const AxeEtudiants = lazy(() => import('./pages/Axes.jsx').then(m => ({ default: m.AxeEtudiants })));
 import { BoutonAide } from './pages/Aide.jsx';
 import { demander, informer } from './lib/dialogue.jsx';
 
@@ -822,7 +823,9 @@ function ProtectedLayout({ children }) {
           </nav>
         )}
       </header>
-      <main className="flex-1">{children}</main>
+      {/* LES ÉCRANS SE CHARGENT À L'OUVERTURE (3.5.703, Charles : « certaines pages sont terriblement lentes ») : tout Lucie tenait
+          dans un seul fichier de 5 Mo, lu en entier avant le premier écran, et à nouveau après chaque mise à jour. */}
+      <main className="flex-1"><Suspense fallback={<div className="p-8 text-sm text-slate-400">Chargement…</div>}>{children}</Suspense></main>
       <PontEspaceEnseignant />
       {compteOuvert && <MonCompte onFermer={() => setCompteOuvert(false)} />}
       <ApercuGlobal />
