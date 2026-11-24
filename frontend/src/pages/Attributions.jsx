@@ -438,7 +438,7 @@ export default function Attributions() {
   const [editRow, setEditRow] = useState(null);
   const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
   const [coursManquants, setCoursManquants] = useState([]); // cours du DP sans ligne (pour l'UE du menu ouvert)
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // position fixe du menu
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // position fixe du menu ; près du bas de l'écran, il s'ouvre vers le haut et défile (3.5.682, Charles : « le menu est caché »)
   const [recrutMenu, setRecrutMenu] = useState(null); // { rowId } — menu pioche candidat recrutement
   const [noteMenu, setNoteMenu] = useState(null);     // { rowId, top, right, texte } — note d'une attribution
   const [statutFenetre, setStatutFenetre] = useState(null); // { rowId, profId, nom, isHelb, statutMdp, exception }
@@ -2065,12 +2065,12 @@ export default function Attributions() {
                   className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center" style={{fontSize:'0.9rem'}}>⧉</button>
           )}
           {/* Bouton + : ajouter une ligne / un cours */}
-          {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}${org ? `&num_organisation=${org}` : ''}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
+          {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos(r.bottom > window.innerHeight * 0.55 ? {bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right, max: r.top - 12} : {top: r.bottom + 4, right: window.innerWidth - r.right, max: window.innerHeight - r.bottom - 12});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}${org ? `&num_organisation=${org}` : ''}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
                   className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center font-bold">+</button>}
           {addMenuUE?.key===key && (
             <div className="fixed z-50 carte !bg-[var(--blanc)] shadow-dessus py-1 w-64"
-              style={{top: menuPos.top, right: menuPos.right}}
+              style={{top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, maxHeight: menuPos.max, overflowY: 'auto'}}
               onClick={e=>e.stopPropagation()}>
               <div className="px-3 py-1.5 h-9 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
               {ue.cours.filter(cg => cg.type_cours !== 'Z').map(cg => (
