@@ -54,6 +54,8 @@ function close(x) {
  * modifications garde l'ancienne valeur, la nouvelle et le nom de qui l'a changée. La décision déjà notifiée ne change pas d'elle-même. */
 export const DIRECTION_CORRIGE = ['admin', 'directeur', 'directeur_adjoint'];
 export function avecNoteForcee(etudId, annee, ueNum, fn) {
+  // Sans table note_force, la garde n'est pas posée (colonnes absentes, base d'essai) : rien à forcer.
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'note_force'").get()) return fn();
   db.prepare('INSERT OR IGNORE INTO note_force (etudiant_id, annee_scolaire, ue_num) VALUES (?,?,?)').run(Number(etudId), annee, Number(ueNum));
   try { return fn(); }
   finally { db.prepare('DELETE FROM note_force WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').run(Number(etudId), annee, Number(ueNum)); }

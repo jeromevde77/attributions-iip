@@ -3462,6 +3462,17 @@ try { (await import('./lib/etudiantUnique.js')).poserNormalisationRN(db); } catc
 // Les intitulés d'UE abîmés par l'import du dossier pédagogique, rétablis une fois (3.5.261).
 try { reparerNomsAbimes(); } catch (e) { console.error('[ue] intitulés :', e.message); }
 try { retirerSousPointsDoublons(); } catch (e) { console.error('[acquis] sous-points :', e.message); }
+/* Les deux refus restés sans inscription après le retrait de 297 et 298 du PAE de Noelle YOUGUET, réorientée en AeSI
+   (3.5.665, Charles, 24/11/2026). Une fois, ces deux lignes seulement : ailleurs, le retrait forcé emporte désormais la décision. */
+try {
+  if (!db.prepare("SELECT 1 FROM lucie_config WHERE cle = 'nettoyage_refus_youguet'").get()) {
+    const n = db.prepare(`DELETE FROM deliberation_resultat WHERE etudiant_id = 1736 AND annee_scolaire = '2026-2027' AND ue_num IN (297, 298)
+      AND NOT EXISTS (SELECT 1 FROM etudiant_inscription i WHERE i.etudiant_id = 1736 AND i.annee_scolaire = '2026-2027'
+        AND i.ue_num = deliberation_resultat.ue_num)`).run().changes;
+    db.prepare("INSERT INTO lucie_config (cle, valeur) VALUES ('nettoyage_refus_youguet', ?)").run(JSON.stringify({ le: new Date().toISOString(), lignes: n }));
+    if (n) console.log(`[nettoyage] ${n} refus sans inscription retiré(s) (UE 297, 298)`);
+  }
+} catch (e) { console.error('[nettoyage refus orphelins]', e.message); }
 try { (await import('./lib/purgeHistorique.js')).purgerDepotHistorique(); } catch (e) { console.error('[purge années passées]', e.message); }
 // Les images de l'établissement (logo, logo blanc, signature, cachet) remplacent les fichiers d'origine (3.1.253).
 import('./routes/etablissement.js').then(m => m.migrerEtablissements())   // une base neuve crée la table après l'import des routes

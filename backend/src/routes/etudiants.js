@@ -50,7 +50,7 @@ import { TITRES_ACCES, DIPLOMES_MAX, SITUATIONS_PRO } from '../lib/profilEtudian
 import { situationDe, poserSituation } from '../lib/situationPro.js';
 import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
-import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
+import { noteVerrouillee, MESSAGE_CLOSE, avecNoteForcee, DIRECTION_CORRIGE } from '../lib/gardeNotes.js';
 import { trouverOuCreerEtudiant } from '../lib/etudiantUnique.js';
 import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 const r = Router();
@@ -1010,11 +1010,21 @@ export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], ori
   const aReport = db.prepare('SELECT 1 FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? LIMIT 1');
   const resultatDe = new Map(existantes.map(x => [x.ue_num, x.resultat]));
   const conservees = [], retirables = [];
+  /* UN RETRAIT FORCÉ EMPORTE TOUT, OU RIEN (3.5.665, Charles : Noelle YOUGUET, réorientée d'optométrie en AeSI, gardait
+     297 et 298 — 71 ECTS — parce que des 0 et un refus y avaient été posés une heure avant). Le retrait forcé effaçait
+     l'inscription, mais la garde des notes IGNORAIT l'effacement des notes d'une séance close et la décision du Conseil
+     restait : des notes et un refus sans inscription. Désormais, une UE dont la séance est close ne se retire de force que
+     par la direction (DIRECTION_CORRIGE), qui emporte notes, décisions, ajournements et ajustements de l'unité ; pour les
+     autres, elle reste au programme, nommée. */
+  const roleReq = String(requeteCourante()?.user?.role || '');
+  const directionReq = DIRECTION_CORRIGE.includes(roleReq);
   for (const u of aRetirer) {
     const pourquoi = resultatDe.get(u) != null ? 'résultat' : aNote.get(etudId, annee, u) ? 'notes'
       : aReport.get(etudId, annee, u) ? 'report' : null;
     if (pourquoi && !forcerRetrait) conservees.push({ ue_num: u, pourquoi });
-    else retirables.push(u);
+    else if (pourquoi && (noteVerrouillee(etudId, annee, u, 's1|') || noteVerrouillee(etudId, annee, u, 's2|')) && !directionReq) {
+      conservees.push({ ue_num: u, pourquoi: 'séance close (la direction seule peut la retirer)' });
+    } else retirables.push(u);
   }
   const bilan = { simulation, origine, ajoutees: aAjouter, retirees: retirables, conservees, ecarts,
     refus, confirmation_retiree: false };
@@ -1075,10 +1085,17 @@ export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], ori
       if (x.regles.some(r0 => r0.regle === 'deja_reussie')) forcer.run(par, etudId, annee, x.ue_num);
     }
     for (const u of retirables) {
-      // Le report d'abord : tant qu'il est accordé, ses notes sont gardées.
-      db.prepare('DELETE FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?').run(etudId, annee, u);
-      db.prepare('DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?').run(etudId, annee, u);
-      del.run(etudId, annee, u);
+      avecNoteForcee(etudId, annee, u, () => {
+        // Le report d'abord : tant qu'il est accordé, ses notes sont gardées.
+        db.prepare('DELETE FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?').run(etudId, annee, u);
+        db.prepare('DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?').run(etudId, annee, u);
+        // Ce que le Conseil avait décidé pour cette unité part avec elle : une décision sans inscription ne se lit nulle part.
+        for (const t of ['deliberation_resultat', 'deliberation_ajourne_aa', 'deliberation_ajustement']) {
+          try { db.prepare(`DELETE FROM ${t} WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?`).run(etudId, annee, u); }
+          catch { /* table absente d'une vieille base */ }
+        }
+        del.run(etudId, annee, u);
+      });
     }
     if ((aAjouter.length || retirables.length) && origine !== 'confirmation') {
       bilan.confirmation_retiree = db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?')
