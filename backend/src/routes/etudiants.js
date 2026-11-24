@@ -52,6 +52,7 @@ import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
 import { noteVerrouillee, MESSAGE_CLOSE, avecNoteForcee, DIRECTION_CORRIGE } from '../lib/gardeNotes.js';
 import { trouverOuCreerEtudiant } from '../lib/etudiantUnique.js';
+import { CHAMPS_COMPTE, voitCompte, masquerCompte, verifierCompte } from '../lib/compteEtudiant.js';
 import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 const r = Router();
 /* UN ARCHIVÉ OU UN SORTI N'EST PAS DANS LES LISTES DE L'ANNÉE (3.5.270, Charles : « dans l'outil de groupes, il me met des
@@ -6428,7 +6429,8 @@ r.get('/:id', authRequired, (req, res) => {
   let commentaires_ce = [];
   try { commentaires_ce = db.prepare(`SELECT annee_scolaire, texte, maj_le FROM etudiant_commentaire_ce
     WHERE etudiant_id = ? AND TRIM(COALESCE(texte, '')) != '' ORDER BY annee_scolaire DESC`).all(etudiant.id); } catch { /* table absente */ }
-  res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct), commentaires_ce });
+  // Carte d'identité et compte bancaire : direction et secrétariat seulement (lib/compteEtudiant.js).
+  res.json({ ...masquerCompte(etudiant, req.user), inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct), commentaires_ce });
 });
 
 // ── Encoder un résultat ───────────────────────────────────────────────────────
@@ -11269,7 +11271,17 @@ r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
   if (!avant) return res.status(404).json({ error: 'étudiant introuvable' });
 
   const presents = CHAMPS_ETUDIANT.filter(k => k in (req.body || {}));
-  if (!presents.length) return res.json({ ok: true, inchange: true });
+  /* LA CARTE D'IDENTITÉ ET LE COMPTE BANCAIRE (24 novembre 2026) : direction et secrétariat
+     seulement ; contrôlés avant toute écriture (IBAN au modulo 97, date valide). */
+  const compte = CHAMPS_COMPTE.filter(k => k in (req.body || {}));
+  let valeursCompte = {};
+  if (compte.length) {
+    if (!voitCompte(req.user)) return res.status(403).json({ error: 'La carte d’identité et le compte bancaire se modifient par la direction ou le secrétariat.' });
+    const v = verifierCompte(req.body);
+    if (v.erreur) return res.status(400).json({ error: v.erreur });
+    valeursCompte = v.valeurs;
+  }
+  if (!presents.length && !compte.length) return res.json({ ok: true, inchange: true });
 
   // Le numéro national identifie la personne : un doublon rendrait tout
   // rapprochement d'historique impossible.
@@ -11297,10 +11309,12 @@ r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
     }
   }
 
-  db.prepare(`UPDATE etudiant SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+  if (presents.length) db.prepare(`UPDATE etudiant SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
     .run(...presents.map(k => (req.body[k] === '' && (k === 'titre_acces' || k === 'diplome_max' || k === 'sexe') ? null : req.body[k] ?? null)), etudId);
+  if (compte.length) db.prepare(`UPDATE etudiant SET ${compte.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+    .run(...compte.map(k => valeursCompte[k]), etudId);
 
-  res.json({ ok: true, modifies: presents });
+  res.json({ ok: true, modifies: [...presents, ...compte] });
 });
 
 // ── Complément de dossier par numéro national ───────────────────────────────
@@ -11535,6 +11549,19 @@ r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   try {
     if (rest.nationalite || rest.lieu_naissance) db.prepare('UPDATE etudiant SET nationalite = COALESCE(?, nationalite), lieu_naissance = COALESCE(?, lieu_naissance) WHERE id = ?')
       .run(rest.nationalite || null, rest.lieu_naissance || null, id);
+  } catch { /* colonnes absentes d'une base ancienne */ }
+  /* La carte lue par le lecteur eID apporte aussi son numéro et sa fin de validité (24 novembre
+     2026). Contrôlés comme à la fiche ; une valeur illisible est laissée de côté, jamais bloquante. */
+  try {
+    const carte = {};
+    for (const k of ['carte_identite_fin', 'carte_identite_numero']) if (rest[k]) carte[k] = rest[k];
+    if (Object.keys(carte).length && voitCompte(req.user)) {
+      const v = verifierCompte(carte);
+      if (v.valeurs && Object.keys(v.valeurs).length) {
+        const ks = Object.keys(v.valeurs);
+        db.prepare(`UPDATE etudiant SET ${ks.map(k => `${k} = ?`).join(', ')} WHERE id = ?`).run(...ks.map(k => v.valeurs[k]), id);
+      }
+    }
   } catch { /* colonnes absentes d'une base ancienne */ }
 
   // Inscriptions initiales

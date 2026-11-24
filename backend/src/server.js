@@ -2886,6 +2886,16 @@ try {
     BEGIN UPDATE etudiant SET sexe = ${depuisTitre} WHERE id = NEW.id; END`);
 } catch(e) { console.error('[migration] diplômes étudiant :', e.message); }
 
+// ── Étudiant : carte d'identité et compte bancaire (24 novembre 2026, idées #50 et #36) ──
+// Avant le journal des modifications, pour que leurs changements y soient tracés. Lus et écrits
+// par la direction et le secrétariat seulement (lib/compteEtudiant.js).
+try {
+  const cols = db.prepare("PRAGMA table_info(etudiant)").all().map(c => c.name);
+  for (const c of ['iban', 'bic', 'titulaire_compte', 'carte_identite_fin', 'carte_identite_numero']) {
+    if (!cols.includes(c)) db.exec(`ALTER TABLE etudiant ADD COLUMN ${c} TEXT`);
+  }
+} catch(e) { console.error('[migration] carte et compte étudiant :', e.message); }
+
   /* LE COÛT D'UNE PÉRIODE DE COURS (Charles, 6 octobre 2026 : « intègre ces
      données, pas en dur mais modifiables dans les paramètres, afin de pouvoir
      calculer le coût réel de chaque formation »). Montants de la circulaire

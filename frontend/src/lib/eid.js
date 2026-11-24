@@ -119,6 +119,15 @@ export function eidToProf(data) {
   if (ad.zip) out.code_postal = String(ad.zip).trim();
   if (ad.municipality) out.commune = ad.municipality.trim();
   if (data?.photo) out.photo = data.photo; // data-URI JPEG base64
+  /* LE NUMÉRO DE LA CARTE ET SA FIN DE VALIDITÉ (24 novembre 2026). Les noms exacts que rend
+     l'app eID Reader ne sont pas documentés dans ce dépôt : on lit les formes usuelles du
+     middleware belge (identité ou bloc « card »). Absents, rien n'est proposé. */
+  const carte = data?.card || {};
+  const numCarte = id.cardNumber || id.card_number || carte.cardNumber || carte.number || data?.cardNumber;
+  if (numCarte) out.carte_numero = String(numCarte).trim();
+  const fin = eidDateToISO(id.validityDateEnd || id.validityEndDate || id.validity_end_date || id.cardValidityDateEnd
+    || carte.validityDateEnd || carte.validityEndDate || carte.validity_end_date);
+  if (fin) out.carte_fin = fin;
   return out;
 }
 
@@ -129,6 +138,7 @@ export function eidChamps(mapped) {
     nationalite: 'Nationalité', date_naissance: 'Date de naissance',
     lieu_naissance_ville: 'Lieu de naissance', adresse_rue: 'Adresse',
     code_postal: 'Code postal', commune: 'Localité', photo: 'Photo',
+    carte_numero: 'N° de carte', carte_fin: 'Fin de validité',
   };
   return Object.keys(mapped).map((k) => labels[k] || k);
 }

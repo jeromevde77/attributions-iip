@@ -70,6 +70,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
         nom: m.nom || '', prenom: m.prenom || '', date_naissance: m.date_naissance || '',
         num_national: m.niss || '', lieu_naissance: m.lieu_naissance_ville || '',
         nationalite: m.nationalite || '', adresse: m.adresse_rue || '', cp: m.code_postal || '', localite: m.commune || '',
+        carte_identite_numero: m.carte_numero || '', carte_identite_fin: m.carte_fin || '',
       };
       setForm(f => ({ ...f, nom: c.nom || f.nom, prenom: c.prenom || f.prenom }));
       setCarte(c); setDoublons(null);
@@ -128,7 +129,8 @@ export default function NouvelEtudiant({ onClose, onCree }) {
         {carte && (
           <div className="bloc-etat px-3 py-2 text-second" data-etat="reussi">
             Carte lue : {[fr(carte.date_naissance) && `né(e) le ${fr(carte.date_naissance)}`, carte.lieu_naissance && `à ${carte.lieu_naissance}`,
-              carte.nationalite, carte.num_national && `RN ${carte.num_national}`, [carte.adresse, carte.cp, carte.localite].filter(Boolean).join(' ')]
+              carte.nationalite, carte.num_national && `RN ${carte.num_national}`, [carte.adresse, carte.cp, carte.localite].filter(Boolean).join(' '),
+              fr(carte.carte_identite_fin) && `carte valable jusqu’au ${fr(carte.carte_identite_fin)}`]
               .filter(Boolean).join(' · ')} — enregistré avec la fiche.
           </div>
         )}

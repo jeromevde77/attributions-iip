@@ -233,6 +233,15 @@ export default function FraisScolarite({ etudId, annee }) {
         <div className="border-t border-slate-200 pt-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold text-iip-blue">Versements</span>
+            {/* OÙ VIRER UN REMBOURSEMENT (24 novembre 2026) : le compte encodé dans Identité, en lecture.
+                Le serveur ne le rend qu'à la direction et au secrétariat. */}
+            {'compte_etudiant' in f && (
+              <span className="text-second text-slate-600 ml-auto mr-2" title="Compte de l’étudiant pour un remboursement (fiche → Identité)">
+                {f.compte_etudiant
+                  ? <>Remboursement vers <b className="font-mono">{String(f.compte_etudiant.iban).replace(/(.{4})/g, '$1 ').trim()}</b>
+                      {f.compte_etudiant.bic ? ` · ${f.compte_etudiant.bic}` : ''}{f.compte_etudiant.titulaire_compte ? ` · au nom de ${f.compte_etudiant.titulaire_compte}` : ''}</>
+                  : <span className="text-slate-400">Pas de compte bancaire encodé (fiche → Identité)</span>}
+              </span>)}
             {peutEncaisser && !saisie && (
               <button type="button" className="bouton h-8" onClick={() => setSaisie({ date_paiement: aujourdHui(),
                 montant: f.restant > 0 ? String(f.acompte_verse ? f.restant : Math.min(f.restant, f.acompte - f.verse)).replace('.', ',') : '',
