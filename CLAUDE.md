@@ -2665,7 +2665,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   (Charles, 2 octobre 2026, face à la circulaire « toutes les UE peuvent faire
   l'objet d'un recours ») : le RDE fait foi pour Lucie.
 - **DONNÉES PRIVÉES DANS LES LISTES** : n° national et adresse postale —
-  administrateur et direction ; e-mail privé — aussi secrétariat et
+  administrateur, direction et coordination (ses sections, pour les stages et les hôpitaux, 3.5.670) ; e-mail privé — aussi secrétariat et
   coordinations. Le tri se fait dans `routes/listes.js`, pas à l'écran.
 - **LE NOM SE MET EN CAPITALES, LE PRÉNOM SE CAPITALISE — DEUX RÈGLES, DEUX
   FONCTIONS.** `lib/nom.js` les porte, sorties de `routes/acquis.js` où elles
