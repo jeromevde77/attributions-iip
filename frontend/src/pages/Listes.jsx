@@ -24,7 +24,7 @@ import { chargerIdentite, useIdentite } from '../lib/identite.js';
    de toute façon, ne les remplit pas pour les autres (2 octobre 2026). */
 function colPermise(c) {
   const role = getUser()?.role;
-  if (c.prive) return ['admin', 'directeur', 'directeur_adjoint', 'coordination'].includes(role);   // coordination : 3.5.670 (stages, hôpitaux)
+  if (c.prive) return ['admin', 'directeur', 'directeur_adjoint', 'coordination', 'secretariat', 'editeur'].includes(role);   // coordination : 3.5.670 (stages, hôpitaux)
   if (c.mailPrive) return ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'coordination', 'editeur'].includes(role);
   return true;
 }

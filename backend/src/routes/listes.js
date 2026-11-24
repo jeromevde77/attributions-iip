@@ -152,7 +152,8 @@ r.get('/etudiants', authRequired, (req, res) => {
      les hôpitaux ; elle peut imprimer une liste avec ces données ») — pour les étudiants de ses sections, le périmètre de
      la liste restant celui de la coordination. */
   const role = req.user?.role;
-  const voitPrive = ['admin', 'directeur', 'directeur_adjoint', 'coordination'].includes(role);
+  // Le secrétariat aussi (3.5.671, Charles, 24 novembre 2026).
+  const voitPrive = ['admin', 'directeur', 'directeur_adjoint', 'coordination', 'secretariat', 'editeur'].includes(role);
   const voitMailPrive = voitPrive || ['secretariat', 'coordination', 'editeur'].includes(role);
   const champsFiche = id => {
     let f = fiches.get(id) || {};
