@@ -2068,7 +2068,10 @@ export default function Attributions() {
           {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos(r.bottom > window.innerHeight * 0.55 ? {bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right, max: r.top - 12} : {top: r.bottom + 4, right: window.innerWidth - r.right, max: window.innerHeight - r.bottom - 12});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}${org ? `&num_organisation=${org}` : ''}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
                   className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center font-bold">+</button>}
-          {addMenuUE?.key===key && (
+          {/* LE MENU SORT DU CADRE DE L'UE (3.5.683, Charles : « le menu s'ouvre trop bas, il n'est pas au-dessus ») : l'UE ouverte est
+              légèrement agrandie (transform) et rogne ce qui déborde ; un `fixed` posé dedans se calait sur elle et se faisait
+              couper. Rendu dans le corps du document, il se place par rapport à l'écran. */}
+          {addMenuUE?.key===key && createPortal(
             <div className="fixed z-50 carte !bg-[var(--blanc)] shadow-dessus py-1 w-64"
               style={{top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, maxHeight: menuPos.max, overflowY: 'auto'}}
               onClick={e=>e.stopPropagation()}>
@@ -2122,7 +2125,7 @@ export default function Attributions() {
                 <IconFileText size={15}/><span>DOC2 / DOC3</span>
               </button>
             </div>
-          )}
+          , document.body)}
         </div>
         {open && (
           <div className={activeUE === key ? 'ligne-active' : ''}>

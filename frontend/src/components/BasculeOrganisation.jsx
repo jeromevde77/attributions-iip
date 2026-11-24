@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconArrowsSplit, IconCopy, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, EnteteCarte } from './ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 const nb = v => (v ? Number(v).toLocaleString('fr-BE') : '—');
 
@@ -87,6 +88,13 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
       setSection(sec => sec || autre);
       const tenu = n => (j.organisations.find(o => o.num === n)?.sections || []).some(s => s !== autre);
       let n = 1; while (tenu(n)) n++;
+      /* UNE SEULE SECTION (AeSI) : l'organisation cible ne peut pas être celle où sont déjà toutes les lignes — sinon
+         cocher « déplacer » ne déplace rien (3.5.683, Charles : « quand je veux déplacer de l'une à l'autre, il ne se passe
+         rien »). On propose alors l'organisation 2, ou la dernière qui existe. */
+      if (j.sections.length === 1) {
+        const nums = [...new Set(j.lignes.map(l => Number(l.num_organisation) || 1))].sort((a, b) => a - b);
+        n = nums.length > 1 ? nums[nums.length - 1] : (nums[0] === 1 ? 2 : 1);
+      }
       setOrg(o => o || String(n));
     } catch (e) { setErreur(e.message); }
   };
@@ -132,7 +140,16 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
     } catch (e) { setErreur(e.message); return null; } finally { setEnCours(false); }
   };
   const verifier = async () => { const j = await appeler(true); if (j) setVerif({ ...j, cle }); };
+  /* ENREGISTRER VÉRIFIE D'ABORD (3.5.683) : le bouton restait gris tant qu'on n'avait pas cliqué « Vérifier » — on
+     croyait que rien ne se passait. Il vérifie lui-même, montre ce qu'il signale, et demande avant d'écrire. */
   const enregistrer = async () => {
+    if (!verifValide) {
+      const v = await appeler(true);
+      if (!v) return;
+      setVerif({ ...v, cle });
+      if (v.controles?.length && !(await demander({ titre: 'Répartir entre organisations',
+        message: `Lucie signale :\n\n${v.controles.map(c => '· ' + c.texte).join('\n')}\n\nEnregistrer quand même ?`, confirmer: 'Enregistrer' }))) return;
+    }
     const j = await appeler(false);
     if (j) { setFait(j); setModifs({}); setCopies([]); setDeplace(new Set()); setVerif(null); await charger(); onFait?.(); }
   };
@@ -167,11 +184,11 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
         <span className="flex-1 min-w-0 text-second text-slate-500">
           {!aChanger ? 'Recopiez des groupes vers l’organisation cible, ajustez les périodes (0 permis), ou cochez une ligne à déplacer.'
             : verifValide ? (verif.controles.length ? `${verif.controles.length} point(s) signalé(s) ci-dessus — vous pouvez enregistrer quand même.` : 'Tout tombe juste.')
-              : `${aChanger} changement(s) en attente — vérifiez d’abord.`}
+              : `${aChanger} changement(s) en attente.`}
         </span>
         <button className="bouton" onClick={onClose}>Fermer</button>
         <button className="bouton" disabled={!aChanger || !section || !cible || enCours} onClick={verifier}>Vérifier</button>
-        <button className="bouton bouton-fort" disabled={!verifValide || enCours} onClick={enregistrer}>{enCours ? '…' : 'Enregistrer'}</button>
+        <button className="bouton bouton-fort" disabled={!aChanger || !section || !cible || enCours} onClick={enregistrer}>{enCours ? '…' : 'Enregistrer'}</button>
       </>}>
       <div className="space-y-3 text-sm">
         {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>}
@@ -212,8 +229,9 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
                   <tbody>
                     {g.lignes.map(l => (
                       <tr key={l.cle || l.id} className="border-t border-slate-100 bg-white">
-                        <td className="px-2 py-1">{!l.copie && (
-                          <input type="checkbox" checked={deplace.has(l.id)} title="Déplacer vers l’organisation cible"
+                        <td className="px-2 py-1">{!l.copie && (d.lignes.find(x => x.id === l.id)?.num_organisation === cible && !deplace.has(l.id)
+                          ? <span className="text-slate-300" title={`Déjà dans l’organisation ${cible} : choisissez une autre organisation cible`}>—</span>
+                          : <input type="checkbox" checked={deplace.has(l.id)} title="Déplacer vers l’organisation cible"
                             onChange={() => setDeplace(s => { const n = new Set(s); n.has(l.id) ? n.delete(l.id) : n.add(l.id); return n; })} />)}</td>
                         <td className="px-2 py-1 whitespace-nowrap"><b>{l.code_cours || '—'}</b> <span className="text-slate-500">{l.cours_nom || ''}</span>
                           {l.copie && <span className="ml-1.5 text-xs text-slate-500 border border-slate-200 rounded-champ px-1">copie</span>}</td>
