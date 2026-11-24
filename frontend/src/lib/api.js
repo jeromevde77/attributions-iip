@@ -308,9 +308,9 @@ export const api = {
   catalogueUE() { return request(withAnnee('/ref/catalogue-ue')); },
   rattacherUE(ue_num, section_code) { return request('/ref/ue-section', { method: 'POST', body: { ue_num, section_code, annee_scolaire: getAnnee() } }); },
   appliquerNominations(ue_num, section) { return request('/nominations/appliquer', { method: 'POST', body: { annee: getAnnee(), ue_num, section } }); },
-  async creerLigneDepuisCours(cours_code, ue_num, section) {
+  async creerLigneDepuisCours(cours_code, ue_num, section, num_organisation = 1) {
     if (!await confirmerAnnee('une attribution')) throw new Error('Création annulée.');
-    return request('/attributions/creer-depuis-cours', { method: 'POST', body: { annee: getAnnee(), cours_code, ue_num, section } });
+    return request('/attributions/creer-depuis-cours', { method: 'POST', body: { annee: getAnnee(), cours_code, ue_num, section, num_organisation } });
   },
   toggleConge(id) { return request(`/attributions/${id}/conge`, { method: 'POST', body: {} }); },
   apercuSuppressionSection(section) { return request(`/attributions/section/${encodeURIComponent(section)}/apercu-suppression?annee=${encodeURIComponent(getAnnee())}`); },
