@@ -6770,7 +6770,9 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
       cours_code: c.cours_code, cours_nom: c.cours_nom,
       date: l.s2_date || null, heure: l.s2_heure || null,
       local: l.s2_local || null, adresse: l.s2_adresse || null,
-      aucune: !!l.s2_aucune, a_representer: (aRep[c.cours_code] || []).length,
+      // UN COURS QUI A DES AJOURNÉS A SA SECONDE SESSION (3.5.664, Charles, UE 298 : la case restait cochée
+      // d'une ouverture antérieure aux décisions, et la seconde session disparaissait en silence).
+      aucune: !!l.s2_aucune && !(aRep[c.cours_code] || []).length, a_representer: (aRep[c.cours_code] || []).length,
     };
   });
 
@@ -7236,9 +7238,12 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         ON CONFLICT(ue_num, annee_scolaire, cours_code) DO UPDATE SET
           s2_date = excluded.s2_date, s2_heure = excluded.s2_heure,
           s2_local = excluded.s2_local, s2_adresse = excluded.s2_adresse, s2_aucune = excluded.s2_aucune`);
+      // Un cours où quelqu'un est à représenter ne peut pas être « sans seconde session » (3.5.664).
+      let aRep2 = {};
+      try { aRep2 = aRepresenterParCours(ueNum, annee, 1) || {}; } catch { aRep2 = {}; }
       for (const c of session2_cours) {
         if (!c?.cours_code) continue;
-        const aucune = c.aucune ? 1 : 0;
+        const aucune = c.aucune && !(aRep2[c.cours_code] || []).length ? 1 : 0;
         up.run(ueNum, annee, c.cours_code, aucune ? null : (c.date || null), aucune ? null : (c.heure || null),
                aucune ? null : (c.local || null), aucune ? null : (c.adresse || null), aucune);
       }

@@ -2160,7 +2160,9 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
   // obligeait le secrétariat à corriger chaque notification à la main.
   /* PAS DE SECONDE SESSION POUR UN COURS (3.5.367, Charles : « il n'y a pas de S2 dans ce cours car tout le monde a réussi ») :
      cochée d'office quand Lucie ne voit personne à représenter dans le cours ; cochée, aucune date n'est proposée ni gardée. */
-  const sansS2 = c => !!c.aucune || c.a_representer === 0;
+  /* 3.5.664 (Charles, UE 298) : un cours qui a des étudiants à représenter n'est JAMAIS « sans seconde session » —
+     la case gardée d'une ouverture précédente cachait la seconde session alors que six étudiants étaient ajournés. */
+  const sansS2 = c => (c.a_representer > 0 ? false : (!!c.aucune || c.a_representer === 0));
   const [s2, setS2] = useState(() => (coursSession2 || []).map(c => ({
     cours_code: c.cours_code, cours_nom: c.cours_nom, aucune: sansS2(c), a_representer: c.a_representer,
     date: sansS2(c) ? '' : (c.date || ''), heure: sansS2(c) ? '' : (c.heure || ''), local: sansS2(c) ? '' : (c.local || ''),
@@ -2254,7 +2256,7 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
       const par = new Map(l.map(c => [c.cours_code, c]));
       return (coursSession2 || []).map(c => {
         const a = par.get(c.cours_code) || {};
-        const aucune = a.aucune ?? sansS2(c);
+        const aucune = c.a_representer > 0 ? false : (a.aucune ?? sansS2(c));
         if (aucune) return { cours_code: c.cours_code, cours_nom: c.cours_nom, aucune: true, a_representer: c.a_representer, date: '', heure: '', local: '' };
         return {
           cours_code: c.cours_code, cours_nom: c.cours_nom, aucune: false, a_representer: c.a_representer,
@@ -2391,7 +2393,8 @@ function Cloture({ seance, visiteCalendrier = null, coursVisite = [], delais = n
                         return av.length ? <div className="mb-1">{av.map(x => <PastilleEtat key={x} etat="surveiller">{x}</PastilleEtat>)}</div> : null; })()}
                       {e2 >= 0 && (
                         <label className="flex items-center gap-1.5 mb-1 whitespace-nowrap">
-                          <input type="checkbox" checked={!!s2[e2].aucune} onChange={ev => setS2(l => l.map((x, k) => (k === e2
+                          <input type="checkbox" checked={!!s2[e2].aucune} disabled={s2[e2].a_representer > 0}
+                            title={s2[e2].a_representer > 0 ? 'Des étudiants sont à représenter dans ce cours : la seconde session a lieu.' : undefined} onChange={ev => setS2(l => l.map((x, k) => (k === e2
                             ? { ...x, aucune: ev.target.checked, ...(ev.target.checked ? { date: '', heure: '', local: '' } : {}) } : x)))} />
                           Pas de seconde session, tous les étudiants ont réussi
                           {s2[e2].a_representer > 0 && <span className="text-mention" style={{ color: 'var(--c-attente)' }}>· {s2[e2].a_representer} à représenter</span>}
