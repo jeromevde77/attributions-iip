@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { travail } from './charge.js';
 import { delibererUE, coteEtudiant, visitesParCours } from '../routes/acquis.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // LUCIE ET LE PORTAIL DES ÉTUDIANTS — LE PASSAGE À SENS UNIQUE (3.1.477, Charles, 30 octobre 2026 : « un mur
@@ -657,7 +658,7 @@ function noterEtape(etape, debut, erreur) {
 }
 async function etape(nom, fn) {
   const debut = Date.now();
-  try { const x = await fn(); noterEtape(nom, debut, null); return x; }
+  try { const x = await travail(`portail : ${nom}`, fn); noterEtape(nom, debut, null); return x; }
   catch (e) { console.error(`[portail] ${nom} :`, e.message); noterEtape(nom, debut, e.stack || e.message); return null; }
 }
 /** Le prochain passage (dans les dix secondes) dépose tout : après un geste de l'école que le portail doit voir vite. */
@@ -673,12 +674,12 @@ export async function passerPortail() {
     // Le relevé de l'espace enseignant a sa propre boucle, rapide (3.5.135, `releverEnseignantsVite`).
     const ensDepot = tours % 12 === 0;
     if (ensDepot) {
-      try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); }
-      try { await deposerDocumentsEnseignants(appel); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
+      try { await travail('portail : dépôt enseignants', () => deposerEnseignants(appel)); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); }
+      try { await travail('portail : documents enseignants', () => deposerDocumentsEnseignants(appel)); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
     }
     if (tours % 12 === 0) { await etape('deposer', deposer); await etape('documents', deposerDocuments); }
-    if (toursDocsUE++ % 60 === 0) { try { await deposerDocsUE(); } catch (e) { console.error('[espace] DUE et dossiers :', e.message); } }
-    if (tours % 6 === 0) { try { await deposerSupports(); } catch (e) { console.error('[espace] supports de cours :', e.message); } }
+    if (toursDocsUE++ % 60 === 0) { try { await travail('portail : DUE et dossiers', deposerDocsUE); } catch (e) { console.error('[espace] DUE et dossiers :', e.message); } }
+    if (tours % 6 === 0) { try { await travail('portail : supports', deposerSupports); } catch (e) { console.error('[espace] supports de cours :', e.message); } }
     tours++;
   } catch (e) {
     if (tours % 30 === 0) console.error('[portail]', e.message);   // un portail arrêté ne remplit pas le journal
@@ -719,8 +720,8 @@ export function planifierPortail() {
   migrerPortail();
   setInterval(passerPortail, 10_000).unref?.();
   setTimeout(passerPortail, 5_000).unref?.();
-  setInterval(releverEnseignantsVite, 3_000).unref?.();
-  setInterval(relayerVite, 700).unref?.();
+  setInterval(() => travail('portail : relevé enseignants', releverEnseignantsVite), 3_000).unref?.();
+  setInterval(() => travail('portail : relais', relayerVite), 700).unref?.();
 }
 
 /* LE RELAIS DE MES COURS (3.5.137) : toutes les 0,7 s, les requêtes de l'espace enseignant (son propre verrou). */

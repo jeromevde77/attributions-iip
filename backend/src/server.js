@@ -1,4 +1,7 @@
 // (CS)
+import { travail, lancerSonde, etatCharge, mesurerRequetes, requetesLentes } from './lib/charge.js';
+import { authRequired as compteRequis } from './middleware/auth.js';
+const DEMARRE_CHARGE = new Date().toISOString();
 import 'dotenv/config';
 import { porterContexte } from './lib/contexteRequete.js';
 import { cloreGeste, poserDeclencheurs } from './lib/annulation.js';
@@ -2983,30 +2986,30 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
 {
   const tourDelib = () => { try { const r = genererRappelsDeliberation(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels délibération]', r); } catch (e) { console.error('[rappels délibération]', e.message); } };
   const tourPersonnel = () => { try { const r = genererRappelsPersonnel(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels personnel]', r); } catch (e) { console.error('[rappels personnel]', e.message); } };
-  setTimeout(tourPersonnel, 75_000).unref?.();
-  setInterval(tourPersonnel, 60 * 60 * 1000).unref?.();
+  setTimeout(() => travail('tourPersonnel', tourPersonnel), 75_000).unref?.();
+  setInterval(() => travail('tourPersonnel', tourPersonnel), 60 * 60 * 1000).unref?.();
   // LES ÉCHÉANCES QUE LUCIE VOIT FAITES (3.5.066) : au démarrage, puis toutes les heures.
   const tourConstats = async () => { try { const { constaterEcheances } = await import('./lib/echeancesConstatees.js'); const r = constaterEcheances(anneeActiveRappels(db)); if (Object.keys(r).length) console.log('[échéances constatées]', r); } catch (e) { console.error('[échéances constatées]', e.message); } };
   // LA FIN DE FONCTION DES TEMPORAIRES (3.5.231) : le C4 et l'attestation de services rendus, à la fin de leur dernière unité.
   const tourFins = async () => { try { const { poserFinsDeFonction, renouvelerA18 } = await import('./services/echeancier.js'); const n = poserFinsDeFonction(db, anneeActiveRappels(db)); if (n) console.log('[fins de fonction]', n); const a18 = renouvelerA18(db, anneeActiveRappels(db)); if (a18) console.log('[A18 à renouveler]', a18); } catch (e) { console.error('[fins de fonction]', e.message); } };
-  setTimeout(tourFins, 25 * 1000).unref?.();
-  setInterval(tourFins, 6 * 60 * 60 * 1000).unref?.();
-  setTimeout(tourConstats, 20 * 1000).unref?.();
-  setInterval(tourConstats, 60 * 60 * 1000).unref?.();
-  setTimeout(tourDelib, 45_000).unref?.();
-  setInterval(tourDelib, 60 * 60 * 1000).unref?.();
+  setTimeout(() => travail('tourFins', tourFins), 25 * 1000).unref?.();
+  setInterval(() => travail('tourFins', tourFins), 6 * 60 * 60 * 1000).unref?.();
+  setTimeout(() => travail('tourConstats', tourConstats), 20 * 1000).unref?.();
+  setInterval(() => travail('tourConstats', tourConstats), 60 * 60 * 1000).unref?.();
+  setTimeout(() => travail('tourDelib', tourDelib), 45_000).unref?.();
+  setInterval(() => travail('tourDelib', tourDelib), 60 * 60 * 1000).unref?.();
   // LES RAPPELS DES EXAMENS (3.5.227) : toutes les heures, la file seulement ; l'envoi suit les interrupteurs de Configuration.
   const tourExamens = async () => { try { const { genererRappelsExamens } = await import('./lib/rappelsExamens.js'); const r = genererRappelsExamens(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels examens]', r); } catch (e) { console.error('[rappels examens]', e.message); } };
-  setTimeout(tourExamens, 55_000).unref?.();
-  setInterval(tourExamens, 60 * 60 * 1000).unref?.();
+  setTimeout(() => travail('tourExamens', tourExamens), 55_000).unref?.();
+  setInterval(() => travail('tourExamens', tourExamens), 60 * 60 * 1000).unref?.();
   // LES PRESTATIONS DES EXPERTS (3.5.241) : trois jours ouvrables avant le délai du mois, puis le jour même.
   const tourExperts = async () => { try { const { genererRappelsExperts } = await import('./lib/prestationsExperts.js'); const r = genererRappelsExperts(anneeActiveRappels(db)); if (r.rappels) console.log('[rappels experts]', r); } catch (e) { console.error('[rappels experts]', e.message); } };
-  setTimeout(tourExperts, 65_000).unref?.();
-  setInterval(tourExperts, 60 * 60 * 1000).unref?.();
+  setTimeout(() => travail('tourExperts', tourExperts), 65_000).unref?.();
+  setInterval(() => travail('tourExperts', tourExperts), 60 * 60 * 1000).unref?.();
   // LES RAPPELS AUX ÉTUDIANTS (3.1.525) : la file partout (si le portail existe), l'avis du jour en production.
   const tourEtudiants = () => { try { const r = genererRappelsEtudiants(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels étudiants]', r); } catch (e) { console.error('[rappels étudiants]', e.message); } };
-  setTimeout(tourEtudiants, 105_000).unref?.();
-  setInterval(tourEtudiants, 60 * 60 * 1000).unref?.();
+  setTimeout(() => travail('tourEtudiants', tourEtudiants), 105_000).unref?.();
+  setInterval(() => travail('tourEtudiants', tourEtudiants), 60 * 60 * 1000).unref?.();
   try { planifierAvisEtudiants(); } catch (e) { console.error('[rappels étudiants] planification :', e.message); }
 }
 /* LES COÛTS PRÉPARÉS LA NUIT (3.5.695) : vers 3 h (Bruxelles), chaque année scolaire est calculée d'avance — le calcul fait attendre
@@ -3023,7 +3026,7 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
       prechaufferCouts();
     } catch (e) { console.error('[coûts] préchauffe', e.message); }
   };
-  setInterval(tourCouts, 10 * 60 * 1000).unref?.();
+  setInterval(() => travail('tourCouts', tourCouts), 10 * 60 * 1000).unref?.();
 }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
@@ -3130,6 +3133,12 @@ app.use('/api/suggestions', express.json({ limit: '25mb' }));   // captures join
 app.use('/api/messages-etudiants', express.json({ limit: '30mb' }));   // documents joints aux messages des étudiants (3.5.607)   // pièces jointes des messages (3.5.131)
 app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)
 app.use('/api/mes-cours/supports', express.json({ limit: '25mb' }));   // supports de cours (3.5.211) : 15 Mo en base64
+lancerSonde();
+app.get('/api/diagnostic/lenteurs', compteRequis, (req, res) => {
+  if (!['admin', 'directeur'].includes(req.user?.role)) return res.status(404).json({ error: 'Introuvable.' });
+  res.json({ ...etatCharge(), requetes: requetesLentes(), depuis: DEMARRE_CHARGE });
+});
+app.use(mesurerRequetes);   // 3.5.700 : les requêtes de plus de 800 ms, relevées (lib/charge.js)
 app.use(express.json({ limit: '5mb' }));
 
 /* QUI EST EN TRAIN DE DEMANDER — POUR TOUTE LA DURÉE DE LA REQUÊTE.
