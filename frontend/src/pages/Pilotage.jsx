@@ -1683,7 +1683,8 @@ export default function Pilotage({ vue = 'tout' }) {
     { key: 'g-section', label: 'Une section', icon: IconUsersGroup, faces: [['section', 'Une section']] },
     { key: 'g-presenter', label: 'Présentation', icon: IconPresentation, faces: [direction && ['presentation', 'Présentation d’une section']] },
     { key: 'g-finances', label: 'Budget et frais', icon: IconCoin, faces: [
-      !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget'],
+      // BUDGET D'ABORD (3.5.695) : la rubrique s'ouvre sur sa première face ; les coûts des formations demandent un long calcul.
+      lit('budget') && ['budget', 'Budget'], !coord && ['rapport', 'Coûts des formations'],
       // MES FRAIS (3.5.197) : les notes de frais de la personne connectée, à elle seule.
       direction && ['mes-frais', 'Mes frais']] },
     /* LA DÉMARCHE QUALITÉ (3.1.442) : le plan d'action AEQES. */

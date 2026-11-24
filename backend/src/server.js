@@ -3009,6 +3009,22 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
   setInterval(tourEtudiants, 60 * 60 * 1000).unref?.();
   try { planifierAvisEtudiants(); } catch (e) { console.error('[rappels étudiants] planification :', e.message); }
 }
+/* LES COÛTS PRÉPARÉS LA NUIT (3.5.695) : vers 3 h (Bruxelles), chaque année scolaire est calculée d'avance — le calcul fait attendre
+   le serveur, autant que ce soit quand personne ne travaille. Une fois par nuit. */
+{
+  let fait = null;
+  const tourCouts = async () => {
+    try {
+      const maintenant = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Brussels' }));
+      const jour = maintenant.toISOString().slice(0, 10);
+      if (maintenant.getHours() !== 3 || fait === jour) return;
+      fait = jour;
+      const { prechaufferCouts } = await import('./lib/rapportIipHelb.js');
+      prechaufferCouts();
+    } catch (e) { console.error('[coûts] préchauffe', e.message); }
+  };
+  setInterval(tourCouts, 10 * 60 * 1000).unref?.();
+}
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }
