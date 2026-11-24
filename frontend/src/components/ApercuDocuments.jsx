@@ -12,6 +12,8 @@ import ChampEtudiant from './ChampEtudiant.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { Fenetre, OutilFenetre } from './ui.jsx';
 import EditeurModelePiece from './EditeurModelePiece.jsx';
+import { PagesPdf } from './PreviewModal.jsx';
+import { MessageAttente } from './AttenteDocuments.jsx';
 import { useDroits } from '../lib/droits.js';
 import { IconPencil } from '@tabler/icons-react';
 
@@ -187,10 +189,12 @@ export default function ApercuDocuments({ onClose }) {
       body: JSON.stringify({ html: h, nom: rendu.nom || choisi?.libelle || 'piece',
         orientation: /size:\s*A4\s+landscape/.test(h) ? 'paysage' : 'portrait' }) })
       .then(r => (r.ok ? r.blob() : null))
-      .then(b => { if (vivant && b) { url = URL.createObjectURL(b); setFeuille(url); } })
-      .catch(() => {});
+      .then(b => { if (!vivant) return; if (b) { url = URL.createObjectURL(b); setFeuille(url); } else setFeuille('echec'); })
+      .catch(() => { if (vivant) setFeuille('echec'); });
     return () => { vivant = false; if (url) URL.revokeObjectURL(url); };
   }, [rendu, edition]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pdfVoulu = !!rendu?.html && !edition && /class="pied-lucie"/.test(rendu.html);
 
   const groupes = useMemo(() => {
     const m = new Map();
@@ -310,12 +314,20 @@ export default function ApercuDocuments({ onClose }) {
                   {rendu.manques.slice(0, 8).map((m, i) => <li key={i}>{typeof m === 'string' ? m : (m.manques || []).join(' ; ') || JSON.stringify(m)}</li>)}</ul>}
               </div>
             </div>)}
-          <div className="flex-1 min-h-0 bg-slate-100 relative">
-            {enCours && <div className="absolute top-2 right-3 text-second text-slate-500">Rendu en cours…</div>}
-            {rendu?.html && feuille && <iframe aria-label="Aperçu PDF de la pièce" src={feuille} className="w-full h-full border-0" />}
-            {rendu?.html && <iframe aria-label="Aperçu" srcDoc={rendu.html} className={`w-full h-full border-0 ${feuille ? 'hidden' : ''}`}
+          {/* PAS DE SAUT (24 novembre 2026, Charles : « le fond passe d'un coup du gris clair au blanc avec un petit
+              saut ») : comme l'aperçu commun, une feuille d'attente pendant la composition, puis les pages dessinées
+              par pdf.js, centrées sur le même fond — jamais le HTML d'abord. */}
+          <div className="flex-1 min-h-0 bg-gray-100 relative flex flex-col">
+            {enCours && <div className="absolute top-2 right-3 text-second text-slate-500 z-10">Rendu en cours…</div>}
+            {rendu?.html && pdfVoulu && feuille && feuille !== 'echec' && <PagesPdf url={feuille} titre={rendu.nom || choisi?.libelle} />}
+            {rendu?.html && pdfVoulu && !feuille && (
+              <div className="flex-1 overflow-auto grid place-items-start justify-center pt-6">
+                <div className="bg-white shadow-pose w-[min(900px,calc(100%-48px))] aspect-[210/297] grid place-items-center">
+                  <MessageAttente /></div>
+              </div>)}
+            {rendu?.html && <iframe aria-label="Aperçu" srcDoc={rendu.html} className={`w-full flex-1 border-0 ${pdfVoulu && feuille !== 'echec' ? 'hidden' : ''}`}
               onLoad={e => { if (edition && choisi?.modeles?.some(c => c.startsWith('piece_'))) rendreEditable(e.currentTarget); }} />}
-            {rendu?.pdf && <iframe aria-label="Aperçu PDF" src={rendu.pdf} className="w-full h-full border-0" />}
+            {rendu?.pdf && <PagesPdf url={rendu.pdf} titre={choisi?.libelle} />}
           </div>
         </div>
       </div>
