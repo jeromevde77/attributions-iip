@@ -56,18 +56,6 @@ const CQ2 = `CASE WHEN ${HORS_CONGE} THEN 0
             ELSE 0 END
      ELSE 0 END`;
 
-/* L'ENVELOPPE AeSI SE COMPTE EN PÉRIODES ATTRIBUÉES, SANS LE COEFFICIENT (3.5.684, Charles : « l'enveloppe AeSI est mal
-   décomptée » ; tranché : « en périodes attribuées, sans × 1,5 »). Mêmes moitiés d'année que l'organique, sans pondération ;
-   un dépassement se reporte sur l'organique, lui, en périodes B (× 1,5 pour le supérieur). */
-const CQ1_BRUT = `CASE WHEN ${HORS_CONGE} THEN 0
-     WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1' THEN a.total_attribue_professeur
-     WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN a.total_attribue_professeur*0.4
-     ELSE 0 END`;
-const CQ2_BRUT = `CASE WHEN ${HORS_CONGE} THEN 0
-     WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q2' THEN a.total_attribue_professeur
-     WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN a.total_attribue_professeur*0.6
-     ELSE 0 END`;
-
 // ── Helper année civile ───────────────────────────────────────────────────────
 function anneesCivile(y) {
   return {
@@ -77,7 +65,7 @@ function anneesCivile(y) {
 }
 
 // Calcule usage par pot pour une liste d'années civiles depuis la DB
-function computeUsageDB(anneesCiviles, brut = false) {
+function computeUsageDB(anneesCiviles) {
   if (!anneesCiviles.length) return {};
   const anneesScolaires = new Set();
   for (const y of anneesCiviles) {
@@ -90,8 +78,8 @@ function computeUsageDB(anneesCiviles, brut = false) {
     SELECT
       a.annee_scolaire,
       ${POT} AS pot,
-      ROUND(SUM(${brut ? CQ1_BRUT : CQ1}), 2) AS q1,
-      ROUND(SUM(${brut ? CQ2_BRUT : CQ2}), 2) AS q2
+      ROUND(SUM(${CQ1}), 2) AS q1,
+      ROUND(SUM(${CQ2}), 2) AS q2
     FROM attribution a
     LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
     WHERE a.annee_scolaire IN (${inClause}) AND a.contrat_mdp = 'IIP'
@@ -109,7 +97,11 @@ function computeUsageDB(anneesCiviles, brut = false) {
 // Usage d'une enveloppe externe pour une année civile :
 // L'enveloppe correspond à l'année scolaire YYYY-1 → YYYY (ex: civile 2026 = scolaire 2025-2026)
 // On prend la totalité des périodes B pondérées de cette année scolaire pour ce pot
-const POTS_CIVILS = new Set(['AESI']);
+/* TOUTES LES ENVELOPPES SE LISENT EN ANNÉE CIVILE (3.5.690, Charles : « l'enveloppe, comme toutes les autres, est sur base
+   CIVILE ; pour toutes les enveloppes, tu dois décompter la partie de l'année civile »). Janvier-juin = le Q2 de l'année
+   scolaire qui finit, septembre-décembre = le Q1 de celle qui commence, en périodes pondérées — la règle de l'organique.
+   (3.5.673 ne l'appliquait qu'à l'AeSI ; les autres lisaient l'année scolaire qui finit en N.) */
+const POTS_CIVILS = { has: () => true };
 
 function usageEnveloppe(anneeCivile) {
   const annee_scolaire = `${anneeCivile - 1}-${anneeCivile}`;
@@ -773,7 +765,6 @@ export function syntheseCivile() {
 
   const toCompute = years.filter(y => y.usage_historique_organique == null).map(y => y.annee_civile);
   const usageDB = toCompute.length ? computeUsageDB(toCompute) : {};
-  const usageBrut = toCompute.length ? computeUsageDB(toCompute, true) : {};
   const enveloppes = db.prepare('SELECT * FROM enveloppe_externe ORDER BY code, annee_civile').all();
 
   // Pré-calculer l'usage pondéré des enveloppes par année civile
@@ -794,16 +785,12 @@ export function syntheseCivile() {
          janvier-juin 2027, augmenté en septembre »). Comme l'organique : janvier-juin = le Q2 de l'année scolaire qui
          finit, septembre-décembre = le Q1 de celle qui commence. Les autres enveloppes gardent leur règle (l'année civile
          N = l'année scolaire qui finit en N). */
-      const civil = POTS_CIVILS.has(e.code);
       const usage = e.usage_historique != null
         ? e.usage_historique
-        : civil ? usagePot(usageBrut, y, e.code)
+        : POTS_CIVILS.has(e.code) ? usagePot(usageDB, y, e.code)
         : (usageEnvByAnnee[y]?.[e.code] ?? 0);
-      // Le coefficient de l'enveloppe civile (périodes B ÷ périodes attribuées), pour reporter un dépassement sur l'organique.
-      const brutY = civil ? usagePot(usageBrut, y, e.code) : 0;
-      const coef = civil ? (brutY > 0 ? usagePot(usageDB, y, e.code) / brutY : 1.5) : 1;
       // Enveloppe illimitée : ne déborde jamais sur l'organique
-      const dot = e.illimite ? 0 : Math.max(0, Math.round((usage - e.periodes_b) * coef * 100) / 100);
+      const dot = e.illimite ? 0 : Math.max(0, Math.round((usage - e.periodes_b) * 100) / 100);
       return {
         ...e,
         usage,
@@ -1782,13 +1769,13 @@ r.get('/ext-dot', authRequired, (req, res) => {
      dans DEUX enveloppes civiles : son Q1 dans celle de Y1 (dont janvier-juin a déjà servi au Q2 de l'année d'avant), son Q2
      dans celle de Y2 (dont septembre-décembre servira au Q1 de l'année d'après). Le plafond de l'année scolaire est donc
      ce qui reste de l'une et de l'autre, une fois ces deux moitiés voisines retirées. */
-  for (const pot of POTS_CIVILS) {
+  for (const pot of POTS_EXT) {
     if (!POTS_EXT.includes(pot) || illimite[pot]) continue;
     const y1 = anneeCivile - 1, y2 = anneeCivile;
     const env = y => db.prepare('SELECT periodes_b, illimite FROM enveloppe_externe WHERE code = ? AND annee_civile = ?').get(pot, y);
     const e1 = env(y1), e2 = env(y2);
     if (!e1 && !e2) continue;
-    const u = computeUsageDB([y1, y2], true);   // en périodes attribuées (3.5.684)
+    const u = computeUsageDB([y1, y2]);
     const avant = u[`${y1 - 1}-${y1}`]?.[pot]?.q2 || 0;      // janvier-juin Y1, déjà pris sur l'enveloppe Y1
     const apres = u[`${y2}-${y2 + 1}`]?.[pot]?.q1 || 0;      // septembre-décembre Y2, à prendre sur l'enveloppe Y2
     plafonds[pot] = Math.max(0, (Number(e1?.periodes_b) || 0) - avant) + Math.max(0, (Number(e2?.periodes_b) || 0) - apres);
@@ -1825,10 +1812,7 @@ r.get('/ext-dot', authRequired, (req, res) => {
     const pot = a.pot_code;
     if (!consomme[pot]) consomme[pot] = 0;
     const plafond = plafonds[pot] || 0;
-    // L'AeSI se compte en périodes attribuées ; ce qui déborde passe sur l'organique en périodes B (3.5.684).
-    const brutCivil = POTS_CIVILS.has(pot);
-    const coefB = a.ue_niveau === 'SUP' ? 1.5 : a.ue_niveau === 'DS' ? 1.25 : 1;
-    const cout = brutCivil ? (Number(a.periodes_attribuees || 0) + Number(a.autonomie_attribuee || 0)) : (a.cout_b || 0);
+    const cout = a.cout_b || 0;
     const restePlafond = Math.max(0, plafond - consomme[pot]);
 
     let badge, ext_b, dot_b;
@@ -1841,7 +1825,6 @@ r.get('/ext-dot', authRequired, (req, res) => {
       ext_b = restePlafond; dot_b = cout - restePlafond;
       badge = 'EXT+DOT';
     }
-    if (brutCivil) dot_b = dot_b * coefB;
     consomme[pot] += cout;
     result.push({ ...a, badge, ext_b: Math.round(ext_b*100)/100, dot_b: Math.round(dot_b*100)/100 });
   }
@@ -1854,8 +1837,7 @@ r.get('/ext-dot', authRequired, (req, res) => {
       plafond: ill ? null : plafonds[pot],
       illimite: !!ill,
       consomme: Math.round((consomme[pot]||0)*100)/100,
-      dot: ill ? 0 : POTS_CIVILS.has(pot) ? Math.round(result.filter(x => x.pot_code === pot).reduce((t, x) => t + (x.dot_b || 0), 0) * 100) / 100
-        : Math.round(Math.max(0, (consomme[pot]||0) - plafonds[pot])*100)/100,
+      dot: ill ? 0 : Math.round(Math.max(0, (consomme[pot]||0) - plafonds[pot])*100)/100,
     };
   }
 
