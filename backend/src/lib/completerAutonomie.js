@@ -46,7 +46,7 @@ const arrondir = (v, pas) => Math.round(v / pas) * pas;
  * Une organisation déjà juste garde sa répartition. Seules les lignes IIP comptent, comme dans le contrôle.
  * @param {{ annee, ueNum, section?, sections?: string[]|null, arrondi?: number }} o
  */
-export function proposerAutonomie({ annee, ueNum, section = null, sections = null, arrondi = 1 }) {
+export function proposerAutonomie({ annee, ueNum, section = null, sections = null, arrondi = 1, bornes = null }) {
   const pas = Number(arrondi) === 0.5 ? 0.5 : 1;
   const d = dossierAutonomie(ueNum, annee);
   const ueRow = db.prepare('SELECT MAX(ue_aut) aut, MAX(ue_per_cours) per FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee) || {};
@@ -96,14 +96,22 @@ export function proposerAutonomie({ annee, ueNum, section = null, sections = nul
     const perOuv = eligibles.reduce((t, l) => t + l.periodes, 0);
     const autTot = ls.filter(l => String(l.raison) !== 'en congé' && l.raison !== 'hors IIP').reduce((t, l) => t + l.avant, 0);
     if (!eligibles.length) continue;
-    const ratio = perOuv / perDP;
-    const N = Number.isInteger(Math.round(ratio * 1000) / 1000) && ratio >= 2 ? Math.round(ratio) : null;
-    const min = ueAut, max = r2(ueAut + 0.2 * Math.max(0, perOuv - perDP));
-    let cible;
-    if (N) cible = ueAut * N;
-    else cible = autTot < min ? min : autTot > max ? max : autTot;
-    cible = arrondir(cible, pas);
-    organisations.push({ cle: k, organisation: Number(k.split('|')[1]), multiple: N, minimum: min, maximum: N ? ueAut * N : max,
+    /* LES BORNES (3.5.680, Charles : « autant de fois qu'il y a de multiples de TOUS les cours, au maximum autant de fois
+       qu'il y a de multiples du plus grand », par organisation) : celles du contrôle, passées par la route ; à défaut, le
+       même calcul ici, cours par cours. Une autonomie dans les bornes ne bouge pas. */
+    let min, max;
+    const b = bornes ? bornes(k.split('|')[0], Number(k.split('|')[1])) : null;
+    if (b) { min = b.min; max = b.max; }
+    else {
+      const parCours = {};
+      for (const l of eligibles) parCours[l.code_cours] = (parCours[l.code_cours] || 0) + l.periodes;
+      const dpDe = c => Number(db.prepare('SELECT cours_per FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(c, annee)?.cours_per) || 0;
+      const mults = Object.entries(parCours).map(([c, p]) => { const dp = dpDe(c); return dp ? Math.max(1, Math.floor(p / dp + 1e-9)) : 1; });
+      min = ueAut * Math.max(1, Math.min(...mults)); max = ueAut * Math.max(1, ...mults);
+    }
+    const N = min === max ? min / ueAut : null;
+    const cible = autTot < min ? min : autTot > max ? max : autTot;
+    organisations.push({ cle: k, organisation: Number(k.split('|')[1]), multiple: N, minimum: min, maximum: max,
       cible, avant: r2(autTot) });
     if (Math.abs(cible - autTot) < 1e-9) { eligibles.forEach(l => { l.raison = 'organisation déjà juste'; }); continue; }
     // Plus forts restes : chaque ligne reçoit sa part de la cible, au pas choisi, et la somme tombe juste.
