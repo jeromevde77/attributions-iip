@@ -16,6 +16,8 @@
  * statut « écartée » existe donc, et il porte un motif comme les autres.
  */
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
@@ -92,6 +94,89 @@ export function migrerSuggestions(dbx) {
                           WHERE m.suggestion_id = s.id AND m.origine = 'reponse')
     `);
   } catch (e) { console.error('[migration] suggestion_message :', e.message); }
+
+  /* LES PIÈCES D'UNE IDÉE (3.5.669, idée #31 de Thomas GUIOT : « joindre une capture d'écran du défaut »).
+     Les fichiers vivent sur le DISQUE (DATA_DIR/suggestions/<idée>/…) — la base est déjà lourde ; la table
+     ne garde que leur nom, leur type, leur taille et leur chemin. Pas de clé étrangère : une idée retirée
+     garde ses pièces, rien ne s'efface. `message_id` nul = la pièce de l'idée elle-même. */
+  try {
+    dbx.exec(`
+      CREATE TABLE IF NOT EXISTS suggestion_piece (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        suggestion_id  INTEGER NOT NULL,
+        message_id     INTEGER,
+        nom            TEXT NOT NULL,
+        type           TEXT NOT NULL,
+        taille         INTEGER NOT NULL,
+        chemin         TEXT NOT NULL,
+        cree_par       INTEGER,
+        cree_le        TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_suggestion_piece ON suggestion_piece(suggestion_id, message_id);
+    `);
+  } catch (e) { console.error('[migration] suggestion_piece :', e.message); }
+}
+
+/* ── Les pièces jointes : trois au plus, 5 Mo chacune, images et PDF reconnus à leurs PREMIERS OCTETS
+   (ni le nom ni le type annoncé par le navigateur ne prouvent rien). Envoyées en data URL dans le JSON,
+   comme la Communication (3.5.131). ── */
+const DATA_DIR = () => process.env.DATA_DIR || '/app/data';
+export const MAX_PIECES = 3;
+export const MAX_PIECE = 5 * 1024 * 1024;
+
+/** Le type réel d'un fichier, lu à ses premiers octets ; null s'il n'est ni image ni PDF. */
+export function typeReel(buf) {
+  if (!buf || buf.length < 4) return null;
+  if (buf.slice(0, 4).toString('latin1') === '%PDF') return 'application/pdf';
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return 'image/jpeg';
+  if (buf.length >= 8 && buf.slice(0, 8).toString('hex') === '89504e470d0a1a0a') return 'image/png';
+  const debut = buf.slice(0, 6).toString('latin1');
+  if (debut === 'GIF87a' || debut === 'GIF89a') return 'image/gif';
+  if (buf.length >= 12 && buf.slice(0, 4).toString('latin1') === 'RIFF'
+    && buf.slice(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  return null;
+}
+
+/** Lit les pièces envoyées par l'écran ([{ nom, contenu: data URL }]) ; rend { pieces } ou { erreur }. */
+export function lirePieces(liste) {
+  const l = Array.isArray(liste) ? liste : [];
+  if (l.length > MAX_PIECES) return { erreur: 'Trois pièces jointes au plus.' };
+  const pieces = [];
+  for (const p of l) {
+    const nom = String(p?.nom || 'capture').replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 150) || 'capture';
+    const m = /^data:[^;,]*;base64,(.*)$/s.exec(String(p?.contenu || ''));
+    if (!m) return { erreur: `« ${nom} » : fichier illisible.` };
+    const buf = Buffer.from(m[1], 'base64');
+    const type = typeReel(buf);
+    if (!type) return { erreur: `« ${nom} » : seules les images (PNG, JPEG, GIF, WebP) et les PDF se joignent.` };
+    if (buf.length > MAX_PIECE) return { erreur: `« ${nom} » dépasse 5 Mo.` };
+    pieces.push({ nom, type, buf });
+  }
+  return { pieces };
+}
+
+const EXTENSION = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
+
+/** Écrit les pièces lues sur le disque et les inscrit. */
+export function enregistrerPieces(suggestionId, messageId, pieces, user) {
+  if (!pieces?.length) return;
+  const dir = path.join(DATA_DIR(), 'suggestions', String(suggestionId));
+  fs.mkdirSync(dir, { recursive: true });
+  for (const p of pieces) {
+    const chemin = path.join(dir, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${EXTENSION[p.type] || 'bin'}`);
+    fs.writeFileSync(chemin, p.buf);
+    db.prepare(`INSERT INTO suggestion_piece (suggestion_id, message_id, nom, type, taille, chemin, cree_par)
+                VALUES (?,?,?,?,?,?,?)`)
+      .run(suggestionId, messageId ?? null, p.nom, p.type, p.buf.length, chemin, user?.id ?? null);
+  }
+}
+
+/** Les pièces d'une idée (sans leur contenu) : celles de l'idée, et celles de chaque message. */
+export function piecesDe(suggestionId) {
+  try {
+    return db.prepare(`SELECT id, message_id, nom, type, taille, cree_le FROM suggestion_piece
+                        WHERE suggestion_id = ? ORDER BY id`).all(suggestionId);
+  } catch { return []; }
 }
 
 const MAINTENANT = "strftime('%Y-%m-%d %H:%M:%f','now')";
@@ -129,15 +214,22 @@ function enrichir(s, user) {
 }
 
 function fil(id) {
+  const pieces = piecesDe(id);
   return db.prepare(`SELECT id, auteur_nom, auteur_role, cote, texte, origine, cree_le
                        FROM suggestion_message WHERE suggestion_id = ?
-                      ORDER BY cree_le, id`).all(id);
+                      ORDER BY cree_le, id`).all(id)
+    .map(m => ({ ...m, pieces: pieces.filter(p => p.message_id === m.id) }));
+}
+
+/** Une idée telle que l'écran la lit, avec ses pièces à elle (pas celles du fil). */
+function avecPieces(s) {
+  return { ...s, pieces: piecesDe(s.id).filter(p => p.message_id == null) };
 }
 
 /** Ajoute un message au fil — la seule écriture possible sur un message. */
 function ajouterMessage(s, user, texte) {
   const cote = coteDe(user, s);
-  db.prepare(`INSERT INTO suggestion_message
+  const info = db.prepare(`INSERT INTO suggestion_message
                 (suggestion_id, auteur_id, auteur_nom, auteur_role, cote, texte, cree_le)
               VALUES (?,?,?,?,?,?, ${MAINTENANT})`)
     .run(s.id, user.id, nomDe(user), user.role || null, cote, texte);
@@ -147,7 +239,7 @@ function ajouterMessage(s, user, texte) {
   // La colonne d'origine garde la dernière réponse de la direction, pour qui
   // la lirait encore.
   if (cote === 'direction') db.prepare('UPDATE suggestion SET reponse = ? WHERE id = ?').run(texte, s.id);
-  return cote;
+  return Number(info.lastInsertRowid);
 }
 
 /** La direction et l'administrateur voient tout ; chacun voit les siennes. */
@@ -177,7 +269,9 @@ r.get('/flux', (req, res) => {
       ${COLONNES_FIL} FROM suggestion s ORDER BY s.cree_le DESC`).all()
     .filter(s => !FERMES.includes(s.etat)
       || [s.maj_le, s.dernier_direction_le, s.dernier_auteur_le].some(x => x && x >= limite))
-    .map(s => ({ ...s, fil: fil(s.id).map(m => ({ de: m.auteur_nom, cote: m.cote, le: m.cree_le, texte: m.texte })) }));
+    // Le NOMBRE de pièces seulement : leur contenu ne sort pas par cette adresse.
+    .map(s => ({ ...s, nb_pieces: piecesDe(s.id).length,
+      fil: fil(s.id).map(m => ({ de: m.auteur_nom, cote: m.cote, le: m.cree_le, texte: m.texte, nb_pieces: m.pieces.length })) }));
   res.set('Cache-Control', 'no-store');
   res.json({ lu_le: new Date().toISOString(), etats: ETATS, idees });
 });
@@ -191,7 +285,7 @@ r.get('/', authRequired, (req, res) => {
     ? db.prepare(`SELECT s.*, ${COLONNES_FIL} FROM suggestion s`).all()
     : db.prepare(`SELECT s.*, ${COLONNES_FIL} FROM suggestion s WHERE s.auteur_id = ?`)
       .all(req.user.id);
-  const lignes = brutes.map(s => enrichir(s, req.user))
+  const lignes = brutes.map(s => avecPieces(enrichir(s, req.user)))
     .sort((a, b) => (b.nouveau - a.nouveau)
       || String(b.derniere_activite || '').localeCompare(String(a.derniere_activite || '')));
   res.json({ lignes, tout, etats: ETATS, nouveaux: lignes.filter(l => l.nouveau).length });
@@ -206,7 +300,7 @@ r.get('/', authRequired, (req, res) => {
 r.get('/miennes', authRequired, (req, res) => {
   const lignes = db.prepare(`SELECT s.*, ${COLONNES_FIL} FROM suggestion s WHERE s.auteur_id = ?`)
     .all(req.user.id)
-    .map(s => enrichir(s, req.user))
+    .map(s => avecPieces(enrichir(s, req.user)))
     .filter(s => s.dernier_direction_le)
     .filter(s => s.nouveau || !FERMES.includes(s.etat)
       || !s.vu_auteur_le || s.vu_auteur_le > new Date(Date.now() - 30 * 86400000)
@@ -237,7 +331,7 @@ r.get('/:id/fil', authRequired, (req, res) => {
   const messages = fil(s0.id).map(m => ({
     ...m, nouveau: m.cote === autre && m.cree_le > (vuAvant || ''),
   }));
-  res.json({ suggestion: s, messages, etats: ETATS });
+  res.json({ suggestion: avecPieces(s), messages, etats: ETATS });
 });
 
 /**
@@ -248,12 +342,17 @@ r.get('/:id/fil', authRequired, (req, res) => {
 r.post('/:id/messages', authRequired, (req, res) => {
   const s = db.prepare('SELECT * FROM suggestion WHERE id = ?').get(Number(req.params.id));
   if (!s || !coteDe(req.user, s)) return res.status(404).json({ error: 'Idée introuvable.' });
-  const texte = String(req.body?.texte || '').trim();
+  const lues = lirePieces(req.body?.pieces);
+  if (lues.erreur) return res.status(400).json({ error: lues.erreur });
+  let texte = String(req.body?.texte || '').trim();
+  // Une capture seule dit déjà quelque chose : le message porte alors un mot neutre.
+  if (!texte && lues.pieces.length) texte = lues.pieces.length > 1 ? 'Pièces jointes.' : 'Pièce jointe.';
   if (!texte) return res.status(400).json({ error: 'Un message vide ne dit rien.' });
   if (texte.length > 5000) return res.status(400).json({ error: 'Message trop long (5 000 caractères au plus).' });
-  ajouterMessage(s, req.user, texte);
+  const messageId = ajouterMessage(s, req.user, texte);
+  enregistrerPieces(s.id, messageId, lues.pieces, req.user);
   const s2 = db.prepare(`SELECT s.*, ${COLONNES_FIL} FROM suggestion s WHERE s.id = ?`).get(s.id);
-  res.json({ ok: true, suggestion: enrichir(s2, req.user), messages: fil(s.id) });
+  res.json({ ok: true, suggestion: avecPieces(enrichir(s2, req.user)), messages: fil(s.id) });
 });
 
 r.post('/', authRequired, (req, res) => {
@@ -261,13 +360,38 @@ r.post('/', authRequired, (req, res) => {
   if (!titre) {
     return res.status(400).json({ error: 'Une idée sans intitulé ne se retrouve pas.' });
   }
+  const lues = lirePieces(req.body?.pieces);
+  if (lues.erreur) return res.status(400).json({ error: lues.erreur });
   const info = db.prepare(`
     INSERT INTO suggestion (titre, detail, ecran, auteur_id, auteur_nom)
     VALUES (?,?,?,?,?)
   `).run(titre, String(req.body?.detail || '').trim() || null,
     String(req.body?.ecran || '').trim() || null,
     req.user.id, nomDe(req.user));
+  enregistrerPieces(Number(info.lastInsertRowid), null, lues.pieces, req.user);
   res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+/**
+ * LIRE UNE PIÈCE : les mêmes droits que la lecture de l'idée — son auteur, la direction. 404 sinon
+ * (« interdit » confirmerait qu'elle existe). Une idée retirée garde ses pièces : seule la direction
+ * peut encore les ouvrir.
+ */
+export function pieceLisible(user, pid) {
+  const p = db.prepare('SELECT * FROM suggestion_piece WHERE id = ?').get(Number(pid));
+  if (!p) return null;
+  const s = db.prepare('SELECT id, auteur_id FROM suggestion WHERE id = ?').get(p.suggestion_id);
+  if (s ? !coteDe(user, s) : !voitTout(user)) return null;
+  return p;
+}
+r.get('/:id/piece/:pid', authRequired, (req, res) => {
+  const p = pieceLisible(req.user, req.params.pid);
+  if (!p || p.suggestion_id !== Number(req.params.id)) return res.status(404).json({ error: 'Introuvable.' });
+  if (!fs.existsSync(p.chemin)) return res.status(404).json({ error: 'Le fichier n’est plus sur le serveur.' });
+  res.setHeader('Content-Type', p.type);
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(p.nom)}`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  fs.createReadStream(p.chemin).pipe(res);
 });
 
 /**
@@ -347,6 +471,7 @@ r.delete('/:id', authRequired, (req, res) => {
   if (repondue && !voitTout(req.user)) {
     return res.status(409).json({ error: 'La direction y a répondu : écrivez-le dans le fil plutôt que de la retirer.' });
   }
+  // Les pièces jointes restent (table et disque) : rien ne s'efface.
   db.prepare('DELETE FROM suggestion_message WHERE suggestion_id = ?').run(s.id);
   db.prepare('DELETE FROM suggestion WHERE id = ?').run(s.id);
   res.json({ ok: true });

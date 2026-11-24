@@ -236,10 +236,26 @@ export function paiementCarte(m) {
   return null;
 }
 
-/** Un IBAN se vérifie (modulo 97 de la norme ISO 13616). Rend la forme groupée, ou null. */
+/* LA LONGUEUR D'UN IBAN DÉPEND DU PAYS (registre SWIFT de la norme ISO 13616) : un BE à 16
+   caractères, un FR à 27… Un pays absent de la table garde la règle générale (12 à 34), plutôt que
+   de refuser le compte d'un étudiant parce que son pays n'y a pas été écrit. Une seule fonction
+   pour le compte de l'établissement (Configuration → Identité) et celui de l'étudiant (fiche). */
+const LONGUEUR_IBAN = {
+  AD: 24, AE: 23, AL: 28, AT: 20, AZ: 28, BA: 20, BE: 16, BG: 22, BH: 22, BR: 29, BY: 28, CH: 21,
+  CR: 22, CY: 28, CZ: 24, DE: 22, DK: 18, DO: 28, DZ: 26, EE: 20, EG: 29, ES: 24, FI: 18, FO: 18,
+  FR: 27, GB: 22, GE: 22, GI: 23, GL: 18, GR: 27, GT: 28, HR: 21, HU: 28, IE: 22, IL: 23, IQ: 23,
+  IS: 26, IT: 27, JO: 30, KW: 30, KZ: 20, LB: 28, LC: 32, LI: 21, LT: 20, LU: 20, LV: 21, MA: 28,
+  MC: 27, MD: 24, ME: 22, MK: 19, MR: 27, MT: 31, MU: 30, NL: 18, NO: 15, PK: 24, PL: 28, PS: 29,
+  PT: 25, QA: 29, RO: 24, RS: 22, SA: 24, SC: 31, SE: 24, SI: 19, SK: 24, SM: 27, SN: 28, ST: 25,
+  SV: 28, TL: 23, TN: 24, TR: 26, UA: 29, VA: 22, VG: 24, XK: 20,
+};
+
+/** Un IBAN se vérifie (longueur du pays, puis modulo 97 de la norme ISO 13616). Rend la forme groupée, ou null. */
 export function ibanValide(v) {
-  const s = String(v || '').replace(/\s+/g, '').toUpperCase();
+  const s = String(v || '').replace(/[\s.-]+/g, '').toUpperCase();
   if (!/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/.test(s)) return null;
+  const attendu = LONGUEUR_IBAN[s.slice(0, 2)];
+  if (attendu && s.length !== attendu) return null;
   const r = (s.slice(4) + s.slice(0, 4)).replace(/[A-Z]/g, c => String(c.charCodeAt(0) - 55));
   if (BigInt(r) % 97n !== 1n) return null;
   return s.replace(/(.{4})/g, '$1 ').trim();

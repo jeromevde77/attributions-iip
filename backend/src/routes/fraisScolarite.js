@@ -24,6 +24,7 @@ import { piedDocument, getParam } from './parametres.js';
 import { sectionRattachement } from './etudiants.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
+import { voitCompte } from '../lib/compteEtudiant.js';
 import { premierDixiemeUE } from '../lib/datesReelles.js';
 import { forfaitVA, migrerForfaitVA, exonererForfait } from '../lib/forfaitVA.js';
 import { logoCourant, etablissementDeSection } from '../lib/identite.js';
@@ -223,7 +224,16 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const f = calculerFrais(Number(req.params.id), annee);
   if (!f) return res.status(404).json({ error: 'étudiant introuvable' });
-  res.json(f);
+  /* LE COMPTE DE L'ÉTUDIANT, À CÔTÉ DU REMBOURSEMENT (24 novembre 2026) : le secrétariat sait où
+     virer. Lu seulement par la direction et le secrétariat (lib/compteEtudiant.js). */
+  let compte_etudiant;
+  if (voitCompte(req.user)) {
+    try {
+      const c = db.prepare('SELECT iban, bic, titulaire_compte FROM etudiant WHERE id = ?').get(Number(req.params.id));
+      compte_etudiant = c?.iban ? c : null;
+    } catch { compte_etudiant = null; }
+  }
+  res.json(compte_etudiant === undefined ? f : { ...f, compte_etudiant });
 });
 
 // ── Paiements ───────────────────────────────────────────────────────────────

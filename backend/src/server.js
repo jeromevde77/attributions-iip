@@ -2886,6 +2886,16 @@ try {
     BEGIN UPDATE etudiant SET sexe = ${depuisTitre} WHERE id = NEW.id; END`);
 } catch(e) { console.error('[migration] diplômes étudiant :', e.message); }
 
+// ── Étudiant : carte d'identité et compte bancaire (24 novembre 2026, idées #50 et #36) ──
+// Avant le journal des modifications, pour que leurs changements y soient tracés. Lus et écrits
+// par la direction et le secrétariat seulement (lib/compteEtudiant.js).
+try {
+  const cols = db.prepare("PRAGMA table_info(etudiant)").all().map(c => c.name);
+  for (const c of ['iban', 'bic', 'titulaire_compte', 'carte_identite_fin', 'carte_identite_numero']) {
+    if (!cols.includes(c)) db.exec(`ALTER TABLE etudiant ADD COLUMN ${c} TEXT`);
+  }
+} catch(e) { console.error('[migration] carte et compte étudiant :', e.message); }
+
   /* LE COÛT D'UNE PÉRIODE DE COURS (Charles, 6 octobre 2026 : « intègre ces
      données, pas en dur mais modifiables dans les paramètres, afin de pouvoir
      calculer le coût réel de chaque formation »). Montants de la circulaire
@@ -3100,6 +3110,7 @@ app.use('/api/photos', express.json({ limit: '8mb' }));   // la photo d'identit�
 app.use('/api/reunions/importer', express.json({ limit: '30mb' }));   // compte rendu à importer (3.5.379)   // horaire d'examens à comparer (3.5.361)
 app.use('/api/nominations/import', express.json({ limit: '20mb' }));   // Word des définitifs (3.5.567)
 app.use('/api/communication', express.json({ limit: '30mb' }));
+app.use('/api/suggestions', express.json({ limit: '25mb' }));   // captures jointes aux idées : 3 × 5 Mo en base64 (3.5.668)
 app.use('/api/messages-etudiants', express.json({ limit: '30mb' }));   // documents joints aux messages des étudiants (3.5.607)   // pièces jointes des messages (3.5.131)
 app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)
 app.use('/api/mes-cours/supports', express.json({ limit: '25mb' }));   // supports de cours (3.5.211) : 15 Mo en base64

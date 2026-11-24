@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { nomDepuisChaine } from '../lib/nom.js';
 import { PastilleEtat } from './ui.jsx';
+import { ChoixPieces, PiecesIdee, surCollage, piecesAEnvoyer } from './PiecesSuggestion.jsx';
 
 /**
  * LE FIL D'UNE IDÉE — la conversation entre celui qui l'a déposée et la
@@ -47,6 +48,7 @@ export default function FilSuggestion({ id, onChange, invite }) {
   const [texte, setTexte] = useState('');
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [pieces, setPieces] = useState([]);   // captures jointes à la réponse
 
   useEffect(() => {
     let vivant = true;
@@ -60,16 +62,16 @@ export default function FilSuggestion({ id, onChange, invite }) {
 
   async function envoyer() {
     const t = texte.trim();
-    if (!t) return;
+    if (!t && !pieces.length) return;
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/suggestions/${id}/messages`, {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ texte: t }),
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ texte: t, pieces: piecesAEnvoyer(pieces) }),
       });
-      const j = await rep.json();
+      const j = await rep.json().catch(() => ({ error: 'Réponse illisible (pièces trop lourdes ?).' }));
       if (!rep.ok) throw new Error(j.error || 'Erreur');
       setDonnees(d => ({ ...d, messages: j.messages }));
-      setTexte('');
+      setTexte(''); setPieces([]);
       onChange?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
@@ -97,16 +99,19 @@ export default function FilSuggestion({ id, onChange, invite }) {
             {m.nouveau && <PastilleNouveau />}
           </div>
           <div className="text-sm text-slate-800 whitespace-pre-wrap">{m.texte}</div>
+          <PiecesIdee suggestionId={id} pieces={m.pieces} />
         </div>
       ))}
 
       <div className="flex items-start gap-2 pt-1">
         <textarea rows={2} value={texte} onChange={e => setTexte(e.target.value)}
+          onPaste={surCollage(pieces, setPieces, setErreur)}
           placeholder={invite || 'Votre réponse'}
           className="flex-1 min-w-0 border border-slate-300 rounded-champ px-2 py-1.5 text-sm bg-white" />
-        <button onClick={envoyer} disabled={!texte.trim() || enCours}
+        <button onClick={envoyer} disabled={(!texte.trim() && !pieces.length) || enCours}
           className="bouton disabled:opacity-40">Envoyer</button>
       </div>
+      <ChoixPieces pieces={pieces} setPieces={setPieces} setErreur={setErreur} />
       <div className="text-xs text-slate-400">
         Un message envoyé ne se modifie ni ne s'efface : il est signé à votre nom.
         {erreur && <span className="text-rose-700 ml-2">{erreur}</span>}

@@ -1,10 +1,11 @@
 import ChampsAdresse, { ChoixPays } from './ChampsAdresse.jsx';
 import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
-import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck, IconX } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck, IconX, IconId, IconBuildingBank } from '@tabler/icons-react';
+import { eidReadAll, eidToProf } from '../lib/eid.js';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
-import { Tableau, TableauEntete, Th, Td, Tr, Badge, EnteteCarte } from './ui.jsx';
+import { Tableau, TableauEntete, Th, Td, Tr, Badge, EnteteCarte, PastilleEtat } from './ui.jsx';
 
 /**
  * Identité d'un étudiant, et complément de dossier par import.
@@ -68,6 +69,67 @@ function SituationPro({ etudId, liste, peut }) {
       </select>
       {msg && <span className="block text-slate-500 mt-0.5">{msg}</span>}
     </label>);
+}
+
+/* LA CARTE D'IDENTITÉ ET LE COMPTE BANCAIRE (24 novembre 2026, idées #50 et #36). Le serveur ne
+   rend ces champs qu'à la direction et au secrétariat (lib/compteEtudiant.js) : absents de la
+   fiche, les deux blocs ne paraissent pas. */
+const groupesIban = v => String(v || '').replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
+
+function etatCarte(fin) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fin || ''))) return null;
+  const jours = Math.floor((new Date(fin + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
+  if (jours < 0) return { etat: 'surveiller', texte: 'expirée' };
+  if (jours <= 60) return { etat: 'neutre', texte: `expire bientôt (${jours} j)` };
+  return null;
+}
+
+function CarteEtCompte({ val, modifs, poser, peut }) {
+  const [lecture, setLecture] = useState(null);
+  const champ = (k, l, props = {}) => (
+    <label className="text-xs block">
+      <span className="intertitre block mb-1">{l}</span>
+      <input value={val(k)} onChange={ev => poser(k, ev.target.value)} {...props}
+        className={`w-full border rounded-lg px-2 py-1.5 text-sm ${k in modifs ? 'border-amber-400 bg-amber-50' : 'border-slate-300'} ${props.className || ''}`} />
+    </label>);
+  const etat = etatCarte(val('carte_identite_fin'));
+  async function lireCarte() {
+    setLecture('…');
+    const r = await eidReadAll();
+    if (!r.ok) { setLecture(r.code === 'UNREACHABLE' ? 'Le lecteur de carte ne répond pas : l’application eID Reader est-elle lancée et la carte insérée ?' : (r.message || 'Lecture impossible.')); return; }
+    const m = eidToProf(r.data);
+    if (!m.carte_numero && !m.carte_fin) { setLecture('Le lecteur n’a rendu ni le numéro ni la fin de validité de la carte : encodez-les à la main.'); return; }
+    if (m.carte_numero) poser('carte_identite_numero', m.carte_numero);
+    if (m.carte_fin) poser('carte_identite_fin', m.carte_fin);
+    setLecture('Repris de la carte : vérifiez, puis enregistrez.');
+  }
+  const ibanAffiche = 'iban' in modifs ? val('iban') : groupesIban(val('iban'));
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconId} titre="Carte d’identité">
+          {etat && <PastilleEtat etat={etat.etat}>{etat.texte}</PastilleEtat>}
+          {peut && <button type="button" className="bouton" onClick={lireCarte}><IconId size={15} /> Lire la carte eID</button>}
+        </EnteteCarte>
+        <div className="p-3 grid grid-cols-2 gap-3">
+          {champ('carte_identite_numero', 'Numéro de carte')}
+          {champ('carte_identite_fin', 'Fin de validité', { type: 'date' })}
+          {lecture && lecture !== '…' && <p className="col-span-2 text-mention text-slate-500">{lecture}</p>}
+        </div>
+      </section>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconBuildingBank} titre="Compte bancaire" sous="Sert aux remboursements de frais." />
+        <div className="p-3 grid grid-cols-2 gap-3">
+          <label className="text-xs block col-span-2">
+            <span className="intertitre block mb-1">IBAN</span>
+            <input value={ibanAffiche} onChange={ev => poser('iban', ev.target.value)} placeholder="BE00 0000 0000 0000"
+              className={`w-full border rounded-lg px-2 py-1.5 text-sm font-mono ${'iban' in modifs ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} />
+          </label>
+          {champ('bic', 'BIC (facultatif)')}
+          {champ('titulaire_compte', 'Titulaire, s’il n’est pas l’étudiant')}
+        </div>
+      </section>
+    </div>);
 }
 
 export default function IdentiteEtudiant({ etudId, onModifie }) {
@@ -170,6 +232,11 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
         ))}
         <SituationPro etudId={etudId} liste={listes?.situations_pro} peut={peut} />
       </div>
+
+      {'carte_identite_fin' in e && (
+        <CarteEtCompte val={val} modifs={modifs} peut={peut}
+          poser={(k, v) => setModifs(m => ({ ...m, [k]: v }))} />
+      )}
 
       {/* Le séjour limité aux études conditionne l'annexe 2 remise à l'Office
           des Étrangers, et le droit d'inscription. C'est une donnée
