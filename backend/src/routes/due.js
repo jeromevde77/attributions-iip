@@ -1335,7 +1335,7 @@ export function documentDUE(ueNum, annee) {
     ${auto.cours.map(x => {
     const e = c.evaluation?.[x.cours_code]?.[sess] || {};
     return `<div class="eval-l"><span class="eval-c"><b>${esc(x.cours_code)}</b> — ${esc(x.cours_nom)}</span>${EPREUVES
-      .map(([k, l]) => `<span class="case${e[k] ? ' on' : ''}">${e[k] ? '☑' : '☐'} ${esc(l)}</span>`).join('')}</div>`;
+      .map(([k, l]) => `<span class="case${e[k] ? ' on' : ''}">${e[k] ? '■' : '☐'} ${esc(l)}</span>`).join('')}</div>`;
   }).join('')}`).join('');
 
   const corps = `

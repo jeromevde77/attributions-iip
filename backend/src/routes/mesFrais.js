@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { kmAllerRetour } from '../lib/distanceRoute.js';
+import { noircirPdf } from '../lib/casesNoircies.js';
 import { rendrePdf } from '../services/pdf.js';
 import { signatureCourante } from '../lib/identite.js';
 import { fileURLToPath } from 'node:url';
@@ -51,8 +52,8 @@ export async function formulaireCarte(p, prof) {
   const bleu = rgb(0.05, 0.16, 0.36);
   const propre = s => String(s ?? '').replace(/[^\x20-\x7E\u00A0-\u00FF\u2019\u20AC\u2013\u2014\u2026\u0152\u0153]/g, '?');
   const texte = (s, x, haut, taille = 10) => pg.drawText(propre(s), { x, y: H - haut, size: taille, font: f, color: bleu });
-  // Une croix au centre d'une case de 10 pt dont le coin haut gauche est (x, haut).
-  const croix = (x, haut, cote = 10) => pg.drawText('X', { x: x + cote / 2 - 3.3, y: H - haut - cote / 2 - 3.6, size: 10, font: fb, color: bleu });
+  // Une case de 10 pt dont le coin haut gauche est (x, haut) se NOIRCIT, elle ne se croise pas (3.5.678, Charles).
+  const croix = (x, haut, cote = 10) => noircirPdf(pg, x, haut, cote, bleu);
   croix(p.carte === 'debit' ? 271 : 387.4, 116.1, 12.5);
   const fct = FONCTIONS_CARTE.find(([l]) => l === (prof.fonction || 'Directeur(rice)')) || FONCTIONS_CARTE[0];
   croix(fct[1], 244, 9.8);
@@ -309,7 +310,7 @@ r.delete('/justificatif/:jid', (req, res) => {
 const e = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const jj = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 const eur = n => (n == null ? '' : `${Number(n).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
-const coche = (v, l) => `<span class="cc">${v ? '☒' : '☐'} ${e(l)}</span>`;
+const coche = (v, l) => `<span class="cc">${v ? '■' : '☐'} ${e(l)}</span>`;
 const FONCTIONS = ['Directeur(rice)', 'Directeur(rice) adjoint(e)', 'Responsable', 'Enseignant(e)', 'Administratif(ve)'];
 const ENTETE = `<div class="asbl">ILYA PRIGOGINE ASBL · NE 0458 339 252 · boulevard du Triomphe, Accès 2, CP 220/01, 1050 Bruxelles · +32 2 349 68 11</div>`;
 const STYLE = `<style>@page{size:A4;margin:14mm 14mm 16mm}body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#111}

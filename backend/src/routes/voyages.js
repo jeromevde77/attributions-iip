@@ -179,7 +179,7 @@ r.get('/:id/document', authRequired, (req, res) => {
       <tr class="total"><td colspan="6"><b>Total</b></td><td class="n"><b>${eur(partie === 'etudiants' ? v.total_etudiants : v.total_accompagnateurs)}</b></td></tr></tbody></table>`;
   };
   const f = v.financement || {};
-  const fin = (k, l) => `<tr><td>${l}</td><td>${f[k]?.oui ? '☒ oui ☐ non' : '☐ oui ☒ non'}</td><td class="n">${f[k]?.oui ? eur(f[k]?.montant) : ''}</td></tr>`;
+  const fin = (k, l) => `<tr><td>${l}</td><td>${f[k]?.oui ? '■ oui ☐ non' : '☐ oui ■ non'}</td><td class="n">${f[k]?.oui ? eur(f[k]?.montant) : ''}</td></tr>`;
   const validation = `<table class="serre"><tr><th style="width:50%">Validation par le demandeur</th><th>Validation par la direction</th></tr>
     <tr><td>${esc(v.referent_nom || '')}${v.soumis_le ? `, soumise le ${fr(v.soumis_le)}` : ''}</td><td>${v.statut === 'valide' ? `Validée le ${fr(v.decide_le)} par ${esc(v.decide_par)}` : esc(STATUTS[v.statut])}${v.motif ? ` — ${esc(v.motif)}` : ''}</td></tr></table>`;
   const corps = `

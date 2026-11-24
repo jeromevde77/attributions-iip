@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import JSZip from 'jszip';
+import { noircirWord } from '../lib/casesNoircies.js';
 
 const MODELE = path.join(import.meta.dirname, 'ea12-assets', 'A3_Fiche_signaletique.docx');
 
@@ -159,6 +160,6 @@ export async function remplirFicheOfficielle(data) {
 
   xml = cocherCases(xml, indices);
 
-  zip.file('word/document.xml', xml);
+  zip.file('word/document.xml', noircirWord(xml));   // 3.5.678
   return await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }

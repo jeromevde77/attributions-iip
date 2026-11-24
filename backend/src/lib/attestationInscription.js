@@ -215,7 +215,7 @@ export function composerAttestationInscription(d, variante = 'inscription') {
     .filter(Boolean).join(' ');
   const qui = f ? 'L’étudiante' : 'L’étudiant';
   const conges = d.conges.map(c => `<li>${esc(c.intitule)} : du ${jour(c.du)} au ${jour(c.au)}</li>`).join('');
-  const boite = coche => `<span style="display:inline-block;width:3.2mm;height:3.2mm;border:0.3mm solid #0E2A4F;border-radius:0.6mm;vertical-align:-0.4mm;margin:0 1mm 0 3mm;text-align:center;line-height:3.2mm;font-size:8pt;font-weight:700;color:#0E2A4F">${coche ? '✓' : ''}</span>`;
+  const boite = coche => `<span style="display:inline-block;width:3.2mm;height:3.2mm;border:0.3mm solid #0E2A4F;border-radius:0.6mm;vertical-align:-0.4mm;margin:0 1mm 0 3mm;text-align:center;line-height:3.2mm;font-size:8pt;font-weight:700;color:#0E2A4F;${coche ? 'background:#0E2A4F;box-shadow:inset 0 0 0 0.5mm #fff' : ''}"></span>`;   // cochée = noircie (3.5.678)
   const x = d.dixsept || {};
   const h = x.heures, oui = x.force ? x.force === 'oui' : x.oui;
   const virgule = v => String(v).replace('.', ',');

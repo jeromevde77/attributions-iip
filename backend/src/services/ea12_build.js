@@ -27,10 +27,10 @@ function identEtab(d) {
   // Ligne 1 : niveau + organisé/subventionné
   const ligneNiveau = new TableRow({ children: [
     cell([par([run('Niveau : ENSEIGNEMENT', { bold: true, size: 14 })]), par([run('POUR ADULTES ', { bold: true, size: 14 }), run('(20)', { size: 13 })])], { w: 200, borders: noBorders }),
-    cell([par([run((wbe ? '☒' : CHK) + ' ', { size: 14 }), run('Organisé WBE ', { size: 13 }), run('(33)', { size: 12 })])], { w: 160, borders: noBorders, valign: VerticalAlign.CENTER }),
+    cell([par([run((wbe ? '■' : CHK) + ' ', { size: 14 }), run('Organisé WBE ', { size: 13 }), run('(33)', { size: 12 })])], { w: 160, borders: noBorders, valign: VerticalAlign.CENTER }),
     cell([
-      par([run((fwb ? '☒' : CHK) + ' ', { size: 14 }), run('Subventionné par la FWB ', { size: 13 }), run('(22)', { size: 12 })]),
-      par([run((off ? '☒' : CHK) + ' ', { size: 13 }), run('Officiel   ', { size: 13 }), run((lib ? '☒' : CHK) + ' ', { size: 13 }), run('Libre', { size: 13 })], { align: AlignmentType.CENTER }),
+      par([run((fwb ? '■' : CHK) + ' ', { size: 14 }), run('Subventionné par la FWB ', { size: 13 }), run('(22)', { size: 12 })]),
+      par([run((off ? '■' : CHK) + ' ', { size: 13 }), run('Officiel   ', { size: 13 }), run((lib ? '■' : CHK) + ' ', { size: 13 }), run('Libre', { size: 13 })], { align: AlignmentType.CENTER }),
     ], { w: 191, borders: noBorders }),
   ]});
   // Ligne 2 : ECOT + FASE (cases)
@@ -87,7 +87,7 @@ function identMDP(d) {
         par([run('(une copie de chacun d’eux doit être en possession de la Direction de gestion)', { italics: true, size: 10 })], { align: AlignmentType.CENTER }),
         par([run('1) ' + (d.titre1 || ''), { size: 12 })], { spacing: { before: 40 } }),
         par([run('2) ' + (d.titre2 || ''), { size: 12 })]),
-        par([run((d.titre3 ? '☒ ' : CHK + ' '), { size: 12 }), run('Dérogation de titre requis par l’AR du 22/4/1969 telle que prévue par l’alinéa 2 de art 17§4 de la Loi du 7/7/1970.', { bold: true, size: 11 })], { spacing: { before: 40 } }),
+        par([run((d.titre3 ? '■ ' : CHK + ' '), { size: 12 }), run('Dérogation de titre requis par l’AR du 22/4/1969 telle que prévue par l’alinéa 2 de art 17§4 de la Loi du 7/7/1970.', { bold: true, size: 11 })], { spacing: { before: 40 } }),
       ], { w: 224, valign: VerticalAlign.TOP }),
       cell([
         par([run('Statut', { bold: true, size: 13 })], { align: AlignmentType.CENTER }),
