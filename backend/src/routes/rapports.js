@@ -43,6 +43,26 @@ import { ROLES_GRILLE, grillePermise, grilleUE, grilleCours, pieceGrille, excelG
 const r = Router();
 
 /** Un ETP vaut 800 périodes en charge théorique ; le cours technique compte double. */
+/* Les lignes de la pièce « dates des UE » (3.5.686) : une par UE et organisation, dates au format jj/mm/aaaa. */
+function lignesDatesUE(p) {
+  const jour = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  const secs = sectionsControle(p);
+  const ues = db.prepare(`SELECT DISTINCT u.section, u.ue_num, u.ue_nom FROM ue u WHERE u.annee_scolaire = ?
+      ${secs ? `AND u.section IN (${secs.map(() => '?').join(',')})` : ''} ORDER BY u.section, u.ue_num`).all(p.annee, ...(secs || []));
+  const orgs = db.prepare('SELECT ue_num, num_organisation, date_debut, date_fin FROM organisation_ue WHERE annee_scolaire = ? ORDER BY ue_num, num_organisation').all(p.annee);
+  const parUE = new Map();
+  for (const o of orgs) { if (!parUE.has(o.ue_num)) parUE.set(o.ue_num, []); parUE.get(o.ue_num).push(o); }
+  const out = [];
+  for (const u of ues) {
+    const os = parUE.get(u.ue_num) || [{ num_organisation: 1, date_debut: null, date_fin: null }];
+    for (const o of os) {
+      const ouverture = jour(o.date_debut), fermeture = jour(o.date_fin);
+      out.push({ section: u.section, ue_num: u.ue_num, ue_nom: u.ue_nom, org: Number(o.num_organisation) || 1, ouverture, fermeture,
+        manque: [!ouverture && 'ouverture', !fermeture && 'fermeture'].filter(Boolean).join(', ') });
+    }
+  }
+  return out;
+}
 const COLS = (l) => l.map(([cle, entete, largeur = 16]) => ({ cle, entete, largeur }));
 const sectionsControle = p => (p.section && (!p.perimetre || p.perimetre.includes(p.section)) ? [p.section] : (p.perimetre || null));
 
@@ -2887,6 +2907,31 @@ export const RAPPORTS = [
       ['ues', 'UE (code administratif)', 50], ['di', 'DI ou motif d’exemption', 34]]),
     lignes: (p) => registreMatricule(p).map((x, i) => ({ ...x, n: i + 1 })),
     document: (p) => documentRegistreMatricule(p),
+  },
+  {
+    /* LES DATES DES UE (3.5.686, Charles, 24 novembre 2026 : « un document dans Éditions qui sort les dates d'ouverture et de
+       fermeture d'UE, et qui met un badge orange quand ça manque »). Une ligne par UE et par organisation (`organisation_ue`) ;
+       une UE sans organisation encodée a sa ligne, ses deux dates manquantes. */
+    id: 'dates-ue', domaine: 'organisation', params: ['annee', 'section'],
+    libelle: 'Dates d’ouverture et de fermeture des UE',
+    aide: "Unité par unité et organisation par organisation : les dates d'ouverture et de fermeture ; un badge orange signale une date qui manque.",
+    colonnes: COLS([['section', 'Section', 18], ['ue_num', 'UE', 8], ['ue_nom', 'Intitulé', 44], ['org', 'Org.', 8],
+      ['ouverture', 'Ouverture', 14], ['fermeture', 'Fermeture', 14], ['manque', 'À compléter', 24]]),
+    lignes: (p) => lignesDatesUE(p),
+    document: (p) => {
+      const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      const l = lignesDatesUE(p);
+      const badge = '<span style="display:inline-block;padding:0 1.8mm;border-radius:1mm;background:#B45309;color:#fff;font-size:7.5pt;font-weight:600">manque</span>';
+      const manquantes = l.filter(x => x.manque).length;
+      const corps = `<p class="fin">${l.length} ligne(s) · ${manquantes ? `<b>${manquantes}</b> avec une date manquante` : 'aucune date manquante'}.</p>
+        <table class="liste"><thead><tr><th>Section</th><th>UE</th><th>Intitulé</th><th>Org.</th><th>Ouverture</th><th>Fermeture</th></tr></thead>
+        <tbody>${l.map(x => `<tr><td>${esc(x.section || '')}</td><td>${esc(x.ue_num)}</td><td>${esc(x.ue_nom || '')}</td><td>${esc(x.org)}</td>
+          <td>${x.ouverture ? esc(x.ouverture) : badge}</td><td>${x.fermeture ? esc(x.fermeture) : badge}</td></tr>`).join('')}</tbody></table>`;
+      return { titre: `Dates des UE — ${p.annee}`, orientation: 'portrait', nom: `Dates_UE_${p.annee}${p.section ? '_' + p.section : ''}`,
+        entete: { titre: `Dates d’ouverture et de fermeture des UE — ${p.annee}`, sous: p.section ? `Section ${p.section}` : 'Toutes sections' },
+        styles: STYLE_RAPPORT + 'table.liste{width:100%;border-collapse:collapse;font-size:9pt}table.liste th,table.liste td{border-bottom:0.2mm solid #D8DCE4;padding:1.2mm 1.5mm;text-align:left}table.liste th{background:#EDF2F8}.fin{font-size:9pt}',
+        corps };
+    },
   },
   {
     id: 'organisation-seances', domaine: 'organisation', params: ['annee'],
