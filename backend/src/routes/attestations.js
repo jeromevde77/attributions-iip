@@ -22,6 +22,7 @@ import { piedBalisage, ponctuerListes, piedStyles, reglesDePage, stylesEntete, e
 import { sectionDuDossier } from '../lib/sectionDossier.js';
 import { protegerSignature } from '../lib/protectionSignature.js';
 import db from '../db/index.js';
+import { anneeDeTravail } from '../helpers/annee.js';
 import { marqueDecision, marqueNote } from '../lib/authentique.js';
 import { delibererUE } from './acquis.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
