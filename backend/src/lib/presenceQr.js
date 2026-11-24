@@ -22,7 +22,7 @@
  */
 import crypto from 'crypto';
 import db from '../db/index.js';
-import { ecrirePresences } from './cep.js';
+import { ecrirePresences, dispenses } from './cep.js';
 import { etudiantsDuCours } from './etudiantsCours.js';
 
 export const MENTION_PROPOSEE = 'Selon l’article 6 du règlement général des études de l’enseignement supérieur de promotion sociale (arrêté du Gouvernement de la Communauté française du 2 septembre 2015), l’étudiant satisfait à la condition d’assiduité s’il ne s’absente pas, sans motif valable, de plus de quatre dixièmes des activités d’enseignement dont il n’est pas dispensé ; à défaut, il ne peut être considéré comme étudiant régulier (article 5). La validité d’un motif d’absence est appréciée par la direction : prenez contact avec le secrétariat.';
@@ -517,7 +517,11 @@ export function seancesACompleter(userId, maintenant = new Date()) {
     if (!s || s.annule) continue;
     if (!fenetreSeance(s, maintenant).apres) continue;
     const poses = new Set(db.prepare('SELECT etudiant_id FROM presence WHERE seance_id = ?').all(s.id).map(x => x.etudiant_id));
-    const manquants = attendusDeLaSeance(s).filter(e => !poses.has(e.id)).map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom }));
+    /* UN DISPENSÉ N'EST PAS UN MANQUANT (3.5.668, la case « D » de Mes cours → Présences) : « Les autres absents » ne doit pas
+       le marquer absent d'un cours dont il est dispensé (valorisation, report d'office — `dispenses()` de lib/cep.js). */
+    const dispense = e => { try { const x = dispenses(e.id, s.ue_num, s.annee_scolaire); return x.complete || x.cours.has(s.cours_code); } catch { return false; } };
+    const manquants = attendusDeLaSeance(s).filter(e => !poses.has(e.id) && !(s.ue_num != null && dispense(e)))
+      .map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom }));
     if (!manquants.length) {
       db.prepare("UPDATE presence_qr_seance SET complete_le = datetime('now') WHERE seance_id = ?").run(s.id);
       continue;

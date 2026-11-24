@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ChargementLucie from '../components/ChargementLucie.jsx';
 import { Encadre, EnteteCarte, PastilleEtat } from '../components/ui.jsx';
-import { IconUpload, IconCheck, IconClock, IconAlertTriangle, IconScale, IconX, IconCamera, IconChevronLeft, IconChevronRight, IconSend } from '@tabler/icons-react';
+import { IconUpload, IconCheck, IconClock, IconAlertTriangle, IconScale, IconX, IconCamera, IconChevronLeft, IconChevronRight, IconSend, IconPrinter } from '@tabler/icons-react';
 
 const jourFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 const enBase64 = f => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = ko; r.readAsDataURL(f); });
@@ -39,6 +39,52 @@ function Suivi({ d }) {
       {d.externe_jusquau && (
         <li className="text-second text-slate-500 pl-6">Si vous contestez cette décision, un recours externe auprès de la Commission est possible jusqu’au {jourFr(d.externe_jusquau)} (RDE art. 90) : la lettre de décision en donne la marche à suivre.</li>)}
     </ol>);
+}
+
+/* LA COPIE PAR RECOMMANDÉ (3.5.668, Charles : « avant et après, dans une tuile sur fond orange : une copie de la demande de
+   recours doit être envoyée par courrier recommandé pour être valide. Vous pouvez imprimer ce document et joindre vos
+   annexes »). L'avis paraît en tête du parcours, au moment d'envoyer, et sur chaque recours introduit ; le document se
+   compose ici, avec ce que l'étudiant a écrit, et s'imprime par le navigateur. */
+const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function imprimerDemande({ etudiant = {}, destinataire = null, refus = {}, griefs = '', pieces = [], introduit_le = null }) {
+  const w = window.open('', '_blank');
+  if (!w) return false;
+  const nom = `${String(etudiant.nom || '').toUpperCase()} ${etudiant.prenom || ''}`.trim();
+  const dest = destinataire ? `${esc(destinataire.nom)}<br>À l’attention de la Direction<br>${esc(destinataire.adresse)}` : 'À l’attention de la Direction';
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Demande de recours — UE ${esc(refus.ue_num)}</title>
+<style>@page{size:A4;margin:20mm}body{font:11pt/1.5 Arial,sans-serif;color:#16243a;margin:0}h1{font-size:15pt;margin:18px 0 4px}
+.bloc{display:flex;justify-content:space-between;gap:24px}.dest{margin-left:auto;text-align:left;min-width:45%}
+.cadre{border:0.3mm solid #16406A;border-radius:1.5mm;padding:8px 12px;margin:12px 0}.texte{white-space:pre-line}
+.mention{font-size:9pt;color:#555}.sig{margin-top:36px}</style></head><body>
+<div class="bloc"><div>${esc(nom)}<br>Matricule : ${esc(etudiant.matricule || '—')}</div><div class="dest">${dest}</div></div>
+<p style="text-align:right">Le ${esc(jourFr(introduit_le) || new Date().toLocaleDateString('fr-BE'))}</p>
+<p><b>Envoi recommandé</b></p>
+<h1>Demande de recours interne</h1>
+<p class="mention">Règlement des études, articles 87 à 91.</p>
+<div class="cadre">Décision contestée : refus de l’UE ${esc(refus.ue_num)}${refus.ue_nom ? ` — ${esc(refus.ue_nom)}` : ''},
+${esc(SESSION(refus.session))} ${esc(refus.annee || '')}${refus.publie_le ? `, résultats publiés le ${esc(jourFr(refus.publie_le))}` : ''}.</div>
+<p>Madame, Monsieur,</p>
+<p>J’introduis un recours contre la décision ci-dessus, pour les irrégularités suivantes :</p>
+<div class="texte">${esc(griefs)}</div>
+<p><b>Annexes :</b> ${pieces.length ? pieces.map(esc).join(', ') : 'à joindre à ce courrier'}.</p>
+${introduit_le ? `<p class="mention">Cette demande a été introduite en ligne dans l’espace étudiant le ${esc(jourFr(introduit_le))}.</p>` : ''}
+<p class="sig">Signature :</p><p>${esc(nom)}</p>
+</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch { /* l'étudiant imprime lui-même */ } }, 300);
+  return true;
+}
+function AvisRecommande({ onImprimer }) {
+  return (
+    <div className="rounded-r-carte border-l-4 px-4 py-3 text-sm"
+      style={{ borderLeftColor: 'var(--c-attente)', background: 'color-mix(in srgb, var(--c-attente) 16%, white)', color: 'rgb(var(--gris-900))' }}>
+      <div className="font-semibold">Une copie de la demande de recours doit être envoyée par courrier recommandé pour être valide.</div>
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
+        <span>Vous pouvez imprimer ce document et joindre vos annexes.</span>
+        {onImprimer && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={onImprimer}><IconPrinter size={15} /> Imprimer ma demande</button>}
+      </div>
+    </div>);
 }
 
 const MOMENTS = [
@@ -112,7 +158,10 @@ export default function MonRecours({ appel, onErreur, initial = null }) {
           <EnteteCarte titre={`Mon recours — UE ${r.ue_num}${r.ue_nom ? ` · ${r.ue_nom}` : ''}`} icone={IconScale}>
             <PastilleEtat etat="neutre">{SESSION(r.session)} {r.annee}</PastilleEtat>
           </EnteteCarte>
-          <div className="px-4 py-3"><Suivi d={r.dossier} /></div>
+          <div className="px-4 py-3 space-y-3"><Suivi d={r.dossier} />
+            <AvisRecommande onImprimer={r.dossier.griefs ? () => imprimerDemande({ etudiant: p.recours.etudiant, destinataire: p.recours.destinataire,
+              refus: r, griefs: r.dossier.griefs, introduit_le: r.dossier.introduit_le,
+              pieces: r.dossier.pieces ? [`${r.dossier.pieces} pièce(s) déposée(s) en ligne`] : [] }) : null} /></div>
         </div>))}
 
       {(p.gestes || []).some(g => !g.releve_le) && (
@@ -123,6 +172,7 @@ export default function MonRecours({ appel, onErreur, initial = null }) {
         <div className="carte">
           <EnteteCarte titre="Contester un refus" icone={IconScale} />
           <div className="px-4 py-3 space-y-3 text-sm">
+            <AvisRecommande />
             {ouverts.map(r => (
               <div key={cle(r)} className="flex flex-wrap items-center justify-between gap-3">
                 <span>UE {r.ue_num}{r.ue_nom ? ` — ${r.ue_nom}` : ''} · refus en {SESSION(r.session)} · <span className="text-slate-500">recours possible jusqu’au <b>{jourFr(r.limite)}</b></span></span>
@@ -136,6 +186,7 @@ export default function MonRecours({ appel, onErreur, initial = null }) {
             sous={sel ? `À envoyer au plus tard le ${jourFr(sel.limite)}` : null} />
           <div className="px-4 py-3 space-y-4">
             <Etapes i={etape} />
+            {etape !== 4 && <AvisRecommande />}
 
             {etape === 0 && (
               <div className="space-y-1.5 text-sm">
@@ -200,6 +251,8 @@ export default function MonRecours({ appel, onErreur, initial = null }) {
                 <div><span className="text-slate-500">Décision contestée :</span> UE {sel.ue_num}{sel.ue_nom ? ` — ${sel.ue_nom}` : ''}, refus en {SESSION(sel.session)} ({sel.annee}), publié le {jourFr(sel.publie_le)}.</div>
                 <div><span className="text-slate-500">Votre plainte :</span><div className="whitespace-pre-line border-l-2 pl-3 mt-1" style={{ borderColor: 'rgb(var(--gris-300))' }}>{texte()}</div></div>
                 <div><span className="text-slate-500">Pièces :</span> {fichiers.length ? fichiers.map(f => f.name || 'photo').join(', ') : 'aucune'}</div>
+                <AvisRecommande onImprimer={() => imprimerDemande({ etudiant: p.recours.etudiant, destinataire: p.recours.destinataire,
+                  refus: sel, griefs: texte(), pieces: fichiers.map(f => f.name || 'photo') })} />
                 <Encadre etat="disponible">En envoyant, vous datez et signez votre plainte. Elle est adressée à la <b>direction</b>, la coordination de votre section en copie. Vous suivrez ici sa recevabilité, puis la décision.</Encadre>
               </div>)}
 

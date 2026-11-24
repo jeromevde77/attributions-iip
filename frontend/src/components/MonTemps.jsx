@@ -65,7 +65,10 @@ export default function MonTemps({ api }) {
           </EnteteCarte>
           <Tableau dense className="!border-0 !rounded-none">
             <TableauEntete><Th>Jour</Th><Th>Prévu</Th><Th align="droite">Heures</Th><Th>Ce qui s’est passé</Th></TableauEntete>
-            <tbody>{d.semaine.jours.filter(j => j.prevu || j.etat !== 'libre' || j.saisie).map(j => {
+            {/* TOUS LES JOURS OUVRABLES, ET LE SAMEDI (3.5.668, Mati : « ajouter le vendredi dans Mon temps — un salon le vendredi
+                et le samedi, je ne peux pas l'encoder »). Un jour sans heures prévues était caché, donc impossible à déclarer ;
+                lundi → samedi se montrent toujours, le dimanche s'il porte quelque chose. */}
+            <tbody>{d.semaine.jours.filter((j, i) => i < 6 || j.prevu || j.etat !== 'libre' || j.saisie).map(j => {
               const verrou = d.semaine.verrous[j.jour.slice(0, 7)];
               return (
                 <Tr key={j.jour}>
@@ -75,9 +78,9 @@ export default function MonTemps({ api }) {
                   <Td>
                     <div className="flex flex-wrap items-center gap-2">
                       <CeQuiSestPasse j={j} />
-                      {!verrou && (j.plan?.debut || j.saisie) && !j.ferie && (
+                      {!verrou && !j.ferie && (
                         <button type="button" className="text-second underline text-iip-blue" onClick={() => setEcart({ ...j })}>
-                          {j.saisie ? 'Corriger' : 'J’ai travaillé autrement'}</button>)}
+                          {j.saisie ? 'Corriger' : j.plan?.debut ? 'J’ai travaillé autrement' : 'J’ai travaillé ce jour-là'}</button>)}
                     </div>
                   </Td>
                 </Tr>);

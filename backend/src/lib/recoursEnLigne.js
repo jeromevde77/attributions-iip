@@ -91,12 +91,25 @@ export function etatPourLEtudiant(d) {
     envoye_le: envoye,
     externe_jusquau: envoye ? ((d.echeances || []).find(e => e.cle === 'externe')?.date || null) : null,
     pieces: (d.pieces || []).filter(p => p.categorie === 'plainte_en_ligne').length,
+    // Le texte de SA plainte, pour qu'il en imprime la copie à envoyer par recommandé (3.5.668).
+    griefs: et.plainte?.griefs || null,
   };
 }
 
 /** L'offre déposée au portail : les refus et leurs recours. */
 export function offreRecours(e, annee) {
-  return { refus: refusRecourables(e.id, annee), delai_jours: delai() };
+  /* LA COPIE PAR RECOMMANDÉ (3.5.668, Charles : « une copie de la demande de recours doit être envoyée par courrier
+     recommandé pour être valide ; vous pouvez imprimer ce document et joindre vos annexes »). L'espace compose la copie à
+     imprimer : il lui faut le nom de l'étudiant et l'adresse de l'établissement de sa section. */
+  let etab = null;
+  try {
+    const sec = e.section_rattachement || null;
+    const id = sec ? db.prepare('SELECT etablissement_id FROM section WHERE code = ?').get(sec)?.etablissement_id : null;
+    etab = db.prepare('SELECT etab_nom, adresse FROM etablissement WHERE id = ?').get(id || 1) || null;
+  } catch { etab = null; }
+  return { refus: refusRecourables(e.id, annee), delai_jours: delai(),
+    etudiant: { nom: e.nom || '', prenom: e.prenom || '', matricule: e.id_ecampus || '' },
+    destinataire: etab ? { nom: etab.etab_nom || '', adresse: etab.adresse || '' } : null };
 }
 
 const mimeDe = b => {
