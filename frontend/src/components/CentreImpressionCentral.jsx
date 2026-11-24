@@ -1,5 +1,6 @@
 import AttenteDocuments, { MessageAttente } from './AttenteDocuments.jsx';
 import PiecesEtudiant from './PiecesEtudiant.jsx';
+import { codesListes, FAMILLES_RAPPORTS, PREFIXE_LISTE } from '../lib/codesPieces.js';
 import { demanderDixSept, avecDixSept } from './DixSeptHeures.jsx';
 import { selectionEtudiants } from '../lib/selectionEtudiants.js';
 import OngletSLE from './OngletSLE.jsx';
@@ -756,34 +757,7 @@ function ListesEtRapports({ domaine }) {
    quoi », comme Étudiants). Pour les pièces qui portent sur l'école, une section ou une unité : 1 « Quelle pièce ? », rangée par
    famille, chaque pièce une seule fois ; 2 « Pour quoi ? », l'année, la section, la portée ou la période qu'elle demande ;
    3 l'aperçu, et les sorties dans la barre bleue. « Composer une liste… » ouvre le générateur (colonnes au choix). */
-const FAMILLES_RAPPORTS = {
-  /* UNE SEULE PORTE, PAR QUESTION (3.5.652, Charles : « avons-nous pensé à toutes les listes utiles ? J'ai l'impression que rien n'est
-     clair »). Ce qui vit dans un autre onglet ou un autre écran y figure aussi, en lien (LIENS_LISTES) : on ne cherche plus. */
-  etudiants: [
-    ['Qui est inscrit ?', ['inscrits-par-ue', 'listes-par-ue', 'organisation-effectifs', 'mouvements-annee', 'registre-matricule', 'pae-a-regulariser', 'pae-hors-regle']],
-    ['Qui est présent ?', ['grille-presences']],
-    ['Qui passe quel examen ?', []],
-    ['Quels résultats ?', ['resultats-section', 'seconde-session']],
-    ['Qui a besoin de quoi ?', ['dossiers-incomplets']],
-    ['Qui contacter ?', []],
-  ],
-  personnel: [
-    ['Le personnel', ['personnel-liste', 'personnel-par-section', 'personnel-temporaires', 'statistiques-personnel']],
-    ['La charge', ['personnel-attributions', 'personnel-charge', 'personnel-encadrement']],
-    ['Les absences', ['registre-absences']],
-  ],
-  organisation: [
-    ['Le programme', ['referentiel-ue', 'referentiel-cours', 'referentiel-poids-ue', 'grille-section', 'referentiel-acquis', 'repartition-acquis']],
-    ['Qui enseigne', ['referentiel-profs-ue', 'referentiel-ue-sans-attribution']],
-    ['L’année : examens et délibérations', ['canevas-examens', 'evaluations-manquantes', 'organisation-seances']],
-    ['Les lieux', ['organisation-locaux']],
-    ['Les dates des UE', ['dates-ue']],   // 3.5.686 — famille propre, en dernier : les codes des autres listes ne bougent pas
-  ],
-  gestion: [
-    ['La charge et la dotation', ['dotation-felsi', 'etp', 'iip-helb-annees']],
-    ['Les chiffres', ['chiffres-cles', 'cout-formations']],
-  ],
-};
+/* LES FAMILLES ET LEURS CODES VIVENT DANS lib/codesPieces.js (3.5.693) : la galerie des pièces lit les mêmes. */
 /* DES NOMS QUI DISENT CE QU'ON OBTIENT, ET UN CODE (3.5.651, Charles : « pas clair, noms pas clairs, pièces pas identifiées »). Un code
    par liste (L pour les étudiants, P le personnel, O l'organisation, G la gestion), un nom qui dit ce qu'on obtient, une phrase qui dit ce
    qu'il y a dedans. Une liste nouvelle prend le code suivant de son domaine ; sans nom ici, elle garde celui du serveur. */
@@ -800,7 +774,6 @@ const NOMS_LISTES = {
   'seconde-session': ['La seconde session et les décisions', 'ajournés et ce qu’ils représentent, refusés, faveurs'],
   'dossiers-incomplets': ['Les dossiers incomplets', 'sans adresse de l’institut, section, photo ou visite médicale'],
 };
-const PREFIXE_LISTE = { etudiants: 'L', personnel: 'P', organisation: 'O', gestion: 'G' };
 /* LES LISTES QUI VIVENT AILLEURS, montrées à leur question : un clic y mène (un onglet d'Éditions, ou l'écran où elles se tiennent). */
 const LIENS_LISTES = {
   etudiants: {
@@ -838,11 +811,7 @@ function RapportsEnZones({ domaine, debut = 0, allerA = null, fermer = null }) {
   const codes = useMemo(() => {
     /* LE MÊME CODE POUR TOUS (3.5.654) : numérotés d'après le catalogue complet des familles, pas d'après ce que la personne voit
        — une coordination, qui n'a pas le registre matricule (L-05), lisait sinon d'autres codes que le secrétariat. */
-    const m = {}; let n = 0; const px = PREFIXE_LISTE[domaine] || 'X';
-    for (const [, ids] of FAMILLES_RAPPORTS[domaine] || []) for (const id of ids) m[id] = `${px}-${String(++n).padStart(2, '0')}`;
-    for (const [, rs] of familles) for (const r of rs) if (!m[r.id]) m[r.id] = `${px}-${String(++n).padStart(2, '0')}`;
-    if (domaine === 'organisation') m.schemas = `${px}-${String(++n).padStart(2, '0')}`;
-    m.composer = `${px}-${String(Math.max(10, n + 1)).padStart(2, '0')}`;
+    const m = codesListes(domaine, familles.flatMap(([, rs]) => rs.map(r => r.id)));
     return m;
   }, [familles, domaine]);
   const ligne = (cle, libelle, sous = null) => (

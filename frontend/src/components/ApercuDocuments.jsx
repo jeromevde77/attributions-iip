@@ -3,7 +3,9 @@ import { CodePiece } from './ui.jsx';
 /* LE CODE DE CHAQUE PIÈCE DANS LA GALERIE (3.5.529, Charles : « ici pas référencé par pièce ») : l'identifiant de la galerie vers la clé
    de la table des codes (lib/codesPieces.js) quand ils diffèrent. */
 const CLE_PIECE = { fiche_parcours: 'parcours', revue_pae: 'pae', frais: 'frais_scolarite', va_notification: 'valorisation_notification',
-  va_pv: 'valorisation_ue', delib_ajournement: 'motivation_ajournement', delib_refus: 'motivation_refus' };
+  va_pv: 'valorisation_ue', 'specimen_attestation-reussite': 'attestation_reussite',
+  'specimen_attestation-stage': 'attestation_reussite', 'specimen_attestation-ei': 'attestation_reussite',
+  'specimen_attestation-valorisation': 'valorisation_ue', delib_reussite: 'attestation_reussite', motivation_decision: 'motivation_refus', delib_ajournement: 'motivation_ajournement', delib_refus: 'motivation_refus' };
 import { useNavigate } from 'react-router-dom';
 import { IconFileText, IconAlertTriangle, IconSearch, IconArrowRight, IconEye, IconFileTypePdf } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';

@@ -1,4 +1,5 @@
 import { dispensesDeLUE } from '../lib/dispenses.js';
+import { declarerTitre, codeListe } from '../lib/codesPieces.js';
 import * as LE from '../lib/listesEtudiants.js';
 /**
  * LES RAPPORTS — ce que Lucie sait dire d'elle-même, en tableur.
@@ -3096,6 +3097,8 @@ export const RAPPORTS = [
     },
   },
 ];
+// LES CODES DES LISTES SUR LA PIÈCE IMPRIMÉE (3.5.693) : chaque rapport déclare son intitulé, reconnu par l'enveloppe.
+for (const d of RAPPORTS) declarerTitre(d.libelle, codeListe(d.id));
 
 /** La grille demandée par la portée du centre : une unité, ou un cours d'une unité. */
 function grilleDePortee(p) {

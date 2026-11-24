@@ -16,7 +16,8 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { documentsPour, documentParCle, valeursParametre } from '../lib/documents.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { piedGabaritPdf, BANDE_PIED_MM, envelopperDocument, enteteDocument } from '../lib/document.js';
-import { FAMILLES, PIECES as PIECES_CODEES } from '../lib/codesPieces.js';
+import { FAMILLES, PIECES as PIECES_CODEES, codeListe } from '../lib/codesPieces.js';
+import { RAPPORTS } from './rapports.js';
 import { piedDocument } from './parametres.js';
 import { protegerSignature } from '../lib/protectionSignature.js';
 import { logoCourant } from '../lib/identite.js';
@@ -221,16 +222,20 @@ r.post('/proteger', authRequired, async (req, res) => {
    à afficher au secrétariat. Une pièce par famille, filet de sa couleur. */
 r.get('/codes-pieces/document', authRequired, (req, res) => {
   const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const corps = `${enteteDocument({ titre: 'Les pièces remises aux étudiants', sous: 'Codes de référence', ligne: 'Chaque pièce porte son code en bas à droite de ses pages' })}
+  const corps = `${enteteDocument({ titre: 'Les pièces de Lucie', sous: 'Codes de référence', ligne: 'Chaque pièce porte son code en bas à droite de ses pages' })}
   ${FAMILLES.map(f => {
-    const l = PIECES_CODEES.filter(p => p.code[0] === f.k);
+    /* LES LISTES D'ÉDITIONS AUSSI (3.5.693) : leur code se calcule, leur nom est celui du catalogue des rapports. */
+    const listes = RAPPORTS.map(d => ({ code: codeListe(d.id), nom: d.libelle, usage: String(d.aide || '').split(/(?<=\.)\s/)[0] || '' }))
+      .filter(x => x.code && x.code[0] === f.k);
+    const l = [...PIECES_CODEES.filter(p => p.code[0] === f.k), ...listes]
+      .sort((a, b) => a.code.localeCompare(b.code, 'fr', { numeric: true }));
     if (!l.length) return '';
     return `<h3 style="margin:5mm 0 1.5mm;padding-left:2.5mm;border-left:1mm solid ${f.couleur};font-size:10.5pt;color:#0E2A4F">${esc(f.nom)} <span style="color:#64748b;font-weight:400">— ${f.k}</span></h3>
     <table class="doc" style="width:100%"><thead><tr><th style="width:16mm">Code</th><th style="width:72mm">Pièce</th><th>Usage</th></tr></thead>
     <tbody>${l.map(p => `<tr><td style="font-weight:700;white-space:nowrap">${p.code}</td><td>${esc(p.nom)}</td><td style="color:#475569">${esc(p.usage)}</td></tr>`).join('')}</tbody></table>`;
   }).join('')}
   <p style="font-size:7.5pt;color:#64748b;margin-top:5mm">Un code ne se réattribue jamais : une pièce retirée garde le sien, une pièce nouvelle prend le suivant de sa famille.</p>`;
-  res.json({ html: envelopperDocument({ html: corps, titre: 'Codes des pièces étudiantes' }), nom: 'Codes_des_pieces_etudiantes' });
+  res.json({ html: envelopperDocument({ html: corps, titre: 'Codes des pièces de Lucie' }), nom: 'Codes_des_pieces' });
 });
 
 /* DES TABLEAUX DANS L'ENVELOPPE COMMUNE (3.5.412, Charles : la prévisualisation de la délibération « que l'on puisse la sortir »).
