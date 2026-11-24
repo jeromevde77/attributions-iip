@@ -1839,6 +1839,25 @@ export default function Attributions() {
     );
   }
 
+  /* LA SÉLECTION TOUT À GAUCHE (Charles, 24 novembre 2026) : dans l'arbre, la case qui coche une ligne ou un groupe
+     ouvre la ligne, avant l'arbre lui-même. */
+  const LARGEUR_SEL = 32;
+  const styleSel = { width: LARGEUR_SEL, minWidth: LARGEUR_SEL, maxWidth: LARGEUR_SEL };
+  function caseGroupe(lignes) {
+    const reelles = lignes.filter(r => !r.is_z);
+    const tout = reelles.length > 0 && reelles.every(r => selected.has(r.id));
+    return <td className="text-center" style={styleSel}>
+      {reelles.length > 0 && <input type="checkbox" checked={tout} className="cursor-pointer" title="Cocher tout le groupe"
+        onClick={e => e.stopPropagation()}
+        onChange={() => setSelected(s => { const n = new Set(s); reelles.forEach(r => tout ? n.delete(r.id) : n.add(r.id)); return n; })} />}
+    </td>;
+  }
+  function caseLigne(r) {
+    return <td className="text-center" style={styleSel}>
+      {!r.is_z && <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)} className="cursor-pointer" />}
+    </td>;
+  }
+
   /* Les cellules d'une ligne de regroupement (UE, cours, activité) : la case qui coche tout le groupe, une mention qui
      s'étend jusqu'aux nombres, puis les sommes À L'APLOMB de leur colonne. */
   function cellulesRegroupement(cols, lignes, { mention = null, fort = false, plafondPer = null, plafondAut = null } = {}) {
@@ -1959,6 +1978,7 @@ export default function Attributions() {
     const suitesCours = [!dernierCours];
     const out = [
       <tr key={key} id={'cours-' + cg.code_cours} className={isZCours ? 'opacity-70' : ''}>
+        {caseGroupe(cg.rows)}
         {celluleArbre({
           niveau: 1, dernier: dernierCours, enfants: open && enfants.length > 0, title: cg.nom_cours,
           children: <button onClick={() => toggle(key)} className="flex items-center gap-1.5 min-w-0 text-left"
@@ -1973,11 +1993,11 @@ export default function Attributions() {
     ];
     if (!open) return out;
 
-    const ligneGroupe = (r, niveau, suites, dernier) => renderRow(r, cols, celluleArbre({
+    const ligneGroupe = (r, niveau, suites, dernier) => renderRow(r, cols, <>{caseLigne(r)}{celluleArbre({
       niveau, suites, dernier,
       children: r.is_z ? <span className="text-mention text-gray-400 italic">Z</span>
         : <span className="inline-flex items-center gap-1.5">{contenuGroupe(r, true)}{badgeEnveloppe(extDot[r.id])}{selectActivite(r, true)}</span>,
-    }));
+    })}</>);
 
     enfants.forEach((e, i) => {
       const dernierEnfant = i === enfants.length - 1;
@@ -1988,6 +2008,7 @@ export default function Attributions() {
       const nom = e.lignes[0].activite_nom || 'Sans activité';
       out.push(
         <tr key={voletKey}>
+          {caseGroupe(e.lignes)}
           {celluleArbre({
             niveau: 2, suites: suitesCours, dernier: dernierEnfant, enfants: !replie, title: nom,
             children: <button className="flex items-center gap-1.5 min-w-0 text-left"
@@ -2009,9 +2030,10 @@ export default function Attributions() {
   // L'UE ouverte : la phrase de l'autonomie, puis un seul tableau — en-tête, ligne de l'UE (ses totaux), et l'arbre.
   function arbreUE(ue, ueKey) {
     /* L'ORDRE DE CHARLES (3.5.689) : groupe, ciseaux, personnages, enveloppe et activité dans l'arbre ; puis contrat, nom,
-       statut, titre, périodes, autonomie, total, heures ; la validation et la sélection à droite, avant la note et la corbeille. */
-    const base = colsDeLUE(ue.rows).filter(c => c.key !== 'code' && c.key !== 'activite_nom'); // groupe et activité vivent dans l'arbre
-    const fin = ['__valide', '__select', '__note', '__actions'];
+       statut, titre, périodes, autonomie, total, heures ; la validation à droite, avant la note et la corbeille. La sélection
+       ouvre la ligne, tout à gauche (24 novembre 2026). */
+    const base = colsDeLUE(ue.rows).filter(c => !['code', 'activite_nom', '__select'].includes(c.key)); // groupe et activité vivent dans l'arbre
+    const fin = ['__valide', '__note', '__actions'];
     const cols = [...base.filter(c => !fin.includes(c.key)), ...fin.map(k => base.find(c => c.key === k)).filter(Boolean)];
     const st = groupStats(ue.rows);
     const reelles = ue.rows.filter(r => !r.is_z);
@@ -2033,6 +2055,10 @@ export default function Attributions() {
         <div className="overflow-y-auto overflow-x-hidden max-h-[70vh]" style={{ background: 'var(--blanc)' }}>
           <table className="grid-excel-soft w-full" style={{ tableLayout: 'fixed' }}>
             <thead><tr>
+              <th style={{ ...enTete, ...styleSel }} className="text-center">
+                <input type="checkbox" checked={toutes} className="cursor-pointer" title="Cocher toutes les lignes de l'UE"
+                  onChange={() => setSelected(s => { const n = new Set(s); reelles.forEach(r => toutes ? n.delete(r.id) : n.add(r.id)); return n; })} />
+              </th>
               <th style={{ ...enTete, width: ARBRE_LARGEUR, minWidth: ARBRE_LARGEUR, maxWidth: ARBRE_LARGEUR, paddingLeft: 6 }}>Cours · groupes</th>
               {cols.map(c => c.key === '__select'
                 ? <th key={c.key} style={{ ...enTete, width: c.width, minWidth: c.width, maxWidth: c.width }}>
@@ -2049,6 +2075,7 @@ export default function Attributions() {
             <tbody>
               {/* LA LIGNE DE L'UE PORTE SES TOTAUX, sous l'en-tête et à l'aplomb des colonnes ; le tronc de l'arbre en part. */}
               <tr className="ligne-total">
+                {caseGroupe(ue.rows)}
                 {celluleArbre({
                   niveau: 0, enfants: ue.cours.length > 0,
                   children: <span className="font-semibold text-iip-gold whitespace-nowrap">UE {ue.ue_num}</span>,
