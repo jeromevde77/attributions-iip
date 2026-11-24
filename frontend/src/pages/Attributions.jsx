@@ -2055,7 +2055,7 @@ export default function Attributions() {
               périodes de chaque ligne — seulement si le dossier prévoit de l'autonomie. */}
           {peutEcrireAttr && ue.rows.some(r => Number(r.ue_autonomie_prevu) > 0) && (
           <button onClick={(e)=>{e.stopPropagation(); setAutonomieUE({ ueNum: ue.ue_num, section: sec });}}
-                  title="Compléter l'autonomie de cette UE"
+                  title="Ajuster l'autonomie de cette UE à la règle"
                   className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center"><IconClockPlus size={15}/></button>
           )}
           {/* Bouton Réouvrir : crée une nouvelle organisation */}

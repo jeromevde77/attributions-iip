@@ -589,9 +589,14 @@ r.put('/', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, 
       reel_c1 = excluded.reel_c1, reel_c2 = excluded.reel_c2,
       remarque = excluded.remarque, maj_le = datetime('now')
   `);
+  /* UNE LIGNE SANS CODE DE COURS (l'autonomie) S'AJOUTAIT À CHAQUE ENREGISTREMENT (3.5.679) : ON CONFLICT ne joue pas sur
+     un code vide (NULL ≠ NULL en SQL), et le GET relisait la dernière rangée. On retire d'abord l'ancienne. */
+  const sansCode = db.prepare(`DELETE FROM repartition_periodes WHERE annee_scolaire = ? AND ue_num = ? AND num_organisation = ?
+    AND cours_code IS NULL AND nature = ?`);
   let n = 0;
   db.transaction(() => {
     for (const l of lignes) {
+      if (!l.cours_code) sansCode.run(annee, Number(l.ue_num), Number(l.num_organisation || 1), l.nature || 'cours');
       up.run(annee, Number(l.ue_num), Number(l.num_organisation || 1),
              l.cours_code || null, l.nature || 'cours',
              // Entiers : une demi-période ne se déclare pas.
