@@ -1614,13 +1614,26 @@ r.get('/:coursCode/presences', authRequired, (req, res) => {
   let cep = new Set();
   try { cep = new Set(db.prepare('SELECT etudiant_id FROM etudiant_cep WHERE annee_scolaire = ?').all(annee).map(x => x.etudiant_id)); }
   catch { /* table absente */ }
+  /* LA CASE « D » (3.5.668, idée #45 d'Isabelle Bauwens, retenue par Charles le 24 novembre 2026 : « que les professeurs
+     sachent qui est dispensé de leur cours »). La règle est celle de la grille du secrétariat (`dispensesUE`, sur `dispenses()`
+     de lib/cep.js) : valorisation complète de l'unité, valorisation partielle sur CE cours, report d'office. L'écran ne propose
+     pas de présence pour un dispensé ; une écriture reste permise (rien n'est bloqué). */
+  let disp = new Map();
+  try { disp = dispensesUE(d.etudiants, d.ueNum, annee); } catch { /* tables absentes */ }
+  const dispenseDe = id => {
+    const x = disp.get(id);
+    if (!x) return null;
+    if (x.complete) return 'VA';
+    if (x.cours?.has(req.params.coursCode)) return x.origine?.get(req.params.coursCode) || 'report';
+    return null;
+  };
   res.json({
     annee, cours_code: req.params.coursCode, statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES, vide,
     aujourdhui: new Date().toISOString().slice(0, 10),
     seances: seances.map(x => ({ ...x, min: minutesDe(x),
       encodees: Object.keys(pres[x.id] || {}).length })),
     etudiants: d.etudiants.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
-      groupe: e.groupe || '', cep: cep.has(e.id) })),
+      groupe: e.groupe || '', cep: cep.has(e.id), dispense: dispenseDe(e.id) })),
     presences: pres,
   });
 });

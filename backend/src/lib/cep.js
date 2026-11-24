@@ -170,24 +170,26 @@ function estEpreuveIntegree(ueNum, annee, caseRef) {
 /* LES HEURES DISPENSÉES : une valorisation accordée — l'unité entière si elle
    est complète, ses cours si elle est partielle par cours (une dispense par
    acquis ne se traduit pas en heures : le cours reste suivi) — et les cours
-   reportés d'office d'une année précédente. */
+   reportés d'office d'une année précédente. `origine` dit d'où vient chaque cours dispensé (« VA » ou « report »,
+   3.5.668, la case « D » de Mes cours → Présences) ; il ne change rien à la règle. */
 export function dispenses(etudId, ueNum, annee) {
   const cours = new Set();
+  const origine = new Map();
   let complete = false;
   try {
     for (const v of db.prepare(`SELECT type, cible, cible_detail FROM etudiant_valorisation
         WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
           AND COALESCE(decision, 'accordee') = 'accordee' AND decision_le IS NOT NULL`).all(etudId, annee, ueNum)) {
       if (v.type === 'complete') complete = true;
-      else if (v.cible === 'cours') String(v.cible_detail || '').split(/[,;\s]+/).filter(Boolean).forEach(c => cours.add(c));
+      else if (v.cible === 'cours') String(v.cible_detail || '').split(/[,;\s]+/).filter(Boolean).forEach(c => { cours.add(c); origine.set(c, 'VA'); });
     }
   } catch { /* table absente */ }
   try {
     for (const r of db.prepare(`SELECT cours_code FROM etudiant_report_note
         WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND statut = 'accorde' AND cours_code IS NOT NULL`)
-      .all(etudId, annee, ueNum)) cours.add(r.cours_code);
+      .all(etudId, annee, ueNum)) { cours.add(r.cours_code); if (!origine.has(r.cours_code)) origine.set(r.cours_code, 'report'); }
   } catch { /* table absente */ }
-  return { complete, cours };
+  return { complete, cours, origine };
 }
 
 /** LES LISTES D'EXAMENS SANS LES DISPENSÉS (3.5.296, Charles : « tu ne me mets pas les reports de notes, les dispenses »). Une

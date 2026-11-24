@@ -25,6 +25,10 @@ const BOUTONS = [
   // « — » veut dire « absent » pour la vérification : le non-concerné s'écrit « NC ».
   ['non_concerne', 'NC', 'Non concerné (autre groupe)', 'var(--c-disponible)'],
 ];
+/* LA CASE « D » (3.5.668, idée #45 d'Isabelle Bauwens, retenue par Charles le 24 novembre 2026 : « que les professeurs sachent
+   qui est dispensé de leur cours »). Le serveur dit `dispense` (« VA » ou « report ») d'après la règle de la grille du secrétariat ;
+   l'écran ne propose alors aucune présence, et « Tous présents » le laisse de côté. */
+const dispenseTitre = e => `Dispensé de ce cours (${e.dispense === 'report' ? 'report de notes' : 'VA'}) : pas de présence à prendre`;
 
 export default function PresencesCours({ coursCode, annee, seanceInitiale = null }) {
   const [data, setData] = useState(null);
@@ -81,8 +85,9 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
     const statut = (k === 'retard' || k === 'distance') ? 'present' : k;
     return { ...s, [id]: { statut, motif: statut === 'justifie' ? v.motif || null : null, retard: k === 'retard', distance: k === 'distance' } };
   });
+  const dispenses = new Set((data?.etudiants || []).filter(e => e.dispense).map(e => String(e.id)));
   const tousPresents = () => setSaisie(s => Object.fromEntries(Object.entries(s).map(([k, v]) =>
-    [k, v.statut ? v : { statut: 'present', motif: null, retard: false }])));
+    [k, v.statut || dispenses.has(String(k)) ? v : { statut: 'present', motif: null, retard: false }])));
   const enregistrer = async () => {
     setEnCours(true); setErreur(null);
     try {
@@ -111,7 +116,8 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
       Les présences se prennent sur les séances de l'horaire (Organisation → Horaires). Tant que le cours n'y est pas,
       il n'y a rien à cocher.</Encadre>;
   }
-  const n = data.etudiants.length;
+  // Les dispensés n'ont pas de présence à prendre : une séance est complète sans eux.
+  const n = data.etudiants.filter(e => !e.dispense).length;
   return (
     <div className="grid gap-3 items-start lg:grid-cols-[260px_minmax(0,1fr)]">
       <div className="carte max-h-[70vh] overflow-auto">
@@ -168,7 +174,11 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
                       {e.groupe && <span className="block text-xs text-slate-400">{e.groupe}</span>}
                     </td>
                     <td className="px-2 py-1.5 whitespace-nowrap">
-                      {BOUTONS.map(([k, l, t, c]) => (
+                      {e.dispense ? (
+                        <span title={dispenseTitre(e)}
+                          className="inline-flex items-center justify-center w-8 h-7 rounded-champ border text-second font-semibold"
+                          style={{ borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-500))' }}>D</span>
+                      ) : BOUTONS.map(([k, l, t, c]) => (
                         <button key={k} type="button" title={t} disabled={future || seance.annule}
                           onClick={() => poser(e.id, k)}
                           className="w-8 h-7 mr-1 rounded-champ border text-second font-semibold disabled:opacity-40"
@@ -177,7 +187,8 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
                       ))}
                     </td>
                     <td className="px-2 py-1.5 w-[45%]">
-                      {v.statut === 'justifie' && (
+                      {e.dispense && <span className="text-second text-slate-400">{dispenseTitre(e)}</span>}
+                      {!e.dispense && v.statut === 'justifie' && (
                         <select className="controle h-8 w-full" value={v.motif || ''}
                           onChange={ev => setSaisie(s => ({ ...s, [e.id]: { ...s[e.id], motif: ev.target.value || null } }))}>
                           <option value="">— motif de la justification —</option>
@@ -190,6 +201,9 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
               })}
             </tbody>
           </table>
+          <div className="px-3 py-2 border-t border-slate-100 text-mention text-slate-400">
+            P présent · P* en retard · M à distance · A absent · J absence justifiée · NC non concerné · D dispensé de ce cours (VA ou report de notes) : pas de présence à prendre
+          </div>
         </div>
       )}
     </div>
