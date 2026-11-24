@@ -15,7 +15,7 @@ const NAVY = '2E74B5';      // bandeau titre EA12 (bleu moyen, = gabarit officie
 const BANDBLUE = '9CC2E5';  // bandeaux de section (bleu clair, = gabarit officiel)
 const BANDBLUE2 = 'BDD6EE'; // sous-bandeaux (bleu plus pâle)
 const CHK = '☐';            // case à cocher vide
-const CHKD = '☒';           // case cochée
+const CHKD = '■';           // case cochée
 
 // Largeur utile en DXA (A4, marges 0.7cm) : 595pt - 2*~20pt ≈ 555pt → 555*20 = 11100 DXA
 // On travaille en DXA (1 pt = 20 DXA). Largeur contenu ≈ 551 pt.

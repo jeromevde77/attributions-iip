@@ -24,6 +24,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { niveauxEffectifs } from './capitalisation.js';
+import { nomEcranDuCompte } from '../lib/nom.js';
 
 const r = Router();
 
@@ -74,6 +75,67 @@ function partReelleC1(dateDebut, dateFin, a1) {
   return Math.max(0, Math.min(1, (bascule - d) / (f - d)));
 }
 
+/* LE REPÈRE DE L'HORAIRE (24 novembre 2026, Charles : « idéalement le calcul réel depuis les horaires » ; tranché :
+   les DATES de l'UE restent la proposition, l'horaire n'est qu'un REPÈRE affiché à côté). Pour chaque cours, les
+   minutes des séances non annulées de l'année scolaire, rangées selon l'année civile de leur date. L'horaire ne dit
+   pas l'organisation : une UE en plusieurs organisations reçoit le repère de l'UE entière, et le dit (`toute_ue`).
+   L'autonomie et les périodes sans activité identifiée prennent le repère de toute l'UE (`tous_cours`). */
+const minutesDe = (s) => {
+  if (Number(s.minutes) > 0) return Number(s.minutes);
+  const hm = t => { const m = /^(\d{1,2})[:hH.](\d{2})/.exec(String(t || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+  const d = hm(s.heure_debut), f = hm(s.heure_fin);
+  return d != null && f != null && f > d ? f - d : 0;
+};
+
+export function repereHoraire(annee, listeUe, a1) {
+  const vide = { cours: {}, ue: {} };
+  if (!listeUe.length) return vide;
+  let seances;
+  try {
+    const cols = db.prepare('PRAGMA table_info(horaire_seance)').all().map(c => c.name);
+    if (!cols.length) return vide;
+    const annule = cols.includes('annule') ? 'AND COALESCE(annule, 0) = 0' : '';
+    seances = db.prepare(`
+      SELECT ue_num, cours_code, date, heure_debut, heure_fin, minutes
+      FROM horaire_seance
+      WHERE annee_scolaire = ? AND ue_num IN (${listeUe.map(() => '?').join(',')}) ${annule}
+    `).all(annee, ...listeUe);
+  } catch { return vide; }
+  // Combien d'organisations l'UE a cette année, toutes sections confondues.
+  const nbOrgs = {};
+  try {
+    for (const o of db.prepare(`SELECT ue_num, COUNT(DISTINCT COALESCE(num_organisation, 1)) AS n FROM organisation_ue
+      WHERE annee_scolaire = ? AND ue_num IN (${listeUe.map(() => '?').join(',')}) GROUP BY ue_num`).all(annee, ...listeUe)) {
+      nbOrgs[o.ue_num] = o.n;
+    }
+  } catch { /* table absente */ }
+  const cumul = (m, k, an, min) => {
+    const x = (m[k] = m[k] || { c1_min: 0, c2_min: 0 });
+    if (an === a1) x.c1_min += min; else if (an === a1 + 1) x.c2_min += min;
+  };
+  const parCours = {}, parUe = {};
+  for (const s of seances) {
+    const an = Number(String(s.date || '').slice(0, 4));
+    const min = minutesDe(s);
+    if (!min || !an) continue;
+    cumul(parUe, s.ue_num, an, min);
+    if (s.cours_code) cumul(parCours, `${s.ue_num}|${s.cours_code}`, an, min);
+  }
+  const fini = (x, ue, tousCours) => {
+    if (!x || x.c1_min + x.c2_min <= 0) return null;
+    return {
+      c1_min: x.c1_min, c2_min: x.c2_min,
+      part_c1: Math.round((x.c1_min / (x.c1_min + x.c2_min)) * 1000) / 1000,
+      toute_ue: (nbOrgs[ue] || 1) > 1,
+      ...(tousCours ? { tous_cours: true } : {}),
+    };
+  };
+  const res = { cours: {}, ue: {} };
+  for (const [k, x] of Object.entries(parCours)) res.cours[k] = fini(x, Number(k.split('|')[0]), false);
+  for (const [k, x] of Object.entries(parUe)) res.ue[k] = fini(x, Number(k), true);
+  return res;
+}
+
 // ── Lignes de répartition d'une année académique ───────────────────────────
 r.get('/', authRequired, (req, res) => {
   // La répartition entre années civiles engage l'établissement entier : elle
@@ -92,12 +154,20 @@ r.get('/', authRequired, (req, res) => {
   if (section && perim && !perim.includes(section)) {
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
   }
+  res.json(calculerRepartition({ annee, section, perim }));
+});
+
+/* LE CALCUL, SORTI DE LA ROUTE (24 novembre 2026, Charles, « Ajuster au détail ») : l'écriture ajustée doit connaître
+   les totaux de chaque ligne TELS QUE L'ÉCRAN LES MONTRE (saisie, dates, ou clé 40-60) pour refuser un curseur qui
+   changerait le total. Un second calcul aurait fini par différer : c'est le même. */
+export function calculerRepartition({ annee, section = null, perim = null, ueNum = null }) {
   const [a1, a2] = anneesCiviles(annee);
 
   // Organisations de l'année, avec leurs dates
   const clauses = ['o.annee_scolaire = ?'];
   const params = [annee];
   if (section) { clauses.push('o.section = ?'); params.push(section); }
+  if (ueNum != null) { clauses.push('o.ue_num = ?'); params.push(Number(ueNum)); }
   else if (perim) {
     clauses.push(`o.section IN (${perim.map(() => '?').join(',') || "''"})`);
     params.push(...perim);
@@ -129,9 +199,10 @@ r.get('/', authRequired, (req, res) => {
     WHERE ${clauses.join(' AND ')}
     ORDER BY o.section, o.ue_num, o.num_organisation
   `).all(...params);
-  if (!orgs.length) return res.json({ annee, annees_civiles: [a1, a2], ues: [], synthese: null });
+  if (!orgs.length) return { annee, annees_civiles: [a1, a2], ues: [], synthese: null };
 
   const listeUe = [...new Set(orgs.map(o => o.ue_num))];
+  const horaire = repereHoraire(annee, listeUe, a1);
 
   // Année d'études au sens de la SECTION : c'est celle qui fait foi, le
   // référentiel pouvant porter une valeur générique pour une UE partagée.
@@ -278,6 +349,10 @@ r.get('/', authRequired, (req, res) => {
         recalcule_dates: suitDates && (Number(s.prevu_c1 || 0) !== parDates(sp, 1) || Number(s.reel_c1 || 0) !== parDates(sr, 1)),
         remarque: s?.remarque || null,
         part_dates: part,
+        // Repère seulement : il ne change rien à la proposition ni à la saisie.
+        horaire: (nature === 'cours' && cours_code && cours_code !== '—')
+          ? (horaire.cours[`${o.ue_num}|${cours_code}`] || null)
+          : (horaire.ue[o.ue_num] || null),
       });
     };
 
@@ -442,7 +517,7 @@ r.get('/', authRequired, (req, res) => {
     total: arrondi(k.reel_c1 + k.reel_c2),
   })).sort((a, b) => (a.pot === 'organique' ? -1 : b.pot === 'organique' ? 1 : a.pot.localeCompare(b.pot)));
 
-  res.json({
+  return {
     annee, annees_civiles: [a1, a2], ues, anomalies,
     // Sous-totaux par section : la déclaration se prépare section par section,
     // et c'est à ce niveau que les écarts se repèrent le plus vite.
@@ -495,8 +570,8 @@ r.get('/', authRequired, (req, res) => {
       hors_organique: arrondi(enveloppes.filter(e => e.pot !== 'organique')
         .reduce((s, e) => s + e.total, 0)),
     },
-  });
-});
+  };
+}
 
 // ── Enregistrement ──────────────────────────────────────────────────────────
 r.put('/', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, res) => {
@@ -514,9 +589,14 @@ r.put('/', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, 
       reel_c1 = excluded.reel_c1, reel_c2 = excluded.reel_c2,
       remarque = excluded.remarque, maj_le = datetime('now')
   `);
+  /* UNE LIGNE SANS CODE DE COURS (l'autonomie) S'AJOUTAIT À CHAQUE ENREGISTREMENT (3.5.679) : ON CONFLICT ne joue pas sur
+     un code vide (NULL ≠ NULL en SQL), et le GET relisait la dernière rangée. On retire d'abord l'ancienne. */
+  const sansCode = db.prepare(`DELETE FROM repartition_periodes WHERE annee_scolaire = ? AND ue_num = ? AND num_organisation = ?
+    AND cours_code IS NULL AND nature = ?`);
   let n = 0;
   db.transaction(() => {
     for (const l of lignes) {
+      if (!l.cours_code) sansCode.run(annee, Number(l.ue_num), Number(l.num_organisation || 1), l.nature || 'cours');
       up.run(annee, Number(l.ue_num), Number(l.num_organisation || 1),
              l.cours_code || null, l.nature || 'cours',
              // Entiers : une demi-période ne se déclare pas.
@@ -529,6 +609,94 @@ r.put('/', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, 
     }
   })();
   res.json({ ok: true, enregistrees: n });
+});
+
+/* AJUSTER AU DÉTAIL (24 novembre 2026, Charles : « une jauge à curseur pour adapter le réel de l'année 26/27 vers 26 ou
+   vers 27 » ; tranché : un curseur par cours, dans une fenêtre par UE et organisation). Le curseur DÉPLACE des
+   périodes d'une année civile à l'autre ; il n'en crée ni n'en retire : le total de chaque ligne — tel que l'écran
+   le montre — ne change jamais, sinon 400. La ligne garde la trace de qui a ajusté et quand, dans sa remarque :
+   c'est elle qui fait garder ses chiffres à une saisie même quand les dates tranchent (règle de 3.5.676). Une
+   remarque écrite à la main n'est jamais écrasée : la mention s'ajoute à sa suite. */
+const MENTION_AJUSTE = /\s*(?:·\s*)?Ajusté au détail par .+? le \d{2}\/\d{2}\/\d{4}/g;
+
+export function remarqueAjustee(existante, qui, quand = new Date()) {
+  const jour = quand.toLocaleDateString('fr-BE', { timeZone: 'Europe/Brussels', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const mention = `Ajusté au détail par ${qui || 'inconnu'} le ${jour}`;
+  // Une mention d'ajustement précédente se remplace ; ce qu'on a écrit à la main reste.
+  const base = String(existante || '').replace(MENTION_AJUSTE, '').replace(/^\s*·\s*/, '').trim();
+  return base ? `${base} · ${mention}` : mention;
+}
+
+r.post('/ajuster', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, ue_num, num_organisation, lignes } = req.body || {};
+  if (!annee || ue_num == null || !Array.isArray(lignes) || !lignes.length) {
+    return res.status(400).json({ error: 'annee, ue_num et lignes requises' });
+  }
+  const org = Number(num_organisation || 1);
+  const perim = getUserSections(req.user);
+  const calc = calculerRepartition({ annee, perim, ueNum: Number(ue_num) });
+  const u = (calc.ues || []).find(x => Number(x.ue_num) === Number(ue_num) && Number(x.num_organisation || 1) === org);
+  if (!u) return res.status(404).json({ error: `UE ${ue_num} · organisation ${org} introuvable pour ${annee}.` });
+
+  const entier = v => v != null && v !== '' && Number.isInteger(Number(v)) && Number(v) >= 0;
+  const ecrire = [];
+  for (const l of lignes) {
+    const nature = l.nature || 'cours';
+    const code = l.cours_code || null;
+    const cible = u.lignes.find(x => (x.cours_code || null) === code && x.nature === nature);
+    const nom = code || (nature === 'autonomie' ? 'Autonomie' : nature);
+    if (!cible) return res.status(400).json({ error: `Ligne ${nom} inconnue dans l'UE ${ue_num}.` });
+    if (!entier(l.reel_c1) || !entier(l.reel_c2)) {
+      return res.status(400).json({ error: `${nom} : des périodes entières, positives ou nulles.` });
+    }
+    const totalReel = Math.round(Number(cible.reel_c1 || 0) + Number(cible.reel_c2 || 0));
+    if (Number(l.reel_c1) + Number(l.reel_c2) !== totalReel) {
+      return res.status(400).json({ error: `${nom} : le réel doit rester à ${totalReel} période(s) — `
+        + `le curseur déplace des périodes d'une année civile à l'autre, il n'en ajoute ni n'en retire.` });
+    }
+    let prevu1 = cible.prevu_c1, prevu2 = cible.prevu_c2;
+    if (l.prevu_c1 != null || l.prevu_c2 != null) {
+      if (!entier(l.prevu_c1) || !entier(l.prevu_c2)) {
+        return res.status(400).json({ error: `${nom} : un prévu en périodes entières, positives ou nulles.` });
+      }
+      const totalPrevu = Math.round(Number(cible.prevu_c1 || 0) + Number(cible.prevu_c2 || 0));
+      if (Number(l.prevu_c1) + Number(l.prevu_c2) !== totalPrevu) {
+        return res.status(400).json({ error: `${nom} : le prévu doit rester à ${totalPrevu} période(s).` });
+      }
+      prevu1 = Number(l.prevu_c1); prevu2 = Number(l.prevu_c2);
+    }
+    ecrire.push({ code, nature, prevu1, prevu2, reel1: Number(l.reel_c1), reel2: Number(l.reel_c2) });
+  }
+
+  // Celui qui clique est celui qui signe.
+  const compte = db.prepare('SELECT nom_complet, email FROM utilisateur WHERE id = ?').get(req.user?.id) || req.user || {};
+  const qui = nomEcranDuCompte(compte.nom_complet, compte.email);
+  const lire = db.prepare(`SELECT remarque FROM repartition_periodes WHERE annee_scolaire = ? AND ue_num = ?
+    AND num_organisation = ? AND COALESCE(cours_code, '') = ? AND nature = ?`);
+  const up = db.prepare(`
+    INSERT INTO repartition_periodes
+      (annee_scolaire, ue_num, num_organisation, cours_code, nature,
+       prevu_c1, prevu_c2, reel_c1, reel_c2, remarque, maj_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, ue_num, num_organisation, cours_code, nature) DO UPDATE SET
+      prevu_c1 = excluded.prevu_c1, prevu_c2 = excluded.prevu_c2,
+      reel_c1 = excluded.reel_c1, reel_c2 = excluded.reel_c2,
+      remarque = excluded.remarque, maj_le = datetime('now')
+  `);
+  const del = db.prepare(`DELETE FROM repartition_periodes WHERE annee_scolaire = ? AND ue_num = ?
+    AND num_organisation = ? AND cours_code IS NULL AND nature = ?`);
+  db.transaction(() => {
+    for (const e of ecrire) {
+      const avant = lire.get(annee, Number(ue_num), org, e.code || '', e.nature);
+      // Le conflit d'unicité ne joue pas sur un code NULL (ligne d'autonomie) : on retire l'ancienne d'abord.
+      if (e.code == null) del.run(annee, Number(ue_num), org, e.nature);
+      up.run(annee, Number(ue_num), org, e.code, e.nature,
+        e.prevu1 != null ? Math.round(Number(e.prevu1)) : null,
+        e.prevu2 != null ? Math.round(Number(e.prevu2)) : null,
+        e.reel1, e.reel2, remarqueAjustee(avant?.remarque, qui));
+    }
+  })();
+  res.json({ ok: true, enregistrees: ecrire.length });
 });
 
 // ── Dotation d'une année CIVILE ─────────────────────────────────────────────

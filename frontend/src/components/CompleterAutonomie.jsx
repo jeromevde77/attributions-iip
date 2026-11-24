@@ -37,7 +37,7 @@ export default function CompleterAutonomie({ ueNum, section, onFermer, onFait })
   const n = d?.a_changer || 0;
   const completer = async () => {
     if (!n) return;
-    if (!(await demander(`Compléter l'autonomie de ${n} ligne${n > 1 ? 's' : ''} de l'UE ${ueNum} ?\n\n`
+    if (!(await demander(`Ajuster l'autonomie de ${n} ligne${n > 1 ? 's' : ''} de l'UE ${ueNum} ?\n\n`
       + `Total de l'UE : ${nb(d.total_avant)} → ${nb(d.total_apres)} périodes d'autonomie.`))) return;
     setEnCours(true); setErreur(null);
     try { await appeler(false); onFait?.(); onFermer?.(); }
@@ -48,12 +48,12 @@ export default function CompleterAutonomie({ ueNum, section, onFermer, onFait })
   const pied = (
     <div className="flex items-center justify-between gap-3 w-full">
       <span className="text-second text-slate-500 min-w-0">
-        {d ? (n ? `${n} ligne${n > 1 ? 's' : ''} à compléter.` : 'Toutes les lignes portent déjà leur part : rien à compléter.') : ''}
+        {d ? (n ? `${n} ligne${n > 1 ? 's' : ''} à ajuster.` : 'L’autonomie de chaque organisation respecte déjà la règle : rien à ajuster.') : ''}
       </span>
       <span className="flex gap-2">
         <button className="bouton" onClick={onFermer}>Fermer</button>
         <button className="bouton bouton-fort" disabled={!n || enCours} onClick={completer}>
-          {enCours ? 'Écriture…' : `Compléter ${n} ligne${n > 1 ? 's' : ''}`}
+          {enCours ? 'Écriture…' : `Ajuster ${n} ligne${n > 1 ? 's' : ''}`}
         </button>
       </span>
     </div>
@@ -66,11 +66,18 @@ export default function CompleterAutonomie({ ueNum, section, onFermer, onFait })
       {!d && !erreur && <p className="text-second text-slate-500">Calcul de la proposition…</p>}
       {d && (
         <>
-          <p className="text-sm mb-3">
-            Autonomie du dossier : <b>{nb(d.autonomie_dossier)} p.</b> pour <b>{nb(d.periodes_dossier)} p.</b> de cours,
-            soit <b>{pct(d.taux)}</b> de chaque ligne (arrondi à la période). Les lignes en congé, les activités Z et
-            l'encadrement restent tels quels ; une ligne qui porte déjà sa part n'est pas touchée.
+          <p className="text-sm mb-2">
+            Autonomie du dossier : <b>{nb(d.autonomie_dossier)} p.</b> pour <b>{nb(d.periodes_dossier)} p.</b> de cours.
+            Lucie applique la règle du contrôle des attributions, organisation par organisation : tous les cours dédoublés
+            ×N → autonomie × N exactement ; sinon entre l'autonomie du dossier et + 20 % des périodes ajoutées. La cible se
+            répartit au prorata des périodes. Les lignes en congé, hors IIP, les activités Z et l'encadrement restent tels quels.
           </p>
+          {(d.organisations || []).length > 0 && (
+            <ul className="text-second mb-3 pl-0 list-none space-y-0.5">
+              {d.organisations.map(o => (
+                <li key={o.cle}>Organisation {o.organisation} : {o.multiple ? `dédoublée ×${o.multiple} → ${nb(o.cible)} exactement`
+                  : `entre ${nb(o.minimum)} et ${nb(o.maximum)} → ${nb(o.cible)}`} <span className="text-slate-500">(aujourd’hui {nb(o.avant)})</span></li>))}
+            </ul>)}
           <Tableau dense>
             <TableauEntete>
               <Th>Cours</Th><Th>Groupe</Th><Th align="droite">Org.</Th><Th>Professeur</Th>

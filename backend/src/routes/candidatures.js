@@ -176,7 +176,7 @@ r.get('/:id/document', authRequired, (req, res) => {
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const fr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
   const s = lireJSON(c.situation, {}) || {}, lignes = lireJSON(c.lignes, []) || [], id = nomProf(c.professeur_id);
-  const case_ = v => (v ? '☒' : '☐');
+  const case_ = v => (v ? '■' : '☐');
   const def = !!c.definitif;
   const corps = `
     <h2>${def ? 'Candidature à titre définitif' : 'Candidature à titre temporaire'} — année ${esc(c.annee_cible)}</h2>

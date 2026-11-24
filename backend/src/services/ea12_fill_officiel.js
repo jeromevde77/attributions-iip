@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import JSZip from 'jszip';
+import { noircirWord } from '../lib/casesNoircies.js';
 
 const MODELE = path.join(import.meta.dirname, 'ea12-assets', 'A1_bis_EA12_SUP.docx');
 
@@ -359,7 +360,7 @@ export async function remplirModeleOfficiel(d) {
     if (o.type === 'T') x = cocher(x, CASES.oe[i][1]);
   });
 
-  zip.file('word/document.xml', x);
+  zip.file('word/document.xml', noircirWord(x));   // 3.5.678
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 

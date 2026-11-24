@@ -25,6 +25,7 @@ import {
 } from './ea12_fill_officiel.js';
 
 import { detecter, appliquer as appliquerLibres, champsPublics } from './annexesLibres.js';
+import { noircirWord } from '../lib/casesNoircies.js';
 
 const DOSSIER = path.join(import.meta.dirname, 'circulaire-9760');
 const T = s => [...String(s).matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map(m => m[1]).join('');
@@ -492,7 +493,7 @@ export async function remplirAnnexe(cle, d) {
     x = await insererImageSous(zip, x, /Cachet de l.établissement/, cachetCourant(), 3.2, 'cachet');
     x = await insererImageSous(zip, x, /Signature du chef de l.établissement/, signatureCourante(), 4.2, 'signature');
   }
-  zip.file('word/document.xml', x);
+  zip.file('word/document.xml', noircirWord(x));   // les cases cochées se noircissent (3.5.678)
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 

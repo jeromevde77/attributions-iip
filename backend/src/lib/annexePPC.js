@@ -18,6 +18,7 @@ import db from '../db/index.js';
 import { cocher } from '../services/ea12_fill_officiel.js';
 import { cachetCourant, signatureCourante } from './identite.js';
 import { insererImageSous } from '../services/formulairesFWB.js';
+import { noircirWord } from './casesNoircies.js';
 
 const MODELE = path.join(import.meta.dirname, '..', 'services', 'circulaire-9760', 'Annexe PPC_Disponibilités et pertes partielles de charge.docx');
 const DIV = { CT: 800, CG: 800, PP: 1000 };
@@ -139,6 +140,6 @@ export async function documentPPC(annee, donnees) {
   if (donnees.date) x = x.replace('<w:t>Date :</w:t>', `<w:t xml:space="preserve">Date : ${esc(donnees.date)}</w:t>`);
   x = await insererImageSous(zip, x, /^Signature :/, signatureCourante(), 3.6, 'signature');
   x = await insererImageSous(zip, x, /^Signature :/, cachetCourant(), 2.6, 'cachet');
-  zip.file('word/document.xml', x);
+  zip.file('word/document.xml', noircirWord(x));   // 3.5.678
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }

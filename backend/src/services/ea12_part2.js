@@ -18,9 +18,9 @@ function cumul(d) {
       cell([
         par(chk('Pas de cumul interne', d.pas_cumul, { bold: true }), { spacing: { before: 20, after: 40 } }),
         par([run('Prestations dans cet établissement', { bold: true, size: 13 }), run(' :', { size: 13 })], { spacing: { before: 30 } }),
-        par([run((d.prest_sec ? '☒' : CHK) + ' ', { size: 13 }), run('Secondaire   ', { size: 12 }),
-             run((d.prest_sup ? '☒' : CHK) + ' ', { size: 13 }), run('Supérieur   ', { size: 12 }),
-             run((d.prest_exp ? '☒' : CHK) + ' ', { size: 13 }), run('Expert   ', { size: 12 }),
+        par([run((d.prest_sec ? '■' : CHK) + ' ', { size: 13 }), run('Secondaire   ', { size: 12 }),
+             run((d.prest_sup ? '■' : CHK) + ' ', { size: 13 }), run('Supérieur   ', { size: 12 }),
+             run((d.prest_exp ? '■' : CHK) + ' ', { size: 13 }), run('Expert   ', { size: 12 }),
              run(CHK + ' ', { size: 13 }), run('ACS/APE/PTP', { size: 12 })], { spacing: { after: 40 } }),
         par([run('Prestations dans un autre établissement', { bold: true, size: 13 }), run(' :', { size: 13 })], { spacing: { before: 30 } }),
         par([run(CHK + ' ', { size: 13 }), run('Cumul interne A2 ', { bold: true, size: 12 }), run('(enseignement organisé ou subventionné par la FWB)', { size: 11 })]),
@@ -28,9 +28,9 @@ function cumul(d) {
       cell([
         par([run(CHK + ' ', { size: 13 }), run('En application de la Circulaire 6930 du 10/01/2019 : ', { size: 11 }), run('« FICHES FISCALES : Déclarations du paiement des arriérés - Responsabilités et incidences fiscales »', { italics: true, size: 11 })], { spacing: { before: 20 } }),
         par([run('Nombre de jours de fonctionnement/semaine : ', { bold: true, size: 12 }),
-             run((d.jours === 4 ? '☒' : CHK) + ' ', { size: 13 }), run('4  ', { size: 12 }),
-             run((d.jours === 5 ? '☒' : CHK) + ' ', { size: 13 }), run('5  ', { size: 12 }),
-             run((d.jours === 6 ? '☒' : CHK) + ' ', { size: 13 }), run('6', { size: 12 })], { spacing: { before: 80 } }),
+             run((d.jours === 4 ? '■' : CHK) + ' ', { size: 13 }), run('4  ', { size: 12 }),
+             run((d.jours === 5 ? '■' : CHK) + ' ', { size: 13 }), run('5  ', { size: 12 }),
+             run((d.jours === 6 ? '■' : CHK) + ' ', { size: 13 }), run('6', { size: 12 })], { spacing: { before: 80 } }),
       ], { w: 276, valign: VerticalAlign.TOP }),
     ]}),
   ], [275, 276]);
@@ -38,7 +38,7 @@ function cumul(d) {
 
 // ===== Événement =====
 function evenement(d) {
-  const colJust = (items) => items.map(it => par([run((it.checked ? '☒' : CHK) + ' ', { size: 12 }), run(it.label, { size: 11 })], { spacing: { before: 8, after: 8 } }));
+  const colJust = (items) => items.map(it => par([run((it.checked ? '■' : CHK) + ' ', { size: 12 }), run(it.label, { size: 11 })], { spacing: { before: 8, after: 8 } }));
   return table([
     new TableRow({ children: [cell([par([run('Événement', { bold: true, size: 14 })], { align: AlignmentType.CENTER, spacing: { before: 12, after: 12 } })], { fill: BANDBLUE, span: 2 })] }),
     new TableRow({ children: [

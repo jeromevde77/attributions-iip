@@ -98,7 +98,7 @@ export function documentAnnexe1(body) {
   const vide = '<span class="manque">…………………</span>';
   const champ = v => (v != null && v !== '' ? `<b>${esc(v)}</b>` : vide);
   const date = v => (v ? `<b>${esc(frDate(v))}</b>` : '……/……/20……');
-  const bx = on => `<span class="bx">${on ? '☒' : '☐'}</span>`;
+  const bx = on => `<span class="bx">${on ? '■' : '☐'}</span>`;
   const coche = k => bx(situation === k);
   const def = situation === 'definitive';
   const admis = situation === 'admis' || situation === 'preparatoire_admis';

@@ -17,6 +17,7 @@ import db from '../db/index.js';
 import { calculDixSept, datesDeLAnnee, congesDeLAnnee } from './attestationInscription.js';
 import { unitesInscrites, seancesEtudiant } from './cep.js';
 import { cachetCourant, signatureCourante } from './identite.js';
+import { noircirWord } from './casesNoircies.js';
 
 const DOSSIER = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/formulaires-transport');
 const essai = (f, d) => { try { return f(); } catch { return d; } };
@@ -135,7 +136,7 @@ export async function remplirStibDocx(modele, v) {
       while (n < 5) { const m = vide.exec(reste); if (!m) break; reste = reste.slice(m[0].length); n++; }
       x = x.slice(0, fin) + reste;
     } }
-  zip.file('word/document.xml', x);
+  zip.file('word/document.xml', noircirWord(x));   // 3.5.678
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
