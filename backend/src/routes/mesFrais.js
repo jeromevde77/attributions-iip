@@ -65,8 +65,9 @@ export async function formulaireCarte(p, prof) {
   o.remplirCarre(cx + 0.64, ch + 0.36, 6.42);   // le carré mesuré sur le modèle (3.5.696)
   o.lignes(p.objet, 510).slice(0, 5).forEach((t, i) => o.texte(t, 42, 507.5 + 17.12 * i));
   // Le titulaire date et signe ; l'Autorité signe à la main.
-  o.texte(`${prof.prenom || ''} ${String(prof.nom || '').toUpperCase()} · ${jj(p.date_piece || new Date().toISOString())}`, 385, 633, 9);
-  try { await o.signature(signatureCourante(), 395, 640); } catch { /* sans signature, le titulaire signe à la main */ }
+  o.texte(`${prof.prenom || ''} ${String(prof.nom || '').toUpperCase()} · ${jj(p.date_piece || new Date().toISOString())}`, 385, 631, 9);
+  // La signature, plus grande (3.5.698, Charles) : jusqu'au cadre de la comptabilité.
+  try { await o.signature(signatureCourante(), 395, 633, 46, 190); } catch { /* sans signature, le titulaire signe à la main */ }
   return doc;
 }
 
@@ -116,7 +117,8 @@ export async function formulaireNote(p, prof) {
   [...iban.slice(0, 14)].forEach((c, i) => o.texte(c, CASES_IBAN[i] - o.largeur(c, 11) / 2, 509.5, 11));
   // Le membre du personnel date et signe ; l'Autorité signe à la main.
   o.texte(jj(p.date_piece || new Date().toISOString()), 462, 591, 10);
-  try { await o.signature(signatureCourante(), 392, 596, 42, 150); } catch { /* sans signature, il signe à la main */ }
+  // La signature, plus grande (3.5.698, Charles) : elle descend jusqu'au cadre de la comptabilité.
+  try { await o.signature(signatureCourante(), 392, 594, 60, 210); } catch { /* sans signature, il signe à la main */ }
   return doc;
 }
 
