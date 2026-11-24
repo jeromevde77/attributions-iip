@@ -1399,6 +1399,22 @@ export default function Attributions() {
     : badge === 'EXT+DOT' ? <PastilleEtat etat="neutre" className="shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</PastilleEtat>
     : null);
 
+  /* LE CHOIX DE L'ACTIVITÉ, écrit une fois : en colonne dans les vues à plat, à côté de la lettre du groupe dans l'arbre de
+     l'UE ouverte (3.5.689, Charles : « Activité va directement à côté de la lettre du groupe »). On propose les activités
+     globales, celles de la section, celles de l'UE, et l'activité actuelle même hors liste. */
+  const selectActivite = (row, compact = false) => {
+    const actsLigne = activitesList.filter(a =>
+      (!a.section && !a.ue_num) || (a.section === row.section) ||
+      (a.ue_num && Number(a.ue_num) === Number(row.ue_num)) || (a.id === row.activite_id));
+    return (
+      <select key={`act-${row.id}-${row.activite_id??''}`} defaultValue={row.activite_id ?? ''} onClick={e=>e.stopPropagation()}
+        className={compact ? 'cursor-pointer max-w-[8.5rem] text-xs' : 'w-full cursor-pointer'} title="Activité"
+        onChange={e=>{ const nid = e.target.value ? Number(e.target.value) : null; if (nid !== row.activite_id) saveCell(row.id, 'activite_id', nid); }}>
+        <option value="">{compact ? 'activité —' : '—'}</option>
+        {actsLigne.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
+      </select>);
+  };
+
   function contenuGroupe(row, aGauche = false) {
     const estSplit  = row.split_groupe === 'O';
     const codeVal   = (row.code || '').toUpperCase();
@@ -1633,29 +1649,7 @@ export default function Attributions() {
             </td>;
           }
           // Colonne Activité : select éditable directement (sans passer par la fiche cours)
-          if (c.key==='activite_nom') {
-            // On propose : les activités globales + celles de la section de cette ligne
-            //  + celles spécifiques à l'UE de cette ligne + l'activité actuelle (même hors liste)
-            const actsLigne = activitesList.filter(a =>
-              (!a.section && !a.ue_num) ||
-              (a.section === row.section) ||
-              (a.ue_num && Number(a.ue_num) === Number(row.ue_num)) ||
-              (a.id === row.activite_id)
-            );
-            return <td key={c.key} style={sty}>
-              <select key={`act-${row.id}-${row.activite_id??''}`} defaultValue={row.activite_id ?? ''} onClick={e=>e.stopPropagation()}
-                className="w-full cursor-pointer"
-                onChange={e=>{
-                  const nid = e.target.value ? Number(e.target.value) : null;
-                  if (nid !== row.activite_id) {
-                    saveCell(row.id, 'activite_id', nid);
-                  }
-                }}>
-                <option value="">—</option>
-                {actsLigne.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
-              </select>
-            </td>;
-          }
+          if (c.key==='activite_nom') return <td key={c.key} style={sty}>{selectActivite(row)}</td>;
           // Colonne Type : pour les lignes HELB, badge cliquable CT (cours théoriques) ↔ TP (travaux pratiques)
           if (c.key==='type_cours' && row.contrat_mdp==='HELB') {
             const nat = row.helb_nature || 'CT';
@@ -1982,7 +1976,7 @@ export default function Attributions() {
     const ligneGroupe = (r, niveau, suites, dernier) => renderRow(r, cols, celluleArbre({
       niveau, suites, dernier,
       children: r.is_z ? <span className="text-mention text-gray-400 italic">Z</span>
-        : <span className="inline-flex items-center gap-1.5">{contenuGroupe(r, true)}{badgeEnveloppe(extDot[r.id])}</span>,
+        : <span className="inline-flex items-center gap-1.5">{contenuGroupe(r, true)}{badgeEnveloppe(extDot[r.id])}{selectActivite(r, true)}</span>,
     }));
 
     enfants.forEach((e, i) => {
@@ -2014,7 +2008,11 @@ export default function Attributions() {
 
   // L'UE ouverte : la phrase de l'autonomie, puis un seul tableau — en-tête, ligne de l'UE (ses totaux), et l'arbre.
   function arbreUE(ue, ueKey) {
-    const cols = colsDeLUE(ue.rows).filter(c => c.key !== 'code'); // la pastille du groupe vit dans l'arbre
+    /* L'ORDRE DE CHARLES (3.5.689) : groupe, ciseaux, personnages, enveloppe et activité dans l'arbre ; puis contrat, nom,
+       statut, titre, périodes, autonomie, total, heures ; la validation et la sélection à droite, avant la note et la corbeille. */
+    const base = colsDeLUE(ue.rows).filter(c => c.key !== 'code' && c.key !== 'activite_nom'); // groupe et activité vivent dans l'arbre
+    const fin = ['__valide', '__select', '__note', '__actions'];
+    const cols = [...base.filter(c => !fin.includes(c.key)), ...fin.map(k => base.find(c => c.key === k)).filter(Boolean)];
     const st = groupStats(ue.rows);
     const reelles = ue.rows.filter(r => !r.is_z);
     const toutes = reelles.length > 0 && reelles.every(r => selected.has(r.id));
@@ -2175,6 +2173,7 @@ export default function Attributions() {
               <span>{st.nProf} prof.</span>
               <span className="font-semibold text-iip-gold w-12 text-right">{st.tPer}p</span>
               {st.tAut>0 ? <span className="text-gray-400 w-10 text-right">+{st.tAut}a</span> : <span className="w-10"></span>}
+              <span className="text-iip-texte w-14 text-right tabular-nums" title="Total : périodes + autonomie">= {Math.round((st.tPer + st.tAut) * 100) / 100}p</span>
               {st.nBad>0 ? <span className="text-amber-700 font-bold w-8 text-right">✗ {st.nBad}</span>
                 : st.nConf>0 ? <span className="text-green-600 font-bold w-8 text-right">✓</span>
                 : <span className="w-8"></span>}
@@ -2292,6 +2291,7 @@ export default function Attributions() {
             <span>{st.nProf} prof.</span>
             <span className="font-bold text-iip-gold">{st.tPer}p</span>
             {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
+            <span className="text-iip-texte tabular-nums" title="Total : périodes + autonomie">= {Math.round((st.tPer + st.tAut) * 100) / 100}p</span>
             {st.nBad>0 && <span className="text-amber-700 font-bold">✗ {st.nBad}</span>}
             {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
             {isAdmin && (
