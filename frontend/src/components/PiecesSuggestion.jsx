@@ -6,7 +6,7 @@ import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { Fenetre } from './ui.jsx';
 
 /**
- * LES CAPTURES JOINTES À UNE IDÉE (3.5.668, idée #31 de Thomas GUIOT : « permettre l'upload d'images ou docs
+ * LES CAPTURES JOINTES À UNE IDÉE (3.5.669, idée #31 de Thomas GUIOT : « permettre l'upload d'images ou docs
  * dans l'outil de proposition d'amélioration » — il voulait montrer le défaut plutôt que le décrire).
  *
  * Trois pièces au plus, 5 Mo chacune : images (PNG, JPEG, GIF, WebP) et PDF. Le serveur les reconnaît à

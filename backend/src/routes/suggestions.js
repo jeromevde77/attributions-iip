@@ -95,7 +95,7 @@ export function migrerSuggestions(dbx) {
     `);
   } catch (e) { console.error('[migration] suggestion_message :', e.message); }
 
-  /* LES PIÈCES D'UNE IDÉE (3.5.668, idée #31 de Thomas GUIOT : « joindre une capture d'écran du défaut »).
+  /* LES PIÈCES D'UNE IDÉE (3.5.669, idée #31 de Thomas GUIOT : « joindre une capture d'écran du défaut »).
      Les fichiers vivent sur le DISQUE (DATA_DIR/suggestions/<idée>/…) — la base est déjà lourde ; la table
      ne garde que leur nom, leur type, leur taille et leur chemin. Pas de clé étrangère : une idée retirée
      garde ses pièces, rien ne s'efface. `message_id` nul = la pièce de l'idée elle-même. */
