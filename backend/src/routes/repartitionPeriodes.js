@@ -257,14 +257,25 @@ r.get('/', authRequired, (req, res) => {
       // pour que la somme retombe exactement sur le total.
       const propPrevuC1 = Math.round((prevuTotal || 0) * cleProposee);
       const propReelC1 = Math.round((reelTotal || 0) * cleProposee);
+      /* LES DATES TRANCHENT AUSSI UNE SAISIE (3.5.676, Charles, UE 333 : « si les dates de l'UE sont juste sur 2026,
+         pourquoi tu en déclares en 2027 ? À toi de faire le calcul »). Une ligne enregistrée en 40-60 avant que les dates
+         de l'organisation soient posées gardait ses périodes sur l'autre année civile. Quand les dates placent toute
+         l'organisation dans une seule année civile, la saisie garde ses TOTAUX mais suit les dates — sauf si sa remarque
+         dit pourquoi des périodes ont réellement lieu sur l'autre année (une épreuve surveillée, par exemple). */
+      const datesTranchent = part != null && (part >= 0.999 || part <= 0.001);
+      const suitDates = !!s && datesTranchent && !String(s.remarque || '').trim();
+      const sp = s ? Number(s.prevu_c1 || 0) + Number(s.prevu_c2 || 0) : 0;
+      const sr = s ? Number(s.reel_c1 || 0) + Number(s.reel_c2 || 0) : 0;
+      const parDates = (tot, c) => (part >= 0.999 ? (c === 1 ? tot : 0) : (c === 1 ? 0 : tot));
       lignes.push({
         cours_code, libelle, nature, type_cours: typeCours || null,
         prevu_total: arrondi(prevuTotal), reel_total: arrondi(reelTotal),
-        prevu_c1: s?.prevu_c1 ?? propPrevuC1,
-        prevu_c2: s?.prevu_c2 ?? Math.round((prevuTotal || 0) - propPrevuC1),
-        reel_c1: s?.reel_c1 ?? propReelC1,
-        reel_c2: s?.reel_c2 ?? Math.round((reelTotal || 0) - propReelC1),
+        prevu_c1: suitDates ? parDates(sp, 1) : (s?.prevu_c1 ?? propPrevuC1),
+        prevu_c2: suitDates ? parDates(sp, 2) : (s?.prevu_c2 ?? Math.round((prevuTotal || 0) - propPrevuC1)),
+        reel_c1: suitDates ? parDates(sr, 1) : (s?.reel_c1 ?? propReelC1),
+        reel_c2: suitDates ? parDates(sr, 2) : (s?.reel_c2 ?? Math.round((reelTotal || 0) - propReelC1)),
         saisi: !!s,
+        recalcule_dates: suitDates && (Number(s.prevu_c1 || 0) !== parDates(sp, 1) || Number(s.reel_c1 || 0) !== parDates(sr, 1)),
         remarque: s?.remarque || null,
         part_dates: part,
       });
