@@ -1761,6 +1761,21 @@ r.get('/ext-dot', authRequired, (req, res) => {
     if (env?.illimite && !(Number(env.periodes_b) > 0)) { illimite[pot] = true; plafonds[pot] = Infinity; }   // 3.5.672 : un pot encodé a un plafond
     else plafonds[pot] = env?.periodes_b ?? 0;
   }
+  /* L'AeSI EN ANNÉE CIVILE, AUSSI POUR LES BADGES (3.5.674, Charles : « aligne les badges »). L'année scolaire Y1-Y2 puise
+     dans DEUX enveloppes civiles : son Q1 dans celle de Y1 (dont janvier-juin a déjà servi au Q2 de l'année d'avant), son Q2
+     dans celle de Y2 (dont septembre-décembre servira au Q1 de l'année d'après). Le plafond de l'année scolaire est donc
+     ce qui reste de l'une et de l'autre, une fois ces deux moitiés voisines retirées. */
+  for (const pot of POTS_CIVILS) {
+    if (!POTS_EXT.includes(pot) || illimite[pot]) continue;
+    const y1 = anneeCivile - 1, y2 = anneeCivile;
+    const env = y => db.prepare('SELECT periodes_b, illimite FROM enveloppe_externe WHERE code = ? AND annee_civile = ?').get(pot, y);
+    const e1 = env(y1), e2 = env(y2);
+    if (!e1 && !e2) continue;
+    const u = computeUsageDB([y1, y2]);
+    const avant = u[`${y1 - 1}-${y1}`]?.[pot]?.q2 || 0;      // janvier-juin Y1, déjà pris sur l'enveloppe Y1
+    const apres = u[`${y2}-${y2 + 1}`]?.[pot]?.q1 || 0;      // septembre-décembre Y2, à prendre sur l'enveloppe Y2
+    plafonds[pot] = Math.max(0, (Number(e1?.periodes_b) || 0) - avant) + Math.max(0, (Number(e2?.periodes_b) || 0) - apres);
+  }
 
   // Toutes les attributions sur des UEs à enveloppe externe
   const attrs = db.prepare(`
