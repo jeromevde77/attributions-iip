@@ -247,6 +247,9 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [saisieUE, setSaisieUE] = useState(null);
   const [editions, setEditions] = useState(false);  // { ue, nature, origine } — VA / VAE de l'UE entière
   const [ajout, setAjout] = useState('');
+  /* UNE UE D'UNE AUTRE SECTION (3.5.666) : direction et secrétariat ; le motif est demandé par la porte unique (« hors cursus »). */
+  const [autreSection, setAutreSection] = useState(false);
+  const peutAutreSection = droitsPAE.passe('admin', 'editeur');
   const [aller, setAller] = useState(null);       // l'étudiant à rejoindre une fois les filtres tombés
   const [versionSchema, setVersionSchema] = useState(0);
   const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
@@ -714,18 +717,25 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                     </div>
                   </div>
                 ))}
-                {peutModifier && d.autres.length > 0 && (
+                {peutModifier && (d.autres.length > 0 || peutAutreSection) && (
                   <div className="flex flex-wrap items-center gap-2 pl-4 mt-1">
                     <span className="text-second font-semibold">Ajouter une UE au PAE</span>
-                    <select className="controle text-sm min-w-0 flex-1" value={ajout} onChange={ev => setAjout(ev.target.value)}>
-                      <option value="">— choisir dans le cursus —</option>
-                      {d.autres.map(x => <option key={x.ue_num} value={x.ue_num}>
-                        {x.niv || '—'} · UE {x.ue_num} — {x.ue_nom}{x.statut ? ` (${({ accessible: 'accessible', bloquee: 'bloquée', sous_reserve: 'sous réserve', en_attente: 'en attente' })[x.statut] || x.statut})` : ''}</option>)}
-                    </select>
-                    <button type="button" className="bouton bouton-fort" disabled={!ajout || !!enCours} onClick={() => ajouterUE(ajout)}>
-                      {enCours === 'pae' ? 'Enregistrement…' : 'Ajouter'}</button>
+                    {d.autres.length > 0 && <>
+                      <select className="controle text-sm min-w-0 flex-1" value={ajout} onChange={ev => setAjout(ev.target.value)}>
+                        <option value="">— choisir dans le cursus —</option>
+                        {d.autres.map(x => <option key={x.ue_num} value={x.ue_num}>
+                          {x.niv || '—'} · UE {x.ue_num} — {x.ue_nom}{x.statut ? ` (${({ accessible: 'accessible', bloquee: 'bloquée', sous_reserve: 'sous réserve', en_attente: 'en attente' })[x.statut] || x.statut})` : ''}</option>)}
+                      </select>
+                      <button type="button" className="bouton bouton-fort" disabled={!ajout || !!enCours} onClick={() => ajouterUE(ajout)}>
+                        {enCours === 'pae' ? 'Enregistrement…' : 'Ajouter'}</button>
+                    </>}
+                    {peutAutreSection && <button type="button" className="bouton" disabled={!!enCours} onClick={() => setAutreSection(true)}>
+                      Une UE d’une autre section…</button>}
                   </div>
                 )}
+                {autreSection && <AjoutAutreSection etudId={cur.id} annee={annee} dejaLa={dansPAE}
+                  onFermer={() => setAutreSection(false)}
+                  onChoisir={n => { setAutreSection(false); ajouterUE(n); }} />}
                 {!peutReporter && <p className="text-second text-slate-500 pl-4">Encoder un report est réservé à la direction, à la coordination et à l'administration des études.</p>}
               </div>
               <div className="min-w-0 lg:sticky lg:top-0 lg:border-l lg:border-slate-200 lg:pl-4">
@@ -4467,4 +4477,54 @@ function EffectifsCourts() {
     <span className="ml-3 text-second font-normal text-slate-500" title="Mêmes chiffres que Gestion → Population">
       en parcours {e.en_parcours} · au 15/10 {e.au_15_10.total}{e.au_15_10.fige ? '' : ' (indicatif)'} · inscrits {e.inscrits}{e.sortis ? `, dont ${e.sortis} sorti(s)` : ''}
     </span>);
+}
+
+/* LE CHOIX D'UNE UE D'UNE AUTRE SECTION (3.5.666, Charles : Rosephine DJEAGOU TEUKEN, TIM, admise à l'UE 67 de
+   psychomotricité). La section, puis l'unité de l'année ; l'ajout passe par la même porte que le reste du PAE, qui
+   demande le motif de la dérogation (« hors cursus ») et le garde. */
+function AjoutAutreSection({ etudId, annee, dejaLa, onFermer, onChoisir }) {
+  const [section, setSection] = useState('');
+  const [donnees, setDonnees] = useState(null);
+  const [ue, setUe] = useState('');
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => {
+    let vivant = true;
+    setUe('');
+    fetch(`/api/etudiants/${etudId}/valorisations/unites?annee=${encodeURIComponent(annee)}${section ? `&section=${encodeURIComponent(section)}` : ''}`,
+      { headers: authHeaders() })
+      .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Lecture impossible.'); return j; })
+      .then(j => { if (vivant) setDonnees(j); })
+      .catch(e => { if (vivant) setErreur(e.message); });
+    return () => { vivant = false; };
+  }, [etudId, annee, section]);
+  const deja = new Set(dejaLa.map(Number));
+  const unites = section ? (donnees?.unites || []).filter(u => !deja.has(Number(u.ue_num))) : [];
+  return (
+    <Fenetre titre="Ajouter une UE d’une autre section" onFermer={onFermer} large="moyenne"
+      pied={<>
+        <span className="text-second text-slate-500 min-w-0">{!section ? 'Choisissez la section.' : !ue ? 'Choisissez l’unité.' : 'Lucie demandera le motif de la dérogation.'}</span>
+        <button type="button" className="bouton" onClick={onFermer}>Annuler</button>
+        <button type="button" className="bouton bouton-fort" disabled={!ue} onClick={() => onChoisir(Number(ue))}>Ajouter au PAE</button>
+      </>}>
+      <div className="flex flex-col gap-3">
+        <p className="text-second text-slate-600">Une unité hors de la section de l’étudiant s’ajoute sur accord (direction, coordination). Le motif est demandé à l’enregistrement et gardé au dossier.</p>
+        <label className="flex flex-col gap-1">
+          <span className="text-second font-semibold">Section</span>
+          <select className="controle" value={section} onChange={ev => setSection(ev.target.value)}>
+            <option value="">— choisir —</option>
+            {(donnees?.sections || []).filter(x => x.code !== donnees?.section_etudiant).map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-second font-semibold">Unité ({annee})</span>
+          <select className="controle" value={ue} disabled={!section} onChange={ev => setUe(ev.target.value)}>
+            <option value="">— choisir —</option>
+            {unites.map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_niv || '—'} · UE {u.ue_num} — {u.ue_nom}</option>)}
+          </select>
+        </label>
+        {section && donnees && !unites.length && <p className="text-second text-slate-500">Aucune unité de cette section en {annee}.</p>}
+        {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
+      </div>
+    </Fenetre>
+  );
 }

@@ -6760,6 +6760,21 @@ r.post('/:id/pae-valider', authRequired, gesteRequis('etudiants.pae_valider'), (
   const retenues = new Set(ue_nums.map(Number));
   const existantes = db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
     .all(etudId, annee).map(x => x.ue_num);
+  /* UNE UNITÉ D'UNE AUTRE SECTION S'AJOUTE PAR LA DIRECTION OU LE SECRÉTARIAT (3.5.666, Charles : Rosephine DJEAGOU
+     TEUKEN, TIM, admise à l'UE 67 de psychomotricité avec l'accord de la direction adjointe et de la coordination). La
+     fiche le permet désormais, avec un motif (règle « hors cursus » de la porte unique) ; une coordination reste
+     dans le périmètre de ses sections, comme dans « Composer les PAE ». */
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const avant = new Set(existantes);
+    const hors = [...retenues].filter(u => !avant.has(u)).filter(u => {
+      const s0 = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND section IS NOT NULL LIMIT 1').get(u, annee)?.section
+        || db.prepare('SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL LIMIT 1').get(u)?.section;
+      const hc = db.prepare('SELECT hors_cursus FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(u, annee)?.hors_cursus;
+      return s0 && !hc && !perim.includes(s0);
+    });
+    if (hors.length) return res.status(403).json({ error: `Unité(s) d'une autre section que les vôtres : ${hors.join(', ')}. La direction ou le secrétariat l'ajoute.` });
+  }
   const b = ecrireProgramme({ etudId, annee, ajouter: [...retenues], retirer: existantes.filter(u => !retenues.has(u)),
     origine: 'pae', par: req.user?.email || req.user?.nom || null, motifs: motifs || {},
     forcerRetrait: !!forcer, simulation: !!simulation });
