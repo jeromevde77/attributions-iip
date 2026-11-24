@@ -28,9 +28,8 @@ r.post('/import-historique', authRequired, roleRequired('admin', 'directeur', 'd
 });
 
 // ── Analyse de l'autonomie d'une UE (intervalle min/max) ─────────────────────
-// Borne MIN = ue_aut (DP)
-// Borne MAX = ue_aut + 20% des périodes de cours AJOUTÉES par les dédoublements
-// Cas spécial : si TOUS les cours sont dédoublés ×N → autonomie attendue = ue_aut × N (obligatoire)
+// Borne MIN = ue_aut × le multiple que TOUS les cours atteignent ; borne MAX = ue_aut × le multiple du plus dédoublé
+// (règle de Charles, 3.5.680), par organisation ; pour l'UE entière, la somme des organisations.
 function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
   const ue = ueRow || db.prepare('SELECT ue_per_cours, ue_aut FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
   if (!ue) return null;
@@ -53,14 +52,14 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
   const perOuvertes = db.prepare(`
     SELECT COALESCE(SUM(periodes_attribuees), 0) AS total
     FROM attribution
-    WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'
+    WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP' AND COALESCE(en_conge, 0) = 0
       AND (coordination_encadrement IS NULL OR coordination_encadrement NOT IN ('91','92','93','94','95','96','97','98','99'))
       AND (type_cours IS NULL OR type_cours != 'Z')` + orgClause + `
   `).get(ue_num, section, annee, ...orgP)?.total || 0;
 
   // Autonomie déjà attribuée
   const autAttribuee = db.prepare(
-    "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'" + orgClause
+    "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP' AND COALESCE(en_conge, 0) = 0" + orgClause
   ).get(ue_num, section, annee, ...orgP)?.total || 0;
 
   // Périodes de cours ajoutées par dédoublement = ouvertes − DP
@@ -73,22 +72,11 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
     if (ratio >= 2 && Number.isInteger(ratio)) multipleObligatoire = ratio;
   }
 
-  const min = ueAut;
-  const max = Math.round((ueAut + 0.20 * perAjoutees) * 10) / 10;
-
-  let attendu = null, ok;
-  if (multipleObligatoire) {
-    // Tous dédoublés → autonomie DOIT être ue_aut × N
-    attendu = ueAut * multipleObligatoire;
-    ok = Math.abs(autAttribuee - attendu) < 0.5;
-  } else {
-    // Doit rester dans l'intervalle [min ; max]
-    ok = autAttribuee >= min - 0.5 && autAttribuee <= max + 0.5;
-  }
+  let attendu = null;   // bornes et verdict : plus bas, après le détail par cours (règle de 3.5.680)
 
   // Détail par cours : multiple du DP atteint
   const attribParCours = db.prepare(
-    "SELECT code_cours, COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ?" + orgClause + " GROUP BY code_cours"
+    "SELECT code_cours, COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND COALESCE(en_conge, 0) = 0 AND COALESCE(contrat_mdp, 'IIP') = 'IIP'" + orgClause + " GROUP BY code_cours"
   ).all(ue_num, section, annee, ...orgP);
   const perParCours = {};
   for (const a of attribParCours) perParCours[a.code_cours] = a.per || 0;
@@ -108,24 +96,40 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
   });
   const tousMultiples = coursDetail.every(c => c.est_multiple || c.dp === 0);
 
-  // Message de conseil
+  /* LA RÈGLE DE CHARLES (3.5.680, 24 novembre 2026 : « autant de fois qu'il y a de multiples de TOUS les cours, avec au
+     maximum autant de fois qu'il y a de multiples du plus grand » ; « si deux organisations, le calcul se fait PAR
+     organisation »). Minimum = autonomie du dossier × le multiple que TOUS les cours atteignent (le cours le moins
+     dédoublé) ; maximum = autonomie × le multiple du cours le plus dédoublé. Elle remplace « + 20 % des périodes
+     ajoutées ». Pour l'UE entière (sans organisation désignée), les bornes sont la SOMME de celles de ses organisations. */
   const r2 = x => Math.round(x * 100) / 100;
+  let min, max;
+  const orgsUE = numOrg == null ? db.prepare(`SELECT DISTINCT COALESCE(NULLIF(num_organisation,0),1) AS o FROM attribution
+      WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'`).all(ue_num, section, annee).map(x => x.o) : [];
+  if (numOrg == null && orgsUE.length > 1) {
+    const parOrg = orgsUE.map(o => analyseAutonomieUE(ue_num, section, annee, ueRow, o)).filter(Boolean);
+    min = r2(parOrg.reduce((t, a) => t + a.min, 0));
+    max = r2(parOrg.reduce((t, a) => t + a.max, 0));
+  } else {
+    const mults = coursDetail.filter(c => c.dp > 0 && c.per > 0).map(c => c.est_multiple ? c.multiple : Math.max(1, Math.floor(c.ratio || 0)));
+    const mMin = Math.max(1, mults.length ? Math.min(...mults) : 1);
+    const mMax = Math.max(mMin, mults.length ? Math.max(...mults) : 1);
+    min = ueAut * mMin; max = ueAut * mMax;
+  }
+  if (multipleObligatoire) attendu = ueAut * multipleObligatoire;
+  const ok = autAttribuee >= min - 0.5 && autAttribuee <= max + 0.5;
+
+  // Message de conseil
   let etat, message;
   if (!tousMultiples) {
     etat = 'cours';
     message = `Certains cours ne sont pas un multiple de leur DP — corrigez-les d'abord (voir les ✗).`;
-  } else if (multipleObligatoire && Math.abs(autAttribuee - attendu) >= 0.5) {
-    etat = autAttribuee < attendu ? 'sous' : 'dépassement';
-    message = autAttribuee < attendu
-      ? `Tous les cours sont dédoublés ×${multipleObligatoire} : l'autonomie DOIT être ${attendu} (il manque ${r2(attendu - autAttribuee)}).`
-      : `Autonomie trop élevée : attendu ${attendu} pour un dédoublement ×${multipleObligatoire} (retirez ${r2(autAttribuee - attendu)}).`;
   } else if (autAttribuee < min - 0.5) {
     etat = 'sous';
-    message = `Il reste ${r2(min - autAttribuee)} période(s) d'autonomie à placer (minimum obligatoire : ${min}).`
-      + (max > min ? ` Vous pouvez monter jusqu'à ${max} (bonus 20% des dédoublements).` : '');
-  } else if (!multipleObligatoire && autAttribuee > max + 0.5) {
+    message = `Il reste ${r2(min - autAttribuee)} période(s) d'autonomie à placer (minimum : ${min}, l'autonomie du dossier × le multiple que tous les cours atteignent).`
+      + (max > min ? ` Vous pouvez monter jusqu'à ${max} (× le multiple du cours le plus dédoublé).` : '');
+  } else if (autAttribuee > max + 0.5) {
     etat = 'dépassement';
-    message = `Dépassement de ${r2(autAttribuee - max)} période(s) d'autonomie (maximum ${max}). Retirez de l'autonomie ou ajoutez un dédoublement de cours.`;
+    message = `Autonomie trop élevée : ${r2(autAttribuee)} pour un maximum de ${max} (× le multiple du cours le plus dédoublé) — retirez ${r2(autAttribuee - max)}.`;
   } else {
     etat = 'ok';
     message = `Autonomie correcte : ${r2(autAttribuee)} (entre ${min} et ${max}).`
@@ -143,7 +147,7 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
     attendu,
     ok,
     nb_cours: cours.length,
-    depasse_max: !multipleObligatoire && autAttribuee > max + 0.5,
+    depasse_max: autAttribuee > max + 0.5,
     cours: coursDetail,
     tous_multiples: tousMultiples,
     etat, message,
@@ -908,7 +912,9 @@ r.post('/autonomie/completer', authRequired, gesteRequis('attributions.modifier'
   if (section && (!sectionPermise(req, section) || !canAccessSection(req.user, section))) {
     return res.status(403).json({ error: 'Section hors de votre périmètre.' });
   }
-  const p = proposerAutonomie({ annee, ueNum, section, sections: sectionsDe(req), arrondi: b.arrondi });
+  // Les bornes sont celles du contrôle, organisation par organisation (3.5.680) : l'outil vise ce que le contrôle vérifie.
+  const bornes = (sec, org) => { const a = analyseAutonomieUE(ueNum, sec, annee, null, org); return a ? { min: a.min, max: a.max } : null; };
+  const p = proposerAutonomie({ annee, ueNum, section, sections: sectionsDe(req), arrondi: b.arrondi, bornes });
   if (p.erreur) return res.status(409).json({ error: p.erreur });
   if (!p.lignes.length) return res.status(404).json({ error: `Aucune ligne d'attribution pour l'UE ${ueNum} en ${annee}.` });
   if (b.simulation !== false) return res.json({ simulation: true, ...p });
@@ -1048,10 +1054,15 @@ r.get('/controle', authRequired, withSectionScope, (req, res) => {
     // Plancher : ue_autonomie × min(multiples nets entiers) ; min des paliers atteints par TOUS les cours
     const minMult = multiplesPlein.length ? Math.min(...multiplesPlein) : 1;
     const palier = Math.max(1, minMult);
-    const plancher = (ue.ue_autonomie || 0) * palier;
-    // Bonus 20% : sur les périodes de cours ajoutées au-delà des DP de base
+    let plancher = (ue.ue_autonomie || 0) * palier;
     const ajouts = Math.max(0, sommePer - sommeDP);
-    const plafond = plancher + 0.20 * ajouts;
+    /* LA RÈGLE DE 3.5.680 : les bornes sont celles de `analyseAutonomieUE` — par organisation, additionnées —, minimum
+       × le multiple que tous les cours atteignent, maximum × le multiple du plus dédoublé. Plus de bonus de 20 %. */
+    let plafond = plancher;
+    try {
+      const a = analyseAutonomieUE(ue.ue_num, section, annee, null);
+      if (a) { plancher = a.min; plafond = a.max; }
+    } catch { /* l'UE garde son plancher */ }
 
     let etat, message;
     const tousMultiples = coursControle.every(c => c.est_multiple || c.dp === 0);
@@ -1059,11 +1070,11 @@ r.get('/controle', authRequired, withSectionScope, (req, res) => {
       etat = 'cours'; message = `Certains cours ne sont pas un multiple de leur DP — corrigez-les d'abord.`;
     } else if (sommeAut < plancher) {
       etat = 'sous';
-      message = `Il reste ${r2(plancher - sommeAut)} période(s) d'autonomie à placer (minimum obligatoire : ${r2(plancher)}).`
-        + (plafond > plancher ? ` Vous pouvez monter jusqu'à ${r2(plafond)} (bonus 20% des dédoublements).` : '');
+      message = `Il reste ${r2(plancher - sommeAut)} période(s) d'autonomie à placer (minimum : ${r2(plancher)}).`
+        + (plafond > plancher ? ` Vous pouvez monter jusqu'à ${r2(plafond)} (× le multiple du cours le plus dédoublé).` : '');
     } else if (sommeAut > plafond) {
       etat = 'dépassement';
-      message = `Dépassement de ${r2(sommeAut - plafond)} période(s) d'autonomie (maximum autorisé : ${r2(plafond)}). Supprimez de l'autonomie ou ajoutez un dédoublement de cours.`;
+      message = `Dépassement de ${r2(sommeAut - plafond)} période(s) d'autonomie (maximum : ${r2(plafond)}, × le multiple du cours le plus dédoublé). Retirez de l'autonomie.`;
     } else {
       etat = 'ok';
       message = `Autonomie correcte : ${r2(sommeAut)} (entre ${r2(plancher)} et ${r2(plafond)}).`
