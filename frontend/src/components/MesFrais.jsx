@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconReceipt, IconCreditCard, IconCar, IconDeviceMobile, IconFileTypePdf, IconTrash, IconPaperclip, IconPlus, IconUser, IconLock, IconDeviceFloppy, IconPencil, IconCheck, IconX } from '@tabler/icons-react';
+import { IconReceipt, IconCreditCard, IconCar, IconDeviceMobile, IconFileTypePdf, IconTrash, IconPaperclip, IconPlus, IconUser, IconLock, IconDeviceFloppy, IconPencil, IconCheck, IconX, IconSend } from '@tabler/icons-react';
 import { EnteteCarte, Encadre, Fenetre, OutilFenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
-import { demander } from '../lib/dialogue.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 import ChampsAdresse from './ChampsAdresse.jsx';
 
 /* MES FRAIS (3.5.197, Charles : « dans l'espace finances, je dois pouvoir compléter ce genre de documents pour moi — confidentiel
@@ -34,6 +34,10 @@ export default function MesFrais() {
   const [erreur, setErreur] = useState(null);
   const [ouverte, setOuverte] = useState(null);     // id de la pièce ouverte
   const [profil, setProfil] = useState(false);
+  /* ENVOYER À LA COMPTABILITÉ (3.5.694, Charles : « envoyer les pièces que je coche par mail à la comptabilité »). */
+  const [coches, setCoches] = useState(() => new Set());
+  const [envoi, setEnvoi] = useState(false);
+  const basculer = id => setCoches(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const charger = useCallback(() => appel('GET', '').then(setD).catch(e => setErreur(e.message)), []);
   useEffect(() => { charger(); }, [charger]);
 
@@ -51,6 +55,25 @@ export default function MesFrais() {
   };
   if (!d) return <p className="text-sm text-slate-500">{erreur || 'Chargement…'}</p>;
   const p = d.pieces.find(x => x.id === ouverte);
+  const choisies = d.pieces.filter(x => coches.has(x.id));
+  const toutes = d.pieces.length > 0 && choisies.length === d.pieces.length;
+  const envoyer = async () => {
+    if (!choisies.length) return;
+    const total = choisies.filter(x => x.nature !== 'km').reduce((t, x) => t + (Number(x.montant) || 0), 0);
+    const deja = choisies.filter(x => x.envoye_le).length;
+    const sans = choisies.filter(x => x.nature !== 'km' && !x.justificatifs.length).length;
+    if (!(await demander(`Envoyer ${choisies.length} pièce${choisies.length > 1 ? 's' : ''} à la comptabilité (compta.asbl@helb-prigogine.be) ?\n\n`
+      + `Un courriel, un PDF par pièce avec ses justificatifs${total ? ` — total ${eur(total)}` : ''}.`
+      + (deja ? `\n\n⚠ ${deja} pièce${deja > 1 ? 's ont' : ' a'} déjà été envoyée${deja > 1 ? 's' : ''}.` : '')
+      + (sans ? `\n⚠ ${sans} pièce${sans > 1 ? 's n’ont' : ' n’a'} aucun justificatif joint.` : '')))) return;
+    setEnvoi(true); setErreur(null);
+    try {
+      const j = await appel('POST', '/envoyer', { ids: choisies.map(x => x.id) });
+      setCoches(new Set()); await charger();
+      informer(`✓ ${j.envoyees} pièce${j.envoyees > 1 ? 's envoyées' : ' envoyée'} à ${j.a}.${j.simule ? ' (Serveur de courriel non configuré : envoi simulé.)' : ''}`);
+    } catch (e) { setErreur(e.message); }
+    finally { setEnvoi(false); }
+  };
   return (
     <div className="space-y-4">
       <Encadre etat="neutre" icone={IconLock}>Vos pièces ne sont visibles que de vous : ni la direction adjointe, ni l’administrateur ne les lisent.</Encadre>
@@ -64,21 +87,30 @@ export default function MesFrais() {
         <button className="bouton inline-flex items-center gap-1.5" onClick={() => setProfil(true)}><IconUser size={15} />Mes coordonnées</button>
       </div>
       <section className="carte overflow-hidden">
-        <EnteteCarte icone={IconReceipt} titre="Mes pièces" sous="Une ligne ouvre la pièce ; le PDF sort au modèle de l’ASBL, signé, justificatifs à la suite." />
+        <EnteteCarte icone={IconReceipt} titre="Mes pièces" sous="Une ligne ouvre la pièce ; le PDF sort au modèle de l’ASBL, signé, justificatifs à la suite. Cochez des pièces pour les envoyer à la comptabilité.">
+          <button className="bouton bouton-sortir inline-flex items-center gap-1.5" disabled={!choisies.length || envoi} onClick={envoyer}
+            title="Un courriel à compta.asbl@helb-prigogine.be, un PDF par pièce cochée">
+            <IconSend size={15} />{envoi ? 'Envoi…' : `Envoyer à la comptabilité${choisies.length ? ` (${choisies.length})` : ''}`}
+          </button>
+        </EnteteCarte>
         <Tableau className="!border-0 !rounded-none">
-          <TableauEntete><Th>Pièce</Th><Th>Date</Th><Th>Fournisseur / période</Th><Th align="droite">Montant / km</Th><Th align="droite">Justif.</Th></TableauEntete>
+          <TableauEntete><Th style={{ width: 36 }}><input type="checkbox" checked={toutes} title="Tout cocher"
+            onChange={() => setCoches(toutes ? new Set() : new Set(d.pieces.map(x => x.id)))} /></Th><Th>Pièce</Th><Th>Date</Th><Th>Fournisseur / période</Th><Th align="droite">Montant / km</Th><Th align="droite">Justif.</Th><Th>Envoyée</Th></TableauEntete>
           <tbody>
-            {!d.pieces.length && <TableauVide colonnes={5}>Aucune pièce pour l’instant.</TableauVide>}
+            {!d.pieces.length && <TableauVide colonnes={7}>Aucune pièce pour l’instant.</TableauVide>}
             {d.pieces.map(x => {
               const N = NATURES[x.nature] || NATURES.note;
               const km = x.trajets.reduce((s, t) => s + (Number(t.km) || 0), 0);
               return (
                 <Tr key={x.id} actif={x.id === ouverte} className="cursor-pointer" onClick={() => setOuverte(x.id)}>
+                  <Td onClick={e => e.stopPropagation()}><input type="checkbox" checked={coches.has(x.id)} onChange={() => basculer(x.id)} /></Td>
                   <Td><span className="inline-flex items-center gap-1.5"><N.I size={15} className="text-slate-500" />{N.l}</span></Td>
                   <Td>{x.nature === 'km' && x.date_du ? (x.date_du === x.date_au ? jj(x.date_du) : `${jj(x.date_du)} → ${jj(x.date_au)}`) : jj(x.date)}</Td>
                   <Td>{x.nature === 'km' ? `${x.trajets.length} trajet(s)${x.periode ? ` · ${x.periode}` : ''}` : x.fournisseur || '—'}{x.periode && x.nature === 'note' ? ` · ${x.periode}` : ''}</Td>
                   <Td align="droite">{x.nature === 'km' ? `${Math.round(km * 10) / 10} km` : eur(x.montant)}</Td>
                   <Td align="droite">{x.justificatifs.length || ''}</Td>
+                  <Td>{x.envoye_le ? <span className="inline-flex items-center gap-1 text-second text-slate-600" title={`Envoyée à ${x.envoye_a || 'la comptabilité'}`}>
+                    <IconCheck size={14} style={{ color: 'var(--c-reussi)' }} />{jj(x.envoye_le)}</span> : ''}</Td>
                 </Tr>);
             })}
           </tbody>
