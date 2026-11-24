@@ -9,6 +9,7 @@
  * d'établissement) se partage au prorata des inscrits, comme dans ce rapport ; les coordinations de la section se lisent fonction par
  * fonction, part HELB comprise. Une année sans fonction encodée le dit.
  */
+import { travailSync } from './charge.js';
 import db from '../db/index.js';
 import { donneesCout, tarifs, niveauDeSection } from './coutFormation.js';
 import { getParamNum } from '../routes/parametres.js';
@@ -91,7 +92,7 @@ const DUREE_MEMO_COUT = 24 * 3600e3;
 export function coutMemo(a) {
   const m = MEMO_COUT.get(a), e = empreinte(a);
   if (m && m.e === e && Date.now() - m.t < DUREE_MEMO_COUT) return m.d;
-  const d = donneesCout(a);
+  const d = travailSync(`coûts des formations ${a}`, () => donneesCout(a));
   MEMO_COUT.set(a, { t: Date.now(), d, e });
   return d;
 }
