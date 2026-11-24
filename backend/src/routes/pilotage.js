@@ -770,7 +770,11 @@ export function syntheseCivile() {
   const result = years.map(yr => {
     const y = yr.annee_civile;
 
-    const envYear = enveloppes.filter(e => e.annee_civile === y).map(e => {
+    /* UNE ENVELOPPE N'EST ILLIMITÉE QUE SANS POT (3.5.672, Charles : « j'ai encodé la dotation AeSI pour 2026 et 2027 et
+       la jauge ne bouge pas »). AeSI était marquée « illimitée » tant que son pot n'était pas connu ; une fois des périodes
+       encodées, elle a un plafond, donc une jauge, un solde et un dépassement. */
+    const envYear = enveloppes.filter(e => e.annee_civile === y).map(e0 => {
+      const e = { ...e0, illimite: e0.illimite && !(Number(e0.periodes_b) > 0) ? 1 : 0 };
       const usage = e.usage_historique != null
         ? e.usage_historique
         : (usageEnvByAnnee[y]?.[e.code] ?? 0);
@@ -1747,7 +1751,7 @@ r.get('/ext-dot', authRequired, (req, res) => {
   for (const pot of POTS_EXT) {
     const env = db.prepare("SELECT periodes_b, illimite FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile)
               || db.prepare("SELECT periodes_b, illimite FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile - 1);
-    if (env?.illimite) { illimite[pot] = true; plafonds[pot] = Infinity; }
+    if (env?.illimite && !(Number(env.periodes_b) > 0)) { illimite[pot] = true; plafonds[pot] = Infinity; }   // 3.5.672 : un pot encodé a un plafond
     else plafonds[pot] = env?.periodes_b ?? 0;
   }
 
