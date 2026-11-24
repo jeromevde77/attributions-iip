@@ -1391,6 +1391,14 @@ export default function Attributions() {
   /* LA PASTILLE DU GROUPE, ÉCRITE UNE FOIS (24 novembre 2026, Charles : « l'arbre relié ») : elle se pose dans la colonne
      « Gr. » de la vue à plat, et dans la colonne de l'arbre de l'UE ouverte. Mêmes couleurs, même menu de lettres,
      mêmes ciseaux. */
+  /* LE BADGE D'ENVELOPPE (EXT, DOT) : dans l'arbre de l'UE ouverte, il se pose à côté de la pastille du groupe, pour laisser
+     la place au reste à droite (3.5.688, Charles) ; ailleurs, il reste devant le professeur. */
+  const badgeEnveloppe = badge => (
+    badge === 'EXT' ? <PastilleEtat etat="reussi" className="shrink-0" title="Couvert par l'enveloppe externe">EXT</PastilleEtat>
+    : badge === 'DOT' ? <PastilleEtat etat="surveiller" className="shrink-0" title="Dépasse le plafond → dotation organique">DOT</PastilleEtat>
+    : badge === 'EXT+DOT' ? <PastilleEtat etat="neutre" className="shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</PastilleEtat>
+    : null);
+
   function contenuGroupe(row, aGauche = false) {
     const estSplit  = row.split_groupe === 'O';
     const codeVal   = (row.code || '').toUpperCase();
@@ -1613,9 +1621,7 @@ export default function Attributions() {
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
                 {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-mention text-iip-blue font-bold">R</span>}
                 {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-mention px-1 py-0 rounded font-bold text-iip-texte border border-[color:var(--c-attente)]">RT</span>}
-                {badge === 'EXT' && <PastilleEtat etat="reussi" className="shrink-0" title="Couvert par l'enveloppe externe">EXT</PastilleEtat>}
-                {badge === 'DOT' && <PastilleEtat etat="surveiller" className="shrink-0" title="Dépasse le plafond → dotation organique">DOT</PastilleEtat>}
-                {badge === 'EXT+DOT' && <PastilleEtat etat="neutre" className="shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</PastilleEtat>}
+                {!arbre && badgeEnveloppe(badge)}
                 <div className="flex-1 min-w-0">{select}</div>
                 {peutEcrireAttr && (!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
                   <button onClick={e=>{e.stopPropagation(); if(recrutMenu?.rowId===row.id){setRecrutMenu(null);}else{const r=e.currentTarget.getBoundingClientRect(); ouvrirRecrut(row, {top:r.bottom+4, right:window.innerWidth-r.right});}}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
@@ -1975,7 +1981,8 @@ export default function Attributions() {
 
     const ligneGroupe = (r, niveau, suites, dernier) => renderRow(r, cols, celluleArbre({
       niveau, suites, dernier,
-      children: r.is_z ? <span className="text-mention text-gray-400 italic">Z</span> : contenuGroupe(r, true),
+      children: r.is_z ? <span className="text-mention text-gray-400 italic">Z</span>
+        : <span className="inline-flex items-center gap-1.5">{contenuGroupe(r, true)}{badgeEnveloppe(extDot[r.id])}</span>,
     }));
 
     enfants.forEach((e, i) => {
