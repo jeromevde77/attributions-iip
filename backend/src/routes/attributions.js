@@ -102,11 +102,11 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
      dédoublé) ; maximum = autonomie × le multiple du cours le plus dédoublé. Elle remplace « + 20 % des périodes
      ajoutées ». Pour l'UE entière (sans organisation désignée), les bornes sont la SOMME de celles de ses organisations. */
   const r2 = x => Math.round(x * 100) / 100;
-  let min, max;
+  let min, max, parOrg = [];
   const orgsUE = numOrg == null ? db.prepare(`SELECT DISTINCT COALESCE(NULLIF(num_organisation,0),1) AS o FROM attribution
       WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'`).all(ue_num, section, annee).map(x => x.o) : [];
   if (numOrg == null && orgsUE.length > 1) {
-    const parOrg = orgsUE.map(o => analyseAutonomieUE(ue_num, section, annee, ueRow, o)).filter(Boolean);
+    parOrg = orgsUE.map(o => analyseAutonomieUE(ue_num, section, annee, ueRow, o)).filter(Boolean);
     min = r2(parOrg.reduce((t, a) => t + a.min, 0));
     max = r2(parOrg.reduce((t, a) => t + a.max, 0));
   } else {
@@ -118,9 +118,22 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
   if (multipleObligatoire) attendu = ueAut * multipleObligatoire;
   const ok = autAttribuee >= min - 0.5 && autAttribuee <= max + 0.5;
 
+  /* UN COURS NE PEUT JAMAIS MANQUER (3.5.680, Charles : « il ne peut JAMAIS manquer un cours ! Sauf si c'est une UE en
+     EPT, ligne 95, 96… »). Dans une organisation, chaque cours du dossier (hors Z) a au moins une ligne ; une UE dont
+     l'organisation porte des lignes d'encadrement (codes 91 à 99) en est dispensée. */
+  const enEPT = !!db.prepare(`SELECT 1 FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ?
+      AND coordination_encadrement IN ('91','92','93','94','95','96','97','98','99')` + orgClause + ' LIMIT 1').get(ue_num, section, annee, ...orgP);
+  const manquants = (numOrg == null && orgsUE.length > 1)
+    ? parOrg.flatMap(a => (a.cours_manquants || []).map(c => `${c} (org. ${a.num_organisation})`))
+    : enEPT ? [] : coursDetail.filter(c => c.dp > 0 && !(c.per > 0)).map(c => c.code_cours);
+
   // Message de conseil
   let etat, message;
-  if (!tousMultiples) {
+  if (manquants.length) {
+    etat = 'cours';
+    message = `${manquants.length > 1 ? 'Les cours' : 'Le cours'} ${manquants.join(', ')} n'${manquants.length > 1 ? 'ont' : 'a'} aucune ligne`
+      + `${numOrg != null ? ` dans l'organisation ${numOrg}` : ''} : un cours ne peut jamais manquer (sauf une UE en EPT).`;
+  } else if (!tousMultiples) {
     etat = 'cours';
     message = `Certains cours ne sont pas un multiple de leur DP — corrigez-les d'abord (voir les ✗).`;
   } else if (autAttribuee < min - 0.5) {
@@ -150,6 +163,8 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
     depasse_max: autAttribuee > max + 0.5,
     cours: coursDetail,
     tous_multiples: tousMultiples,
+    cours_manquants: manquants,
+    num_organisation: numOrg,
     etat, message,
   };
 }
