@@ -2957,6 +2957,10 @@ try { planifierRetention(); } catch (e) { console.error('[retention] planificati
 // Le récapitulatif quotidien par courriel (3.1.472) : le matin, seulement si quelque chose de nouveau attend.
 import { planifierRecap, migrerRecap } from './lib/recapQuotidien.js';
 try { migrerRecap(db); planifierRecap(); } catch (e) { console.error('[recap] planification :', e.message); }
+// LE RÉCAPITULATIF DES COMPTES ÉTUDIANTS (3.5.666) : chaque matin après 7 h, une notification au secrétariat — dev comprise
+// (ce n'est pas un courriel), une fois par jour.
+import { planifierRecapSecretariat } from './lib/recapSecretariat.js';
+try { planifierRecapSecretariat(); } catch (e) { console.error('[récap secrétariat] planification :', e.message); }
 import { planifierRappels } from './lib/rappels.js';
 try { planifierRappels(); } catch (e) { console.error('[rappels] planification :', e.message); }
 // LES RAPPELS DE LA DÉLIBÉRATION (3.1.523) se calculent partout, toutes les heures (dev comprise) : ils ne font que
