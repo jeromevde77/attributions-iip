@@ -1,5 +1,5 @@
 /** (CS)
- * LES INVITATIONS TEAMS (3.5.666) — /api/teams. Réglage : la direction. Inviter : la direction et le secrétariat, quand la
+ * LES INVITATIONS TEAMS (3.5.667) — /api/teams. Réglage : la direction. Inviter : la direction et le secrétariat, quand la
  * fonction « teams.invitations » est ouverte pour leur compte (Configuration → Accès → Mise en service). Simulation d'abord.
  */
 import { Router } from 'express';

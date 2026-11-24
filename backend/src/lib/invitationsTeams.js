@@ -1,5 +1,5 @@
 /** (CS)
- * LES INVITATIONS TEAMS DES DÉLIBÉRATIONS ET DES EXAMENS (3.5.666, Charles, 24 novembre 2026 : « le système d'agenda
+ * LES INVITATIONS TEAMS DES DÉLIBÉRATIONS ET DES EXAMENS (3.5.667, Charles, 24 novembre 2026 : « le système d'agenda
  * fonctionne ; les délibérations et examens sont encodés ; est-il possible de générer une invitation Microsoft Teams sur
  * cette base, envoyée à tous les profs qui doivent y être ? » ; tranché : une VRAIE réunion Teams, créée par Microsoft Graph).
  *
