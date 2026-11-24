@@ -988,6 +988,10 @@ r.get('/ue-mention', authRequired, withSectionScope, (req, res) => {
 // Permet de re-proposer les cours du référentiel qui n'ont aucune attribution (ex. ligne supprimée).
 r.get('/cours-manquants', authRequired, withSectionScope, (req, res) => {
   const { annee, ue_num, section } = req.query;
+  /* PAR ORGANISATION (3.5.681, Charles, UE 333 : « il ne veut pas ajouter le cours 333.2 quand je clique sur + » — 333.2 avait
+     une ligne en organisation 1, pas en 2, et la liste ne regardait que l'UE entière). Un cours ne peut jamais manquer
+     dans une organisation : avec `num_organisation`, la liste est celle des cours sans ligne DANS cette organisation. */
+  const numOrg = req.query.num_organisation ? Number(req.query.num_organisation) : null;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   if (section && !sectionPermise(req, section)) {
     return res.status(403).json({ error: 'Section hors de votre périmètre.' });
@@ -1000,7 +1004,9 @@ r.get('/cours-manquants', authRequired, withSectionScope, (req, res) => {
         SELECT 1 FROM attribution a
         WHERE a.code_cours = c.cours_code AND a.annee_scolaire = c.annee_scolaire
           AND a.section = c.section AND a.ue_num = c.ue_num
-      )`;
+          ${numOrg ? 'AND COALESCE(NULLIF(a.num_organisation, 0), 1) = ' + Number(numOrg) : ''}
+      )
+      AND COALESCE(c.ct_pp, '') <> 'Z'`;
   const params = [annee];
   if (ue_num) { sql += ' AND c.ue_num = ?'; params.push(ue_num); }
   if (section) { sql += ' AND c.section = ?'; params.push(section); }
@@ -1754,6 +1760,7 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
 // Body : { annee, cours_code, ue_num, section }. Le prof = À DÉSIGNER.
 r.post('/creer-depuis-cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const { annee, cours_code, ue_num, section } = req.body;
+  const numOrg = Number(req.body.num_organisation) || 1;   // 3.5.681 : la ligne naît dans l'organisation où elle manque
   if (!annee || !cours_code || !ue_num || !section) {
     return res.status(400).json({ error: 'annee, cours_code, ue_num et section requis' });
   }
@@ -1764,9 +1771,10 @@ r.post('/creer-depuis-cours', authRequired, roleRequired('admin', 'editeur', 'co
     .get(cours_code, annee, section, ue_num);
   if (!cours) return res.status(404).json({ error: 'Cours introuvable dans le référentiel.' });
   // Ne pas créer de doublon
-  const exist = db.prepare(`SELECT COUNT(*) n FROM attribution WHERE code_cours = ? AND annee_scolaire = ? AND section = ? AND ue_num = ?`)
-    .get(cours_code, annee, section, ue_num).n;
-  if (exist > 0) return res.status(409).json({ error: 'Une attribution existe déjà pour ce cours.' });
+  const exist = db.prepare(`SELECT COUNT(*) n FROM attribution WHERE code_cours = ? AND annee_scolaire = ? AND section = ? AND ue_num = ?
+      AND COALESCE(NULLIF(num_organisation, 0), 1) = ?`)
+    .get(cours_code, annee, section, ue_num, numOrg).n;
+  if (exist > 0) return res.status(409).json({ error: `Une attribution existe déjà pour ce cours dans l'organisation ${numOrg}.` });
 
   // contrat par défaut = et_ref de l'UE
   const ue = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND section = ?').get(ue_num, annee, section);
@@ -1779,8 +1787,8 @@ r.post('/creer-depuis-cours', authRequired, roleRequired('admin', 'editeur', 'co
        ue_num, num_organisation, code_cours, type_cours, nb_groupes, split_groupe,
        cours_ept_ad, coordination_encadrement, per_etudiant_total_dp,
        periodes_attribuees, autonomie_attribuee, professeur_id, created_by, updated_by)
-    VALUES (?, ?, ?, 'x', ?, ?, 1, ?, ?, 1, 'N', 'C', 'Cours', ?, ?, 0, ?, ?, ?)
-  `).run(section, contrat, contrat, annee, ue_num, cours_code, cours.ct_pp || 'CT',
+    VALUES (?, ?, ?, 'x', ?, ?, ?, ?, ?, 1, 'N', 'C', 'Cours', ?, ?, 0, ?, ?, ?)
+  `).run(section, contrat, contrat, annee, ue_num, numOrg, cours_code, cours.ct_pp || 'CT',
          cours.cours_per || 0, cours.cours_per || 0, aDesigner?.id || null,
          req.user?.id || null, req.user?.id || null);
   res.json({ ok: true, id: info.lastInsertRowid });

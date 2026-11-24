@@ -2065,7 +2065,7 @@ export default function Attributions() {
                   className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center" style={{fontSize:'0.9rem'}}>⧉</button>
           )}
           {/* Bouton + : ajouter une ligne / un cours */}
-          {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
+          {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}${org ? `&num_organisation=${org}` : ''}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
                   className="bouton bouton-icone flex-shrink-0 ml-2 !w-7 !h-7 !px-0 justify-center font-bold">+</button>}
           {addMenuUE?.key===key && (
@@ -2083,11 +2083,11 @@ export default function Attributions() {
               {/* Cours du référentiel (DP) sans aucune ligne d'attribution — re-créables */}
               {coursManquants.length > 0 && (
                 <>
-                  <div className="bloc-etat px-3 py-1.5 text-xs font-semibold" data-etat="surveiller">Cours du DP sans ligne (à rétablir)</div>
+                  <div className="bloc-etat px-3 py-1.5 text-xs font-semibold" data-etat="surveiller">Cours du DP sans ligne{org ? ` dans l'organisation ${org}` : ''} (à rétablir)</div>
                   {coursManquants.map(cm => (
                     <button key={cm.cours_code} onClick={async ()=>{
                         try {
-                          await api.creerLigneDepuisCours(cm.cours_code, cm.ue_num, cm.section);
+                          await api.creerLigneDepuisCours(cm.cours_code, cm.ue_num, cm.section, org || 1);
                           setAddMenuUE(null);
                           load();
                         } catch(err){ informer('Erreur : ' + err.message); }
