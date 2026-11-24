@@ -104,7 +104,7 @@ try {
   // LES LIEUX FAVORIS (3.5.200, Charles : « enregistrer des lieux en favoris pour les faire calculer facilement »).
   db.exec(`CREATE TABLE IF NOT EXISTS frais_lieu (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, nom TEXT NOT NULL,
     entreprise TEXT, rue TEXT, cp TEXT, localite TEXT, raison TEXT, cree_le TEXT DEFAULT (datetime('now')))`);
-  for (const [t, c] of [['frais_profil', 'domicile TEXT'], ['frais_trajet', 'depart_type TEXT']]) {
+  for (const [t, c] of [['frais_profil', 'domicile TEXT'], ['frais_trajet', 'depart_type TEXT'], ['frais_piece', 'envoye_le TEXT'], ['frais_piece', 'envoye_a TEXT']]) {
     try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c}`); } catch { /* déjà là */ }
   }
 } catch (e) { console.error('[mes frais] migration', e.message); }
@@ -360,36 +360,84 @@ function corpsPiece(p, prof) {
     <p class="note">Relevé recevable si dûment complété, daté et conjointement signé par l’Autorité et le demandeur. Il porte sur l’année civile et doit être introduit pour le 31 janvier de l’année n+1 au plus tard.</p>`;
 }
 
+/* LA PIÈCE EN PDF, UNE FONCTION (3.5.694) : l'aperçu et l'envoi à la comptabilité composent la même chose. */
+async function pdfDePiece(p, prof) {
+  const { PDFDocument } = await import('pdf-lib');
+  let doc;
+  if (p.nature === 'carte') doc = await formulaireCarte(p, prof);
+  else {
+    const html = `<!doctype html><html><head><meta charset="utf-8">${STYLE}</head><body>${corpsPiece(p, prof)}</body></html>`;
+    doc = await PDFDocument.load(await rendrePdf(html, { pageCss: true }));
+  }
+  // Les justificatifs, à la suite : un PDF tel quel, une image sur sa page.
+  for (const j of db.prepare('SELECT * FROM frais_justificatif WHERE piece_id = ? ORDER BY id').all(p.id)) {
+    try {
+      const buf = fs.readFileSync(j.fichier);
+      if (j.mime === 'application/pdf') {
+        const src = await PDFDocument.load(buf, { ignoreEncryption: true });
+        for (const pg of await doc.copyPages(src, src.getPageIndices())) doc.addPage(pg);
+      } else {
+        const img = j.mime === 'image/png' ? await doc.embedPng(buf) : await doc.embedJpg(buf);
+        const pg = doc.addPage([595.28, 841.89]);
+        const k = Math.min(535 / img.width, 780 / img.height, 1);
+        pg.drawImage(img, { x: (595.28 - img.width * k) / 2, y: (841.89 - img.height * k) / 2, width: img.width * k, height: img.height * k });
+      }
+    } catch (x) { console.error('[mes frais] justificatif', j.id, x.message); }
+  }
+  const nom = { note: 'Note_de_frais', carte: 'Justificatif_carte_ASBL', km: 'Frais_de_parcours' }[p.nature] || 'Piece';
+  const fourn = String(p.fournisseur || p.periode || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+  return { buffer: Buffer.from(await doc.save()), nom: `${nom}_${(p.date || '').slice(0, 10)}${fourn ? `_${fourn}` : ''}_${p.id}.pdf` };
+}
+
 r.get('/piece/:id/pdf', async (req, res) => {
   const p = sienne(req, req.params.id);
   if (!p) return res.status(404).json({ error: 'Pièce introuvable.' });
-  const prof = profilDe(req.user.id);
   try {
-    const { PDFDocument } = await import('pdf-lib');
-    let doc;
-    if (p.nature === 'carte') doc = await formulaireCarte(p, prof);
-    else {
-      const html = `<!doctype html><html><head><meta charset="utf-8">${STYLE}</head><body>${corpsPiece(p, prof)}</body></html>`;
-      doc = await PDFDocument.load(await rendrePdf(html, { pageCss: true }));
-    }
-    // Les justificatifs, à la suite : un PDF tel quel, une image sur sa page.
-    for (const j of db.prepare('SELECT * FROM frais_justificatif WHERE piece_id = ? ORDER BY id').all(p.id)) {
-      try {
-        const buf = fs.readFileSync(j.fichier);
-        if (j.mime === 'application/pdf') {
-          const src = await PDFDocument.load(buf, { ignoreEncryption: true });
-          for (const pg of await doc.copyPages(src, src.getPageIndices())) doc.addPage(pg);
-        } else {
-          const img = j.mime === 'image/png' ? await doc.embedPng(buf) : await doc.embedJpg(buf);
-          const pg = doc.addPage([595.28, 841.89]);
-          const k = Math.min(535 / img.width, 780 / img.height, 1);
-          pg.drawImage(img, { x: (595.28 - img.width * k) / 2, y: (841.89 - img.height * k) / 2, width: img.width * k, height: img.height * k });
-        }
-      } catch (x) { console.error('[mes frais] justificatif', j.id, x.message); }
-    }
-    const nom = { note: 'Note_de_frais', carte: 'Justificatif_carte_ASBL', km: 'Frais_de_parcours' }[p.nature];
-    res.type('application/pdf').set('Content-Disposition', `inline; filename="${nom}_${(p.date || '').slice(0, 10)}.pdf"`).send(Buffer.from(await doc.save()));
+    const { buffer, nom } = await pdfDePiece(p, profilDe(req.user.id));
+    res.type('application/pdf').set('Content-Disposition', `inline; filename="${nom}"`).send(buffer);
   } catch (x) { res.status(503).json({ error: `La pièce n’a pas pu être composée : ${x.message}` }); }
+});
+
+/* ENVOYER À LA COMPTABILITÉ (3.5.694, Charles, 24 novembre 2026 : « envoyer les pièces que je coche par mail à la comptabilité »).
+   Un courriel, un PDF par pièce cochée (le formulaire et ses justificatifs à la suite), à l'adresse de la comptabilité de l'ASBL ;
+   chaque pièce garde la date et l'adresse de son envoi. Seules les pièces de la personne connectée partent. */
+export const COMPTA_ASBL = 'compta.asbl@helb-prigogine.be';
+const LIBELLE = { note: 'Note de frais', carte: 'Dépense Visa (carte de l’ASBL)', km: 'Frais de parcours' };
+r.post('/envoyer', async (req, res) => {
+  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean))].slice(0, 50);
+  const pieces = ids.map(id => sienne(req, id)).filter(Boolean);
+  if (!pieces.length) return res.status(400).json({ error: 'Cochez au moins une pièce.' });
+  if (pieces.length !== ids.length) return res.status(404).json({ error: 'Une pièce cochée est introuvable.' });
+  const prof = profilDe(req.user.id);
+  const sans = pieces.filter(p => p.nature !== 'km' && !db.prepare('SELECT 1 FROM frais_justificatif WHERE piece_id = ?').get(p.id));
+  let jointes;
+  try { jointes = []; for (const p of pieces) jointes.push(await pdfDePiece(p, prof)); }
+  catch (x) { return res.status(503).json({ error: `Une pièce n’a pas pu être composée : ${x.message}` }); }
+  const poids = jointes.reduce((t, j) => t + j.buffer.length, 0);
+  if (poids > 20 * 1024 * 1024) return res.status(413).json({ error: `Les pièces cochées pèsent ${Math.round(poids / 1048576)} Mo : envoyez-les en plusieurs fois (20 Mo au plus).` });
+  const nomPers = [prof.prenom, String(prof.nom || '').toUpperCase()].filter(Boolean).join(' ') || req.user.nom_complet || req.user.email;
+  const esc = t => String(t ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const lignes = pieces.map(p => `<tr><td style="padding:3px 8px">${esc(LIBELLE[p.nature] || p.nature)}</td><td style="padding:3px 8px">${jj(p.date)}</td>`
+    + `<td style="padding:3px 8px">${esc(p.fournisseur || p.periode || '')}</td><td style="padding:3px 8px">${esc(p.a_charge || '')}</td>`
+    + `<td style="padding:3px 8px;text-align:right">${p.nature === 'km' ? '' : eur(p.montant)}</td></tr>`).join('');
+  const total = pieces.filter(p => p.nature !== 'km').reduce((t, p) => t + (Number(p.montant) || 0), 0);
+  const mot = String(req.body?.mot || '').trim().slice(0, 2000);
+  const html = `<div style="font:14px Arial,sans-serif;color:#1d2a3a">
+    <p>Bonjour,</p>${mot ? `<p>${esc(mot).replace(/\n/g, '<br>')}</p>` : ''}
+    <p>Veuillez trouver ci-joint ${pieces.length > 1 ? `mes ${pieces.length} pièces` : 'ma pièce'} de frais, chacune dans son PDF avec ses justificatifs.</p>
+    <table style="border-collapse:collapse;font-size:13px"><thead><tr style="background:#EEF2F7"><th style="padding:3px 8px;text-align:left">Pièce</th>
+    <th style="padding:3px 8px;text-align:left">Date</th><th style="padding:3px 8px;text-align:left">Fournisseur / période</th>
+    <th style="padding:3px 8px;text-align:left">À charge de</th><th style="padding:3px 8px;text-align:right">Montant</th></tr></thead>
+    <tbody>${lignes}${total ? `<tr><td colspan="4" style="padding:3px 8px;text-align:right"><b>Total</b></td><td style="padding:3px 8px;text-align:right"><b>${eur(total)}</b></td></tr>` : ''}</tbody></table>
+    <p>Bien à vous,<br>${esc(nomPers)}${prof.fonction ? `<br>${esc(prof.fonction)}` : ''}</p></div>`;
+  const { envoyerEmail } = await import('../services/mailer.js');
+  const sujet = `Frais — ${nomPers} — ${pieces.length} pièce${pieces.length > 1 ? 's' : ''}${total ? ` (${eur(total)})` : ''}`;
+  const out = await envoyerEmail({ to: COMPTA_ASBL, subject: sujet, html,
+    attachments: jointes.map(j => ({ filename: j.nom, content: j.buffer, contentType: 'application/pdf' })) });
+  if (!out?.ok) return res.status(502).json({ error: `Le courriel n’est pas parti : ${out?.erreur || 'erreur du serveur de courriel'}.` });
+  const maj = db.prepare("UPDATE frais_piece SET envoye_le = datetime('now'), envoye_a = ? WHERE id = ? AND user_id = ?");
+  for (const p of pieces) maj.run(COMPTA_ASBL, p.id, req.user.id);
+  res.json({ ok: true, envoyees: pieces.length, a: COMPTA_ASBL, simule: !!out.simule, sans_justificatif: sans.length });
 });
 
 export default r;
