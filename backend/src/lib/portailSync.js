@@ -188,7 +188,9 @@ function detailResultat(etudId, ueNum, annee, resultat) {
   return v;
 }
 
-export function resultatsPublies(ids) {
+/* ASYNCHRONE (3.5.702) : des milliers d'inscriptions parcourues d'un bloc figeaient le serveur 1,6 s toutes les deux minutes ; la
+   main est rendue toutes les 150 lignes retenues, et les requêtes de la boucle se préparent une fois. */
+export async function resultatsPublies(ids) {
   const annee = anneeActive();
   const cs = colonnes('deliberation_seance');
   const ci = colonnes('etudiant_inscription');
@@ -196,12 +198,17 @@ export function resultatsPublies(ids) {
     ? 'AND (COALESCE(s.num_organisation, 0) = 0 OR s.num_organisation = COALESCE(i.num_organisation, 0))' : '';
   const voulus = new Set(ids);
   const out = [];
+  const qClose = db.prepare(`SELECT 1 FROM deliberation_seance s JOIN etudiant_inscription i ON i.etudiant_id = ? AND i.ue_num = s.ue_num
+        AND i.annee_scolaire = s.annee_scolaire WHERE s.ue_num = ? AND s.annee_scolaire = ? AND s.session = ? AND s.cloturee = 1 ${orgSql} LIMIT 1`);
+  const qRes = db.prepare('SELECT resultat, points FROM deliberation_resultat WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND session = ?');
+  let vus = 0;
   for (const l of db.prepare(`SELECT i.etudiant_id, i.annee_scolaire, i.ue_num, i.resultat, i.points,
       (SELECT ue_nom FROM ue WHERE ue_num = i.ue_num AND annee_scolaire = i.annee_scolaire LIMIT 1) ue_nom,
       EXISTS (SELECT 1 FROM deliberation_seance s WHERE s.ue_num = i.ue_num AND s.annee_scolaire = i.annee_scolaire
               AND s.cloturee = 1 ${orgSql}) AS close
     FROM etudiant_inscription i WHERE i.resultat IS NOT NULL`).all()) {
     if (!voulus.has(l.etudiant_id) || !(l.close || l.annee_scolaire < annee)) continue;
+    if (++vus % 150 === 0) await new Promise(r => setImmediate(r));
     const reussi = l.resultat === 'reussi';
     // Le détail, pour l'année active (les années reprises n'ont pas toujours leurs notes par acquis).
     const detail = l.annee_scolaire === annee && l.close ? detailResultat(l.etudiant_id, l.ue_num, l.annee_scolaire, l.resultat) : null;
@@ -210,11 +217,8 @@ export function resultatsPublies(ids) {
     // LES SESSIONS CLOSES DE L'UNITÉ, pour les colonnes S1 / S2 (3.5.370) : décision et note de chacune.
     const sessions = [];
     for (const n of [1, 2]) {
-      const close = db.prepare(`SELECT 1 FROM deliberation_seance s JOIN etudiant_inscription i ON i.etudiant_id = ? AND i.ue_num = s.ue_num
-        AND i.annee_scolaire = s.annee_scolaire WHERE s.ue_num = ? AND s.annee_scolaire = ? AND s.session = ? AND s.cloturee = 1 ${orgSql} LIMIT 1`)
-        .get(l.etudiant_id, l.ue_num, l.annee_scolaire, n);
-      const r = db.prepare('SELECT resultat, points FROM deliberation_resultat WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND session = ?')
-        .get(l.etudiant_id, l.ue_num, l.annee_scolaire, n);
+      const close = qClose.get(l.etudiant_id, l.ue_num, l.annee_scolaire, n);
+      const r = qRes.get(l.etudiant_id, l.ue_num, l.annee_scolaire, n);
       if (!r?.resultat || !(close || l.annee_scolaire < annee)) continue;
       // LA SECONDE SESSION N'EXISTE QUE POUR UN AJOURNÉ DE PREMIÈRE (3.5.380, Charles : « pas logique » — les années reprises portent
       // parfois une décision dans les deux sessions pour une unité réussie dès la première).
@@ -535,7 +539,9 @@ async function relever() {
 
 // ── DÉPOSER ────────────────────────────────────────────────────────────────
 async function deposer() {
+  const respirer = () => new Promise(r => setImmediate(r));   // 3.5.702 : la main aux requêtes entre deux calculs
   const etudiants = etudiantsVisibles();
+  await respirer();
   if (fonctionOuverte('espace.candidats')) {
     try { await codesDOffice(URL_PUBLIQUE()); } catch (e) { console.error('[portail] codes des candidats :', e.message); }
   }
@@ -546,11 +552,15 @@ async function deposer() {
       fonctions: fonctionsEspace(c.id), donnees: fonctionsDonnees(c.id) }));
   // Les données se déposent d'après `donnees` (l'aperçu de la direction compris) ; les envois, d'après les vraies fonctions.
   const avec = (f, l) => l.filter(x => x.donnees.includes(f)).map(x => x.id);
+  await respirer();
   await appel('POST', '/interne/etudiants', { etudiants, candidats });
   // Les demandes de valorisation de ceux qui sont venus ces trois dernières heures (les autres, à leur prochaine entrée).
   await deposerVA(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_connexion WHERE le >= datetime('now', '-3 hours')`).all().map(x => x.etudiant_id));
-  await appel('POST', '/interne/resultats', { resultats: resultatsPublies(avec('resultats', etudiants)) });
+  await new Promise(r => setImmediate(r));
+  await appel('POST', '/interne/resultats', { resultats: await resultatsPublies(avec('resultats', etudiants)) });
+  await new Promise(r => setImmediate(r));
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
+  await respirer();
   const lotMessages = messagesADeposer([...avec('messages', etudiants), ...avec('messages', candidats)]);
   await appel('POST', '/interne/messages', lotMessages);
   // LES DOCUMENTS JOINTS (3.5.607) : déposés une fois chacun ; le portail dit ceux qu'il a déjà.
