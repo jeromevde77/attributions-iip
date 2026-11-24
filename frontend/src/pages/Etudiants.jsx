@@ -3343,7 +3343,8 @@ export default function Etudiants() {
   const [desinscrire, setDesinscrire] = useState(null);
   const peutDesinscrire = passeRole(['admin', 'editeur']);
   useEffect(() => {
-    if (!annee) return;
+    // UNE FOIS LA LISTE ARRIVÉE (3.5.699) : avant, les frises se demandaient aussi pour la liste vide du premier rendu — deux calculs.
+    if (!annee || !etudiants?.length) return;
     let vivant = true;
     fetch(`/api/etudiants/frises?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(j => { if (vivant) setFrises(j); }).catch(() => {});

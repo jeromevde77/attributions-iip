@@ -1354,9 +1354,18 @@ r.post('/nationalites/normaliser', authRequired, roleRequired('admin', 'editeur'
   res.json({ ok: true, dossiers: n });
 });
 
+/* LES FRISES GARDÉES TANT QUE RIEN NE S'ÉCRIT (3.5.699, Charles : « certaines pages sont terriblement lentes ») : ~2 s de calcul
+   pour 700 étudiants (le moteur du PAE, étudiant par étudiant). Le serveur est seul à écrire dans la base : `total_changes()` change
+   à chaque écriture, quelle qu'elle soit — la mémoire ne survit donc à aucune modification. Par année et par périmètre. */
+const MEMO_FRISES = new Map();
 r.get('/frises', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const autorisees = perimetre(req);
+  const cleMemo = `${annee}|${autorisees ? [...autorisees].sort().join(',') : '*'}`;
+  const version = db.prepare('SELECT total_changes() n').get().n;
+  const m = MEMO_FRISES.get(cleMemo);
+  if (m && m.v === version && Date.now() - m.t < 3600e3) return res.json(m.d);
+  const envoyer = d => { if (MEMO_FRISES.size > 20) MEMO_FRISES.clear(); MEMO_FRISES.set(cleMemo, { v: version, t: Date.now(), d }); res.json(d); };
 
   // Acquis, attente et plafond viennent du moteur (faitsPAE) ; ne se lisent ici
   // en bloc que la faveur et l'année de réussite, qui ne changent pas l'état.
@@ -1460,7 +1469,7 @@ r.get('/frises', authRequired, (req, res) => {
       }).join(''), ects: [...inscrites].filter(u => aSec2.has(u)).reduce((t, u) => t + (ectsUE.get(u) || 0), 0) || null };   // le secondaire n'a pas d'ECTS : rien plutôt que « 0 »
     }
   }
-  res.json({ annee, sections, etats, secondaires });
+  envoyer({ annee, sections, etats, secondaires });
 });
 
 /* ── Coordonnées d'une sélection ──────────────────────────────────────────
