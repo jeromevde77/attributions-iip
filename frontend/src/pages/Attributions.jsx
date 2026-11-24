@@ -2135,7 +2135,9 @@ export default function Attributions() {
               if (!ctrl || !ctrl.message || ctrl.etat === 'ok') return null;
               const etatAut = { sous: 'surveiller', 'dépassement': 'corriger', cours: 'surveiller' }[ctrl.etat] || 'neutre';
               return (
-                <div className="mx-6 my-2">
+                /* Une marge (my-2) laissait voir le blanc du cadre entre l'en-tête de l'UE et le bandeau ; un
+                   remplissage garde le fond de l'UE ouverte (3.5.682, Charles : « ce moche espace blanc »). */
+                <div className="px-6 py-2">
                   <Encadre etat={etatAut}>
                     <b className="mr-1">Autonomie</b>{ctrl.message}
                     <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
