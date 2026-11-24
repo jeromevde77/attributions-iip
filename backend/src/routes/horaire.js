@@ -726,6 +726,88 @@ r.post('/recopier', authRequired, roleRequired(...EDITEURS), (req, res) => {
   res.json({ ok: true, simulation, modele: modele.length, rapport, total: aEcrire.length });
 });
 
+/* CHANGER LE COURS DE PLUSIEURS SÉANCES (Charles, 24 novembre 2026 : « dans l'horaire importé
+   d'Hyperplanning, du 19/09 au 4/12, Perez donne psychologie générale et non pédagogie générale ;
+   un moyen de changer en un coup tous les cours »). Un cours d'origine, une période, et au moins
+   un filtre de plus (professeur, classe ou section) : jamais tout l'horaire d'un cours d'un seul
+   geste. Simulation d'abord. La séance garde son id : ses présences la suivent, c'est voulu. Elle
+   devient `modifie_lucie` — un réimport ne la remet pas sur l'ancien cours. Son groupe n'est
+   gardé que s'il porte le nouveau cours (le bac compterait les heures au mauvais cours). */
+const filtreChangement = (b, req) => {
+  const an = String(b.annee || anneeDeTravail(req));
+  const de = String(b.cours_code_de || '').trim();
+  const du = String(b.du || ''), au = String(b.au || '');
+  const prof = Number(b.professeur_id) || null;
+  const classe = String(b.classe || '').trim() || null;
+  const section = String(b.section || '').trim() || null;
+  if (!de) return { erreur: 'Le cours actuel est requis.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(du) || !/^\d{4}-\d{2}-\d{2}$/.test(au) || au < du)
+    return { erreur: 'La période (du / au) est requise, la fin après le début.' };
+  if (!prof && !classe && !section) return { erreur: 'Précisez le professeur, la classe ou la section : on ne change pas tout l’horaire d’un cours d’un seul geste.' };
+  const cond = ['s.annee_scolaire = ?', 's.cours_code = ?', 's.date BETWEEN ? AND ?'];
+  const args = [an, de, du, au];
+  if (prof) { cond.push('s.professeur_id = ?'); args.push(prof); }
+  if (classe) { cond.push('s.classe = ?'); args.push(classe); }
+  if (section) { cond.push('s.section = ?'); args.push(section); }
+  return { an, de, cond: cond.join(' AND '), args };
+};
+
+// Les choix de la fenêtre : professeurs présents dans l'horaire de l'année, cours qu'un professeur
+// y porte sur la période, cours de l'année.
+r.get('/changer-cours/choix', authRequired, roleRequired(...EDITEURS), (req, res) => {
+  const an = String(req.query.annee || anneeDeTravail(req));
+  const profs = db.prepare(`SELECT DISTINCT p.id, p.nom, p.prenom FROM horaire_seance s JOIN professeur p ON p.id = s.professeur_id
+    WHERE s.annee_scolaire = ? ORDER BY p.nom, p.prenom`).all(an);
+  const prof = Number(req.query.professeur_id) || null;
+  const du = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.du || '')) ? String(req.query.du) : '0000-00-00';
+  const au = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.au || '')) ? String(req.query.au) : '9999-12-31';
+  const actuels = prof ? db.prepare(`SELECT s.cours_code, COUNT(*) AS seances, MIN(s.date) AS premiere, MAX(s.date) AS derniere,
+      COALESCE((SELECT cours_nom FROM cours c WHERE c.cours_code = s.cours_code AND c.annee_scolaire = s.annee_scolaire LIMIT 1),
+        MAX(s.matiere)) AS cours_nom
+    FROM horaire_seance s WHERE s.annee_scolaire = ? AND s.professeur_id = ? AND s.date BETWEEN ? AND ? AND s.cours_code IS NOT NULL
+    GROUP BY s.cours_code ORDER BY s.cours_code`).all(an, prof, du, au) : [];
+  const cours = db.prepare(`SELECT cours_code, MIN(cours_nom) AS cours_nom, MIN(ue_num) AS ue_num, MIN(section) AS section
+    FROM cours WHERE annee_scolaire = ? AND cours_code IS NOT NULL GROUP BY cours_code`).all(an)
+    .sort((a, b) => String(a.cours_code).localeCompare(String(b.cours_code), 'fr', { numeric: true }));
+  res.json({ annee: an, profs, actuels, cours });
+});
+
+r.post('/changer-cours', authRequired, roleRequired(...EDITEURS), (req, res) => {
+  const b = req.body || {};
+  const f = filtreChangement(b, req);
+  if (f.erreur) return res.status(400).json({ error: f.erreur });
+  const vers = String(b.cours_code_vers || '').trim();
+  if (!vers) return res.status(400).json({ error: 'Le nouveau cours est requis.' });
+  if (vers === f.de) return res.status(400).json({ error: 'Le nouveau cours est le cours actuel.' });
+  const cible = db.prepare('SELECT cours_code, ue_num, cours_nom FROM cours WHERE annee_scolaire = ? AND cours_code = ? LIMIT 1').get(f.an, vers);
+  if (!cible) return res.status(404).json({ error: `Le cours ${vers} n’existe pas en ${f.an}.` });
+  const simulation = b.simulation !== false;
+  const seances = db.prepare(`SELECT s.id, s.date, s.heure_debut, s.heure_fin, s.classe, s.section, s.annule, s.groupe_id,
+      p.nom AS prof_nom, p.prenom AS prof_prenom, s.professeur_texte,
+      (SELECT COUNT(*) FROM presence pr WHERE pr.seance_id = s.id) AS presences
+    FROM horaire_seance s LEFT JOIN professeur p ON p.id = s.professeur_id
+    WHERE ${f.cond} ORDER BY s.date, s.heure_debut`).all(...f.args);
+  const hors = seances.filter(s => !sectionPermise(req, s.section));
+  if (hors.length) return res.status(403).json({ error: `${hors.length} séance(s) d’une section hors de votre périmètre : précisez la classe ou la section.` });
+  const liste = seances.map(s => ({ id: s.id, date: s.date, heure_debut: s.heure_debut, heure_fin: s.heure_fin,
+    classe: s.classe, annule: !!s.annule, presences: s.presences,
+    professeur: [s.prof_nom, s.prof_prenom].filter(Boolean).join(' ') || s.professeur_texte || '' }));
+  const resume = { simulation, de: f.de, vers: { cours_code: cible.cours_code, cours_nom: cible.cours_nom, ue_num: cible.ue_num },
+    seances: liste, total: liste.length, presences: liste.reduce((t, s) => t + s.presences, 0) };
+  if (simulation || !liste.length) return res.json(resume);
+  const groupeDe = db.prepare('SELECT code_cours FROM groupe WHERE id = ?');
+  const maj = db.prepare(`UPDATE horaire_seance SET cours_code = ?, ue_num = ?, matiere = NULL, groupe_id = ?,
+      modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`);
+  const par = qui(req);
+  db.transaction(() => {
+    for (const s of seances) {
+      const g = s.groupe_id ? groupeDe.get(s.groupe_id) : null;
+      maj.run(cible.cours_code, cible.ue_num ?? null, g && g.code_cours === cible.cours_code ? s.groupe_id : null, par, s.id);
+    }
+  })();
+  res.json({ ...resume, simulation: false, ecrit: liste.length });
+});
+
 // Les semaines de l'année, pour choisir où recopier.
 r.get('/semaines', authRequired, (req, res) => {
   const an = req.query.annee || anneeDeTravail(req);

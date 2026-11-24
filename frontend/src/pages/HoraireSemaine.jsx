@@ -15,9 +15,11 @@
  * le serveur le garde.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronLeft, IconChevronRight, IconCopy, IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconCopy, IconReplace, IconTrash, IconUpload } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fenetre } from '../components/ui.jsx';
+import { passeRole } from '../lib/droits.js';
+import ChangerCoursSeances from '../components/ChangerCoursSeances.jsx';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 
 const H0 = 8, H1 = 21, PX = 12;                     // 12 px par quart d'heure
@@ -65,6 +67,9 @@ export default function HoraireSemaine({ consultation = false }) {
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
   const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
+  const [changerCours, setChangerCours] = useState(false);  // changer le cours de plusieurs séances (24/11/2026)
+  // La route est en roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur') : la coordination n'y passe pas.
+  const peutChangerCours = !consultation && passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur']);
   const [glisse, setGlisse] = useState(null);       // { id | groupe, d, debut, fin } pendant un geste
   const grille = useRef(null);
 
@@ -200,6 +205,11 @@ export default function HoraireSemaine({ consultation = false }) {
           <button type="button" className="bouton" disabled={!seances.length}
             onClick={() => setRecopie({ cibles: new Set(), rapport: null, enCours: false })}>
             <IconCopy size={15} /> Recopier cette semaine…
+          </button>
+        )}
+        {peutChangerCours && (
+          <button type="button" className={`bouton ${vue === 'classe' ? '' : 'ml-auto'}`} onClick={() => setChangerCours(true)}>
+            <IconReplace size={15} /> Changer le cours de plusieurs séances…
           </button>
         )}
       </div>
@@ -390,6 +400,9 @@ export default function HoraireSemaine({ consultation = false }) {
 
       {importer && <ImportHyper annee={annee} cle={cle} libelle={libelleCle} classes={classes} vueClasse={vue === 'classe'}
         onFermer={() => setImporter(false)} onFini={() => { setImporter(false); charger(); }} />}
+
+      {changerCours && <ChangerCoursSeances annee={annee} onFermer={() => setChangerCours(false)}
+        onFini={() => { setChangerCours(false); charger(); }} />}
 
       {/* LA RECOPIE */}
       {recopie && <Recopie annee={annee} cle={cle} lundi={lundi} libelle={libelleCle} etat={recopie} setEtat={setRecopie}

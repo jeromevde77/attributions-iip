@@ -15,6 +15,7 @@ import { cepDe } from './cep.js';
 import { eligibiliteStib } from './attestationStib.js';
 import { poserSpecimen } from './filigraneDocument.js';
 import { fonctionPour } from './fonctions.js';
+import { sectionDuDossier } from './sectionDossier.js';
 /** Un étudiant d'essai (Mise en service) : ses pièces portent « SPÉCIMEN — ESSAI ». */
 function etudiantDEssai(id) {
   try { return (JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'fonctions'").get()?.valeur || '{}').etudiants_essai || []).map(Number).includes(Number(id)); }
@@ -42,7 +43,18 @@ function catalogue(id, annee) {
   const parcours = !!essai(() => db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? LIMIT 1').get(id), null);
   const cep = essai(() => cepDe(id, annee), null);
   const l = [];
-  if (reussites) l.push({ cle: 'attestation_reussite', chemin: `/api/attestations/etudiant/${id}/document?annee=toutes`, nom: 'Attestations de réussite — toutes mes années' });
+  /* UNE PIÈCE PAR SECTION (3.5.666, Charles : un étudiant réorienté — optométrie puis AeSI — recevait ses deux parcours
+     dans une même pièce). Passé par plusieurs sections, il a ses attestations de chaque section à part. */
+  const secsReussies = reussites ? essai(() => [...new Set(db.prepare("SELECT ue_num, annee_scolaire FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'")
+    .all(id).map(x => sectionDuDossier(id, x.ue_num, x.annee_scolaire) || ''))].filter(Boolean), []) : [];
+  if (reussites && secsReussies.length > 1) {
+    const base = PIECES_CODEES.find(y => y.cle === 'attestation_reussite') || {};
+    for (const sec of secsReussies) {
+      const lib = essai(() => db.prepare('SELECT libelle FROM section WHERE code = ?').get(sec)?.libelle, null) || sec;
+      l.push({ cle: 'attestation_reussite', code: `${base.code}-${String(sec).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 12).toUpperCase()}`,
+        chemin: `/api/attestations/etudiant/${id}/document?annee=toutes&section=${encodeURIComponent(sec)}`, nom: `Attestations de réussite — ${lib}` });
+    }
+  } else if (reussites) l.push({ cle: 'attestation_reussite', chemin: `/api/attestations/etudiant/${id}/document?annee=toutes`, nom: 'Attestations de réussite — toutes mes années' });
   if (inscrit(annee)) {
     l.push({ cle: 'attestation_inscription', chemin: `/api/etudiants/${id}/attestation-inscription?annee=${a}` });
     l.push({ cle: 'attestation_allocations', chemin: `/api/etudiants/${id}/attestation-inscription?annee=${a}&variante=allocations` });

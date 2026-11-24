@@ -1,6 +1,7 @@
 /* (CS) LES DEMANDES DE PIÈCES DES ÉTUDIANTS (3.5.645, Charles, 22 novembre 2026 : « un étudiant peut-il faire une demande de document
    qu'il n'aurait pas ? » ; tranché : au secrétariat). L'étudiant choisit une pièce dans une liste fermée (ou « autre », avec une phrase)
-   depuis Mes documents ; le portail la note, Lucie la relève, la range ici et prévient le secrétariat au tableau de bord. Le secrétariat
+   depuis Mes documents ; le portail la note, Lucie la relève et la range ici ; le secrétariat en lit le compte dans le récapitulatif
+   du matin (3.5.666). Le secrétariat
    la produit (Éditions, fiche) puis la dit traitée, ou la refuse avec un mot ; l'étudiant lit l'état dans son espace. Rien ne sort sans
    un geste du secrétariat. */
 import db from '../db/index.js';
@@ -24,19 +25,15 @@ export function migrerDemandesPieces() {
     traite_par TEXT, traite_le TEXT, etat_envoye INTEGER NOT NULL DEFAULT 1)`);
 }
 
-/** Une demande relevée du portail : rangée une fois, le secrétariat prévenu. */
+/** Une demande relevée du portail : rangée une fois. */
 export function recevoirDemande(e, g) {
   if (!TYPES_PIECE[g.type]) return { erreur: 'Pièce inconnue : choisissez-la dans la liste.' };
   if (g.type === 'autre' && !String(g.texte || '').trim()) return { erreur: 'Dites quel document vous demandez.' };
-  const r = db.prepare(`INSERT OR IGNORE INTO piece_demande (portail_id, etudiant_id, type, texte, demande_le) VALUES (?,?,?,?, COALESCE(?, datetime('now')))`)
+  db.prepare(`INSERT OR IGNORE INTO piece_demande (portail_id, etudiant_id, type, texte, demande_le) VALUES (?,?,?,?, COALESCE(?, datetime('now')))`)
     .run(Number(g.id), e.id, g.type, String(g.texte || '').trim().slice(0, 500) || null, g.cree_le || null);
-  if (r.changes) {
-    try {
-      db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par) VALUES ('demande_piece', ?, ?, '/etudiants?outil=demandes-pieces', 'secretariat', 'Espace de l’étudiant')`)
-        .run(`Pièce demandée — ${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
-          `${TYPES_PIECE[g.type]}${g.texte ? ` : « ${String(g.texte).slice(0, 300)} »` : ''}`);
-    } catch { /* sans notification, la demande reste dans la liste */ }
-  }
+  /* PLUS DE NOTIFICATION PAR DEMANDE (3.5.666, Charles, 24 novembre 2026 : « il n'est pas nécessaire que nous recevions une
+     notif à chaque fois qu'un étudiant demande un document »). La demande reste dans l'outil des pièces demandées ; le secrétariat
+     en lit le compte, avec les autres mouvements des comptes étudiants, dans le récapitulatif du matin (lib/recapSecretariat.js). */
   return { resultat: 'Reçue : le secrétariat la traite.' };
 }
 

@@ -1111,7 +1111,11 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
      étudiant sur plusieurs années »). `annee=toutes` prend chaque année où il a
      réussi une unité, dans l'ordre ; chaque attestation reste sur sa page, et
      porte SON année. */
-  const { annees, unites } = attestationsDe(e.id, annee, req.query.ue);
+  const tout = attestationsDe(e.id, annee, req.query.ue);
+  // `section=` : le parcours d'une seule section (3.5.666) — la fiche et l'espace de l'étudiant en font une pièce par section.
+  const unites = req.query.section ? tout.unites.filter(u => (u.section || '') === String(req.query.section)) : tout.unites;
+  const annees = req.query.section ? [...new Set(unites.map(u => u._annee))] : tout.annees;
+  const toutesSections = [...new Set(tout.unites.map(u => u.section || ''))].filter(Boolean);
   if (!unites.length) {
     return res.status(404).json({ error: annee === 'toutes'
       ? 'Aucune unité réussie pour cet étudiant, toutes années confondues.'
@@ -1131,17 +1135,44 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   // `separes=1` (3.1.471) : chaque attestation aussi en pièce à part — l'envoi en fait un PDF chacune.
   const propre = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '');
-  const documents = req.query.separes ? unites.map(u => ({
-    html: envelopper(pageAttestation(e, u, u._annee, etab, req.query.date_document, ident,
-      sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`),
-    nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${String(u._annee).replace('-', '')}`,
-  })) : undefined;
+  const page = u => pageAttestation(e, u, u._annee, etab, req.query.date_document, ident, sessionDeReussite(e.id, u.ue_num, u._annee));
+  const unSeul = u => ({ html: envelopper(page(u), `Attestation — UE ${u.ue_num}`),
+    nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${String(u._annee).replace('-', '')}`, section: u.section || null });
+  /* UN PARCOURS PAR SECTION (3.5.666, Charles : Noelle YOUGUET, réorientée d'optométrie en AeSI — « son attestation AeSI
+     est jointe aux attestations de toutes les années ; cela ne va pas : autre section, elles doivent être à part ; et si
+     c'est une nouvelle section, les attestations de l'année en one to one »). Toutes les années d'un étudiant passé
+     par plusieurs sections : un document par section, et dans une section où il vient d'entrer (aucune réussite avant
+     l'année de travail, alors qu'il en a ailleurs), chaque attestation de l'année de travail part seule. */
+  const anneeTravail = anneeDeTravail(req);
+  const sections = [...new Set(unites.map(u => u.section || ''))];
+  const plusieurs = sections.length > 1;
+  let documents;
+  if (req.query.separes && !plusieurs) documents = unites.map(unSeul);
+  else if (plusieurs) {
+    documents = [];
+    for (const sec of sections) {
+      const siennes = unites.filter(u => (u.section || '') === sec);
+      const nouvelle = !siennes.some(u => u._annee < anneeTravail);
+      const seules = siennes.filter(u => req.query.separes || (nouvelle && u._annee === anneeTravail));
+      const groupees = siennes.filter(u => !seules.includes(u));
+      if (groupees.length) {
+        const lib = groupees[0].section_libelle || sec || 'sans section';
+        documents.push({ html: envelopper(groupees.map(page).join('<div class="saut"></div>'), `Attestations — ${lib} — ${e.nom} ${e.prenom || ''}`.trim()),
+          nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_${propre(sec || 'section')}_${[...new Set(groupees.map(u => u._annee))].join('_').replace(/-/g, '')}`,
+          section: sec || null });
+      }
+      for (const u of seules) documents.push(unSeul(u));
+    }
+  }
 
   res.json({
     html, documents,
     nom: `attestations_${(e.nom || '').replace(/\W/g, '_')}_${annee === 'toutes' ? 'toutes_annees' : annee}.html`,
     unites: unites.length,
     annees,
+    sections: plusieurs ? sections : undefined,
+    toutes_sections: toutesSections.length > 1 ? toutesSections.map(c => ({ code: c,
+      libelle: tout.unites.find(u => u.section === c)?.section_libelle || c })) : undefined,
     manques: unites.filter(u => u.manques.length)
       .map(u => ({ ue_num: u.ue_num, annee: u._annee, manques: u.manques })),
   });

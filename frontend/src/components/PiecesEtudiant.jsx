@@ -19,7 +19,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IconSend, IconFileText, IconFileZip, IconCertificate, IconWorld, IconBriefcase, IconAccessible } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { demander } from '../lib/dialogue.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 import SuiviEspace from './SuiviEspace.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { GroupeFenetre, PieceFenetre } from './ui.jsx';
@@ -34,7 +34,10 @@ export default function PiecesEtudiant({ etud, annee }) {
   const id = etud?.id;
   const [cep, setCep] = useState(null);
   const [dossierAR, setDossierAR] = useState(null);
-  const [modale, setModale] = useState(null);    // 'motivation' | 'annexe1' | 'annexe2'
+  const [modale, setModale] = useState(null);
+  /* LES SECTIONS DU PARCOURS (3.5.666) : passé par plusieurs sections, l'étudiant a ses attestations de chaque section à
+     part — « toutes les années » se demande alors section par section. */
+  const [sectionsAtt, setSectionsAtt] = useState(null);    // 'motivation' | 'annexe1' | 'annexe2'
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(null);
   const [envoi, setEnvoi] = useState(null);       // la pièce à envoyer : attestations, une par unité
@@ -87,6 +90,11 @@ export default function PiecesEtudiant({ etud, annee }) {
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
       if (j.manques?.length && typeof j.manques[0] === 'object') {
         setErreur(`Des mentions obligatoires manquent : ${j.manques.map(m => `UE ${m.ue_num} — ${(m.manques || []).join(', ')}`).join(' · ')}`);
+      }
+      if (cle === 'att-toutes' && j.toutes_sections?.length > 1 && !url.includes('section=')) {
+        setSectionsAtt(j.toutes_sections);
+        await informer(`Ses attestations viennent de ${j.toutes_sections.length} sections (${j.toutes_sections.map(x => x.libelle).join(', ')}) : elles sortent section par section. Choisissez la section dans la liste.`);
+        return;
       }
       const nomFichier = (j.nom ? String(j.nom).replace(/\.html$/, '') : `${typeDoc}_${nomDe(etud)}`).replace(/[^A-Za-z0-9_.-]+/g, '_');
       if (sortie === 'apercu') {
@@ -152,6 +160,10 @@ export default function PiecesEtudiant({ etud, annee }) {
         clic: () => apercu('att', `/api/attestations/etudiant/${id}/document?annee=${a}`, `Attestations de réussite — ${annee}`, 'attestation_reussite') },
       { cle: 'att-toutes', icone: IconCertificate, titre: 'Attestations de réussite — toutes les années', sous: 'Tout le parcours, en un document',
         clic: () => apercu('att-toutes', `/api/attestations/etudiant/${id}/document?annee=toutes`, 'Attestations de réussite — toutes les années', 'attestation_reussite') },
+      ...(sectionsAtt || []).map(x => ({ cle: `att-sec-${x.code}`, icone: IconCertificate, titre: `Attestations de réussite — ${x.libelle}`,
+        sous: 'Toutes les années de cette section',
+        clic: () => apercu(`att-sec-${x.code}`, `/api/attestations/etudiant/${id}/document?annee=toutes&section=${encodeURIComponent(x.code)}`,
+          `Attestations de réussite — ${x.libelle}`, 'attestation_reussite') })),
       { cle: 'envoi-att', icone: IconSend, titre: 'Envoyer les attestations — toutes les années', sous: 'Un seul courriel, un PDF par attestation', clic: envoyerToutes },
       { cle: 'pdfs', icone: IconFileZip, titre: 'Attestations de réussite — un PDF par unité', sous: 'Toutes les années, une archive', clic: archive },
       { cle: 'bulletin', icone: IconFileText, titre: 'Bulletin de parcours', sous: 'Toutes les UE, année après année, et le schéma en annexe',
