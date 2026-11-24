@@ -50,14 +50,14 @@ export async function outilsFormulaire(doc, pg) {
     },
     noircir(x, haut, cote) { noircirPdf(pg, x, haut, cote, bleu); },
     /** Une case du glyphe Wingdings (coin haut gauche du glyphe tel que le lit pdftotext, sa largeur) : le carré mesuré sur le
-       modèle — 7,92 pt dans un glyphe de 9,8, décalé de 0,95 et 1,35 pt (mesuré au 1/1200 de pouce) — rempli à 0,45 pt de son trait. */
+       modèle — 7,92 pt dans un glyphe de 9,8, décalé de 0,95 et 1,35 pt (mesuré au 1/1200 de pouce) — rempli EN ENTIER, trait compris (3.5.697, Charles : « le carré n'est pas bien rempli »). */
     cocher(x0, haut0, largeurGlyphe = 9.8) {
-      const k = largeurGlyphe / 9.8, cote = 7.92 * k, x = x0 + 0.95 * k, h = haut0 + 1.35 * k, r = 0.45;
+      const k = largeurGlyphe / 9.8, cote = 7.92 * k, x = x0 + 0.95 * k, h = haut0 + 1.35 * k, r = -0.15;
       pg.drawRectangle({ x: x + r, y: H - h - cote + r, width: cote - 2 * r, height: cote - 2 * r, color: bleu });
     },
-    /** Un carré mesuré (son coin haut gauche, son côté) rempli à 0,45 pt de son trait. */
+    /** Un carré mesuré (son coin haut gauche, son côté) rempli EN ENTIER, trait compris (3.5.697, Charles : « le carré n'est pas bien rempli »). */
     remplirCarre(x, h, cote) {
-      const r = 0.45;
+      const r = -0.15;
       pg.drawRectangle({ x: x + r, y: H - h - cote + r, width: cote - 2 * r, height: cote - 2 * r, color: bleu });
     },
     /** Un texte réparti sur des lignes de `max` points ; rend les lignes. */
