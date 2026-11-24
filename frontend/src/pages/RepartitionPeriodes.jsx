@@ -1,7 +1,9 @@
 import { Fragment, useEffect, useState } from 'react';
-import { IconAlertTriangle, IconDeviceFloppy, IconCalculator, IconCheck, IconX } from '@tabler/icons-react';
+import { IconAlertTriangle, IconDeviceFloppy, IconCalculator, IconCheck, IconX, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { EnteteCarte, PastilleEtat, Tableau } from '../components/ui.jsx';
+import AjusterRepartition from '../components/AjusterRepartition.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Répartition des périodes entre les deux années civiles d'une année académique.
@@ -30,6 +32,7 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
   const [enCours, setEnCours] = useState(false);
   const [civile, setCivile] = useState(null);
   const [deployees, setDeployees] = useState({});   // sections dépliées
+  const [ajuste, setAjuste] = useState(null);       // UE et organisation ouvertes dans « Ajuster au détail »
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -40,13 +43,27 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
       .catch(() => {});
   }, []);
 
-  async function charger() {
+  // `garderSauf` : après un ajustement au détail, on relit sans perdre ce qui est tapé dans les AUTRES UE.
+  async function charger(garderSauf = null) {
     if (!annee) return;
-    setData(null);
+    if (!garderSauf) setData(null);
     const qs = new URLSearchParams({ annee, ...(section ? { section } : {}) });
     const rep = await fetch(`/api/repartition?${qs}`, { headers: authHeaders() });
     setData(rep.ok ? await rep.json() : { ues: [], anomalies: [] });
-    setModifs({});
+    setModifs(m => garderSauf
+      ? Object.fromEntries(Object.entries(m).filter(([k]) => !k.startsWith(garderSauf)))
+      : {});
+  }
+
+  /* AJUSTER AU DÉTAIL (24 novembre 2026, Charles) : la fenêtre part des chiffres ENREGISTRÉS ou proposés. Ce qui est
+     tapé dans le tableau pour cette UE et pas encore enregistré serait remplacé : on le dit avant d'ouvrir. */
+  async function ouvrirAjuster(u) {
+    const prefixe = `${u.ue_num}|${u.num_organisation || 1}|`;
+    if (Object.keys(modifs).some(k => k.startsWith(prefixe)) && !(await demander({
+      message: `Des chiffres tapés pour l’UE ${u.ue_num} ne sont pas enregistrés. La fenêtre part des chiffres enregistrés : `
+        + 'les vôtres seront remplacés si vous enregistrez l’ajustement.\n\nOuvrir quand même ?',
+    }))) return;
+    setAjuste(u);
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee, section]);
 
@@ -326,13 +343,25 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
                     {ouverte && uesSection.map(u => (
                       <UeBloc key={`${u.ue_num}-${u.num_organisation}`} u={u}
                         val={val} editer={editer} modifs={modifs} cle={cle}
-                        onAppliquerDates={() => appliquerDates(u)} />
+                        onAppliquerDates={() => appliquerDates(u)}
+                        onAjuster={() => ouvrirAjuster(u)} />
                     ))}
                   </Fragment>
                 );
               })}
             </tbody>
         </Tableau>
+      )}
+
+      {ajuste && (
+        <AjusterRepartition u={ajuste} annee={annee} anneesCiviles={data?.annees_civiles}
+          onFermer={() => setAjuste(null)}
+          onEnregistre={async j => {
+            const prefixe = `${ajuste.ue_num}|${ajuste.num_organisation || 1}|`;
+            setAjuste(null);
+            await charger(prefixe);
+            setMessage({ type: 'ok', texte: `UE ${ajuste.ue_num} ajustée au détail : ${j.enregistrees} ligne(s) enregistrée(s).` });
+          }} />
       )}
 
       <p className="text-xs text-slate-500">
@@ -345,7 +374,7 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
   );
 }
 
-function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
+function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates, onAjuster }) {
   const fr = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—';
   const champ = (l, nom, teinte, montrerGroupes) => {
     const modifie = modifs[cle(u, l)]?.[nom] !== undefined;
@@ -407,6 +436,13 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
               title="Répartir selon les dates réelles de l'organisation"
               className="ml-2 inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/10">
               <IconCalculator size={11} /> dates : {Math.round(u.part_dates * 100)} %
+            </button>
+          )}
+          {u.lignes.length > 0 && (
+            <button onClick={onAjuster}
+              title="Une jauge par cours pour déplacer le réel entre les deux années civiles, avec le repère de l'horaire"
+              className="ml-2 inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-iip-blue text-iip-blue hover:bg-iip-blue/10">
+              <IconAdjustmentsHorizontal size={11} /> Ajuster au détail
             </button>
           )}
         </td>
