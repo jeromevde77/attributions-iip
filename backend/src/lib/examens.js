@@ -159,6 +159,8 @@ export const PIECES = [
   { id: 'archivage', libelle: 'Feuille d’archivage et étiquette' },
   { id: 'garde', libelle: 'Pages de garde nominatives' },
   { id: 'recap', libelle: 'Calendrier récapitulatif (une ligne par épreuve)' },
+  // AUX VALVES (3.5.709, AEVALIOTIS Mati : « le récapitulatif des horaires d'examens avec les locaux, à afficher pour les étudiants »).
+  { id: 'valves', libelle: 'Affiche aux valves (pour les étudiants)', aide: 'Par section et par jour : l’heure, le bloc, l’UE et l’épreuve, le local. Ni noms, ni aménagements.' },
 ];
 const DANS_ENVELOPPE = ['fiche', 'ar', 'registre', 'plan', 'incident'];
 
@@ -355,8 +357,32 @@ function recap(liste) {
       <td>${esc(e.professeurs)}</td><td>${esc(e.surveillants)}</td><td class="c">${e.etudiants.length}</td><td class="c">${e.ar.length || ''}</td><td class="c">${e.etudiants.length + Number(e.copies_reserve || 0)}</td></tr>`).join('')}</tbody></table>`;
 }
 
+/* L'AFFICHE AUX VALVES : une page par section, les épreuves jour par jour, en grand — ce qu'un étudiant cherche devant le panneau. */
+function valves(liste) {
+  const parSection = new Map();
+  for (const e of liste) { const k = e.section || 'Autres'; if (!parSection.has(k)) parSection.set(k, []); parSection.get(k).push(e); }
+  return [...parSection.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr')).map(([sec, l], i) => {
+    const parJour = new Map();
+    for (const e of l) { const k = String(e.date).slice(0, 10); if (!parJour.has(k)) parJour.set(k, []); parJour.get(k).push(e); }
+    const s2 = l[0]?.session === 2;
+    return `<div class="valves"${i ? ' style="break-before:page;page-break-before:always"' : ''}>
+      <h2 class="valves-titre">Examens — ${esc(sec)}</h2>
+      <p class="valves-sous">${s2 ? 'Seconde session' : 'Première session'} · ${esc(l[0]?.annee || '')}</p>
+      ${[...parJour.entries()].map(([j, es]) => `<h3 class="valves-jour">${esc(jourLong(j))}</h3>
+        <table class="grille valves-t"><thead><tr><th style="width:24mm">Heure</th><th style="width:14mm">Bloc</th><th>Unité et épreuve</th><th style="width:42mm">Local</th></tr></thead>
+        <tbody>${es.map(e => `<tr><td><b>${esc(horaire(e))}</b></td><td>${esc(e.niveau || '')}</td>
+          <td><b>UE ${e.ue_num}</b> — ${esc(e.ue_nom || '')}${e.cours_code ? `<br><span class="valves-cours">${esc(e.cours_code)} — ${esc(e.cours_nom || '')}</span>` : ''}${e.type === 'oral' ? ' <i>(oral)</i>' : ''}</td>
+          <td><b>${esc(e.local || 'à préciser')}</b>${e.adresse ? `<br><span class="valves-cours">${esc(e.adresse)}</span>` : ''}</td></tr>`).join('')}</tbody></table>`).join('')}
+    </div>`;
+  }).join('');
+}
+
 const COMPOSE = { fiche, registre, plan, ar: listeAR, incident, archivage, garde };
 export const STYLES_EXAMENS = `
+  .valves-titre { font-size: 18pt; } .valves-sous { font-size: 10pt; color: #555; margin: -2mm 0 3mm; }
+  .valves-jour { font-size: 12pt; text-transform: capitalize; border-bottom: 0.3mm solid #C9A84C; padding-bottom: 1mm; margin-top: 5mm; }
+  table.valves-t td { font-size: 10.5pt; height: auto; padding: 1.8mm 2mm; } .valves-cours { font-size: 9pt; color: #444; }
+  table.valves-t, .valves-t tr { break-inside: avoid; }
   h2 { font-size: 13pt; color: #16406A; margin: 0 0 3mm; }
   h3 { font-size: 10pt; color: #16406A; margin: 4mm 0 1.5mm; }
   table { border-collapse: collapse; width: 100%; }
@@ -394,6 +420,7 @@ export function composer(liste, pieces) {
   const choix = pieces.includes('enveloppe') ? DANS_ENVELOPPE : pieces.filter(p => COMPOSE[p]);
   const blocs = [];
   if (pieces.includes('recap')) blocs.push(recap(liste));
+  if (pieces.includes('valves')) blocs.push(valves(liste));
   for (const e of liste) {
     for (const p of choix) {
       if (p === 'ar' && pieces.includes('enveloppe') && !e.ar.length) continue;   // pas de feuille vide dans l'enveloppe

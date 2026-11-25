@@ -1,7 +1,8 @@
 import ChampsAdresse, { ChoixPays } from './ChampsAdresse.jsx';
 import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
-import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck, IconX, IconId, IconBuildingBank } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck, IconX, IconId, IconBuildingBank, IconSchool } from '@tabler/icons-react';
+import { demander } from '../lib/dialogue.jsx';
 import { eidReadAll, eidToProf } from '../lib/eid.js';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
@@ -132,6 +133,40 @@ function CarteEtCompte({ val, modifs, poser, peut }) {
     </div>);
 }
 
+/* LA SECTION SUR LA FICHE (3.5.709, AEVALIOTIS Mati : « ajouter la section dans la fiche signalétique de l'étudiant »). La section
+   de rattachement se lit ici, et se change par la porte qui existait (le cursus repris, POST /:id/cursus/reprendre : signé et daté). */
+function SectionEtudiant({ e, etudId, onFait }) {
+  const droits = useDroits();
+  const peut = droits.passe('admin', 'editeur');
+  const [sections, setSections] = useState([]);
+  const [choix, setChoix] = useState('');
+  const [msg, setMsg] = useState(null);
+  useEffect(() => { if (peut) fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setSections(Array.isArray(l) ? l : [])).catch(() => {}); }, [peut]);
+  async function changer() {
+    if (!choix || choix === e.section_rattachement) return;
+    if (!(await demander(`Rattacher ${String(e.nom || '').toUpperCase()} ${e.prenom || ''} à la section ${choix} ?\n\nSes inscriptions de l'année dans l'ancienne section restent ; elles se retirent, si besoin, depuis son parcours.`))) return;
+    const r = await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee: getAnnee(), section: choix }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setMsg(j.error || 'Refusé.'); return; }
+    setMsg(null); setChoix(''); onFait?.();
+  }
+  return (
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconSchool} titre="Section" sous={e.rattachement_le ? `Posée par ${e.rattachement_par || '—'} le ${String(e.rattachement_le).slice(0, 10).split('-').reverse().join('/')}` : null} />
+      <div className="p-3 flex flex-wrap items-center gap-3 text-sm">
+        <span className="font-semibold">{e.section_rattachement || <span className="text-slate-400 font-normal">aucune section posée (déduite de ses unités)</span>}</span>
+        {peut && (<>
+          <select className="controle" value={choix} onChange={ev => setChoix(ev.target.value)}>
+            <option value="">— changer de section —</option>
+            {sections.map(x => <option key={x.code} value={x.code}>{x.code}{x.libelle && x.libelle !== x.code ? ` — ${x.libelle}` : ''}</option>)}
+          </select>
+          <button type="button" className="bouton" disabled={!choix || choix === e.section_rattachement} onClick={changer}>Rattacher</button>
+        </>)}
+        {msg && <span style={{ color: 'var(--c-refuse)' }}>{msg}</span>}
+      </div>
+    </section>);
+}
+
 export default function IdentiteEtudiant({ etudId, onModifie }) {
   const droits = useDroits();
   const [e, setE] = useState(null);
@@ -195,6 +230,8 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
           <button onClick={() => setMessage(null)} className="opacity-60" title="Fermer"><IconX size={14} /></button>
         </div>
       )}
+
+      <SectionEtudiant e={e} etudId={etudId} onFait={async () => { await charger(); onModifie && onModifie(); }} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {CHAMPS.map(c => c.type === 'adresse' ? (

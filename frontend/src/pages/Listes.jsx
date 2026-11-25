@@ -489,7 +489,7 @@ async function mettreEnPage(rows, cols, titre, annee, mention, parGroupe = false
     headers: { 'Content-Type': 'application/json',
       Authorization: `Bearer ${localStorage.getItem('token')}` },
     body: JSON.stringify({ titre, annee, mention, colonnes: entetes,
-      ...(parGroupe ? { pages: pagesParGroupe(rows, cols) } : { lignes }) }),
+      ...(Array.isArray(parGroupe) ? { pages: parGroupe } : parGroupe ? { pages: pagesParGroupe(rows, cols) } : { lignes }) }),
   });
   const j = await mise.json();
   if (!mise.ok) throw new Error(j.error || 'Mise en page impossible');
@@ -520,6 +520,31 @@ function groupesEnColonnes(rows, cols) {
   });
   return { rows: rows2, cols: [...base, ...colsG.map(({ key, label }) => ({ key, label }))] };
 }
+
+/* UN COURS PAR ONGLET (3.5.709, AEVALIOTIS Mati : « choisir la section, et avoir un onglet par cours, pour ne photocopier que la liste
+   dont j'ai besoin »). Pour une UE choisie sans cours : la liste de chaque cours, chacune sur son onglet d'Excel et sa page de PDF. */
+async function listesParCours(def, annee, filtres, coursList) {
+  const out = [];
+  for (const c of coursList) {
+    const rows = await def.fetch(annee, { ...filtres, cours_code: c.cours_code, groupe: '', par_groupe: false });
+    out.push({ cours: c, rows: Array.isArray(rows) ? rows : [] });
+  }
+  return out;
+}
+async function excelParCours(lots, cols, nom) {
+  const XLSX = await import('xlsx');
+  const wb = XLSX.utils.book_new();
+  const pris = new Set();
+  for (const { cours, rows } of lots) {
+    const data = [[`${cours.cours_code} — ${cours.cours_nom || ''}`], [], cols.map(c => c.label), ...rows.map(r => cols.map(c => r[c.key] ?? ''))];
+    let n = String(cours.cours_code || 'Cours').replace(/[\\/?*[\]:]/g, '-').slice(0, 31); let k = 2;
+    while (pris.has(n)) n = `${n.slice(0, 28)}-${k++}`; pris.add(n);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), n);
+  }
+  XLSX.writeFile(wb, `${nom}_par_cours.xlsx`);
+}
+const pagesParCours = (lots, cols) => lots.map(({ cours, rows }) => ({ titre: `${cours.cours_code} — ${cours.cours_nom || ''}`,
+  lignes: rows.map(r => cols.map(c => { const v = r[c.key]; return v == null ? '' : v; })) }));
 
 /** UNE PAGE PAR GROUPE : un étudiant de deux groupes paraît sur les deux feuilles. */
 function pagesParGroupe(rows, cols) {
@@ -1558,6 +1583,7 @@ ${methodologie}
   // Les groupes en colonnes (3.5.705) : ce qui sort (impression, envoi, CSV, Excel) porte une colonne cochée par groupe.
   const enColonnes = avecGroupes && filtres.par_groupe === 'colonnes' && Array.isArray(rows) && rows.length > 0;
   const sortie = enColonnes ? groupesEnColonnes(rows, colsVisibles) : { rows, cols: colsVisibles };
+  const parCours = !!(def?.filtres?.includes('cours_code') && filtres.ue_num && !filtres.cours_code && filtres.par_cours && coursList.length > 1);
   const nomFichier = `lucie_${entite}_${annee}`;
 
   // Injecte l'orientation choisie + le titre du document dans le HTML du rapport
@@ -1753,6 +1779,12 @@ ${methodologie}
                 : <span className="text-second text-slate-400 italic">choisissez d'abord une UE</span>}
             </label>
           )}
+          {def.filtres.includes('cours_code') && filtres.ue_num && !filtres.cours_code && coursList.length > 1 && (
+            <label className="flex items-center gap-2 text-sm text-slate-600" title="Excel : un onglet par cours ; PDF et envoi : une page par cours">
+              <input type="checkbox" checked={!!filtres.par_cours} onChange={e => setFiltres(f => ({ ...f, par_cours: e.target.checked }))} />
+              Un onglet par cours
+            </label>
+          )}
           {def.filtres.includes('groupe') && filtres.cours_code && (
             <>
               <label className="flex items-center gap-2">
@@ -1934,6 +1966,8 @@ ${methodologie}
                 on imprime tous les jours, on exporte quelques fois par an. */}
             <button onClick={async () => {
                 try {
+                  if (parCours) { const lots = await listesParCours(def, annee, filtres, coursList);
+                    await imprimerListe(sortie.rows, colsVisibles, def.label, annee, def.aide || null, pagesParCours(lots, colsVisibles)); return; }
                   await imprimerListe(sortie.rows, sortie.cols, def.label, annee, def.aide || null, parGroupe);
                 } catch (e) { setError(e.message); }
               }}
@@ -1947,7 +1981,9 @@ ${methodologie}
                 diverger, et c'est celle qu'on n'a pas relue qui partirait. */}
             {peutGeste('envois.envoyer') && <button onClick={async () => {
                 try {
-                  const html = await mettreEnPage(sortie.rows, sortie.cols, def.label, annee, def.aide || null, parGroupe);
+                  const html = parCours
+                    ? await mettreEnPage(sortie.rows, colsVisibles, def.label, annee, def.aide || null, pagesParCours(await listesParCours(def, annee, filtres, coursList), colsVisibles))
+                    : await mettreEnPage(sortie.rows, sortie.cols, def.label, annee, def.aide || null, parGroupe);
                   setEnvoi([{ html, nom_fichier: `${nomFichier}.pdf` }]);
                 } catch (e) { setError(e.message); }
               }}
@@ -1959,7 +1995,8 @@ ${methodologie}
               className="bouton flex items-center gap-1.5">
               <IconDownload size={16} /> CSV
             </button>
-            <button onClick={() => exportExcel(sortie.rows, sortie.cols, nomFichier)} disabled={rows.length === 0}
+            <button onClick={async () => { if (parCours) { try { await excelParCours(await listesParCours(def, annee, filtres, coursList), colsVisibles, nomFichier); } catch (e) { setError(e.message); } return; }
+                exportExcel(sortie.rows, sortie.cols, nomFichier); }} disabled={rows.length === 0}
               className="bouton flex items-center gap-1.5">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
