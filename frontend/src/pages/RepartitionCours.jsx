@@ -101,13 +101,22 @@ async function importerGroupesHoraire(fichier, annee) {
   try {
     const XLSX = await import('xlsx');
     const brut = await fichier.arrayBuffer();
-    const wb = /\.csv$/i.test(fichier.name)
-      ? XLSX.read(new TextDecoder('utf-8').decode(brut), { type: 'string', FS: ';' })
-      : XLSX.read(brut, { type: 'array' });
+    const debut = new TextDecoder('latin1').decode(brut.slice(0, 5));
+    if (debut.startsWith('%PDF')) throw new Error(`« ${fichier.name} » est un PDF (même si son nom finit par .xlsx) : Lucie ne lit pas un PDF. Déposez le fichier CSV ou Excel à quatre colonnes Nom · Prénom · UE · Groupe.`);
+    let wb;
+    if (/\.(csv|txt)$/i.test(fichier.name)) {
+      // Un CSV d'Excel peut être en Windows-1252 et séparé par « ; », « , » ou une tabulation : on regarde la première ligne.
+      let t = new TextDecoder('utf-8').decode(brut);
+      if (t.includes('\uFFFD')) t = new TextDecoder('windows-1252').decode(brut);
+      t = t.replace(/^\uFEFF/, '');
+      const l1 = t.split(/\r?\n/)[0] || '';
+      const FS = [';', '\t', ','].sort((a, b) => l1.split(b).length - l1.split(a).length)[0];
+      wb = XLSX.read(t, { type: 'string', FS });
+    } else wb = XLSX.read(brut, { type: 'array' });
     const M = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
     const n = v => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
     const iEnt = M.findIndex(r => r.some(c => n(c) === 'nom') && r.some(c => n(c).startsWith('groupe')));
-    if (iEnt < 0) throw new Error('Colonnes attendues : Nom, Prénom, UE, Groupe.');
+    if (iEnt < 0) throw new Error(`Dans « ${fichier.name} », je ne trouve pas la ligne d'en-tête Nom · Prénom · UE · Groupe.`);
     const ent = M[iEnt].map(n);
     const col = t => ent.findIndex(c => c === t || c.startsWith(t));
     const [cN, cP, cU, cG] = [col('nom'), col('prenom'), col('ue'), col('groupe')];
