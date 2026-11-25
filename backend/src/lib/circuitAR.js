@@ -58,13 +58,34 @@ export function migrerCircuitAR() {
   try {
     // 3.5.721 (mémo de la direction) : « bouchon d'oreille / dispositif anti-bruit ; l'étudiant doit démontrer que le dispositif
     // n'est pas équipé de connectivité ».
-    const APRES = 'Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)';
+    // 3.5.722 (Charles) : « dispositif anti-bruit passif non connectable (bouchons, casque, etc.) ».
+    const APRES = 'Dispositif anti-bruit passif non connectable (bouchons, casque, etc.)';
     for (const AVANT of ['Port d’un casque anti-bruit lors des évaluations ou de certains exercices',
-      'Port d’un casque anti-bruit passif, non connecté (sans Bluetooth ni fil), lors des évaluations ou de certains exercices']) {
+      'Port d’un casque anti-bruit passif, non connecté (sans Bluetooth ni fil), lors des évaluations ou de certains exercices',
+      'Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)']) {
       db.prepare("UPDATE parametre SET valeur = REPLACE(valeur, ?, ?) WHERE cle = 'ar_catalogue' AND instr(valeur, ?) > 0").run(AVANT, APRES, AVANT);
       db.prepare('UPDATE amenagement_mesure SET libelle = ? WHERE libelle = ?').run(APRES, AVANT);
     }
+    // Le code suit le libellé : une mesure du catalogue se reconnaît par lui (slug).
+    db.prepare("UPDATE amenagement_mesure SET code = ? WHERE libelle = ? AND code <> ?").run(slug(APRES), APRES, slug(APRES));
   } catch (e) { console.error('[AR] casque', e.message); }
+  /* LES FEUILLES DE BROUILLON ENTRENT AU CATALOGUE (3.5.722, Charles) : trois dossiers les portaient en « Autre ». Les feuilles
+     nominatives à QR sortent dans l'enveloppe d'examen (lib/examens.js). */
+  try {
+    const BR = 'Utilisation de feuilles de brouillon lors des évaluations';
+    const v = db.prepare("SELECT valeur FROM parametre WHERE cle = 'ar_catalogue'").get()?.valeur;
+    if (v && !v.includes(BR)) {
+      const lignes = v.split(/\r?\n/);
+      const i = lignes.findIndex(l => /anti-bruit/i.test(l));
+      const j = i >= 0 ? i + 1 : Math.max(1, lignes.findIndex(l => /^#/.test(l.trim()) && l.trim() !== lignes[0].trim()));
+      lignes.splice(j > 0 ? j : lignes.length, 0, `M · ${BR}`);
+      db.prepare("UPDATE parametre SET valeur = ? WHERE cle = 'ar_catalogue'").run(lignes.join('\n'));
+    }
+    db.prepare(`UPDATE amenagement_mesure SET libelle = ?, code = ?, nature = 'materiel',
+        precisions = CASE WHEN lower(COALESCE(precisions, '')) LIKE '%brouillon%' THEN NULL ELSE precisions END
+      WHERE (lower(libelle) LIKE '%brouillon%' AND libelle <> ?) OR (code = 'AUTRE' AND lower(COALESCE(precisions, '')) LIKE '%brouillon%')`)
+      .run(BR, slug(BR), BR);
+  } catch (e) { console.error('[AR] brouillon', e.message); }
 }
 
 /* LE CATALOGUE, RANGÉ PAR MOMENT, RÉGLABLE PAR LA DIRECTION. Une ligne par
@@ -82,7 +103,8 @@ const CATALOGUE_DEFAUT = [
   'P · Pauses aménagées durant les épreuves',
   'M · Questionnaire adapté (police aérée, interligne 1,5, recto seul)',
   'P · Calendrier d’examens aménagé',
-  'M · Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)',
+  'M · Dispositif anti-bruit passif non connectable (bouchons, casque, etc.)',
+  'M · Utilisation de feuilles de brouillon lors des évaluations',
   'P · Tolérance pour la syntaxe et l’orthographe',
   'P · Consignes lues ou reformulées oralement',
   'M · Usage d’un ordinateur (correcteur, synthèse vocale) pendant les évaluations',
