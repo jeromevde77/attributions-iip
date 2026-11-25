@@ -672,7 +672,11 @@ async function etape(nom, fn) {
   catch (e) { console.error(`[portail] ${nom} :`, e.message); noterEtape(nom, debut, e.stack || e.message); return null; }
 }
 /** Le prochain passage (dans les dix secondes) dépose tout : après un geste de l'école que le portail doit voir vite. */
-export const deposerBientot = () => { tours = 0; };
+export const deposerBientot = () => { if (versFil) { versFil('bientot').catch(() => { tours = 0; }); return; } tours = 0; };
+/* LE SECOND FIL (3.5.704, lib/portailFil.js) : dans Lucie, `versFil` transmet au fil du portail les gestes qui touchent au relevé et
+   aux dépôts ; dans le fil lui-même, il reste nul et le geste se fait sur place. */
+let versFil = null;
+export function brancherFil(f) { versFil = f; }
 export async function passerPortail() {
   if (!portailActif() || enCours) return;
   enCours = true;
@@ -816,6 +820,7 @@ export function retirerException(etudiantId, par) {
 
 /** L'APERÇU DE L'ESPACE ENSEIGNANT (3.5.084) : comme celui de l'étudiant — tracé, déposé aussitôt, puis un lien d'une minute. */
 export async function ouvrirApercuEnseignant(profId, par) {
+  if (versFil) return versFil('ouvrirApercuEnseignant', [profId, par]);
   if (!portailActif()) return { erreur: 'Le portail n’est pas configuré sur ce serveur.' };
   const { migrerApercuEnseignant, identifiantEspace } = await import('./portailEnseignants.js');
   migrerApercuEnseignant();
@@ -848,6 +853,7 @@ export async function ouvrirApercuEnseignant(profId, par) {
  *  tester ou vérifier ») : le portail fabrique un lien d'une minute, à usage unique, qui ouvre l'espace en lecture seule.
  *  Chaque aperçu se trace ici (qui, quel étudiant, quand). */
 export async function ouvrirApercu(etudiantId, par) {
+  if (versFil) return versFil('ouvrirApercu', [etudiantId, par]);
   if (!portailActif()) return { erreur: 'Le portail des étudiants n’est pas configuré sur ce serveur.' };
   db.exec(`CREATE TABLE IF NOT EXISTS portail_apercu (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);

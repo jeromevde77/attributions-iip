@@ -3134,9 +3134,11 @@ app.use('/api/messages-etudiants', express.json({ limit: '30mb' }));   // docume
 app.use('/api/mes-frais', express.json({ limit: '16mb' }));        // justificatifs de Mes frais (3.5.197)
 app.use('/api/mes-cours/supports', express.json({ limit: '25mb' }));   // supports de cours (3.5.211) : 15 Mo en base64
 lancerSonde();
-app.get('/api/diagnostic/lenteurs', compteRequis, (req, res) => {
+app.get('/api/diagnostic/lenteurs', compteRequis, async (req, res) => {
   if (!['admin', 'directeur'].includes(req.user?.role)) return res.status(404).json({ error: 'Introuvable.' });
-  res.json({ ...etatCharge(), requetes: requetesLentes(), depuis: DEMARRE_CHARGE });
+  let fil = null;
+  try { const { filActif, versLeFil } = await import('./lib/portailFil.js'); if (filActif()) fil = await versLeFil('etatCharge', [], 5000); } catch { fil = null; }
+  res.json({ ...etatCharge(), requetes: requetesLentes(), depuis: DEMARRE_CHARGE, fil_portail: fil });
 });
 app.use(mesurerRequetes);   // 3.5.700 : les requêtes de plus de 800 ms, relevées (lib/charge.js)
 app.use(express.json({ limit: '5mb' }));
@@ -3228,7 +3230,7 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
 // etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
 {
-  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot, ouvrirApercu, ouvrirApercuEnseignant } = await import('./lib/portailSync.js');
+  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot, ouvrirApercu, ouvrirApercuEnseignant, portailActif } = await import('./lib/portailSync.js');
   const { authRequired: exigerCompte, roleRequired: exigerRole } = await import('./middleware/auth.js');
   const { nomEcranDuCompte } = await import('./lib/nom.js');
   const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
@@ -3292,7 +3294,14 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
   });
   app.delete('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'),
     (req, res) => res.json(retirerException(Number(req.params.id), qui(req))));
-  try { planifierPortail(); } catch (e) { console.error('[portail] planification :', e.message); }
+  /* LE PORTAIL DANS UN SECOND FIL (3.5.704) : relevé et dépôts ne figent plus Lucie. LUCIE_PORTAIL_FIL=non les garde ici. */
+  try {
+    if (portailActif() && process.env.LUCIE_PORTAIL_FIL !== 'non') {
+      const { demarrerFilPortail, versLeFil } = await import('./lib/portailFil.js');
+      const { brancherFil } = await import('./lib/portailSync.js');
+      if (demarrerFilPortail(() => { brancherFil(null); planifierPortail(); })) brancherFil(versLeFil);
+    } else planifierPortail();
+  } catch (e) { console.error('[portail] planification :', e.message); }
 }
 // LA PRÉSENCE PAR QR (28 octobre 2026) : publique, l'étudiant n'a pas de compte ;
 // son appareil appairé l'identifie (lib/presenceQr.js).

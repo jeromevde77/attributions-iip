@@ -1362,7 +1362,8 @@ r.get('/frises', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const autorisees = perimetre(req);
   const cleMemo = `${annee}|${autorisees ? [...autorisees].sort().join(',') : '*'}`;
-  const version = db.prepare('SELECT total_changes() n').get().n;
+  // Les écritures de Lucie (total_changes) ET celles du second fil du portail (data_version : les autres connexions) — 3.5.704.
+  const version = `${db.prepare('SELECT total_changes() n').get().n}|${db.prepare('PRAGMA data_version').get()?.data_version ?? ''}`;
   const m = MEMO_FRISES.get(cleMemo);
   if (m && m.v === version && Date.now() - m.t < 3600e3) return res.json(m.d);
   const envoyer = d => { if (MEMO_FRISES.size > 20) MEMO_FRISES.clear(); MEMO_FRISES.set(cleMemo, { v: version, t: Date.now(), d }); res.json(d); };
