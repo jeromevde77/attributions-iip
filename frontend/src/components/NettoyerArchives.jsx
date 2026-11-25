@@ -15,6 +15,13 @@ export default function NettoyerArchives({ onFait }) {
   if (!d?.etudiants) return null;
   const appel = simulation => fetch('/api/etudiants/statut/nettoyer-archives', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ simulation }) }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Refusé.'); return j; });
+  /* PAS PARTI (3.5.713) : une réorientation enregistrée comme une sortie se répare ici, sans toucher à ses unités. */
+  async function reintegrer(e) {
+    if (!(await demander(`${String(e.nom || '').toUpperCase()} ${e.prenom || ''} n'est pas parti(e) ?\n\nLa marque « ${e.statut === 'archive' ? 'archivé' : 'sorti'} » est retirée ; ses unités restent à son programme.`))) return;
+    const r = await fetch('/api/etudiants/statut', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [e.id], statut: null }) });
+    if (!r.ok) { informer((await r.json().catch(() => ({}))).error || 'Refusé.'); return; }
+    lire(); onFait?.();
+  }
   async function retirer() {
     setEnCours(true);
     try {
@@ -34,7 +41,9 @@ export default function NettoyerArchives({ onFait }) {
         {!!d.liste?.length && (
           <span className="block mt-1">{d.liste.map((e, i) => (
             <span key={e.id}>{i ? ' · ' : ''}<a href={`/etudiants?id=${e.id}`} className="underline font-medium">{String(e.nom || '').toUpperCase()} {e.prenom}</a>
-              <span className="text-slate-500"> ({e.statut === 'archive' ? 'archivé' : 'sorti'} — UE {e.ues})</span></span>))}</span>)}</span>
+              <span className="text-slate-500"> ({e.statut === 'archive' ? 'archivé' : 'sorti'} — UE {e.ues})</span>
+              {' '}<button type="button" className="underline text-second" title="Il n'est pas parti (par exemple : changement de section) : retirer la marque, ses unités restent"
+                onClick={() => reintegrer(e)}>pas parti : réintégrer</button></span>))}</span>)}</span>
       <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={retirer}>{enCours ? 'Calcul…' : 'Retirer leurs unités…'}</button>
     </div>);
 }
