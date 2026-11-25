@@ -496,6 +496,31 @@ async function mettreEnPage(rows, cols, titre, annee, mention, parGroupe = false
   return j.html;
 }
 
+/* LES GROUPES EN COLONNES (3.5.705, Charles, 25 novembre 2026 : « une feuille avec tous les étudiants et une colonne A, B, C,
+   cochée »). Tous les étudiants du cours, une colonne par groupe, une coche dans celle de l'étudiant. Les groupes se lisent
+   « Activité · Org n · Gr. X » ; la colonne ne garde que ce qui les distingue : « A », ou « TP · A » quand le cours a plusieurs
+   activités, « org 2 · A » quand il a plusieurs organisations. */
+const decomposerGroupe = g => {
+  const m = /^(?:(.*?) · )?Org (\S+)(?: · Gr\. (.+))?$/.exec(String(g || '').trim());
+  return m ? { activite: m[1] || '', org: m[2], code: m[3] || '', lu: true } : { activite: '', org: '', code: String(g || ''), lu: false };
+};
+function groupesEnColonnes(rows, cols) {
+  const tous = [...new Set(rows.flatMap(r => String(r.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean)))]
+    .sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+  const parts = tous.map(decomposerGroupe);
+  const plusieursAct = new Set(parts.map(p => p.activite)).size > 1;
+  const plusieursOrg = new Set(parts.map(p => p.org)).size > 1;
+  const court = p => [plusieursAct && p.activite ? p.activite.replace(/\s*\(.*\)\s*/g, ' ').split(/\s+/).filter(w => w.replace(/[^\p{L}]/gu, '').length >= 4).slice(0, 2).join(' ') : '',
+    plusieursOrg ? `org ${p.org}` : '', p.code || '—'].filter(Boolean).join(' · ');
+  const colsG = tous.map((g, i) => ({ key: `__grp${i}`, label: court(parts[i]), groupe: g }));
+  const base = cols.filter(c => c.key !== 'groupe');
+  const rows2 = rows.map(r => {
+    const siens = new Set(String(r.groupe || '').split(' + ').map(x => x.trim()));
+    return { ...r, ...Object.fromEntries(colsG.map(c => [c.key, siens.has(c.groupe) ? '✓' : ''])) };
+  });
+  return { rows: rows2, cols: [...base, ...colsG.map(({ key, label }) => ({ key, label }))] };
+}
+
 /** UNE PAGE PAR GROUPE : un étudiant de deux groupes paraît sur les deux feuilles. */
 function pagesParGroupe(rows, cols) {
   const paquets = new Map();
@@ -507,7 +532,8 @@ function pagesParGroupe(rows, cols) {
     }
   }
   return [...paquets.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr', { numeric: true }))
-    .map(([titre, lignes]) => ({ titre, lignes }));
+    .map(([titre, lignes]) => { const p = decomposerGroupe(titre);
+      return { titre: p.lu && p.code ? `Groupe ${p.code}${p.activite ? ` — ${p.activite}` : ''}${p.org && p.org !== '1' ? `, organisation ${p.org}` : ''}` : titre, lignes }; });
 }
 
 /** Imprimer : le PDF du serveur d'abord, le navigateur en repli annoncé. */
@@ -1527,7 +1553,11 @@ ${methodologie}
       }))
     : [];
   const colsVisibles = [...def.cols.filter(c => colsActives.has(c.key)), ...colsDyn];
-  const parGroupe = !!(def?.filtres?.includes('groupe') && filtres.cours_code && filtres.par_groupe && !filtres.groupe);
+  const avecGroupes = !!(def?.filtres?.includes('groupe') && filtres.cours_code && !filtres.groupe);
+  const parGroupe = avecGroupes && filtres.par_groupe === true;
+  // Les groupes en colonnes (3.5.705) : ce qui sort (impression, envoi, CSV, Excel) porte une colonne cochée par groupe.
+  const enColonnes = avecGroupes && filtres.par_groupe === 'colonnes' && Array.isArray(rows) && rows.length > 0;
+  const sortie = enColonnes ? groupesEnColonnes(rows, colsVisibles) : { rows, cols: colsVisibles };
   const nomFichier = `lucie_${entite}_${annee}`;
 
   // Injecte l'orientation choisie + le titre du document dans le HTML du rapport
@@ -1735,12 +1765,13 @@ ${methodologie}
                 </select>
               </label>
               {(rows?.groupesDispo || []).length > 1 && !filtres.groupe && (
-                <label className="flex items-center gap-2 text-sm text-slate-600"
-                  title="À l'impression et à l'envoi : chaque groupe sur sa feuille, sous son nom">
-                  <input type="checkbox" checked={!!filtres.par_groupe}
-                    onChange={e => setFiltres(f => ({ ...f, par_groupe: e.target.checked }))} />
-                  Une page par groupe
-                </label>
+                <select className="controle" value={filtres.par_groupe === true ? 'pages' : filtres.par_groupe === 'colonnes' ? 'colonnes' : ''}
+                  title="Ce que sortent l'impression, l'envoi, le CSV et l'Excel"
+                  onChange={e => setFiltres(f => ({ ...f, par_groupe: e.target.value === 'pages' ? true : e.target.value === 'colonnes' ? 'colonnes' : false }))}>
+                  <option value="">Une seule liste</option>
+                  <option value="pages">Une page par groupe</option>
+                  <option value="colonnes">Tous, groupes en colonnes (cochés)</option>
+                </select>
               )}
             </>
           )}
@@ -1903,7 +1934,7 @@ ${methodologie}
                 on imprime tous les jours, on exporte quelques fois par an. */}
             <button onClick={async () => {
                 try {
-                  await imprimerListe(rows, colsVisibles, def.label, annee, def.aide || null, parGroupe);
+                  await imprimerListe(sortie.rows, sortie.cols, def.label, annee, def.aide || null, parGroupe);
                 } catch (e) { setError(e.message); }
               }}
               disabled={rows.length === 0}
@@ -1916,7 +1947,7 @@ ${methodologie}
                 diverger, et c'est celle qu'on n'a pas relue qui partirait. */}
             {peutGeste('envois.envoyer') && <button onClick={async () => {
                 try {
-                  const html = await mettreEnPage(rows, colsVisibles, def.label, annee, def.aide || null, parGroupe);
+                  const html = await mettreEnPage(sortie.rows, sortie.cols, def.label, annee, def.aide || null, parGroupe);
                   setEnvoi([{ html, nom_fichier: `${nomFichier}.pdf` }]);
                 } catch (e) { setError(e.message); }
               }}
@@ -1924,11 +1955,11 @@ ${methodologie}
               className="bouton bouton-sortir flex items-center gap-1.5">
               <IconSend size={16} /> Envoyer
             </button>}
-            <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
+            <button onClick={() => exportCSV(sortie.rows, sortie.cols, nomFichier)} disabled={rows.length === 0}
               className="bouton flex items-center gap-1.5">
               <IconDownload size={16} /> CSV
             </button>
-            <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
+            <button onClick={() => exportExcel(sortie.rows, sortie.cols, nomFichier)} disabled={rows.length === 0}
               className="bouton flex items-center gap-1.5">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
