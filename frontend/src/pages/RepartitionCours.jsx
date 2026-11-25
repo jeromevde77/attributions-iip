@@ -139,8 +139,31 @@ async function importerGroupesHoraire(fichier, annee) {
       + (pb.length ? `\n\n${pb.length} non retenue(s) :\n${listePb}${pb.length > 25 ? '\n…' : ''}` : '')
       + `\n\nEnregistrer ces groupes de l'horaire pour ${annee} ? Les lettres de la répartition ne changent pas.`, confirmer: 'Enregistrer' }))) return;
     const fait = await appel(false);
-    await informer(`✓ ${fait.retenues} groupes de l'horaire enregistrés. Les présences d'une séance numérotée ne montrent plus que ses étudiants.`);
+    await informer(`✓ ${fait.retenues} groupes de l'horaire enregistrés. Les présences d'une séance numérotée ne montrent plus que ses étudiants. Pour donner aussi ces numéros aux groupes de la répartition et des attributions : « Renommer comme l'horaire ».`);
   } catch (e) { await informer(`L'import n'a pas abouti : ${e.message}`); }
+}
+
+/* RENOMMER COMME L'HORAIRE (3.5.719) — lettres → numéros de l'horaire, étudiants replacés d'après leur numéro. Simulation d'abord. */
+async function renommerCommeHoraire(annee) {
+  const appel = async simulation => {
+    const r = await fetch('/api/etudiants/repartition-cours/groupes-horaire/renommer', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ annee, simulation }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+    return j;
+  };
+  try {
+    const sim = await appel(true);
+    if (!sim.cours.length) { await informer('Rien à renommer : les groupes portent déjà les numéros de l’horaire.'); return false; }
+    const lignes = sim.cours.map(c => `• ${c.code_cours} : ${c.correspondance.map(x => `${x.lettre}→${x.unite}`).join(', ')}`
+      + ` — ${c.deplaces} étudiant(s) changent de groupe${c.ajoutes ? `, ${c.ajoutes} placé(s)` : ''}${c.deduit ? ' (découpage repris d’un autre cours de l’UE)' : ''}`).join('\n');
+    const ign = sim.ignores.filter(x => x.cours).map(x => `• ${x.cours} : ${x.raison}`).join('\n');
+    if (!(await demander({ message: `Renommer les groupes comme l’horaire (UE ${sim.ues.join(', ')}) ?\n\nChaque lettre prend le numéro que l’horaire donne au même professeur ; les étudiants vont dans le groupe de leur numéro.\n\n${lignes}`
+      + (ign ? `\n\nPas touchés :\n${ign}` : '') + '\n\nLes attributions sont renommées de la même façon.', confirmer: 'Renommer' }))) return false;
+    const fait = await appel(false);
+    await informer(`✓ ${fait.lignes} lignes d’attribution renommées, ${fait.etudiants} placements d’étudiants mis à jour.`);
+    return true;
+  } catch (e) { await informer(`Le renommage n'a pas abouti : ${e.message}`); return false; }
 }
 
 export default function RepartitionCours() {
@@ -562,6 +585,11 @@ export default function RepartitionCours() {
             <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
               onChange={e => { importerGroupesHoraire(e.target.files?.[0], annee); e.target.value = ''; }} />
           </label>
+        )}
+        {peutRenommer && (
+          <button className="bouton" title="Les lettres des groupes (répartition et attributions) deviennent les numéros de l'horaire"
+            onClick={async () => { if (await renommerCommeHoraire(annee) && ueNum != null) ouvrirUE(ueNum); }}>
+            Renommer comme l'horaire</button>
         )}
         {data && (
           <span className="ml-auto flex gap-2 flex-wrap">
