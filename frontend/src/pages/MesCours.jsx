@@ -379,7 +379,7 @@ export default function MesCours({ espace = null }) {
                un aperçu ») : la feuille s'ouvrait en PDF dans un onglet, sans
                relecture. Elle passe désormais par l'aperçu commun, PDF compris. */
             // La liste composée (3.5.147) : ses colonnes, ses colonnes vides et son titre partent avec la demande.
-            const compose = opt && typeof opt === 'object' && opt.colonnes ? `&colonnes=${encodeURIComponent(opt.colonnes)}&vides=${encodeURIComponent(opt.vides || '')}&titre=${encodeURIComponent(opt.titre || '')}` : '';
+            const compose = opt && typeof opt === 'object' && opt.colonnes ? `&colonnes=${encodeURIComponent(opt.colonnes)}&vides=${encodeURIComponent(opt.vides || '')}&titre=${encodeURIComponent(opt.titre || '')}${opt.disposition ? `&disposition=${opt.disposition}` : ''}` : '';
             const r0 = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/listes?annee=${encodeURIComponent(annee)}&format=html${groupeVu ? `&groupe=${encodeURIComponent(groupeVu)}` : ''}${compose}`,
               { headers: authHeaders() });
             const j = await r0.json().catch(() => ({}));

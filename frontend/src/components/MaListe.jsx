@@ -19,19 +19,26 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
   const [vides, setVides] = useState(['Signature']);
   const [autre, setAutre] = useState('');
   const [titre, setTitre] = useState('');
+  // LES GROUPES EN COLONNES (3.5.705, Charles) : « une feuille avec tous les étudiants et une colonne A, B, C cochée ».
+  const [disposition, setDisposition] = useState('');
+  const groupesDe = e => String(e.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean);
+  const groupesDuCours = [...new Set(etudiants.flatMap(groupesDe))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
   const basculer = (l, set, k) => set(l.includes(k) ? l.filter(x => x !== k) : [...l, k]);
   const ordonnees = COLONNES.map(c => c[0]).filter(k => cols.includes(k));
   async function excel() {
     const XLSX = await import('xlsx');
     const val = (e, k) => ({ nom: String(e.nom || '').toUpperCase(), prenom: e.prenom || '', matricule: e.id_ecampus || '', email: e.email_ecole || '',
       groupe: e.groupe || '', section: e.section || e.section_rattachement || '' }[k]);
-    const tete = ['N°', ...ordonnees.map(k => COLONNES.find(c => c[0] === k)[1]), ...vides];
-    const lignes = etudiants.map((e, i) => [i + 1, ...ordonnees.map(k => val(e, k)), ...vides.map(() => '')]);
+    const enCol = disposition === 'colonnes' && !groupe && groupesDuCours.length > 1;
+    const sansGrp = enCol ? ordonnees.filter(k => k !== 'groupe') : ordonnees;
+    const tete = ['N°', ...sansGrp.map(k => COLONNES.find(c => c[0] === k)[1]), ...(enCol ? groupesDuCours : []), ...vides];
+    const lignes = etudiants.map((e, i) => [i + 1, ...sansGrp.map(k => val(e, k)), ...(enCol ? groupesDuCours.map(g => (groupesDe(e).includes(g) ? '✓' : '')) : []), ...vides.map(() => '')]);
     const ws = XLSX.utils.aoa_to_sheet([...(titre ? [[titre], []] : []), tete, ...lignes]);
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Liste');
     XLSX.writeFile(wb, `Liste_${cours}${groupe ? `_groupe_${groupe}` : ''}.xlsx`);
   }
-  const options = { colonnes: ordonnees.join(','), vides: vides.join(','), titre, paysage: ordonnees.length + vides.length > 5 };
+  const options = { colonnes: ordonnees.join(','), vides: vides.join(','), titre, disposition: groupe ? '' : disposition,
+    paysage: ordonnees.length + vides.length + (disposition === 'colonnes' && !groupe ? groupesDuCours.length : 0) > 5 };
   return (
     <Fenetre titre="Composer une liste" sous={`${cours}${groupe ? ` · groupe ${groupe}` : ''} · ${etudiants.length} étudiant(s)`} onFermer={onFermer}
       outils={<>
@@ -41,6 +48,12 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
       <div className="space-y-4 text-sm">
         <label className="block"><span className="intertitre block mb-1">Titre de la liste</span>
           <input className="controle w-full" value={titre} onChange={e => setTitre(e.target.value)} placeholder="Ex. : Liste d’appel — examen du 12 janvier" data-reponses="non" /></label>
+        {!groupe && groupesDuCours.length > 1 && (
+          <div><span className="intertitre block mb-1">Les groupes</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {[['', 'Une feuille par groupe'], ['colonnes', `Tous sur une feuille, une colonne par groupe (${groupesDuCours.join(', ')}), cochée`]].map(([v, l]) => (
+                <label key={v || 'pages'} className="inline-flex items-center gap-1.5"><input type="radio" name="disposition" checked={disposition === v} onChange={() => setDisposition(v)} />{l}</label>))}
+            </div></div>)}
         <div><span className="intertitre block mb-1">Colonnes</span>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5"><span className="text-slate-400">N° (toujours)</span>
             {COLONNES.map(([k, l]) => <label key={k} className="inline-flex items-center gap-1.5"><input type="checkbox" checked={cols.includes(k)} onChange={() => basculer(cols, setCols, k)} />{l}</label>)}</div></div>
@@ -139,7 +152,7 @@ export function ListeSurMesure({ cours, groupe = '', annee = getAnnee(), onFerme
   }, [cours, groupe, annee]);
   async function imprimer(opt) {
     try {
-      const q = `&colonnes=${encodeURIComponent(opt.colonnes)}&vides=${encodeURIComponent(opt.vides || '')}&titre=${encodeURIComponent(opt.titre || '')}`;
+      const q = `&colonnes=${encodeURIComponent(opt.colonnes)}&vides=${encodeURIComponent(opt.vides || '')}&titre=${encodeURIComponent(opt.titre || '')}${opt.disposition ? `&disposition=${opt.disposition}` : ''}`;
       const r = await fetch(`/api/mes-cours/${encodeURIComponent(cours)}/listes?annee=${encodeURIComponent(annee)}&format=html${groupe ? `&groupe=${encodeURIComponent(groupe)}` : ''}${q}`, { headers: authHeaders() });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);

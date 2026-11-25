@@ -1105,7 +1105,15 @@ r.get('/:coursCode/listes', authRequired, async (req, res) => {
   const valeur = (e, k) => ({ nom: `<b>${esc(String(e.nom || '').toUpperCase())}</b>`, prenom: esc(e.prenom), matricule: esc(e.id_ecampus || ''),
     email: esc(e.email_ecole || ''), groupe: esc(e.groupe || ''), section: esc(sectionDe(e.id)) }[k]);
   const nbCol = 1 + colonnes.length + vides.length;
-  const corps = gs.map((g, i) => {
+  /* TOUS SUR UNE FEUILLE, UNE COLONNE PAR GROUPE (3.5.705, Charles : « une feuille avec tous les étudiants et une colonne A, B, C
+     cochée »). `disposition=colonnes`, sans groupe demandé et avec plusieurs groupes. */
+  const enColonnes = req.query.disposition === 'colonnes' && !demande && tous.length > 1;
+  const colsSansGrp = colonnes.filter(k => k !== 'groupe');
+  const corps = enColonnes ? `<div>
+      <div class="tg">${esc(titreListe || 'Tous les étudiants')} <span>— ${d.etudiants.length} étudiant(s), ${tous.length} groupes</span></div>
+      <table><thead><tr><th style="width:8mm">N°</th>${colsSansGrp.map(k => `<th${DISPO[k][1] ? ` style="width:${DISPO[k][1]}"` : ''}>${DISPO[k][0]}</th>`).join('')}${tous.map(g => `<th style="width:12mm;text-align:center">${esc(g)}</th>`).join('')}${vides.map(v => `<th style="width:${vides.length > 2 ? 28 : 40}mm">${esc(v)}</th>`).join('')}</tr></thead>
+      <tbody>${d.etudiants.map((e, k) => `<tr><td>${k + 1}</td>${colsSansGrp.map(c => `<td>${valeur(e, c)}</td>`).join('')}${tous.map(g => `<td style="text-align:center;font-weight:700">${groupesDe(e).includes(g) ? '✓' : ''}</td>`).join('')}${vides.map(() => '<td></td>').join('')}</tr>`).join('')}</tbody></table></div>`
+  : gs.map((g, i) => {
     const lot = d.etudiants.filter(e => !g || groupesDe(e).includes(g));
     return `<div${i ? ' style="break-before:page;page-break-before:always"' : ''}>
       <div class="tg">${esc(titreListe || g || 'Tous les étudiants')}${titreListe && g ? ` · ${esc(g)}` : ''} <span>— ${lot.length} étudiant(s)</span></div>
@@ -1124,7 +1132,7 @@ r.get('/:coursCode/listes', authRequired, async (req, res) => {
   const html = envelopperDocument({
     html: corps, titre: `Liste — ${code}`,
     entete: { titre: `${code} — ${nom}`.trim(), sous: `UE ${d.ueNum}${ueNom ? ` — ${ueNom}` : ''}${enseignants ? ` · ${enseignants}` : ''} · année ${annee}`,
-      ligne: demande ? `Groupe ${demande}` : (tous.length > 1 ? `${tous.length} groupes, une feuille par groupe` : null) },
+      ligne: demande ? `Groupe ${demande}` : (tous.length > 1 ? (enColonnes ? `${tous.length} groupes, en colonnes` : `${tous.length} groupes, une feuille par groupe`) : null) },
     styles: `
 .tg{font-size:11pt;font-weight:700;color:#1B2B4B;margin:0 0 2.5mm;border-left:1.2mm solid #C9A84C;padding-left:2.5mm}
 .tg span{font-weight:400;font-size:9pt;color:#64748b}
