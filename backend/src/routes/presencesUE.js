@@ -9,6 +9,7 @@
  * `lib/regularite.js`. Et pour Pilotage (axe Gestion), une ligne par UE : taux de
  * présence, réguliers au 1/10 et au 5/10, séances non encodées, alertes.
  */
+import { etudiantsDeLaSeance } from '../lib/groupesHoraire.js';
 import { groupesDeLaSeance } from '../lib/grillePresence.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -108,14 +109,16 @@ function aRemplir(ue, annee, { seanceId = null, jusquau = null } = {}) {
     if (seanceId ? s0.id !== seanceId : s0.date > borne) return;
     if (s0.annule || s0.date > aujourdhui) return;
     const sg = s0.sous_groupe != null && s0.sous_groupe !== '' ? String(s0.sous_groupe).trim().toUpperCase() : null;
-    const gsSeance = sg ? groupesDeLaSeance(sg, codesDuCours.get(s0.cours_code)) : null;
-    if (sg && (!coursAvecGroupes.has(s0.cours_code) || !gsSeance)) { sousGroupes++; return; }
+    const ghSeance = sg ? etudiantsDeLaSeance(annee, ue, sg) : null;   // groupes de l'horaire (3.5.717)
+    const gsSeance = sg && !ghSeance ? groupesDeLaSeance(sg, codesDuCours.get(s0.cours_code)) : null;
+    if (sg && !ghSeance && (!coursAvecGroupes.has(s0.cours_code) || !gsSeance)) { sousGroupes++; return; }
     for (const l of x.g.lignes) {
       const c = l.cases[i];
       // « NE » (non encodée) est une case VIDE : c'est elle qu'on remplit. Le reste — présence encodée, dispense, non concerné,
       // abandon, hors de son groupe — ne se touche pas.
       if (c?.statut && c.statut !== 'non_encode') continue;
-      if (sg && !gsSeance.some(g => groupesDe.get(`${s0.cours_code}|${l.etudiant.id}`)?.has(g))) continue;   // pas de ce sous-groupe
+      if (sg && ghSeance && !ghSeance.has(l.etudiant.id)) continue;   // pas de ce groupe de l'horaire
+      if (sg && !ghSeance && !gsSeance.some(g => groupesDe.get(`${s0.cours_code}|${l.etudiant.id}`)?.has(g))) continue;   // pas de ce sous-groupe
       const ins = inscr.get(l.etudiant.id);
       if (ins && s0.date < ins) continue;                // pas encore inscrit ce jour-là
       lignes.push({ seance_id: s0.id, etudiant_id: l.etudiant.id, statut: 'present', motif: null, retard: false });

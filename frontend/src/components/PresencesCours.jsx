@@ -67,6 +67,13 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
   const codesDe = e => String(e.groupe || '').split(' + ').map(g => (/Gr\. (.+)$/.exec(g.trim()) || [])[1]).filter(Boolean).map(x => x.trim().toUpperCase());
   const duGroupe = s => {
     if (!s?.sous_groupe || !data) return null;
+    // Les groupes de l'horaire (3.5.717) : une séance « 3 » ou « 3+4 » vise les étudiants de ces numéros.
+    const nums = String(s.sous_groupe).split('+').map(x => x.trim()).filter(Boolean);
+    if (nums.length && nums.every(x => /^\d+$/.test(x)) && data.etudiants.some(e => e.gh)) {
+      const n = new Set(nums.map(x => String(Number(x))));
+      const l = data.etudiants.filter(e => e.gh && n.has(String(e.gh)));
+      if (l.length) return l;
+    }
     const codes = new Set(data.etudiants.flatMap(codesDe));
     const gs = new Set();
     for (const brut of String(s.sous_groupe).split('+')) {

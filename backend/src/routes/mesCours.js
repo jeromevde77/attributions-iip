@@ -1,4 +1,5 @@
 import { visitesDuProf } from '../lib/visitesStage.js';
+import { numerosDeLUE } from '../lib/groupesHoraire.js';
 import { Router } from 'express';
 import { dispensesDeLUE, dispenseDuCours } from '../lib/dispenses.js';
 import db from '../db/index.js';
@@ -1635,13 +1636,16 @@ r.get('/:coursCode/presences', authRequired, (req, res) => {
     if (x.cours?.has(req.params.coursCode)) return x.origine?.get(req.params.coursCode) || 'report';
     return null;
   };
+  const numerosGH = numerosDeLUE(annee, d.ueNum);
   res.json({
     annee, cours_code: req.params.coursCode, statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES, vide,
     aujourdhui: new Date().toISOString().slice(0, 10),
     seances: seances.map(x => ({ ...x, min: minutesDe(x),
       encodees: Object.keys(pres[x.id] || {}).length })),
     etudiants: d.etudiants.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
-      groupe: e.groupe || '', cep: cep.has(e.id), dispense: dispenseDe(e.id) })),
+      groupe: e.groupe || '', cep: cep.has(e.id), dispense: dispenseDe(e.id),
+      // Le numéro de son groupe dans l'horaire (3.5.717, lib/groupesHoraire.js) : une séance « 3+4 » ne montre que les siens.
+      gh: numerosGH?.get(e.id) || null })),
     presences: pres,
   });
 });
