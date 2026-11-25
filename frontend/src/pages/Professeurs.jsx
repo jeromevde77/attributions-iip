@@ -10,7 +10,7 @@ import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4, IconEye, IconClipboardCheck } from '@tabler/icons-react';
+import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4, IconEye, IconClipboardCheck, IconCalendarWeek } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral, OuvrirEditions, Fenetre, Encadre, OutilFenetre, EnteteCarte, PastilleEtat, TuileEtat, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
@@ -2293,6 +2293,9 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 </div>
               </>
             )}
+            {/* SON HORAIRE (3.5.716, Charles) : Organisation → Horaires, vue « professeur », sur lui. */}
+            <button onClick={() => navigate(`/organisation?onglet=horaire-semaine&prof=${p.id}`)}
+              className="text-iip-blue hover:text-iip-texte text-sm" title="Voir son horaire" aria-label="Voir son horaire"><IconCalendarWeek size={15}/></button>
             {/* L'ŒIL DANS LA LISTE (3.5.174, Charles : « le petit œil pour aller voir l'espace ici aussi, plus rapide ») : la direction. */}
             {passeRole('admin') && (
               <button onClick={() => voirEspaceEnseignant(p.id)}

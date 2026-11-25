@@ -50,8 +50,11 @@ async function appel(url, opts = {}) {
 export default function HoraireSemaine({ consultation = false }) {
   const [annee] = useState(getAnnee());
   const peutEcrire = !consultation && ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
-  const [vue, setVue] = useState('classe');
-  const [cle, setCle] = useState('');
+  /* L'HORAIRE D'UN PROFESSEUR EN UN CLIC (3.5.716, Charles : « un bouton calendrier qui va directement sur l'horaire du prof ») :
+     `?prof=<id>` ouvre la vue « professeur » sur lui (liste du personnel). */
+  const profDeLAdresse = (() => { try { const v = Number(new URLSearchParams(window.location.search).get('prof')); return v > 0 ? String(v) : ''; } catch { return ''; } })();
+  const [vue, setVue] = useState(profDeLAdresse ? 'professeur' : 'classe');
+  const [cle, setCle] = useState(profDeLAdresse);
   const [classes, setClasses] = useState([]);
   const [ref, setRef] = useState({ profs: [], locaux: [] });
   const [lundi, setLundi] = useState(() => lundiDe(iso(new Date())));
