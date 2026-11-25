@@ -527,7 +527,8 @@ r.get('/feed', authRequired, (req, res) => {
         // de l'échéancier ne doivent pas s'afficher comme du recrutement.
         /* LE BON GENRE (3.5.707, Charles, devant un message d'étudiante classé « Recrutement ») : tout ce qui n'était ni échéance
            ni note passait pour du recrutement, et menait à /recrutement. Les étudiants ont leur genre ; le reste est « Lucie ». */
-        type: n.type === 'echeance_rappel' ? 'echeance' : ['notes_completes', 'notes_encodees', 'refus_seconde'].includes(n.type) ? 'notes'
+        type: n.type === 'echeance_rappel' ? 'echeance' : n.type === 'deliberation_rappel' ? 'deliberation'
+          : ['notes_completes', 'notes_encodees', 'refus_seconde'].includes(n.type) ? 'notes'
           : /candidat|recrut/.test(n.type || '') ? 'recrutement' : GENRES_ETUDIANTS.has(n.type) ? 'etudiants' : 'systeme',
         // Deux visages pour les notes : encodées (en cours) et complètes.
         action: n.type === 'notes_encodees' ? 'encodage' : 'info',

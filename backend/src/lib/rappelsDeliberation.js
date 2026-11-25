@@ -46,6 +46,20 @@ function deposerUneFois({ cibleType, cibleId, jalon, utilisateurId, cle, titre, 
   return true;
 }
 
+/* SUR LE TABLEAU DE BORD (3.5.710, BOULENGIER Natacha : « un rappel quand une délibération a lieu — les enseignants pour leurs cours,
+   24 ou 48 h avant ; les coordinations, toutes les délibérations » ; Charles : « sur le tableau de bord, et 10 jours avant »). Une
+   notification à la personne, une fois par objet et jalon (`rappel_envoye`, canal 'tableau') — indépendante des courriels. */
+function tableauUneFois({ cibleType, cibleId, jalon, utilisateurId, titre, corps, lien, section }) {
+  const deja = db.prepare(`SELECT 1 FROM rappel_envoye WHERE cible_type = ? AND cible_id = ? AND jalon = ? AND canal = 'tableau'
+      AND IFNULL(user_id, 0) = IFNULL(?, 0)`).get(cibleType, cibleId, jalon, utilisateurId);
+  if (deja) return false;
+  db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_user_id, cree_par, section) VALUES ('deliberation_rappel', ?, ?, ?, ?, 'Lucie', ?)`)
+    .run(titre, corps, lien, utilisateurId, section || null);
+  db.prepare(`INSERT OR IGNORE INTO rappel_envoye (cible_type, cible_id, jalon, user_id, canal) VALUES (?,?,?,?, 'tableau')`)
+    .run(cibleType, cibleId, jalon, utilisateurId);
+  return true;
+}
+
 /** Le passage : à lancer plusieurs fois par jour, il ne dépose que ce qui est dû et pas encore parti. */
 export function genererRappelsDeliberation(annee) {
   const auj = aujourdhui();
@@ -129,6 +143,43 @@ export function genererRappelsDeliberation(annee) {
             cle: 'deliberation_coordination', titre: `Encodage incomplet — ${ue}${sess}, délibération le ${jourFr(date)} (groupes supervisés)`,
             detail: lignesSup.join(' · '), lien: '/etudiants', urgent: true })) stats.coordination++;
         }
+      }
+    }
+
+    // ── LE RAPPEL DE LA DATE, À J-10 ET LA VEILLE (3.5.710) : au tableau de bord des professeurs de l'UE (par cours) et des
+    //    coordinations de la section ; par courriel aussi, selon les interrupteurs (« la veille », « toutes les délibérations »). ──
+    if (n === 10 || n === 1) {
+      const quand = n === 1 ? 'demain' : `dans ${n} jours`;
+      const jal = n === 1 ? 'veille' : 'J-10-tableau';
+      const heure = (() => { try { return db.prepare('SELECT heure_seance FROM deliberation_seance WHERE id = ?').get(s.id)?.heure_seance || ''; } catch { return ''; } })();
+      const orgTxt = s.org ? ` · organisation ${s.org}` : '';
+      const lignes2 = db.prepare(`SELECT a.professeur_id, a.code_cours,
+          (SELECT c.cours_nom FROM cours c WHERE c.cours_code = a.code_cours ORDER BY (c.annee_scolaire = ?) DESC LIMIT 1) AS cours_nom
+        FROM attribution a WHERE a.annee_scolaire = ? AND a.ue_num = ? AND a.code_cours IS NOT NULL AND a.professeur_id IS NOT NULL
+          AND (? = 0 OR COALESCE(a.num_organisation, 1) = ?) GROUP BY a.professeur_id, a.code_cours`).all(annee, annee, s.ue_num, s.org, s.org);
+      let encodes = 0, total = 0;
+      for (const l of lignes2) {
+        let reste = [];
+        try { reste = resteAEncoder(l.professeur_id, l.code_cours, annee, s.session); } catch { reste = []; }
+        if (s.org) reste = reste.filter(e => (orgDe.get(e.id, annee, s.ue_num)?.o ?? 1) === s.org);
+        total++; if (!reste.length) encodes++;
+        const cours = `${l.cours_nom || l.code_cours} (${l.code_cours})`;
+        const titre = `Délibération de l'${ue}${sess} ${quand} — le ${jourFr(date)}${heure ? ` à ${String(heure).slice(0, 5)}` : ''}`;
+        const corps = reste.length ? `${cours} : ${reste.length} étudiant(s) encore à encoder.` : `${cours} : vos points sont encodés.`;
+        const lien = `/mes-cours?cours=${encodeURIComponent(l.code_cours)}${s.session === 2 ? '&session=2' : ''}`;
+        for (const u of comptesProf.all(l.professeur_id)) {
+          if (tableauUneFois({ cibleType: 'deliberation_seance', cibleId: s.id, jalon: `${jal}|${l.code_cours}`, utilisateurId: u.id, titre, corps, lien, section })) stats.professeurs++;
+          if (n === 1) deposerUneFois({ cibleType: 'deliberation_seance', cibleId: s.id, jalon: `veille|${l.code_cours}`, utilisateurId: u.id,
+            cle: 'deliberation_veille', titre, detail: corps, lien, urgent: false });
+        }
+      }
+      const titreC = `Délibération de l'${ue}${sess}${orgTxt} ${quand} — le ${jourFr(date)}${heure ? ` à ${String(heure).slice(0, 5)}` : ''}`;
+      const corpsC = total ? `${encodes} cours sur ${total} ont leurs points encodés.` : 'Aucun cours attribué à cette unité.';
+      for (const uid of comptesDuRole('coordination', section)) {
+        if (tableauUneFois({ cibleType: 'deliberation_seance', cibleId: s.id, jalon: jal, utilisateurId: uid, titre: titreC, corps: corpsC,
+          lien: '/etudiants?onglet=deliberation', section })) stats.coordination++;
+        deposerUneFois({ cibleType: 'deliberation_seance', cibleId: s.id, jalon: `coord-${jal}`, utilisateurId: uid,
+          cle: 'deliberation_coordination_date', titre: titreC, detail: corpsC, lien: '/etudiants?onglet=deliberation', urgent: false });
       }
     }
 
