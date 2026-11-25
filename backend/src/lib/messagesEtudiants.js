@@ -303,7 +303,7 @@ export function recevoir({ lus = [], reponses = [], accuses = [] }) {
         db.prepare(`INSERT OR IGNORE INTO message_etudiant_fil (message_id, etudiant_id, de, auteur, corps, le, ref_portail)
           VALUES (?,?, 'etudiant', ?, ?, ?, ?)`).run(m.lastInsertRowid, e.id, nom, String(r.corps || '').slice(0, 10000), String(r.le || ''), Number(r.id));
         if (dir?.id) db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_user_id, cree_par)
-          VALUES ('reponse_etudiant', ?, ?, NULL, ?, 'Lucie')`).run(`Message de ${nom}`, `« ${String(r.objet || 'Message à la direction').slice(0, 100)} » — écrit depuis son espace étudiant.`, dir.id);
+          VALUES ('reponse_etudiant', ?, ?, NULL, ?, 'Lucie')`).run(`Message de ${nom}`, `« ${String(r.objet || 'Message à la direction').slice(0, 100)} » — écrit depuis son espace étudiant : ${String(r.corps || r.texte || '').replace(/\s+/g, ' ').trim().slice(0, 400)}`, dir.id);
       })();
       continue;
     }

@@ -12,6 +12,9 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 import { snapshotComplet } from '../lib/retention.js';
 import { peut } from '../middleware/permissions.js';
 
+/* Les notifications qui parlent d'étudiants (3.5.707). */
+const GENRES_ETUDIANTS = new Set(['reponse_etudiant', 'pae_desaccord', 'certificat_medical', 'photo_a_valider', 'demande_piece',
+  'recap_comptes_etudiants', 'desinscription', 'motivation_completee', 'tfe_espace', 'pae_proposition']);
 const r = Router();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -522,7 +525,10 @@ r.get('/feed', authRequired, (req, res) => {
         source_id: n.id,
         // Le type conditionne l'icône et la couleur dans la cloche : les rappels
         // de l'échéancier ne doivent pas s'afficher comme du recrutement.
-        type: n.type === 'echeance_rappel' ? 'echeance' : ['notes_completes', 'notes_encodees', 'refus_seconde'].includes(n.type) ? 'notes' : 'recrutement',
+        /* LE BON GENRE (3.5.707, Charles, devant un message d'étudiante classé « Recrutement ») : tout ce qui n'était ni échéance
+           ni note passait pour du recrutement, et menait à /recrutement. Les étudiants ont leur genre ; le reste est « Lucie ». */
+        type: n.type === 'echeance_rappel' ? 'echeance' : ['notes_completes', 'notes_encodees', 'refus_seconde'].includes(n.type) ? 'notes'
+          : /candidat|recrut/.test(n.type || '') ? 'recrutement' : GENRES_ETUDIANTS.has(n.type) ? 'etudiants' : 'systeme',
         // Deux visages pour les notes : encodées (en cours) et complètes.
         action: n.type === 'notes_encodees' ? 'encodage' : 'info',
         titre: n.titre,
@@ -530,7 +536,8 @@ r.get('/feed', authRequired, (req, res) => {
         auteur: n.cree_par,
         date: n.cree_le,
         lue,
-        lien: n.lien || (n.type === 'echeance_rappel' ? '/echeancier' : '/recrutement'),
+        lien: n.lien || (n.type === 'echeance_rappel' ? '/echeancier' : /candidat|recrut/.test(n.type || '') ? '/recrutement'
+          : n.type === 'reponse_etudiant' ? '/etudiants?outil=messages-etudiants' : GENRES_ETUDIANTS.has(n.type) ? '/etudiants' : null),
         corps: n.corps,
       });
     }
