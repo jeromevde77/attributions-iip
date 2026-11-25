@@ -249,13 +249,14 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [ajout, setAjout] = useState('');
   /* UNE UE D'UNE AUTRE SECTION (3.5.666) : direction et secrétariat ; le motif est demandé par la porte unique (« hors cursus »). */
   const [autreSection, setAutreSection] = useState(false);
-  const peutAutreSection = droitsPAE.passe('admin', 'editeur');
   const [aller, setAller] = useState(null);       // l'étudiant à rejoindre une fois les filtres tombés
   const [versionSchema, setVersionSchema] = useState(0);
   const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
   // Le verdict des gestes, réglages compris (3.1.20) — le secrétariat reporte aussi.
   const droitsPAE = useDroits();
   const peutReporter = droitsPAE.peut('etudiants.reports');
+  // Lu APRÈS useDroits (3.5.711) : placé avant, il plantait l'onglet PAE de la fiche (« Cannot access before initialization »).
+  const peutAutreSection = droitsPAE.passe('admin', 'editeur');
   // La porte du PAE (pae-valider → ecrireProgramme).
   const peutModifier = droitsPAE.peut('etudiants.pae_composer');
 
