@@ -24,7 +24,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconCamera, IconListSearch, IconEye, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconCamera, IconListSearch, IconEye, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconArrowsExchange, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -3587,6 +3587,24 @@ export default function Etudiants() {
     await charger();
   }
 
+  async function reorienterSelection() {
+    const ids = [...selEtudiants];
+    if (!ids.length) return;
+    const codes = (sections || []).map(x => x.code).filter(Boolean);
+    const cible = await saisir({ titre: 'Changer de section', message: `${ids.length} étudiant(s) restent à l'école et passent dans une autre section.\n\nNouvelle section (${codes.join(', ')}) :`, obligatoire: true, confirmer: 'Rattacher' });
+    if (!cible) return;
+    const section = codes.find(c => c.toLowerCase() === String(cible).trim().toLowerCase());
+    if (!section) { informer(`Section inconnue : ${cible}. Choisissez parmi : ${codes.join(', ')}.`); return; }
+    let ok = 0; const refus = [];
+    for (const id of ids) {
+      const r = await fetch(`/api/etudiants/${id}/cursus/reprendre`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, section }) });
+      if (r.ok) ok++; else refus.push((await r.json().catch(() => ({}))).error || r.status);
+    }
+    informer(`✓ ${ok} étudiant(s) rattaché(s) à ${section}.${refus.length ? `\n${refus.length} refus : ${refus.slice(0, 3).join(' ; ')}` : ''}\n\nLeurs unités de l'ancienne section, s'il y en a cette année, se retirent depuis leur parcours (« Retirer ces inscriptions »).`);
+    setSelEtudiants(new Set());
+    await charger();
+  }
+
   async function supprimerSelection() {
     const ids = [...selEtudiants];
     if (!ids.length) return;
@@ -4002,8 +4020,15 @@ export default function Etudiants() {
                     aide: 'Quand l’épreuve intégrée n’est pas encodée dans Lucie',
                     onClick: () => statuerSelection('diplome') },
                   { libelle: 'Sortir du cursus', Icone: IconDoorExit,
-                    aide: 'Abandon, réorientation, exclusion — avec un motif',
+                    aide: 'Il quitte l’école : abandon, exclusion — avec un motif. Pas pour un changement de section.',
                     onClick: () => statuerSelection('sorti') },
+                  /* LA RÉORIENTATION N'EST PAS UNE SORTIE (3.5.713, Charles : « Youguet n'est pas sortie, elle est passée d'opto en
+                     AeSI ») : « sorti » marquait toute la fiche, et le nettoyage des partis lui aurait retiré les UE de sa nouvelle
+                     section. Changer de section rattache l'étudiant à la nouvelle (POST /:id/cursus/reprendre) ; l'ancienne devient
+                     un cursus antérieur. */
+                  { libelle: 'Changer de section (réorientation)', Icone: IconArrowsExchange,
+                    aide: 'Il reste à l’école mais passe dans une autre section : rattaché à la nouvelle, l’ancienne devient un cursus antérieur',
+                    onClick: () => reorienterSelection() },
                   { libelle: 'Archiver', Icone: IconArchive,
                     aide: 'À la cave : hors des listes de travail, rien n’est effacé',
                     onClick: () => statuerSelection('archive') },
