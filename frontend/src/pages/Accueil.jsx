@@ -14,7 +14,7 @@ import {
   // Les trois icônes de calendrier ont disparu avec les trois entrées de
   // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake, IconSpeakerphone,
-  IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck, IconWriting, IconSignature, IconSchool } from '@tabler/icons-react';
+  IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck, IconWriting, IconSignature, IconSchool, IconCalendarEvent } from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre, EnteteCarte, Encadre, PastilleEtat, ListeEtats, LigneEtat,
   Tableau, TableauEntete, Th, Td, Tr, TrTotal } from '../components/ui.jsx';
@@ -52,6 +52,10 @@ const TYPE_CONFIG = {
   },
   recrutement: {
     info: { label: 'Recrutement', color: BLANC, bg: 'var(--c-principal)', icon: IconUserPlus },
+  },
+  // LA DÉLIBÉRATION QUI APPROCHE (3.5.710) : dix jours avant et la veille.
+  deliberation: {
+    info: { label: 'Délibération', color: BLANC, bg: 'var(--c-attente)', icon: IconCalendarEvent },
   },
   // LES ÉTUDIANTS (3.5.707) : un message, un PAE contesté, un certificat, une photo — plus rangés sous « Recrutement ».
   etudiants: {
@@ -640,6 +644,7 @@ export default function Accueil({ apresEntete = null }) {
                 {[['tout', `Tout`, nbNonLus],
                   ['attribution', 'Attributions', nbAttr],
                   ['notes', 'Notes', nbNotes],
+                  ['deliberation', 'Délibérations', nbNonLusType('deliberation')],
                   ['etudiants', 'Étudiants', nbNonLusType('etudiants')],
                   ['recrutement', 'Recrutement', nbRecr],
                   ['systeme', 'Système', nbSys]].map(([cle, lib, n]) => (
@@ -731,7 +736,7 @@ export default function Accueil({ apresEntete = null }) {
             <h2 className="titre-carte">
               {filtre === 'tout' ? 'Fil d\'activité' :
                filtre === 'attribution' ? 'Attributions' :
-               filtre === 'recrutement' ? 'Recrutement' : filtre === 'etudiants' ? 'Étudiants' : filtre === 'notes' ? 'Notes' : 'Système'}
+               filtre === 'recrutement' ? 'Recrutement' : filtre === 'etudiants' ? 'Étudiants' : filtre === 'deliberation' ? 'Délibérations' : filtre === 'notes' ? 'Notes' : 'Système'}
             </h2>
             {nbNonLus > 0 && (
               <PastilleEtat etat="disponible">{nbNonLus} non lu{nbNonLus > 1 ? 's' : ''}</PastilleEtat>
