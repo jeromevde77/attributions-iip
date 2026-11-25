@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
 import { mettreEnFile, comptesDuRole } from './rappels.js';
-import { epreuves, delaiQuestionnaire } from './examens.js';
+import { epreuves, delaiQuestionnaire, besoinsEpreuve } from './examens.js';
 
 const jourFr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
 function aujourdhui() {
@@ -36,7 +36,8 @@ function deposerUneFois({ cibleId, jalon, utilisateurId, cle, titre, detail, lie
 
 export function genererRappelsExamens(annee, { jour = null } = {}) {
   const auj = jour || aujourdhui();
-  const stats = { questionnaires: 0, coordination: 0, visites: 0, archivage: 0, seconde_session: 0 };
+  const stats = { questionnaires: 0, coordination: 0, visites: 0, archivage: 0, seconde_session: 0, secretariat: 0 };
+  const parJour = new Map();   // les épreuves de J+7 et de J+1, pour le secrétariat
   const profsDuCours = db.prepare(`SELECT DISTINCT u.id FROM attribution a JOIN utilisateur u ON u.professeur_id = a.professeur_id
     WHERE a.annee_scolaire = ? AND a.ue_num = ? AND (? = '' OR a.code_cours = ?) AND COALESCE(u.actif, 1) = 1 AND u.email LIKE '%@%'`);
   let seance = { get: () => null };
@@ -53,6 +54,7 @@ export function genererRappelsExamens(annee, { jour = null } = {}) {
     for (const e of liste) {
       const date = String(e.date).slice(0, 10);
       const id = idDe(e.cle);
+      { const n = ecart(auj, date); if (n === 7 || n === 1) { if (!parJour.has(date)) parJour.set(date, []); parJour.get(date).push(e); } }
       const epreuve = `${e.cours_code ? `${e.cours_nom || e.cours_code} (${e.cours_code})` : `l'UE ${e.ue_num}`}`;
       const profs = (() => { try { return profsDuCours.all(annee, e.ue_num, e.cours_code, e.cours_code).map(x => x.id); } catch { return []; } })();
 
@@ -110,5 +112,54 @@ export function genererRappelsExamens(annee, { jour = null } = {}) {
       }
     }
   }
+  try { stats.secretariat = rappelerSecretariat(parJour, auj); } catch (err) { console.error('[examens] rappel au secrétariat :', err.message); }
   return stats;
+}
+
+/* LE SECRÉTARIAT AVANT CHAQUE JOUR D'EXAMENS (3.5.723, Charles, 25 novembre 2026 : « que Lucie rappelle au secrétariat : examen tel
+   jour à telle heure ; vérifier, penser aux AR »). Un rappel par JOUR d'examens, pas par épreuve : une semaine avant (préparer), la
+   veille (imprimer l'enveloppe). Par courriel (récapitulatif du matin, la veille : aussitôt) et au tableau de bord. */
+function rappelerSecretariat(parJour, auj) {
+  let n = 0;
+  const comptes = [...new Set([...comptesDuRole('secretariat'), ...comptesDuRole('editeur')])];
+  if (!comptes.length) return 0;
+  for (const [date, liste] of parJour) {
+    const veille = ecart(auj, date) === 1;
+    const jalon = veille ? 'secr-J-1' : 'secr-J-7';
+    let id = 0; for (const c of `examens|${date}`) id = (id * 31 + c.charCodeAt(0)) | 0; id = Math.abs(id);
+    liste.sort((a, b) => String(a.heure || '').localeCompare(String(b.heure || '')));
+    const lignes = liste.map(e => {
+      const quoi = e.cours_code ? `${e.cours_code} ${e.cours_nom || ''}`.trim() : `UE ${e.ue_num} (unité entière)`;
+      const pb = [];
+      if (!e.questionnaire_recu_le) pb.push('questionnaire NON reçu');
+      if (!e.local) pb.push('local à poser');
+      if (!e.surveillants) pb.push('surveillant(s) à nommer');
+      const ar = besoinsEpreuve(e).map(b => `${b.t} ×${b.etudiants.length}`);
+      return `• ${e.heure ? String(e.heure).slice(0, 5) : '--:--'} · UE ${e.ue_num} · ${quoi}${e.local ? ` · ${e.local}` : ''} · ${e.etudiants.length} étudiant(s)`
+        + (ar.length ? `\n   AR : ${ar.join(', ')}` : '')
+        + (pb.length ? `\n   À vérifier : ${pb.join(', ')}` : '');
+    });
+    const nAR = liste.reduce((t, e) => t + e.ar.length, 0);
+    const titre = veille
+      ? `Demain ${jourFr(date)} : ${liste.length} examen(s) — imprimer les enveloppes${nAR ? ` (${nAR} étudiant(s) avec AR)` : ''}`
+      : `Dans une semaine, le ${jourFr(date)} : ${liste.length} examen(s) à préparer${nAR ? ` (${nAR} étudiant(s) avec AR)` : ''}`;
+    const faire = veille
+      ? 'Imprimer l’enveloppe complète de chaque épreuve (Éditions → Étudiants → Examens) : registre avec les croix AR, liste des AR, questionnaires adaptés et feuilles de brouillon prévus par un AR.'
+      : 'Vérifier : questionnaire reçu, local réservé, surveillants nommés ; pour les AR, sortir « qui a besoin de quoi » et préparer locaux isolés, ordinateurs, questionnaires adaptés, temps supplémentaire.';
+    const corps = `${faire}\n\n${lignes.join('\n')}`;
+    const lien = '/organisation?onglet=examens';
+    for (const uid of comptes) {
+      if (deposerUneFois({ cibleId: id, jalon, utilisateurId: uid, cle: 'examens_secretariat', urgent: veille, titre, detail: corps, lien })) n++;
+      const deja = db.prepare(`SELECT 1 FROM rappel_envoye WHERE cible_type = 'epreuve' AND cible_id = ? AND jalon = ? AND canal = 'tableau'
+        AND IFNULL(user_id, 0) = IFNULL(?, 0)`).get(id, jalon, uid);
+      if (!deja) {
+        try {
+          db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_user_id, cree_par) VALUES ('examens_rappel', ?, ?, ?, ?, 'Lucie')`)
+            .run(titre, corps, lien, uid);
+          db.prepare(`INSERT OR IGNORE INTO rappel_envoye (cible_type, cible_id, jalon, user_id, canal) VALUES ('epreuve', ?, ?, ?, 'tableau')`).run(id, jalon, uid);
+        } catch (err) { console.error('[examens] tableau :', err.message); }
+      }
+    }
+  }
+  return n;
 }
