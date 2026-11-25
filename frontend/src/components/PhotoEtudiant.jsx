@@ -78,6 +78,14 @@ export function BlocPhoto({ etudId }) {
             <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={async x => { const f = x.target.files?.[0]; if (f) poser(await lireFichier(f), 'secretariat'); x.target.value = ''; }} /></label>
           <button type="button" className="bouton" onClick={eid}><IconId size={15} /> Reprendre de la carte eID</button>
           {e.courante && <button type="button" className="bouton" onClick={carte}>Carte d’étudiant (PDF)</button>}
+          {/* RETIRER LA PHOTO (3.5.712) : motif demandé ; elle n'est pas effacée, le registre garde qui et quand. */}
+          {e.courante && <button type="button" className="bouton bouton-detruire" onClick={async () => {
+            const motif = await saisir({ titre: 'Retirer la photo', message: 'Pourquoi ? L’étudiant le lira dans son espace, et pourra en déposer une autre.', obligatoire: true, confirmer: 'Retirer' });
+            if (!motif) return;
+            const r = await fetch(`/api/photos/etudiant/${etudId}`, { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ motif }) });
+            if (!r.ok) { setMsg((await r.json().catch(() => ({}))).error || 'Refusé.'); return; }
+            setMsg(null); setV(x => x + 1);
+          }}><IconX size={15} /> Retirer la photo</button>}
         </div>}
       </div>
       {msg && <div className="px-4 pb-3"><Encadre etat="corriger">{msg}</Encadre></div>}

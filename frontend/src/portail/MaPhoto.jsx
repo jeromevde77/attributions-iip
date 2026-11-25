@@ -61,6 +61,8 @@ export default function MaPhoto({ appel, jeton, onErreur }) {
       {!enCours && der?.statut === 'a_valider' && <Encadre etat="disponible" titre="Photo reçue">Déposée le {jourFr(der.depose_le)} : le secrétariat la vérifie.</Encadre>}
       {!enCours && der?.statut === 'refusee' && <Encadre etat="corriger" titre="Votre photo n’a pas été acceptée">
         {der.motif || 'Elle ne convient pas.'} Déposez-en une autre ci-dessous.</Encadre>}
+      {!enCours && der?.statut === 'retiree' && <Encadre etat="surveiller" titre="Votre photo a été retirée de votre dossier">
+        {der.motif || ''} Déposez-en une autre ci-dessous.</Encadre>}
       {!enCours && p?.a_photo && der?.statut !== 'a_valider' && der?.statut !== 'refusee' && <Encadre etat="reussi" titre="Votre photo est dans votre dossier">
         Acceptée le {jourFr(p.acceptee_le)}. Vous pouvez la remplacer si elle n’est plus à jour.</Encadre>}
       {!enCours && !p?.a_photo && !der && <Encadre etat="surveiller" titre="Votre photo d’identité est demandée">
