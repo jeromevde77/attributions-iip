@@ -1,4 +1,5 @@
 // (CS)
+import { importerGroupesHoraire, numerosDeLUE } from '../lib/groupesHoraire.js';
 import { requeteCourante } from '../lib/contexteRequete.js';
 import { chargerAttestationInscription, composerAttestationInscription } from '../lib/attestationInscription.js';
 import { dixiemeUE } from '../lib/datesReelles.js';
@@ -2047,6 +2048,27 @@ r.get('/controle-pae', authRequired,
   roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const annee = String(req.query.annee || anneeDeTravail(req));
   res.json(controlePrerequisPae(annee, { sections: getUserSections(req.user) }));
+});
+
+/* LES GROUPES DE L'HORAIRE (3.5.717, lib/groupesHoraire.js) : importer un fichier Nom · Prénom · UE · Groupe (le document des groupes
+   de TIM). Simulation d'abord : qui est retrouvé, qui ne l'est pas. Les lettres de la répartition et des attributions ne bougent pas. */
+r.post('/repartition-cours/groupes-horaire/import', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  const lignes = (Array.isArray(req.body?.lignes) ? req.body.lignes : []).slice(0, 5000)
+    .map(l => ({ nom: String(l?.nom || '').trim(), prenom: String(l?.prenom || '').trim(), ue_num: Number(l?.ue_num), groupe: String(l?.groupe ?? '').trim() }))
+    .filter(l => l.nom);
+  if (!lignes.length) return res.status(400).json({ error: 'Aucune ligne lue (colonnes attendues : Nom, Prénom, UE, Groupe).' });
+  for (const ue of [...new Set(lignes.map(l => l.ue_num).filter(Boolean))]) if (!unitePermise(req, res, ue)) return;
+  res.json(importerGroupesHoraire({ annee, lignes, simulation: req.body?.simulation !== false, par: req.user?.nom || req.user?.email || null }));
+});
+r.get('/repartition-cours/groupes-horaire', authRequired, (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  const ue = Number(req.query.ue_num);
+  if (!ue) return res.status(400).json({ error: 'ue_num requis' });
+  const m = numerosDeLUE(annee, ue);
+  const parNumero = {};
+  for (const n of (m ? m.values() : [])) parNumero[n] = (parNumero[n] || 0) + 1;
+  res.json({ annee, ue_num: ue, etudiants: m ? m.size : 0, par_numero: parNumero });
 });
 
 r.post('/repartition-cours', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {

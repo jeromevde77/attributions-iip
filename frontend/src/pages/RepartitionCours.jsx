@@ -94,6 +94,46 @@ async function lireClasseurGroupes(fichier) {
   return lignes;
 }
 
+/* LES GROUPES DE L'HORAIRE (3.5.717) — un fichier Nom · Prénom · UE · Groupe (Excel ou CSV à « ; ») : simulation, puis écriture.
+   Les lettres de la répartition et des attributions ne changent pas. */
+async function importerGroupesHoraire(fichier, annee) {
+  if (!fichier) return;
+  try {
+    const XLSX = await import('xlsx');
+    const brut = await fichier.arrayBuffer();
+    const wb = /\.csv$/i.test(fichier.name)
+      ? XLSX.read(new TextDecoder('utf-8').decode(brut), { type: 'string', FS: ';' })
+      : XLSX.read(brut, { type: 'array' });
+    const M = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+    const n = v => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const iEnt = M.findIndex(r => r.some(c => n(c) === 'nom') && r.some(c => n(c).startsWith('groupe')));
+    if (iEnt < 0) throw new Error('Colonnes attendues : Nom, Prénom, UE, Groupe.');
+    const ent = M[iEnt].map(n);
+    const col = t => ent.findIndex(c => c === t || c.startsWith(t));
+    const [cN, cP, cU, cG] = [col('nom'), col('prenom'), col('ue'), col('groupe')];
+    if (cU < 0) throw new Error('Il manque la colonne UE.');
+    const lignes = M.slice(iEnt + 1).filter(r => String(r[cN] || '').trim())
+      .map(r => ({ nom: r[cN], prenom: cP >= 0 ? r[cP] : '', ue_num: Number(String(r[cU]).replace(/[^0-9]/g, '')), groupe: String(r[cG] ?? '') }));
+    const appel = async simulation => {
+      const r = await fetch('/api/etudiants/repartition-cours/groupes-horaire/import', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, lignes, simulation }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      return j;
+    };
+    const sim = await appel(true);
+    const ues = Object.entries(sim.par_ue).map(([u, k]) => `UE ${u} : ${k}`).join(' · ');
+    const pb = [...sim.introuvables, ...sim.douteuses];
+    const listePb = pb.slice(0, 25).map(l => `• ${String(l.nom).toUpperCase()} ${l.prenom || ''} (UE ${l.ue_num || '?'}) — ${l.raison}`).join('\n');
+    if (!sim.retenues) { await informer(`Aucune ligne rapprochée d'un inscrit.\n\n${listePb}`); return; }
+    if (!(await demander({ message: `${lignes.length} lignes lues, ${sim.retenues} rapprochées d'un inscrit (${ues}).`
+      + (pb.length ? `\n\n${pb.length} non retenue(s) :\n${listePb}${pb.length > 25 ? '\n…' : ''}` : '')
+      + `\n\nEnregistrer ces groupes de l'horaire pour ${annee} ? Les lettres de la répartition ne changent pas.`, confirmer: 'Enregistrer' }))) return;
+    const fait = await appel(false);
+    await informer(`✓ ${fait.retenues} groupes de l'horaire enregistrés. Les présences d'une séance numérotée ne montrent plus que ses étudiants.`);
+  } catch (e) { await informer(`L'import n'a pas abouti : ${e.message}`); }
+}
+
 export default function RepartitionCours() {
   const annee = getAnnee();
   const [sections, setSections] = useState([]);
@@ -506,6 +546,14 @@ export default function RepartitionCours() {
           </select>
         )}
         <PastilleEtat etat="neutre">{annee}</PastilleEtat>
+        {ecritModule('etudiants') && (
+          <label title="Un fichier Nom · Prénom · UE · Groupe (le document des groupes de l'horaire) : les présences d'une séance « 3 » ou « 3+4 » ne montrent plus que ses étudiants"
+            className="bouton cursor-pointer">
+            <IconFileSpreadsheet size={14} /> Groupes de l'horaire
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
+              onChange={e => { importerGroupesHoraire(e.target.files?.[0], annee); e.target.value = ''; }} />
+          </label>
+        )}
         {data && (
           <span className="ml-auto flex gap-2 flex-wrap">
             <label title="Un classeur Excel : « Groupe 1 », « Groupe 2 »… puis Nom, Prénom, Mail, Cours suivis"

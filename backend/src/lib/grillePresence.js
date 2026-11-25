@@ -16,6 +16,7 @@
  * injustifiée se lit sur ce que l'étudiant devait suivre, et se signale
  * au-delà de 10 % (le seuil du congé-éducation payé).
  */
+import { etudiantsDeLaSeance } from './groupesHoraire.js';
 import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { envelopperDocument } from './document.js';
@@ -107,7 +108,15 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
      « 8 » face à A à H) laisse TOUT LE MONDE concerné — avant, chacun y était « hors groupe ». */
   const codesDuCours = new Map();
   for (const k of membres.keys()) { const [c, g] = k.split('|'); if (!codesDuCours.has(c)) codesDuCours.set(c, new Set()); codesDuCours.get(c).add(g); }
+  // LES GROUPES DE L'HORAIRE (3.5.717) : une séance numérotée (« 3 », « 3+4 ») se lit d'abord par eux, quand l'UE en a.
+  const ueDuCours = new Map();
+  const ueDe = c => { if (!ueDuCours.has(c)) { let u = null; try { u = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY annee_scolaire DESC LIMIT 1').get(c)?.ue_num ?? null; } catch { /* */ } ueDuCours.set(c, u); } return ueDuCours.get(c); };
+  const anneeGH = (() => { try { return s.length ? db.prepare('SELECT annee_scolaire a FROM horaire_seance WHERE id = ?').get(s[0].id)?.a : null; } catch { return null; } })();
   const horsGroupe = (x, etudId) => {
+    if (x.sous_groupe && anneeGH) {
+      const gh = etudiantsDeLaSeance(anneeGH, ueDe(x.cours_code), x.sous_groupe);
+      if (gh) return !gh.has(etudId);
+    }
     if (!x.sous_groupe || !coursRepartis.has(x.cours_code)) return false;
     const gs = groupesDeLaSeance(x.sous_groupe, codesDuCours.get(x.cours_code));
     if (!gs) return false;
