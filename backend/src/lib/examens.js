@@ -113,7 +113,7 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
 }
 
 /** Les mesures accordées par étudiant (la règle de Mes cours et de l'espace enseignant, 3.5.223). */
-function mesuresParEtudiant(annee) {
+export function mesuresParEtudiant(annee) {
   const out = new Map();
   essai(() => {
     let unites = () => null;
@@ -215,11 +215,23 @@ function registre(e) {
     ${cartouche(e)}
     ${e.etudiants.length ? `<table class="grille"><thead><tr><th class="n">N°</th><th>Étudiant</th><th style="width:26mm">Matricule</th>
       <th style="width:12mm">A / P</th><th style="width:14mm">AR</th><th style="width:17mm">Heure de remise</th><th style="width:42mm">Signature au dépôt</th></tr></thead>
-      <tbody>${e.etudiants.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.nom)}</td><td>${esc(x.matricule)}</td><td></td><td class="c">${x.ar.length ? 'oui' : ''}</td><td></td><td></td></tr>`).join('')}</tbody></table>`
+      <tbody>${e.etudiants.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.nom)}</td><td>${esc(x.matricule)}</td><td></td><td class="c"><b>${x.ar.length ? '×' : ''}</b></td><td></td><td></td></tr>`).join('')}</tbody></table>`
       : '<p class="vide">Aucun étudiant pour cette épreuve.</p>'}
+    ${recapAR(e.etudiants)}
     <table class="totaux"><tr><td>Présents : ……</td><td>Absents : ……</td><td>Notes de présence : ……</td><td>Copies remises : ……</td></tr></table>
     <p class="mention">Le registre est le document officiel de présence à l’épreuve. Un étudiant en note de présence signe avant le lancement et quitte la salle avant le début : il ne peut prendre connaissance des questions.</p>
     <table class="signatures"><tr><td>Professeur<br>(nom et signature)</td><td>Surveillant(s)<br>(nom et signature)</td></tr></table>`;
+}
+
+/* LES AR EN FIN DE LISTE (3.5.721, mémo de la direction du 25 novembre 2026 : « indiquer par une croix les étudiants bénéficiant
+   AR et, à la fin de la liste, reprendre les AR des étudiants concernés »). Les MESURES accordées seulement (secret professionnel). */
+export function recapAR(etudiants) {
+  const avec = etudiants.map((x, i) => ({ x, n: i + 1 })).filter(({ x }) => x.ar?.length);
+  if (!avec.length) return '';
+  return `<div style="break-inside: avoid; margin-top: 4mm"><h3 style="font-size: 10pt; margin: 0 0 1.5mm">Aménagements raisonnables des étudiants marqués ×</h3>
+    <table class="grille" style="width:100%;border-collapse:collapse"><thead><tr><th class="n" style="border:0.2mm solid #B8C0CC;padding:1.2mm 1.5mm;vertical-align:top;font-size:8.5pt;text-align:left;width:9mm">N°</th><th style="border:0.2mm solid #B8C0CC;padding:1.2mm 1.5mm;vertical-align:top;font-size:8.5pt;text-align:left;width:55mm">Étudiant</th><th style="border:0.2mm solid #B8C0CC;padding:1.2mm 1.5mm;vertical-align:top;font-size:8.5pt;text-align:left">Mesures accordées</th></tr></thead>
+    <tbody>${avec.map(({ x, n }) => `<tr><td class="n" style="border:0.2mm solid #B8C0CC;padding:1.2mm 1.5mm;vertical-align:top;font-size:8.5pt;text-align:left">${n}</td><td style="border:0.2mm solid #B8C0CC;padding:1.2mm 1.5mm;vertical-align:top;font-size:8.5pt;text-align:left">${esc(x.nom)}</td><td style="border:0.2mm solid #B8C0CC;padding:1.2mm 1.5mm;vertical-align:top;font-size:8.5pt;text-align:left">${x.ar.map(m => `${esc(m.libelle)}${m.precisions ? ` — ${esc(m.precisions)}` : ''}`).join('<br>')}</td></tr>`).join('')}</tbody></table>
+    <p style="font-size:8pt;color:#555;margin:1.5mm 0 0">Seules les mesures accordées figurent ici (secret professionnel) : cette liste revient avec l’enveloppe.</p></div>`;
 }
 
 function plan(e) {
