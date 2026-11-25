@@ -102,8 +102,17 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
       }
     }
   } catch { /* pas de répartition : tout le monde reste concerné */ }
-  const horsGroupe = (x, etudId) => !!x.sous_groupe && coursRepartis.has(x.cours_code)
-    && !membres.get(`${x.cours_code}|${String(x.sous_groupe).trim().toUpperCase()}`)?.has(etudId);
+  /* LE GROUPE DE LA SÉANCE, LU COMME LA RÉPARTITION (3.5.708) : l'horaire importé écrit « 1B3 », « 1A », « 1B+1C » (organisation
+     en tête, groupes réunis), la répartition « B3 », « A1 ». `groupesDeLaSeance` fait le lien ; ce qui ne se reconnaît pas (« 1 » à
+     « 8 » face à A à H) laisse TOUT LE MONDE concerné — avant, chacun y était « hors groupe ». */
+  const codesDuCours = new Map();
+  for (const k of membres.keys()) { const [c, g] = k.split('|'); if (!codesDuCours.has(c)) codesDuCours.set(c, new Set()); codesDuCours.get(c).add(g); }
+  const horsGroupe = (x, etudId) => {
+    if (!x.sous_groupe || !coursRepartis.has(x.cours_code)) return false;
+    const gs = groupesDeLaSeance(x.sous_groupe, codesDuCours.get(x.cours_code));
+    if (!gs) return false;
+    return !gs.some(g => membres.get(`${x.cours_code}|${g}`)?.has(etudId));
+  };
   const tenue = x => !x.annule && x.date <= aujourdhui;
   const codeDe = p => (p.statut === 'present' ? (p.distance ? 'M' : 'P') + (p.retard ? '*' : '')
     : p.statut === 'justifie' ? (p.motif === 'medical' ? 'CM' : 'J') : (CODES[p.statut] || ''));
@@ -390,4 +399,18 @@ export function grilleCours(coursCode, annee, { du = null, au = null } = {}) {
   return { ueNum: c.ue_num, g, opts: { titre: `Registre de présence — ${coursCode}${c.cours_nom ? ` · ${c.cours_nom}` : ''}`, entete: cx.entete, signataires: cx.signataires,
     sous: `UE ${c.ue_num} · ${etudiants.length} inscrits · ${annee}`, ligne: periodeLigne(du, au) },
     nom: `Presences_${coursCode}_${annee}` };
+}
+
+/** Les codes de la répartition que désigne le sous-groupe d'une séance (« 1B3 » → B3 ; « 1A » → A1, A2… ou A ; « 1B+1C » → les deux),
+    ou null quand rien ne se reconnaît. `codes` : les codes de la répartition du cours (majuscules). */
+export function groupesDeLaSeance(sousGroupe, codes) {
+  if (!sousGroupe || !codes || !codes.size) return null;
+  const out = new Set();
+  for (const brut of String(sousGroupe).split('+')) {
+    const t = brut.trim().toUpperCase().replace(/^\d+(?=[A-Z])/, '');
+    if (!t) continue;
+    if (codes.has(t)) { out.add(t); continue; }
+    if (/^[A-Z]+$/.test(t)) for (const c of codes) if (new RegExp(`^${t}\\d+$`).test(c)) out.add(c);
+  }
+  return out.size ? [...out] : null;
 }

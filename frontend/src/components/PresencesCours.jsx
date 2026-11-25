@@ -58,6 +58,30 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
   }, [coursCode, annee, recharge]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const seance = data?.seances.find(s => s.id === seanceId) || null;
+  /* LES ÉTUDIANTS DU GROUPE DE LA SÉANCE (3.5.708, idée de WARNIMONT Anne : « n'avoir que les étudiants du groupe (ex. : B3) pour
+     encoder les présences, et pas tous (A1, B3, C6) »). Une séance de sous-groupe montre les étudiants que la répartition a placés
+     dans ce groupe ; « Voir tous les étudiants du cours » rouvre la liste entière. Sans répartition, tout le monde, comme avant. */
+  const [voirTous, setVoirTous] = useState(false);
+  useEffect(() => { setVoirTous(false); }, [seanceId]);
+  // Le code de répartition d'un étudiant (« … · Org 1 · Gr. B3 » → B3), et la règle du serveur (groupesDeLaSeance, lib/grillePresence.js).
+  const codesDe = e => String(e.groupe || '').split(' + ').map(g => (/Gr\. (.+)$/.exec(g.trim()) || [])[1]).filter(Boolean).map(x => x.trim().toUpperCase());
+  const duGroupe = s => {
+    if (!s?.sous_groupe || !data) return null;
+    const codes = new Set(data.etudiants.flatMap(codesDe));
+    const gs = new Set();
+    for (const brut of String(s.sous_groupe).split('+')) {
+      const t = brut.trim().toUpperCase().replace(/^\d+(?=[A-Z])/, '');
+      if (!t) continue;
+      if (codes.has(t)) { gs.add(t); continue; }
+      if (/^[A-Z]+$/.test(t)) for (const c of codes) if (new RegExp(`^${t}\\d+$`).test(c)) gs.add(c);
+    }
+    if (!gs.size) return null;
+    const l = data.etudiants.filter(e => codesDe(e).some(c => gs.has(c)));
+    return l.length ? l : null;
+  };
+  const groupeSeance = duGroupe(seance);
+  const visibles = (groupeSeance && !voirTous) ? groupeSeance : (data?.etudiants || []);
+  const idsVisibles = new Set(visibles.map(e => String(e.id)));
   useEffect(() => {
     if (!data || !seance) return;
     const enreg = data.presences[seance.id] || {};
@@ -87,7 +111,7 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
   });
   const dispenses = new Set((data?.etudiants || []).filter(e => e.dispense).map(e => String(e.id)));
   const tousPresents = () => setSaisie(s => Object.fromEntries(Object.entries(s).map(([k, v]) =>
-    [k, v.statut || dispenses.has(String(k)) ? v : { statut: 'present', motif: null, retard: false }])));
+    [k, v.statut || dispenses.has(String(k)) || !idsVisibles.has(String(k)) ? v : { statut: 'present', motif: null, retard: false }])));
   const enregistrer = async () => {
     setEnCours(true); setErreur(null);
     try {
@@ -123,7 +147,8 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
       <div className="carte max-h-[70vh] overflow-auto">
         {data.seances.map(s => {
           const passe = s.date <= data.aujourdhui;
-          const complet = s.encodees >= n && n > 0;
+          const nS = (duGroupe(s) || data.etudiants).filter(e => !e.dispense).length;
+          const complet = s.encodees >= nS && nS > 0;
           return (
             <button key={s.id} type="button" onClick={() => setSeanceId(s.id)}
               className={`w-full text-left px-3 py-1.5 border-b border-slate-100 text-second flex items-center gap-2
@@ -133,7 +158,7 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
               {s.sous_groupe && <span className="text-xs text-slate-400">gr. {s.sous_groupe}</span>}
               <span className="ml-auto text-xs" style={{ color: s.annule ? 'var(--c-texte)' : complet ? 'var(--c-reussi)'
                 : passe ? 'var(--c-attente)' : 'var(--c-disponible)' }}>
-                {s.annule ? 'annulée' : complet ? '✓' : passe ? `${s.encodees}/${n}` : 'à venir'}</span>
+                {s.annule ? 'annulée' : complet ? '✓' : passe ? `${s.encodees}/${nS}` : 'à venir'}</span>
             </button>
           );
         })}
@@ -145,7 +170,10 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">Séance du {jourDe(seance.date)} {fr(seance.date)} ·
                 {' '}{String(seance.heure_debut).slice(0, 5)}–{String(seance.heure_fin).slice(0, 5)}</div>
-              <div className="text-xs text-slate-500">{seance.matiere || ''}{seance.sous_groupe ? ` · sous-groupe ${seance.sous_groupe}` : ''}</div>
+              <div className="text-xs text-slate-500">{seance.matiere || ''}{seance.sous_groupe ? ` · sous-groupe ${seance.sous_groupe}` : ''}
+                {groupeSeance && (<> · {voirTous ? `tous les étudiants du cours (${data.etudiants.length})` : `les ${groupeSeance.length} étudiants du groupe`}
+                  {' '}<button type="button" className="underline text-iip-blue" onClick={() => setVoirTous(v => !v)}>
+                    {voirTous ? `Revenir au groupe ${seance.sous_groupe}` : 'Voir tous les étudiants du cours'}</button></>)}</div>
             </div>
             {!future && !seance.annule && (
               <button type="button" className="bouton" onClick={tousPresents}>Tous présents</button>
@@ -164,7 +192,7 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
           </div>
           <table className="w-full text-second">
             <tbody>
-              {data.etudiants.map(e => {
+              {visibles.map(e => {
                 const v = saisie[e.id] || {};
                 return (
                   <tr key={e.id} className="border-t border-slate-100 bg-white">

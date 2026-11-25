@@ -3073,7 +3073,8 @@ export default function Etudiants() {
   const [paeEnLigne, setPaeEnLigne] = useState(false);
   // LES REFUS EN 2E SESSION (3.5.029) : ouverts aussi depuis la notification (/etudiants?outil=refus2).
   const [refus2, setRefus2] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'refus2'; } catch { return false; } });
-  const [messagesEtud, setMessagesEtud] = useState(false);
+  // Le lien d'une notification « Message de… » (3.5.707) ouvre les messages aux étudiants, sur les envoyés et leurs réponses.
+  const [messagesEtud, setMessagesEtud] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'messages-etudiants'; } catch { return false; } });
   // LES PHOTOS À VALIDER (3.5.606) : ouvertes aussi depuis la notification (/etudiants?outil=photos).
   // ÉCRIRE AUX ÉTUDIANTS, COUPÉ POUR LE MOMENT POUR LA COORDINATION (3.5.650) : suit la fonction de Mise en service.
   const ecrireCoord = useEcrireEtudiants(false);
