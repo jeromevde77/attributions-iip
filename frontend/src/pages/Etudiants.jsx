@@ -86,6 +86,7 @@ import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ImportLieuxStage from '../components/ImportLieuxStage.jsx';
 import ImportReleveStages from '../components/ImportReleveStages.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
+import { useLocation } from 'react-router-dom';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
@@ -3037,7 +3038,13 @@ export default function Etudiants() {
   const [fDoublons, setFDoublons] = useState(false);
   const [filtresOuverts, setFiltresOuverts] = useState(false);   // panneau « Filtres » (3.1.456)
   const [sections, setSections] = useState([]);
-  const [selId, setSelId] = useState(null);
+  /* LE LIEN « /etudiants?id=… » OUVRE LA FICHE (3.5.714, Charles : « quand je clique, cela ne va pas dans le dossier ») : les
+     notifications (PAE contesté…) et le bandeau des partis y mènent ; rien ne lisait ce paramètre. À l'ouverture, et à chaque
+     navigation dans l'application (Lien ou retour). */
+  const idDeLAdresse = () => { try { const v = Number(new URLSearchParams(window.location.search).get('id')); return v > 0 ? v : null; } catch { return null; } };
+  const [selId, setSelId] = useState(idDeLAdresse);
+  const emplacement = useLocation();
+  useEffect(() => { const v = idDeLAdresse(); if (v) setSelId(v); }, [emplacement.search]);   // eslint-disable-line react-hooks/exhaustive-deps
   // LA COHORTE QU'ON PARCOURT. La section existait déjà comme filtre de la
   // liste ; l'année et l'unité la complètent, et les trois se choisissent aussi
   // depuis la fiche ouverte. Une seule source de vérité : ce que la barre de la
