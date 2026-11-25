@@ -7357,7 +7357,11 @@ r.get('/statut/archives-inscrits', authRequired, (req, res) => {
   const ids = db.prepare(ARCHIVES_INSCRITS).all(annee).map(x => x.id);
   const n = ids.length ? db.prepare(`SELECT COUNT(*) n FROM etudiant_inscription WHERE annee_scolaire >= ? AND resultat IS NULL
     AND etudiant_id IN (${ids.map(() => '?').join(',')})`).get(annee, ...ids).n : 0;
-  res.json({ annee, etudiants: ids.length, inscriptions: n });
+  // QUI (3.5.706, Charles : « je ne sais pas voir de suite quels étudiants ») : chacun, son statut et ses unités sans résultat.
+  const qui = ids.length ? db.prepare(`SELECT e.id, e.nom, e.prenom, e.sortie_statut statut,
+      (SELECT GROUP_CONCAT(i.ue_num, ', ') FROM etudiant_inscription i WHERE i.etudiant_id = e.id AND i.annee_scolaire >= ? AND i.resultat IS NULL) ues
+    FROM etudiant e WHERE e.id IN (${ids.map(() => '?').join(',')}) ORDER BY e.nom, e.prenom`).all(annee, ...ids) : [];
+  res.json({ annee, etudiants: ids.length, inscriptions: n, liste: qui });
 });
 r.post('/statut/nettoyer-archives', authRequired, (req, res) => {
   if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return res.status(403).json({ error: 'Réservé à la direction.' });
