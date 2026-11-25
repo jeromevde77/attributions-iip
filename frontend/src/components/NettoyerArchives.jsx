@@ -3,10 +3,12 @@
    suivantes — d'avant l'archivage qui retire d'office. Simulation, puis retrait par la porte du PAE ; ce qui porte une note ou un
    report reste et se nomme. Serveur : /api/etudiants/statut/archives-inscrits|nettoyer-archives. */
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authHeaders } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 
 export default function NettoyerArchives({ onFait }) {
+  const naviguer = useNavigate();
   const [d, setD] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const lire = () => fetch('/api/etudiants/statut/archives-inscrits', { headers: authHeaders() })
@@ -40,7 +42,7 @@ export default function NettoyerArchives({ onFait }) {
         {/* QUI (3.5.706, Charles : « je ne sais pas voir de suite quels étudiants ») : chacun, un clic ouvre sa fiche. */}
         {!!d.liste?.length && (
           <span className="block mt-1">{d.liste.map((e, i) => (
-            <span key={e.id}>{i ? ' · ' : ''}<a href={`/etudiants?id=${e.id}`} className="underline font-medium">{String(e.nom || '').toUpperCase()} {e.prenom}</a>
+            <span key={e.id}>{i ? ' · ' : ''}<a href={`/etudiants?id=${e.id}`} className="underline font-medium" onClick={ev => { ev.preventDefault(); naviguer(`/etudiants?id=${e.id}`); }}>{String(e.nom || '').toUpperCase()} {e.prenom}</a>
               <span className="text-slate-500"> ({e.statut === 'archive' ? 'archivé' : 'sorti'} — UE {e.ues})</span>
               {' '}<button type="button" className="underline text-second" title="Il n'est pas parti (par exemple : changement de section) : retirer la marque, ses unités restent"
                 onClick={() => reintegrer(e)}>pas parti : réintégrer</button></span>))}</span>)}</span>
