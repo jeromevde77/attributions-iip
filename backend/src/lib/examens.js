@@ -151,7 +151,7 @@ export function ecrireDetail({ annee, session, ue_num, cours_code = '', type, du
 
 // ── LES PIÈCES ─────────────────────────────────────────────────────────────
 export const PIECES = [
-  { id: 'enveloppe', libelle: 'L’enveloppe complète', aide: 'Dans l’ordre de l’enveloppe : fiche de l’épreuve, aménagements, registre de présences, plan d’installation, PV d’incident.' },
+  { id: 'enveloppe', libelle: 'L’enveloppe complète', aide: 'Dans l’ordre de l’enveloppe : fiche de l’épreuve, aménagements, registre de présences, plan d’installation, PV d’incident, et les feuilles de brouillon des étudiants dont l’aménagement les prévoit.' },
   { id: 'fiche', libelle: 'Fiche de l’épreuve (à coller sur l’enveloppe)' },
   { id: 'registre', libelle: 'Registre de présences et de dépôt' },
   { id: 'plan', libelle: 'Plan d’installation' },
@@ -160,12 +160,12 @@ export const PIECES = [
   { id: 'archivage', libelle: 'Feuille d’archivage et étiquette' },
   { id: 'garde', libelle: 'Pages de garde nominatives' },
   // LES BROUILLONS (3.5.721, la direction : « 3 feuilles de brouillon avec QR code, date, nom de l'examen, professeur »).
-  { id: 'brouillon', libelle: 'Feuilles de brouillon (3 par étudiant, nominatives, avec QR)', aide: 'Une feuille égarée se retrouve : le QR porte l’épreuve, le matricule et le numéro de la feuille.' },
+  { id: 'brouillon', libelle: 'Feuilles de brouillon (aménagement raisonnable)', aide: 'Trois feuilles nominatives avec QR, pour les seuls étudiants dont l’aménagement accordé prévoit des feuilles de brouillon.' },
   { id: 'recap', libelle: 'Calendrier récapitulatif (une ligne par épreuve)' },
   // AUX VALVES (3.5.709, AEVALIOTIS Mati : « le récapitulatif des horaires d'examens avec les locaux, à afficher pour les étudiants »).
   { id: 'valves', libelle: 'Affiche aux valves (pour les étudiants)', aide: 'Par section et par jour : l’heure, le bloc, l’UE et l’épreuve, le local. Ni noms, ni aménagements.' },
 ];
-const DANS_ENVELOPPE = ['fiche', 'ar', 'registre', 'plan', 'incident'];
+const DANS_ENVELOPPE = ['fiche', 'ar', 'registre', 'plan', 'incident', 'brouillon'];
 
 const ses = e => (e.session === 2 ? '2e session' : '1re session');
 const epreuveNom = e => (e.cours_code ? `${e.cours_code} — ${e.cours_nom || ''}` : 'Unité entière');
@@ -367,10 +367,13 @@ export function garde(e) {
 
 /* LES FEUILLES DE BROUILLON : trois par étudiant, à son nom, dans l'ordre du registre. Le QR dit l'épreuve, le matricule et
    la feuille (« IIP · 2026-2027 · S1 · UE 250 · 250.1 · 12345 · 2/3 ») : une feuille trouvée sur une table se rend à qui elle revient. */
+export const prevoitBrouillon = x => (x?.ar || []).some(m => /brouillon/i.test(`${m.libelle || ''} ${m.precisions || ''}`));
 export function brouillon(e) {
-  const liste = e.etudiants.length ? e.etudiants : [null];
+  // SEULEMENT POUR LES ÉTUDIANTS DONT L'AMÉNAGEMENT LE PRÉVOIT (Charles, 25 novembre 2026) : une mesure accordée qui parle de brouillon.
+  const liste = e.etudiants.map((x, i) => ({ x, i })).filter(({ x }) => prevoitBrouillon(x));
+  if (!liste.length) return '';
   const pages = [];
-  liste.forEach((x, i) => {
+  liste.forEach(({ x, i }) => {
     for (let k = 1; k <= 3; k++) {
       const code = ['IIP', e.annee || '', `S${e.session}`, `UE ${e.ue_num}`, e.cours_code || 'unité', x?.matricule || '—', `${k}/3`].join(' · ');
       let qr = '';
@@ -468,7 +471,9 @@ export function composer(liste, pieces) {
   for (const e of liste) {
     for (const p of choix) {
       if (p === 'ar' && pieces.includes('enveloppe') && !e.ar.length) continue;   // pas de feuille vide dans l'enveloppe
-      blocs.push(p === 'garde' ? COMPOSE[p](e) : COMPOSE[p](e));
+      const b = COMPOSE[p](e);
+      if (p === 'brouillon' && !b) { if (!pieces.includes('enveloppe')) blocs.push(`<h2>Feuilles de brouillon — UE ${e.ue_num} · ${esc(epreuveNom(e))}</h2><p class="vide">Aucun étudiant de cette épreuve n’a un aménagement accordé qui prévoit des feuilles de brouillon.</p>`); continue; }
+      blocs.push(b);
     }
   }
   return blocs.map((b, k) => `<section class="piece"${saut(k)}>${b}</section>`).join('');
