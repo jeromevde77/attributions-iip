@@ -29,7 +29,12 @@ export default function NettoyerArchives({ onFait }) {
   return (
     <div className="bloc-etat px-3 py-2 mb-3 flex flex-wrap items-center gap-3 text-sm" data-etat="corriger">
       <span className="flex-1 min-w-0"><b>{d.etudiants} étudiant(s) archivé(s) ou sorti(s)</b> gardent {d.inscriptions} unité(s) sans résultat en {d.annee} :
-        ils paraissent dans les groupes et les listes de l’année alors qu’ils sont partis.</span>
+        ils paraissent dans les groupes et les listes de l’année alors qu’ils sont partis.
+        {/* QUI (3.5.706, Charles : « je ne sais pas voir de suite quels étudiants ») : chacun, un clic ouvre sa fiche. */}
+        {!!d.liste?.length && (
+          <span className="block mt-1">{d.liste.map((e, i) => (
+            <span key={e.id}>{i ? ' · ' : ''}<a href={`/etudiants?id=${e.id}`} className="underline font-medium">{String(e.nom || '').toUpperCase()} {e.prenom}</a>
+              <span className="text-slate-500"> ({e.statut === 'archive' ? 'archivé' : 'sorti'} — UE {e.ues})</span></span>))}</span>)}</span>
       <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={retirer}>{enCours ? 'Calcul…' : 'Retirer leurs unités…'}</button>
     </div>);
 }
