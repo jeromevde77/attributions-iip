@@ -58,9 +58,11 @@ export function migrerCircuitAR() {
   try {
     // 3.5.721 (mémo de la direction) : « bouchon d'oreille / dispositif anti-bruit ; l'étudiant doit démontrer que le dispositif
     // n'est pas équipé de connectivité ».
-    const APRES = 'Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)';
+    // 3.5.722 (Charles) : « dispositif anti-bruit passif non connectable (bouchons, casque, etc.) ».
+    const APRES = 'Dispositif anti-bruit passif non connectable (bouchons, casque, etc.)';
     for (const AVANT of ['Port d’un casque anti-bruit lors des évaluations ou de certains exercices',
-      'Port d’un casque anti-bruit passif, non connecté (sans Bluetooth ni fil), lors des évaluations ou de certains exercices']) {
+      'Port d’un casque anti-bruit passif, non connecté (sans Bluetooth ni fil), lors des évaluations ou de certains exercices',
+      'Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)']) {
       db.prepare("UPDATE parametre SET valeur = REPLACE(valeur, ?, ?) WHERE cle = 'ar_catalogue' AND instr(valeur, ?) > 0").run(AVANT, APRES, AVANT);
       db.prepare('UPDATE amenagement_mesure SET libelle = ? WHERE libelle = ?').run(APRES, AVANT);
     }
@@ -101,7 +103,7 @@ const CATALOGUE_DEFAUT = [
   'P · Pauses aménagées durant les épreuves',
   'M · Questionnaire adapté (police aérée, interligne 1,5, recto seul)',
   'P · Calendrier d’examens aménagé',
-  'M · Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)',
+  'M · Dispositif anti-bruit passif non connectable (bouchons, casque, etc.)',
   'M · Utilisation de feuilles de brouillon lors des évaluations',
   'P · Tolérance pour la syntaxe et l’orthographe',
   'P · Consignes lues ou reformulées oralement',
