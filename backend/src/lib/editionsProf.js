@@ -18,6 +18,7 @@ import { pieceEditionProf, FAMILLES_EDITIONS_PROF } from './editionsProfCatalogu
 import { dispensesDeLUE } from './dispenses.js';
 import { vaRetenue } from './valorisation.js';
 import { placer, etudiantsDeLEpreuve } from './passages.js';
+import { mesuresParEtudiant, recapAR } from './examens.js';
 import { donneesGrille, dispensesUE } from './grillePresence.js';
 import { reglagesPresenceQr } from './presenceQr.js';
 import { rubriquesDuDossier, decouperProgramme, memeCours } from './texteDossier.js';
@@ -179,14 +180,22 @@ const PIECES = {
       }
     }
     if (!pages.length) pages = [{ titre: 'Tous les étudiants', quand: phraseDate(dateEpreuve(ctx.annee, s, ctx.ue, ctx.code)), etudiants: tous }];
-    const corps = pages.map((p, i) => `<div class="${i ? 'saut' : ''}">
+    // Les AR (3.5.721) : une croix devant l'étudiant, ses mesures accordées en fin de liste.
+    let mesures = new Map();
+    try { mesures = mesuresParEtudiant(ctx.annee); } catch { /* */ }
+    const arDe = e => (mesures.get(e.id) || []).filter(m => (!m.ue_num || Number(m.ue_num) === Number(ctx.ue)) && (!m.ues || m.ues.includes(Number(ctx.ue))));
+    const corps = pages.map((p, i) => {
+      const tri = [...p.etudiants].sort(parNom);
+      return `<div class="${i ? 'saut' : ''}">
       <div class="tg">${esc(p.quand)} <span>— ${esc(p.titre)} · ${p.etudiants.length} étudiant(s)</span></div>
-      ${tableau([{ t: 'N°', w: '9mm' }, { t: 'NOM Prénom' }, { t: 'Matricule', w: '26mm' }, { t: 'Signature', w: '42mm' }, { t: 'Remarque', w: '40mm' }],
-        [...p.etudiants].sort(parNom).map((e, k) => `<tr><td>${k + 1}</td><td>${nomHtml(e)}</td><td>${esc(e.id_ecampus || '')}</td><td></td><td></td></tr>`),
-        { classe: 'haut' })}</div>`).join('');
+      ${tableau([{ t: 'N°', w: '9mm' }, { t: 'NOM Prénom' }, { t: 'Matricule', w: '26mm' }, { t: 'AR', w: '10mm' }, { t: 'Signature', w: '42mm' }, { t: 'Remarque', w: '36mm' }],
+        tri.map((e, k) => `<tr><td>${k + 1}</td><td>${nomHtml(e)}</td><td>${esc(e.id_ecampus || '')}</td><td style="text-align:center"><b>${arDe(e).length ? '×' : ''}</b></td><td></td><td></td></tr>`),
+        { classe: 'haut' })}
+      ${recapAR(tri.map(e => ({ nom: nomDe(e), ar: arDe(e) })))}</div>`;
+    }).join('');
     return { titre: `Feuille d’émargement — ${s === 2 ? 'seconde' : 'première'} session`, corps,
-      feuilles: pages.map((p, i) => ({ nom: `Passage ${i + 1}`, colonnes: ['N°', 'NOM Prénom', 'Matricule', 'Signature', 'Remarque'],
-        entete: p.quand, lignes: [...p.etudiants].sort(parNom).map((e, k) => [k + 1, nomDe(e), e.id_ecampus || '', '', '']) })) };
+      feuilles: pages.map((p, i) => ({ nom: `Passage ${i + 1}`, colonnes: ['N°', 'NOM Prénom', 'Matricule', 'AR', 'Signature', 'Remarque'],
+        entete: p.quand, lignes: [...p.etudiants].sort(parNom).map((e, k) => [k + 1, nomDe(e), e.id_ecampus || '', arDe(e).length ? '×' : '', '', '']) })) };
   },
 
   /* 2. LA GRILLE DE COTATION VIERGE. */

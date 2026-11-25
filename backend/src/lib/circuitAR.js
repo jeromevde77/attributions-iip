@@ -56,10 +56,14 @@ export function migrerCircuitAR() {
   /* LE CASQUE EST PASSIF ET NON CONNECTÉ (3.5.720, Charles, 25 novembre 2026 : « le casque anti-bruit est parfois relié à une
      connexion »). Le libellé change dans le catalogue réglé ET dans les mesures déjà décidées : la fiche des chargés de cours le dit. */
   try {
-    const AVANT = 'Port d’un casque anti-bruit lors des évaluations ou de certains exercices';
-    const APRES = 'Port d’un casque anti-bruit passif, non connecté (sans Bluetooth ni fil), lors des évaluations ou de certains exercices';
-    db.prepare("UPDATE parametre SET valeur = REPLACE(valeur, ?, ?) WHERE cle = 'ar_catalogue' AND instr(valeur, ?) > 0").run(AVANT, APRES, AVANT);
-    db.prepare('UPDATE amenagement_mesure SET libelle = ? WHERE libelle = ?').run(APRES, AVANT);
+    // 3.5.721 (mémo de la direction) : « bouchon d'oreille / dispositif anti-bruit ; l'étudiant doit démontrer que le dispositif
+    // n'est pas équipé de connectivité ».
+    const APRES = 'Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)';
+    for (const AVANT of ['Port d’un casque anti-bruit lors des évaluations ou de certains exercices',
+      'Port d’un casque anti-bruit passif, non connecté (sans Bluetooth ni fil), lors des évaluations ou de certains exercices']) {
+      db.prepare("UPDATE parametre SET valeur = REPLACE(valeur, ?, ?) WHERE cle = 'ar_catalogue' AND instr(valeur, ?) > 0").run(AVANT, APRES, AVANT);
+      db.prepare('UPDATE amenagement_mesure SET libelle = ? WHERE libelle = ?').run(APRES, AVANT);
+    }
   } catch (e) { console.error('[AR] casque', e.message); }
 }
 
@@ -78,7 +82,7 @@ const CATALOGUE_DEFAUT = [
   'P · Pauses aménagées durant les épreuves',
   'M · Questionnaire adapté (police aérée, interligne 1,5, recto seul)',
   'P · Calendrier d’examens aménagé',
-  'M · Port d’un casque anti-bruit passif, non connecté (sans Bluetooth ni fil), lors des évaluations ou de certains exercices',
+  'M · Bouchons d’oreille ou dispositif anti-bruit lors des évaluations ou de certains exercices (l’étudiant démontre que le dispositif n’est équipé d’aucune connectivité)',
   'P · Tolérance pour la syntaxe et l’orthographe',
   'P · Consignes lues ou reformulées oralement',
   'M · Usage d’un ordinateur (correcteur, synthèse vocale) pendant les évaluations',
