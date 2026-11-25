@@ -88,6 +88,17 @@ export function photoPortail(etudId) {
     derniere: derniere ? { statut: derniere.statut, motif: derniere.motif, depose_le: derniere.depose_le, decide_le: derniere.decide_le } : null };
 }
 
+/* RETIRER LA PHOTO EN VIGUEUR (3.5.712, Charles : « pouvoir retirer une photo d'étudiant ») : elle n'est pas effacée — statut
+   « retiree », motif, qui et quand ; l'étudiant n'a plus de photo, et son espace le lui dit. */
+export function retirerPhoto(etudId, motif, par) {
+  migrerPhotos();
+  const c = photoCourante(etudId);
+  if (!c) return { erreur: 'Cet étudiant n’a pas de photo en vigueur.' };
+  db.prepare("UPDATE etudiant_photo SET statut = 'retiree', motif = ?, decide_par = ?, decide_le = datetime('now') WHERE id = ?")
+    .run(String(motif || '').trim().slice(0, 500) || null, par, c.id);
+  return { ok: true, id: c.id };
+}
+
 /** Qui peut voir la photo d'un étudiant. */
 export async function peutVoir(user, etudId) {
   if (!user) return false;

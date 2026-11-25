@@ -51,6 +51,15 @@ r.post('/etudiant/:id', authRequired, admin, express.json({ limit: '8mb' }), (re
   res.status(x.erreur ? 400 : 200).json(x.erreur ? { error: x.erreur } : x);
 });
 
+/* Retirer la photo en vigueur (3.5.712) : le secrétariat ou la direction, avec un motif. */
+r.delete('/etudiant/:id', authRequired, admin, express.json(), (req, res) => {
+  const motif = String(req.body?.motif || '').trim();
+  if (!motif) return res.status(400).json({ error: 'Le motif du retrait est demandé.' });
+  const x = P.retirerPhoto(Number(req.params.id), motif, qui(req));
+  if (!x.erreur) import('../lib/portailSync.js').then(mm => mm.deposerBientot?.(Number(req.params.id))).catch(() => {});
+  res.status(x.erreur ? 409 : 200).json(x.erreur ? { error: x.erreur } : x);
+});
+
 // ── Le trombinoscope d'un cours ──────────────────────────────────────────────
 r.get('/cours/:cours', authRequired, async (req, res) => {
   const { accesCours } = await import('./mesCours.js');
