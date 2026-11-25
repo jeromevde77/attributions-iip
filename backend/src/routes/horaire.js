@@ -595,6 +595,33 @@ r.get('/semaine', authRequired, (req, res) => {
         pose_semaine: Math.round(poseSem.get(an, g.id, lundi, dimanche).m / 6) / 10 };
     });
   }
+  /* LA VUE D'UN PROFESSEUR A AUSSI SON BAC (3.5.718, Charles : « je ne sais pas ajouter un cours depuis l'horaire de Sara ») :
+     ses attributions de l'année, une carte par cours, activité et groupe. Poser une carte écrit la séance à son nom, avec la
+     lettre du groupe (sous_groupe) que lisent les présences. Les heures se comptent sur les séances déjà posées à son nom. */
+  if (vue === 'professeur' && cle) {
+    const profId = Number(cle);
+    const attrs = db.prepare(`SELECT a.id, a.section, a.ue_num, a.code_cours, a.code, a.num_organisation, a.periodes_attribuees,
+        t.libelle AS activite, p.nom AS prof_nom, p.prenom AS prof_prenom,
+        COALESCE((SELECT cours_nom FROM cours c WHERE c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire LIMIT 1),
+          (SELECT cours_nom FROM cours c WHERE c.cours_code = a.code_cours ORDER BY c.annee_scolaire DESC LIMIT 1)) AS cours_nom
+      FROM attribution a LEFT JOIN activite_type t ON t.id = a.activite_id LEFT JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.annee_scolaire = ? AND a.professeur_id = ? AND a.code_cours IS NOT NULL AND COALESCE(a.en_conge, 0) = 0
+      ORDER BY a.code_cours, a.code`).all(an, profId);
+    const pose = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND professeur_id = ?
+      AND cours_code = ? AND COALESCE(sous_groupe, '') = ? AND annule = 0`);
+    const poseSem = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND professeur_id = ?
+      AND cours_code = ? AND COALESCE(sous_groupe, '') = ? AND annule = 0 AND date BETWEEN ? AND ?`);
+    bac = attrs.map(a => {
+      const sg = String(a.code || '').trim();
+      const heures = Math.round((Number(a.periodes_attribuees) || 0) * 50 / 60 * 100) / 100;
+      const posees = pose.get(an, profId, a.code_cours, sg).m / 60;
+      return { id: `a${a.id}`, attribution_id: a.id, ue_num: a.ue_num, code_cours: a.code_cours, cours_nom: a.cours_nom,
+        nom: sg || 'A', activite: a.activite || null, section: a.section, prof_nom: a.prof_nom, prof_prenom: a.prof_prenom,
+        heures_attribuees: heures, heures_posees: Math.round(posees * 100) / 100,
+        reste: heures ? Math.round((heures - posees) * 100) / 100 : null, prevu_semaine: null,
+        pose_semaine: Math.round(poseSem.get(an, profId, a.code_cours, sg, lundi, dimanche).m / 6) / 10 };
+    });
+  }
   res.json({ annee: an, lundi, jours, semaine, seances, bac });
 });
 
@@ -641,6 +668,23 @@ r.post('/alias', authRequired, roleRequired(...EDITEURS), (req, res) => {
 
 r.post('/seance', authRequired, roleRequired(...EDITEURS), (req, res) => {
   const b = req.body || {};
+  if (b.attribution_id) {   // depuis le bac d'un professeur (3.5.718)
+    const at = db.prepare('SELECT * FROM attribution WHERE id = ?').get(Number(b.attribution_id));
+    if (!at || !at.code_cours) return res.status(404).json({ error: 'Attribution inconnue.' });
+    if (!sectionPermise(req, at.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+    const errA = horaireValide(b);
+    if (errA) return res.status(400).json({ error: errA });
+    const nivA = niveauxEffectifs([at.section], at.annee_scolaire);
+    const blocA = String(nivA[at.ue_num] || '').toUpperCase() || null;
+    const sg = String(at.code || '').trim() || null;
+    const infoA = db.prepare(`INSERT INTO horaire_seance (annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
+        cours_code, ue_num, matiere, professeur_id, local_texte, groupe_id, sous_groupe, source, modifie_lucie, cree_par, cree_le)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,?, 'lucie', 1, ?, datetime('now'))`).run(
+      at.annee_scolaire, `${at.section} ${blocA || ''}`.trim(), at.section, blocA, b.date, b.heure_debut, b.heure_fin,
+      hm(b.heure_fin) - hm(b.heure_debut), at.code_cours, at.ue_num, null, at.professeur_id || null,
+      String(b.local_texte || '').trim() || null, sg, qui(req));
+    return res.json({ ok: true, id: infoA.lastInsertRowid, conflits: conflitsDeLaSeance(infoA.lastInsertRowid) });
+  }
   const g = db.prepare('SELECT * FROM groupe WHERE id = ?').get(Number(b.groupe_id));
   if (!g) return res.status(404).json({ error: 'Groupe inconnu.' });
   if (!sectionPermise(req, g.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });

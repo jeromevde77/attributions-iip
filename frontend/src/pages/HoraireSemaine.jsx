@@ -156,7 +156,8 @@ export default function HoraireSemaine({ consultation = false }) {
       if (!bouge || !courant) { if (geste.seance) setSel(geste.seance); return; }
       const corps = { date: jours[courant.d]?.date, heure_debut: deHm(courant.debut), heure_fin: deHm(courant.fin) };
       try {
-        if (geste.groupe) await appel('/api/horaire/seance', { method: 'POST', body: JSON.stringify({ ...corps, groupe_id: geste.groupe.id }) });
+        if (geste.groupe) await appel('/api/horaire/seance', { method: 'POST', body: JSON.stringify({ ...corps,
+          ...(geste.groupe.attribution_id ? { attribution_id: geste.groupe.attribution_id } : { groupe_id: geste.groupe.id }) }) });
         else await appel(`/api/horaire/seance/${courant.id}`, { method: 'PUT', body: JSON.stringify(corps) });
         charger();
       } catch (e) { setErreur(e.message); }
@@ -316,7 +317,7 @@ export default function HoraireSemaine({ consultation = false }) {
         </div>
 
         {/* LE BAC */}
-        {vue === 'classe' && !consultation && (
+        {(vue === 'classe' || vue === 'professeur') && !consultation && (
           <div className="border border-slate-200 rounded-carte p-2.5 space-y-2 self-start">
             <div className="flex items-center justify-between gap-2">
               <b className="text-second text-iip-blue">À placer</b>
@@ -324,24 +325,26 @@ export default function HoraireSemaine({ consultation = false }) {
                   séance plus longue se rallonge sur la grille, par quart d'heure. */}
               <span className="text-xs text-slate-500">blocs de 2 h</span>
             </div>
-            <p className="text-xs text-slate-500">Glissez une carte sur la grille. Le reste se calcule sur les heures attribuées au groupe.</p>
+            <p className="text-xs text-slate-500">{vue === 'professeur'
+              ? 'Ses attributions de l’année : glissez une carte sur la grille pour poser le cours à son nom, avec la lettre du groupe.'
+              : 'Glissez une carte sur la grille. Le reste se calcule sur les heures attribuées au groupe.'}</p>
             <div className="space-y-1.5 max-h-[60vh] overflow-auto pr-0.5">
               {(data?.bac || []).map(g => {
-                const fini = g.reste <= 0;
+                const fini = g.reste != null && g.reste <= 0;
                 return (
                   <div key={g.id} onPointerDown={ev => !fini && commencer(ev, { groupe: g, decalY: 0, long: duree })}
                     className={`rounded-r-champ px-2 py-1 text-xs ${fini ? 'opacity-50' : peutEcrire ? 'cursor-grab' : ''}`}
                     style={styleTuileCours(g.code_cours, { fond: 12 })}>
-                    <div className="font-semibold text-[color:var(--c-principal,_#1B2B4B)] truncate">{g.code_cours} {g.cours_nom}{g.nom !== 'A' ? ` · gr. ${g.nom}` : ''}</div>
+                    <div className="font-semibold text-[color:var(--c-principal,_#1B2B4B)] truncate">{g.code_cours} {g.cours_nom}{g.activite ? ` · ${g.activite}` : ''}{g.nom !== 'A' || g.attribution_id ? ` · gr. ${g.nom}` : ''}</div>
                     <div className="text-slate-500 truncate">{[g.prof_nom, g.prof_prenom].filter(Boolean).join(' ') || 'professeur à attribuer'}</div>
                     <div className="text-slate-500 tabular-nums">
-                      {g.heures_posees} h posées sur {g.heures_attribuees} · <b className={fini ? 'text-[color:var(--c-reussi,_#3E7D5E)]' : 'text-[color:var(--c-principal,_#1B2B4B)]'}>{fini ? 'complet' : `reste ${g.reste} h`}</b>
+                      {g.reste == null ? <>{g.heures_posees} h posées</> : <>{g.heures_posees} h posées sur {g.heures_attribuees} · <b className={fini ? 'text-[color:var(--c-reussi,_#3E7D5E)]' : 'text-[color:var(--c-principal,_#1B2B4B)]'}>{fini ? 'complet' : `reste ${g.reste} h`}</b></>}
                       {g.prevu_semaine != null && <span> · prévu cette semaine {g.prevu_semaine} h, posé {g.pose_semaine} h</span>}
                     </div>
                   </div>
                 );
               })}
-              {data && !(data.bac || []).length && <p className="text-slate-400 text-second">Aucun groupe pour cette classe.</p>}
+              {data && !(data.bac || []).length && <p className="text-slate-400 text-second">{vue === 'professeur' ? 'Aucune attribution cette année.' : 'Aucun groupe pour cette classe.'}</p>}
             </div>
           </div>
         )}
