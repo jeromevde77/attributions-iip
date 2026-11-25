@@ -16,6 +16,7 @@
 import db from '../db/index.js';
 import { aRepresenterParCours } from '../routes/acquis.js';
 import { sansDispenses } from './cep.js';
+import { qrSvg } from './authentique.js';
 
 export function migrerExamens(dbx = db) {
   dbx.exec(`CREATE TABLE IF NOT EXISTS epreuve_detail (
@@ -158,6 +159,8 @@ export const PIECES = [
   { id: 'incident', libelle: 'PV d’incident (modèle prérempli)' },
   { id: 'archivage', libelle: 'Feuille d’archivage et étiquette' },
   { id: 'garde', libelle: 'Pages de garde nominatives' },
+  // LES BROUILLONS (3.5.721, la direction : « 3 feuilles de brouillon avec QR code, date, nom de l'examen, professeur »).
+  { id: 'brouillon', libelle: 'Feuilles de brouillon (3 par étudiant, nominatives, avec QR)', aide: 'Une feuille égarée se retrouve : le QR porte l’épreuve, le matricule et le numéro de la feuille.' },
   { id: 'recap', libelle: 'Calendrier récapitulatif (une ligne par épreuve)' },
   // AUX VALVES (3.5.709, AEVALIOTIS Mati : « le récapitulatif des horaires d'examens avec les locaux, à afficher pour les étudiants »).
   { id: 'valves', libelle: 'Affiche aux valves (pour les étudiants)', aide: 'Par section et par jour : l’heure, le bloc, l’UE et l’épreuve, le local. Ni noms, ni aménagements.' },
@@ -362,6 +365,35 @@ export function garde(e) {
   return liste.map((x, k) => `<section class="piece"${saut(k)}>${tete(x)}</section>`).join('');
 }
 
+/* LES FEUILLES DE BROUILLON : trois par étudiant, à son nom, dans l'ordre du registre. Le QR dit l'épreuve, le matricule et
+   la feuille (« IIP · 2026-2027 · S1 · UE 250 · 250.1 · 12345 · 2/3 ») : une feuille trouvée sur une table se rend à qui elle revient. */
+export function brouillon(e) {
+  const liste = e.etudiants.length ? e.etudiants : [null];
+  const pages = [];
+  liste.forEach((x, i) => {
+    for (let k = 1; k <= 3; k++) {
+      const code = ['IIP', e.annee || '', `S${e.session}`, `UE ${e.ue_num}`, e.cours_code || 'unité', x?.matricule || '—', `${k}/3`].join(' · ');
+      let qr = '';
+      try { qr = qrSvg(code); } catch { /* */ }
+      pages.push(`<div style="display:flex;gap:4mm;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <h2 style="margin:0 0 2mm">Brouillon — feuille ${k} / 3</h2>
+          <table class="cartouche" style="width:100%">
+            <tr><th>Épreuve</th><td>UE ${e.ue_num} — ${esc(epreuveNom(e))} · ${ses(e)}</td></tr>
+            <tr><th>Date et horaire</th><td>${esc(court(e.date))} · ${esc(horaire(e))}${e.local ? ` · ${esc(e.local)}` : ''}</td></tr>
+            <tr><th>Professeur(s)</th><td>${esc(e.professeurs || '')}</td></tr>
+          </table>
+          <table class="identite" style="width:100%"><tr><th>Nom et prénom</th><td><b>${esc(x ? x.nom : '')}</b></td><th>N°</th><td><b>${x ? i + 1 : ''}</b></td><th>Matricule</th><td><b>${esc(x ? x.matricule : '')}</b></td></tr></table>
+        </div>
+        <div style="width:26mm;flex:none;text-align:center">${qr ? `<div style="width:26mm;height:26mm">${qr}</div>` : ''}<div style="font-size:6.5pt;color:#555;margin-top:0.8mm">${esc(code)}</div></div>
+      </div>
+      <p class="mention">Le brouillon n’est pas corrigé. Il se remet avec la copie, à la fin de l’épreuve.</p>
+      <div style="height:188mm;border:0.2mm solid #D8DCE4;border-radius:1.5mm;background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 7.5mm, #EEF1F5 7.5mm, #EEF1F5 7.8mm)"></div>`);
+    }
+  });
+  return pages.map((b, k) => `<section class="piece"${saut(k)}>${b}</section>`).join('');
+}
+
 function recap(liste) {
   return `<h2>Calendrier des épreuves</h2>
     <table class="grille"><thead><tr><th>Date</th><th>Horaire</th><th>Local</th><th>UE</th><th>Épreuve</th><th>Professeur(s)</th><th>Surveillant(s)</th><th class="c">Étud.</th><th class="c">AR</th><th class="c">Copies</th></tr></thead>
@@ -389,7 +421,7 @@ function valves(liste) {
   }).join('');
 }
 
-const COMPOSE = { fiche, registre, plan, ar: listeAR, incident, archivage, garde };
+const COMPOSE = { fiche, registre, plan, ar: listeAR, incident, archivage, garde, brouillon };
 export const STYLES_EXAMENS = `
   .valves-titre { font-size: 18pt; } .valves-sous { font-size: 10pt; color: #555; margin: -2mm 0 3mm; }
   .valves-jour { font-size: 12pt; text-transform: capitalize; border-bottom: 0.3mm solid #C9A84C; padding-bottom: 1mm; margin-top: 5mm; }
