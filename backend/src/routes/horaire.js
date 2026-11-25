@@ -497,8 +497,14 @@ r.get('/classes', authRequired, (req, res) => {
 // Les professeurs qui ont un groupe cette année, et les locaux.
 r.get('/referentiel', authRequired, (req, res) => {
   const an = req.query.annee || anneeDeTravail(req);
+  /* TOUS LES PROFESSEURS DE L'ANNÉE (3.5.715, Charles : « Sara VIEIRA n'est pas dans la liste ») : la liste ne venait que des
+     groupes de planification (table `groupe`) ; un professeur attribué sans groupe planifié ne pouvait pas être nommé sur une séance.
+     Les attributions de l'année s'y ajoutent ; « À DÉSIGNER » n'est pas un professeur. */
   const profs = db.prepare(`SELECT DISTINCT p.id, p.nom, p.prenom FROM professeur p
-    JOIN groupe g ON g.professeur_id = p.id AND g.annee_scolaire = ? ORDER BY p.nom, p.prenom`).all(an);
+    WHERE p.id IN (SELECT professeur_id FROM groupe WHERE annee_scolaire = ? AND professeur_id IS NOT NULL
+                   UNION SELECT professeur_id FROM attribution WHERE annee_scolaire = ? AND professeur_id IS NOT NULL)
+      AND UPPER(COALESCE(p.nom, '')) NOT LIKE '%DÉSIGNER%' AND UPPER(COALESCE(p.nom, '')) NOT LIKE '%DESIGNER%'
+    ORDER BY p.nom, p.prenom`).all(an, an);
   let locaux = [];
   try { locaux = db.prepare('SELECT nom, type, places FROM local ORDER BY nom').all(); } catch { /* table absente */ }
   res.json({ profs, locaux });
