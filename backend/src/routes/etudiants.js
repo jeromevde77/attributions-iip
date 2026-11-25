@@ -1,5 +1,6 @@
 // (CS)
 import { importerGroupesHoraire, numerosDeLUE } from '../lib/groupesHoraire.js';
+import { planRenommage, appliquerRenommage } from '../lib/renommerCommeHoraire.js';
 import { requeteCourante } from '../lib/contexteRequete.js';
 import { chargerAttestationInscription, composerAttestationInscription } from '../lib/attestationInscription.js';
 import { dixiemeUE } from '../lib/datesReelles.js';
@@ -2061,6 +2062,25 @@ r.post('/repartition-cours/groupes-horaire/import', authRequired, roleRequired(.
   for (const ue of [...new Set(lignes.map(l => l.ue_num).filter(Boolean))]) if (!unitePermise(req, res, ue)) return;
   res.json(importerGroupesHoraire({ annee, lignes, simulation: req.body?.simulation !== false, par: req.user?.nom || req.user?.email || null }));
 });
+/* RENOMMER LES GROUPES COMME L'HORAIRE (3.5.719, lib/renommerCommeHoraire.js) : lettres des attributions et de la répartition →
+   numéros de l'horaire, étudiants replacés d'après leur numéro. Simulation d'abord ; sans `ue_nums`, toutes les UE qui ont des groupes
+   de l'horaire importés. */
+r.post('/repartition-cours/groupes-horaire/renommer', authRequired, (req, res) => {
+  if (!peutRenommer(req, res)) return;
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  let ues = (Array.isArray(req.body?.ue_nums) ? req.body.ue_nums : []).map(Number).filter(Boolean);
+  if (!ues.length) ues = db.prepare('SELECT DISTINCT ue_num FROM groupe_horaire WHERE annee_scolaire = ? ORDER BY ue_num').all(annee).map(x => x.ue_num);
+  if (!ues.length) return res.status(400).json({ error: 'Aucun groupe de l’horaire importé : déposez d’abord le fichier (« Groupes de l’horaire »).' });
+  for (const ue of ues) if (!unitePermise(req, res, ue)) return;
+  const plan = planRenommage(annee, ues);
+  const resume = plan.cours.map(c => ({ ue: c.ue, code_cours: c.code_cours, act: c.act, unites: c.unites, deduit: c.deduit,
+    correspondance: c.correspondance.map(x => ({ lettre: x.lettre, unite: x.unite })), etudiants: c.etudiants.length,
+    deplaces: c.deplaces, ajoutes: c.ajoutes }));
+  if (req.body?.simulation !== false) return res.json({ simulation: true, annee, ues, cours: resume, ignores: plan.ignores });
+  const r2 = appliquerRenommage(annee, plan, req.user?.nom || req.user?.email || null);
+  res.json({ ok: true, annee, ues, cours: resume, ignores: plan.ignores, ...r2 });
+});
+
 r.get('/repartition-cours/groupes-horaire', authRequired, (req, res) => {
   const annee = String(req.query.annee || anneeDeTravail(req));
   const ue = Number(req.query.ue_num);
