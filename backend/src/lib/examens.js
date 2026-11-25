@@ -162,6 +162,8 @@ export const PIECES = [
   // LES BROUILLONS (3.5.721, la direction : « 3 feuilles de brouillon avec QR code, date, nom de l'examen, professeur »).
   { id: 'brouillon', libelle: 'Feuilles de brouillon (aménagement raisonnable)', aide: 'Trois feuilles nominatives avec QR, pour les seuls étudiants dont l’aménagement accordé prévoit des feuilles de brouillon.' },
   { id: 'recap', libelle: 'Calendrier récapitulatif (une ligne par épreuve)' },
+  // QUI A BESOIN DE QUOI (3.5.722, Charles : « intégrer les AR dans les consignes d'examen ; une liste de qui a besoin de quoi »).
+  { id: 'besoins', libelle: 'Aménagements raisonnables : qui a besoin de quoi', aide: 'Pour le secrétariat : toutes les épreuves choisies, par date, chaque étudiant avec ses mesures et ce qu’il faut préparer, et le total par besoin.' },
   // AUX VALVES (3.5.709, AEVALIOTIS Mati : « le récapitulatif des horaires d'examens avec les locaux, à afficher pour les étudiants »).
   { id: 'valves', libelle: 'Affiche aux valves (pour les étudiants)', aide: 'Par section et par jour : l’heure, le bloc, l’UE et l’épreuve, le local. Ni noms, ni aménagements.' },
 ];
@@ -188,18 +190,66 @@ function cartouche(e, plus = []) {
 }
 const saut = k => (k ? ' style="break-before:page;page-break-before:always"' : '');
 
+/* LES AR DANS LES CONSIGNES D'EXAMEN (3.5.722, Charles, 25 novembre 2026 : « intégrer les AR dans les consignes d'examen ; qu'on ait
+   une liste de qui a besoin de quoi »). Chaque mesure accordée se traduit en ce qu'il faut PRÉPARER ou FAIRE en salle. La mesure se
+   reconnaît à ses mots ; une mesure que rien ne reconnaît garde son libellé (« voir la mesure »). */
+const BESOINS = [
+  { k: 'temps', re: /temps suppl|tiers[- ]temps/i, t: 'Temps supplémentaire', faire: 'Prévoir l’heure de fin propre à l’étudiant et la surveillance jusqu’à cette heure' },
+  { k: 'local', re: /local isol|effectif r[ée]duit/i, t: 'Local isolé ou à effectif réduit', faire: 'Réserver un local à part et un surveillant' },
+  { k: 'questionnaire', re: /questionnaire adapt|police a[ée]r|interligne/i, t: 'Questionnaire adapté', faire: 'Imprimer le questionnaire adapté (police aérée, interligne 1,5, recto seul)' },
+  { k: 'brouillon', re: /brouillon/i, t: 'Feuilles de brouillon', faire: 'Trois feuilles de brouillon nominatives (dans l’enveloppe)' },
+  { k: 'bruit', re: /anti-bruit|bouchon|casque|boule/i, t: 'Dispositif anti-bruit', faire: 'Autoriser bouchons ou dispositif anti-bruit ; vérifier qu’il n’a aucune connectivité' },
+  { k: 'ordinateur', re: /ordinateur|synth[èe]se vocale|correcteur/i, t: 'Ordinateur', faire: 'Prévoir un ordinateur (correcteur, synthèse vocale), sans accès au réseau' },
+  { k: 'lecture', re: /lues|reformul/i, t: 'Consignes lues ou reformulées', faire: 'Lire ou reformuler oralement les consignes à l’étudiant' },
+  { k: 'oral', re: /orale plut[ôo]t|ou l’inverse|ou l'inverse/i, t: 'Évaluation orale ou écrite', faire: 'Organiser l’autre modalité avec le professeur' },
+  { k: 'calc', re: /calculatrice|aide-m[ée]moire/i, t: 'Calculatrice ou aide-mémoire', faire: 'Autoriser la calculatrice ou l’aide-mémoire de formules' },
+  { k: 'pause', re: /pause|se lever|courte sortie/i, t: 'Pauses ou sorties', faire: 'Autoriser pauses, se lever ou une courte sortie accompagnée' },
+  { k: 'place', re: /place r[ée]serv/i, t: 'Place réservée', faire: 'Réserver la place de l’étudiant dans le plan d’installation' },
+  { k: 'calendrier', re: /calendrier/i, t: 'Calendrier aménagé', faire: 'Vérifier la date convenue avec l’étudiant' },
+  { k: 'ortho', re: /syntaxe|orthographe/i, t: 'Tolérance orthographe', faire: 'À la correction : tolérance pour la syntaxe et l’orthographe' },
+];
+export function besoinDe(m) {
+  const txt = `${m.libelle || ''} ${m.precisions || ''}`;
+  const b = BESOINS.find(x => x.re.test(txt));
+  return b ? { k: b.k, t: b.t, faire: b.faire } : { k: `autre:${m.libelle}`, t: m.libelle, faire: 'Voir la mesure' };
+}
+/** Les besoins d'une épreuve : [{ k, t, faire, etudiants: [{ n, nom, precisions }] }], dans l'ordre de BESOINS. */
+export function besoinsEpreuve(e) {
+  const par = new Map();
+  e.etudiants.forEach((x, i) => {
+    for (const m of x.ar || []) {
+      const b = besoinDe(m);
+      if (!par.has(b.k)) par.set(b.k, { ...b, etudiants: [] });
+      const l = par.get(b.k).etudiants;
+      if (!l.some(y => y.n === i + 1)) l.push({ n: i + 1, nom: x.nom, precisions: m.precisions || null });
+    }
+  });
+  const rang = k => { const i = BESOINS.findIndex(b => b.k === k); return i < 0 ? 99 : i; };
+  return [...par.values()].sort((a, b) => rang(a.k) - rang(b.k));
+}
+
 function fiche(e) {
   const copies = e.etudiants.length + Number(e.copies_reserve || 0);
   return `<h2>Fiche de l’épreuve</h2>
     ${cartouche(e, [['Questionnaires', `<b>${copies}</b> exemplaires (${e.etudiants.length} étudiants + ${e.copies_reserve} de réserve)`],
       ['Matériel autorisé', esc(e.materiel || 'Latte, calculatrice si autorisée, stylos, feutres, mouchoirs, bouteille d’eau, en-cas léger — trousses interdites')],
       ...(e.consignes ? [['Consignes', esc(e.consignes)]] : [])])}
+    ${(() => {
+      const bs = besoinsEpreuve(e);
+      if (!bs.length) return '';
+      return `<h3>Aménagements raisonnables à prévoir</h3>
+        <table class="grille"><thead><tr><th style="width:42mm">Besoin</th><th>À préparer ou à faire</th><th style="width:30mm">N° au registre</th></tr></thead>
+        <tbody>${bs.map(b => `<tr><td><b>${esc(b.t)}</b> (${b.etudiants.length})</td><td>${esc(b.faire)}</td><td>${b.etudiants.map(x => x.n).join(', ')}</td></tr>`).join('')}</tbody></table>
+        <p class="mention">Les noms et les mesures sont dans la liste des aménagements, à l’intérieur de l’enveloppe (secret professionnel).</p>`;
+    })()}
     <h3>Contenu de l’enveloppe</h3>
     <ul class="cases">
       <li>☐ Les questionnaires (${copies})</li>
       <li>☐ Le registre de présences et de dépôt</li>
       <li>☐ Le plan d’installation</li>
       ${e.ar.length ? `<li>☐ La liste des aménagements raisonnables (${e.ar.length} étudiant${e.ar.length > 1 ? 's' : ''})</li>` : ''}
+      ${(() => { const bs = besoinsEpreuve(e); const q = bs.find(b => b.k === 'questionnaire'); const br = bs.find(b => b.k === 'brouillon');
+        return `${q ? `<li>☐ Les questionnaires adaptés (${q.etudiants.length})</li>` : ''}${br ? `<li>☐ Les feuilles de brouillon nominatives (${br.etudiants.length * 3})</li>` : ''}`; })()}
       <li>☐ Des modèles de PV d’incident</li>
     </ul>
     <h3>Rappels de la procédure</h3>
@@ -254,8 +304,8 @@ function plan(e) {
 function listeAR(e) {
   return `<h2>Aménagements raisonnables — ${esc(epreuveNom(e))}</h2>
     ${cartouche(e)}
-    ${e.ar.length ? `<table class="grille"><thead><tr><th class="n">N°</th><th>Étudiant</th><th>Mesures accordées pour cette épreuve</th></tr></thead>
-      <tbody>${e.ar.map(x => `<tr><td class="n">${e.etudiants.indexOf(x) + 1}</td><td>${esc(x.nom)}</td><td>${x.ar.map(m => `${esc(m.libelle)}${m.precisions ? ` — ${esc(m.precisions)}` : ''}`).join('<br>')}</td></tr>`).join('')}</tbody></table>`
+    ${e.ar.length ? `<table class="grille"><thead><tr><th class="n">N°</th><th style="width:42mm">Étudiant</th><th>Mesures accordées pour cette épreuve</th><th style="width:62mm">À préparer ou à faire</th><th style="width:10mm">Fait</th></tr></thead>
+      <tbody>${e.ar.map(x => `<tr><td class="n">${e.etudiants.indexOf(x) + 1}</td><td>${esc(x.nom)}</td><td>${x.ar.map(m => `${esc(m.libelle)}${m.precisions ? ` — ${esc(m.precisions)}` : ''}`).join('<br>')}</td><td>${[...new Set(x.ar.map(m => besoinDe(m).faire))].map(esc).join('<br>')}</td><td class="c">☐</td></tr>`).join('')}</tbody></table>`
       : '<p class="vide">Aucun aménagement raisonnable accordé pour cette épreuve.</p>'}
     <p class="mention">Seules les mesures accordées figurent ici. La situation de l’étudiant reste couverte par le secret professionnel : ce document ne se laisse pas en salle et revient avec l’enveloppe.</p>`;
 }
@@ -397,6 +447,32 @@ export function brouillon(e) {
   return pages.map((b, k) => `<section class="piece"${saut(k)}>${b}</section>`).join('');
 }
 
+function besoins(liste) {
+  const lignes = [];
+  const totaux = new Map();
+  for (const e of liste) {
+    e.etudiants.forEach((x, i) => {
+      if (!x.ar?.length) return;
+      for (const m of x.ar) {
+        const b = besoinDe(m);
+        lignes.push({ e, n: i + 1, nom: x.nom, m, b });
+        if (!totaux.has(b.k)) totaux.set(b.k, { t: b.t, faire: b.faire, n: 0, epreuves: new Set() });
+        const t = totaux.get(b.k); t.n++; t.epreuves.add(cle(e));
+      }
+    });
+  }
+  if (!lignes.length) return `<h2>Aménagements raisonnables : qui a besoin de quoi</h2><p class="vide">Aucun aménagement raisonnable accordé pour les épreuves choisies.</p>`;
+  return `<h2>Aménagements raisonnables : qui a besoin de quoi</h2>
+    <h3>Ce qu’il faut préparer</h3>
+    <table class="grille"><thead><tr><th style="width:50mm">Besoin</th><th>À préparer ou à faire</th><th class="c" style="width:18mm">Étudiants</th><th class="c" style="width:18mm">Épreuves</th></tr></thead>
+    <tbody>${[...totaux.values()].map(t => `<tr><td><b>${esc(t.t)}</b></td><td>${esc(t.faire)}</td><td class="c">${t.n}</td><td class="c">${t.epreuves.size}</td></tr>`).join('')}</tbody></table>
+    <h3>Épreuve par épreuve</h3>
+    <table class="grille"><thead><tr><th style="width:20mm">Date</th><th style="width:22mm">Horaire</th><th style="width:22mm">Local</th><th>Épreuve</th><th class="n">N°</th><th style="width:38mm">Étudiant</th><th>Mesure</th><th>À préparer ou à faire</th><th style="width:9mm">Fait</th></tr></thead>
+    <tbody>${lignes.map(({ e, n, nom, m, b }) => `<tr><td>${esc(court(e.date))}</td><td>${esc(horaire(e))}</td><td>${esc(e.local || '')}</td><td>UE ${e.ue_num} · ${esc(epreuveNom(e))}</td><td class="n">${n}</td><td>${esc(nom)}</td>
+      <td>${esc(m.libelle)}${m.precisions ? ` — ${esc(m.precisions)}` : ''}</td><td>${esc(b.faire)}</td><td class="c">☐</td></tr>`).join('')}</tbody></table>
+    <p class="mention">N° = le numéro de l’étudiant au registre de l’épreuve. Seules les mesures accordées figurent ici (secret professionnel) : document interne au secrétariat.</p>`;
+}
+
 function recap(liste) {
   return `<h2>Calendrier des épreuves</h2>
     <table class="grille"><thead><tr><th>Date</th><th>Horaire</th><th>Local</th><th>UE</th><th>Épreuve</th><th>Professeur(s)</th><th>Surveillant(s)</th><th class="c">Étud.</th><th class="c">AR</th><th class="c">Copies</th></tr></thead>
@@ -468,6 +544,7 @@ export function composer(liste, pieces) {
   const blocs = [];
   if (pieces.includes('recap')) blocs.push(recap(liste));
   if (pieces.includes('valves')) blocs.push(valves(liste));
+  if (pieces.includes('besoins')) blocs.push(besoins(liste));
   for (const e of liste) {
     for (const p of choix) {
       if (p === 'ar' && pieces.includes('enveloppe') && !e.ar.length) continue;   // pas de feuille vide dans l'enveloppe
