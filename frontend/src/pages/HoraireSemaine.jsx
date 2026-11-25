@@ -15,7 +15,7 @@
  * le serveur le garde.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronLeft, IconChevronRight, IconCopy, IconReplace, IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconCopy, IconPlus, IconReplace, IconTrash, IconUpload } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fenetre } from '../components/ui.jsx';
 import { passeRole } from '../lib/droits.js';
@@ -68,6 +68,7 @@ export default function HoraireSemaine({ consultation = false }) {
   const duree = MODULE;
   const [plages, setPlages] = useState([]);
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
+  const [placer, setPlacer] = useState(null);       // « Placer » sans glisser (3.5.718) : { carte, date, debut, fin, local }
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
   const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
   const [changerCours, setChangerCours] = useState(false);  // changer le cours de plusieurs séances (24/11/2026)
@@ -321,6 +322,11 @@ export default function HoraireSemaine({ consultation = false }) {
           <div className="border border-slate-200 rounded-carte p-2.5 space-y-2 self-start">
             <div className="flex items-center justify-between gap-2">
               <b className="text-second text-iip-blue">À placer</b>
+              {peutEcrire && (data?.bac || []).length > 0 && (
+                <button className="bouton" onClick={() => setPlacer({ carte: (data.bac.find(g => g.reste == null || g.reste > 0) || data.bac[0]).id,
+                  date: jours.find(j => !j.ferie)?.date || jours[0]?.date, debut: '08:00', fin: '10:00', local: '' })}>
+                  <IconPlus size={14} /> Placer</button>
+              )}
               {/* CHEZ NOUS, UN BLOC FAIT 120 MINUTES (Charles, 9 octobre 2026). Une
                   séance plus longue se rallonge sur la grille, par quart d'heure. */}
               <span className="text-xs text-slate-500">blocs de 2 h</span>
@@ -341,6 +347,11 @@ export default function HoraireSemaine({ consultation = false }) {
                       {g.reste == null ? <>{g.heures_posees} h posées</> : <>{g.heures_posees} h posées sur {g.heures_attribuees} · <b className={fini ? 'text-[color:var(--c-reussi,_#3E7D5E)]' : 'text-[color:var(--c-principal,_#1B2B4B)]'}>{fini ? 'complet' : `reste ${g.reste} h`}</b></>}
                       {g.prevu_semaine != null && <span> · prévu cette semaine {g.prevu_semaine} h, posé {g.pose_semaine} h</span>}
                     </div>
+                    {peutEcrire && !fini && (
+                      <button className="mt-1 text-xs font-semibold text-iip-blue underline" onPointerDown={ev => ev.stopPropagation()}
+                        onClick={() => setPlacer({ carte: g.id, date: jours.find(j => !j.ferie)?.date || jours[0]?.date, debut: '08:00', fin: '10:00', local: '' })}>
+                        Placer…</button>
+                    )}
                   </div>
                 );
               })}
@@ -357,6 +368,67 @@ export default function HoraireSemaine({ consultation = false }) {
         </div>
       )}
       {!peutEcrire && !consultation && <p className="text-xs text-slate-400">Lecture seule : l'horaire se compose par la coordination, le secrétariat et la direction.</p>}
+
+      {/* PLACER SANS GLISSER (3.5.718, Charles : « un bouton Placer, qui renvoie les heures encore à placer des attributions du prof ») */}
+      {placer && (() => {
+        const carte = (data?.bac || []).find(g => g.id === placer.carte);
+        const ok = carte && placer.date && hm(placer.fin) > hm(placer.debut);
+        const poser = async () => {
+          try {
+            await appel('/api/horaire/seance', { method: 'POST', body: JSON.stringify({ date: placer.date, heure_debut: placer.debut,
+              heure_fin: placer.fin, local_texte: placer.local,
+              ...(carte.attribution_id ? { attribution_id: carte.attribution_id } : { groupe_id: carte.id }) }) });
+            setPlacer(null); charger();
+          } catch (e) { setErreur(e.message); setPlacer(null); }
+        };
+        const heures = [];
+        for (let m = 7 * 60; m <= 22 * 60; m += 15) heures.push(deHm(m));
+        return (
+          <Fenetre titre="Placer un cours" large="petite" onFermer={() => setPlacer(null)}
+            pied={<><span className="flex-1" /><button className="bouton" onClick={() => setPlacer(null)}>Annuler</button>
+              <button className="bouton bouton-fort" disabled={!ok} onClick={poser}>Placer</button></>}>
+            <div className="space-y-3 text-sm">
+              <label className="block">
+                <span className="text-xs text-slate-500">{vue === 'professeur' ? 'Ses attributions' : 'Groupe'} — heures encore à placer</span>
+                <select className="controle w-full" value={placer.carte} onChange={e => setPlacer({ ...placer, carte: e.target.value })}>
+                  {(data?.bac || []).map(g => (
+                    <option key={g.id} value={g.id}>
+                      {g.code_cours} {g.cours_nom || ''}{g.activite ? ` · ${g.activite}` : ''} · gr. {g.nom} — {g.reste == null ? `${g.heures_posees} h posées` : g.reste <= 0 ? 'complet' : `reste ${g.reste} h sur ${g.heures_attribuees}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="block col-span-3 sm:col-span-1">
+                  <span className="text-xs text-slate-500">Jour</span>
+                  <select className="controle w-full" value={placer.date} onChange={e => setPlacer({ ...placer, date: e.target.value })}>
+                    {jours.map((j, i) => <option key={j.date} value={j.date} disabled={!!j.ferie}>{NOMS_JOURS[i]} {court(j.date)}{j.ferie ? ' (férié)' : ''}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs text-slate-500">De</span>
+                  <select className="controle w-full" value={placer.debut} onChange={e => {
+                    const d = e.target.value; setPlacer({ ...placer, debut: d, fin: deHm(Math.min(22 * 60, hm(d) + (hm(placer.fin) - hm(placer.debut) || MODULE))) });
+                  }}>{heures.slice(0, -1).map(h => <option key={h} value={h}>{lisible(h)}</option>)}</select>
+                </label>
+                <label className="block">
+                  <span className="text-xs text-slate-500">À</span>
+                  <select className="controle w-full" value={placer.fin} onChange={e => setPlacer({ ...placer, fin: e.target.value })}>
+                    {heures.filter(h => hm(h) > hm(placer.debut)).map(h => <option key={h} value={h}>{lisible(h)}</option>)}
+                  </select>
+                </label>
+              </div>
+              <label className="block">
+                <span className="text-xs text-slate-500">Local</span>
+                <input className="controle w-full" list="locaux-horaire-placer" value={placer.local}
+                  onChange={e => setPlacer({ ...placer, local: e.target.value })} placeholder="P2 523, Nile, Distanciel asynchrone…" />
+                <datalist id="locaux-horaire-placer">{ref.locaux.map(l => <option key={l.nom} value={l.nom} />)}<option value="Distanciel asynchrone" /></datalist>
+              </label>
+              <p className="text-xs text-slate-500">Pour les semaines suivantes : « Recopier la semaine », depuis la vue classe. Un cours qui n’est pas dans la liste n’est pas attribué à ce professeur : il s’ajoute d’abord dans Attributions.</p>
+            </div>
+          </Fenetre>
+        );
+      })()}
 
       {/* LA BULLE D'UNE SÉANCE */}
       {sel && (
