@@ -82,7 +82,8 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
           type: d.type || null, id: d.id || null,
           adresses,
           email: d.email || adresses[0]?.email || '',
-          coche: !!(d.email || adresses[0]?.email),
+          coche: d.coche === false ? false : !!(d.email || adresses[0]?.email),
+          motif: d.motif || null,
           nom_fichier: p.nom_fichier || null,
         };
       }));
@@ -236,7 +237,8 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                             </td>
                             <td className="px-2 py-1">
                               <div className="font-medium text-slate-800">{l.nom}</div>
-                              {l.nom_fichier && <div className="text-xs text-slate-400 truncate max-w-[260px]">{l.nom_fichier}</div>}
+                              {l.motif ? <div className="text-xs text-slate-400">{l.motif}</div>
+                                : l.nom_fichier && <div className="text-xs text-slate-400 truncate max-w-[260px]">{l.nom_fichier}</div>}
                             </td>
                             <td className="px-2 py-1">
                               <div className="flex items-center gap-1.5">

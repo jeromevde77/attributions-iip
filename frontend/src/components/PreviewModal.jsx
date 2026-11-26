@@ -1,7 +1,7 @@
 import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { MessageAttente } from './AttenteDocuments.jsx';
 import { useEffect, useRef, useState } from 'react';
-import { informer } from '../lib/dialogue.jsx';
+import { informer, choisir } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
 import { IconSend, IconX, IconDownload, IconMail, IconPrinter, IconFileTypePdf, IconCloudUpload } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
@@ -90,6 +90,9 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
                                        // envoi force un document par personne, et c'est alors
                                        // l'écran appelant qui propose l'envoi, pièce par pièce.
                                        envoiPossible = true,
+                                       /* D'AUTRES PERSONNES À QUI L'ENVOYER (3.5.764) : [{ type, id, nom, email, motif }] — proposées dans
+                                          l'envoi, non cochées ; le destinataire de la pièce reste le seul coché d'office. */
+                                       copies = null,
                                        astuceImpression = "⊞ Choisir « Paysage » à l'impression",
                                        /* LE PDF DU SERVEUR, QUAND LA PIÈCE LE DEMANDE ({ orientation })
                                           (5 octobre 2026, schéma de capitalisation : « quand
@@ -288,12 +291,39 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               <IconeApercu Icone={IconCloudUpload} disabled={!pret || depot}
                 titre="Déposer dans son espace — l’étudiant la retrouve en ligne, dans Mes documents"
                 onClick={async () => {
+                  /* UNE COPIE PAR COURRIEL (3.5.764, Charles : « quand j'envoie le document sur l'espace étudiant, une copie sur son
+                     mail ») : le dépôt propose d'envoyer aussi la pièce à son adresse (l'institut d'abord), par le registre des envois. */
+                  let email = null;
+                  try {
+                    const a = await fetch(`/api/envois/adresses?type=etudiant&ids=${destinataire.id}`, { headers: authHeaders() }).then(r => r.json());
+                    email = Array.isArray(a) ? a[0]?.adresses?.[0]?.email || null : null;
+                  } catch { /* sans adresse connue */ }
+                  const copiePossible = !!(email && envoiMail?.actif);
+                  const choix = await choisir({ titre: 'Déposer dans son espace',
+                    message: copiePossible ? `La pièce sera dans « Mes documents ». Une copie part aussi à ${email}.`
+                      : 'La pièce sera dans « Mes documents ».' + (email ? ' (L’envoi de courriels n’est pas actif : pas de copie.)' : ' (Aucune adresse connue : pas de copie.)'),
+                    choix: [
+                      ...(copiePossible ? [{ valeur: 'copie', libelle: 'Déposer et envoyer la copie', fort: true }] : []),
+                      { valeur: 'seul', libelle: copiePossible ? 'Déposer seulement' : 'Déposer', fort: !copiePossible },
+                    ] });
+                  if (!choix) return;
                   setDepot(true);
                   try {
                     const r = await fetch('/api/envois/espace', { method: 'POST', headers: authHeaders(),
                       body: JSON.stringify({ etudiant_id: destinataire.id, html, sujet: sujetMail || titre, nom_fichier: nomFichier, type_doc: typeDoc }) });
                     const j = await r.json().catch(() => ({}));
-                    informer(r.ok ? `✓ ${j.message}` : `❌ ${j.error || 'Dépôt refusé.'}`);
+                    if (!r.ok) { informer(`❌ ${j.error || 'Dépôt refusé.'}`); return; }
+                    let suite = '';
+                    if (choix === 'copie') {
+                      const m = await fetch('/api/envois', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+                        sujet: sujetMail || titre, type_doc: typeDoc || 'apercu', mode: envoiMail?.pdf ? 'pdf' : 'corps',
+                        message: 'Ce document a aussi été déposé dans votre espace étudiant, rubrique « Mes documents ».',
+                        pieces: [{ destinataire_type: 'etudiant', destinataire_id: destinataire.id, nom: destinataire.nom || titre,
+                          email, html, nom_fichier: nomFichier }] }) });
+                      const mj = await m.json().catch(() => ({}));
+                      suite = m.ok ? ` Copie envoyée à ${email}.` : ` La copie par courriel n’est pas partie : ${mj.error || m.status}.`;
+                    }
+                    informer(`✓ ${j.message}${suite}`);
                   } finally { setDepot(false); }
                 }} />
             )}
@@ -316,7 +346,8 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
       {envoi && (
         <EnvoiMailModal apercu={false}
           pieces={[{ html, nom_fichier: nomFichier || titre,
-                     destinataire: destinataire || { nom: titre || nomFichier || 'Document' } }]}
+                     destinataire: destinataire || { nom: titre || nomFichier || 'Document' } },
+                   ...(copies || []).map(c => ({ html, nom_fichier: nomFichier || titre, destinataire: { ...c, coche: false } }))]}
           typeDoc={typeDoc || 'apercu'}
           contenu={[sousTitre, titre].filter(Boolean).join(' — ') || nomFichier || ''}
           sujet={sujetMail || [sousTitre, titre].filter(Boolean).join(' — ') || 'Votre document'}
