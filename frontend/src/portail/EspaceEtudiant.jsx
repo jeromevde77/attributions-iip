@@ -1,5 +1,6 @@
 import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { Fragment, useCallback, useEffect, useState } from 'react';
+import NotifsTelephone from '../components/NotifsTelephone.jsx';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
 import MesAbsences from './MesAbsences.jsx';
@@ -1881,6 +1882,7 @@ function Espace() {
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>
           <MesAppareils onErreur={echec} onOublieCourant={quitter} />
+          <NotifsTelephone quoi="les messages de l’école et les documents déposés dans votre espace" base="/api/portail/push" entetes={() => (lire() ? { Authorization: `Bearer ${lire()}` } : {})} />
         </div>}
 
         {texte && (

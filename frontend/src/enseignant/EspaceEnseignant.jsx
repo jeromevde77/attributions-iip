@@ -1,5 +1,6 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { useEcrireEtudiants } from '../lib/ecrireEtudiants.js';
+import NotifsTelephone from '../components/NotifsTelephone.jsx';
 import LogoLucie from '../components/LogoLucie.jsx';
 import FenetreEspace from '../components/FenetreEspace.jsx';
 import ChargementLucie from '../components/ChargementLucie.jsx';
@@ -434,6 +435,7 @@ function MonCompte({ moi, onToken }) {
         <EnteteCarte icone={IconLock} titre="Mon mot de passe" />
         <div className="px-4 py-3 text-sm text-slate-600">C’est celui de Lucie (3.5.242) : pour le changer, dans Lucie, le bouclier en haut à droite (Mon compte). Le nouveau vaut ici deux minutes plus tard.</div>
       </section>
+      <NotifsTelephone quoi="les messages de l’école, ce qui vous attend et les rappels" base="/api/enseignant/push" entetes={() => (lire() ? { Authorization: `Bearer ${lire()}` } : {})} />
     </div>
   );
 }
