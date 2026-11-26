@@ -58,7 +58,7 @@ function Tuile({ s, pl, h0, roleEcrit, vue, onOuvrir, onAligner }) {
   const horsAttribution = candidats.length > 0 && !candidats.some(a => Number(a.professeur_id || 0) === Number(s.professeur_id || 0));
   const aligner = roleEcrit && !s.annule ? candidats.filter(a => !(at && at.id === a.id && Number(a.professeur_id || 0) === Number(s.professeur_id || 0))) : [];
   const gr = s.sous_groupe || (s.groupe_nom && s.groupe_nom !== 'A' ? s.groupe_nom : null);
-  const etroite = pl.cols >= 4;
+  const etroite = pl.cols >= 3 || (fin - debut) < 120;
   return (
     <div role="button" tabIndex={0} onClick={() => onOuvrir(s)} onKeyDown={e => { if (e.key === 'Enter') onOuvrir(s); }}
       className="absolute rounded-r-carte overflow-hidden cursor-pointer transition-shadow hover:shadow-flottant focus:outline-none focus:ring-2 focus:ring-[color:var(--c-principal)]"
@@ -76,16 +76,17 @@ function Tuile({ s, pl, h0, roleEcrit, vue, onOuvrir, onAligner }) {
           {gr && <span className="flex-none inline-flex items-center justify-center min-w-[30px] h-[24px] px-2 rounded-pastille bg-white font-bold text-second"
             style={{ border: `2px solid ${c}`, color: 'var(--c-principal, #1B2B4B)' }} title="Groupe">{gr}</span>}
         </div>
-        {/* Le cours */}
-        <div className={`font-semibold leading-snug min-w-0 ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}
-          style={{ display: '-webkit-box', WebkitLineClamp: etroite ? 3 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-          title={`${s.cours_code} ${s.cours_nom || s.matiere || ''}`}>
-          <span className="font-bold">{s.cours_code}</span> {s.cours_nom || s.matiere || ''}
+        {/* Le cours : il prend la place qui reste, et ne déborde jamais sur le professeur (3.5.743, Charles : « affichage »). */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-0.5">
+          <div className={`font-semibold leading-tight ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}
+            title={`${s.cours_code} ${s.cours_nom || s.matiere || ''}`}>
+            <span className={`block ${etroite ? 'truncate' : 'line-clamp-2'}`}><span className="font-bold">{s.cours_code}</span> {s.cours_nom || s.matiere || ''}</span>
+          </div>
+          {act && <div className="text-second italic text-slate-600 truncate leading-tight" title={act}>{act}</div>}
+          {vue !== 'classe' && s.classe && <div className="text-mention text-slate-500 truncate">{s.classe}</div>}
         </div>
-        {act && <div className="text-second italic text-slate-600 truncate" title={act}>{act}</div>}
-        {vue !== 'classe' && s.classe && <div className="text-mention text-slate-500 truncate">{s.classe}</div>}
         {/* Le professeur et le local */}
-        <div className="mt-auto space-y-0.5 min-w-0">
+        <div className="flex-none space-y-0.5 min-w-0">
           <div className="flex items-center gap-1.5 text-second min-w-0" style={horsAttribution ? { color: 'var(--c-attente)' } : undefined}>
             <IconUser size={14} className="flex-none opacity-60" />
             <span className={`truncate ${prof ? 'font-medium' : 'italic opacity-70'}`}>{s.annule ? 'Séance annulée' : prof || 'professeur à attribuer'}</span>
