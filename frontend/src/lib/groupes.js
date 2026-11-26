@@ -41,6 +41,8 @@ export function rangCouleur(code) {
   const c = String(code || '').toUpperCase();
   const m = c.match(/^[A-Z]*(\d+)$/);
   if (m) return Number(m[1]) - 1;
+  const d = c.match(/^(\d+)/);   // « 1+2 », « 3+4 » : la couleur de leur premier numéro (3.5.759)
+  if (d) return Number(d[1]) - 1;
   return ALPHA.indexOf(c[0]);
 }
 

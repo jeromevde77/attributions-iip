@@ -13,10 +13,11 @@ import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import BasculeOrganisation from '../components/BasculeOrganisation.jsx';
 import CompleterAutonomie from '../components/CompleterAutonomie.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
+import GroupesSection from '../components/GroupesSection.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle, IconChevronsUp, IconChevronsDown, IconClockPlus } from '@tabler/icons-react';
+import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle, IconChevronsUp, IconChevronsDown, IconClockPlus, IconTable } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -426,6 +427,7 @@ export default function Attributions() {
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
   const [secDel, setSecDel] = useState(null); // { section, lignes, count } | null
   const [groupesUE, setGroupesUE] = useState(null); // { portee, section, ues } | null
+  const [groupesSection, setGroupesSection] = useState(null);   // la fenêtre « Groupes de la section » (3.5.759)
   const [autonomieUE, setAutonomieUE] = useState(null); // { ueNum, section } | null — Compléter l'autonomie (3.5.676)
   const [rapportSectionChoix, setRapportSectionChoix] = useState(null); // section pour laquelle on demande le filtre TC
   // Le tronc commun se filtre aussi à l'ÉCRAN, pas seulement au rapport —
@@ -1203,7 +1205,9 @@ export default function Attributions() {
   const modeGroupes = sec => (sections || []).find(x => x.code === sec)?.numerotation_groupes || 'lettres';
   function groupCode(i, ref) { return codeGroupe(i, modeGroupes(ref?.section), ref?.num_organisation || 1); }
   function groupCodeSeq(n, ref) { return suiteGroupes(n, modeGroupes(ref?.section), ref?.num_organisation || 1); }
-  const badge = code => BADGE_COLORS['ABCDEFGHIJKLMNOPQRSTUVWXYZ'[rangCouleur(code)]];
+  /* TOUT GROUPE A SA COULEUR (3.5.759, Marie : « les lettres ou numéros après G n'ont pas de couleur ») : douze teintes, puis elles
+     reviennent (M = A). */
+  const badge = code => { const r = rangCouleur(code); return r < 0 ? undefined : BADGE_COLORS['ABCDEFGHIJKL'[r % 12]]; };
 
   const BADGE_COLORS = {
     A: { bg: 'var(--c-disponible)', color: '#FFFFFF', border: 'var(--c-disponible)' },
@@ -1212,6 +1216,12 @@ export default function Attributions() {
     D: { bg: 'var(--c-helb)', color: '#FFFFFF', border: 'var(--c-helb)' },
     E: { bg: 'var(--c-faveur)', color: '#FFFFFF', border: 'var(--c-faveur)' },
     F: { bg: 'var(--c-refuse)', color: '#FFFFFF', border: 'var(--c-refuse)' },
+    G: { bg: 'var(--c-serie_1)', color: '#FFFFFF', border: 'var(--c-serie_1)' },
+    H: { bg: 'var(--c-serie_2)', color: '#FFFFFF', border: 'var(--c-serie_2)' },
+    I: { bg: 'var(--c-serie_3)', color: '#FFFFFF', border: 'var(--c-serie_3)' },
+    J: { bg: 'var(--c-serie_4)', color: '#FFFFFF', border: 'var(--c-serie_4)' },
+    K: { bg: 'var(--c-serie_5)', color: '#FFFFFF', border: 'var(--c-serie_5)' },
+    L: { bg: 'var(--c-serie_6)', color: '#FFFFFF', border: 'var(--c-serie_6)' },
   };
 
   // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
@@ -2368,6 +2378,8 @@ export default function Attributions() {
                   className="text-iip-gold hover:text-iip-amber" title="Remplir automatiquement les périodes prof"><IconWand size={16}/></button>
                 <button onClick={()=>setGroupesUE({ portee:'section', section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })}
                   className="text-gray-400 hover:text-iip-mauve" title="Organiser les groupes de toutes les UE de la section"><IconUsersGroup size={16}/></button>
+                <button onClick={()=>setGroupesSection({ section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })}
+                  className="text-gray-400 hover:text-iip-mauve" title="Groupes de la section : chaque UE, cours, activité et son groupe, à changer en un coup"><IconTable size={16}/></button>
                 <button onClick={()=>setRapportSectionChoix(sg.section)}
                   className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions (HTML/impression)"><IconFileText size={16}/></button>
                 <button onClick={()=>genererExcel(sg.section)}
@@ -2862,6 +2874,8 @@ export default function Attributions() {
       {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
       {autonomieUE && <CompleterAutonomie ueNum={autonomieUE.ueNum} section={autonomieUE.section}
         onFermer={() => setAutonomieUE(null)} onFait={() => load()} />}
+      {groupesSection && <GroupesSection section={groupesSection.section} ues={groupesSection.ues}
+        onClose={() => setGroupesSection(null)} onApplied={() => { setGroupesSection(null); load(); }} />}
       {groupesUE && (
         <OrganiserGroupesModal
           portee={groupesUE.portee}
