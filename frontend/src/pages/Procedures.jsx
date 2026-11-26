@@ -764,7 +764,8 @@ function Dossier({ id, ref_, onRetour }) {
         <div className="carte p-4">
           {etapeSel && (
             <FormulaireEtape key={`${etapeSel}-${d.traces?.[etapeSel]?.le || ''}`} dossier={d} cle={etapeSel}
-              ref_={ref_} ue={ue} peutInstruire={peutInstruire} peutDecider={peutDecider} onPose={apresEtape} />
+              ref_={ref_} ue={ue} peutInstruire={peutInstruire} peutDecider={peutDecider} onPose={apresEtape}
+              personnel={personnel} onMaj={setD} />
           )}
         </div>
         <div className="space-y-3">
@@ -847,7 +848,7 @@ function valeursInitiales(d, cle) {
   }
 }
 
-function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider, onPose }) {
+function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider, onPose, personnel = [], onMaj }) {
   const def = (d.circuit?.etapes || []).find(e => e.cle === cle)
     || (cle === 'ecartement' ? { cle, label: 'Écartement provisoire', art: '115 septies', facultatif: true } : null);
   const [v, setV] = useState(() => valeursInitiales(d, cle));
@@ -964,10 +965,10 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
         <Champ label="Description des faits">
           <textarea data-reponses="proc.description" rows={5} className={CLS_TEXTE} value={v.description || ''} disabled={lecture} onChange={e => maj('description', e.target.value)} />
         </Champ>
-        <div className="text-second text-slate-500">
-          La personne qui a constaté les faits se choisit dans « Personnes »
-          {d.nature === 'fraude' ? ', les acquis visés dans « Acquis visés »' : ''}.
-        </div>
+        {/* SUR LA PAGE MÊME (3.5.761, Charles : « Il manque : la personne qui a constaté les faits », alors qu'elle se choisissait
+            dans le panneau « Personnes », un rôle et un bouton plus loin). Le choix écrit le même membre (rôle « rapporteur »). */}
+        <ConstatePar dossier={d} ue={ue} personnel={personnel} desactive={lecture} onMaj={onMaj} />
+        {d.nature === 'fraude' && <div className="text-second text-slate-500">Les acquis visés se choisissent dans « Acquis visés ».</div>}
       </div>
     );
     if (cle === 'ecartement') corps = (
@@ -1120,6 +1121,40 @@ function Echeances({ dossier: d }) {
         })}
       </div>
     </Bloc>
+  );
+}
+
+/** « A constaté les faits » : une personne du personnel, écrite comme membre « rapporteur » du dossier. */
+function ConstatePar({ dossier: d, ue, personnel, desactive, onMaj }) {
+  const [erreur, setErreur] = useState(null);
+  const membres = d.membres || [];
+  const actuel = membres.find(m => m.role === 'rapporteur');
+  const charges = [...new Map((ue?.charges || []).map(c => [c.id, c])).values()];
+  const ids = new Set(charges.map(c => c.id));
+  const autres = (personnel || []).filter(p => !ids.has(p.id));
+  async function choisir(val) {
+    setErreur(null);
+    const id = Number(val);
+    const p = charges.find(c => c.id === id) || (personnel || []).find(x => x.id === id);
+    const reste = membres.filter(m => m.role !== 'rapporteur');
+    const liste = p ? [...reste, { role: 'rapporteur', cle: `p:${p.id}`, nom: nomPropre(p.nom, p.prenom), present: true }] : reste;
+    const r = await appel(`${BASE}/${d.id}/membres`, { method: 'PUT',
+      body: JSON.stringify({ membres: liste.map(m => ({ role: m.role, cle: m.cle, nom: m.nom, present: !!m.present })) }) });
+    if (!r.ok) { setErreur(r.data?.error || 'La personne ne s’est pas enregistrée.'); return; }
+    onMaj?.({ ...d, ...r.data, peut_instruire: d.peut_instruire, peut_decider: d.peut_decider });
+  }
+  const valeur = actuel && /^p:\d+$/.test(actuel.cle || '') ? actuel.cle.slice(2) : '';
+  return (
+    <Champ label="A constaté les faits">
+      <select className="controle w-full sm:w-1/2" value={valeur} disabled={desactive} onChange={e => choisir(e.target.value)}>
+        <option value="">{actuel && !valeur ? actuel.nom : '— choisir une personne —'}</option>
+        {charges.length > 0 && <optgroup label={`Chargés de cours de l'UE ${d.ue_num}`}>
+          {charges.map(c => <option key={`c${c.id}`} value={c.id}>{nomPropre(c.nom, c.prenom)}</option>)}</optgroup>}
+        <optgroup label="Tout le personnel">
+          {autres.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}</optgroup>
+      </select>
+      {erreur && <div className="text-second mt-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+    </Champ>
   );
 }
 
