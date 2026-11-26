@@ -653,6 +653,37 @@ r.get('/semaine', authRequired, (req, res) => {
   res.json({ annee: an, lundi, jours, semaine, seances, bac });
 });
 
+/* LE « + » DE L'HORAIRE (3.5.750, Charles : « bouton + pour horaire ») : les attributions qu'on peut poser, quelle que soit la vue
+   (classe : les unités de la classe ; professeur : ses attributions ; local : toutes celles du périmètre), avec les heures déjà
+   posées sur le lien réel. La séance se pose ensuite par POST /seance avec `attribution_id` (cours, professeur, groupe, lien). */
+r.get('/a-placer', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
+  const an = req.query.annee || anneeDeTravail(req);
+  const vue = String(req.query.vue || ''), cle = String(req.query.cle || '');
+  const perim = getUserSections(req.user);
+  let attrs = db.prepare(`SELECT a.id, a.section, a.ue_num, a.code_cours, a.code, a.periodes_attribuees, a.professeur_id,
+      t.libelle AS activite, p.nom AS prof_nom, p.prenom AS prof_prenom,
+      COALESCE((SELECT cours_nom FROM cours c WHERE c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire LIMIT 1),
+        (SELECT cours_nom FROM cours c WHERE c.cours_code = a.code_cours ORDER BY c.annee_scolaire DESC LIMIT 1)) AS cours_nom
+    FROM attribution a LEFT JOIN activite_type t ON t.id = a.activite_id LEFT JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.annee_scolaire = ? AND a.code_cours IS NOT NULL AND COALESCE(a.en_conge, 0) = 0
+    ORDER BY a.code_cours, a.code`).all(an).filter(a => !perim || perim.includes(a.section));
+  if (vue === 'classe' && cle) {
+    const [sec, bloc] = cle.split('|');
+    const ues = unitesDeClasse(sec, bloc, an);
+    attrs = attrs.filter(a => a.section === sec && ues.has(a.ue_num));
+  } else if (vue === 'professeur' && cle) {
+    attrs = attrs.filter(a => a.professeur_id === Number(cle));
+  }
+  const pose = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND attribution_id = ? AND annule = 0`);
+  res.json(attrs.map(a => {
+    const heures = Math.round((Number(a.periodes_attribuees) || 0) * 50 / 60 * 100) / 100;
+    const posees = Math.round(pose.get(an, a.id).m / 60 * 100) / 100;
+    return { id: a.id, section: a.section, ue_num: a.ue_num, code_cours: a.code_cours, cours_nom: a.cours_nom, groupe: a.code || null,
+      activite: a.activite || null, prof: a.prof_nom ? `${String(a.prof_nom).toUpperCase()} ${a.prof_prenom || ''}`.trim() : null,
+      heures, posees, reste: heures ? Math.round((heures - posees) * 100) / 100 : null };
+  }));
+});
+
 /** Ce que dit une séance posée : ses conflits, calculés contre sa journée. */
 function conflitsDeLaSeance(id) {
   const s = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(id);
@@ -749,6 +780,10 @@ r.put('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) 
   /* LE LIEN À L'ATTRIBUTION (3.5.727) : donné explicitement (`attribution_id`, 0 = délier), sinon recalculé quand le professeur change
      (l'attribution de ce professeur pour le même cours et le même groupe). Une attribution désignée fixe aussi le professeur s'il
      n'est pas donné. */
+  /* LE GROUPE D'UNE SÉANCE (3.5.750, Charles : « possibilité de changer le Ts en groupe ») : vide = toute la classe. Sans attribution
+     donnée, le lien se recalcule pour le nouveau groupe (l'attribution du professeur pour ce cours et ce groupe). */
+  const groupeChange = 'sous_groupe' in req.body && (String(req.body.sous_groupe || '').trim() || null) !== (s.sous_groupe || null);
+  const sgNouveau = groupeChange ? (String(req.body.sous_groupe || '').trim() || null) : s.sous_groupe;
   let attrNouvelle = s.attribution_id ?? null;
   if ('attribution_id' in req.body) {
     attrNouvelle = Number(req.body.attribution_id) || null;
@@ -757,22 +792,23 @@ r.put('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) 
       if (!at || at.code_cours !== s.cours_code || at.annee_scolaire !== s.annee_scolaire) return res.status(400).json({ error: 'Cette attribution n’est pas celle du cours de la séance.' });
       if (!('professeur_id' in req.body) && at.professeur_id) profNouveau = at.professeur_id;
     }
-  } else if ('professeur_id' in req.body && profNouveau !== s.professeur_id) {
-    attrNouvelle = profNouveau ? attributionPour(s.annee_scolaire, s, profNouveau) : null;
+  } else if (('professeur_id' in req.body && profNouveau !== s.professeur_id) || groupeChange) {
+    attrNouvelle = profNouveau ? attributionPour(s.annee_scolaire, { ...s, sous_groupe: sgNouveau }, profNouveau) : null;
   }
   db.transaction(() => {
     db.prepare(`UPDATE horaire_seance SET date = ?, heure_debut = ?, heure_fin = ?, minutes = ?,
-        local_texte = ?, annule = ?, commentaire = ?, professeur_id = ?, attribution_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
+        local_texte = ?, annule = ?, commentaire = ?, professeur_id = ?, attribution_id = ?, sous_groupe = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
       WHERE id = ?`).run(b.date, b.heure_debut, b.heure_fin, hm(b.heure_fin) - hm(b.heure_debut),
       'local_texte' in req.body ? (String(req.body.local_texte || '').trim() || null) : s.local_texte,
       'annule' in req.body ? (req.body.annule ? 1 : 0) : s.annule,
       'commentaire' in req.body ? (String(req.body.commentaire || '').trim() || null) : s.commentaire,
-      profNouveau, attrNouvelle, qui(req), s.id);
-    if (('professeur_id' in req.body || 'attribution_id' in req.body) && req.body.suivantes && (profNouveau !== s.professeur_id || attrNouvelle !== (s.attribution_id ?? null))) {
-      suivantes = db.prepare(`UPDATE horaire_seance SET professeur_id = ?, attribution_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
+      profNouveau, attrNouvelle, sgNouveau, qui(req), s.id);
+    if (('professeur_id' in req.body || 'attribution_id' in req.body || groupeChange) && req.body.suivantes
+      && (profNouveau !== s.professeur_id || attrNouvelle !== (s.attribution_id ?? null) || groupeChange)) {
+      suivantes = db.prepare(`UPDATE horaire_seance SET professeur_id = ?, attribution_id = ?, sous_groupe = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
         WHERE annee_scolaire = ? AND id <> ? AND date > ? AND COALESCE(cours_code, '') = ? AND COALESCE(sous_groupe, '') = ?
           AND COALESCE(professeur_id, 0) = ? AND COALESCE(section, '') = ?`)
-        .run(profNouveau, attrNouvelle, qui(req), s.annee_scolaire, s.id, s.date, s.cours_code || '', s.sous_groupe || '', s.professeur_id || 0, s.section || '').changes;
+        .run(profNouveau, attrNouvelle, sgNouveau, qui(req), s.annee_scolaire, s.id, s.date, s.cours_code || '', s.sous_groupe || '', s.professeur_id || 0, s.section || '').changes;
     }
   })();
   res.json({ ok: true, suivantes, conflits: conflitsDeLaSeance(s.id) });
