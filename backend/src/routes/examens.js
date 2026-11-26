@@ -7,7 +7,7 @@ import { Router } from 'express';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopperDocument } from '../lib/document.js';
-import { epreuves, ecrireDetail, composer, PIECES, STYLES_EXAMENS, delaiQuestionnaire, acquisDe, garde as pageDeGarde, nettoyerGrille, lireGrille, ecrireGrille } from '../lib/examens.js';
+import { epreuves, besoinsEpreuve, ecrireDetail, composer, PIECES, STYLES_EXAMENS, delaiQuestionnaire, acquisDe, garde as pageDeGarde, nettoyerGrille, lireGrille, ecrireGrille } from '../lib/examens.js';
 import { accesCours } from './mesCours.js';
 import db from '../db/index.js';
 
@@ -19,7 +19,9 @@ const params = (q) => ({ annee: q.annee || null, session: Number(q.session) === 
 
 r.get('/', authRequired, garde, (req, res) => {
   const p = params(req.query); p.annee ||= anneeDeTravail(req);
-  const l = epreuves({ ...p, sections: perimetre(req) }).map(e => ({ ...e, etudiants: e.etudiants.length, ar: e.ar.length, delai_questionnaire: e.session === 1 ? delaiQuestionnaire(e.date) : null }));
+  // Les besoins des AR de l'épreuve (3.5.730) : ce qu'il faut préparer, et combien — jamais les noms ici.
+  const l = epreuves({ ...p, sections: perimetre(req) }).map(e => ({ ...e, besoins: besoinsEpreuve(e).map(b => ({ t: b.t, n: b.etudiants.length })),
+    etudiants: e.etudiants.length, ar: e.ar.length, delai_questionnaire: e.session === 1 ? delaiQuestionnaire(e.date) : null }));
   const personnes = db.prepare(`SELECT nom, prenom FROM professeur ORDER BY nom, prenom`).all()
     .map(x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim());
   res.json({ ...p, epreuves: l, pieces: PIECES, personnes });
