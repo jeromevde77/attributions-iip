@@ -38,7 +38,14 @@ export function proposer(s, parCours) {
   const L = parCours.get(s.cours_code) || [];
   if (!L.length) return { auto: null, propose: null, candidats: [] };
   const g = groupeNet(s.sous_groupe);
-  const duGroupe = l => (g ? l.filter(a => groupeNet(a.code) === g) : l.filter(a => estTous(a.code)));
+  // Le groupe exact, sinon le groupe d'attribution qui CONTIENT celui de la séance (« 3+4 » est dans « 3+4+7+8 »).
+  const jetons = x => new Set(String(x || '').split('+').filter(Boolean));
+  const contient = a => { const t = jetons(groupeNet(a.code)); return [...jetons(g)].every(x => t.has(x)); };
+  const duGroupe = l => {
+    if (!g) return l.filter(a => estTous(a.code));
+    const exact = l.filter(a => groupeNet(a.code) === g);
+    return exact.length ? exact : l.filter(a => !estTous(a.code) && contient(a));
+  };
   const duProf = s.professeur_id ? L.filter(a => a.professeur_id === s.professeur_id) : [];
   if (duProf.length === 1) return { auto: duProf[0].id, propose: duProf[0].id, candidats: L };
   if (duProf.length > 1) {
@@ -51,12 +58,12 @@ export function proposer(s, parCours) {
 }
 
 /** Le plan de liaison d'une année : les séances non reliées, d'office ou par cas. `sections` borne au périmètre (null = tout). */
-export function planLiaison(annee, { sections = null } = {}) {
+export function planLiaison(annee, { sections = null, section = null } = {}) {
   const parCours = attributionsParCours(annee);
   const seances = db.prepare(`SELECT s.id, s.date, s.heure_debut, s.cours_code, s.sous_groupe, s.professeur_id, s.section, s.minutes,
       p.nom, p.prenom FROM horaire_seance s LEFT JOIN professeur p ON p.id = s.professeur_id
     WHERE s.annee_scolaire = ? AND s.attribution_id IS NULL AND s.cours_code IS NOT NULL`).all(annee)
-    .filter(s => !sections || sections.includes(s.section));
+    .filter(s => (!sections || sections.includes(s.section)) && (!section || s.section === section));
   const auto = [];
   const cas = new Map();
   let sansAttribution = 0;
@@ -81,8 +88,8 @@ export function planLiaison(annee, { sections = null } = {}) {
 }
 
 /** Écrire : les liaisons d'office, et les choix par cas ({ cle: attribution_id }). Le plan est recalculé ici, jamais repris de l'écran. */
-export function appliquerLiaison(annee, { auto = true, choix = {}, sections = null, par = null } = {}) {
-  const plan = planLiaison(annee, { sections });
+export function appliquerLiaison(annee, { auto = true, choix = {}, sections = null, section = null, par = null } = {}) {
+  const plan = planLiaison(annee, { sections, section });
   const maj = db.prepare(`UPDATE horaire_seance SET attribution_id = ?, modifie_par = COALESCE(modifie_par, ?) WHERE id = ? AND attribution_id IS NULL`);
   let n = 0;
   db.transaction(() => {

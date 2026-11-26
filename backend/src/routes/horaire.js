@@ -778,12 +778,12 @@ r.put('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) 
 /* RELIER LES SÉANCES AUX ATTRIBUTIONS (3.5.727, lib/lienAttribution.js) : le plan (d'office, et les cas à trancher), puis l'écriture. */
 r.get('/liaison', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const an = req.query.annee || anneeDeTravail(req);
-  res.json(planLiaison(an, { sections: getUserSections(req.user) }));
+  res.json(planLiaison(an, { sections: getUserSections(req.user), section: req.query.section || null }));
 });
 r.post('/liaison', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const an = req.body?.annee || anneeDeTravail(req);
   const choix = req.body?.choix && typeof req.body.choix === 'object' ? req.body.choix : {};
-  res.json(appliquerLiaison(an, { auto: req.body?.auto !== false, choix, sections: getUserSections(req.user), par: qui(req) }));
+  res.json(appliquerLiaison(an, { auto: req.body?.auto !== false, choix, sections: getUserSections(req.user), section: req.body?.section || null, par: qui(req) }));
 });
 
 r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
