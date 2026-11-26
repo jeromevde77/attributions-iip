@@ -859,22 +859,35 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
   const courante = (data?.sections || [])[0] || null;
   const changerSection = async () => {
     if (!nouvelle) return;
+    // LE « + » VERT AJOUTE UN CURSUS, SANS RIEN DEMANDER DE PLUS (3.5.740, Charles) ; « Changer de section… » propose le choix.
+    if (changer === 'ajouter' && courante) {
+      const r = await fetch(`/api/etudiants/${etudId}/sections-plus`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section: nouvelle }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { informer(j.error || 'Refusé.'); return; }
+      setChanger(false); setNouvelle(''); setRecharge(n => n + 1); onModifie?.();
+      informer(`${nouvelle} est ajoutée comme cursus : ${courante} reste sa section principale. Elle se lit dans la fiche → Identité, « Aussi dans ».`);
+      return;
+    }
     if (await cursusAjouterOuRemplacer(nouvelle)) { setChanger(false); setNouvelle(''); }
   };
   const ligneChanger = (
     <div className="flex items-center gap-2 flex-wrap text-second">
-      {!changer ? (
-        <button type="button" className="bouton bouton-compact" onClick={() => setChanger(true)}
-          title="Faire passer l'étudiant dans une autre section — l'actuelle est archivée, rien n'est effacé">
-          Ajouter ou changer de section…</button>
-      ) : (
+      {!changer ? (<>
+        <button type="button" className="bouton bouton-compact inline-flex items-center gap-1 !text-white !border-transparent"
+          style={{ background: 'var(--c-reussi, #3E7D5E)' }} onClick={() => setChanger('ajouter')}
+          title="Ajouter un cursus : l'étudiant suit aussi une autre section, sa section actuelle ne change pas">
+          <IconPlus size={15} stroke={2.4} /> Cursus</button>
+        <button type="button" className="bouton bouton-compact" onClick={() => setChanger('changer')}
+          title="Ajouter une section, ou remplacer l'actuelle (elle est archivée, rien n'est effacé)">
+          Changer de section…</button>
+      </>) : (
         <>
-          <span>Nouvelle section{courante ? ` (aujourd'hui : ${courante})` : ''} :</span>
+          <span>{changer === 'ajouter' ? 'Ajouter le cursus' : `Nouvelle section${courante ? ` (aujourd'hui : ${courante})` : ''}`} :</span>
           <select className="controle text-sm" value={nouvelle} onChange={e => setNouvelle(e.target.value)}>
             <option value="">— choisir —</option>
             {sectionsRef.filter(x => x.code !== courante).map(x => <option key={x.code} value={x.code}>{x.libelle && x.libelle !== x.code ? `${x.code} — ${x.libelle}` : x.code}</option>)}
           </select>
-          <button type="button" className="bouton bouton-fort bouton-compact" disabled={!nouvelle} onClick={changerSection}>Continuer</button>
+          <button type="button" className="bouton bouton-fort bouton-compact" disabled={!nouvelle} onClick={changerSection}>{changer === 'ajouter' ? 'Ajouter' : 'Continuer'}</button>
           <button type="button" className="underline text-slate-500" onClick={() => { setChanger(false); setNouvelle(''); }}>annuler</button>
         </>
       )}
