@@ -3319,6 +3319,9 @@ app.use('/api/correction-ue', (await import('./routes/correctionUE.js')).default
 app.use('/api/certificats-medicaux', (await import('./routes/certificats.js')).default);
 // LE SUIVI DE SANTÉ (3.5.283) : la visite médicale du CESI, au dossier de l'étudiant.
 app.use('/api/sante', (await import('./routes/sante.js')).default);
+// LES NOTIFICATIONS SUR LE TÉLÉPHONE (3.5.767) : abonnements de Mon compte, et le passage toutes les 30 s (production seulement).
+app.use('/api/push', (await import('./routes/push.js')).default);
+(await import('./lib/pushNotifs.js')).demarrerPush();
 try { (await import('./lib/certificatMedical.js')).migrerCertificats(); } catch (e) { console.error('[migration] certificats médicaux :', e.message); }
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
