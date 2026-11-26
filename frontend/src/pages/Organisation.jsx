@@ -277,6 +277,8 @@ function CentreHoraire({ annee }) {
       const o = sessionStorage.getItem('lucie.outil');
       if (o === 'horaire-controler' || o === 'horaire-composer' || o === 'horaire-consulter') { sessionStorage.removeItem('lucie.outil'); return o.slice(8); }
     } catch { /* sans mémoire de session */ }
+    // UN LIEN DIRECT (3.5.749) : /organisation?onglet=horaire-semaine&controle=1 ouvre le contrôle (le document aux coordinations).
+    try { if (new URLSearchParams(window.location.search).get('controle')) return 'controler'; } catch { /* sans adresse */ }
     // CONSULTER D'ABORD (3.1.465, Charles) : on vient voir l'horaire ; le créer se fait au laboratoire.
     return 'consulter';
   });
