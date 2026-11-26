@@ -518,10 +518,10 @@ function valves(liste) {
 const COMPOSE = { fiche, registre, plan, ar: listeAR, incident, archivage, garde, brouillon };
 export const STYLES_EXAMENS = `
   .cartouche { border: 0.25mm solid #D5DCE6; border-radius: 2.2mm; overflow: hidden; margin: 1mm 0 4mm; break-inside: avoid; }
-  .cv-quand { display: flex; flex-wrap: wrap; gap: 1mm 5mm; align-items: baseline; background: #16406A; color: #fff; padding: 2.2mm 4mm; }
+  .cv-quand { display: flex; flex-wrap: wrap; gap: 1mm 5mm; align-items: baseline; background: #16406A; color: #fff; padding: 2.5mm 5mm; }
   .cv-jour { font-size: 11pt; font-weight: 600; } .cv-h { font-size: 10.5pt; font-weight: 600; color: #F9D27A; }
   .cv-local { font-size: 9.5pt; color: #DCE6F2; margin-left: auto; }
-  .cv-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: #F7F9FC; padding: 1.5mm 4mm 2mm; }
+  .cv-grille { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6mm; background: #F7F9FC; padding: 2mm 5mm 2.5mm; }
   .cv-champ { padding: 1.2mm 3mm 1.2mm 0; border-bottom: 0.2mm solid #E6EBF2; break-inside: avoid; }
   .cv-l { font-size: 7.5pt; color: #7A8699; letter-spacing: .02em; } .cv-v { font-size: 9.5pt; color: #16406A; margin-top: .3mm; }
   .cv-vide { color: #A0AAB8; }
@@ -544,12 +544,13 @@ export const STYLES_EXAMENS = `
   td.petit { font-size: 8pt; }
   ul.cases { list-style: none; padding-left: 2mm; margin: 0; columns: 2; column-gap: 8mm; } ul.cases li { margin: 0.8mm 0; break-inside: avoid; }
   ul.rappels { margin: 0; padding-left: 5mm; font-size: 8.5pt; color: #3A4658; } ul.rappels li { margin: 0.6mm 0; }
-  table.signatures { margin-top: 4mm; border-collapse: separate; border-spacing: 2mm 0; break-inside: avoid; }
-  table.signatures td { border: 0.25mm solid #D5DCE6; border-radius: 2mm; height: 19mm; vertical-align: top; padding: 2mm; font-size: 8pt; color: #7A8699; background: #FBFCFE; }
+  table.signatures { margin-top: 6mm; border-collapse: separate; border-spacing: 6mm 0; break-inside: avoid; }
+  table.signatures td { border: 0 !important; border-bottom: 0.3mm solid #16406A !important; border-radius: 0 !important; background: none !important;
+    height: 18mm; vertical-align: top; padding: 0 0 1mm !important; font-size: 8pt; color: #7A8699; }
   table.totaux td { padding: 2mm 0; font-size: 9pt; }
   table.formulaire { border: 0.25mm solid #D5DCE6; border-radius: 2.2mm; border-collapse: separate; border-spacing: 0; overflow: hidden; }
-  table.formulaire th { text-align: left; width: 38mm; font-weight: normal; color: #7A8699; background: #F7F9FC !important; border-bottom: 0.2mm solid #E6EBF2; border-right: 0.2mm solid #E6EBF2; padding: 2.2mm 3mm; vertical-align: top; }
-  table.formulaire td { border-bottom: 0.2mm solid #E6EBF2; padding: 2.2mm 3mm; height: 9mm; color: #16406A; }
+  table.formulaire th { text-align: left; width: 38mm; font-weight: normal; color: #7A8699; background: #F7F9FC !important; border: 0 !important; border-bottom: 0.2mm solid #E6EBF2 !important; border-right: 0.2mm solid #E6EBF2 !important; padding: 2.2mm 3mm !important; vertical-align: top; }
+  table.formulaire td { border: 0 !important; border-bottom: 0.2mm solid #E6EBF2 !important; padding: 2.2mm 3mm !important; height: 9mm; color: #16406A; }
   table.formulaire tr:last-child th, table.formulaire tr:last-child td { border-bottom: 0; }
   table.formulaire td.haut { height: 50mm; } table.formulaire td.moyen { height: 20mm; }
   table.identite th { text-align: left; font-weight: normal; color: #555; padding: 1.5mm; width: 28mm; border: 0.3mm solid #16406A; }
