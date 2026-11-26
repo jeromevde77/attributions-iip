@@ -12,7 +12,8 @@ import {
   IconShieldLock, IconShieldCheck, IconCopy, IconCheck, IconAlertTriangle,
 } from '@tabler/icons-react';
 import { Fenetre, GroupeFenetre, BoutonFenetre } from './ui.jsx';
-import { api } from '../lib/api.js';
+import { api, authHeaders } from '../lib/api.js';
+import NotifsTelephone from './NotifsTelephone.jsx';
 
 /**
  * Le QR, dessiné dans un <canvas> par la bibliothèque, à partir de la SEULE
@@ -416,6 +417,9 @@ export default function MonCompte({ onFermer }) {
             className="controle w-64 px-3 border border-slate-300 rounded-champ bg-white text-sm" />
         </GroupeFenetre>
       )}
+
+      {/* LES NOTIFICATIONS SUR LE TÉLÉPHONE (3.5.767) */}
+      {phase === 'repos' && <div className="mt-4"><NotifsTelephone base="/api/push" entetes={() => authHeaders()} /></div>}
     </Fenetre>
   );
 }
