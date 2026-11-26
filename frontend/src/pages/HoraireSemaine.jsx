@@ -37,6 +37,17 @@ const ajouter = (dIso, n) => { const d = new Date(dIso + 'T12:00:00Z'); d.setUTC
 const lundiDe = dIso => { const d = new Date(dIso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return iso(d); };
 const court = dIso => dIso.slice(8, 10) + '-' + dIso.slice(5, 7);
 const RAISONS = { professeur: 'le professeur est déjà pris', local: 'le local est déjà occupé', classe: 'la classe a déjà cours' };
+// L'ACTIVITÉ D'UNE SÉANCE (3.5.735, Charles : « il faut aussi afficher les activités ») : celle de l'attribution reliée, sinon la
+// matière de l'import ; sans « (TP) » répété quand le libellé le porte déjà.
+const gnet = g => String(g || '').replace(/\s/g, '').toUpperCase().replace(/^\d+(?=[A-Z])/, '');
+const activiteDe = s => {
+  if (s.attribution?.activite) return s.attribution.activite;
+  // Pas encore reliée : l'attribution du même groupe et du même professeur, si elle est seule à convenir.
+  const g = gnet(s.sous_groupe);
+  const c = (s.attributions || []).filter(a => (g ? gnet(a.code) === g : String(a.code || '').toUpperCase() === 'TS') && (!s.professeur_id || a.professeur_id === s.professeur_id));
+  if (c.length === 1 && c[0].activite) return c[0].activite;
+  return (s.matiere && s.matiere !== s.cours_nom ? s.matiere : '').trim();
+};
 const nomProf = s => [s.prof_nom, s.prof_prenom].filter(Boolean).join(' ') || s.professeur_texte || '';
 
 async function appel(url, opts = {}) {
@@ -307,7 +318,8 @@ export default function HoraireSemaine({ consultation = false }) {
                   const gr = s.sous_groupe || (s.groupe_nom && s.groupe_nom !== 'A' ? s.groupe_nom : null);
                   const pastille = gr && <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pastille bg-white text-mention font-bold text-[color:var(--c-principal,_#1B2B4B)]"
                     style={{ border: `1.5px solid ${c}` }}>{gr}</span>;
-                  const detail = `${s.cours_code} ${s.cours_nom || s.matiere || ''}\n${s.annule ? 'Annulée' : nomProf(s)}${gr ? ` · groupe ${gr}` : ''}\n${s.local_texte || 'local à préciser'} · ${lisible(deHm(debut))}–${lisible(deHm(fin))}`;
+                  const act = activiteDe(s);
+                  const detail = `${s.cours_code} ${s.cours_nom || s.matiere || ''}${act ? `\n${act}` : ''}\n${s.annule ? 'Annulée' : nomProf(s)}${gr ? ` · groupe ${gr}` : ''}\n${s.local_texte || 'local à préciser'} · ${lisible(deHm(debut))}–${lisible(deHm(fin))}`;
                   return (
                     <div key={s.id} onPointerDown={ev => commencer(ev, { seance: s, decalY: ev.clientY - ev.currentTarget.getBoundingClientRect().top, long: hm(s.heure_fin) - hm(s.heure_debut) })}
                       title={s.conflits?.length ? `${detail}\nConflit : ${s.conflits.map(x => RAISONS[x]).join(', ')}` : detail}
@@ -318,15 +330,17 @@ export default function HoraireSemaine({ consultation = false }) {
                       {seul ? <>
                         <div className={`font-semibold truncate flex items-center gap-1.5 ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>
                           <span className="truncate">{s.cours_code} {s.cours_nom || s.matiere || ''}</span>{pastille}</div>
+                        {act && <div className="truncate text-slate-500 italic">{act}</div>}
                         <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}</div>
                         <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>
                       </> : pl.cols <= 2 ? <div className="flex flex-col justify-center gap-0.5 h-full min-w-0">
                         {/* Deux de front : la place du nom du cours. */}
                         <span className={`flex items-center gap-1.5 min-w-0 ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>
                           <span className="font-bold text-second truncate">{s.cours_code}</span>{pastille}</span>
-                        <span className="truncate text-slate-600">{s.cours_nom || s.matiere || ''}</span></div>
+                        <span className="truncate text-slate-600">{act || s.cours_nom || s.matiere || ''}</span></div>
                       : <div className="flex flex-col items-start justify-center gap-0.5 h-full">
-                        <span className={`font-bold text-second truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>{s.cours_code}</span>{pastille}</div>}
+                        <span className={`font-bold text-second truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>{s.cours_code}</span>{pastille}
+                        {act && <span className="text-mention text-slate-500 truncate max-w-full">{act.replace(/\s*\((TP|TH|TD)\)\s*$/i, ' $1').slice(0, 18)}</span>}</div>}
                       {peutEcrire && <div onPointerDown={ev => { ev.stopPropagation(); commencer(ev, { type: 'rallonger', seance: s, d }); }}
                         className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize" />}
                     </div>
@@ -479,7 +493,7 @@ export default function HoraireSemaine({ consultation = false }) {
                 {l.map(x => (
                   <Tr key={x.id} className="cursor-pointer" onClick={() => { setJourDetail(null); setSel(x); }}>
                     <Td><b className={x.annule ? 'line-through' : ''}>{lisible(x.heure_debut)}–{lisible(x.heure_fin)}</b></Td>
-                    <Td><span className={x.annule ? 'line-through' : ''}><b>{x.cours_code}</b> {x.cours_nom || x.matiere || ''}</span>{vue !== 'classe' && x.classe ? <span className="text-slate-400"> · {x.classe}</span> : null}</Td>
+                    <Td><span className={x.annule ? 'line-through' : ''}><b>{x.cours_code}</b> {x.cours_nom || x.matiere || ''}</span>{activiteDe(x) ? <div className="text-mention text-slate-500">{activiteDe(x)}</div> : null}{vue !== 'classe' && x.classe ? <span className="text-slate-400"> · {x.classe}</span> : null}</Td>
                     <Td>{x.sous_groupe || x.groupe_nom || '—'}</Td>
                     <Td>{nomProf(x) || <span className="text-slate-400">à attribuer</span>}
                       {x.prof_attribution?.length > 0 && !x.prof_attribution.some(p => p.id === x.professeur_id)
