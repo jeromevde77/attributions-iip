@@ -29,6 +29,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { controleHoraire, prendreAttribution } from '../lib/controleHoraire.js';
 import { niveauxEffectifs } from './capitalisation.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { planLiaison, appliquerLiaison, attributionPour } from '../lib/lienAttribution.js';
@@ -784,6 +785,16 @@ r.post('/liaison', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) =>
   const an = req.body?.annee || anneeDeTravail(req);
   const choix = req.body?.choix && typeof req.body.choix === 'object' ? req.body.choix : {};
   res.json(appliquerLiaison(an, { auto: req.body?.auto !== false, choix, sections: getUserSections(req.user), section: req.body?.section || null, par: qui(req) }));
+});
+
+// LE CONTRÔLE DE L'HORAIRE (3.5.746) : ce que l'horaire et les attributions ne racontent pas de la même façon.
+r.get('/controle', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
+  try { res.json(controleHoraire(req.query.annee || anneeDeTravail(req), { sections: getUserSections(req.user), section: req.query.section || null })); }
+  catch (e) { console.error('[contrôle horaire]', e); res.status(500).json({ error: e.message }); }
+});
+r.post('/controle/prendre', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
+  try { res.json(prendreAttribution(Array.isArray(req.body?.ids) ? req.body.ids : [], req.body?.attribution_id, { sections: getUserSections(req.user), par: qui(req) })); }
+  catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
 r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
