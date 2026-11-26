@@ -11,6 +11,7 @@ import {
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
 import HoraireComparateur from './HoraireComparateur.jsx';
+import ControleHoraire from '../components/ControleHoraire.jsx';
 const AtelierUE = lazy(() => import('./AtelierUE.jsx'));
 import StructureSection from './StructureSection.jsx';
 import Rentree from './Rentree.jsx';
@@ -120,7 +121,7 @@ export default function Organisation({ ongletInitial }) {
             { key: 'horaire-semaine', label: '6. L’horaire des cours' },
             { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye, seulementPresent: true },
             { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent, seulementPresent: true },
-            { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock, seulementPresent: true },
+            { key: 'horaire-controler', label: 'Contrôler l’horaire', icone: IconClock, seulementPresent: true },
             { key: 'temps-travail', label: '7. Horaires du personnel' },
             { key: 'planif-sessions', label: '8. Sessions : épreuves et délibérations' },
             { key: 'examens', label: '9. Examens : préparer et imprimer' },
@@ -267,7 +268,7 @@ function CentreHoraire({ annee }) {
       <RailLateral titre="Horaires" sections={[{ items: [
         { key: 'horaire-consulter', label: 'Consulter l’horaire', icon: IconEye, actif: face === 'consulter', onClick: () => setFace('consulter') },
         { key: 'horaire-composer', label: 'Composer la semaine', icon: IconCalendarEvent, actif: face === 'composer', onClick: () => setFace('composer') },
-        { key: 'horaire-controler', label: 'Contrôler contre les attributions', icon: IconClock, actif: face === 'controler', onClick: () => setFace('controler') },
+        { key: 'horaire-controler', label: 'Contrôler l’horaire', icon: IconClock, actif: face === 'controler', onClick: () => setFace('controler') },
       ] }]} />
       {face === 'consulter' || face === 'composer' ? (
         <div className="p-4 space-y-3">
@@ -282,7 +283,8 @@ function CentreHoraire({ annee }) {
           </Suspense>
         </div>
       ) : annee
-        ? <HoraireComparateur annee={annee} />
+        ? <div className="p-4 space-y-4"><Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}><ControleHoraire annee={annee} /></Suspense>
+          <HoraireComparateur annee={annee} /></div>
         : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}
     </div>
   );
