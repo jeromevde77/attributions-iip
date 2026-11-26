@@ -2422,6 +2422,13 @@ export default function Attributions() {
           <span className="mr-2 text-slate-300">·</span>
           {data.length} attribution{data.length > 1 ? 's' : ''} · {getAnnee()}
         </p>
+        <span className="flex-1" />
+        {isAdmin && sectionGroups.length > 0 && (
+          <button onClick={()=>setGroupesSection({ groupes: sectionGroups.map(sg => ({ section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })),
+            section: filters.section || sectionGroups[0]?.section })}
+            className="bouton inline-flex items-center gap-1.5 flex-shrink-0 self-center" title="Chaque UE, cours, activité et son groupe, à changer en un coup">
+            <IconTable size={15}/>Groupes de la section…</button>
+        )}
       </div>
       {/* (bandeau perte de charge déplacé en bas de page) */}
 
@@ -2471,6 +2478,14 @@ export default function Attributions() {
                   <button onClick={collapseAll} className="text-gray-500 hover:text-iip-turquoise">Tout replier</button>
                 </div>}
               </div>
+
+              {/* LES GROUPES (3.5.760, Charles : « je ne vois pas le gestionnaire de groupes ») : une porte visible, sans déplier. */}
+              {isAdmin && (
+                <button onClick={()=>setGroupesSection({ groupes: sectionGroups.map(sg => ({ section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })),
+                  section: filters.section || sectionGroups[0]?.section })}
+                  className="bouton w-full flex items-center gap-2" title="Chaque UE, cours, activité et son groupe, à changer en un coup">
+                  <IconTable size={16}/>Groupes de la section…</button>
+              )}
 
               {/* Filtres */}
               <details className="group/vol">
@@ -2874,7 +2889,7 @@ export default function Attributions() {
       {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
       {autonomieUE && <CompleterAutonomie ueNum={autonomieUE.ueNum} section={autonomieUE.section}
         onFermer={() => setAutonomieUE(null)} onFait={() => load()} />}
-      {groupesSection && <GroupesSection section={groupesSection.section} ues={groupesSection.ues}
+      {groupesSection && <GroupesSection section={groupesSection.section} ues={groupesSection.ues} groupes={groupesSection.groupes}
         onClose={() => setGroupesSection(null)} onApplied={() => { setGroupesSection(null); load(); }} />}
       {groupesUE && (
         <OrganiserGroupesModal
