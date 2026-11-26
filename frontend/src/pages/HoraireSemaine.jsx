@@ -15,7 +15,7 @@
  * le serveur le garde.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronLeft, IconChevronRight, IconCopy, IconPlus, IconReplace, IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconArrowsLeftRight, IconChevronLeft, IconChevronRight, IconCopy, IconPlus, IconReplace, IconTrash, IconUpload } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../components/ui.jsx';
 import { passeRole } from '../lib/droits.js';
@@ -517,6 +517,29 @@ export default function HoraireSemaine({ consultation = false }) {
                   <div className="text-second">{sel.sous_groupe ? <>Groupe <b>{sel.sous_groupe}</b> · </> : null}
                     {at ? <>reliée à l’attribution <b>{at.code || 'tous'}</b> · {at.prof}{at.activite ? ` · ${at.activite}` : ''}</>
                       : <b>pas reliée à une attribution</b>}{!at && sel.prof_attribution?.length ? <> — selon les attributions : {sel.prof_attribution.map(p => p.nom).join(', ')}</> : null}</div>
+                  {/* ⇄ ALIGNER SUR UNE ATTRIBUTION (3.5.729, Charles : « un bouton double flèche pour faire coller attributions et
+                      horaires ») : les attributions du groupe de la séance ; un clic relie la séance ET prend leur professeur. */}
+                  {roleEcrit && (() => {
+                    const gn = x => String(x || '').replace(/\s/g, '').toUpperCase().replace(/^\d+(?=[A-Z])/, '');
+                    const g = gn(sel.sous_groupe);
+                    const duGroupe = (sel.attributions || []).filter(a => (g ? gn(a.code) === g : String(a.code || '').toUpperCase() === 'TS'));
+                    if (!duGroupe.length) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1.5">
+                        {duGroupe.map(a => {
+                          const choisi = Number(sel._attr ?? sel.attribution_id) === a.id && Number(sel._prof ?? sel.professeur_id) === Number(a.professeur_id || 0);
+                          return (
+                            <button key={a.id} type="button" disabled={choisi}
+                              className={`bouton !h-8 text-second inline-flex items-center gap-1.5 ${choisi ? 'opacity-60' : ''}`}
+                              title="Relier la séance à cette attribution et prendre son professeur"
+                              onClick={() => setSel({ ...sel, _attr: a.id, ...(a.professeur_id ? { _prof: a.professeur_id } : {}) })}>
+                              <IconArrowsLeftRight size={15} /> {a.prof}{a.activite ? ` · ${a.activite}` : ''}{choisi ? ' ✓' : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                   {roleEcrit && (sel.attributions || []).length > 0 && (
                     <select className="controle w-full" value={String(sel._attr ?? sel.attribution_id ?? '')}
                       onChange={e => setSel({ ...sel, _attr: Number(e.target.value) || 0 })}>

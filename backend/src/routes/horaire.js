@@ -591,7 +591,7 @@ r.get('/semaine', authRequired, (req, res) => {
       const r = (sien.length ? sien : tous).filter(a => a.id).map(a => ({ id: a.id, nom: `${String(a.nom || '').toUpperCase()} ${a.prenom || ''}`.trim() }));
       x.prof_attribution = [...new Map(r.map(a => [a.id, a])).values()];
       // LE LIEN RÉEL (3.5.727) : les attributions du cours, pour relier la séance ; et celle qui la porte.
-      x.attributions = l.map(a => ({ id: a.attribution_id, code: a.code, prof: a.nom ? `${String(a.nom).toUpperCase()} ${a.prenom || ''}`.trim() : 'à désigner',
+      x.attributions = l.map(a => ({ id: a.attribution_id, code: a.code, professeur_id: a.id || null, prof: a.nom ? `${String(a.nom).toUpperCase()} ${a.prenom || ''}`.trim() : 'à désigner',
         activite: a.activite || null, periodes: a.periodes }));
       x.attribution = x.attribution_id ? x.attributions.find(a => a.id === x.attribution_id) || null : null;
     }
