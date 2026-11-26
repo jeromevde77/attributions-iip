@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, cloneElement } from 'react';
 import { couleurBloc } from '../lib/blocs.js';
 import { codeGroupe, suiteGroupes, trierCodes, rangCouleur } from '../lib/groupes.js';
 import { estDirection } from '../lib/modules.js';
@@ -452,6 +452,19 @@ export default function Attributions() {
   const [orgMenu, setOrgMenu] = useState(null); // key de l'UE dont le menu de renumérotation d'organisation est ouvert
   const [orgMenuPos, setOrgMenuPos] = useState({ top: 0, left: 0 });
   const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
+  /* LE FOCUS (3.5.728, Charles, 26 novembre 2026 : « un focus en fonction de la zone cliquée : au départ on voit tout ; si je clique
+     sur opto, un voile sur le reste ; si je clique sur une UE, le focus y passe aussi » ; tranché : voile pâle + fil d'Ariane).
+     { section, ue (clé d'UE), cours (clé de cours) } ; Échap remonte d'un cran ; une zone voilée reste cliquable. */
+  const [focus, setFocus] = useState({ section: null, ue: null, cours: null });
+  useEffect(() => {
+    const f = e => {
+      if (e.key !== 'Escape' || document.querySelector('[role="dialog"]')) return;
+      setFocus(x => x.cours ? { ...x, cours: null } : x.ue ? { ...x, ue: null } : { section: null, ue: null, cours: null });
+    };
+    window.addEventListener('keydown', f);
+    return () => window.removeEventListener('keydown', f);
+  }, []);
+  const voileSection = sec => !!focus.section && focus.section !== sec;
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
   const [openUEs, setOpenUEs] = useState(new Set());
@@ -1925,6 +1938,8 @@ export default function Attributions() {
   // Les lignes d'un cours, en arbre : un cours, puis ses activités s'il en a de vraies, puis ses groupes.
   function lignesCours(ueKey, cg, cols, dernierCours) {
     const key = 'cours:' + ueKey + '/' + cg.code_cours;
+    const voile = (!!focus.ue && focus.ue !== 'ue:' + ueKey) || (!!focus.cours && focus.cours !== key);
+    const voiler = l => (voile ? l.map(el => (el ? cloneElement(el, { className: `${el.props.className || ''} focus-voile` }) : el)) : l);
     const open = openUEs.has(key);
     const st = groupStats(cg.rows);
     const isZCours = cg.type_cours === 'Z';
@@ -1981,7 +1996,7 @@ export default function Attributions() {
         {caseGroupe(cg.rows)}
         {celluleArbre({
           niveau: 1, dernier: dernierCours, enfants: open && enfants.length > 0, title: cg.nom_cours,
-          children: <button onClick={() => toggle(key)} className="flex items-center gap-1.5 min-w-0 text-left"
+          children: <button onClick={() => { toggle(key); setFocus(f => ({ section: f.section || ueKey.split('/')[0], ue: 'ue:' + ueKey, cours: key })); }} className="flex items-center gap-1.5 min-w-0 text-left"
                             title={open ? 'Replier ce cours' : 'Déplier ce cours'}>
             <Chevron ouvert={open} size={14} className="text-gray-400 flex-shrink-0" />
             <span className={`font-mono text-sm flex-shrink-0 ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
@@ -1991,7 +2006,7 @@ export default function Attributions() {
         {cellulesRegroupement(cols, cg.rows, { mention, plafondPer, plafondAut })}
       </tr>,
     ];
-    if (!open) return out;
+    if (!open) return voiler(out);
 
     const ligneGroupe = (r, niveau, suites, dernier) => renderRow(r, cols, <>{caseLigne(r)}{celluleArbre({
       niveau, suites, dernier,
@@ -2024,7 +2039,7 @@ export default function Attributions() {
       if (!replie) e.lignes.forEach((r, j) =>
         out.push(ligneGroupe(r, 3, [...suitesCours, !dernierEnfant], j === e.lignes.length - 1)));
     });
-    return out;
+    return voiler(out);
   }
 
   // L'UE ouverte : la phrase de l'autonomie, puis un seul tableau — en-tête, ligne de l'UE (ses totaux), et l'arbre.
@@ -2105,7 +2120,7 @@ export default function Attributions() {
     return (
       /* L'UE OUVERTE SE DÉTACHE SANS CADRE (3.5.632, Charles : « moche, double cadre ; un effet… petit zoom direct avec animation ? ») :
          elle s'avance d'un rien (agrandie, ombre douce, au-dessus des autres), animée ; plus de bordure de 2 px dans le cadre du tableau. */
-      <div key={key} className={`overflow-hidden ue-active-anim ${
+      <div key={key} className={`overflow-hidden ue-active-anim ${focus.ue && focus.ue !== key && !focus.cours ? 'focus-voile ' : ''}${focus.cours && focus.ue !== key ? 'focus-voile ' : ''}${
         activeUE === key
           ? (isHelb ? 'ue-active border-l-2 border-l-pink-400' : isTC ? 'ue-active border-l-2 border-l-[color:var(--c-accent)]' : 'ue-active')
           : (isHelb
@@ -2118,7 +2133,7 @@ export default function Attributions() {
       }`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? 'ligne-active' : 'ligne-maison !border-b-0'}`}>
           {/* L'UE QUI S'OUVRE MONTRE SON ARBRE ENTIER : ses cours dépliés (24 novembre 2026) ; chaque chevron les replie. */}
-          <div onClick={()=>{ setOpenUEs(s=>{ const x=new Set(s); if (x.has(key)) x.delete(key); else { x.add(key); ue.cours.forEach(c=>x.add('cours:'+ueKey+'/'+c.code_cours)); } return x; }); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+          <div onClick={()=>{ setOpenUEs(s=>{ const x=new Set(s); if (x.has(key)) x.delete(key); else { x.add(key); ue.cours.forEach(c=>x.add('cours:'+ueKey+'/'+c.code_cours)); } return x; }); setActiveUE(key); setFocus({ section: sec, ue: key, cours: null });}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 200px 1fr auto' }}>
             <Chevron ouvert={open} size={14} className="text-iip-gold" />
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
@@ -2303,12 +2318,12 @@ export default function Attributions() {
     const open = openUEs.has(key);
     const st = groupStats(sg.rows);
     return (
-      <div key={key}>
+      <div key={key} className={voileSection(sg.section) ? 'focus-voile' : ''}>
         {/* LA LIGNE DE SECTION EST UN EN-TÊTE, et elle en prend le ton : celui
             de la PAGE, pas un gris à elle. Le filet démarque déjà ; un aplat
             par-dessus disait deux fois la même chose — et « bg-iip-gold/5 »
             n'était même pas doré, puisque ce nom-là vaut du marine. */}
-        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-3 px-4 py-2.5 tab-repere hover:brightness-[.98] transition text-left border-0 ${open ? 'border-b border-slate-200' : ''}`}>
+        <button onClick={()=>{ toggle(key); setFocus(f => f.section === sg.section && !f.ue ? { section: null, ue: null, cours: null } : { section: sg.section, ue: null, cours: null }); }} className={`w-full flex items-center gap-3 px-4 py-2.5 tab-repere hover:brightness-[.98] transition text-left border-0 ${open ? 'border-b border-slate-200' : ''}`}>
           <Chevron ouvert={open} size={14} className="opacity-50" />
           <span className="font-semibold text-sm">{sg.section}</span>
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 ml-auto">
@@ -2502,6 +2517,23 @@ export default function Attributions() {
             des CHAMPS. Deux objets côte à côte, deux arrondis, et l'oeil le
             voit avant de savoir quoi regarder. */
          : <div className="carte overflow-hidden">
+             {(focus.section || focus.ue) && (() => {
+               const sg = sectionGroups.find(x => x.section === focus.section);
+               const ue = sg && focus.ue ? sg.ues.find(u => 'ue:' + focus.section + '/' + u.ue_num + '/' + (u.num_organisation || 1) === focus.ue) : null;
+               const cours = ue && focus.cours ? ue.cours.find(c => focus.cours.endsWith('/' + c.code_cours)) : null;
+               const rows = cours ? cours.rows : ue ? ue.rows : sg ? sg.rows : [];
+               const st = groupStats(rows);
+               const lien = (txt, f) => <button className="underline-offset-2 hover:underline text-iip-blue" onClick={() => setFocus(f)}>{txt}</button>;
+               return (
+                 <div className="sticky top-0 z-20 flex items-center gap-2 flex-wrap px-4 py-2 text-sm bg-[color:var(--blanc)] border-b border-slate-200">
+                   {lien('Tout', { section: null, ue: null, cours: null })}
+                   {sg && <><span className="text-slate-400">›</span>{ue ? lien(sg.section, { section: sg.section, ue: null, cours: null }) : <b>{sg.section}</b>}</>}
+                   {ue && <><span className="text-slate-400">›</span>{cours ? lien(`UE ${ue.ue_num}`, { section: sg.section, ue: focus.ue, cours: null }) : <b>UE {ue.ue_num}</b>}</>}
+                   {cours && <><span className="text-slate-400">›</span><b>{cours.code_cours}</b></>}
+                   <span className="ml-auto text-slate-500 tabular-nums">{rows.length} attr. · {st.nProf} prof. · <b className="text-iip-gold">{st.tPer}p</b>{st.tAut > 0 ? ` +${st.tAut}a` : ''} · Échap remonte</span>
+                 </div>
+               );
+             })()}
              {sectionGroups.map(renderSection)}
            </div>}
       </div>}
