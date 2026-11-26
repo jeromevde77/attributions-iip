@@ -339,6 +339,7 @@ export function verifierEtape(d, etape, v = {}) {
     if (etape === 'convocation') {
       req('envoyee_le', "la date d'envoi"); req('mode', 'le mode de remise'); req('audition_le', "la date de l'audition");
       req('lieu', "le lieu de l'audition");
+      req('dossier_consultable_le', 'la date à partir de laquelle le dossier est consultable (art. 115 ter)');
       if (!SANCTIONS.some(s => s[0] === v.sanction_envisagee)) m.push('la sanction envisagée (art. 115 quater)');
       if (v.sanction_envisagee === 'renvoi_definitif' && v.envoyee_le && v.audition_le
           && v.audition_le < ajouterJoursOuvrables(v.envoyee_le, 8)) {

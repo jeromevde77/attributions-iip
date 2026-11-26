@@ -89,7 +89,7 @@ const CHAMPS_PROC = {
   issue: 'ACCUEILLE / REJETTE le recours', suite: 'Conséquence de la décision', audition_le: "Date de l'audition",
   heure: '« à HH:MM »', lieu: "Lieu de l'audition", annonce_exclusion: 'Annonce d’une procédure d’exclusion (si renvoi)',
   du_audition: '« du … » (date de l’audition)', sanction: 'Sanction prononcée', sanction_art: 'Article de la sanction',
-  directeur: 'Directeur', ville: 'Ville',
+  directeur: 'Directeur', ville: 'Ville', consultation: '« Il est consultable à partir du … »',
 };
 const DEF_PROC = {
   accuse_reception: { blocs: { identite: "Identité de l'étudiant", griefs: 'Irrégularités invoquées', signature: 'Lieu, date et signature' },
@@ -125,7 +125,7 @@ ${B('signature')}` },
 <p>{{annonce_exclusion}}Vous êtes convoqué(e) à une audition le <b>{{audition_le}}</b>{{heure}}, <b>{{lieu}}</b>, au sujet des faits suivants :</p>
 ${B('faits')}
 ${B('sanction')}
-<p>Vous pouvez vous faire assister de la personne de votre choix tout au long de la procédure, faire entendre toute personne utile à votre défense et consulter votre dossier, sans déplacement de pièces, en présence de la Direction (art. 115 ter).</p>
+<p>Vous pouvez vous faire assister de la personne de votre choix tout au long de la procédure, faire entendre toute personne utile à votre défense et consulter votre dossier, sans déplacement de pièces, en présence de la Direction (art. 115 ter).{{consultation}}</p>
 ${B('signature')}` },
   pv_audition: { blocs: { identite: "Identité de l'étudiant", caracteristiques: "Date, présence et rédacteur de l'audition",
       faits: 'Faits reprochés', conteste: 'Mention : faits contestés (si c’est le cas)', declarations: 'Déclarations',
@@ -178,6 +178,9 @@ function parModele(piece, d, blocs) {
     du_audition: d.etapes.audition ? ` du ${jour(d.etapes.audition.tenue_le)}` : '',
     sanction: esc(sanctionLib(x.sanction)), sanction_art: esc(sanctionArt(x.sanction)),
     directeur: esc(directeur()), ville: esc((identiteEtablissement() || {}).ville || 'Bruxelles'),
+    /* LA DATE DE CONSULTATION DU DOSSIER (3.5.762, Charles, tranché : au secrétariat, à partir d'une date). */
+    consultation: c.dossier_consultable_le
+      ? ` Il est consultable à partir du <b>${jour(c.dossier_consultable_le)}</b>, sur rendez-vous auprès du secrétariat.` : '',
   } });
 }
 
