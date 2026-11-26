@@ -1237,6 +1237,19 @@ r.get('/', authRequired, (req, res) => {
       `).all(...ei, ...ei)) diplomes.set(l.etudiant_id, { annee: l.annee, ue_num: l.ue_num });
     }
   } catch (e) { console.error('[étudiants] diplômés :', e.message); }
+  /* UN DIPLÔME D'UNE AUTRE SECTION N'EST PAS UNE SORTIE (3.5.739, Charles, EL HAJJIOUI : certificat ATNUP en 2026, il poursuit en
+     AeSI) : l'épreuve intégrée réussie ne range l'étudiant parmi les diplômés que si elle est celle de SA section (`sectionPropre`) ;
+     sinon elle se lit comme une mention (« diplômé ATNUP 2026 ») et il reste en cours. */
+  const diplomesAutre = new Map();
+  try {
+    const secUE = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND section IS NOT NULL LIMIT 1');
+    const secUE2 = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL ORDER BY annee_scolaire DESC LIMIT 1');
+    for (const [id, d] of [...diplomes]) {
+      const sEI = (secUE.get(d.ue_num, d.annee) || secUE2.get(d.ue_num))?.section || null;
+      const sEt = sectionPropre(id);
+      if (sEI && sEt && sEI !== sEt) { diplomesAutre.set(id, { ...d, section: sEI }); diplomes.delete(id); }
+    }
+  } catch (e) { console.error('[étudiants] diplômes d’une autre section :', e.message); }
 
   // Les PAE confirmés de l'année : une seule requête plutôt qu'une par ligne.
   const confirmes = new Set(db.prepare(
@@ -1311,6 +1324,7 @@ r.get('/', authRequired, (req, res) => {
       diplome: !!d || r0.sortie_statut === 'diplome',
       diplome_declare: !d && r0.sortie_statut === 'diplome',
       diplome_annee: d?.annee || null, diplome_ue: d?.ue_num || null,
+      diplome_autre: diplomesAutre.get(r0.id) || null,
       segment: segment(r0),
       // Tant que le programme n'est pas confirmé, il n'est qu'une proposition.
       pae_confirme: confirmes.has(r0.id),
