@@ -61,8 +61,15 @@ function ligne(d, art) {
   return [`Année ${String(d.annee_scolaire).replace('-', '/')}`, d.section,
     d.ue_num ? `UE ${d.ue_num}${d.ue_nom ? ` — ${esc(d.ue_nom)}` : ''}` : null, art].filter(Boolean).join(' · ');
 }
+/* LA SIGNATURE DU DIRECTEUR QUAND C'EST LUI QUI SIGNE (3.5.762, Charles : « ma signature n'y est pas », convocation à
+   l'audition). Le fac-similé suit la PERSONNE : il s'appose quand le signataire est le directeur de la fiche de l'établissement ;
+   un président de Conseil qui n'est pas lui signe à la main (sans-paraphe). */
+const cleNom = x => String(x ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z]+/g, ' ').trim().split(' ').sort().join(' ');
 function cloture(date, qualite, nom) {
-  return `<div class="cloture sans-paraphe"><div class="sceau"></div><div class="paraphe"></div>
+  const dir = (identiteEtablissement() || {}).directeur;
+  const signe = !!cleNom(nom) && cleNom(nom) === cleNom(dir);
+  return `<div class="cloture${signe ? '' : ' sans-paraphe'}"><div class="sceau"></div><div class="paraphe"></div>
     <div class="lieu">Fait à ${esc((identiteEtablissement() || {}).ville || 'Bruxelles')}, le ${jour(date)}</div>
     <div class="legende"><div class="qualite">${qualite}</div><div class="nom">${esc(nom)}</div></div></div>`;
 }
