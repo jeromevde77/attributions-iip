@@ -662,6 +662,7 @@ r.get('/a-placer', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) =>
   const perim = getUserSections(req.user);
   let attrs = db.prepare(`SELECT a.id, a.section, a.ue_num, a.code_cours, a.code, a.periodes_attribuees, a.professeur_id,
       t.libelle AS activite, p.nom AS prof_nom, p.prenom AS prof_prenom,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire LIMIT 1) AS ue_nom,
       COALESCE((SELECT cours_nom FROM cours c WHERE c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire LIMIT 1),
         (SELECT cours_nom FROM cours c WHERE c.cours_code = a.code_cours ORDER BY c.annee_scolaire DESC LIMIT 1)) AS cours_nom
     FROM attribution a LEFT JOIN activite_type t ON t.id = a.activite_id LEFT JOIN professeur p ON p.id = a.professeur_id
@@ -678,7 +679,7 @@ r.get('/a-placer', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) =>
   res.json(attrs.map(a => {
     const heures = Math.round((Number(a.periodes_attribuees) || 0) * 50 / 60 * 100) / 100;
     const posees = Math.round(pose.get(an, a.id).m / 60 * 100) / 100;
-    return { id: a.id, section: a.section, ue_num: a.ue_num, code_cours: a.code_cours, cours_nom: a.cours_nom, groupe: a.code || null,
+    return { id: a.id, section: a.section, ue_num: a.ue_num, ue_nom: a.ue_nom, professeur_id: a.professeur_id, code_cours: a.code_cours, cours_nom: a.cours_nom, groupe: a.code || null,
       activite: a.activite || null, prof: a.prof_nom ? `${String(a.prof_nom).toUpperCase()} ${a.prof_prenom || ''}`.trim() : null,
       heures, posees, reste: heures ? Math.round((heures - posees) * 100) / 100 : null };
   }));
