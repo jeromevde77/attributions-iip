@@ -14,6 +14,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections, soiSeul } from '../middleware/auth.js';
 import { niveauEtudiant, sectionRattachement } from './etudiants.js';
+import { sectionsPlus } from '../lib/sectionsEtudiant.js';
 import { POURCENTAGE_DISPENSE, vaRetenue } from '../lib/valorisation.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { anneeDeTravail } from '../helpers/annee.js';
@@ -196,11 +197,11 @@ r.get('/etudiants', authRequired, (req, res) => {
     };
   };
   const garder = (x) =>
-    (!section || norm(x.section) === norm(section))
+    (!section || norm(x.section) === norm(section) || sectionsPlus(x.id).some(y => norm(y) === norm(section)))
     && (!primo || x.primo === 'Oui')
     && (!anciensSeuls || x.primo !== 'Oui')
     && (!fNiveau || (fNiveau === 'aucun' ? !x.niveau : x.niveau === fNiveau))
-    && (!perim || !x.section || perim.some(s => norm(s) === norm(x.section)));
+    && (!perim || !x.section || perim.some(s => norm(s) === norm(x.section)) || sectionsPlus(x.id).some(y => perim.some(s => norm(s) === norm(y))));
 
   let lignes = base.map(enrichir).filter(garder);
 

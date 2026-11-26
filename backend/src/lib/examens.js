@@ -16,6 +16,7 @@
 import db from '../db/index.js';
 import { aRepresenterParCours } from '../routes/acquis.js';
 import { sectionRattachement } from '../routes/etudiants.js';
+import { aLaSectionEnPlus } from './sectionsEtudiant.js';
 import { sansDispenses } from './cep.js';
 import { qrSvg } from './authentique.js';
 
@@ -107,7 +108,7 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
     /* LA SECTION CHOISIE GARDE LES SIENS (3.5.731, Mati : « en 286.1 tout le monde est mis alors que je choisis uniquement opto ») :
        une UE du tronc commun Optométrie/Orthoptie a les étudiants des deux sections ; la liste ne garde que ceux de la section
        choisie (section de rattachement, déduite à défaut — la règle du générateur de listes). */
-    if (section) etudiants = etudiants.filter(x => { const r = sectionDe(x.id); return !r || r === section; });
+    if (section) etudiants = etudiants.filter(x => { const r = sectionDe(x.id); return !r || r === section || aLaSectionEnPlus(x.id, section); });
     const d = essai(() => det.get(annee, e.session, e.ue_num, e.cours_code), null) || {};
     const lesEtudiants = etudiants.map(x => ({ id: x.id, nom: nomP(x), matricule: x.id_ecampus || x.matricule || '',
       ar: (amenagements.get(x.id) || []).filter(m => (!m.ue_num || Number(m.ue_num) === Number(e.ue_num)) && (!m.ues || m.ues.includes(Number(e.ue_num)))) }));
