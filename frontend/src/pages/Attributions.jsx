@@ -1449,16 +1449,28 @@ export default function Attributions() {
     );
     const nbGroupes = freres.length + 1;
     // Toutes les lettres du groupe (A..Z selon le nombre total)
-    const toutesLettres = groupCodeSeq(nbGroupes, row);
+    /* LE TS SE CHANGE AUSSI (3.5.751, Charles : « dans les attributions, pouvoir changer le Ts en autre chose ») : la pastille
+       « Ts » s'ouvre comme les autres — une lettre ou un numéro de la suite, un code libre (« 1+2 », « 3 »), ou revenir à Ts. */
+    const toutesLettres = groupCodeSeq(estGroupe ? nbGroupes : Math.max(nbGroupes, 4), row);
     // Map lettre → frère qui l'a
     const lettreAFrere = {};
     freres.forEach(r => { const l = (r.code||'').toUpperCase(); if (l && l !== 'TS') lettreAFrere[l] = r; });
     const menuOuvert = badgeMenuOpen === row.id;
 
     // Assigner une lettre à cette ligne (swap si prise, direct sinon)
-    async function assignerLettre(newLettre) {
+    async function assignerLettre(newLettre, libre = false) {
       setBadgeMenuOpen(null);
+      newLettre = String(newLettre || '').replace(/\s/g, '');
+      if (!newLettre) return;
+      if (newLettre.toUpperCase() === 'TS') newLettre = 'Ts';
       if (newLettre === lettre) return; // déjà cette lettre
+      if (newLettre === 'Ts' || libre || !estGroupe) {   // pas d'échange ni de contrôle de suite : on pose le code tel quel
+        const ancienCode = row.code || null;
+        setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
+        try { await api.updateAttribution(row.id, { code: newLettre }); }
+        catch (e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); informer('Erreur : ' + e.message); }
+        return;
+      }
       const frereAvecCetteLetttre = lettreAFrere[newLettre];
       // Vérifier si la séquence sera respectée après l'opération
       const codesApres = freres
@@ -1503,16 +1515,16 @@ export default function Attributions() {
       <div className={`flex items-center gap-0.5 ${aGauche ? 'justify-start' : 'justify-center'}`} style={{position:'relative'}}>
         {/* Badge lettre — clic pour choisir, drag pour échanger */}
         <span
-          onClick={e => { e.stopPropagation(); if (estGroupe) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
+          onClick={e => { e.stopPropagation(); if (!row.is_z) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
           id={'badge-'+row.id}
-          title={estGroupe ? 'Cliquer pour changer la lettre' : ''}
+          title={row.is_z ? '' : estGroupe ? 'Cliquer pour changer le groupe' : 'Toute la classe — cliquer pour en faire un groupe'}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             minWidth: lettre.length > 1 ? 30 : 22, height: 20, paddingInline: 5, borderRadius: 5,
             fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
             background: badgeStyle.bg, color: badgeStyle.color,
             border: `1px solid ${badgeStyle.border}`,
-            cursor: estGroupe ? 'pointer' : 'default',
+            cursor: row.is_z ? 'default' : 'pointer',
             userSelect: 'none',
           }}>{lettre}</span>
 
@@ -1544,6 +1556,17 @@ export default function Attributions() {
                   </span>
                 );
               })}
+              {estGroupe && (
+                <span onClick={e => { e.stopPropagation(); assignerLettre('Ts'); }} title="Revenir à toute la classe"
+                  style={{ display:'inline-flex',alignItems:'center',justifyContent:'center',width:28,height:22,borderRadius:5,fontSize:11,fontWeight:700,
+                    background:'rgb(var(--gris-50))',color:'rgb(var(--gris-500))',border:'2px solid var(--c-filet, rgb(var(--gris-200)))',cursor:'pointer' }}>Ts</span>
+              )}
+              <form onClick={e => e.stopPropagation()} style={{ display:'flex', gap:3, width:'100%', marginTop:3 }}
+                onSubmit={e => { e.preventDefault(); assignerLettre(new FormData(e.currentTarget).get('libre'), true); }}>
+                <input name="libre" autoFocus placeholder="autre : 1+2" defaultValue=""
+                  style={{ width:84, height:22, fontSize:11, padding:'0 4px', border:'1px solid var(--c-filet, rgb(var(--gris-200)))', borderRadius:5 }} />
+                <button type="submit" style={{ height:22, fontSize:11, fontWeight:700, padding:'0 6px', borderRadius:5, background:'var(--c-principal)', color:'#fff' }}>OK</button>
+              </form>
             </div>
           </>
         )}

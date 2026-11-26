@@ -3,7 +3,7 @@
    penser visuel »). Un clic sur le jour de l'Horaire de la semaine : la journée à l'échelle des heures, une colonne par séance en
    parallèle, chaque tuile avec cours, activité, groupe, professeur, local, heures et ce qui cloche. Sur la tuile même : « ⇄ » prend
    le professeur d'une attribution du groupe et relie la séance ; un clic ailleurs sur la tuile ouvre la séance (tous les réglages). */
-import { IconAlertTriangle, IconArrowsLeftRight, IconClock, IconLink, IconMapPin, IconUser } from '@tabler/icons-react';
+import { IconAlertTriangle, IconArrowsLeftRight, IconClock, IconLink, IconMapPin, IconPlus, IconUser } from '@tabler/icons-react';
 import { Fenetre } from './ui.jsx';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 
@@ -121,7 +121,7 @@ function Tuile({ s, pl, h0, roleEcrit, vue, onOuvrir, onAligner }) {
   );
 }
 
-export default function JourneeHoraire({ titre, sous, seances, roleEcrit, vue, onFermer, onOuvrir, onAligner, onRelierTout }) {
+export default function JourneeHoraire({ titre, sous, seances, roleEcrit, vue, onFermer, onOuvrir, onAligner, onRelierTout, onAjouter }) {
   const { l, place } = placer(seances);
   const h0 = l.length ? Math.floor(Math.min(...l.map(s => hm(s.heure_debut))) / 60) * 60 : 8 * 60;
   const h1 = l.length ? Math.ceil(Math.max(...l.map(s => hm(s.heure_fin))) / 60) * 60 : 18 * 60;
@@ -144,8 +144,11 @@ export default function JourneeHoraire({ titre, sous, seances, roleEcrit, vue, o
         <Chiffre n={nonReliees} txt="non reliées" etat="attente" />
         <Chiffre n={ajuster} txt="à ajuster (professeur)" etat="attente" />
         <Chiffre n={conflits} txt={conflits > 1 ? 'conflits' : 'conflit'} etat="refuse" />
-        {onRelierTout && nonReliees > 0 && <button type="button" className="bouton inline-flex items-center gap-1.5 ml-auto" onClick={onRelierTout}>
+        <span className="flex-1" />
+        {onRelierTout && nonReliees > 0 && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={onRelierTout}>
           <IconArrowsLeftRight size={15} /> Relier automatiquement…</button>}
+        {onAjouter && <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={onAjouter}
+          title="Ajouter une séance ce jour-là"><IconPlus size={15} /> Séance</button>}
       </div>
       {!l.length ? <p className="text-slate-500 text-sm py-8 text-center">Aucune séance ce jour-là.</p> : (
         <div className="flex">

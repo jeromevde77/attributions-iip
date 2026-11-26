@@ -22,6 +22,7 @@ import { passeRole } from '../lib/droits.js';
 import { informer } from '../lib/dialogue.jsx';
 import ChangerCoursSeances from '../components/ChangerCoursSeances.jsx';
 import JourneeHoraire from '../components/JourneeHoraire.jsx';
+import NouvelleSeance from '../components/NouvelleSeance.jsx';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 
 const H0 = 8, H1 = 21, PX = 12;                     // 12 px par quart d'heure
@@ -87,13 +88,14 @@ export default function HoraireSemaine({ consultation = false }) {
   const [plages, setPlages] = useState([]);
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
   const [jourDetail, setJourDetail] = useState(null);
+  const [nouvelle, setNouvelle] = useState(null);   // le « + » (3.5.750) : { date }
   const [relier, setRelier] = useState(false);   // relier les séances aux attributions (3.5.727)   // la journée en détail (3.5.725) : sa date
   const [placer, setPlacer] = useState(null);       // « Placer » sans glisser (3.5.718) : { carte, date, debut, fin, local }
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
   const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
   const [changerCours, setChangerCours] = useState(false);  // changer le cours de plusieurs séances (24/11/2026)
-  // La route est en roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur') : la coordination n'y passe pas.
-  const peutChangerCours = !consultation && passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur']);
+  // Ouverte à la coordination dans ses sections depuis 3.5.749.
+  const peutChangerCours = !consultation && passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination']);
   const [glisse, setGlisse] = useState(null);       // { id | groupe, d, debut, fin } pendant un geste
   const grille = useRef(null);
 
@@ -190,7 +192,7 @@ export default function HoraireSemaine({ consultation = false }) {
     try {
       const r = await appel(`/api/horaire/seance/${sel.id}`, { method: 'PUT', body: JSON.stringify(modif) });
       setSel(null); charger();
-      if (r?.suivantes) await informer(`Professeur changé sur cette séance et sur ${r.suivantes} séance(s) suivante(s) du même cours et du même groupe.`);
+      if (r?.suivantes) await informer(`Changement fait sur cette séance et sur ${r.suivantes} séance(s) suivante(s) du même cours et du même groupe.`);
     }
     catch (e) { setErreur(e.message); }
   };
@@ -236,8 +238,14 @@ export default function HoraireSemaine({ consultation = false }) {
             <IconCopy size={15} /> Recopier cette semaine…
           </button>
         )}
+        {roleEcrit && cle && (
+          <button type="button" className={`bouton bouton-fort inline-flex items-center gap-1.5 ${vue === 'classe' && peutEcrire ? '' : 'ml-auto'}`}
+            title="Ajouter une séance : une attribution, un jour, des heures" onClick={() => setNouvelle({ date: jours.find(j => !j.ferie)?.date || lundi })}>
+            <IconPlus size={15} /> Séance
+          </button>
+        )}
         {roleEcrit && (
-          <button type="button" className={`bouton inline-flex items-center gap-1.5 ${vue === 'classe' ? '' : 'ml-auto'}`} onClick={() => setRelier(true)}
+          <button type="button" className={`bouton inline-flex items-center gap-1.5 ${vue === 'classe' || cle ? '' : 'ml-auto'}`} onClick={() => setRelier(true)}
             title="Relier d'un coup les séances à leur attribution : d'office quand il n'y a pas de doute, le reste en un tableau">
             <IconArrowsLeftRight size={15} /> Relier automatiquement…
           </button>
@@ -485,6 +493,7 @@ export default function HoraireSemaine({ consultation = false }) {
           <JourneeHoraire titre={`${NOMS_JOURS[i] ? NOMS_JOURS[i][0].toUpperCase() + NOMS_JOURS[i].slice(1) : ''} ${court(jourDetail)}`}
             sous={`${libelleCle || ''}${ferie ? ` · ${ferie}` : ''}`} seances={l} roleEcrit={roleEcrit} vue={vue}
             onFermer={() => setJourDetail(null)} onOuvrir={x => setSel(x)} onRelierTout={roleEcrit ? () => setRelier(true) : null}
+            onAjouter={roleEcrit && cle ? () => setNouvelle({ date: jourDetail }) : null}
             onAligner={async (x, a) => {
               try { await appel(`/api/horaire/seance/${x.id}`, { method: 'PUT', body: JSON.stringify({ attribution_id: a.id, ...(a.professeur_id ? { professeur_id: a.professeur_id } : {}) }) }); charger(); }
               catch (e) { setErreur(e.message); await informer(e.message); }
@@ -503,7 +512,8 @@ export default function HoraireSemaine({ consultation = false }) {
             <button className="bouton bouton-fort" onClick={() => enregistrerSel({ local_texte: sel._local ?? sel.local_texte,
               ...(sel._prof !== undefined ? { professeur_id: sel._prof || null } : {}),
               ...(sel._attr !== undefined ? { attribution_id: sel._attr || 0 } : {}),
-              ...(sel._prof !== undefined || sel._attr !== undefined ? { suivantes: !!sel._suivantes } : {}),
+              ...(sel._groupe !== undefined ? { sous_groupe: sel._groupe } : {}),
+              ...(sel._prof !== undefined || sel._attr !== undefined || sel._groupe !== undefined ? { suivantes: !!sel._suivantes } : {}),
               heure_fin: deHm(hm(sel.heure_debut) + (sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut)))),
               annule: sel._annule ?? !!sel.annule, commentaire: sel._commentaire ?? sel.commentaire })}>Enregistrer</button>
           </> : null}>
@@ -527,7 +537,7 @@ export default function HoraireSemaine({ consultation = false }) {
                       horaires ») : les attributions du groupe de la séance ; un clic relie la séance ET prend leur professeur. */}
                   {roleEcrit && (() => {
                     const gn = x => String(x || '').replace(/\s/g, '').toUpperCase().replace(/^\d+(?=[A-Z])/, '');
-                    const g = gn(sel.sous_groupe);
+                    const g = gn(sel._groupe ?? sel.sous_groupe);
                     const duGroupe = (sel.attributions || []).filter(a => (g ? gn(a.code) === g : String(a.code || '').toUpperCase() === 'TS'));
                     if (!duGroupe.length) return null;
                     return (
@@ -560,6 +570,25 @@ export default function HoraireSemaine({ consultation = false }) {
                 </div>
               );
             })()}
+            {/* LE GROUPE (3.5.750, Charles : « changer le Ts en groupe ») : toute la classe, ou un groupe des attributions du cours.
+                Changer le groupe recalcule le lien à l'attribution. */}
+            <label className="block">
+              <span className="text-xs text-slate-500">Groupe</span>
+              {(() => {
+                const net = x => (String(x || '').trim().toUpperCase() === 'TS' ? '' : String(x || '').trim());
+                const codes = [...new Set((sel.attributions || []).map(a => net(a.code)).filter(Boolean))]
+                  .sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+                const v = sel._groupe ?? net(sel.sous_groupe);
+                if (v && !codes.includes(v)) codes.unshift(v);
+                return (
+                  <select className="controle w-full" disabled={!roleEcrit} value={v}
+                    onChange={e => setSel({ ...sel, _groupe: e.target.value, _attr: undefined })}>
+                    <option value="">Toute la classe (Ts)</option>
+                    {codes.map(c => <option key={c} value={c}>Groupe {c}</option>)}
+                  </select>
+                );
+              })()}
+            </label>
             <label className="block">
               <span className="text-xs text-slate-500">Professeur</span>
               <select className="controle w-full" disabled={!roleEcrit} value={String(sel._prof ?? sel.professeur_id ?? '')}
@@ -568,11 +597,12 @@ export default function HoraireSemaine({ consultation = false }) {
                 {ref.profs.map(p => <option key={p.id} value={String(p.id)}>{p.nom} {p.prenom}</option>)}
               </select>
             </label>
-            {((sel._prof !== undefined && Number(sel._prof || 0) !== Number(sel.professeur_id || 0))
+            {((sel._groupe !== undefined && sel._groupe !== (String(sel.sous_groupe || '').trim().toUpperCase() === 'TS' ? '' : String(sel.sous_groupe || '').trim()))
+              || (sel._prof !== undefined && Number(sel._prof || 0) !== Number(sel.professeur_id || 0))
               || (sel._attr !== undefined && Number(sel._attr || 0) !== Number(sel.attribution_id || 0))) && (
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={!!sel._suivantes} onChange={e => setSel({ ...sel, _suivantes: e.target.checked })} />
-                Aussi les séances suivantes de ce cours{sel.sous_groupe ? ` (groupe ${sel.sous_groupe})` : ''} au nom de {nomProf(sel) || 'personne'} (professeur et attribution)
+                Aussi les séances suivantes de ce cours{sel.sous_groupe ? ` (groupe ${sel.sous_groupe})` : ''} au nom de {nomProf(sel) || 'personne'} (groupe, professeur et attribution)
               </label>
             )}
             <label className="block">
@@ -600,6 +630,9 @@ export default function HoraireSemaine({ consultation = false }) {
           </div>
         </Fenetre>
       )}
+
+      {nouvelle && <NouvelleSeance annee={annee} vue={vue} cle={cle} date={nouvelle.date} locaux={ref.locaux}
+        onFermer={() => setNouvelle(null)} onFini={() => { setNouvelle(null); charger(); }} />}
 
       {relier && <RelierAttributions annee={annee} section={vue === 'classe' && cle ? String(cle).split('|')[0] : null} onFermer={() => setRelier(false)} onFini={() => { setRelier(false); charger(); }} />}
 
