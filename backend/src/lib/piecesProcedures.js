@@ -90,6 +90,7 @@ const CHAMPS_PROC = {
   heure: '« à HH:MM »', lieu: "Lieu de l'audition", annonce_exclusion: 'Annonce d’une procédure d’exclusion (si renvoi)',
   du_audition: '« du … » (date de l’audition)', sanction: 'Sanction prononcée', sanction_art: 'Article de la sanction',
   directeur: 'Directeur', ville: 'Ville', consultation: '« Il est consultable à partir du … »',
+  envoi: '« Par courriel » (et « recommandé avec accusé de réception » si coché)',
 };
 const DEF_PROC = {
   accuse_reception: { blocs: { identite: "Identité de l'étudiant", griefs: 'Irrégularités invoquées', signature: 'Lieu, date et signature' },
@@ -118,14 +119,20 @@ ${B('griefs')}
 ${B('motivation')}
 ${B('recours')}
 ${B('signature')}` },
+  /* FAITS REPROCHÉS, PUIS PROCÉDURE (3.5.763, Charles : « le document prévoit : Faits reprochés. Puis procédure… et qu'il soit mis :
+     Par courriel et (si c'est coché) : recommandé avec accusé de réception »). */
   convocation: { blocs: { identite: "Identité de l'étudiant", faits: 'Faits reprochés', sanction: 'Sanction envisagée', signature: 'Lieu, date et signature' },
     oblig: ['identite', 'faits', 'sanction', 'signature'],
-    defaut: `${B('identite')}
+    defaut: `<p class="envoi"><b>{{envoi}}</b></p>
+${B('identite')}
 <p>{{civilite}},</p>
-<p>{{annonce_exclusion}}Vous êtes convoqué(e) à une audition le <b>{{audition_le}}</b>{{heure}}, <b>{{lieu}}</b>, au sujet des faits suivants :</p>
+<p>{{annonce_exclusion}}Vous êtes convoqué(e) à une audition le <b>{{audition_le}}</b>{{heure}}, <b>{{lieu}}</b>, au sujet des faits repris ci-dessous.</p>
 ${B('faits')}
+<div class="info"><div class="titre">Procédure</div><div class="ligne">
 ${B('sanction')}
 <p>Vous pouvez vous faire assister de la personne de votre choix tout au long de la procédure, faire entendre toute personne utile à votre défense et consulter votre dossier, sans déplacement de pièces, en présence de la Direction (art. 115 ter).{{consultation}}</p>
+<p>À l’issue de l’audition, un procès-verbal est dressé ; la décision vous sera notifiée par écrit et motivée (art. 119).</p>
+</div></div>
 ${B('signature')}` },
   pv_audition: { blocs: { identite: "Identité de l'étudiant", caracteristiques: "Date, présence et rédacteur de l'audition",
       faits: 'Faits reprochés', conteste: 'Mention : faits contestés (si c’est le cas)', declarations: 'Déclarations',
@@ -179,6 +186,7 @@ function parModele(piece, d, blocs) {
     sanction: esc(sanctionLib(x.sanction)), sanction_art: esc(sanctionArt(x.sanction)),
     directeur: esc(directeur()), ville: esc((identiteEtablissement() || {}).ville || 'Bruxelles'),
     /* LA DATE DE CONSULTATION DU DOSSIER (3.5.762, Charles, tranché : au secrétariat, à partir d'une date). */
+    envoi: c.recommande || c.mode === 'recommande' ? 'Par courriel et par recommandé avec accusé de réception' : 'Par courriel',
     consultation: c.dossier_consultable_le
       ? ` Il est consultable à partir du <b>${jour(c.dossier_consultable_le)}</b>, sur rendez-vous auprès du secrétariat.` : '',
   } });
