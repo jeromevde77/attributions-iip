@@ -26,6 +26,7 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { peut } from '../middleware/permissions.js';
 import { envelopperDocument } from '../lib/document.js';
 import { donneesInscritsUnites, sectionRattachement } from './etudiants.js';
+import { aLaSectionEnPlus } from '../lib/sectionsEtudiant.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE, aRepresenterParCours } from './acquis.js';
 import { calculerEtp, syntheseCivile } from './pilotage.js';
@@ -3107,7 +3108,7 @@ function grilleDePortee(p) {
   const po = p.portee || {};
   /* LA SECTION CHOISIE (3.5.731, Mati : l'UE 286 du tronc commun mêlait optométrie et orthoptie) : seuls ses étudiants. */
   const secs = new Map();
-  const garder = p.section ? (id => { if (!secs.has(id)) { let v = null; try { v = sectionRattachement(id, p.annee).section || null; } catch { /* */ } secs.set(id, v); } return !secs.get(id) || secs.get(id) === p.section; }) : null;
+  const garder = p.section ? (id => { if (!secs.has(id)) { let v = null; try { v = sectionRattachement(id, p.annee).section || null; } catch { /* */ } secs.set(id, v); } return !secs.get(id) || secs.get(id) === p.section || aLaSectionEnPlus(id, p.section); }) : null;
   const periode = { du: p.du, au: p.au, garder };
   // « Tous les cours de l'unité » : c'est la grille de l'unité.
   if (po.niveau === 'cours' && po.code_cours) {

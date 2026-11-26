@@ -1,4 +1,5 @@
 // (CS)
+import { sectionsPlus, aLaSectionEnPlus, ajouterSection, retirerSection, listeSectionsPlus } from '../lib/sectionsEtudiant.js';
 import { importerGroupesHoraire, numerosDeLUE } from '../lib/groupesHoraire.js';
 import { planRenommage, appliquerRenommage } from '../lib/renommerCommeHoraire.js';
 import { requeteCourante } from '../lib/contexteRequete.js';
@@ -688,6 +689,7 @@ function etudiantPermis(req, res, etudId) {
   if (!permises) return true;
   const sec = sectionPropre(etudId);
   if (sec && permises.includes(sec)) return true;
+  if (sectionsPlus(etudId).some(x => permises.includes(x))) return true;   // une section en plus (3.5.734)
   res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre.' });
   return false;
 }
@@ -749,12 +751,14 @@ function sectionsDeLEtudiant(etudId, forcee) {
   const scores = Object.entries(parSection)
     .map(([section, ues]) => ({ section, n: ues.size }))
     .sort((a, b) => b.n - a.n);
-  if (!scores.length) return { sections: [], scores };
+  const plus = sectionsPlus(etudId);   // les sections en plus (3.5.734) comptent toujours
+  if (!scores.length) return { sections: plus, scores };
   const max = scores[0].n;
   // Seuil : une section n'est retenue que si elle couvre au moins 60 % des UE
   // de la section dominante (une UE partagée isolée reste sous le seuil).
   const sections = scores.filter(s => s.n >= Math.max(2, max * 0.6)).map(s => s.section);
-  return { sections: sections.length ? sections : [scores[0].section], scores };
+  const retenues = sections.length ? sections : [scores[0].section];
+  return { sections: [...new Set([...retenues, ...plus])], scores };
 }
 
 /* UN CURSUS EN COURS, LES AUTRES ARCHIVÉS (Charles, 27 septembre 2026 : « si
@@ -809,6 +813,7 @@ export function cursusDe(etudId, annee) {
   const compat = new Set(cursusCompatibles().filter(p => p.includes(courant)).flat());
   const actifs = presentes.filter(x => x === courant || compat.has(x));
   if (!actifs.includes(courant)) actifs.unshift(courant);
+  for (const x of sectionsPlus(etudId)) { if (!actifs.includes(x)) actifs.push(x); if (!presentes.includes(x)) presentes.push(x); }   // 3.5.734
   const archives = presentes.filter(x => !actifs.includes(x)).map(section => {
     const l = db.prepare(`SELECT i.ue_num, i.annee_scolaire, i.resultat FROM etudiant_inscription i
       WHERE i.etudiant_id = ? AND i.ue_num IN (SELECT ue_num FROM ue WHERE section = ?)`).all(etudId, section);
@@ -1155,8 +1160,9 @@ r.get('/', authRequired, (req, res) => {
   const params = [];
 
   if (section) {
-    sql += ` AND (${SECTION_INSCRIPTION} = ? OR (i.ue_num IS NULL AND e.section_rattachement = ?))`;
-    params.push(section, section);
+    sql += ` AND (${SECTION_INSCRIPTION} = ? OR (i.ue_num IS NULL AND e.section_rattachement = ?)
+      OR e.id IN (SELECT etudiant_id FROM etudiant_section_plus WHERE section = ?))`;
+    params.push(section, section, section);
   } else if (autorisees) {
     // Hors filtre explicite, la liste se borne au périmètre de la personne.
     const marques = autorisees.map(() => '?').join(',') || "''";
@@ -1177,7 +1183,7 @@ r.get('/', authRequired, (req, res) => {
   let rows = db.prepare(sql).all(...params);
   // Le filtre SQL ci-dessus est large (il passe par les unités) ; le
   // périmètre se tranche sur la section de l'étudiant lui-même.
-  if (autorisees && !section) rows = rows.filter(r0 => autorisees.includes(sectionPropre(r0.id)));
+  if (autorisees && !section) rows = rows.filter(r0 => autorisees.includes(sectionPropre(r0.id)) || sectionsPlus(r0.id).some(x => autorisees.includes(x)));
 
   // ── QUI EST DIPLÔMÉ ──────────────────────────────────────────────────────
   //
@@ -1312,6 +1318,7 @@ r.get('/', authRequired, (req, res) => {
       primo: !anciensListe.has(r0.id),
       section_rattachement: rat.section,
       section_deduite: rat.deduite,
+      sections_plus: sectionsPlus(r0.id),   // 3.5.734
       manques: manquesDe.get(r0.id) || [],
     };
   }));
@@ -2726,7 +2733,7 @@ export function donneesInscritsUnites(annee, section) {
   const rattache = new Map();
   const estDeLaSection = id => {
     if (!rattache.has(id)) { let s = null; try { s = sectionRattachement(id, annee).section || null; } catch { /* */ } rattache.set(id, s); }
-    return rattache.get(id) === section;
+    return rattache.get(id) === section || aLaSectionEnPlus(id, section);
   };
   const grouper = l => { const m = new Map(); for (const x of l) (m.get(x.etudiant_id) || m.set(x.etudiant_id, []).get(x.etudiant_id)).push(x); return m; };
   const jour = d => (d ? String(d).slice(0, 10) : null);
@@ -5188,7 +5195,7 @@ r.get('/pae-grille', authRequired, (req, res) => {
   const lignes = [];
   for (const e of candidats.values()) {
     const rat = sectionRattachement(e.id, annee);
-    if (!(rat.section === section || dansSection.has(e.id))) continue;
+    if (!(rat.section === section || dansSection.has(e.id) || aLaSectionEnPlus(e.id, section))) continue;
     lignes.push({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
       section_rattachement: rat.section, section_deduite: rat.deduite,
       niveau: niveauEtudiant(e.id, annee).niveau || null,
@@ -7281,6 +7288,36 @@ r.post('/:id/cursus-archive/retirer', authRequired, roleRequired('admin', 'edite
  * archivé, dont les inscriptions de l'année se retirent par le geste qui
  * existe déjà (« Retirer ces inscriptions », simulation d'abord). Le geste est
  * signé et daté sur la fiche. */
+/* LES SECTIONS EN PLUS (3.5.734, lib/sectionsEtudiant.js) : fiche → Identité → « + Ajouter une section ». Lire : qui voit la fiche ;
+   ajouter, retirer : direction et secrétariat, et la coordination pour une section de son périmètre. */
+r.get('/:id/sections-plus', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  if (!etudiantPermis(req, res, etudId)) return;
+  res.json({ principale: sectionPropre(etudId), plus: listeSectionsPlus(etudId) });
+});
+r.post('/:id/sections-plus', authRequired,
+  roleRequired('admin', 'editeur', 'directeur', 'directeur_adjoint', 'secretariat', 'coordination'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const section = String(req.body?.section || '').trim();
+  if (!section) return res.status(400).json({ error: 'Choisissez une section.' });
+  if (!db.prepare('SELECT 1 FROM section WHERE code = ?').get(section)) return res.status(404).json({ error: `Section inconnue : ${section}.` });
+  const permises = perimetre(req);
+  if (permises && !permises.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  if (!db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(etudId)) return res.status(404).json({ error: 'Étudiant inconnu.' });
+  if (sectionPropre(etudId) === section) return res.status(409).json({ error: 'C’est déjà sa section principale.' });
+  ajouterSection(etudId, section, { depuis: req.body?.depuis || anneeDeTravail(req), par: req.user?.nom || req.user?.email || null });
+  res.json({ ok: true, principale: sectionPropre(etudId), plus: listeSectionsPlus(etudId) });
+});
+r.delete('/:id/sections-plus/:section', authRequired,
+  roleRequired('admin', 'editeur', 'directeur', 'directeur_adjoint', 'secretariat', 'coordination'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const section = String(req.params.section || '');
+  const permises = perimetre(req);
+  if (permises && !permises.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  retirerSection(etudId, section);
+  res.json({ ok: true, principale: sectionPropre(etudId), plus: listeSectionsPlus(etudId) });
+});
+
 r.post('/:id/cursus/reprendre', authRequired,
   roleRequired('admin', 'editeur', 'directeur', 'directeur_adjoint', 'secretariat'), (req, res) => {
   const etudId = Number(req.params.id);

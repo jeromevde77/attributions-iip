@@ -3398,7 +3398,7 @@ export default function Etudiants() {
   const comptesManques = useMemo(() => {
     const c = { tout: 0 };
     for (const e of etudiants) {
-      if (section && (section === '__aucune__' ? e.section_rattachement : e.section_rattachement !== section)) continue;
+      if (section && (section === '__aucune__' ? e.section_rattachement : (e.section_rattachement !== section && !(e.sections_plus || []).includes(section)))) continue;
       const m = e.manques || [];
       if (m.length) c.tout++;
       for (const k of m) c[k] = (c[k] || 0) + 1;
@@ -3415,7 +3415,7 @@ export default function Etudiants() {
       ? etudiants.filter(e => { const foin = norm(`${e.nom} ${e.prenom} ${e.id_ecampus || ''}`); return mots.every(m => foin.includes(m)); })
       : [...etudiants])
       .filter(e => !section || (section === '__aucune__'
-        ? !e.section_rattachement : e.section_rattachement === section))
+        ? !e.section_rattachement : e.section_rattachement === section || (e.sections_plus || []).includes(section)))
       .filter(e => !fNiveau || (fNiveau === 'aucun' ? !e.niveau : e.niveau === fNiveau))
       .filter(e => !fUE || (fUE === 'sans' ? !Number(e.nb_ue) : Number(e.nb_ue) > 0))
       .filter(e => !fRatt || (fRatt === 'aucune' ? !e.section_rattachement

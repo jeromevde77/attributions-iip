@@ -4,7 +4,7 @@ import { nomPropre } from '../lib/nom.js';
 import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck, IconX, IconId, IconBuildingBank, IconSchool } from '@tabler/icons-react';
 import { demander } from '../lib/dialogue.jsx';
 import { eidReadAll, eidToProf } from '../lib/eid.js';
-import { authHeaders, getAnnee } from '../lib/api.js';
+import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge, EnteteCarte, PastilleEtat } from './ui.jsx';
 
@@ -141,7 +141,27 @@ function SectionEtudiant({ e, etudId, onFait }) {
   const [sections, setSections] = useState([]);
   const [choix, setChoix] = useState('');
   const [msg, setMsg] = useState(null);
-  useEffect(() => { if (peut) fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setSections(Array.isArray(l) ? l : [])).catch(() => {}); }, [peut]);
+  // LES SECTIONS EN PLUS (3.5.734, Charles : « ajouter facilement une section : ATNUP et psychomot »).
+  const peutPlus = peut || getUser()?.role === 'coordination';
+  const [plus, setPlus] = useState([]);
+  const [ajout, setAjout] = useState('');
+  const lirePlus = () => fetch(`/api/etudiants/${etudId}/sections-plus`, { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(j => setPlus(j?.plus || [])).catch(() => {});
+  useEffect(() => { if (etudId) lirePlus(); }, [etudId]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (peutPlus) fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setSections(Array.isArray(l) ? l : [])).catch(() => {}); }, [peutPlus]);
+  async function ajouterPlus() {
+    if (!ajout) return;
+    const r = await fetch(`/api/etudiants/${etudId}/sections-plus`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section: ajout }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setMsg(j.error || 'Refusé.'); return; }
+    setMsg(null); setAjout(''); setPlus(j.plus || []); onFait?.();
+  }
+  async function retirerPlus(sec) {
+    if (!(await demander(`Retirer la section ${sec} de ${String(e.nom || '').toUpperCase()} ${e.prenom || ''} ?\n\nSes inscriptions dans cette section restent ; il ne paraîtra plus dans ses listes ni chez sa coordination.`))) return;
+    const r = await fetch(`/api/etudiants/${etudId}/sections-plus/${encodeURIComponent(sec)}`, { method: 'DELETE', headers: authHeaders() });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setMsg(j.error || 'Refusé.'); return; }
+    setMsg(null); setPlus(j.plus || []); onFait?.();
+  }
   async function changer() {
     if (!choix || choix === e.section_rattachement) return;
     if (!(await demander(`Rattacher ${String(e.nom || '').toUpperCase()} ${e.prenom || ''} à la section ${choix} ?\n\nSes inscriptions de l'année dans l'ancienne section restent ; elles se retirent, si besoin, depuis son parcours.`))) return;
@@ -163,6 +183,26 @@ function SectionEtudiant({ e, etudId, onFait }) {
           <button type="button" className="bouton" disabled={!choix || choix === e.section_rattachement} onClick={changer}>Rattacher</button>
         </>)}
         {msg && <span style={{ color: 'var(--c-refuse)' }}>{msg}</span>}
+      </div>
+      <div className="px-3 pb-3 flex flex-wrap items-center gap-2 text-sm border-t border-slate-100 pt-2.5">
+        <span className="text-slate-500">Aussi dans</span>
+        {!plus.length && <span className="text-slate-400">aucune autre section</span>}
+        {plus.map(x => (
+          <span key={x.section} className="inline-flex items-center gap-1.5 rounded-pastille border border-slate-200 bg-white px-2 py-0.5"
+            title={`Ajoutée${x.par ? ` par ${x.par}` : ''}${x.le ? ` le ${String(x.le).slice(0, 10).split('-').reverse().join('/')}` : ''}${x.depuis ? ` · depuis ${x.depuis}` : ''}`}>
+            <b>{x.section}</b>
+            {peutPlus && <button type="button" aria-label={`Retirer ${x.section}`} className="text-slate-400 hover:text-slate-700" onClick={() => retirerPlus(x.section)}><IconX size={13} /></button>}
+          </span>
+        ))}
+        {peutPlus && (<>
+          <select className="controle" value={ajout} onChange={ev => setAjout(ev.target.value)}>
+            <option value="">+ Ajouter une section…</option>
+            {sections.filter(x => x.code !== e.section_rattachement && !plus.some(p => p.section === x.code))
+              .map(x => <option key={x.code} value={x.code}>{x.code}{x.libelle && x.libelle !== x.code ? ` — ${x.libelle}` : ''}</option>)}
+          </select>
+          <button type="button" className="bouton" disabled={!ajout} onClick={ajouterPlus}>Ajouter</button>
+        </>)}
+        <span className="basis-full text-mention text-slate-400">Une section en plus : il paraît dans ses listes, ses examens et ses présences, chez sa coordination, et son PAE s’y compose.</span>
       </div>
     </section>);
 }
