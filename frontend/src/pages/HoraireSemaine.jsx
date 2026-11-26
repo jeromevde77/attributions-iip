@@ -50,7 +50,12 @@ async function appel(url, opts = {}) {
    qui est l'outil de création ») : `consultation` montre la semaine sans bac ni geste d'écriture. */
 export default function HoraireSemaine({ consultation = false }) {
   const [annee] = useState(getAnnee());
-  const peutEcrire = !consultation && ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
+  const roleEcrit = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
+  const peutEcrire = !consultation && roleEcrit;
+  /* LA FENÊTRE D'UNE SÉANCE SE MODIFIE LÀ OÙ L'ON EST (3.5.725, Charles : « pas moyen de changer les noms » ; « je suis
+     directeur, si j'ai accès… il ne faut pas démultiplier les écrans »). En consultation, ni bac ni glisser, mais la fenêtre d'une
+     séance (professeur, local, durée, annulation, remarque) s'écrit pour qui en a le droit (`roleEcrit`). */
+
   /* L'HORAIRE D'UN PROFESSEUR EN UN CLIC (3.5.716, Charles : « un bouton calendrier qui va directement sur l'horaire du prof ») :
      `?prof=<id>` ouvre la vue « professeur » sur lui (liste du personnel). */
   const profDeLAdresse = (() => { try { const v = Number(new URLSearchParams(window.location.search).get('prof')); return v > 0 ? String(v) : ''; } catch { return ''; } })();
@@ -439,7 +444,7 @@ export default function HoraireSemaine({ consultation = false }) {
       {sel && (
         <Fenetre titre={`${sel.cours_code} ${sel.cours_nom || ''}`} large="petite" onFermer={() => setSel(null)}
           sous={`${NOMS_JOURS[(new Date(sel.date + 'T12:00:00Z').getUTCDay() + 6) % 7]} ${court(sel.date)} · ${lisible(sel.heure_debut)}–${lisible(sel.heure_fin)} · ${nomProf(sel) || 'professeur à attribuer'}`}
-          pied={peutEcrire ? <>
+          pied={roleEcrit ? <>
             <button className="bouton bouton-detruire" onClick={supprimerSel}><IconTrash size={14} /> Supprimer</button>
             <span className="flex-1" />
             <button className="bouton" onClick={() => setSel(null)}>Fermer</button>
@@ -451,14 +456,14 @@ export default function HoraireSemaine({ consultation = false }) {
           <div className="space-y-3 text-sm">
             <label className="block">
               <span className="text-xs text-slate-500">Local</span>
-              <input className="controle w-full" list="locaux-horaire" disabled={!peutEcrire}
+              <input className="controle w-full" list="locaux-horaire" disabled={!roleEcrit}
                 value={sel._local ?? sel.local_texte ?? ''} onChange={e => setSel({ ...sel, _local: e.target.value })}
                 placeholder="P2 523, Nile, Distanciel asynchrone…" />
               <datalist id="locaux-horaire">{ref.locaux.map(l => <option key={l.nom} value={l.nom} />)}<option value="Distanciel asynchrone" /></datalist>
             </label>
             <label className="block">
               <span className="text-xs text-slate-500">Professeur</span>
-              <select className="controle w-full" disabled={!peutEcrire} value={String(sel._prof ?? sel.professeur_id ?? '')}
+              <select className="controle w-full" disabled={!roleEcrit} value={String(sel._prof ?? sel.professeur_id ?? '')}
                 onChange={e => setSel({ ...sel, _prof: Number(e.target.value) || 0 })}>
                 <option value="">— professeur à attribuer —</option>
                 {ref.profs.map(p => <option key={p.id} value={String(p.id)}>{p.nom} {p.prenom}</option>)}
@@ -472,19 +477,19 @@ export default function HoraireSemaine({ consultation = false }) {
             )}
             <label className="block">
               <span className="text-xs text-slate-500">Durée</span>
-              <select className="controle w-full" disabled={!peutEcrire}
+              <select className="controle w-full" disabled={!roleEcrit}
                 value={sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut))} onChange={e => setSel({ ...sel, _duree: Number(e.target.value) })}>
                 {[...new Set([MODULE, 2 * MODULE, 3 * MODULE, hm(sel.heure_fin) - hm(sel.heure_debut)])].sort((a, b) => a - b)
                   .map(m => <option key={m} value={m}>{Math.floor(m / 60)} h{m % 60 ? String(m % 60).padStart(2, '0') : ''}{m % MODULE ? ' (hors module)' : ` — ${m / MODULE} module${m > MODULE ? 's' : ''}`}</option>)}
               </select>
             </label>
             <label className="flex items-center gap-2">
-              <input type="checkbox" disabled={!peutEcrire} checked={sel._annule ?? !!sel.annule} onChange={e => setSel({ ...sel, _annule: e.target.checked })} />
+              <input type="checkbox" disabled={!roleEcrit} checked={sel._annule ?? !!sel.annule} onChange={e => setSel({ ...sel, _annule: e.target.checked })} />
               Séance annulée <span className="text-slate-400 text-xs">— elle reste visible, barrée, et ne compte plus dans les heures posées</span>
             </label>
             <label className="block">
               <span className="text-xs text-slate-500">Remarque</span>
-              <input className="controle w-full" disabled={!peutEcrire} value={sel._commentaire ?? sel.commentaire ?? ''}
+              <input className="controle w-full" disabled={!roleEcrit} value={sel._commentaire ?? sel.commentaire ?? ''}
                 onChange={e => setSel({ ...sel, _commentaire: e.target.value })} placeholder="Grand auditoire svp, sous-groupe…" />
             </label>
             {sel.conflits?.length > 0 && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5 text-second">Conflit : {sel.conflits.map(x => RAISONS[x]).join(', ')}.</div>}
