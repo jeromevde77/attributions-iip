@@ -149,7 +149,6 @@ export const FAMILLES_RAPPORTS = {
     ['L’année : examens et délibérations', ['canevas-examens', 'evaluations-manquantes', 'organisation-seances']],
     ['Les lieux', ['organisation-locaux']],
     ['Les dates des UE', ['dates-ue']],   // 3.5.686 — famille propre, en dernier : les codes des autres listes ne bougent pas
-    ['Les cours à désigner', ['cours-a-designer']],   // 3.5.752 — famille propre, en dernier : les codes des autres listes ne bougent pas
   ],
   gestion: [
     ['La charge et la dotation', ['dotation-felsi', 'etp', 'iip-helb-annees']],

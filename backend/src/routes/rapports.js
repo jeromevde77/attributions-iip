@@ -2877,31 +2877,6 @@ export const RAPPORTS = [
       ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
   },
 
-  /* LES COURS ENCORE À DÉSIGNER (3.5.752, Charles : « comment imprimer le listing des cours encore à désigner ? ») : chaque ligne
-     d'attribution de l'année sans professeur, ou au nom d'une fiche « à désigner » (la règle de Recrutement → Besoins). */
-  {
-    id: 'cours-a-designer', domaine: 'organisation', params: ['annee', 'section'],
-    libelle: 'Cours encore à désigner',
-    aide: "Les lignes d'attribution sans professeur, ou au nom d'une fiche « à désigner » : ce qu'il reste à pourvoir.",
-    colonnes: COLS([['section', 'Section', 18], ['ue_num', 'UE', 7], ['ue_nom', 'Unité', 30], ['code_cours', 'Cours', 10],
-      ['cours_nom', 'Intitulé', 32], ['activite', 'Activité', 16], ['groupe', 'Groupe', 9], ['quadri', 'Q', 5],
-      ['type_cours', 'Type', 7], ['periodes', 'Périodes']]),
-    lignes: (p) => db.prepare(`
-      SELECT a.section, a.ue_num,
-             (SELECT ue_nom FROM ue u WHERE u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire LIMIT 1) AS ue_nom,
-             a.code_cours,
-             (SELECT cours_nom FROM cours c WHERE c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire LIMIT 1) AS cours_nom,
-             (SELECT libelle FROM activite_type t WHERE t.id = a.activite_id) AS activite,
-             COALESCE(NULLIF(a.code, ''), 'Ts') AS groupe, a.quadrimestre_attribue AS quadri, a.type_cours,
-             ROUND(COALESCE(a.total_attribue_professeur, a.periodes_attribuees, 0), 2) AS periodes
-        FROM attribution a LEFT JOIN professeur p ON p.id = a.professeur_id
-       WHERE a.annee_scolaire = ? AND (? IS NULL OR a.section = ?) AND COALESCE(a.en_conge, 0) = 0
-         AND (a.professeur_id IS NULL OR p.est_a_designer = 1
-              OR UPPER(COALESCE(p.nom,'') || ' ' || COALESCE(p.prenom,'')) LIKE '%DESIGN%'
-              OR UPPER(COALESCE(p.nom,'') || ' ' || COALESCE(p.prenom,'')) LIKE '%DÉSIGN%')
-       ORDER BY a.section, a.ue_num, a.code_cours, a.code`).all(p.annee, p.section, p.section),
-  },
-
   // ── ORGANISATION ────────────────────────────────────────────────────────
   {
     id: 'canevas-examens', domaine: 'organisation', params: ['annee', 'section', 'periode'],
