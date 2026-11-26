@@ -130,7 +130,12 @@ export function niveauEtudiant(etudId, annee) {
   }
   if (!lignes.length) return { niveau: null, libelle: null, detail: {} };
 
-  const { sections } = sectionsDeLEtudiant(etudId, null);
+  /* LE NIVEAU DE L'ANNÉE SE LIT AUSSI DANS LA SECTION DES UE DE L'ANNÉE (3.5.744, Charles, EL HAJJIOUI : 6 UE d'ATNUP et 5 de
+     Psychomotricité les années passées, 3 d'AeSI cette année — le seuil de 60 % écartait AeSI, et la pastille BE1 disparaissait). */
+  const { sections: secParcours } = sectionsDeLEtudiant(etudId, null);
+  const secAnnee = db.prepare(`SELECT DISTINCT section FROM ue WHERE section IS NOT NULL
+    AND ue_num IN (${lignes.map(() => '?').join(',')}) AND annee_scolaire = ?`).all(...lignes.map(l => l.ue_num), anneeRetenue).map(x => x.section);
+  const sections = [...new Set([...secAnnee, ...secParcours])];
   const niveaux = sections.length ? niveauxEffectifs(sections, anneeRetenue) : {};
 
   const detail = {};
