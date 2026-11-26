@@ -677,7 +677,9 @@ function sectionPermise(req, section) {
 /* « C'EST LA MÊME PERSONNE » : le texte de l'export désigne ce professeur.
    Enregistré pour les imports suivants, et appliqué tout de suite aux séances
    déjà importées sous ce texte sans professeur reconnu — sans ré-import. */
-r.post('/alias', authRequired, roleRequired(...EDITEURS), (req, res) => {
+/* LA COORDINATION AUSSI (3.5.749, Charles : « que chaque coordination puisse avoir accès à ses corrections ») : elle dit qui est
+   qui, mais seules les séances de SES sections prennent le professeur tout de suite. */
+r.post('/alias', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const texte = String(req.body?.texte || '').trim();
   const profId = Number(req.body?.professeur_id);
   if (!texte || !profId) return res.status(400).json({ error: 'Le nom de l’export et le professeur sont requis.' });
@@ -687,8 +689,8 @@ r.post('/alias', authRequired, roleRequired(...EDITEURS), (req, res) => {
   db.prepare(`INSERT INTO horaire_alias_prof (texte, texte_brut, professeur_id, pose_par) VALUES (?, ?, ?, ?)
     ON CONFLICT (texte) DO UPDATE SET professeur_id = excluded.professeur_id, texte_brut = excluded.texte_brut,
       pose_par = excluded.pose_par, pose_le = datetime('now')`).run(k, texte, p.id, qui(req));
-  const ids = db.prepare('SELECT id, professeur_texte FROM horaire_seance WHERE professeur_id IS NULL AND professeur_texte IS NOT NULL')
-    .all().filter(x => clean(x.professeur_texte) === k).map(x => x.id);
+  const ids = db.prepare('SELECT id, section, professeur_texte FROM horaire_seance WHERE professeur_id IS NULL AND professeur_texte IS NOT NULL')
+    .all().filter(x => clean(x.professeur_texte) === k && sectionPermise(req, x.section)).map(x => x.id);
   const maj = db.prepare('UPDATE horaire_seance SET professeur_id = ? WHERE id = ?');
   db.transaction(() => { for (const id of ids) maj.run(p.id, id); })();
   res.json({ ok: true, seances: ids.length, professeur: `${p.nom} ${p.prenom || ''}`.trim() });
@@ -882,7 +884,7 @@ const filtreChangement = (b, req) => {
 
 // Les choix de la fenêtre : professeurs présents dans l'horaire de l'année, cours qu'un professeur
 // y porte sur la période, cours de l'année.
-r.get('/changer-cours/choix', authRequired, roleRequired(...EDITEURS), (req, res) => {
+r.get('/changer-cours/choix', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const an = String(req.query.annee || anneeDeTravail(req));
   const profs = db.prepare(`SELECT DISTINCT p.id, p.nom, p.prenom FROM horaire_seance s JOIN professeur p ON p.id = s.professeur_id
     WHERE s.annee_scolaire = ? ORDER BY p.nom, p.prenom`).all(an);
@@ -900,7 +902,7 @@ r.get('/changer-cours/choix', authRequired, roleRequired(...EDITEURS), (req, res
   res.json({ annee: an, profs, actuels, cours });
 });
 
-r.post('/changer-cours', authRequired, roleRequired(...EDITEURS), (req, res) => {
+r.post('/changer-cours', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const b = req.body || {};
   const f = filtreChangement(b, req);
   if (f.erreur) return res.status(400).json({ error: f.erreur });
