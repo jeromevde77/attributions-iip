@@ -304,6 +304,34 @@ r.get('/destinataires', authRequired, actifRequis, async (req, res) => {
   const regle = String(req.query.regle || '');
   const ids = String(req.query.ids || '').split(',').map(Number).filter(Boolean);
 
+  /* LES PERSONNES QUI ONT À CONNAÎTRE D'UNE PROCÉDURE (3.5.764, Charles : « que je puisse aussi envoyer aux profs de l'UE, la
+     coordination, le secrétariat ») : les chargés de cours de l'UE du dossier, la coordination de sa section, le secrétariat et la
+     direction adjointe. Proposées, jamais cochées d'office : l'étudiant reste le destinataire de la pièce. */
+  if (regle === 'procedure') {
+    const d = db.prepare('SELECT id, etudiant_id, annee_scolaire, section, ue_num FROM proc_dossier WHERE id = ?').get(Number(req.query.dossier));
+    if (!d) return res.json([]);
+    const section = d.section || db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(d.etudiant_id)?.s || null;
+    const liste = [];
+    if (d.ue_num) {
+      for (const p of db.prepare(`SELECT DISTINCT p.id, p.nom, p.prenom, p.adresse_mail FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+          WHERE a.annee_scolaire = ? AND a.ue_num = ? AND COALESCE(p.est_a_designer, 0) = 0 ORDER BY p.nom, p.prenom`).all(d.annee_scolaire, d.ue_num)) {
+        liste.push({ type: 'professeur', id: p.id, nom: `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(),
+          email: p.adresse_mail || null, motif: `chargé·e de cours de l'UE ${d.ue_num}` });
+      }
+    }
+    const comptes = (role, motif, filtre = () => true) => {
+      for (const u of db.prepare(`SELECT id, email, nom_complet FROM utilisateur WHERE actif = 1 AND role = ? ORDER BY nom_complet`).all(role)) {
+        if (!filtre(u)) continue;
+        liste.push({ type: 'utilisateur', id: u.id, nom: u.nom_complet || u.email, email: u.email || null, motif });
+      }
+    };
+    const dansSection = u => !!section && !!db.prepare('SELECT 1 FROM utilisateur_section WHERE utilisateur_id = ? AND section_code = ?').get(u.id, section);
+    comptes('coordination', `coordination ${section || ''}`.trim(), dansSection);
+    comptes('secretariat', 'secrétariat');
+    comptes('directeur_adjoint', 'direction adjointe');
+    return res.json(liste);
+  }
+
   // L'ADRESSE DE L'INSTITUT D'ABORD, LA PRIVÉE SI ELLE MANQUE (Charles, 31 octobre 2026 :
   // « par défaut c'est @institut, mais si pas, l'adresse privée évidemment » — un candidat,
   // un nouvel inscrit n'ont pas encore d'adresse d'institut). La ligne dit laquelle part.

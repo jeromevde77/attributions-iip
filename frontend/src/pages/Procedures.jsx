@@ -1314,10 +1314,16 @@ function Pieces({ dossier: d, peut, onMaj }) {
       informer({ message: r.data?.error || `« ${o.label} » ne peut pas encore se produire.`, ton: 'alerte' });
       return;
     }
+    /* À QUI ELLE PART (3.5.764, Charles) : l'étudiant (envoi, dépôt dans son espace avec copie par courriel), et, proposés dans
+       l'envoi, les chargés de cours de l'UE, la coordination de la section, le secrétariat et la direction adjointe. */
+    let copies = [];
+    try { const x = await appel(`/api/envois/destinataires?regle=procedure&dossier=${d.id}`); if (x.ok && Array.isArray(x.data)) copies = x.data; } catch { /* */ }
     ouvrirApercu({
       html: r.data.html, titre: o.label,
       sousTitre: `${nomPropre(d.etudiant?.nom, d.etudiant?.prenom)} · dossier n° ${d.id}`,
       nomFichier: r.data.nom || `${o.piece}_${d.id}`,
+      destinataire: d.etudiant_id ? { type: 'etudiant', id: d.etudiant_id, nom: nomPropre(d.etudiant?.nom, d.etudiant?.prenom) } : null,
+      typeDoc: `procedure_${o.piece}`, sujetMail: `${o.label} — Institut Ilya Prigogine`, copies,
     });
   }
   const libCat = c => CATEGORIES_PIECE.find(x => x[0] === c)?.[1] || c;
