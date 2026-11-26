@@ -279,9 +279,19 @@ export default function HoraireSemaine({ consultation = false }) {
                   for (let i = 0; i < duJour.length;) {
                     let fin = hm(duJour[i].heure_fin), k = i + 1;
                     while (k < duJour.length && hm(duJour[k].heure_debut) < fin) { fin = Math.max(fin, hm(duJour[k].heure_fin)); k++; }
-                    const paquet = duJour.slice(i, k), debutP = hm(duJour[i].heure_debut);
-                    const cols = Math.min(3, paquet.length), lignes = Math.ceil(paquet.length / cols);
-                    paquet.forEach((x, n) => place.set(x.id, { debut: debutP, fin, col: n % cols, cols, ligne: Math.floor(n / cols), lignes, seul: paquet.length === 1 }));
+                    /* LA HAUTEUR DIT LA DURÉE (3.5.735, Charles : « c'est des blocs de 3 h ! tu en affiches 2 ») : chaque séance garde
+                       ses vraies heures ; celles qui se chevauchent prennent chacune une COLONNE (la première libre), et se partagent la
+                       largeur. */
+                    const paquet = duJour.slice(i, k);
+                    const finsCol = [];
+                    const colDe = new Map();
+                    for (const x of paquet) {
+                      let c = finsCol.findIndex(f => f <= hm(x.heure_debut));
+                      if (c < 0) { c = finsCol.length; finsCol.push(0); }
+                      finsCol[c] = hm(x.heure_fin); colDe.set(x.id, c);
+                    }
+                    const cols = finsCol.length;
+                    paquet.forEach(x => place.set(x.id, { col: colDe.get(x.id), cols, seul: paquet.length === 1 }));
                     i = k;
                   }
                   return duJour.map(s => {
@@ -290,10 +300,9 @@ export default function HoraireSemaine({ consultation = false }) {
                   const pl = place.get(s.id);
                   const seul = g || pl.seul;
                   const debut = g ? g.debut : hm(s.heure_debut), fin = g ? g.fin : hm(s.heure_fin);
-                  const hP = (pl.fin - pl.debut) / 15 * PX;
                   const pos = seul ? { top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2, left: 3, width: 'calc(100% - 6px)' }
-                    : { top: (pl.debut - H0 * 60) / 15 * PX + pl.ligne * hP / pl.lignes, height: hP / pl.lignes - 2,
-                      left: `calc(${pl.col * 100 / pl.cols}% + 2px)`, width: `calc(${100 / pl.cols}% - 4px)` };
+                    : { top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2,
+                      left: `calc(${pl.col * 100 / pl.cols}% + 1px)`, width: `calc(${100 / pl.cols}% - 2px)` };
                   const c = s.annule ? '#9AA3B2' : teinte(s.cours_code);
                   const gr = s.sous_groupe || (s.groupe_nom && s.groupe_nom !== 'A' ? s.groupe_nom : null);
                   const pastille = gr && <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pastille bg-white text-mention font-bold text-[color:var(--c-principal,_#1B2B4B)]"
