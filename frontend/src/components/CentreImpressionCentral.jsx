@@ -1480,12 +1480,16 @@ function Avion({ titre, onClick, disabled = false, occupe = false }) {
 function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null }) {
   // Pas de droit, pas de pièce (3.1.20) : contrats et EA12 relèvent du module personnel en écriture.
   const droitsPers = useDroits();
-  const peutContrats = droitsPers.peut('personnel.contrats') && droitsPers.ecrit('personnel');
+  const peutContratsDroit = droitsPers.peut('personnel.contrats') && droitsPers.ecrit('personnel');
   const navigate = useNavigate();
   const annee = getAnnee();
   const [profs, setProfs] = useState(null);
   const [q, setQ] = useState('');
   const [choisi, setChoisi] = useState(null);
+  /* « À DÉSIGNER » N'EST PERSONNE (3.5.752) : ni contrat, ni EA12, ni annexe — sa fiche d'attributions est la liste des cours encore à
+     pourvoir, et c'est la seule pièce qu'on lui propose. */
+  const aDesigner = !!choisi && (choisi.est_a_designer === 1 || /d[ée]sign/i.test(`${choisi.nom || ''} ${choisi.prenom || ''}`));
+  const peutContrats = peutContratsDroit && !aDesigner;
   const [ea12, setEa12] = useState(null);
   const [erreur, setErreur] = useState(null);
   /* EN SÉRIE (Charles, 27 septembre 2026 : « cocher plusieurs MDP et sortir
@@ -1524,6 +1528,20 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
      HELB, Lucie demande laquelle ; sinon elle sort la seule qui existe. */
   const [choixFiche, setChoixFiche] = useState(false);
   useEffect(() => { setChoixFiche(false); }, [choisi]);
+  /* LA FICHE D'ATTRIBUTIONS PARTOUT (3.5.752, Charles : « je sais choisir le prof à désigner, mais pas imprimer les attributions ») :
+     elle n'existait que si Éditions s'ouvrait depuis la fiche d'un membre (outilsMembre). Ouvert depuis le rail, le serveur la compose
+     lui-même (IIP, HELB ou les deux), dans l'enveloppe commune. */
+  const ficheMembre = async (id, filtre) => {
+    if (outilsMembre?.fiche) return outilsMembre.fiche(id, filtre);
+    setErreur(null); setEnCours('fiche');
+    try {
+      const q = new URLSearchParams({ annee, ...(filtre ? { contrat: filtre } : {}) });
+      const r = await fetch(`/api/ref/professeurs/${id}/fiche-attributions/document?${q}`, { headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.html) throw new Error(j.error || `Erreur ${r.status}`);
+      setContrat({ html: j.html, titre: j.titre || 'Fiche d’attributions', nom: j.nom, typeDoc: 'fiche_attributions' });
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
   const imprimerFiche = async () => {
     setErreur(null); setEnCours('fiche');
     try {
@@ -1532,7 +1550,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
       if (!r.ok || j.error) throw new Error(j.error || `Erreur ${r.status}`);
       const types = new Set((j.attributions || []).map(a => a.contrat_mdp || 'IIP'));
       if (types.has('IIP') && types.has('HELB')) setChoixFiche(true);
-      else outilsMembre.fiche(choisi.id, types.has('HELB') ? 'HELB' : 'IIP');
+      else ficheMembre(choisi.id, types.has('HELB') ? 'HELB' : 'IIP');
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
   useEffect(() => {
@@ -1703,7 +1721,12 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
             {/* LE STATUT D'ABORD (Charles, 27 septembre 2026) : il dit quelles pièces
                 reviennent à ce membre. Les périodes d'expert ne vont que sur l'EA12
                 et le contrat d'expert ; le reste, sur le contrat et l'EA12 classiques. */}
-            {statut && (
+            {statut && aDesigner && (
+              <div data-etat="fort" className="bloc-etat px-3 py-2 text-sm" style={{ background: 'var(--blanc)' }}>
+                <b>Les cours encore à désigner.</b> <span className="text-slate-500">{(statut.cc?.periodes || 0) + (statut.expert?.periodes || 0)} périodes en {annee} : la fiche d’attributions ci-dessous les liste, section par section.</span>
+              </div>
+            )}
+            {statut && !aDesigner && (
               <div data-etat={statut.statut === 'aucun' ? 'neutre' : 'fort'} className="bloc-etat px-3 py-2 text-sm" style={statut.statut === 'aucun' ? undefined : { background: 'var(--blanc)' }}>
                 {statut.statut === 'mixte' && <><b>Ce membre du personnel a deux statuts : expert et chargé de cours.</b> <span className="text-slate-500">{statut.cc.periodes} périodes CC · {statut.expert.periodes} périodes d'expert en {annee}</span></>}
                 {statut.statut === 'expert' && <><b>Ce membre du personnel est expert.</b> <span className="text-slate-500">{statut.expert.periodes} périodes en {annee}</span></>}
@@ -1716,7 +1739,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
             {/* LA FICHE D'ATTRIBUTIONS VAUT POUR TOUT MEMBRE (Charles, 27 septembre
                 2026) — chargé de cours comme expert : c'est le relevé de ce qui
                 lui est confié, avant tout contrat. */}
-            {outilsMembre?.fiche && statut && statut.statut !== 'aucun' && (
+            {statut && statut.statut !== 'aucun' && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span><span className="font-semibold">Fiche d'attributions</span> <span className="text-slate-400 text-second">· ce qui lui est confié en {annee}</span></span>
@@ -1727,7 +1750,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                     <span>Ce membre du personnel a deux types de fiches. Laquelle souhaitez-vous imprimer ?</span>
                     <span className="flex gap-1.5">
                       {[['IIP', 'IIP'], ['HELB', 'HELB'], ['Les deux (globale)', null]].map(([l, f]) => (
-                        <button key={l} type="button" onClick={() => { setChoixFiche(false); outilsMembre.fiche(choisi.id, f); }} className="bouton bouton-compact">{l}</button>
+                        <button key={l} type="button" onClick={() => { setChoixFiche(false); ficheMembre(choisi.id, f); }} className="bouton bouton-compact">{l}</button>
                       ))}
                     </span>
                   </div>
@@ -1793,7 +1816,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
               </div>
             )}
 
-            {!!annexes.length && (
+            {!!annexes.length && !aDesigner && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
