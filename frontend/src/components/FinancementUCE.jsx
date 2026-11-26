@@ -58,6 +58,37 @@ export default function FinancementUCE({ section, refsEtp = null }) {
   if (erreur) return <Encadre etat="corriger" titre={erreur} />;
   if (!d) return <ChargementLucie texte="Lucie calcule le financement en UCE…" />;
   if (!lignes.length) return <Encadre etat="neutre" titre="Aucune année à montrer pour cette section." />;
+  /* PAS D'UCE EN ENSEIGNEMENT POUR ADULTES (3.5.745, Charles : « une section en EA n'a pas d'UCE ; c'est juste les sections organisées
+     par la HELB — la part des étudiants du TIM et l'orthoptie »). Hors codiplomation : ce qu'elle rapporte (DI et FI), ce qu'elle
+     coûte (matériel), et ses enseignants, payés par la Fédération. */
+  const codip = (d.codiplomation || []).map(x => String(x).toLowerCase()).includes(String(section).toLowerCase());
+  if (!codip) {
+    const der0 = lignes[lignes.length - 1];
+    const th = 'px-2.5 py-2 text-right whitespace-nowrap font-semibold', td = 'px-2.5 py-2 text-right tabular-nums whitespace-nowrap';
+    return (
+      <div className="space-y-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+          <TuileEtat taille="grande" etat="reussi" valeur={eur(der0.di)} libelle={`droits et frais rapportés en ${court(der0.annee)}`}
+            precision="droits d’inscription et frais variables"
+            aide="Droits d’inscription et frais variables payés par les étudiants de la section (calcul des frais de Lucie)." />
+          <TuileEtat taille="grande" etat="disponible" valeur={eur(der0.materiel)} libelle="matériel et investissements"
+            precision="à la charge de l’ASBL" aide="Le matériel et les investissements de la section." />
+          <TuileEtat taille="grande" etat="neutre" valeur={eur(der0.salI)} libelle="enseignants (Fédération)"
+            precision="hors comptes de l’ASBL" aide="Les périodes des enseignants IIP au prix de la circulaire : payées par la Fédération Wallonie-Bruxelles, elles ne passent pas par l’ASBL." />
+        </div>
+        <Encadre etat="neutre" titre={`${section} est une section de l’Enseignement pour adultes : pas de financement en UCE.`}>
+          Le financement en UCE (étudiants lissés × MUCE × pondération) ne vaut que pour les sections organisées avec la HELB — TIM et Orthoptie.
+        </Encadre>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="tab-entete"><th className="px-2.5 py-2 text-left">Année</th><th className={th}>Droits et frais</th><th className={th}>Matériel</th><th className={th}>Enseignants (Fédération)</th></tr></thead>
+            <tbody>{lignes.map(l => <tr key={l.annee} className="border-t border-slate-100">
+              <td className="px-2.5 py-2">{l.annee}</td><td className={td}>{eur(l.di)}</td><td className={td}>{eur(l.materiel)}</td><td className={td}>{eur(l.salI)}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
   const G = couleursGraphique();
   const der = lignes[lignes.length - 1], avant = lignes.length > 1 ? lignes[lignes.length - 2] : null;
   const somme = k => lignes.reduce((t, l) => t + (l[k] || 0), 0);

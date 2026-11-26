@@ -44,7 +44,7 @@ export const BLOCS = [
   ['budget', 'fin', 'Le budget, comparé aux autres sections et à l’ASBL', 'les deux', false, false],
   /* PAS DE BILAN DANS COMPOSER (3.5.549, Charles : « composer montre ce qui est engagé en ETP, ce que cela donne en salaire, ce que
      l'on rapporte ; garde le bilan pour les finances ») : les comptes de la section sortent de Composer, le calcul en UCE y entre. */
-  ['uce', 'fin', 'Ce que la section engage, coûte et rapporte (en UCE)', 'section', false, true],
+  ['uce', 'fin', 'Ce que la section engage, coûte et rapporte', 'section', false, true],
   ['financements', 'fin', 'Les financements de l’ASBL : départements et sections', 'ecole', false, true],
 ];
 /* LES PUBLICS : ce qu'ils reçoivent d'office. `sans` retire un bloc, `nominatif: false` écarte tout bloc qui nomme des personnes. */
