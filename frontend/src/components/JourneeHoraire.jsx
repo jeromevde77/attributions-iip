@@ -120,7 +120,7 @@ function Tuile({ s, pl, h0, roleEcrit, vue, onOuvrir, onAligner }) {
   );
 }
 
-export default function JourneeHoraire({ titre, sous, seances, roleEcrit, vue, onFermer, onOuvrir, onAligner }) {
+export default function JourneeHoraire({ titre, sous, seances, roleEcrit, vue, onFermer, onOuvrir, onAligner, onRelierTout }) {
   const { l, place } = placer(seances);
   const h0 = l.length ? Math.floor(Math.min(...l.map(s => hm(s.heure_debut))) / 60) * 60 : 8 * 60;
   const h1 = l.length ? Math.ceil(Math.max(...l.map(s => hm(s.heure_fin))) / 60) * 60 : 18 * 60;
@@ -143,6 +143,8 @@ export default function JourneeHoraire({ titre, sous, seances, roleEcrit, vue, o
         <Chiffre n={nonReliees} txt="non reliées" etat="attente" />
         <Chiffre n={ajuster} txt="à ajuster (professeur)" etat="attente" />
         <Chiffre n={conflits} txt={conflits > 1 ? 'conflits' : 'conflit'} etat="refuse" />
+        {onRelierTout && nonReliees > 0 && <button type="button" className="bouton inline-flex items-center gap-1.5 ml-auto" onClick={onRelierTout}>
+          <IconArrowsLeftRight size={15} /> Relier automatiquement…</button>}
       </div>
       {!l.length ? <p className="text-slate-500 text-sm py-8 text-center">Aucune séance ce jour-là.</p> : (
         <div className="flex">
