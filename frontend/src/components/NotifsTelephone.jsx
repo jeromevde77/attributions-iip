@@ -9,7 +9,8 @@ const deB64u = s => { const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '
 const estIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const installee = () => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-export default function NotifsTelephone({ base = '/api/push', entetes = () => ({}), titre = 'Notifications sur ce téléphone' }) {
+export default function NotifsTelephone({ base = '/api/push', entetes = () => ({}), titre = 'Notifications sur ce téléphone',
+  quoi = 'ce que Lucie vous annonce : messages, tâches, rappels, demandes à traiter' }) {
   const [etat, setEtat] = useState('lecture');   // lecture | indispo | ios-ajouter | refuse | inactif | actif
   const [msg, setMsg] = useState(null);
   const [occupe, setOccupe] = useState(false);
@@ -73,7 +74,7 @@ export default function NotifsTelephone({ base = '/api/push', entetes = () => ({
       {etat === 'indispo' && <p className="text-second text-slate-600">Ce navigateur ne reçoit pas de notifications. Sur iPhone, iOS 16.4 au moins, et Lucie ouverte depuis son icône.</p>}
       {etat === 'refuse' && <p className="text-second text-slate-600">Les notifications ont été refusées pour Lucie. Rouvrez-les dans les réglages du téléphone (Notifications → Lucie), puis revenez ici.</p>}
       {etat === 'inactif' && <>
-        <p className="text-second text-slate-600">Recevez sur ce téléphone ce que Lucie vous annonce : messages, tâches, rappels, demandes à traiter.</p>
+        <p className="text-second text-slate-600">Recevez sur ce téléphone {quoi}.</p>
         <button type="button" className="bouton bouton-fort" disabled={occupe} onClick={activer}>Activer les notifications</button>
       </>}
       {etat === 'actif' && <>

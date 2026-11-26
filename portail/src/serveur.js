@@ -34,6 +34,7 @@ import jwt from 'jsonwebtoken';
 import Database from 'better-sqlite3';
 import { autorise, etatGeo } from './geo.js';
 import { monterEnseignants } from './enseignants.js';
+import { monterPush } from './push.js';
 
 const PORT_PUBLIC = Number(process.env.PORT_PUBLIC || 3101);
 const PORT_INTERNE = Number(process.env.PORT_INTERNE || 3102);
@@ -1516,7 +1517,10 @@ int.post('/interne/acquitter', (req, res) => {
   res.json({ ok: true });
 });
 // L'ESPACE ENSEIGNANT (3.5.076) : ses routes publiques et internes, sur ses propres tables.
-monterEnseignants(pub, int, { db, SECRET, empreinte, maintenant, egal, tropDEssais, ipDe, hacher, verifierMdp, mdpRefuse, autorise, nomAppareil });
+// LES NOTIFICATIONS SUR LE TÉLÉPHONE (3.5.768) : abonnements des étudiants et des professeurs, envoi déposé par Lucie.
+const push = monterPush({ db, int });
+push.routes(pub, '/api/portail', connecte, 'etu', req => req.etudiant.id);
+monterEnseignants(pub, int, { db, SECRET, empreinte, maintenant, egal, tropDEssais, ipDe, hacher, verifierMdp, mdpRefuse, autorise, nomAppareil, push });
 pub.use((req, res) => res.status(404).json({ error: 'Introuvable.' }));
 int.use((req, res) => res.status(404).end());
 

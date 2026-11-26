@@ -91,7 +91,71 @@ export async function passagePush() {
   } finally { enCours = false; }
 }
 
+/* LES ESPACES, DERRIÈRE LE MUR (3.5.768) : les téléphones des professeurs et des étudiants sont abonnés au PORTAIL. Lucie lui
+   dépose quoi annoncer, et à qui : aux professeurs (compte de Lucie = identifiant de leur espace) ce que leur cloche annonce et les
+   messages de la Communication ; aux étudiants les messages de l'école et les documents déposés dans leur espace. */
+let enCoursEspaces = false;
+export async function passageEspaces() {
+  if (enCoursEspaces) return; enCoursEspaces = true;
+  try {
+    const { portailActif, appelPortail } = await import('./portailSync.js');
+    if (!portailActif()) return;
+    const ab = await appelPortail('GET', '/interne/push/abonnes');
+    const ens = new Set(ab.filter(x => x.espace === 'ens').map(x => Number(x.personne)));
+    const etu = new Set(ab.filter(x => x.espace === 'etu').map(x => Number(x.personne)));
+    const envois = [];
+    const curseur = (cle, maxSql) => {
+      const max = db.prepare(maxSql).get().m || 0;
+      let c = lireCurseur(cle);
+      if (c === null) { poserCurseur(cle, max); c = max; }
+      return { c, max };
+    };
+    // Professeurs : la cloche et la Communication.
+    const n = curseur('push_curseur_ens_notif', 'SELECT COALESCE(MAX(id), 0) m FROM lucie_notification');
+    if (ens.size) {
+      const comptes = new Map(db.prepare(`SELECT id, role, professeur_id FROM utilisateur WHERE id IN (${[...ens].join(',') || 0})`).all().map(u => [u.id, u]));
+      for (const x of db.prepare('SELECT * FROM lucie_notification WHERE id > ? ORDER BY id LIMIT 300').all(n.c)) {
+        for (const u of comptes.values()) {
+          const pour = x.cible_user_id ? x.cible_user_id === u.id : (!x.cible_role || x.cible_role === u.role);
+          if (pour && notificationVisible(u, x.section)) envois.push({ espace: 'ens', personne: u.id, titre: x.titre, corps: texte(x.corps), lien: '/', tag: `notif-${x.id}` });
+        }
+      }
+      try {
+        const cc = curseur('push_curseur_ens_comm', 'SELECT COALESCE(MAX(id), 0) m FROM communication_destinataire');
+        const parProf = new Map([...comptes.values()].filter(u => u.professeur_id).map(u => [u.professeur_id, u.id]));
+        for (const m of db.prepare(`SELECT d.id, d.utilisateur_id, d.professeur_id, c.titre, c.corps_html FROM communication_destinataire d
+            JOIN communication c ON c.id = d.communication_id WHERE d.id > ? AND c.retire_le IS NULL ORDER BY d.id LIMIT 1000`).all(cc.c)) {
+          const qui = comptes.has(m.utilisateur_id) ? m.utilisateur_id : parProf.get(m.professeur_id);
+          if (qui) envois.push({ espace: 'ens', personne: qui, titre: m.titre, corps: texte(m.corps_html), lien: '/', tag: `comm-${m.id}` });
+        }
+        poserCurseur('push_curseur_ens_comm', cc.max);
+      } catch { /* pas de communication */ }
+    }
+    poserCurseur('push_curseur_ens_notif', n.max);
+    // Étudiants : messages de l'école, documents déposés.
+    try {
+      const md = curseur('push_curseur_etu_msg', 'SELECT COALESCE(MAX(rowid), 0) m FROM message_etudiant_dest');
+      if (etu.size) for (const m of db.prepare(`SELECT d.rowid r, d.etudiant_id, e.objet, e.corps FROM message_etudiant_dest d
+          JOIN message_etudiant e ON e.id = d.message_id WHERE d.rowid > ? AND e.retire_le IS NULL ORDER BY d.rowid LIMIT 2000`).all(md.c)) {
+        if (etu.has(m.etudiant_id)) envois.push({ espace: 'etu', personne: m.etudiant_id, titre: m.objet, corps: texte(m.corps), lien: '/', tag: `msg-${m.r}` });
+      }
+      poserCurseur('push_curseur_etu_msg', md.max);
+    } catch { /* pas de messages */ }
+    try {
+      const dd = curseur('push_curseur_etu_doc', "SELECT COALESCE(MAX(id), 0) m FROM envoi_mail");
+      if (etu.size) for (const m of db.prepare(`SELECT id, destinataire_id, sujet FROM envoi_mail WHERE id > ? AND statut = 'depose'
+          AND destinataire_type = 'etudiant' ORDER BY id LIMIT 2000`).all(dd.c)) {
+        if (etu.has(m.destinataire_id)) envois.push({ espace: 'etu', personne: m.destinataire_id, titre: 'Un document vous attend',
+          corps: `${m.sujet || 'Document'} — dans « Mes documents ».`, lien: '/', tag: `doc-${m.id}` });
+      }
+      poserCurseur('push_curseur_etu_doc', dd.max);
+    } catch { /* pas d'envois */ }
+    for (let i = 0; i < envois.length; i += 200) await appelPortail('POST', '/interne/push', { envois: envois.slice(i, i + 200) });
+  } finally { enCoursEspaces = false; }
+}
+
 export function demarrerPush() {
   if (process.env.NODE_ENV !== 'production') return;   // la dev est une copie : ses abonnements sont de vrais téléphones
   setInterval(() => { passagePush().catch(e => console.error('[push] passage', e.message)); }, 30 * 1000).unref?.();
+  setInterval(() => { passageEspaces().catch(e => console.error('[push] espaces', e.message)); }, 60 * 1000).unref?.();
 }

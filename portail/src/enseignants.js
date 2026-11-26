@@ -110,6 +110,9 @@ export function monterEnseignants(pub, int, o) {
     } catch { res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' }); }
   }
 
+  // Les notifications sur le téléphone (3.5.768) : les mêmes portes que l'espace étudiant.
+  o.push?.routes(pub, '/api/enseignant', connecte, 'ens', req => req.ens.id);
+
   // ── L'ENTRÉE ──
   pub.get('/api/enseignant/appareil', (req, res) => {
     const a = courant(req); const e = a && db.prepare('SELECT email FROM ens WHERE id = ?').get(a.ens_id);

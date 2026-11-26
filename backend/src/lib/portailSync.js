@@ -81,6 +81,9 @@ async function appel(methode, chemin, corps) {
   return r.json();
 }
 
+/** L'appel au port interne du portail, pour les autres modules (3.5.768 : les notifications sur le téléphone). */
+export const appelPortail = (methode, chemin, corps) => appel(methode, chemin, corps);
+
 const colonnes = t => { try { return db.prepare(`PRAGMA table_info("${t}")`).all().map(c => c.name); } catch { return []; } };
 const anneeActive = () => db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code
   || db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get()?.code;
