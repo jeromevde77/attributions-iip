@@ -85,7 +85,7 @@ import ImportHistorique from '../components/ImportHistorique.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ImportLieuxStage from '../components/ImportLieuxStage.jsx';
 import ImportReleveStages from '../components/ImportReleveStages.jsx';
-import { demander, informer, saisir } from '../lib/dialogue.jsx';
+import { demander, informer, saisir, choisir } from '../lib/dialogue.jsx';
 import { useLocation } from 'react-router-dom';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
@@ -809,16 +809,30 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
      de cursus archive le précédent — il ne se mêle plus au schéma, mais il se
      nomme, avec ses années et ce qui y a été réussi, et s'ouvre à la demande. */
   const [archiveVue, setArchiveVue] = useState(null);   // { section, data }
-  const reprendre = async section => {
-    if (!(await demander(`Faire de ${section} le cursus en cours de l'étudiant ?\n\n`
-      + `Sa section actuelle deviendra un cursus archivé ; ses inscriptions de ${annee} y resteront, `
-      + 'et se retireront ensuite avec « Retirer ces inscriptions ».'))) return;
-    const r = await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ annee, section }) });
+  /* AJOUTER OU REMPLACER (3.5.740, Charles : « ce n'est pas clair ; un choix : 1) ajouter ATNUP comme cursus à cet étudiant ;
+     2) supprimer le ou les cursus actuels et remplacer par ATNUP »). Ajouter = une section EN PLUS (3.5.734, la principale ne
+     bouge pas) ; remplacer = le geste d'avant (`cursus/reprendre` : l'actuelle devient un cursus archivé). */
+  const cursusAjouterOuRemplacer = async section => {
+    const actuelle = (data?.sections || [])[0] || null;
+    const v = await choisir({ titre: `${section} pour cet étudiant`,
+      message: actuelle ? `Aujourd'hui, sa section est ${actuelle}.` : 'Il n’a pas encore de section.',
+      choix: [
+        { valeur: 'ajouter', libelle: `Ajouter ${section} comme cursus`,
+          aide: actuelle ? `Il garde ${actuelle} (section principale) et suit aussi ${section} : listes, examens, présences, PAE.` : `${section} devient sa section.` },
+        ...(actuelle ? [{ valeur: 'remplacer', libelle: `Remplacer ${actuelle} par ${section}`,
+          aide: `${actuelle} devient un cursus archivé (ses réussites restent) ; ses inscriptions de ${annee} se retirent ensuite avec « Retirer ces inscriptions ».` }] : []),
+      ] });
+    if (!v) return false;
+    const r = v === 'ajouter' && actuelle
+      ? await fetch(`/api/etudiants/${etudId}/sections-plus`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section }) })
+      : await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, section }) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) { informer(j.error || 'Refusé.'); return; }
+    if (!r.ok) { informer(j.error || 'Refusé.'); return false; }
+    if (v === 'ajouter' && actuelle) informer(`${section} est ajoutée : elle se lit dans la fiche → Identité, « Aussi dans ».`);
     setArchiveVue(null); setRecharge(n => n + 1); onModifie?.();
+    return true;
   };
+  const reprendre = section => cursusAjouterOuRemplacer(section);
   const voirArchive = async section => {
     if (archiveVue?.section === section) { setArchiveVue(null); return; }
     const r = await fetch(`/api/etudiants/${etudId}/capitalisation?annee=${annee}&section=${encodeURIComponent(section)}`, { headers: authHeaders() });
@@ -845,30 +859,35 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
   const courante = (data?.sections || [])[0] || null;
   const changerSection = async () => {
     if (!nouvelle) return;
-    if (!(await demander(`Faire passer l'étudiant en ${nouvelle} ?\n\n`
-      + (courante ? `${courante} deviendra un cursus archivé : ses réussites restent au dossier ; ses inscriptions de ${annee} `
-        + 'se retirent ensuite avec « Retirer ces inscriptions ». ' : '')
-      + `Le PAE ${annee} se compose ensuite dans ${nouvelle}, onglet PAE de la fiche.`))) return;
-    const r = await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ annee, section: nouvelle }) });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { informer(j.error || 'Refusé.'); return; }
-    setChanger(false); setNouvelle(''); setArchiveVue(null); setRecharge(n => n + 1); onModifie?.();
+    // LE « + » VERT AJOUTE UN CURSUS, SANS RIEN DEMANDER DE PLUS (3.5.740, Charles) ; « Changer de section… » propose le choix.
+    if (changer === 'ajouter' && courante) {
+      const r = await fetch(`/api/etudiants/${etudId}/sections-plus`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section: nouvelle }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { informer(j.error || 'Refusé.'); return; }
+      setChanger(false); setNouvelle(''); setRecharge(n => n + 1); onModifie?.();
+      informer(`${nouvelle} est ajoutée comme cursus : ${courante} reste sa section principale. Elle se lit dans la fiche → Identité, « Aussi dans ».`);
+      return;
+    }
+    if (await cursusAjouterOuRemplacer(nouvelle)) { setChanger(false); setNouvelle(''); }
   };
   const ligneChanger = (
     <div className="flex items-center gap-2 flex-wrap text-second">
-      {!changer ? (
-        <button type="button" className="bouton bouton-compact" onClick={() => setChanger(true)}
-          title="Faire passer l'étudiant dans une autre section — l'actuelle est archivée, rien n'est effacé">
+      {!changer ? (<>
+        <button type="button" className="bouton bouton-compact inline-flex items-center gap-1 !text-white !border-transparent"
+          style={{ background: 'var(--c-reussi, #3E7D5E)' }} onClick={() => setChanger('ajouter')}
+          title="Ajouter un cursus : l'étudiant suit aussi une autre section, sa section actuelle ne change pas">
+          <IconPlus size={15} stroke={2.4} /> Cursus</button>
+        <button type="button" className="bouton bouton-compact" onClick={() => setChanger('changer')}
+          title="Ajouter une section, ou remplacer l'actuelle (elle est archivée, rien n'est effacé)">
           Changer de section…</button>
-      ) : (
+      </>) : (
         <>
-          <span>Nouvelle section{courante ? ` (aujourd'hui : ${courante})` : ''} :</span>
+          <span>{changer === 'ajouter' ? 'Ajouter le cursus' : `Nouvelle section${courante ? ` (aujourd'hui : ${courante})` : ''}`} :</span>
           <select className="controle text-sm" value={nouvelle} onChange={e => setNouvelle(e.target.value)}>
             <option value="">— choisir —</option>
             {sectionsRef.filter(x => x.code !== courante).map(x => <option key={x.code} value={x.code}>{x.libelle && x.libelle !== x.code ? `${x.code} — ${x.libelle}` : x.code}</option>)}
           </select>
-          <button type="button" className="bouton bouton-fort bouton-compact" disabled={!nouvelle} onClick={changerSection}>Changer</button>
+          <button type="button" className="bouton bouton-fort bouton-compact" disabled={!nouvelle} onClick={changerSection}>{changer === 'ajouter' ? 'Ajouter' : 'Continuer'}</button>
           <button type="button" className="underline text-slate-500" onClick={() => { setChanger(false); setNouvelle(''); }}>annuler</button>
         </>
       )}

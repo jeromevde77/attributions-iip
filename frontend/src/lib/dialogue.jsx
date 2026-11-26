@@ -147,18 +147,32 @@ function Dialogue({ d }) {
               : <input ref={refChamp} value={valeur} onChange={e => setValeur(e.target.value)}
                   placeholder={d.indice || ''} type={d.type || 'text'}
                   className="controle mt-3 w-full" />)}
+            {/* DES CHOIX QUI S'EXPLIQUENT (3.5.740) : quand un choix porte son aide, elle se lit sous lui — au doigt, pas de survol. */}
+            {d.genre === 'choisir' && (d.choix || []).some(c => c.aide) && (
+              <div className="mt-3 space-y-2">
+                {d.choix.map((c, i) => (
+                  <button key={c.valeur} type="button" ref={i === 0 ? refOk : undefined} onClick={() => fermer(c.valeur)}
+                    className="w-full text-left flex gap-3 items-start rounded-carte border border-slate-200 hover:border-[color:var(--c-principal)] hover:bg-slate-50 px-3 py-2.5">
+                    <span className="flex-none inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-second font-bold"
+                      style={{ background: 'var(--c-principal, #16406A)' }}>{i + 1}</span>
+                    <span className="min-w-0"><b className="block text-sm text-iip-texte">{c.libelle}</b>
+                      <span className="block text-second text-slate-600 leading-snug mt-0.5">{c.aide}</span></span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">
           {d.genre !== 'informer' && (
             <button type="button" className="bouton" onClick={annuler}>{d.annuler || 'Annuler'}</button>
           )}
-          {d.genre === 'choisir' ? (d.choix || []).map((c, i) => (
+          {d.genre === 'choisir' ? ((d.choix || []).some(c => c.aide) ? null : (d.choix || []).map((c, i) => (
             <button key={c.valeur} type="button" ref={i === 0 ? refOk : undefined} title={c.aide || ''}
               onClick={() => fermer(c.valeur)} className={`bouton ${i === 0 ? 'bouton-fort' : ''}`}>
               {c.libelle}
             </button>
-          )) : (
+          ))) : (
           <button type="button" ref={refOk} disabled={bloque} onClick={valider}
             className={`bouton ${alerte && d.genre === 'demander' ? 'bouton-detruire' : 'bouton-fort'}`}>
             {libelleOk}
