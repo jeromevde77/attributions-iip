@@ -1109,10 +1109,11 @@ r.get('/:coursCode/listes', authRequired, async (req, res) => {
   /* TOUS SUR UNE FEUILLE, UNE COLONNE PAR GROUPE (3.5.705, Charles : « une feuille avec tous les étudiants et une colonne A, B, C
      cochée »). `disposition=colonnes`, sans groupe demandé et avec plusieurs groupes. */
   const enColonnes = req.query.disposition === 'colonnes' && !demande && tous.length > 1;
+  const courts = nomsCourtsGroupes(tous);
   const colsSansGrp = colonnes.filter(k => k !== 'groupe');
   const corps = enColonnes ? `<div>
       <div class="tg">${esc(titreListe || 'Tous les étudiants')} <span>— ${d.etudiants.length} étudiant(s), ${tous.length} groupes</span></div>
-      <table><thead><tr><th style="width:8mm">N°</th>${colsSansGrp.map(k => `<th${DISPO[k][1] ? ` style="width:${DISPO[k][1]}"` : ''}>${DISPO[k][0]}</th>`).join('')}${tous.map(g => `<th style="width:12mm;text-align:center">${esc(g)}</th>`).join('')}${vides.map(v => `<th style="width:${vides.length > 2 ? 28 : 40}mm">${esc(v)}</th>`).join('')}</tr></thead>
+      <table><thead><tr><th style="width:8mm">N°</th>${colsSansGrp.map(k => `<th${DISPO[k][1] ? ` style="width:${DISPO[k][1]}"` : ''}>${DISPO[k][0]}</th>`).join('')}${tous.map(g => `<th style="width:14mm;text-align:center">${esc(courts.get(g))}</th>`).join('')}${vides.map(v => `<th style="width:${vides.length > 2 ? 28 : 40}mm">${esc(v)}</th>`).join('')}</tr></thead>
       <tbody>${d.etudiants.map((e, k) => `<tr><td>${k + 1}</td>${colsSansGrp.map(c => `<td>${valeur(e, c)}</td>`).join('')}${tous.map(g => `<td style="text-align:center;font-weight:700">${groupesDe(e).includes(g) ? '✓' : ''}</td>`).join('')}${vides.map(() => '<td></td>').join('')}</tr>`).join('')}</tbody></table></div>`
   : gs.map((g, i) => {
     const lot = d.etudiants.filter(e => !g || groupesDe(e).includes(g));
@@ -1720,3 +1721,14 @@ export function presencesDepuisEspace(user, seanceId, lignes, par) {
 }
 
 export default r;
+
+/* LE NOM COURT D'UN GROUPE (3.5.736, Charles : « pas clair du tout ») : « Acquisition … (TP) · Org 1 · Gr. 3 » devient « 3 » ; un groupe
+   « … · tous » devient « Tous » ; si deux activités donnent le même nom court, on ajoute la leur (« 3 · TP », « Tous · TH »). */
+export function nomsCourtsGroupes(groupes) {
+  const court = g => { const m = /Gr\.\s*(.+)$/.exec(g); return m ? m[1].trim() : /·\s*tous$/i.test(g) ? 'Tous' : g; };
+  const act = g => { const m = /\(([^)]+)\)/.exec(g); return m ? m[1] : String(g).split(' · ')[0].split(' ').slice(0, 2).join(' '); };
+  const n = new Map();
+  for (const g of groupes) n.set(court(g), (n.get(court(g)) || 0) + 1);
+  return new Map(groupes.map(g => [g, n.get(court(g)) > 1 ? `${court(g)} · ${act(g)}` : court(g)]));
+}
+

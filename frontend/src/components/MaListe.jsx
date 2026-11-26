@@ -23,6 +23,7 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
   const [disposition, setDisposition] = useState('');
   const groupesDe = e => String(e.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean);
   const groupesDuCours = [...new Set(etudiants.flatMap(groupesDe))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+  const courts = nomsCourts(groupesDuCours);
   const basculer = (l, set, k) => set(l.includes(k) ? l.filter(x => x !== k) : [...l, k]);
   const ordonnees = COLONNES.map(c => c[0]).filter(k => cols.includes(k));
   async function excel() {
@@ -31,7 +32,7 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
       groupe: e.groupe || '', section: e.section || e.section_rattachement || '' }[k]);
     const enCol = disposition === 'colonnes' && !groupe && groupesDuCours.length > 1;
     const sansGrp = enCol ? ordonnees.filter(k => k !== 'groupe') : ordonnees;
-    const tete = ['N°', ...sansGrp.map(k => COLONNES.find(c => c[0] === k)[1]), ...(enCol ? groupesDuCours : []), ...vides];
+    const tete = ['N°', ...sansGrp.map(k => COLONNES.find(c => c[0] === k)[1]), ...(enCol ? groupesDuCours.map(g => courts.get(g)) : []), ...vides];
     const lignes = etudiants.map((e, i) => [i + 1, ...sansGrp.map(k => val(e, k)), ...(enCol ? groupesDuCours.map(g => (groupesDe(e).includes(g) ? '✓' : '')) : []), ...vides.map(() => '')]);
     const ws = XLSX.utils.aoa_to_sheet([...(titre ? [[titre], []] : []), tete, ...lignes]);
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Liste');
@@ -51,7 +52,7 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
         {!groupe && groupesDuCours.length > 1 && (
           <div><span className="intertitre block mb-1">Les groupes</span>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-              {[['', 'Une feuille par groupe'], ['colonnes', `Tous sur une feuille, une colonne par groupe (${groupesDuCours.join(', ')}), cochée`]].map(([v, l]) => (
+              {[['', `Une feuille par groupe (${groupesDuCours.length})`], ['colonnes', `Tous sur une feuille, une colonne par groupe (${groupesDuCours.length})`]].map(([v, l]) => (
                 <label key={v || 'pages'} className="inline-flex items-center gap-1.5"><input type="radio" name="disposition" checked={disposition === v} onChange={() => setDisposition(v)} />{l}</label>))}
             </div></div>)}
         <div><span className="intertitre block mb-1">Colonnes</span>
@@ -77,6 +78,16 @@ function Composer({ etudiants, cours, groupe, onImprimer, onFermer }) {
  * nommé, là où l'on travaille, et trois gestes : imprimer la liste (PDF, colonne de signature),
  * la télécharger en Excel, copier les adresses de l'école. Le groupe affiché fait la liste.
  */
+/* LE NOM COURT D'UN GROUPE (3.5.736, Charles : « pas clair du tout ») : « Acquisition … (TP) · Org 1 · Gr. 3 » devient « 3 » ; un groupe
+   « … · tous » devient « Tous » ; si deux activités donnent le même nom court, on ajoute la leur (« 3 · TP », « Tous · TH »). */
+function nomsCourts(groupes) {
+  const court = g => { const m = /Gr\.\s*(.+)$/.exec(g); return m ? m[1].trim() : /·\s*tous$/i.test(g) ? 'Tous' : g; };
+  const act = g => { const m = /\(([^)]+)\)/.exec(g); return m ? m[1] : String(g).split(' · ')[0].split(' ').slice(0, 2).join(' '); };
+  const n = new Map();
+  for (const g of groupes) n.set(court(g), (n.get(court(g)) || 0) + 1);
+  return new Map(groupes.map(g => [g, n.get(court(g)) > 1 ? `${court(g)} · ${act(g)}` : court(g)]));
+}
+
 export default function MaListe({ etudiants, groupe, cours, onImprimer, occupe }) {
   const [ouvert, setOuvert] = useState(false);
   // LE MENU S'OUVRE DU CÔTÉ OÙ IL Y A DE LA PLACE (3.5.163, Charles : « mise en page ») : aligné à droite du bouton quand
