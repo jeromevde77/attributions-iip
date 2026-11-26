@@ -25,7 +25,7 @@ import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { peut } from '../middleware/permissions.js';
 import { envelopperDocument } from '../lib/document.js';
-import { donneesInscritsUnites } from './etudiants.js';
+import { donneesInscritsUnites, sectionRattachement } from './etudiants.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE, aRepresenterParCours } from './acquis.js';
 import { calculerEtp, syntheseCivile } from './pilotage.js';
@@ -3052,7 +3052,7 @@ export const RAPPORTS = [
      par unité : la vérificatrice contrôle UNE unité, et deux grilles collées
      feraient lire un récapitulatif pour l'autre. */
   {
-    id: 'grille-presences', domaine: 'etudiants', params: ['annee', 'portee', 'periode'],
+    id: 'grille-presences', domaine: 'etudiants', params: ['annee', 'section', 'portee', 'periode'],
     libelle: 'Grille de présence',
     aide: "Étudiants en lignes, séances en colonnes (P, A, J, —) : une unité entière avec le récapitulatif des heures par cours et le premier dixième, ou un cours. Toute l'année, ou du … au ….",
     portees: ['ue', 'cours'],
@@ -3105,7 +3105,10 @@ for (const d of RAPPORTS) declarerTitre(d.libelle, codeListe(d.id));
 function grilleDePortee(p) {
   const refus = (m, status = 400) => Object.assign(new Error(m), { status });
   const po = p.portee || {};
-  const periode = { du: p.du, au: p.au };
+  /* LA SECTION CHOISIE (3.5.731, Mati : l'UE 286 du tronc commun mêlait optométrie et orthoptie) : seuls ses étudiants. */
+  const secs = new Map();
+  const garder = p.section ? (id => { if (!secs.has(id)) { let v = null; try { v = sectionRattachement(id, p.annee).section || null; } catch { /* */ } secs.set(id, v); } return !secs.get(id) || secs.get(id) === p.section; }) : null;
+  const periode = { du: p.du, au: p.au, garder };
   // « Tous les cours de l'unité » : c'est la grille de l'unité.
   if (po.niveau === 'cours' && po.code_cours) {
     const x = grilleCours(po.code_cours, p.annee, periode);
