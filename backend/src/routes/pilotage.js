@@ -264,7 +264,8 @@ r.get('/iip-helb', authRequired, (req, res) => {
   if (req.query.recalculer) viderMemoCout();
   const unite = req.query.unite_helb === 'heures' ? 'heures' : 'periodes';
   const mode = req.query.cout === 'reel' || req.query.cout === 'titres' ? 'reel' : 'convention';   // la bascule de la section (3.5.499)
-  try { res.json(donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, mode, cor: sourcesEnVigueur().helb_cor?.totaux || null })); }
+  try { res.json({ ...donneesIipHelb(String(req.query.section || 'TIM'), annees, { unite, mode, cor: sourcesEnVigueur().helb_cor?.totaux || null }),
+    codiplomation: sectionsCodiplomation() }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
