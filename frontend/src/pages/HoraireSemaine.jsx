@@ -74,7 +74,8 @@ export default function HoraireSemaine({ consultation = false }) {
   const duree = MODULE;
   const [plages, setPlages] = useState([]);
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
-  const [jourDetail, setJourDetail] = useState(null);   // la journée en détail (3.5.725) : sa date
+  const [jourDetail, setJourDetail] = useState(null);
+  const [relier, setRelier] = useState(false);   // relier les séances aux attributions (3.5.727)   // la journée en détail (3.5.725) : sa date
   const [placer, setPlacer] = useState(null);       // « Placer » sans glisser (3.5.718) : { carte, date, debut, fin, local }
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
   const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
@@ -223,8 +224,13 @@ export default function HoraireSemaine({ consultation = false }) {
             <IconCopy size={15} /> Recopier cette semaine…
           </button>
         )}
+        {peutEcrire && (
+          <button type="button" className={`bouton ${vue === 'classe' ? '' : 'ml-auto'}`} onClick={() => setRelier(true)}>
+            Relier aux attributions…
+          </button>
+        )}
         {peutChangerCours && (
-          <button type="button" className={`bouton ${vue === 'classe' ? '' : 'ml-auto'}`} onClick={() => setChangerCours(true)}>
+          <button type="button" className="bouton" onClick={() => setChangerCours(true)}>
             <IconReplace size={15} /> Changer le cours de plusieurs séances…
           </button>
         )}
@@ -443,6 +449,8 @@ export default function HoraireSemaine({ consultation = false }) {
         );
       })()}
 
+      {relier && <RelierAttributions annee={annee} onFermer={() => setRelier(false)} onFini={() => { setRelier(false); charger(); }} />}
+
       {/* LA JOURNÉE EN DÉTAIL (3.5.725, Charles : « si je clique sur le jour, j'aimerais avoir le détail pour avoir une bonne vue »).
           Les séances du jour de la vue ouverte, dans l'ordre des heures ; une ligne ouvre la séance. */}
       {jourDetail && (() => {
@@ -468,7 +476,7 @@ export default function HoraireSemaine({ consultation = false }) {
                       {x.prof_attribution?.length > 0 && !x.prof_attribution.some(p => p.id === x.professeur_id)
                         ? <div className="text-mention" style={{ color: 'var(--c-attente)' }}>attributions : {x.prof_attribution.map(p => p.nom).join(', ')}</div> : null}</Td>
                     <Td>{x.local_texte || <span className="text-slate-400">—</span>}</Td>
-                    <Td className="text-second">{[x.annule ? 'annulée' : null, ...(x.conflits || []).map(c => RAISONS[c]), x.commentaire || null].filter(Boolean).join(' · ')}</Td>
+                    <Td className="text-second">{[x.annule ? 'annulée' : null, x.attribution ? null : 'pas reliée à une attribution', ...(x.conflits || []).map(c => RAISONS[c]), x.commentaire || null].filter(Boolean).join(' · ')}</Td>
                   </Tr>
                 ))}
               </tbody>
@@ -487,7 +495,9 @@ export default function HoraireSemaine({ consultation = false }) {
             <span className="flex-1" />
             <button className="bouton" onClick={() => setSel(null)}>Fermer</button>
             <button className="bouton bouton-fort" onClick={() => enregistrerSel({ local_texte: sel._local ?? sel.local_texte,
-              ...(sel._prof !== undefined ? { professeur_id: sel._prof || null, suivantes: !!sel._suivantes } : {}),
+              ...(sel._prof !== undefined ? { professeur_id: sel._prof || null } : {}),
+              ...(sel._attr !== undefined ? { attribution_id: sel._attr || 0 } : {}),
+              ...(sel._prof !== undefined || sel._attr !== undefined ? { suivantes: !!sel._suivantes } : {}),
               heure_fin: deHm(hm(sel.heure_debut) + (sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut)))),
               annule: sel._annule ?? !!sel.annule, commentaire: sel._commentaire ?? sel.commentaire })}>Enregistrer</button>
           </> : null}>
@@ -499,16 +509,24 @@ export default function HoraireSemaine({ consultation = false }) {
                 placeholder="P2 523, Nile, Distanciel asynchrone…" />
               <datalist id="locaux-horaire">{ref.locaux.map(l => <option key={l.nom} value={l.nom} />)}<option value="Distanciel asynchrone" /></datalist>
             </label>
-            {(sel.sous_groupe || sel.prof_attribution?.length > 0) && (
-              <div className="bloc-etat px-3 py-2 text-second" data-etat={sel.prof_attribution?.length && !sel.prof_attribution.some(p => p.id === Number(sel._prof ?? sel.professeur_id)) ? 'surveiller' : 'neutre'}>
-                {sel.sous_groupe ? <>Groupe <b>{sel.sous_groupe}</b> · </> : null}
-                {sel.prof_attribution?.length
-                  ? <>selon les attributions : <b>{sel.prof_attribution.map(p => p.nom).join(', ')}</b>
-                      {roleEcrit && sel.prof_attribution.length === 1 && sel.prof_attribution[0].id !== Number(sel._prof ?? sel.professeur_id) && (
-                        <button className="ml-2 underline text-iip-blue" onClick={() => setSel({ ...sel, _prof: sel.prof_attribution[0].id })}>le reprendre</button>)}</>
-                  : 'aucune attribution pour ce groupe'}
-              </div>
-            )}
+            {/* LE LIEN RÉEL À L'ATTRIBUTION (3.5.727) : les heures et le CEP se calculent sur lui. */}
+            {(() => {
+              const at = (sel.attributions || []).find(a => a.id === Number(sel._attr ?? sel.attribution_id));
+              return (
+                <div className="bloc-etat px-3 py-2 space-y-1.5" data-etat={at ? 'neutre' : 'surveiller'}>
+                  <div className="text-second">{sel.sous_groupe ? <>Groupe <b>{sel.sous_groupe}</b> · </> : null}
+                    {at ? <>reliée à l’attribution <b>{at.code || 'tous'}</b> · {at.prof}{at.activite ? ` · ${at.activite}` : ''}</>
+                      : <b>pas reliée à une attribution</b>}{!at && sel.prof_attribution?.length ? <> — selon les attributions : {sel.prof_attribution.map(p => p.nom).join(', ')}</> : null}</div>
+                  {roleEcrit && (sel.attributions || []).length > 0 && (
+                    <select className="controle w-full" value={String(sel._attr ?? sel.attribution_id ?? '')}
+                      onChange={e => setSel({ ...sel, _attr: Number(e.target.value) || 0 })}>
+                      <option value="">— pas reliée —</option>
+                      {sel.attributions.map(a => <option key={a.id} value={String(a.id)}>Groupe {a.code || 'tous'} · {a.prof}{a.activite ? ` · ${a.activite}` : ''}{a.periodes != null ? ` · ${a.periodes} p.` : ''}</option>)}
+                    </select>
+                  )}
+                </div>
+              );
+            })()}
             <label className="block">
               <span className="text-xs text-slate-500">Professeur</span>
               <select className="controle w-full" disabled={!roleEcrit} value={String(sel._prof ?? sel.professeur_id ?? '')}
@@ -517,10 +535,11 @@ export default function HoraireSemaine({ consultation = false }) {
                 {ref.profs.map(p => <option key={p.id} value={String(p.id)}>{p.nom} {p.prenom}</option>)}
               </select>
             </label>
-            {sel._prof !== undefined && Number(sel._prof || 0) !== Number(sel.professeur_id || 0) && (
+            {((sel._prof !== undefined && Number(sel._prof || 0) !== Number(sel.professeur_id || 0))
+              || (sel._attr !== undefined && Number(sel._attr || 0) !== Number(sel.attribution_id || 0))) && (
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={!!sel._suivantes} onChange={e => setSel({ ...sel, _suivantes: e.target.checked })} />
-                Aussi les séances suivantes de ce cours{sel.sous_groupe ? ` (groupe ${sel.sous_groupe})` : ''} au nom de {nomProf(sel) || 'personne'}
+                Aussi les séances suivantes de ce cours{sel.sous_groupe ? ` (groupe ${sel.sous_groupe})` : ''} au nom de {nomProf(sel) || 'personne'} (professeur et attribution)
               </label>
             )}
             <label className="block">
@@ -735,6 +754,61 @@ function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFe
           </div>
         )}
       </div>
+    </Fenetre>
+  );
+}
+
+/* RELIER LES SÉANCES AUX ATTRIBUTIONS (3.5.727) : ce que Lucie relie d'office (même cours, même professeur, sans doute), puis les cas
+   à trancher, un cours, un groupe et un professeur à la fois, la proposition en tête. Rien ne s'écrit avant « Relier ». */
+function RelierAttributions({ annee, onFermer, onFini }) {
+  const [plan, setPlan] = useState(null);
+  const [choix, setChoix] = useState({});
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  useEffect(() => {
+    appel(`/api/horaire/liaison?annee=${annee}`).then(p => {
+      setPlan(p);
+      setChoix(Object.fromEntries(p.cas.filter(c => c.propose).map(c => [c.cle, String(c.propose)])));
+    }).catch(e => setErreur(e.message));
+  }, [annee]);
+  const nChoix = plan ? plan.cas.filter(c => choix[c.cle]).reduce((t, c) => t + c.n, 0) : 0;
+  const relierTout = async () => {
+    setEnCours(true);
+    try {
+      const r = await appel('/api/horaire/liaison', { method: 'POST', body: JSON.stringify({ annee, auto: true, choix }) });
+      await informer(`✓ ${r.reliees} séance(s) reliée(s) à leur attribution.`);
+      onFini();
+    } catch (e) { setErreur(e.message); setEnCours(false); }
+  };
+  return (
+    <Fenetre titre="Relier les séances aux attributions" large="grande" onFermer={onFermer}
+      sous={plan ? `${plan.deja} déjà reliée(s) · ${plan.auto.length} d’office · ${plan.cas.reduce((t, c) => t + c.n, 0)} à trancher en ${plan.cas.length} cas` : 'Calcul…'}
+      pied={<><span className="flex-1 text-second text-slate-500">{plan ? `${plan.auto.length + nChoix} séance(s) seront reliées` : ''}</span>
+        <button className="bouton" onClick={onFermer}>Annuler</button>
+        <button className="bouton bouton-fort" disabled={!plan || enCours || !(plan.auto.length + nChoix)} onClick={relierTout}>{enCours ? 'Liaison…' : 'Relier'}</button></>}>
+      {erreur && <div className="bloc-etat px-3 py-2 mb-2" data-etat="corriger">{erreur}</div>}
+      {!plan ? <p className="text-slate-400">Calcul…</p> : <div className="space-y-3 text-sm">
+        <p className="text-second text-slate-600">Une séance reliée compte dans les heures de SON attribution (heures posées, reste à placer) et, ensuite, dans le congé-éducation. D’office : le professeur de la séance n’a qu’une attribution pour ce cours, ou une seule pour ce cours et ce groupe ({plan.auto.length} séances). Ci-dessous, les cas où il faut choisir ; la proposition est présélectionnée, « — ne pas relier — » les laisse de côté.</p>
+        {plan.sans_attribution > 0 && <p className="text-second text-slate-500">{plan.sans_attribution} séance(s) d’un cours sans aucune attribution cette année : rien à relier.</p>}
+        <Tableau>
+          <TableauEntete><Th largeur="6rem">Cours</Th><Th largeur="5rem">Groupe</Th><Th>Professeur de la séance</Th><Th largeur="7rem" align="droite">Séances</Th><Th>Relier à l’attribution</Th></TableauEntete>
+          <tbody>
+            {!plan.cas.length && <TableauVide colonnes={5}>Aucun cas à trancher.</TableauVide>}
+            {plan.cas.map(c => (
+              <Tr key={c.cle}>
+                <Td><b>{c.cours_code}</b><div className="text-mention text-slate-400">{c.section || ''}</div></Td>
+                <Td>{c.groupe || 'tous'}</Td>
+                <Td>{c.professeur || <span className="text-slate-400">aucun</span>}</Td>
+                <Td align="droite">{c.n} · {c.heures} h<div className="text-mention text-slate-400">dès le {court(c.premiere || '')}</div></Td>
+                <Td><select className="controle w-full" value={choix[c.cle] || ''} onChange={e => setChoix(x => ({ ...x, [c.cle]: e.target.value }))}>
+                  <option value="">— ne pas relier —</option>
+                  {c.candidats.map(a => <option key={a.id} value={String(a.id)}>Groupe {a.code || 'tous'} · {a.prof}{a.activite ? ` · ${a.activite}` : ''}{a.periodes != null ? ` · ${a.periodes} p.` : ''}</option>)}
+                </select></Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Tableau>
+      </div>}
     </Fenetre>
   );
 }

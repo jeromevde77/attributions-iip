@@ -31,6 +31,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { niveauxEffectifs } from './capitalisation.js';
 import { anneeDeTravail } from '../helpers/annee.js';
+import { planLiaison, appliquerLiaison, attributionPour } from '../lib/lienAttribution.js';
 import { motsDuPdf } from '../lib/motsDuPdf.js';
 import { lireHoraire, dureeMinutes } from '../lib/lireHoraireEDT.js';
 
@@ -73,7 +74,7 @@ export function migrerHoraire(base = db) {
   const cols = base.prepare('PRAGMA table_info(horaire_seance)').all().map(c => c.name);
   for (const [nom, type] of [['groupe_id', 'INTEGER'], ['annule', 'INTEGER NOT NULL DEFAULT 0'],
     ['commentaire', 'TEXT'], ['modifie_lucie', 'INTEGER NOT NULL DEFAULT 0'], ['cree_par', 'TEXT'],
-    ['cree_le', 'TEXT'], ['modifie_par', 'TEXT'], ['modifie_le', 'TEXT'], ['bloc', 'TEXT'], ['sous_groupe', 'TEXT']]) {
+    ['cree_le', 'TEXT'], ['modifie_par', 'TEXT'], ['modifie_le', 'TEXT'], ['bloc', 'TEXT'], ['sous_groupe', 'TEXT'], ['attribution_id', 'INTEGER']]) {
     if (!cols.includes(nom)) base.exec(`ALTER TABLE horaire_seance ADD COLUMN ${nom} ${type}`);
   }
   base.exec('CREATE INDEX IF NOT EXISTS idx_hs_groupe ON horaire_seance(groupe_id)');
@@ -575,8 +576,10 @@ r.get('/semaine', authRequired, (req, res) => {
   /* LE PARALLÈLE AVEC LES ATTRIBUTIONS (3.5.726, Charles : « je vois bien les groupes… où est le parallèle dans l'horaire ? ») :
      le ou les professeurs que les attributions de l'année mettent sur le cours et le groupe de la séance. */
   try {
-    const attr = db.prepare(`SELECT DISTINCT a.professeur_id id, p.nom, p.prenom, a.code FROM attribution a JOIN professeur p ON p.id = a.professeur_id
-      WHERE a.annee_scolaire = ? AND a.code_cours = ? AND COALESCE(a.en_conge, 0) = 0 AND a.professeur_id IS NOT NULL`);
+    const attr = db.prepare(`SELECT a.id attribution_id, a.professeur_id id, p.nom, p.prenom, a.code,
+        (SELECT libelle FROM activite_type t WHERE t.id = a.activite_id) activite, a.periodes_attribuees periodes
+      FROM attribution a LEFT JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.annee_scolaire = ? AND a.code_cours = ? AND COALESCE(a.en_conge, 0) = 0`);
     const memo = new Map();
     for (const x of seances) {
       if (!x.cours_code) continue;
@@ -585,8 +588,12 @@ r.get('/semaine', authRequired, (req, res) => {
       const g = String(x.sous_groupe || '').replace(/\s/g, '').toUpperCase();
       const sien = g ? l.filter(a => String(a.code || '').replace(/\s/g, '').toUpperCase() === g) : [];
       const tous = !g ? l.filter(a => String(a.code || '').toUpperCase() === 'TS') : [];
-      const r = (sien.length ? sien : tous).map(a => ({ id: a.id, nom: `${String(a.nom || '').toUpperCase()} ${a.prenom || ''}`.trim() }));
+      const r = (sien.length ? sien : tous).filter(a => a.id).map(a => ({ id: a.id, nom: `${String(a.nom || '').toUpperCase()} ${a.prenom || ''}`.trim() }));
       x.prof_attribution = [...new Map(r.map(a => [a.id, a])).values()];
+      // LE LIEN RÉEL (3.5.727) : les attributions du cours, pour relier la séance ; et celle qui la porte.
+      x.attributions = l.map(a => ({ id: a.attribution_id, code: a.code, prof: a.nom ? `${String(a.nom).toUpperCase()} ${a.prenom || ''}`.trim() : 'à désigner',
+        activite: a.activite || null, periodes: a.periodes }));
+      x.attribution = x.attribution_id ? x.attributions.find(a => a.id === x.attribution_id) || null : null;
     }
   } catch { /* base sans attributions */ }
   const feries = new Map([...joursFeries(Number(lundi.slice(0, 4))), ...joursFeries(Number(dimanche.slice(0, 4)))]);
@@ -628,19 +635,18 @@ r.get('/semaine', authRequired, (req, res) => {
       FROM attribution a LEFT JOIN activite_type t ON t.id = a.activite_id LEFT JOIN professeur p ON p.id = a.professeur_id
       WHERE a.annee_scolaire = ? AND a.professeur_id = ? AND a.code_cours IS NOT NULL AND COALESCE(a.en_conge, 0) = 0
       ORDER BY a.code_cours, a.code`).all(an, profId);
-    const pose = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND professeur_id = ?
-      AND cours_code = ? AND COALESCE(sous_groupe, '') = ? AND annule = 0`);
-    const poseSem = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND professeur_id = ?
-      AND cours_code = ? AND COALESCE(sous_groupe, '') = ? AND annule = 0 AND date BETWEEN ? AND ?`);
+    // Les heures se lisent sur le LIEN réel (3.5.727) : les séances reliées à cette attribution.
+    const pose = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND attribution_id = ? AND annule = 0`);
+    const poseSem = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND attribution_id = ? AND annule = 0 AND date BETWEEN ? AND ?`);
     bac = attrs.map(a => {
       const sg = String(a.code || '').trim();
       const heures = Math.round((Number(a.periodes_attribuees) || 0) * 50 / 60 * 100) / 100;
-      const posees = pose.get(an, profId, a.code_cours, sg).m / 60;
+      const posees = pose.get(an, a.id).m / 60;
       return { id: `a${a.id}`, attribution_id: a.id, ue_num: a.ue_num, code_cours: a.code_cours, cours_nom: a.cours_nom,
         nom: sg || 'A', activite: a.activite || null, section: a.section, prof_nom: a.prof_nom, prof_prenom: a.prof_prenom,
         heures_attribuees: heures, heures_posees: Math.round(posees * 100) / 100,
         reste: heures ? Math.round((heures - posees) * 100) / 100 : null, prevu_semaine: null,
-        pose_semaine: Math.round(poseSem.get(an, profId, a.code_cours, sg, lundi, dimanche).m / 6) / 10 };
+        pose_semaine: Math.round(poseSem.get(an, a.id, lundi, dimanche).m / 6) / 10 };
     });
   }
   res.json({ annee: an, lundi, jours, semaine, seances, bac });
@@ -699,11 +705,11 @@ r.post('/seance', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => 
     const blocA = String(nivA[at.ue_num] || '').toUpperCase() || null;
     const sg = String(at.code || '').trim() || null;
     const infoA = db.prepare(`INSERT INTO horaire_seance (annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
-        cours_code, ue_num, matiere, professeur_id, local_texte, groupe_id, sous_groupe, source, modifie_lucie, cree_par, cree_le)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,?, 'lucie', 1, ?, datetime('now'))`).run(
+        cours_code, ue_num, matiere, professeur_id, local_texte, groupe_id, sous_groupe, attribution_id, source, modifie_lucie, cree_par, cree_le)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,?,?, 'lucie', 1, ?, datetime('now'))`).run(
       at.annee_scolaire, `${at.section} ${blocA || ''}`.trim(), at.section, blocA, b.date, b.heure_debut, b.heure_fin,
       hm(b.heure_fin) - hm(b.heure_debut), at.code_cours, at.ue_num, null, at.professeur_id || null,
-      String(b.local_texte || '').trim() || null, sg, qui(req));
+      String(b.local_texte || '').trim() || null, sg, at.id, qui(req));
     return res.json({ ok: true, id: infoA.lastInsertRowid, conflits: conflitsDeLaSeance(infoA.lastInsertRowid) });
   }
   const g = db.prepare('SELECT * FROM groupe WHERE id = ?').get(Number(b.groupe_id));
@@ -737,22 +743,47 @@ r.put('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) 
     profNouveau = Number(req.body.professeur_id) || null;
     if (profNouveau && !db.prepare('SELECT 1 FROM professeur WHERE id = ?').get(profNouveau)) return res.status(404).json({ error: 'Professeur inconnu.' });
   }
+  /* LE LIEN À L'ATTRIBUTION (3.5.727) : donné explicitement (`attribution_id`, 0 = délier), sinon recalculé quand le professeur change
+     (l'attribution de ce professeur pour le même cours et le même groupe). Une attribution désignée fixe aussi le professeur s'il
+     n'est pas donné. */
+  let attrNouvelle = s.attribution_id ?? null;
+  if ('attribution_id' in req.body) {
+    attrNouvelle = Number(req.body.attribution_id) || null;
+    if (attrNouvelle) {
+      const at = db.prepare('SELECT id, code_cours, professeur_id, annee_scolaire FROM attribution WHERE id = ?').get(attrNouvelle);
+      if (!at || at.code_cours !== s.cours_code || at.annee_scolaire !== s.annee_scolaire) return res.status(400).json({ error: 'Cette attribution n’est pas celle du cours de la séance.' });
+      if (!('professeur_id' in req.body) && at.professeur_id) profNouveau = at.professeur_id;
+    }
+  } else if ('professeur_id' in req.body && profNouveau !== s.professeur_id) {
+    attrNouvelle = profNouveau ? attributionPour(s.annee_scolaire, s, profNouveau) : null;
+  }
   db.transaction(() => {
     db.prepare(`UPDATE horaire_seance SET date = ?, heure_debut = ?, heure_fin = ?, minutes = ?,
-        local_texte = ?, annule = ?, commentaire = ?, professeur_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
+        local_texte = ?, annule = ?, commentaire = ?, professeur_id = ?, attribution_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
       WHERE id = ?`).run(b.date, b.heure_debut, b.heure_fin, hm(b.heure_fin) - hm(b.heure_debut),
       'local_texte' in req.body ? (String(req.body.local_texte || '').trim() || null) : s.local_texte,
       'annule' in req.body ? (req.body.annule ? 1 : 0) : s.annule,
       'commentaire' in req.body ? (String(req.body.commentaire || '').trim() || null) : s.commentaire,
-      profNouveau, qui(req), s.id);
-    if ('professeur_id' in req.body && req.body.suivantes && profNouveau !== s.professeur_id) {
-      suivantes = db.prepare(`UPDATE horaire_seance SET professeur_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
+      profNouveau, attrNouvelle, qui(req), s.id);
+    if (('professeur_id' in req.body || 'attribution_id' in req.body) && req.body.suivantes && (profNouveau !== s.professeur_id || attrNouvelle !== (s.attribution_id ?? null))) {
+      suivantes = db.prepare(`UPDATE horaire_seance SET professeur_id = ?, attribution_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
         WHERE annee_scolaire = ? AND id <> ? AND date > ? AND COALESCE(cours_code, '') = ? AND COALESCE(sous_groupe, '') = ?
           AND COALESCE(professeur_id, 0) = ? AND COALESCE(section, '') = ?`)
-        .run(profNouveau, qui(req), s.annee_scolaire, s.id, s.date, s.cours_code || '', s.sous_groupe || '', s.professeur_id || 0, s.section || '').changes;
+        .run(profNouveau, attrNouvelle, qui(req), s.annee_scolaire, s.id, s.date, s.cours_code || '', s.sous_groupe || '', s.professeur_id || 0, s.section || '').changes;
     }
   })();
   res.json({ ok: true, suivantes, conflits: conflitsDeLaSeance(s.id) });
+});
+
+/* RELIER LES SÉANCES AUX ATTRIBUTIONS (3.5.727, lib/lienAttribution.js) : le plan (d'office, et les cas à trancher), puis l'écriture. */
+r.get('/liaison', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
+  const an = req.query.annee || anneeDeTravail(req);
+  res.json(planLiaison(an, { sections: getUserSections(req.user) }));
+});
+r.post('/liaison', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
+  const an = req.body?.annee || anneeDeTravail(req);
+  const choix = req.body?.choix && typeof req.body.choix === 'object' ? req.body.choix : {};
+  res.json(appliquerLiaison(an, { auto: req.body?.auto !== false, choix, sections: getUserSections(req.user), par: qui(req) }));
 });
 
 r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
