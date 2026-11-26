@@ -41,7 +41,8 @@ export default function ExamensPreparer({ annee, initial = null, integre = false
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState(initial?.section || '');
   const [session, setSession] = useState(Number(initial?.session) === 2 ? 2 : 1);
-  const [du, setDu] = useState(initial?.du || '');
+  // Par défaut, d'aujourd'hui (essai du 26 novembre : 69 épreuves depuis le 23 octobre, le passé encombrait).
+  const [du, setDu] = useState(initial ? (initial.du || '') : new Date().toLocaleDateString('sv-SE'));
   const [au, setAu] = useState(initial?.au || '');
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -200,7 +201,7 @@ export default function ExamensPreparer({ annee, initial = null, integre = false
           </div>
 
           {/* 3 · SORTIR */}
-          <section className="carte overflow-hidden">
+          <section className="carte overflow-hidden sticky bottom-2 z-10 shadow-flottant" style={{ background: 'var(--blanc)' }}>
             <div className="flex flex-wrap items-start gap-x-8 gap-y-3 px-4 py-3 text-sm">
               {familles.map(f => (
                 <div key={f.k} className="space-y-1">
