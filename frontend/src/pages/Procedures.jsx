@@ -835,7 +835,7 @@ function valeursInitiales(d, cle) {
   switch (cle) {
     case 'faits': return { date: j, description: '', moment: null, type_fraude: null, pv_surveillance: false };
     case 'ecartement': return { du: j, au: null };
-    case 'convocation': return { envoyee_le: j, mode: null, audition_le: null, heure: '', lieu: '', sanction_envisagee: null };
+    case 'convocation': return { envoyee_le: j, mode: null, audition_le: null, heure: '', lieu: '', sanction_envisagee: null, dossier_consultable_le: j };
     case 'audition': return { tenue_le: et.convocation?.audition_le || j, etudiant_present: null, assiste_par: '', conteste: null, pv: null, declarations: '' };
     case 'avis': return { demande_le: j, rendu_le: null, avis: '' };
     case 'decision': return {
@@ -990,6 +990,9 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
         </div>
         <Champ label="Lieu de l'audition">
           <input className="controle w-full" value={v.lieu || ''} disabled={lecture} onChange={e => maj('lieu', e.target.value)} placeholder="Bureau de la direction, Campus Erasme" />
+        </Champ>
+        <Champ label="Dossier consultable à partir du" aide="Au secrétariat, sur rendez-vous, en présence de la Direction (art. 115 ter). La convocation l'annonce.">
+          <Date_ valeur={v.dossier_consultable_le} onChange={x => maj('dossier_consultable_le', x)} {...P} />
         </Champ>
         <Champ label="Sanction envisagée (art. 115 quater)"
           aide={v.sanction_envisagee === 'renvoi_definitif' ? "Renvoi définitif : l'audition ne peut se tenir avant huit jours ouvrables." : null}>
