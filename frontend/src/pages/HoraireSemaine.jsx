@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconChevronLeft, IconChevronRight, IconCopy, IconPlus, IconReplace, IconTrash, IconUpload } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { Fenetre } from '../components/ui.jsx';
+import { Fenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../components/ui.jsx';
 import { passeRole } from '../lib/droits.js';
 import { informer } from '../lib/dialogue.jsx';
 import ChangerCoursSeances from '../components/ChangerCoursSeances.jsx';
@@ -74,6 +74,7 @@ export default function HoraireSemaine({ consultation = false }) {
   const duree = MODULE;
   const [plages, setPlages] = useState([]);
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
+  const [jourDetail, setJourDetail] = useState(null);   // la journée en détail (3.5.725) : sa date
   const [placer, setPlacer] = useState(null);       // « Placer » sans glisser (3.5.718) : { carte, date, debut, fin, local }
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
   const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
@@ -238,7 +239,9 @@ export default function HoraireSemaine({ consultation = false }) {
           <div className="grid" style={{ gridTemplateColumns: `3rem repeat(${nbJours}, minmax(0,1fr))` }}>
             <div className="tab-entete h-9" />
             {jours.map((j, i) => (
-              <div key={j.date} className="tab-entete h-9 flex flex-col items-center justify-center border-l border-slate-200 text-xs text-slate-600">
+              <div key={j.date} role="button" tabIndex={0} title="Voir la journée en détail"
+                onClick={() => setJourDetail(j.date)} onKeyDown={e => { if (e.key === 'Enter') setJourDetail(j.date); }}
+                className="tab-entete h-9 flex flex-col items-center justify-center border-l border-slate-200 text-xs text-slate-600 cursor-pointer hover:text-iip-blue hover:underline">
                 <span>{NOMS_JOURS[i]} {court(j.date)}</span>
                 {j.ferie && <span className="text-mention text-slate-400">{j.ferie}</span>}
               </div>
@@ -436,6 +439,39 @@ export default function HoraireSemaine({ consultation = false }) {
               </label>
               <p className="text-xs text-slate-500">Pour les semaines suivantes : « Recopier la semaine », depuis la vue classe. Un cours qui n’est pas dans la liste n’est pas attribué à ce professeur : il s’ajoute d’abord dans Attributions.</p>
             </div>
+          </Fenetre>
+        );
+      })()}
+
+      {/* LA JOURNÉE EN DÉTAIL (3.5.725, Charles : « si je clique sur le jour, j'aimerais avoir le détail pour avoir une bonne vue »).
+          Les séances du jour de la vue ouverte, dans l'ordre des heures ; une ligne ouvre la séance. */}
+      {jourDetail && (() => {
+        const i = jours.findIndex(j => j.date === jourDetail);
+        const l = (data?.seances || []).filter(x => x.date === jourDetail)
+          .sort((a, b) => String(a.heure_debut).localeCompare(String(b.heure_debut)) || String(a.cours_code || '').localeCompare(String(b.cours_code || '')));
+        const ferie = jours[i]?.ferie;
+        return (
+          <Fenetre titre={`${NOMS_JOURS[i] ? NOMS_JOURS[i][0].toUpperCase() + NOMS_JOURS[i].slice(1) : ''} ${court(jourDetail)}`} large="grande"
+            sous={`${libelleCle || ''}${l.length ? ` · ${l.length} séance${l.length > 1 ? 's' : ''}` : ''}${ferie ? ` · ${ferie}` : ''}`}
+            onFermer={() => setJourDetail(null)}
+            pied={<><span className="flex-1" /><button className="bouton" onClick={() => setJourDetail(null)}>Fermer</button></>}>
+            <Tableau>
+              <TableauEntete><Th largeur="7rem">Heures</Th><Th>Cours</Th><Th largeur="6rem">Groupe</Th><Th>Professeur</Th><Th largeur="9rem">Local</Th><Th>À noter</Th></TableauEntete>
+              <tbody>
+                {!l.length && <TableauVide colonnes={6}>Aucune séance ce jour-là.</TableauVide>}
+                {l.map(x => (
+                  <Tr key={x.id} className="cursor-pointer" onClick={() => { setJourDetail(null); setSel(x); }}>
+                    <Td><b className={x.annule ? 'line-through' : ''}>{lisible(x.heure_debut)}–{lisible(x.heure_fin)}</b></Td>
+                    <Td><span className={x.annule ? 'line-through' : ''}><b>{x.cours_code}</b> {x.cours_nom || x.matiere || ''}</span>{vue !== 'classe' && x.classe ? <span className="text-slate-400"> · {x.classe}</span> : null}</Td>
+                    <Td>{x.sous_groupe || x.groupe_nom || '—'}</Td>
+                    <Td>{nomProf(x) || <span className="text-slate-400">à attribuer</span>}</Td>
+                    <Td>{x.local_texte || <span className="text-slate-400">—</span>}</Td>
+                    <Td className="text-second">{[x.annule ? 'annulée' : null, ...(x.conflits || []).map(c => RAISONS[c]), x.commentaire || null].filter(Boolean).join(' · ')}</Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Tableau>
+            <p className="text-xs text-slate-400 mt-2">Cliquez une ligne pour ouvrir la séance{roleEcrit ? ' et la modifier' : ''}.</p>
           </Fenetre>
         );
       })()}
