@@ -24,6 +24,9 @@ function nbGroupesActuels(cours) {
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 function lettresEnDefaut(codes) {
   const l = [...new Set(codes.filter(c => c && c !== 'Ts'))].sort();
+  // UNE SEULE LETTRE EST LIBRE (3.5.756, Charles : « je dois pouvoir changer Ts en C ») : un cours donné à un seul groupe peut
+  // porter sa lettre réelle ; la suite depuis A ne s'impose qu'à partir de deux groupes.
+  if (l.length < 2) return null;
   return l.some((c, i) => c !== LETTRES[i]) ? l : null;
 }
 
@@ -129,7 +132,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
         </button>
       </>}>
         {/* Légende compacte */}
-        <div className="-mx-5 -mt-4 mb-3 px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+        <div className="mb-3 pb-2 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
           {Object.entries(MODE_CFG).map(([k, cfg]) => {
             const Icon = cfg.icon;
             return (
@@ -139,7 +142,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
               </span>
             );
           })}
-          <span className="ml-auto text-gray-400">☐ = créer org. 2</span>
+          <span className="ml-auto text-gray-400 whitespace-nowrap">☐ = créer org. 2</span>
         </div>
 
         {/* Corps */}
@@ -233,10 +236,11 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                               <div className="flex flex-wrap gap-1 ml-auto">
                                 {rows.map((r, i) => (
                                   <span key={i} className="text-mention bg-gray-100 rounded px-1.5 py-0.5 text-gray-600 flex items-center gap-0.5">
-                                    {r.code && r.code !== 'Ts' && (
-                                      <select value={lettres[r.id] || r.code} title="Changer la lettre de ce groupe"
+                                    {r.split_groupe !== 'O' && (
+                                      <select value={lettres[r.id] || r.code || 'Ts'} title="Changer la lettre de ce groupe (Ts = toute la classe)"
                                         onChange={ev => setLettres(m => ({ ...m, [r.id]: ev.target.value }))}
                                         className={`font-bold bg-transparent border rounded px-0.5 text-mention cursor-pointer ${lettres[r.id] && lettres[r.id] !== r.code ? 'border-amber-400' : 'border-transparent hover:border-gray-300'}`}>
+                                        <option value="Ts">Ts</option>
                                         {LETTRES.map(x => <option key={x} value={x}>{x}</option>)}
                                       </select>)}
                                     {r.split_groupe === 'O' && <span className="text-blue-400">↔</span>}
