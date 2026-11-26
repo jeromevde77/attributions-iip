@@ -108,7 +108,8 @@ function Tuile({ s, pl, h0, roleEcrit, vue, onOuvrir, onAligner }) {
                 style={{ borderColor: c, color: 'var(--c-principal, #1B2B4B)' }}
                 title={`Prendre ${a.prof} (attribution ${a.code || 'tous'}${a.activite ? ` · ${a.activite}` : ''}) et relier la séance`}
                 onClick={e => { e.stopPropagation(); onAligner(s, a); }}>
-                <IconArrowsLeftRight size={12} /> {String(a.prof || '').split(' ')[0]}
+                <IconArrowsLeftRight size={12} /> {Number(a.professeur_id || 0) === Number(s.professeur_id || 0)
+                  ? (aligner.length > 1 ? `Relier ${a.code || 'tous'}` : 'Relier') : String(a.prof || '').split(' ')[0]}
               </button>
             ))}
           </div>

@@ -4212,6 +4212,10 @@ export default function Etudiants() {
                         diplômé{e.diplome_annee ? ` ${e.diplome_annee.slice(-4)}` : ''}
                       </span>
                     )}
+                    {!e.diplome && e.diplome_autre && (
+                      <span title={`Épreuve intégrée de ${e.diplome_autre.section} réussie en ${e.diplome_autre.annee} (UE ${e.diplome_autre.ue_num}) — il poursuit dans sa section actuelle`}
+                        className="ml-1.5 text-mention text-slate-500 whitespace-nowrap">diplômé {e.diplome_autre.section} {String(e.diplome_autre.annee).slice(-4)}</span>
+                    )}
                   </td>
                   {/* LA COLONNE SECTION EST PARTIE (Charles, 27 septembre 2026 : « on
                       est dans le filtre, perte de place ») : les lignes sont déjà
