@@ -2378,8 +2378,10 @@ export default function Attributions() {
                   className="text-iip-gold hover:text-iip-amber" title="Remplir automatiquement les périodes prof"><IconWand size={16}/></button>
                 <button onClick={()=>setGroupesUE({ portee:'section', section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })}
                   className="text-gray-400 hover:text-iip-mauve" title="Organiser les groupes de toutes les UE de la section"><IconUsersGroup size={16}/></button>
+                {/* SUR LA LIGNE DE CHAQUE SECTION, NOMMÉ (3.5.760, Charles : « à la hauteur de la ligne de la section ») */}
                 <button onClick={()=>setGroupesSection({ section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })}
-                  className="text-gray-400 hover:text-iip-mauve" title="Groupes de la section : chaque UE, cours, activité et son groupe, à changer en un coup"><IconTable size={16}/></button>
+                  className="bouton !h-7 !px-2 text-xs inline-flex items-center gap-1" title="Chaque UE, cours, activité et son groupe, à changer en un coup">
+                  <IconTable size={14}/>Groupes</button>
                 <button onClick={()=>setRapportSectionChoix(sg.section)}
                   className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions (HTML/impression)"><IconFileText size={16}/></button>
                 <button onClick={()=>genererExcel(sg.section)}
@@ -2471,6 +2473,14 @@ export default function Attributions() {
                   <button onClick={collapseAll} className="text-gray-500 hover:text-iip-turquoise">Tout replier</button>
                 </div>}
               </div>
+
+              {/* LES GROUPES (3.5.760, Charles : « je ne vois pas le gestionnaire de groupes ») : une porte visible, sans déplier. */}
+              {isAdmin && (
+                <button onClick={()=>setGroupesSection({ groupes: sectionGroups.map(sg => ({ section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })),
+                  section: filters.section || sectionGroups[0]?.section })}
+                  className="bouton w-full flex items-center gap-2" title="Chaque UE, cours, activité et son groupe, à changer en un coup">
+                  <IconTable size={16}/>Groupes de la section…</button>
+              )}
 
               {/* Filtres */}
               <details className="group/vol">
@@ -2874,7 +2884,7 @@ export default function Attributions() {
       {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
       {autonomieUE && <CompleterAutonomie ueNum={autonomieUE.ueNum} section={autonomieUE.section}
         onFermer={() => setAutonomieUE(null)} onFait={() => load()} />}
-      {groupesSection && <GroupesSection section={groupesSection.section} ues={groupesSection.ues}
+      {groupesSection && <GroupesSection section={groupesSection.section} ues={groupesSection.ues} groupes={groupesSection.groupes}
         onClose={() => setGroupesSection(null)} onApplied={() => { setGroupesSection(null); load(); }} />}
       {groupesUE && (
         <OrganiserGroupesModal

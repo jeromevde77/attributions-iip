@@ -11,7 +11,11 @@ const trier = (a, b) => String(a).localeCompare(String(b), 'fr', { numeric: true
 const net = c => (String(c || '').trim() === '' || String(c).trim().toUpperCase() === 'TS' ? 'Ts' : String(c).replace(/\s/g, ''));
 const SUGGESTIONS = ['Ts', ...'ABCDEFGH'.split(''), '1', '2', '3', '4', '5', '6', '1+2', '3+4', '5+6'];
 
-export default function GroupesSection({ section, ues, onClose, onApplied }) {
+export default function GroupesSection({ section: sectionInitiale, ues: uesInitiales, groupes = null, onClose, onApplied }) {
+  /* LA SECTION SE CHOISIT DANS LA FENÊTRE (3.5.760) : ouverte depuis le volet d'Attributions, elle reçoit toutes les sections
+     (`groupes` : [{ section, ues }]) ; depuis la ligne d'une section, cette section seule. */
+  const [section, setSection] = useState(sectionInitiale || groupes?.[0]?.section || '');
+  const ues = groupes ? (groupes.find(g => g.section === section)?.ues || []) : uesInitiales;
   const [filtre, setFiltre] = useState('');
   const [ueChoisie, setUeChoisie] = useState('');
   const [codes, setCodes] = useState({});          // id d'attribution → nouveau groupe
@@ -85,6 +89,11 @@ export default function GroupesSection({ section, ues, onClose, onApplied }) {
         </table>
       ) : <>
         <div className="flex items-center gap-2 flex-nowrap mb-3 overflow-x-auto">
+          {groupes && groupes.length > 1 && (
+            <select className="controle" value={section} aria-label="Section"
+              onChange={e => { setSection(e.target.value); setUeChoisie(''); setCoches(new Set()); setCodes({}); }}>
+              {groupes.map(g => <option key={g.section} value={g.section}>{g.section}</option>)}
+            </select>)}
           <input className="controle min-w-[14rem]" placeholder="Filtrer : cours, professeur, groupe…" value={filtre} onChange={e => setFiltre(e.target.value)} />
           <select className="controle" value={ueChoisie} onChange={e => setUeChoisie(e.target.value)}>
             <option value="">Toutes les UE</option>
