@@ -464,7 +464,9 @@ export default function HoraireSemaine({ consultation = false }) {
                     <Td><b className={x.annule ? 'line-through' : ''}>{lisible(x.heure_debut)}–{lisible(x.heure_fin)}</b></Td>
                     <Td><span className={x.annule ? 'line-through' : ''}><b>{x.cours_code}</b> {x.cours_nom || x.matiere || ''}</span>{vue !== 'classe' && x.classe ? <span className="text-slate-400"> · {x.classe}</span> : null}</Td>
                     <Td>{x.sous_groupe || x.groupe_nom || '—'}</Td>
-                    <Td>{nomProf(x) || <span className="text-slate-400">à attribuer</span>}</Td>
+                    <Td>{nomProf(x) || <span className="text-slate-400">à attribuer</span>}
+                      {x.prof_attribution?.length > 0 && !x.prof_attribution.some(p => p.id === x.professeur_id)
+                        ? <div className="text-mention" style={{ color: 'var(--c-attente)' }}>attributions : {x.prof_attribution.map(p => p.nom).join(', ')}</div> : null}</Td>
                     <Td>{x.local_texte || <span className="text-slate-400">—</span>}</Td>
                     <Td className="text-second">{[x.annule ? 'annulée' : null, ...(x.conflits || []).map(c => RAISONS[c]), x.commentaire || null].filter(Boolean).join(' · ')}</Td>
                   </Tr>
@@ -497,6 +499,16 @@ export default function HoraireSemaine({ consultation = false }) {
                 placeholder="P2 523, Nile, Distanciel asynchrone…" />
               <datalist id="locaux-horaire">{ref.locaux.map(l => <option key={l.nom} value={l.nom} />)}<option value="Distanciel asynchrone" /></datalist>
             </label>
+            {(sel.sous_groupe || sel.prof_attribution?.length > 0) && (
+              <div className="bloc-etat px-3 py-2 text-second" data-etat={sel.prof_attribution?.length && !sel.prof_attribution.some(p => p.id === Number(sel._prof ?? sel.professeur_id)) ? 'surveiller' : 'neutre'}>
+                {sel.sous_groupe ? <>Groupe <b>{sel.sous_groupe}</b> · </> : null}
+                {sel.prof_attribution?.length
+                  ? <>selon les attributions : <b>{sel.prof_attribution.map(p => p.nom).join(', ')}</b>
+                      {roleEcrit && sel.prof_attribution.length === 1 && sel.prof_attribution[0].id !== Number(sel._prof ?? sel.professeur_id) && (
+                        <button className="ml-2 underline text-iip-blue" onClick={() => setSel({ ...sel, _prof: sel.prof_attribution[0].id })}>le reprendre</button>)}</>
+                  : 'aucune attribution pour ce groupe'}
+              </div>
+            )}
             <label className="block">
               <span className="text-xs text-slate-500">Professeur</span>
               <select className="controle w-full" disabled={!roleEcrit} value={String(sel._prof ?? sel.professeur_id ?? '')}

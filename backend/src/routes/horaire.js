@@ -572,6 +572,23 @@ r.get('/semaine', authRequired, (req, res) => {
   const toutes = db.prepare(`SELECT * FROM horaire_seance WHERE annee_scolaire = ? AND date BETWEEN ? AND ?`).all(an, lundi, dimanche);
   const conf = conflitsDe(toutes);
   for (const s of seances) s.conflits = [...(conf.get(s.id) || [])];
+  /* LE PARALLÈLE AVEC LES ATTRIBUTIONS (3.5.726, Charles : « je vois bien les groupes… où est le parallèle dans l'horaire ? ») :
+     le ou les professeurs que les attributions de l'année mettent sur le cours et le groupe de la séance. */
+  try {
+    const attr = db.prepare(`SELECT DISTINCT a.professeur_id id, p.nom, p.prenom, a.code FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.annee_scolaire = ? AND a.code_cours = ? AND COALESCE(a.en_conge, 0) = 0 AND a.professeur_id IS NOT NULL`);
+    const memo = new Map();
+    for (const x of seances) {
+      if (!x.cours_code) continue;
+      if (!memo.has(x.cours_code)) memo.set(x.cours_code, attr.all(an, x.cours_code));
+      const l = memo.get(x.cours_code);
+      const g = String(x.sous_groupe || '').replace(/\s/g, '').toUpperCase();
+      const sien = g ? l.filter(a => String(a.code || '').replace(/\s/g, '').toUpperCase() === g) : [];
+      const tous = !g ? l.filter(a => String(a.code || '').toUpperCase() === 'TS') : [];
+      const r = (sien.length ? sien : tous).map(a => ({ id: a.id, nom: `${String(a.nom || '').toUpperCase()} ${a.prenom || ''}`.trim() }));
+      x.prof_attribution = [...new Map(r.map(a => [a.id, a])).values()];
+    }
+  } catch { /* base sans attributions */ }
   const feries = new Map([...joursFeries(Number(lundi.slice(0, 4))), ...joursFeries(Number(dimanche.slice(0, 4)))]);
   const jours = [0, 1, 2, 3, 4, 5, 6].map(i => { const d = ajouterJours(lundi, i); return { date: d, ferie: feries.get(d) || null }; });
   const semaine = db.prepare(`SELECT id, semaine_num, type, label FROM annee_calendrier WHERE annee_scolaire = ? AND date_debut <= ? AND date_fin >= ?`)
