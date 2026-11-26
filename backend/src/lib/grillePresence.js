@@ -383,9 +383,9 @@ const periodeLigne = (du, au) => (du || au
   ? `Période : ${du ? fr(du) : 'début'} – ${au ? fr(au) : 'aujourd’hui'}` : 'Toute l’année');
 
 /** La grille de toute l'UE : ses inscrits, toutes les séances de tous ses cours. */
-export function grilleUE(ueNum, annee, { du = null, au = null } = {}) {
+export function grilleUE(ueNum, annee, { du = null, au = null, garder = null } = {}) {
   const { coursUE, seances } = seancesDeLUE(ueNum, annee);
-  const etudiants = inscritsDeLUE(ueNum, annee);
+  const etudiants = inscritsDeLUE(ueNum, annee).filter(e => !garder || garder(e.id));
   const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.n || '';
   const cx = contexteGrille(ueNum, annee, seances);
   const g = donneesGrille({ seances, etudiants, du, au, dixieme: cx.dixieme, cinquieme: cx.cinquieme, infos: cx.infos, dispensesParEtudiant: dispensesUE(etudiants, ueNum, annee) });
@@ -397,12 +397,12 @@ export function grilleUE(ueNum, annee, { du = null, au = null } = {}) {
 
 /** La grille d'un cours, vue de l'établissement : toutes ses séances de l'année
  *  et les inscrits de son UE (un sous-groupe se lit « — » quand il est encodé). */
-export function grilleCours(coursCode, annee, { du = null, au = null } = {}) {
+export function grilleCours(coursCode, annee, { du = null, au = null, garder = null } = {}) {
   const c = db.prepare('SELECT ue_num, cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee);
   if (!c) return null;
   const { seances: toutes } = seancesDeLUE(c.ue_num, annee);
   const seances = toutes.filter(x => x.cours_code === coursCode);
-  const etudiants = inscritsDeLUE(c.ue_num, annee);
+  const etudiants = inscritsDeLUE(c.ue_num, annee).filter(e => !garder || garder(e.id));
   const cx = contexteGrille(c.ue_num, annee, toutes, { coursCode });
   const g = donneesGrille({ seances, etudiants, du, au, dixieme: cx.dixieme, cinquieme: cx.cinquieme, infos: cx.infos, dispensesParEtudiant: dispensesUE(etudiants, c.ue_num, annee) });
   return { ueNum: c.ue_num, g, opts: { titre: `Registre de présence — ${coursCode}${c.cours_nom ? ` · ${c.cours_nom}` : ''}`, entete: cx.entete, signataires: cx.signataires,

@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
 import { aRepresenterParCours } from '../routes/acquis.js';
+import { sectionRattachement } from '../routes/etudiants.js';
 import { sansDispenses } from './cep.js';
 import { qrSvg } from './authentique.js';
 
@@ -75,7 +76,11 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
      garde des lignes d'unités retirées du référentiel de l'année ; aucun écran ne les montre, la liste des examens non plus. */
   l = l.filter(e => e.ue_nom != null || e.section != null);
   l = l.map(e => ({ ...e, session: s2 ? 2 : 1 }));
-  if (section) l = l.filter(e => e.section === section);
+  // Une UE du tronc commun appartient aussi à l'autre section (ue_section) : l'Orthoptie voit les épreuves de 281, 282, 286…
+  if (section) {
+    const aussi = new Set(essai(() => db.prepare('SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code = ?').all(annee, section).map(x => Number(x.ue_num)), []));
+    l = l.filter(e => e.section === section || aussi.has(Number(e.ue_num)));
+  }
   if (Array.isArray(sections)) l = l.filter(e => !e.section || sections.includes(e.section));
   if (du) l = l.filter(e => String(e.date).slice(0, 10) >= du);
   if (au) l = l.filter(e => String(e.date).slice(0, 10) <= au);
@@ -89,6 +94,8 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
     ORDER BY e.nom COLLATE NOCASE, e.prenom COLLATE NOCASE`);
   const ajournes = {};
   const amenagements = mesuresParEtudiant(annee);
+  const sections_ = new Map();
+  const sectionDe = id => { if (!sections_.has(id)) { let v = null; try { v = sectionRattachement(id, annee).section || null; } catch { /* */ } sections_.set(id, v); } return sections_.get(id); };
   return l.map(e => {
     let etudiants;
     if (s2) {
@@ -97,6 +104,10 @@ export function epreuves({ annee, session = 1, section = null, du = null, au = n
       etudiants = e.cours_code ? (par[e.cours_code] || []) : [...new Map(Object.values(par).flat().map(x => [x.id, x])).values()];
     } else etudiants = essai(() => inscrits.all(annee, e.ue_num), []);
     etudiants = essai(() => sansDispenses(etudiants, annee, e.ue_num, e.cours_code), etudiants);
+    /* LA SECTION CHOISIE GARDE LES SIENS (3.5.731, Mati : « en 286.1 tout le monde est mis alors que je choisis uniquement opto ») :
+       une UE du tronc commun Optométrie/Orthoptie a les étudiants des deux sections ; la liste ne garde que ceux de la section
+       choisie (section de rattachement, déduite à défaut — la règle du générateur de listes). */
+    if (section) etudiants = etudiants.filter(x => { const r = sectionDe(x.id); return !r || r === section; });
     const d = essai(() => det.get(annee, e.session, e.ue_num, e.cours_code), null) || {};
     const lesEtudiants = etudiants.map(x => ({ id: x.id, nom: nomP(x), matricule: x.id_ecampus || x.matricule || '',
       ar: (amenagements.get(x.id) || []).filter(m => (!m.ue_num || Number(m.ue_num) === Number(e.ue_num)) && (!m.ues || m.ues.includes(Number(e.ue_num)))) }));
