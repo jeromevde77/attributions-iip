@@ -520,8 +520,13 @@ export const STYLES_EXAMENS = `
   h2 { font-size: 13pt; color: #16406A; margin: 0 0 3mm; }
   h3 { font-size: 10pt; color: #16406A; margin: 4mm 0 1.5mm; }
   table { border-collapse: collapse; width: 100%; }
-  table.cartouche th { text-align: left; width: 32mm; font-weight: normal; color: #555; padding: 0.8mm 2mm 0.8mm 0; vertical-align: top; }
-  table.cartouche td { padding: 0.8mm 0; }
+  table.cartouche th, table.cartouche td { background: none !important; text-transform: none !important; letter-spacing: normal !important;
+    font-size: 9.5pt !important; border: 0 !important; border-bottom: 0.2mm solid #E3E7ED !important; }
+  table.cartouche th { text-align: left; width: 32mm; font-weight: normal !important; color: #667085 !important; padding: 0.9mm 2mm 0.9mm 0 !important; vertical-align: top; }
+  table.cartouche td { padding: 0.9mm 0 !important; color: #16406A; }
+  table.cartouche tr:last-child th, table.cartouche tr:last-child td { border-bottom: 0 !important; }
+  table.formulaire th, table.identite th { background: none !important; text-transform: none !important; letter-spacing: normal !important;
+    font-size: 9pt !important; color: #667085 !important; font-weight: normal !important; }
   table.cartouche { margin-bottom: 3mm; border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
   table.grille th, table.grille td { border: 0.2mm solid #B8C0CC; padding: 1.2mm 1.5mm; font-size: 9pt; vertical-align: top; }
   table.grille thead th { background: #EEF2F7; text-align: left; }
