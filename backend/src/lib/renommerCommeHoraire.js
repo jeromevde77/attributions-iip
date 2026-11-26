@@ -33,9 +33,16 @@ export function planRenommage(annee, ues) {
   const cours = [];
   const ignores = [];
   for (const ue of ues) {
-    const numeros = numerosDeLUE(annee, ue);
-    if (!numeros) { ignores.push({ ue, raison: 'aucun groupe de l’horaire importé pour cette UE' }); continue; }
-    const N = Math.max(...[...numeros.values()].map(Number));
+    /* SANS FICHIER DE GROUPES (3.5.737, UE 257) : les numéros se lisent dans l'horaire même (« 1+2+3 », « 10+11+12 ») ; les étudiants
+       suivent alors leur lettre renommée. */
+    const numeros = numerosDeLUE(annee, ue) || new Map();
+    let N = numeros.size ? Math.max(...[...numeros.values()].map(Number)) : 0;
+    if (!N) {
+      const toks = db.prepare(`SELECT DISTINCT REPLACE(sous_groupe, ' ', '') sg FROM horaire_seance WHERE annee_scolaire = ? AND ue_num = ?
+        AND sous_groupe IS NOT NULL`).all(annee, ue).map(x => x.sg).filter(g => /^\d+(\+\d+)*$/.test(g)).flatMap(g => g.split('+').map(Number));
+      N = toks.length ? Math.max(...toks) : 0;
+    }
+    if (!N) { ignores.push({ ue, raison: 'ni groupes de l’horaire importés, ni groupes numérotés dans l’horaire de cette UE' }); continue; }
     const lignes = db.prepare(`SELECT code_cours, COALESCE(activite_id, 0) act, COALESCE(num_organisation, 1) org, code, professeur_id
       FROM attribution WHERE annee_scolaire = ? AND ue_num = ? AND code IS NOT NULL AND code <> '' AND UPPER(code) <> 'TS'`).all(annee, ue);
     const parCle = new Map();
