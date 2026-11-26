@@ -24,6 +24,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, telechargerFichier } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { ouvrirOngletAttente } from '../lib/ongletAttente.js';
 import { nomPropre } from '../lib/nom.js';
 import { informer, saisir, demander } from '../lib/dialogue.jsx';
 import {
@@ -775,6 +776,7 @@ function Dossier({ id, ref_, onRetour }) {
             <AcquisVises dossier={d} ue={ue} peut={peutInstruire} onMaj={setD} />
           )}
           <Pieces dossier={d} peut={peutInstruire} onMaj={setD} />
+          <EnvoisDossier dossier={d} />
           <Journal dossier={d} />
         </div>
       </div>
@@ -1275,6 +1277,63 @@ function AcquisVises({ dossier: d, ue, peut, onMaj }) {
             {(d.acquis || []).map(a => a.aa_code).join(', ') || <span className="text-slate-400">aucun</span>}
           </div>
         )}
+    </Bloc>
+  );
+}
+
+// ── Envoyées ────────────────────────────────────────────────────────────────
+/* LA COPIE DE CE QUI EST PARTI (3.5.766, Charles : « je viens d'envoyer le courrier, mais je n'en trouve pas de copie PDF ») : les
+   pièces de la procédure déposées ou envoyées — à l'étudiant, puis aux personnes qui l'ont reçue en copie —, chacune avec sa copie
+   refaite à l'identique (registre des envois). */
+function EnvoisDossier({ dossier: d }) {
+  const [lignes, setLignes] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => {
+    if (!d.etudiant_id) { setLignes([]); return; }
+    let vivant = true;
+    (async () => {
+      const r = await appel(`/api/envois/journal?destinataire_type=etudiant&destinataire_id=${d.etudiant_id}&limite=300`);
+      if (!r.ok) { if (vivant) setLignes([]); return; }
+      const siens = (r.data || []).filter(m => String(m.type_doc || '').startsWith('procedure_'));
+      const noms = [...new Set(siens.map(m => String(m.nom_fichier || '').replace(/\.(pdf|html?)$/i, '')).filter(Boolean))];
+      const autres = [];
+      for (const n of noms) {
+        const x = await appel(`/api/envois/journal?q=${encodeURIComponent(n)}&limite=200`);
+        if (x.ok) autres.push(...(x.data || []).filter(m => String(m.type_doc || '').startsWith('procedure_')));
+      }
+      const parId = new Map([...siens, ...autres].map(m => [m.id, m]));
+      if (vivant) setLignes([...parId.values()].sort((a, b) => String(b.envoye_le).localeCompare(String(a.envoye_le)) || b.id - a.id));
+    })();
+    return () => { vivant = false; };
+  }, [d.etudiant_id, d.id]);
+  const ouvrir = async m => {
+    setErreur(null);
+    const fen = ouvrirOngletAttente();
+    try {
+      const r = await fetch(`/api/envois/${m.id}/copie`, { headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
+      const url = URL.createObjectURL(await r.blob());
+      if (fen) fen.location.href = url; else window.location.href = url;
+    } catch (e) { if (fen) fen.close(); setErreur(e.message); }
+  };
+  const QUOI = { depose: 'déposée dans son espace', envoye: 'envoyée par courriel', delivre: 'délivrée' };
+  return (
+    <Bloc titre="Envoyées">
+      {erreur && <div className="text-second mb-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {lignes === null ? <div className="text-second text-slate-400">Lecture du registre…</div>
+        : !lignes.length ? <div className="text-second text-slate-400">Aucune pièce envoyée ni déposée.</div> : (
+        <div className="divide-y divide-slate-100">
+          {lignes.map(m => (
+            <div key={m.id} className="flex items-center gap-2 py-1">
+              <IconFileText size={15} className="text-slate-400 flex-none" />
+              <div className="flex-1 min-w-0 text-sm">
+                <div className="truncate text-slate-700">{m.destinataire_nom}</div>
+                <div className="text-xs text-slate-400">{QUOI[m.statut] || m.statut} · {fmt(m.envoye_le)}{m.reference ? ` · ${m.reference}` : ''}</div>
+              </div>
+              {m.copie ? <button type="button" className="bouton bouton-compact" onClick={() => ouvrir(m)}>Copie PDF</button>
+                : <span className="text-xs text-slate-400">sans copie</span>}
+            </div>))}
+        </div>)}
     </Bloc>
   );
 }

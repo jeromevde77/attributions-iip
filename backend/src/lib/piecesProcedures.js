@@ -57,8 +57,18 @@ function blocEtudiant(d) {
     <div class="naissance">Matricule ${esc(e.id_ecampus || '—')}${e.adresse
       ? ` · ${esc([e.adresse, [e.cp, e.localite].filter(Boolean).join(' ')].filter(Boolean).join(', '))}` : ''}</div></div>`;
 }
+/* LA RÉFÉRENCE DU COURRIER (3.5.766, Charles : « numéroter les courriers de ce genre avec les références, idem dans le nom du
+   document » ; tranché : DISC-2026-27/007-CONV). Type de procédure · année · n° du dossier · code de la pièce : elle se calcule,
+   la même pour tous les destinataires d'une pièce. */
+const CODE_PIECE = { accuse_reception: 'ACC', irrecevabilite: 'IRR', decision_recours: 'DEC', convocation: 'CONV',
+  pv_audition: 'PV', decision_disciplinaire: 'DEC' };
+export function referenceCourrier(piece, d) {
+  const an = String(d.annee_scolaire || '').replace(/^(\d{4})-\d{2}(\d{2})$/, '$1-$2');
+  return `${d.type === 'recours' ? 'REC' : 'DISC'}-${an}/${String(d.id).padStart(3, '0')}-${CODE_PIECE[piece] || 'PIECE'}`;
+}
+let refEnCours = null;   // posée par composerPieceProcedure le temps de composer
 function ligne(d, art) {
-  return [`Année ${String(d.annee_scolaire).replace('-', '/')}`, d.section,
+  return [refEnCours ? `Nos réf. : <b>${esc(refEnCours)}</b>` : null, `Année ${String(d.annee_scolaire).replace('-', '/')}`, d.section,
     d.ue_num ? `UE ${d.ue_num}${d.ue_nom ? ` — ${esc(d.ue_nom)}` : ''}` : null, art].filter(Boolean).join(' · ');
 }
 /* LA SIGNATURE DU DIRECTEUR QUAND C'EST LUI QUI SIGNE (3.5.762, Charles : « ma signature n'y est pas », convocation à
@@ -331,6 +341,10 @@ export function composerPieceProcedure(piece, d) {
   const manques = manquesPiece(piece, d);
   if (manques.length) return { code: 409, manques, erreur: `La pièce ne peut pas sortir : il manque ${manques.join(', ')}.` };
   const e = d.etudiant;
-  const nom = `${piece}_${String(e.nom || '').toUpperCase()}_${e.prenom || ''}_${d.annee_scolaire}`.replace(/[^A-Za-z0-9_-]+/g, '-');
-  return { html: envelopper(CORPS[piece](d), PIECES[piece].titre), nom };
+  const ref = referenceCourrier(piece, d);
+  const titreCourt = String(PIECES[piece].titre || piece).split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const nom = `${ref.replace('/', '-')}_${titreCourt}_${String(e.nom || '').toUpperCase()}_${e.prenom || ''}`.replace(/[^A-Za-z0-9_-]+/g, '-');
+  refEnCours = ref;
+  try { return { html: envelopper(CORPS[piece](d), PIECES[piece].titre), nom, reference: ref }; }
+  finally { refEnCours = null; }
 }
