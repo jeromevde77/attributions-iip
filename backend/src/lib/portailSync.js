@@ -140,7 +140,12 @@ function detailResultat(etudId, ueNum, annee, resultat) {
   if (c0 && Date.now() - c0.t < 3600e3) return c0.v;
   let v = null;
   try {
-    const closeS2 = !!db.prepare(`SELECT 1 FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND cloturee = 1 LIMIT 1`).get(ueNum, annee);
+    /* LA SECONDE SESSION EST CELLE DE L'ÉTUDIANT, PAS DE L'UNITÉ (3.5.748, Charles, capture d'un étudiant réussi en 1re session
+       avec deux colonnes identiques : « Avons-nous ?! ») : il faut qu'il ait été AJOURNÉ en première session — la règle des
+       `sessions` de `resultatsPublies` —, et que la séance de seconde session soit close. */
+    const ajourneS1 = db.prepare(`SELECT 1 FROM deliberation_resultat WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND session = 1
+      AND resultat = 'ajourne'`).get(etudId, ueNum, annee);
+    const closeS2 = !!ajourneS1 && !!db.prepare(`SELECT 1 FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = 2 AND cloturee = 1 LIMIT 1`).get(ueNum, annee);
     const session = closeS2 ? 2 : 1;
     const d = delibererUE(etudId, ueNum, annee, session);
     const faveur = !!(d.ue?.faveur || d.ue?.faveur_ue);
