@@ -320,7 +320,7 @@ function listeAR(e) {
   return `<h2>Aménagements raisonnables — ${esc(epreuveNom(e))}</h2>
     ${cartouche(e)}
     ${e.ar.length ? `<table class="grille"><thead><tr><th class="n">N°</th><th style="width:42mm">Étudiant</th><th>Mesures accordées pour cette épreuve</th><th style="width:62mm">À préparer ou à faire</th><th style="width:10mm">Fait</th></tr></thead>
-      <tbody>${e.ar.map(x => `<tr><td class="n">${e.etudiants.indexOf(x) + 1}</td><td>${esc(x.nom)}</td><td>${x.ar.map(m => `${esc(m.libelle)}${m.precisions ? ` — ${esc(m.precisions)}` : ''}`).join('<br>')}</td><td>${[...new Set(x.ar.map(m => besoinDe(m).faire))].map(esc).join('<br>')}</td><td class="c">☐</td></tr>`).join('')}</tbody></table>`
+      <tbody>${e.ar.map(x => `<tr><td class="n">${e.etudiants.indexOf(x) + 1}</td><td>${esc(x.nom)}</td><td>${x.ar.map(m => `<div class="item">${esc(m.libelle)}${m.precisions ? ` — ${esc(m.precisions)}` : ''}</div>`).join('')}</td><td>${[...new Set(x.ar.map(m => besoinDe(m).faire))].map(f => `<div class="item">${esc(f)}</div>`).join('')}</td><td class="c">☐</td></tr>`).join('')}</tbody></table>`
       : '<p class="vide">Aucun aménagement raisonnable accordé pour cette épreuve.</p>'}
     <p class="mention">Seules les mesures accordées figurent ici. La situation de l’étudiant reste couverte par le secret professionnel : ce document ne se laisse pas en salle et revient avec l’enveloppe.</p>`;
 }
@@ -525,8 +525,10 @@ export const STYLES_EXAMENS = `
   .cv-champ { padding: 1.2mm 3mm 1.2mm 0; border-bottom: 0.2mm solid #E6EBF2; break-inside: avoid; }
   .cv-l { font-size: 7.5pt; color: #7A8699; letter-spacing: .02em; } .cv-v { font-size: 9.5pt; color: #16406A; margin-top: .3mm; }
   .cv-vide { color: #A0AAB8; }
+  .item + .item { margin-top: 1.2mm; padding-top: 1.2mm; border-top: 0.2mm dotted #D5DCE6; }
   table.grille { border: 0.25mm solid #D5DCE6; }
   table.grille thead th { background: #F7F9FC !important; color: #7A8699 !important; text-transform: none !important; letter-spacing: normal !important; font-weight: normal !important; font-size: 8.5pt !important; border-color: #E0E6EE !important; }
+  table.grille th, table.grille td { padding: 1.6mm 2.5mm !important; }
   table.grille td { border-color: #E6EBF2 !important; }
   .valves-titre { font-size: 18pt; } .valves-sous { font-size: 10pt; color: #555; margin: -2mm 0 3mm; }
   .valves-jour { font-size: 12pt; text-transform: capitalize; border-bottom: 0.3mm solid #C9A84C; padding-bottom: 1mm; margin-top: 5mm; }
@@ -544,9 +546,9 @@ export const STYLES_EXAMENS = `
   td.petit { font-size: 8pt; }
   ul.cases { list-style: none; padding-left: 2mm; margin: 0; columns: 2; column-gap: 8mm; } ul.cases li { margin: 0.8mm 0; break-inside: avoid; }
   ul.rappels { margin: 0; padding-left: 5mm; font-size: 8.5pt; color: #3A4658; } ul.rappels li { margin: 0.6mm 0; }
-  table.signatures { margin-top: 6mm; border-collapse: separate; border-spacing: 6mm 0; break-inside: avoid; }
+  table.signatures { margin-top: 4mm; border-collapse: separate; border-spacing: 6mm 0; break-inside: avoid; }
   table.signatures td { border: 0 !important; border-bottom: 0.3mm solid #16406A !important; border-radius: 0 !important; background: none !important;
-    height: 18mm; vertical-align: top; padding: 0 0 1mm !important; font-size: 8pt; color: #7A8699; }
+    height: 13mm; vertical-align: top; padding: 0 0 1mm !important; font-size: 8pt; color: #7A8699; }
   table.totaux td { padding: 2mm 0; font-size: 9pt; }
   table.formulaire { border: 0.25mm solid #D5DCE6; border-radius: 2.2mm; border-collapse: separate; border-spacing: 0; overflow: hidden; }
   table.formulaire th { text-align: left; width: 38mm; font-weight: normal; color: #7A8699; background: #F7F9FC !important; border: 0 !important; border-bottom: 0.2mm solid #E6EBF2 !important; border-right: 0.2mm solid #E6EBF2 !important; padding: 2.2mm 3mm !important; vertical-align: top; }
