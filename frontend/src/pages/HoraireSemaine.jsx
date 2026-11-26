@@ -19,6 +19,7 @@ import { IconChevronLeft, IconChevronRight, IconCopy, IconPlus, IconReplace, Ico
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fenetre } from '../components/ui.jsx';
 import { passeRole } from '../lib/droits.js';
+import { informer } from '../lib/dialogue.jsx';
 import ChangerCoursSeances from '../components/ChangerCoursSeances.jsx';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 
@@ -167,7 +168,11 @@ export default function HoraireSemaine({ consultation = false }) {
   }
 
   const enregistrerSel = async modif => {
-    try { await appel(`/api/horaire/seance/${sel.id}`, { method: 'PUT', body: JSON.stringify(modif) }); setSel(null); charger(); }
+    try {
+      const r = await appel(`/api/horaire/seance/${sel.id}`, { method: 'PUT', body: JSON.stringify(modif) });
+      setSel(null); charger();
+      if (r?.suivantes) await informer(`Professeur changé sur cette séance et sur ${r.suivantes} séance(s) suivante(s) du même cours et du même groupe.`);
+    }
     catch (e) { setErreur(e.message); }
   };
   const supprimerSel = async () => {
@@ -439,6 +444,7 @@ export default function HoraireSemaine({ consultation = false }) {
             <span className="flex-1" />
             <button className="bouton" onClick={() => setSel(null)}>Fermer</button>
             <button className="bouton bouton-fort" onClick={() => enregistrerSel({ local_texte: sel._local ?? sel.local_texte,
+              ...(sel._prof !== undefined ? { professeur_id: sel._prof || null, suivantes: !!sel._suivantes } : {}),
               heure_fin: deHm(hm(sel.heure_debut) + (sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut)))),
               annule: sel._annule ?? !!sel.annule, commentaire: sel._commentaire ?? sel.commentaire })}>Enregistrer</button>
           </> : null}>
@@ -450,6 +456,20 @@ export default function HoraireSemaine({ consultation = false }) {
                 placeholder="P2 523, Nile, Distanciel asynchrone…" />
               <datalist id="locaux-horaire">{ref.locaux.map(l => <option key={l.nom} value={l.nom} />)}<option value="Distanciel asynchrone" /></datalist>
             </label>
+            <label className="block">
+              <span className="text-xs text-slate-500">Professeur</span>
+              <select className="controle w-full" disabled={!peutEcrire} value={String(sel._prof ?? sel.professeur_id ?? '')}
+                onChange={e => setSel({ ...sel, _prof: Number(e.target.value) || 0 })}>
+                <option value="">— professeur à attribuer —</option>
+                {ref.profs.map(p => <option key={p.id} value={String(p.id)}>{p.nom} {p.prenom}</option>)}
+              </select>
+            </label>
+            {sel._prof !== undefined && Number(sel._prof || 0) !== Number(sel.professeur_id || 0) && (
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={!!sel._suivantes} onChange={e => setSel({ ...sel, _suivantes: e.target.checked })} />
+                Aussi les séances suivantes de ce cours{sel.sous_groupe ? ` (groupe ${sel.sous_groupe})` : ''} au nom de {nomProf(sel) || 'personne'}
+              </label>
+            )}
             <label className="block">
               <span className="text-xs text-slate-500">Durée</span>
               <select className="controle w-full" disabled={!peutEcrire}

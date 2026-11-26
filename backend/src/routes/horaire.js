@@ -437,6 +437,10 @@ r.get('/comparaison', authRequired, (req, res) => {
  * peuvent avoir cours ensemble — c'est ainsi qu'un labo se dédouble.
  */
 const EDITEURS = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+/* LA COORDINATION MODIFIE LES SÉANCES DE SES SECTIONS (3.5.724, Charles, 26 novembre 2026 — idées 56 et 58 : l'écran lui montrait les
+   gestes, le serveur les refusait). Poser, déplacer, changer le professeur, annuler, recopier : bornés par `sectionPermise`.
+   L'import, les alias et le changement de cours en série restent à la direction et au secrétariat. */
+const EDITEURS_SEANCE = [...EDITEURS, 'coordination'];
 const qui = req => req.user?.email || req.user?.nom || null;
 const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
 const deHm = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
@@ -666,7 +670,7 @@ r.post('/alias', authRequired, roleRequired(...EDITEURS), (req, res) => {
   res.json({ ok: true, seances: ids.length, professeur: `${p.nom} ${p.prenom || ''}`.trim() });
 });
 
-r.post('/seance', authRequired, roleRequired(...EDITEURS), (req, res) => {
+r.post('/seance', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const b = req.body || {};
   if (b.attribution_id) {   // depuis le bac d'un professeur (3.5.718)
     const at = db.prepare('SELECT * FROM attribution WHERE id = ?').get(Number(b.attribution_id));
@@ -702,24 +706,39 @@ r.post('/seance', authRequired, roleRequired(...EDITEURS), (req, res) => {
 });
 
 // DÉPLACER, RALLONGER, CHANGER DE LOCAL, ANNULER.
-r.put('/seance/:id', authRequired, roleRequired(...EDITEURS), (req, res) => {
+r.put('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const s = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(Number(req.params.id));
   if (!s) return res.status(404).json({ error: 'Séance introuvable.' });
   if (!sectionPermise(req, s.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
   const b = { date: s.date, heure_debut: s.heure_debut, heure_fin: s.heure_fin, ...req.body };
   const err = horaireValide(b);
   if (err) return res.status(400).json({ error: err });
-  db.prepare(`UPDATE horaire_seance SET date = ?, heure_debut = ?, heure_fin = ?, minutes = ?,
-      local_texte = ?, annule = ?, commentaire = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
-    WHERE id = ?`).run(b.date, b.heure_debut, b.heure_fin, hm(b.heure_fin) - hm(b.heure_debut),
-    'local_texte' in req.body ? (String(req.body.local_texte || '').trim() || null) : s.local_texte,
-    'annule' in req.body ? (req.body.annule ? 1 : 0) : s.annule,
-    'commentaire' in req.body ? (String(req.body.commentaire || '').trim() || null) : s.commentaire,
-    qui(req), s.id);
-  res.json({ ok: true, conflits: conflitsDeLaSeance(s.id) });
+  /* LE PROFESSEUR D'UNE SÉANCE (3.5.724, idée 56 : séances importées au nom de Mme Warnimont au lieu de Mme Van Bogaert). Avec
+     `suivantes`, aussi les séances suivantes du même cours, du même groupe et du même professeur (d'origine), dans la même section. */
+  let profNouveau = s.professeur_id, suivantes = 0;
+  if ('professeur_id' in req.body) {
+    profNouveau = Number(req.body.professeur_id) || null;
+    if (profNouveau && !db.prepare('SELECT 1 FROM professeur WHERE id = ?').get(profNouveau)) return res.status(404).json({ error: 'Professeur inconnu.' });
+  }
+  db.transaction(() => {
+    db.prepare(`UPDATE horaire_seance SET date = ?, heure_debut = ?, heure_fin = ?, minutes = ?,
+        local_texte = ?, annule = ?, commentaire = ?, professeur_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
+      WHERE id = ?`).run(b.date, b.heure_debut, b.heure_fin, hm(b.heure_fin) - hm(b.heure_debut),
+      'local_texte' in req.body ? (String(req.body.local_texte || '').trim() || null) : s.local_texte,
+      'annule' in req.body ? (req.body.annule ? 1 : 0) : s.annule,
+      'commentaire' in req.body ? (String(req.body.commentaire || '').trim() || null) : s.commentaire,
+      profNouveau, qui(req), s.id);
+    if ('professeur_id' in req.body && req.body.suivantes && profNouveau !== s.professeur_id) {
+      suivantes = db.prepare(`UPDATE horaire_seance SET professeur_id = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
+        WHERE annee_scolaire = ? AND id <> ? AND date > ? AND COALESCE(cours_code, '') = ? AND COALESCE(sous_groupe, '') = ?
+          AND COALESCE(professeur_id, 0) = ? AND COALESCE(section, '') = ?`)
+        .run(profNouveau, qui(req), s.annee_scolaire, s.id, s.date, s.cours_code || '', s.sous_groupe || '', s.professeur_id || 0, s.section || '').changes;
+    }
+  })();
+  res.json({ ok: true, suivantes, conflits: conflitsDeLaSeance(s.id) });
 });
 
-r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS), (req, res) => {
+r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const s = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(Number(req.params.id));
   if (!s) return res.status(404).json({ error: 'Séance introuvable.' });
   if (!sectionPermise(req, s.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
@@ -734,7 +753,7 @@ r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS), (req, res) => {
 /* RECOPIER UNE SEMAINE — l'essentiel d'un horaire est une semaine type répétée.
    Simulation d'abord. On ne pose rien un jour férié ni dans une semaine qui
    n'est pas de cours ; une séance identique déjà là n'est pas doublée. */
-r.post('/recopier', authRequired, roleRequired(...EDITEURS), (req, res) => {
+r.post('/recopier', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
   const an = req.body?.annee || anneeDeTravail(req);
   const [sec, bloc] = String(req.body?.cle || '').split('|');
   if (!sec || !bloc) return res.status(400).json({ error: 'classe requise' });
