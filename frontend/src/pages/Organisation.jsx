@@ -250,6 +250,25 @@ export default function Organisation({ ongletInitial }) {
   );
 }
 
+/* LE CONTRÔLE SE VOIT (3.5.747, Charles : « je ne trouve pas Contrôler l'horaire ») : il n'était que dans le rail, sous l'horaire
+   déplié. Un bouton sur l'écran, avec le nombre de séances à vérifier. */
+function BoutonControle({ annee, onClick }) {
+  const [n, setN] = useState(null);
+  useEffect(() => {
+    if (!annee) return;
+    fetch(`/api/horaire/controle?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => j && setN(Object.values(j.totaux || {}).reduce((t, x) => t + x, 0))).catch(() => {});
+  }, [annee]);
+  if (n === null) return null;
+  return (
+    <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={onClick}
+      title="Les séances que l’horaire et les attributions ne racontent pas de la même façon">
+      <IconClock size={15} /> Contrôler l’horaire
+      {n > 0 && <span className="pastille-etat" data-etat="surveiller">{n}</span>}
+    </button>
+  );
+}
+
 /* LES DEUX FACES DE L'HORAIRE SONT DANS LE RAIL (Charles, 8 octobre 2026 : « sous
    menu rail ») : comme les étapes de l'unité, elles se déplient sous la rubrique. */
 function CentreHoraire({ annee }) {
@@ -274,7 +293,11 @@ function CentreHoraire({ annee }) {
         <div className="p-4 space-y-3">
           {face === 'consulter' && (
             <div>
-              <h1 className="titre-ecran">L’horaire de la semaine</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="titre-ecran">L’horaire de la semaine</h1>
+                <span className="flex-1" />
+                <BoutonControle annee={annee} onClick={() => setFace('controler')} />
+              </div>
               <p className="text-second text-slate-500">Par classe, par professeur ou par local. Il se crée au laboratoire temporel
                 (Organisation → Le laboratoire temporel, étapes 1 à 6) ; une séance se retouche dans « Composer la semaine ».</p>
             </div>)}
@@ -283,7 +306,9 @@ function CentreHoraire({ annee }) {
           </Suspense>
         </div>
       ) : annee
-        ? <div className="p-4 space-y-4"><Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}><ControleHoraire annee={annee} /></Suspense>
+        ? <div className="p-4 space-y-4">
+          <button type="button" className="bouton" onClick={() => setFace('consulter')}>← L’horaire de la semaine</button>
+          <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}><ControleHoraire annee={annee} /></Suspense>
           <HoraireComparateur annee={annee} /></div>
         : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}
     </div>
