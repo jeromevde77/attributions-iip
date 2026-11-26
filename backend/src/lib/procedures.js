@@ -337,7 +337,8 @@ export function verifierEtape(d, etape, v = {}) {
       if (!(d.membres || []).some(x => x.role === 'rapporteur')) m.push('la personne qui a constaté les faits');
     }
     if (etape === 'convocation') {
-      req('envoyee_le', "la date d'envoi"); req('mode', 'le mode de remise'); req('audition_le', "la date de l'audition");
+      // PAR COURRIEL TOUJOURS, ET EN RECOMMANDÉ SI COCHÉ (3.5.763, Charles) : plus de « mode de remise » à choisir.
+      req('envoyee_le', "la date d'envoi"); req('audition_le', "la date de l'audition");
       req('lieu', "le lieu de l'audition");
       req('dossier_consultable_le', 'la date à partir de laquelle le dossier est consultable (art. 115 ter)');
       if (!SANCTIONS.some(s => s[0] === v.sanction_envisagee)) m.push('la sanction envisagée (art. 115 quater)');

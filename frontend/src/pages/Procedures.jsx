@@ -835,7 +835,7 @@ function valeursInitiales(d, cle) {
   switch (cle) {
     case 'faits': return { date: j, description: '', moment: null, type_fraude: null, pv_surveillance: false };
     case 'ecartement': return { du: j, au: null };
-    case 'convocation': return { envoyee_le: j, mode: null, audition_le: null, heure: '', lieu: '', sanction_envisagee: null, dossier_consultable_le: j };
+    case 'convocation': return { envoyee_le: j, mode: 'courriel', recommande: false, audition_le: null, heure: '', lieu: '', sanction_envisagee: null, dossier_consultable_le: j };
     case 'audition': return { tenue_le: et.convocation?.audition_le || j, etudiant_present: null, assiste_par: '', conteste: null, pv: null, declarations: '' };
     case 'avis': return { demande_le: j, rendu_le: null, avis: '' };
     case 'decision': return {
@@ -984,7 +984,10 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
       <div className="space-y-3">
         <div className="grid sm:grid-cols-2 gap-3">
           <Champ label="Envoyée le"><Date_ valeur={v.envoyee_le} onChange={x => maj('envoyee_le', x)} {...P} /></Champ>
-          <Champ label="Mode de remise"><Choix valeur={v.mode} onChange={x => maj('mode', x)} options={MODES_REMISE} {...P} /></Champ>
+          <Champ label="Envoi">
+            <div className="text-sm text-slate-700 mb-1">Par courriel</div>
+            <Case coche={!!(v.recommande || v.mode === 'recommande')} onChange={x => maj('recommande', x)} {...P}>Et par recommandé avec accusé de réception</Case>
+          </Champ>
           <Champ label="Audition le"><Date_ valeur={v.audition_le} onChange={x => maj('audition_le', x)} {...P} /></Champ>
           <Champ label="Heure"><input type="time" className="controle w-full" value={v.heure || ''} disabled={lecture} onChange={e => maj('heure', e.target.value)} /></Champ>
         </div>
