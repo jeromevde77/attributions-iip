@@ -1529,7 +1529,10 @@ export default function Attributions() {
           }}>{lettre}</span>
 
         {/* Mini-menu de sélection de lettre — position fixed pour éviter le clipping du td */}
-        {menuOuvert && (
+        {/* DANS UN PORTAIL (3.5.758, Charles : « quand je clique sur Ts, il remonte en haut et rien ne se passe ») : posé dans la grille,
+            le menu « fixed » se plaçait par rapport à un ancêtre transformé, hors de vue, et le champ libre, en prenant le focus,
+            faisait défiler la page. Il vit désormais sur le corps du document, sans focus d'office. */}
+        {menuOuvert && createPortal(
           <>
             <div style={{position:'fixed',inset:0,zIndex:998}} onClick={e=>{e.stopPropagation();setBadgeMenuOpen(null);}} />
             <div style={{position:'fixed',zIndex:999,background:'var(--blanc)',border:'1px solid var(--c-filet, rgb(var(--gris-200)))',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.15)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,
@@ -1563,12 +1566,12 @@ export default function Attributions() {
               )}
               <form onClick={e => e.stopPropagation()} style={{ display:'flex', gap:3, width:'100%', marginTop:3 }}
                 onSubmit={e => { e.preventDefault(); assignerLettre(new FormData(e.currentTarget).get('libre'), true); }}>
-                <input name="libre" autoFocus placeholder="autre : 1+2" defaultValue=""
+                <input name="libre" placeholder="autre : 1+2" defaultValue=""
                   style={{ width:84, height:22, fontSize:11, padding:'0 4px', border:'1px solid var(--c-filet, rgb(var(--gris-200)))', borderRadius:5 }} />
                 <button type="submit" style={{ height:22, fontSize:11, fontWeight:700, padding:'0 6px', borderRadius:5, background:'var(--c-principal)', color:'#fff' }}>OK</button>
               </form>
             </div>
-          </>
+          </>, document.body
         )}
 
         {/* Toggle split / groupe */}
