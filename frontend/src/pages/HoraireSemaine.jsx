@@ -21,6 +21,7 @@ import { Fenetre, Tableau, TableauEntete, Th, Td, Tr, TableauVide } from '../com
 import { passeRole } from '../lib/droits.js';
 import { informer } from '../lib/dialogue.jsx';
 import ChangerCoursSeances from '../components/ChangerCoursSeances.jsx';
+import JourneeHoraire from '../components/JourneeHoraire.jsx';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 
 const H0 = 8, H1 = 21, PX = 12;                     // 12 px par quart d'heure
@@ -478,34 +479,16 @@ export default function HoraireSemaine({ consultation = false }) {
           Les séances du jour de la vue ouverte, dans l'ordre des heures ; une ligne ouvre la séance. */}
       {jourDetail && (() => {
         const i = jours.findIndex(j => j.date === jourDetail);
-        const l = (data?.seances || []).filter(x => x.date === jourDetail)
-          .sort((a, b) => String(a.heure_debut).localeCompare(String(b.heure_debut)) || String(a.cours_code || '').localeCompare(String(b.cours_code || '')));
+        const l = (data?.seances || []).filter(x => x.date === jourDetail);
         const ferie = jours[i]?.ferie;
         return (
-          <Fenetre titre={`${NOMS_JOURS[i] ? NOMS_JOURS[i][0].toUpperCase() + NOMS_JOURS[i].slice(1) : ''} ${court(jourDetail)}`} large="grande"
-            sous={`${libelleCle || ''}${l.length ? ` · ${l.length} séance${l.length > 1 ? 's' : ''}` : ''}${ferie ? ` · ${ferie}` : ''}`}
-            onFermer={() => setJourDetail(null)}
-            pied={<><span className="flex-1" /><button className="bouton" onClick={() => setJourDetail(null)}>Fermer</button></>}>
-            <Tableau>
-              <TableauEntete><Th largeur="7rem">Heures</Th><Th>Cours</Th><Th largeur="6rem">Groupe</Th><Th>Professeur</Th><Th largeur="9rem">Local</Th><Th>À noter</Th></TableauEntete>
-              <tbody>
-                {!l.length && <TableauVide colonnes={6}>Aucune séance ce jour-là.</TableauVide>}
-                {l.map(x => (
-                  <Tr key={x.id} className="cursor-pointer" onClick={() => { setJourDetail(null); setSel(x); }}>
-                    <Td><b className={x.annule ? 'line-through' : ''}>{lisible(x.heure_debut)}–{lisible(x.heure_fin)}</b></Td>
-                    <Td><span className={x.annule ? 'line-through' : ''}><b>{x.cours_code}</b> {x.cours_nom || x.matiere || ''}</span>{activiteDe(x) ? <div className="text-mention text-slate-500">{activiteDe(x)}</div> : null}{vue !== 'classe' && x.classe ? <span className="text-slate-400"> · {x.classe}</span> : null}</Td>
-                    <Td>{x.sous_groupe || x.groupe_nom || '—'}</Td>
-                    <Td>{nomProf(x) || <span className="text-slate-400">à attribuer</span>}
-                      {x.prof_attribution?.length > 0 && !x.prof_attribution.some(p => p.id === x.professeur_id)
-                        ? <div className="text-mention" style={{ color: 'var(--c-attente)' }}>attributions : {x.prof_attribution.map(p => p.nom).join(', ')}</div> : null}</Td>
-                    <Td>{x.local_texte || <span className="text-slate-400">—</span>}</Td>
-                    <Td className="text-second">{[x.annule ? 'annulée' : null, x.attribution ? null : 'pas reliée à une attribution', ...(x.conflits || []).map(c => RAISONS[c]), x.commentaire || null].filter(Boolean).join(' · ')}</Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Tableau>
-            <p className="text-xs text-slate-400 mt-2">Cliquez une ligne pour ouvrir la séance{roleEcrit ? ' et la modifier' : ''}.</p>
-          </Fenetre>
+          <JourneeHoraire titre={`${NOMS_JOURS[i] ? NOMS_JOURS[i][0].toUpperCase() + NOMS_JOURS[i].slice(1) : ''} ${court(jourDetail)}`}
+            sous={`${libelleCle || ''}${ferie ? ` · ${ferie}` : ''}`} seances={l} roleEcrit={roleEcrit} vue={vue}
+            onFermer={() => setJourDetail(null)} onOuvrir={x => setSel(x)}
+            onAligner={async (x, a) => {
+              try { await appel(`/api/horaire/seance/${x.id}`, { method: 'PUT', body: JSON.stringify({ attribution_id: a.id, ...(a.professeur_id ? { professeur_id: a.professeur_id } : {}) }) }); charger(); }
+              catch (e) { setErreur(e.message); await informer(e.message); }
+            }} />
         );
       })()}
 
