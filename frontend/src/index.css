@@ -2074,3 +2074,9 @@ textarea.controle { height: auto; min-height: 4.5rem; white-space: pre-wrap; lin
 }
 .jauge-curseur:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .jauge-curseur:disabled { cursor: not-allowed; opacity: 0.4; }
+
+/* LE FOCUS DES ATTRIBUTIONS (3.5.728, Charles : « un voile sur le reste pour mettre la zone en évidence ») : ce qui n'est pas la zone
+   choisie pâlit et perd sa couleur, sans disparaître ; on le survole, il revient un peu ; on le clique, le focus s'y déplace. */
+.focus-voile { opacity: .32; filter: grayscale(1); transition: opacity .2s ease, filter .2s ease; }
+.focus-voile:hover { opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .focus-voile { transition: none; } }
