@@ -236,9 +236,10 @@ export default function HoraireSemaine({ consultation = false }) {
             <IconCopy size={15} /> Recopier cette semaine…
           </button>
         )}
-        {peutEcrire && (
-          <button type="button" className={`bouton ${vue === 'classe' ? '' : 'ml-auto'}`} onClick={() => setRelier(true)}>
-            Relier aux attributions…
+        {roleEcrit && (
+          <button type="button" className={`bouton inline-flex items-center gap-1.5 ${vue === 'classe' ? '' : 'ml-auto'}`} onClick={() => setRelier(true)}
+            title="Relier d'un coup les séances à leur attribution : d'office quand il n'y a pas de doute, le reste en un tableau">
+            <IconArrowsLeftRight size={15} /> Relier automatiquement…
           </button>
         )}
         {peutChangerCours && (
@@ -473,7 +474,6 @@ export default function HoraireSemaine({ consultation = false }) {
         );
       })()}
 
-      {relier && <RelierAttributions annee={annee} onFermer={() => setRelier(false)} onFini={() => { setRelier(false); charger(); }} />}
 
       {/* LA JOURNÉE EN DÉTAIL (3.5.725, Charles : « si je clique sur le jour, j'aimerais avoir le détail pour avoir une bonne vue »).
           Les séances du jour de la vue ouverte, dans l'ordre des heures ; une ligne ouvre la séance. */}
@@ -484,7 +484,7 @@ export default function HoraireSemaine({ consultation = false }) {
         return (
           <JourneeHoraire titre={`${NOMS_JOURS[i] ? NOMS_JOURS[i][0].toUpperCase() + NOMS_JOURS[i].slice(1) : ''} ${court(jourDetail)}`}
             sous={`${libelleCle || ''}${ferie ? ` · ${ferie}` : ''}`} seances={l} roleEcrit={roleEcrit} vue={vue}
-            onFermer={() => setJourDetail(null)} onOuvrir={x => setSel(x)}
+            onFermer={() => setJourDetail(null)} onOuvrir={x => setSel(x)} onRelierTout={roleEcrit ? () => setRelier(true) : null}
             onAligner={async (x, a) => {
               try { await appel(`/api/horaire/seance/${x.id}`, { method: 'PUT', body: JSON.stringify({ attribution_id: a.id, ...(a.professeur_id ? { professeur_id: a.professeur_id } : {}) }) }); charger(); }
               catch (e) { setErreur(e.message); await informer(e.message); }
@@ -546,6 +546,10 @@ export default function HoraireSemaine({ consultation = false }) {
                       </div>
                     );
                   })()}
+                  {roleEcrit && !(sel._attr ?? sel.attribution_id) && (
+                    <button type="button" className="text-second underline text-slate-600" onClick={() => { setSel(null); setRelier(true); }}>
+                      Relier toutes les séances d’un coup…</button>
+                  )}
                   {roleEcrit && (sel.attributions || []).length > 0 && (
                     <select className="controle w-full" value={String(sel._attr ?? sel.attribution_id ?? '')}
                       onChange={e => setSel({ ...sel, _attr: Number(e.target.value) || 0 })}>
@@ -596,6 +600,8 @@ export default function HoraireSemaine({ consultation = false }) {
           </div>
         </Fenetre>
       )}
+
+      {relier && <RelierAttributions annee={annee} section={vue === 'classe' && cle ? String(cle).split('|')[0] : null} onFermer={() => setRelier(false)} onFini={() => { setRelier(false); charger(); }} />}
 
       {importer && <ImportHyper annee={annee} cle={cle} libelle={libelleCle} classes={classes} vueClasse={vue === 'classe'}
         onFermer={() => setImporter(false)} onFini={() => { setImporter(false); charger(); }} />}
@@ -789,33 +795,40 @@ function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFe
 
 /* RELIER LES SÉANCES AUX ATTRIBUTIONS (3.5.727) : ce que Lucie relie d'office (même cours, même professeur, sans doute), puis les cas
    à trancher, un cours, un groupe et un professeur à la fois, la proposition en tête. Rien ne s'écrit avant « Relier ». */
-function RelierAttributions({ annee, onFermer, onFini }) {
+function RelierAttributions({ annee, section: sectionVue = null, onFermer, onFini }) {
+  // BORNÉE À LA SECTION AFFICHÉE (3.5.742, Charles : « la possibilité de lier de manière automatique avec une fenêtre ») ; « toute l'école » au choix.
+  const [section, setSection] = useState(sectionVue);
   const [plan, setPlan] = useState(null);
   const [choix, setChoix] = useState({});
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
   useEffect(() => {
-    appel(`/api/horaire/liaison?annee=${annee}`).then(p => {
+    setPlan(null);
+    appel(`/api/horaire/liaison?annee=${annee}${section ? `&section=${encodeURIComponent(section)}` : ''}`).then(p => {
       setPlan(p);
       setChoix(Object.fromEntries(p.cas.filter(c => c.propose).map(c => [c.cle, String(c.propose)])));
     }).catch(e => setErreur(e.message));
-  }, [annee]);
+  }, [annee, section]);
   const nChoix = plan ? plan.cas.filter(c => choix[c.cle]).reduce((t, c) => t + c.n, 0) : 0;
   const relierTout = async () => {
     setEnCours(true);
     try {
-      const r = await appel('/api/horaire/liaison', { method: 'POST', body: JSON.stringify({ annee, auto: true, choix }) });
+      const r = await appel('/api/horaire/liaison', { method: 'POST', body: JSON.stringify({ annee, auto: true, choix, ...(section ? { section } : {}) }) });
       await informer(`✓ ${r.reliees} séance(s) reliée(s) à leur attribution.`);
       onFini();
     } catch (e) { setErreur(e.message); setEnCours(false); }
   };
   return (
-    <Fenetre titre="Relier les séances aux attributions" large="grande" onFermer={onFermer}
+    <Fenetre titre={`Relier les séances aux attributions${section ? ` — ${section}` : ' — toute l’école'}`} large="grande" onFermer={onFermer}
       sous={plan ? `${plan.deja} déjà reliée(s) · ${plan.auto.length} d’office · ${plan.cas.reduce((t, c) => t + c.n, 0)} à trancher en ${plan.cas.length} cas` : 'Calcul…'}
       pied={<><span className="flex-1 text-second text-slate-500">{plan ? `${plan.auto.length + nChoix} séance(s) seront reliées` : ''}</span>
         <button className="bouton" onClick={onFermer}>Annuler</button>
         <button className="bouton bouton-fort" disabled={!plan || enCours || !(plan.auto.length + nChoix)} onClick={relierTout}>{enCours ? 'Liaison…' : 'Relier'}</button></>}>
       {erreur && <div className="bloc-etat px-3 py-2 mb-2" data-etat="corriger">{erreur}</div>}
+      {sectionVue && <div className="segments mb-3">
+        <button type="button" className={section ? 'actif' : ''} aria-pressed={!!section} onClick={() => setSection(sectionVue)}>{sectionVue}</button>
+        <button type="button" className={!section ? 'actif' : ''} aria-pressed={!section} onClick={() => setSection(null)}>Toute l’école</button>
+      </div>}
       {!plan ? <p className="text-slate-400">Calcul…</p> : <div className="space-y-3 text-sm">
         <p className="text-second text-slate-600">Une séance reliée compte dans les heures de SON attribution (heures posées, reste à placer) et, ensuite, dans le congé-éducation. D’office : le professeur de la séance n’a qu’une attribution pour ce cours, ou une seule pour ce cours et ce groupe ({plan.auto.length} séances). Ci-dessous, les cas où il faut choisir ; la proposition est présélectionnée, « — ne pas relier — » les laisse de côté.</p>
         {plan.sans_attribution > 0 && <p className="text-second text-slate-500">{plan.sans_attribution} séance(s) d’un cours sans aucune attribution cette année : rien à relier.</p>}
