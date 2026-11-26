@@ -278,7 +278,7 @@ function CentreHoraire({ annee }) {
                 (Organisation → Le laboratoire temporel, étapes 1 à 6) ; une séance se retouche dans « Composer la semaine ».</p>
             </div>)}
           <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
-            <HoraireSemaine key={face} consultation={face === 'consulter'} />
+            <HoraireSemaine key={face} consultation={face === 'consulter'} onModifier={() => setFace('composer')} />
           </Suspense>
         </div>
       ) : annee

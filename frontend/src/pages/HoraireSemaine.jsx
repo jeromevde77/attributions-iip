@@ -48,17 +48,23 @@ async function appel(url, opts = {}) {
 
 /* LA CONSULTATION (3.1.465, Charles : « l'horaire doit être visible dans Organisation sans passer par le labo,
    qui est l'outil de création ») : `consultation` montre la semaine sans bac ni geste d'écriture. */
-export default function HoraireSemaine({ consultation = false }) {
+export default function HoraireSemaine({ consultation = false, onModifier = null }) {
   const [annee] = useState(getAnnee());
-  const peutEcrire = !consultation && ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
+  const roleEcrit = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
+  const peutEcrire = !consultation && roleEcrit;
+  /* DE LA CONSULTATION À LA RETOUCHE (3.5.725, Charles : « pas moyen de changer les noms » — la fenêtre d'une séance ouverte
+     depuis « Consulter l'horaire » est en lecture). « Modifier cette séance » passe à « Composer la semaine » sur la même vue, la
+     même semaine, et rouvre la séance. */
+  const reprise = (() => { try { const v = JSON.parse(sessionStorage.getItem('lucie.horaire.reprendre') || 'null'); if (v && !consultation) sessionStorage.removeItem('lucie.horaire.reprendre'); return consultation ? null : v; } catch { return null; } })();
+  const [aRouvrir, setARouvrir] = useState(reprise?.seance || null);
   /* L'HORAIRE D'UN PROFESSEUR EN UN CLIC (3.5.716, Charles : « un bouton calendrier qui va directement sur l'horaire du prof ») :
      `?prof=<id>` ouvre la vue « professeur » sur lui (liste du personnel). */
   const profDeLAdresse = (() => { try { const v = Number(new URLSearchParams(window.location.search).get('prof')); return v > 0 ? String(v) : ''; } catch { return ''; } })();
-  const [vue, setVue] = useState(profDeLAdresse ? 'professeur' : 'classe');
-  const [cle, setCle] = useState(profDeLAdresse);
+  const [vue, setVue] = useState(reprise?.vue || (profDeLAdresse ? 'professeur' : 'classe'));
+  const [cle, setCle] = useState(reprise?.cle || profDeLAdresse);
   const [classes, setClasses] = useState([]);
   const [ref, setRef] = useState({ profs: [], locaux: [] });
-  const [lundi, setLundi] = useState(() => lundiDe(iso(new Date())));
+  const [lundi, setLundi] = useState(() => reprise?.lundi || lundiDe(iso(new Date())));
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   /* CHEZ NOUS, UN MODULE FAIT 120 MINUTES (Charles, 9 octobre 2026 : « ça DOIT
@@ -90,6 +96,16 @@ export default function HoraireSemaine({ consultation = false }) {
       .then(j => { setData(j); setErreur(null); }).catch(e => setErreur(e.message));
   };
   useEffect(charger, [annee, lundi, vue, cle]);   // eslint-disable-line
+  useEffect(() => {
+    if (!aRouvrir || !data) return;
+    const x = (data.seances || []).find(z => z.id === aRouvrir);
+    if (x) setSel(x);
+    setARouvrir(null);
+  }, [data, aRouvrir]);
+  const modifierDansComposer = () => {
+    try { sessionStorage.setItem('lucie.horaire.reprendre', JSON.stringify({ vue, cle, lundi, seance: sel?.id })); } catch { /* */ }
+    setSel(null); onModifier?.();
+  };
   const sectionVue = vue === 'classe' ? classes.find(c => c.cle === cle)?.section : null;
   useEffect(() => {
     if (!sectionVue) { setPlages([]); return; }
@@ -439,7 +455,11 @@ export default function HoraireSemaine({ consultation = false }) {
       {sel && (
         <Fenetre titre={`${sel.cours_code} ${sel.cours_nom || ''}`} large="petite" onFermer={() => setSel(null)}
           sous={`${NOMS_JOURS[(new Date(sel.date + 'T12:00:00Z').getUTCDay() + 6) % 7]} ${court(sel.date)} · ${lisible(sel.heure_debut)}–${lisible(sel.heure_fin)} · ${nomProf(sel) || 'professeur à attribuer'}`}
-          pied={peutEcrire ? <>
+          pied={!peutEcrire && consultation && roleEcrit && onModifier ? <>
+            <span className="flex-1" />
+            <button className="bouton" onClick={() => setSel(null)}>Fermer</button>
+            <button className="bouton bouton-fort" onClick={modifierDansComposer}>Modifier cette séance</button>
+          </> : peutEcrire ? <>
             <button className="bouton bouton-detruire" onClick={supprimerSel}><IconTrash size={14} /> Supprimer</button>
             <span className="flex-1" />
             <button className="bouton" onClick={() => setSel(null)}>Fermer</button>
