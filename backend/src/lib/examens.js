@@ -183,21 +183,25 @@ const DANS_ENVELOPPE = ['fiche', 'ar', 'registre', 'plan', 'incident', 'brouillo
 const ses = e => (e.session === 2 ? '2e session' : '1re session');
 const epreuveNom = e => (e.cours_code ? `${e.cours_code} — ${e.cours_nom || ''}` : 'Unité entière');
 const horaire = e => `${e.heure ? String(e.heure).slice(0, 5) : '__:__'} → ${e.heure_fin || '__:__'} (${Math.floor(e.duree_min / 60)} h${e.duree_min % 60 ? String(e.duree_min % 60).padStart(2, '0') : ''})`;
+/* LE CARTOUCHE (3.5.733, Charles : « revoir les marges, les couleurs… que ce soit plus design »). Une bande : le JOUR, l'horaire et le
+   local — ce qu'on cherche d'abord ; puis la fiche en deux colonnes dans un cadre doux. Les champs en plus (questionnaires,
+   copies…) suivent dans la même grille. */
 function cartouche(e, plus = []) {
-  const lignes = [
-    ['Session', `${ses(e)} · année académique ${e.annee}`],
+  const champs = [
     ['Section', `${esc(e.section || '—')}${e.niveau ? ` · bloc ${esc(e.niveau)}` : ''}`],
+    ['Session', `${ses(e)} · ${esc(e.annee)}`],
     ['Unité', `UE ${e.ue_num} — ${esc(e.ue_nom || '')}`],
     ['Épreuve', `${esc(epreuveNom(e))} · ${e.type === 'oral' ? 'oral' : 'écrit'}`],
-    ['Date', `<b>${esc(jourLong(e.date))}</b>`],
-    ['Horaire', `<b>${esc(horaire(e))}</b>`],
-    ['Local', `${esc(e.local || '—')}${e.adresse ? ` · ${esc(e.adresse)}` : ''}`],
     ['Professeur(s)', esc(e.professeurs || '—')],
-    ['Surveillant(s)', esc(e.surveillants || '…………………………………………')],
+    ['Surveillant(s)', e.surveillants ? esc(e.surveillants) : '<span class="cv-vide">……………………………………</span>'],
     ['Étudiants', `<b>${e.etudiants.length}</b>${e.ar.length ? ` · dont ${e.ar.length} avec aménagement` : ''}`],
     ...plus,
   ];
-  return `<table class="cartouche">${lignes.map(([a, b]) => `<tr><th>${a}</th><td>${b}</td></tr>`).join('')}</table>`;
+  return `<div class="cartouche">
+    <div class="cv-quand"><span class="cv-jour">${esc((j => j.charAt(0).toUpperCase() + j.slice(1))(jourLong(e.date)))}</span><span class="cv-h">${esc(horaire(e))}</span>
+      <span class="cv-local">${e.local ? esc(e.local) : 'local à préciser'}${e.adresse ? ` · ${esc(e.adresse)}` : ''}</span></div>
+    <div class="cv-grille">${champs.map(([a, b]) => `<div class="cv-champ"><div class="cv-l">${a}</div><div class="cv-v">${b}</div></div>`).join('')}</div>
+  </div>`;
 }
 const saut = k => (k ? ' style="break-before:page;page-break-before:always"' : '');
 
@@ -513,32 +517,40 @@ function valves(liste) {
 
 const COMPOSE = { fiche, registre, plan, ar: listeAR, incident, archivage, garde, brouillon };
 export const STYLES_EXAMENS = `
+  .cartouche { border: 0.25mm solid #D5DCE6; border-radius: 2.2mm; overflow: hidden; margin: 1mm 0 4mm; break-inside: avoid; }
+  .cv-quand { display: flex; flex-wrap: wrap; gap: 1mm 5mm; align-items: baseline; background: #16406A; color: #fff; padding: 2.2mm 4mm; }
+  .cv-jour { font-size: 11pt; font-weight: 600; } .cv-h { font-size: 10.5pt; font-weight: 600; color: #F9D27A; }
+  .cv-local { font-size: 9.5pt; color: #DCE6F2; margin-left: auto; }
+  .cv-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: #F7F9FC; padding: 1.5mm 4mm 2mm; }
+  .cv-champ { padding: 1.2mm 3mm 1.2mm 0; border-bottom: 0.2mm solid #E6EBF2; break-inside: avoid; }
+  .cv-l { font-size: 7.5pt; color: #7A8699; letter-spacing: .02em; } .cv-v { font-size: 9.5pt; color: #16406A; margin-top: .3mm; }
+  .cv-vide { color: #A0AAB8; }
+  table.grille { border: 0.25mm solid #D5DCE6; }
+  table.grille thead th { background: #F7F9FC !important; color: #7A8699 !important; text-transform: none !important; letter-spacing: normal !important; font-weight: normal !important; font-size: 8.5pt !important; border-color: #E0E6EE !important; }
+  table.grille td { border-color: #E6EBF2 !important; }
   .valves-titre { font-size: 18pt; } .valves-sous { font-size: 10pt; color: #555; margin: -2mm 0 3mm; }
   .valves-jour { font-size: 12pt; text-transform: capitalize; border-bottom: 0.3mm solid #C9A84C; padding-bottom: 1mm; margin-top: 5mm; }
   table.valves-t td { font-size: 10.5pt; height: auto; padding: 1.8mm 2mm; } .valves-cours { font-size: 9pt; color: #444; }
   table.valves-t, .valves-t tr { break-inside: avoid; }
   h2 { font-size: 13pt; color: #16406A; margin: 0 0 3mm; }
-  h3 { font-size: 10pt; color: #16406A; margin: 4mm 0 1.5mm; }
+  h3 { font-size: 10pt; color: #16406A; margin: 3.5mm 0 1.5mm; }
   table { border-collapse: collapse; width: 100%; }
-  table.cartouche th, table.cartouche td { background: none !important; text-transform: none !important; letter-spacing: normal !important;
-    font-size: 9.5pt !important; border: 0 !important; border-bottom: 0.2mm solid #E3E7ED !important; }
-  table.cartouche th { text-align: left; width: 32mm; font-weight: normal !important; color: #667085 !important; padding: 0.9mm 2mm 0.9mm 0 !important; vertical-align: top; }
-  table.cartouche td { padding: 0.9mm 0 !important; color: #16406A; }
-  table.cartouche tr:last-child th, table.cartouche tr:last-child td { border-bottom: 0 !important; }
   table.formulaire th, table.identite th { background: none !important; text-transform: none !important; letter-spacing: normal !important;
     font-size: 9pt !important; color: #667085 !important; font-weight: normal !important; }
-  table.cartouche { margin-bottom: 3mm; border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
   table.grille th, table.grille td { border: 0.2mm solid #B8C0CC; padding: 1.2mm 1.5mm; font-size: 9pt; vertical-align: top; }
   table.grille thead th { background: #EEF2F7; text-align: left; }
   table.grille td { height: 7mm; }
   .n { width: 9mm; text-align: right; } .c { text-align: center; }
   td.petit { font-size: 8pt; }
-  ul.cases { list-style: none; padding-left: 2mm; margin: 0; } ul.cases li { margin: 1mm 0; }
-  ul.rappels { margin: 0; padding-left: 5mm; font-size: 9pt; } ul.rappels li { margin: 0.8mm 0; }
-  table.signatures { margin-top: 5mm; } table.signatures td { border: 0.2mm solid #B8C0CC; height: 22mm; vertical-align: top; padding: 1.5mm; font-size: 8.5pt; color: #555; }
+  ul.cases { list-style: none; padding-left: 2mm; margin: 0; columns: 2; column-gap: 8mm; } ul.cases li { margin: 0.8mm 0; break-inside: avoid; }
+  ul.rappels { margin: 0; padding-left: 5mm; font-size: 8.5pt; color: #3A4658; } ul.rappels li { margin: 0.6mm 0; }
+  table.signatures { margin-top: 4mm; border-collapse: separate; border-spacing: 2mm 0; break-inside: avoid; }
+  table.signatures td { border: 0.25mm solid #D5DCE6; border-radius: 2mm; height: 19mm; vertical-align: top; padding: 2mm; font-size: 8pt; color: #7A8699; background: #FBFCFE; }
   table.totaux td { padding: 2mm 0; font-size: 9pt; }
-  table.formulaire th { text-align: left; width: 42mm; font-weight: normal; color: #555; border: 0.2mm solid #B8C0CC; padding: 1.5mm; vertical-align: top; }
-  table.formulaire td { border: 0.2mm solid #B8C0CC; padding: 1.5mm; height: 8mm; }
+  table.formulaire { border: 0.25mm solid #D5DCE6; border-radius: 2.2mm; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+  table.formulaire th { text-align: left; width: 38mm; font-weight: normal; color: #7A8699; background: #F7F9FC !important; border-bottom: 0.2mm solid #E6EBF2; border-right: 0.2mm solid #E6EBF2; padding: 2.2mm 3mm; vertical-align: top; }
+  table.formulaire td { border-bottom: 0.2mm solid #E6EBF2; padding: 2.2mm 3mm; height: 9mm; color: #16406A; }
+  table.formulaire tr:last-child th, table.formulaire tr:last-child td { border-bottom: 0; }
   table.formulaire td.haut { height: 50mm; } table.formulaire td.moyen { height: 20mm; }
   table.identite th { text-align: left; font-weight: normal; color: #555; padding: 1.5mm; width: 28mm; border: 0.3mm solid #16406A; }
   table.identite td { border: 0.3mm solid #16406A; padding: 1.5mm; }
