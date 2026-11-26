@@ -147,6 +147,44 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     finally { setPdfEnCours(false); }
   }
   const envoiMail = useEnvoiMail();
+  const [choixEtud, setChoixEtud] = useState(false);
+  async function deposer(etud) {
+                  /* UNE COPIE PAR COURRIEL (3.5.764, Charles : « quand j'envoie le document sur l'espace étudiant, une copie sur son
+                     mail ») : le dépôt propose d'envoyer aussi la pièce à son adresse (l'institut d'abord), par le registre des envois. */
+                  let email = null;
+                  try {
+                    const a = await fetch(`/api/envois/adresses?type=etudiant&ids=${etud.id}`, { headers: authHeaders() }).then(r => r.json());
+                    email = Array.isArray(a) ? a[0]?.adresses?.[0]?.email || null : null;
+                  } catch { /* sans adresse connue */ }
+                  const copiePossible = !!(email && envoiMail?.actif);
+                  const choix = await choisir({ titre: `Déposer dans l’espace de ${etud.nom || 'l’étudiant'}`,
+                    message: copiePossible ? `La pièce sera dans « Mes documents ». Une copie part aussi à ${email}.`
+                      : 'La pièce sera dans « Mes documents ».' + (email ? ' (L’envoi de courriels n’est pas actif : pas de copie.)' : ' (Aucune adresse connue : pas de copie.)'),
+                    choix: [
+                      ...(copiePossible ? [{ valeur: 'copie', libelle: 'Déposer et envoyer la copie', fort: true }] : []),
+                      { valeur: 'seul', libelle: copiePossible ? 'Déposer seulement' : 'Déposer', fort: !copiePossible },
+                    ] });
+                  if (!choix) return;
+                  setDepot(true);
+                  try {
+                    const r = await fetch('/api/envois/espace', { method: 'POST', headers: authHeaders(),
+                      body: JSON.stringify({ etudiant_id: etud.id, html, sujet: sujetMail || titre, nom_fichier: nomFichier, type_doc: typeDoc }) });
+                    const j = await r.json().catch(() => ({}));
+                    if (!r.ok) { informer(`❌ ${j.error || 'Dépôt refusé.'}`); return; }
+                    let suite = '';
+                    if (choix === 'copie') {
+                      const m = await fetch('/api/envois', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+                        sujet: sujetMail || titre, type_doc: typeDoc || 'apercu', mode: envoiMail?.pdf ? 'pdf' : 'corps',
+                        message: 'Ce document a aussi été déposé dans votre espace étudiant, rubrique « Mes documents ».',
+                        pieces: [{ destinataire_type: 'etudiant', destinataire_id: etud.id, nom: etud.nom || titre,
+                          email, html, nom_fichier: nomFichier }] }) });
+                      const mj = await m.json().catch(() => ({}));
+                      suite = m.ok ? ` Copie envoyée à ${email}.` : ` La copie par courriel n’est pas partie : ${mj.error || m.status}.`;
+                    }
+                    informer(`✓ ${j.message}${suite}`);
+                  } finally { setDepot(false); }
+                  }
+
 
   /* L'APERÇU MONTRE LA FEUILLE, PAS LE HTML (Charles, 9 octobre 2026 : « vérifie
      pour TOUS les documents que le bas de page soit bien collé en bas »). Le
@@ -286,46 +324,14 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               <IconeApercu Icone={IconSend} onClick={() => setEnvoi(true)} disabled={!pret}
                 titre="Envoyer ce document par courriel — PDF joint ou dans le corps du message" />
             )}
-            {/* DÉPOSER DANS SON ESPACE (3.5.236) : la pièce d'UN étudiant, rendue disponible en ligne dans « Mes documents ». */}
-            {envoiPossible && destinataire?.type === 'etudiant' && destinataire?.id && peutGeste('envois.envoyer') && (
+            {/* DÉPOSER DANS UN ESPACE (3.5.236 ; GÉNÉRALISÉ en 3.5.765, Charles : « le nuage devrait être généralisé ») : sur toute
+                pièce qui ne nomme qu'une personne. L'étudiant de l'écran s'il est connu ; sinon Lucie le demande. */}
+            {envoiPossible && peutGeste('envois.envoyer') && !(destinataire?.type && destinataire.type !== 'etudiant') && (
               <IconeApercu Icone={IconCloudUpload} disabled={!pret || depot}
-                titre="Déposer dans son espace — l’étudiant la retrouve en ligne, dans Mes documents"
-                onClick={async () => {
-                  /* UNE COPIE PAR COURRIEL (3.5.764, Charles : « quand j'envoie le document sur l'espace étudiant, une copie sur son
-                     mail ») : le dépôt propose d'envoyer aussi la pièce à son adresse (l'institut d'abord), par le registre des envois. */
-                  let email = null;
-                  try {
-                    const a = await fetch(`/api/envois/adresses?type=etudiant&ids=${destinataire.id}`, { headers: authHeaders() }).then(r => r.json());
-                    email = Array.isArray(a) ? a[0]?.adresses?.[0]?.email || null : null;
-                  } catch { /* sans adresse connue */ }
-                  const copiePossible = !!(email && envoiMail?.actif);
-                  const choix = await choisir({ titre: 'Déposer dans son espace',
-                    message: copiePossible ? `La pièce sera dans « Mes documents ». Une copie part aussi à ${email}.`
-                      : 'La pièce sera dans « Mes documents ».' + (email ? ' (L’envoi de courriels n’est pas actif : pas de copie.)' : ' (Aucune adresse connue : pas de copie.)'),
-                    choix: [
-                      ...(copiePossible ? [{ valeur: 'copie', libelle: 'Déposer et envoyer la copie', fort: true }] : []),
-                      { valeur: 'seul', libelle: copiePossible ? 'Déposer seulement' : 'Déposer', fort: !copiePossible },
-                    ] });
-                  if (!choix) return;
-                  setDepot(true);
-                  try {
-                    const r = await fetch('/api/envois/espace', { method: 'POST', headers: authHeaders(),
-                      body: JSON.stringify({ etudiant_id: destinataire.id, html, sujet: sujetMail || titre, nom_fichier: nomFichier, type_doc: typeDoc }) });
-                    const j = await r.json().catch(() => ({}));
-                    if (!r.ok) { informer(`❌ ${j.error || 'Dépôt refusé.'}`); return; }
-                    let suite = '';
-                    if (choix === 'copie') {
-                      const m = await fetch('/api/envois', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
-                        sujet: sujetMail || titre, type_doc: typeDoc || 'apercu', mode: envoiMail?.pdf ? 'pdf' : 'corps',
-                        message: 'Ce document a aussi été déposé dans votre espace étudiant, rubrique « Mes documents ».',
-                        pieces: [{ destinataire_type: 'etudiant', destinataire_id: destinataire.id, nom: destinataire.nom || titre,
-                          email, html, nom_fichier: nomFichier }] }) });
-                      const mj = await m.json().catch(() => ({}));
-                      suite = m.ok ? ` Copie envoyée à ${email}.` : ` La copie par courriel n’est pas partie : ${mj.error || m.status}.`;
-                    }
-                    informer(`✓ ${j.message}${suite}`);
-                  } finally { setDepot(false); }
-                }} />
+                titre={destinataire?.type === 'etudiant' && destinataire?.id
+                  ? 'Déposer dans son espace — l’étudiant la retrouve en ligne, dans Mes documents'
+                  : 'Déposer dans l’espace d’un étudiant — à choisir'}
+                onClick={() => (destinataire?.type === 'etudiant' && destinataire?.id ? deposer(destinataire) : setChoixEtud(true))} />
             )}
       </div>}>
         {/* ── iframe ── */}
@@ -343,6 +349,8 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
           className={`flex-1 w-full border-0 bg-gray-100 ${feuille || composition ? 'hidden' : ''}`}
         />
     </Fenetre>
+      {choixEtud && <ChoixEtudiant onFermer={() => setChoixEtud(false)}
+        onChoisir={e => { setChoixEtud(false); deposer(e); }} />}
       {envoi && (
         <EnvoiMailModal apercu={false}
           pieces={[{ html, nom_fichier: nomFichier || titre,
@@ -354,5 +362,34 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
           onClose={() => setEnvoi(false)} />
       )}
     </>
+  );
+}
+
+/** Choisir l'étudiant dans l'espace duquel déposer la pièce (3.5.765). */
+function ChoixEtudiant({ onFermer, onChoisir }) {
+  const [q, setQ] = useState('');
+  const [liste, setListe] = useState([]);
+  useEffect(() => {
+    if (q.trim().length < 2) { setListe([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/etudiants?q=${encodeURIComponent(q.trim())}`, { headers: authHeaders() })
+        .then(r => (r.ok ? r.json() : [])).then(j => setListe((Array.isArray(j) ? j : j?.etudiants || j?.lignes || []).slice(0, 30))).catch(() => setListe([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  return (
+    <Fenetre titre="Dans l’espace de quel étudiant ?" large="petite" onFermer={onFermer}
+      pied={<><span className="flex-1" /><button className="bouton" onClick={onFermer}>Annuler</button></>}>
+      <input className="controle w-full mb-2" autoFocus placeholder="Nom, prénom ou matricule (2 lettres au moins)" value={q} onChange={e => setQ(e.target.value)} />
+      <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto">
+        {liste.map(e => (
+          <button key={e.id} type="button" className="w-full text-left px-2 py-1.5 text-sm hover:bg-slate-50"
+            onClick={() => onChoisir({ id: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() })}>
+            <b>{String(e.nom || '').toUpperCase()}</b> {e.prenom || ''}
+            <span className="text-xs text-slate-400 ml-2">{e.id_ecampus || ''}{e.section_rattachement ? ` · ${e.section_rattachement}` : ''}</span>
+          </button>))}
+        {q.trim().length >= 2 && !liste.length && <p className="text-second text-slate-400 py-2">Personne ne correspond.</p>}
+      </div>
+    </Fenetre>
   );
 }
