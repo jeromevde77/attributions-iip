@@ -132,7 +132,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
         </button>
       </>}>
         {/* Légende compacte */}
-        <div className="-mx-5 -mt-4 mb-3 px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+        <div className="mb-3 pb-2 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
           {Object.entries(MODE_CFG).map(([k, cfg]) => {
             const Icon = cfg.icon;
             return (
@@ -142,7 +142,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
               </span>
             );
           })}
-          <span className="ml-auto text-gray-400">☐ = créer org. 2</span>
+          <span className="ml-auto text-gray-400 whitespace-nowrap">☐ = créer org. 2</span>
         </div>
 
         {/* Corps */}
