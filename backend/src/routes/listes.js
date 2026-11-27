@@ -120,9 +120,24 @@ r.get('/etudiants', authRequired, (req, res) => {
       // Les rattachés de la section encore sans PAE cette année : ils sont
       // « de l'année » aussi — susceptibles d'en avoir un.
       const dedans = new Set(base.map(x => x.id));
+      /* UN DIPLÔMÉ N'EST PAS « SANS PAE » (3.5.770, Marie Lambert : « je continue à avoir les étudiants diplômés dans mes
+         listes » — les 25 lauréats TIM 2025-2026, épreuve intégrée réussie, sans section posée sur leur fiche). Qui a réussi une
+         épreuve intégrée AVANT l'année de la liste et n'y a pas de PAE a fini son cursus : il ne s'ajoute pas. */
+      const diplomes = new Set();
+      try {
+        const ei = new Set([
+          ...db.prepare('SELECT ue_num FROM ue_epreuve_integree WHERE actif = 1').all().map(x => x.ue_num),
+          ...db.prepare("SELECT DISTINCT ue_num FROM ue WHERE is_epreuve_integree = 1 OR ue_nom LIKE '%preuve int%gr%'").all().map(x => x.ue_num)]);
+        if (ei.size) {
+          const ph = [...ei].map(() => '?').join(',');
+          for (const x of db.prepare(`SELECT etudiant_id FROM etudiant_inscription WHERE resultat IN ('reussi','valorise') AND ue_num IN (${ph}) AND annee_scolaire < ?
+              UNION SELECT etudiant_id FROM deliberation_resultat WHERE resultat IN ('reussi','valorise') AND ue_num IN (${ph}) AND annee_scolaire < ?`)
+            .all(...ei, annee, ...ei, annee)) diplomes.add(x.etudiant_id);
+        }
+      } catch { /* sans épreuve intégrée connue */ }
       for (const e of db.prepare(
         "SELECT id, nom, prenom, id_ecampus, email_ecole FROM etudiant WHERE actif = 1 AND COALESCE(sortie_statut, '') = ''").all()) {
-        if (dedans.has(e.id)) continue;
+        if (dedans.has(e.id) || diplomes.has(e.id)) continue;
         const rat = sectionRattachement(e.id, annee);
         if (rat.section && norm(rat.section) === norm(section)) {
           base.push({ ...e, statut: 'Sans PAE', resultat: null, points: null });
