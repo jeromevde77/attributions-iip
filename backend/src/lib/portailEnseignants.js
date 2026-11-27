@@ -266,7 +266,9 @@ export async function deposerEnseignants(appel) {
        le portail la compare ; un changement dans Lucie suit au dépôt suivant (deux minutes). Pas pour un aperçu. */
     let mdpLucie = null;
     if (u.id > 0 && !u.apercu_seul) { try { mdpLucie = db.prepare('SELECT password_hash FROM utilisateur WHERE id = ?').get(u.id)?.password_hash || null; } catch { /* */ } }
-    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul, mdp_lucie: mdpLucie,
+    // LE RÔLE DANS LUCIE (3.5.773, Angela Dacier : « je n'ai plus de compte coordination mais professeur ») : l'espace le dit à une
+    // coordination ou à la direction qui enseigne — leur travail de coordination reste dans Lucie.
+    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul, mdp_lucie: mdpLucie, role: u.role || 'professeur',
       // LE QR DE PRÉSENCE (3.5.136) : la même fonction que dans Lucie (Mise en service → Présence par QR).
       qr: u.id > 0 && fonctionPour('presence.qr', { userId: u.id }) });
     const x = seancesPourEspace(u, du, au);

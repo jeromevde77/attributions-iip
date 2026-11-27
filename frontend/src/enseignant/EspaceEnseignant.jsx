@@ -984,6 +984,15 @@ export default function EspaceEnseignant() {
         <Garde cle={face}>
         {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
+        {/* LA COORDINATION QUI ENSEIGNE (3.5.773, Angela Dacier : « je n'ai plus de compte coordination mais professeur ») : son
+            compte est toujours celui de la coordination ; ici, c'est son espace de PROFESSEUR. Le travail de coordination se fait dans Lucie. */}
+        {!moi.apercu && moi.role && moi.role !== 'professeur' && face === 'aujourdhui' && (
+          <div className="bloc-etat px-3 py-2 text-sm mb-4 flex items-center gap-3 flex-wrap" data-etat="disponible">
+            <span className="flex-1 min-w-0">Ici, c’est votre espace de <b>professeur</b>. Votre compte {({ coordination: 'de coordination', directeur: 'de direction',
+              directeur_adjoint: 'de direction adjointe', secretariat: 'du secrétariat', admin: 'de direction' })[moi.role] || ''} est intact :
+              ce travail-là se fait dans Lucie, avec la même adresse et le même mot de passe.</span>
+            <a className="bouton bouton-fort" href="https://www.lucie-iip.be">Ouvrir Lucie</a>
+          </div>)}
         {/* Les écrans de Lucie restent montés d'une entrée à l'autre (un cours ouvert le reste) ; masqués quand une autre face s'affiche. */}
         {lucie && (
           <div hidden={!VUES_LUCIE.has(face) || !!FACE[face]?.bientot}>
