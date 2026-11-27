@@ -2889,6 +2889,42 @@ export const RAPPORTS = [
     document: (p) => documentCanevas(p),
     xlsx: (p) => excelCanevas(p),
   },
+  /* LE CALENDRIER DES SESSIONS, TEL QU'ON LE DIFFUSE (3.5.771, Charles : « comment imprimer ou sortir ce listing de TIM ? » —
+     après l'avoir posé depuis le classeur de la section). Une ligne par cours : examen, délibération et visite des copies, en
+     1re puis en 2e session ; les délibérations sont celles de l'unité (séance « toute l'unité »). Le tableur reprend les colonnes. */
+  {
+    id: 'calendrier-sessions', domaine: 'organisation', params: ['annee', 'section'],
+    libelle: 'Calendrier des sessions : examens, délibérations, visites',
+    aide: "Par unité et par cours : date de l'examen, de la délibération et de la visite des copies, en première puis en seconde session — le calendrier des sessions de Lucie, à imprimer ou à diffuser.",
+    colonnes: COLS([['ue', 'Unité', 30], ['cours', 'Cours', 30], ['profs', 'Titulaires', 22],
+      ['ex1', 'Examen S1', 11], ['de1', 'Délibé S1', 11], ['vi1', 'Visite S1', 11],
+      ['ex2', 'Examen S2', 11], ['de2', 'Délibé S2', 11], ['vi2', 'Visite S2', 11]]),
+    lignes: (p) => {
+      const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+      const ues = db.prepare(`SELECT ue_num, MAX(ue_nom) ue_nom FROM ue WHERE annee_scolaire = ? AND (? IS NULL OR section = ?)
+        GROUP BY ue_num ORDER BY ue_num`).all(p.annee, p.section, p.section);
+      const seance = db.prepare(`SELECT date_seance, visite_date FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
+        ORDER BY num_organisation LIMIT 1`);
+      const cours = db.prepare('SELECT cours_code, cours_nom FROM cours WHERE annee_scolaire = ? AND ue_num = ? ORDER BY cours_num, cours_code');
+      const s1 = db.prepare('SELECT * FROM epreuve_session1 WHERE annee_scolaire = ? AND ue_num = ? AND cours_code = ?');
+      const s2 = db.prepare('SELECT * FROM deliberation_session2 WHERE annee_scolaire = ? AND ue_num = ? AND cours_code = ?');
+      const profs = db.prepare(`SELECT GROUP_CONCAT(DISTINCT UPPER(p.nom)) n FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+        WHERE a.annee_scolaire = ? AND a.code_cours = ? AND COALESCE(p.est_a_designer, 0) = 0`);
+      const out = [];
+      for (const u of ues) {
+        const d1 = seance.get(u.ue_num, p.annee, 1) || {}, d2 = seance.get(u.ue_num, p.annee, 2) || {};
+        for (const c of cours.all(p.annee, u.ue_num)) {
+          const a = s1.get(p.annee, u.ue_num, c.cours_code) || {}, b = s2.get(p.annee, u.ue_num, c.cours_code) || {};
+          if (!a.s1_date && !b.s2_date && !d1.date_seance && !d2.date_seance) continue;
+          out.push({ ue: `UE ${u.ue_num} — ${u.ue_nom || ''}`, cours: `${c.cours_code} ${c.cours_nom || ''}`.trim(),
+            profs: (profs.get(p.annee, c.cours_code)?.n || '').replace(/,/g, ', '),
+            ex1: fr(a.s1_date), de1: fr(d1.date_seance), vi1: a.s1_visite_rdv ? 'sur RDV' : fr(a.s1_visite_date || d1.visite_date),
+            ex2: b.s2_aucune ? 'aucune' : fr(b.s2_date), de2: fr(d2.date_seance), vi2: b.s2_visite_rdv ? 'sur RDV' : fr(b.s2_visite_date || d2.visite_date) });
+        }
+      }
+      return out;
+    },
+  },
   {
     id: 'evaluations-manquantes', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Évaluations et dates des UE : ce qui manque',
