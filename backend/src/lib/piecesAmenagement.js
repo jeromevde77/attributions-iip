@@ -444,9 +444,8 @@ export function composerPiece(type, d) {
 
 /** Les chargés de cours des unités concernées, pour l'année du dossier. */
 export function chargesDeCours(d) {
-  /* LES PROFESSEURS DE SON ANNÉE, PAS CEUX DE LA SECTION (3.5.769, une coordination : « les professeurs qui doivent rendre leur
-     avis sont tous ceux de la section, alors que ce devrait être ceux des UE auxquelles l'étudiant est inscrit pour l'année en
-     cours — les professeurs des autres années peuvent nuire au jugement »). Une unité cochée au dossier ne compte que si elle est
+  /* LES PROFESSEURS DE SON ANNÉE (3.5.769) : l'avis porte sur la mise en œuvre des mesures dans les cours que l'étudiant suit
+     cette année ; il se demande donc aux chargés de cours de ces unités-là. Une unité cochée au dossier ne compte que si elle est
      à son PROGRAMME de l'année ; et seuls les chargés de cours de SON organisation de l'UE (une organisation non posée : toutes). */
   const pae = db.prepare(`SELECT ue_num, num_organisation FROM etudiant_inscription
     WHERE etudiant_id = ? AND annee_scolaire = ?`).all(d.etudiant_id, d.annee_scolaire);
