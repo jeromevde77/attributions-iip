@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconChevronRight, IconChevronDown, IconAlertTriangle,
-  IconLock, IconWand, IconSearch, IconLayoutRows, IconCalendarEvent, IconGavel, IconWriting, IconEye, IconFileSpreadsheet,
+  IconLock, IconWand, IconSearch, IconLayoutRows, IconCalendarEvent, IconGavel, IconWriting, IconEye, IconFileSpreadsheet, IconPrinter,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { PageHeader, Fenetre, Chevron, PastilleEtat, OuvrirEditions } from './ui.jsx';
 import PassagesExamen from './PassagesExamen.jsx';
 import ComparerHoraireExamens from './ComparerHoraireExamens.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LE CALENDRIER DES SESSIONS — une section, une page, les deux sessions.
@@ -467,7 +468,18 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
             className="bouton controle px-3">
             {coches.size ? 'Tout décocher' : 'Tout cocher'}
           </button></>}
-          <button type="button" onClick={() => setComparer(true)} className="bouton controle px-3 inline-flex items-center gap-1.5 ml-auto"
+          {/* IMPRIMER LE CALENDRIER DE LA SECTION (3.5.771, Charles : « comment imprimer ou sortir ce listing de TIM ? ») : la pièce
+              « Calendrier des sessions » d'Éditions (examen, délibération, visite, S1 puis S2), dans l'aperçu commun. */}
+          <button type="button" className="bouton controle px-3 inline-flex items-center gap-1.5 ml-auto" disabled={!section}
+            title="Le calendrier de la section, cours par cours : examens, délibérations, visites des copies (PDF, impression, envoi)"
+            onClick={async () => {
+              const r = await fetch('/api/rapports/calendrier-sessions/document', { method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ annee, section }) });
+              const j = await r.json().catch(() => ({}));
+              if (r.ok && j.html) ouvrirApercu({ html: j.html, titre: j.titre || `Calendrier des sessions — ${section}`, nomFichier: j.nom || `Calendrier-sessions-${section}-${annee}`, envoiPossible: false });
+            }}>
+            <IconPrinter size={14} /> Imprimer le calendrier</button>
+          <button type="button" onClick={() => setComparer(true)} className="bouton controle px-3 inline-flex items-center gap-1.5"
             title="Déposer l’horaire d’examens Excel du campus et le comparer au calendrier de Lucie (lecture seule)">
             <IconFileSpreadsheet size={14} /> Comparer à un horaire Excel</button>
           {comparer && <ComparerHoraireExamens onFermer={() => setComparer(false)} />}
