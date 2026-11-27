@@ -59,6 +59,7 @@ export function monterEnseignants(pub, int, o) {
   try { db.exec('ALTER TABLE ens ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
   try { db.exec('ALTER TABLE ens ADD COLUMN qr INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
   try { db.exec('ALTER TABLE ens ADD COLUMN mdp_lucie TEXT'); } catch { /* déjà là */ }
+  try { db.exec('ALTER TABLE ens ADD COLUMN role TEXT'); } catch { /* déjà là */ }
   db.exec(`CREATE TABLE IF NOT EXISTS ens_requete (id INTEGER PRIMARY KEY AUTOINCREMENT, ens_id INTEGER NOT NULL, apercu INTEGER NOT NULL DEFAULT 0,
     methode TEXT NOT NULL, chemin TEXT NOT NULL, type TEXT, corps BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')), prise_le TEXT,
     statut INTEGER, rep_type TEXT, rep_disposition TEXT, rep_corps BLOB, fini_le TEXT)`);
@@ -230,7 +231,7 @@ export function monterEnseignants(pub, int, o) {
     const e = req.ens;
     let attente = []; try { attente = JSON.parse(db.prepare('SELECT contenu FROM ens_attente WHERE ens_id = ?').get(e.id)?.contenu || '[]'); } catch { attente = []; }
     let motifs = []; try { motifs = JSON.parse(db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'motifs'").get()?.valeur || '[]'); } catch { motifs = []; }
-    res.json({ id: e.id, nom: e.nom, prenom: e.prenom, email: e.email, aujourdhui: aujourdhui(), apercu: req.apercu || null, attente, en_route: enAttente(e.id), motifs,
+    res.json({ id: e.id, nom: e.nom, prenom: e.prenom, email: e.email, role: e.role || 'professeur', aujourdhui: aujourdhui(), apercu: req.apercu || null, attente, en_route: enAttente(e.id), motifs,
       qr: !!e.qr && !!cleQr(),
       depose_le: db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'depose_le'").get()?.valeur || null });
   });
@@ -494,9 +495,9 @@ export function monterEnseignants(pub, int, o) {
       for (const t of b.textes || []) if (Number(t.version_id)) itx.run(Number(t.version_id), String(t.titre || ''), Number(t.numero) || null, t.publiee_le || null, String(t.html || ''), t.source_url || null);
       const it = db.prepare('INSERT OR REPLACE INTO ens_tableau (ens_id, contenu) VALUES (?,?)');
       for (const t of b.tableaux || []) if (Number(t.ens_id)) it.run(Number(t.ens_id), JSON.stringify(t.contenu || {}));
-      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul, qr, mdp_lucie) VALUES (?,?,?,?, datetime('now'), ?, ?, ?)");
+      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul, qr, mdp_lucie, role) VALUES (?,?,?,?, datetime('now'), ?, ?, ?, ?)");
       for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email), e.apercu_seul ? 1 : 0, e.qr ? 1 : 0,
-        /^\$2[aby]\$\d\d\$/.test(String(e.mdp_lucie || '')) ? String(e.mdp_lucie) : null);
+        /^\$2[aby]\$\d\d\$/.test(String(e.mdp_lucie || '')) ? String(e.mdp_lucie) : null, /^[a-z_]{2,40}$/.test(String(e.role || '')) ? String(e.role) : 'professeur');
       const is = db.prepare(`INSERT OR REPLACE INTO ens_seance (id, ens_id, date, heure_debut, heure_fin, cours_code, cours_nom, ue_num, matiere, local, annule, visite)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
       const ii = db.prepare('INSERT OR IGNORE INTO ens_inscrit (seance_id, etudiant_id) VALUES (?,?)');
