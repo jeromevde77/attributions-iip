@@ -444,22 +444,26 @@ export function composerPiece(type, d) {
 
 /** Les chargés de cours des unités concernées, pour l'année du dossier. */
 export function chargesDeCours(d) {
-  let ues = d.ues.map(u => u.ue_num);
-  if (!ues.length) {
-    // Aucune unité cochée veut dire toutes : celles du programme de l'année.
-    ues = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
-      WHERE etudiant_id = ? AND annee_scolaire = ?`).all(d.etudiant_id, d.annee_scolaire)
-      .map(x => x.ue_num);
-  }
+  /* LES PROFESSEURS DE SON ANNÉE, PAS CEUX DE LA SECTION (3.5.769, une coordination : « les professeurs qui doivent rendre leur
+     avis sont tous ceux de la section, alors que ce devrait être ceux des UE auxquelles l'étudiant est inscrit pour l'année en
+     cours — les professeurs des autres années peuvent nuire au jugement »). Une unité cochée au dossier ne compte que si elle est
+     à son PROGRAMME de l'année ; et seuls les chargés de cours de SON organisation de l'UE (une organisation non posée : toutes). */
+  const pae = db.prepare(`SELECT ue_num, num_organisation FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?`).all(d.etudiant_id, d.annee_scolaire);
+  const orgDe = new Map(pae.map(x => [x.ue_num, x.num_organisation || null]));
+  const cochees = d.ues.map(u => u.ue_num);
+  // Aucune unité cochée veut dire toutes : celles du programme de l'année.
+  let ues = cochees.length ? cochees.filter(n => !pae.length || orgDe.has(n)) : pae.map(x => x.ue_num);
   if (!ues.length) return [];
   const ph = ues.map(() => '?').join(',');
-  return db.prepare(`
-    SELECT p.id, p.nom, p.prenom, p.adresse_mail,
-           GROUP_CONCAT(DISTINCT a.ue_num) AS ues
+  return [...db.prepare(`
+    SELECT p.id, p.nom, p.prenom, p.adresse_mail, a.ue_num, a.num_organisation
     FROM attribution a JOIN professeur p ON p.id = a.professeur_id
-    WHERE a.annee_scolaire = ? AND a.ue_num IN (${ph})
-    GROUP BY p.id ORDER BY p.nom, p.prenom
-  `).all(d.annee_scolaire, ...ues).map(p => ({
-    ...p, ues: String(p.ues || '').split(',').map(Number).filter(Boolean).sort((a, b) => a - b),
-  }));
+    WHERE a.annee_scolaire = ? AND a.ue_num IN (${ph}) AND COALESCE(a.en_conge, 0) = 0 AND COALESCE(p.est_a_designer, 0) = 0
+    ORDER BY p.nom, p.prenom
+  `).all(d.annee_scolaire, ...ues)
+    .filter(a => { const o = orgDe.get(a.ue_num); return !o || !a.num_organisation || Number(a.num_organisation) === Number(o); })
+    .reduce((m, a) => { const x = m.get(a.id) || { id: a.id, nom: a.nom, prenom: a.prenom, adresse_mail: a.adresse_mail, ues: [] };
+      if (!x.ues.includes(a.ue_num)) x.ues.push(a.ue_num); m.set(a.id, x); return m; }, new Map())
+    .values()].map(p => ({ ...p, ues: p.ues.sort((x, y) => x - y) }));
 }

@@ -82,7 +82,18 @@ function circuitDe(d, req = null) {
     b: { valide_le: d.valide_b_le || null, valide_par: d.valide_b_par || null, manques: manquesB(d, nbMesures),
          // Qui peut valider le rapport : la direction (geste) ou la personne de référence (3.1.20).
          peut: !req || gesteAutorise(req, 'amenagements.valider_b') === 'oui' || estPersonneReference(req.user, d) },
-    charges: charges.map(p => ({ professeur_id: p.id, nom: `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), ues: p.ues })),
+    /* LES AVIS DÉJÀ RENDUS PAR UN PROFESSEUR QUI N'EST PLUS SOLLICITÉ (3.5.769, Charles : « les garder visibles, marqués ») : une
+       colonne de plus, mention « UE hors du programme de l'année » — le Conseil sait d'où ils viennent ; rien n'est effacé. */
+    charges: (() => {
+      const l = charges.map(p => ({ professeur_id: p.id, nom: `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), ues: p.ues }));
+      const ids = new Set(l.map(p => p.professeur_id));
+      for (const a of avisDuDossier(d.id)) {
+        if (!a.professeur_id || ids.has(a.professeur_id)) continue;
+        ids.add(a.professeur_id);
+        l.push({ professeur_id: a.professeur_id, nom: a.auteur || 'Chargé de cours', ues: [], hors_programme: true });
+      }
+      return l;
+    })(),
     avis: avisDuDossier(d.id),
   };
 }

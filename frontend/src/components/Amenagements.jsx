@@ -413,7 +413,8 @@ export default function Amenagements({ etudId, annee }) {
                     <table className="w-full text-second border-collapse">
                       <thead><tr className="tab-entete text-left">
                         <th className="px-2 py-1.5">Mesure demandée</th>
-                        {c.charges.map(p => <th key={p.professeur_id} className="px-2 py-1.5">{p.nom}<div className="font-normal text-xs text-slate-500">UE {p.ues.join(', ')}</div></th>)}
+                        {c.charges.map(p => <th key={p.professeur_id} className="px-2 py-1.5">{p.nom}<div className="font-normal text-xs text-slate-500">
+                          {p.hors_programme ? <i>UE hors du programme de l’année</i> : `UE ${p.ues.join(', ')}`}</div></th>)}
                       </tr></thead>
                       <tbody>
                         {d.mesures.map(m => (
@@ -426,7 +427,8 @@ export default function Amenagements({ etudId, annee }) {
                                   {a0 ? <>
                                     <span className="inline-block text-xs font-semibold text-white rounded-full px-2" style={{ background: SENS[a0.sens]?.[1] }}>{SENS[a0.sens]?.[0]}</span>
                                     {a0.motif && <div className="text-xs mt-0.5">{a0.motif}</div>}
-                                  </> : <span className="inline-block text-xs font-semibold text-white rounded-full px-2 bg-slate-400">attendu</span>}
+                                  </> : p.hors_programme ? <span className="text-slate-400">—</span>
+                                    : <span className="inline-block text-xs font-semibold text-white rounded-full px-2 bg-slate-400">attendu</span>}
                                 </td>
                               );
                             })}
