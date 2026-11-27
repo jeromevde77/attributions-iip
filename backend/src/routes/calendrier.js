@@ -193,7 +193,9 @@ r.get('/', authRequired, (req, res) => {
  * 409 en NOMMANT les unités concernées, pour qu'on sache exactement ce qu'on
  * s'apprête à corriger avant d'écrire pourquoi.
  */
-r.put('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'),
+/* LA COORDINATION POSE LES DATES DE SES SECTIONS (3.5.772, Charles : « les coordinations doivent pouvoir accéder à l'encodage des
+   horaires des examens et délibérations »). Le périmètre (`horsPerimetre`) borne chaque unité ; une séance close exige toujours un motif. */
+r.put('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'),
       (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
   const motif = String(req.body?.motif || '').trim();
