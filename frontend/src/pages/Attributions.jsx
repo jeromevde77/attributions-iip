@@ -17,7 +17,7 @@ import GroupesSection from '../components/GroupesSection.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle, IconChevronsUp, IconChevronsDown, IconClockPlus, IconTable } from '@tabler/icons-react';
+import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle, IconChevronsUp, IconChevronsDown, IconClockPlus, IconTable, IconLayoutGrid } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -167,6 +167,7 @@ import ResizableHeader from '../components/ResizableHeader.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
+import MatriceAttributions from '../components/MatriceAttributions.jsx';
 
 /**
  * LE STATUT D'UN MEMBRE DU PERSONNEL, ET L'EXCEPTION D'UNE LIGNE.
@@ -2467,8 +2468,9 @@ export default function Attributions() {
                   <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='ue'?'onglet-actif':'onglet-dormant'}`}><IconFolder size={16}/>Par section</button>
                   <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='flat'?'onglet-actif':'onglet-dormant'}`}><IconClipboardText size={16}/>Vue complète</button>
                   <button onClick={()=>setViewMode('coord')} title="Vue simplifiée : UE et cours regroupés, sans organisation" className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='coord'?'onglet-actif':'onglet-dormant'}`}><IconUsersGroup size={16}/>Coordination</button>
+                  <button onClick={()=>setViewMode('matrice')} title="Démonstration : un tableau croisé — en lignes les groupes, en colonnes les professeurs de l'unité" className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='matrice'?'onglet-actif':'onglet-dormant'}`}><IconLayoutGrid size={16}/>Tableau croisé <span className="text-mention font-bold opacity-70">DÉMO</span></button>
                 </div>
-                {viewMode!=='flat' && <div className="flex gap-3 mt-1.5 text-xs px-1">
+                {viewMode!=='flat' && viewMode!=='matrice' && <div className="flex gap-3 mt-1.5 text-xs px-1">
                   <button onClick={expandAll} className="text-gray-500 hover:text-iip-turquoise">Tout déplier</button>
                   <button onClick={collapseAll} className="text-gray-500 hover:text-iip-turquoise">Tout replier</button>
                 </div>}
@@ -2557,7 +2559,14 @@ export default function Attributions() {
           en prenait donc un second, par-dessus celui de la page. */}
 
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
-      {viewMode!=='flat' && <div className="hidden md:block">
+      {viewMode==='matrice' && <div className="hidden md:block">
+        {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
+          : <MatriceAttributions sectionGroups={sectionGroups} professeurs={professeurs} badge={badge} groupCodeSeq={groupCodeSeq}
+              peutEcrire={peutEcrireAttr} changerProf={(id, pid) => appliquerCellule(id, 'professeur_id', pid)}
+              payloadCopie={payloadCopie} api={api} recharger={() => load()} />}
+      </div>}
+
+      {viewMode!=='flat' && viewMode!=='matrice' && <div className="hidden md:block">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
          : sectionGroups.length===0 ? <div className="carte p-8 text-center text-gray-400">Aucune attribution</div>
          /* UNE CARTE A LE RAYON D'UNE CARTE — quatorze, celui du rail et des
