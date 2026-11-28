@@ -34,7 +34,7 @@ export default function TfeOrganisation({ annee }) {
       `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr')))).catch(() => {});
   }, []);
   const faces = [['ensemble', 'Vue d’ensemble'], ['sans', `Sans TFE${d?.synthese?.sans_tfe ? ` (${d.synthese.sans_tfe})` : ''}`],
-    ['remises', `Remises${d?.synthese?.en_retard ? ` (${d.synthese.en_retard} en retard)` : ''}`], ['defenses', 'Défenses'], ['fiches', 'Fiches d’évaluation']];
+    ['remises', `Remises${d?.synthese?.en_retard ? ` (${d.synthese.en_retard} en retard)` : ''}`], ['defenses', 'Défenses'], ['session', 'Janvier ou juin'], ['fiches', 'Fiches d’évaluation']];
   return (
     <div className="space-y-4">
       <div>
@@ -49,6 +49,7 @@ export default function TfeOrganisation({ annee }) {
         {face === 'sans' && <SansTfe d={d} annee={annee} recharger={charger} />}
         {face === 'remises' && <Remises d={d} annee={annee} recharger={charger} />}
         {face === 'defenses' && <Defenses d={d} recharger={charger} ouvrirJury={setJury} />}
+        {face === 'session' && <JanvierJuin annee={annee} />}
         {face === 'fiches' && <FichesEvaluation annee={annee} domaine="tfe" />}
       </>}
       {jury && (
@@ -273,6 +274,75 @@ function Defenses({ d, recharger, ouvrirJury }) {
               </div>))}
           </div>
         </Fenetre>)}
+    </div>
+  );
+}
+
+/* LE TFE EN JANVIER OU EN JUIN (3.5.779, idée 68 de Marie Lambert ; tranché par Charles). Une ligne par inscrit de l'épreuve
+   intégrée : doubleur ou non, ses stages (réussis, ou cette année), et son choix — l'organisation de l'étudiant dans l'UE :
+   1 = juin, 2 = janvier. Choisir janvier dans une UE à une seule organisation : Lucie propose de la dédoubler. */
+const NOM_ORG = n => (n === 1 ? 'Juin' : n === 2 ? 'Janvier' : `Organisation ${n}`);
+function JanvierJuin({ annee }) {
+  const [d, setD] = useState(null);
+  const [filtre, setFiltre] = useState('tous');
+  const charger = () => appel(`/api/tfe/session-depot?annee=${encodeURIComponent(annee)}`).then(setD).catch(e => setD({ erreur: e.message }));
+  useEffect(() => { if (annee) charger(); }, [annee]);
+  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
+  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
+  if (!d.ues.length) return <div className="carte p-6 text-center text-slate-500">Aucun inscrit à une épreuve intégrée en {annee}.</div>;
+
+  async function dedoubler(u) {
+    if (!d.peut_dedoubler) { informer(`L’UE ${u.ue_num} n’a qu’une organisation. Le dédoublement (organisation de janvier) se demande au secrétariat ou à la direction.`); return false; }
+    try {
+      const sim = await appel('/api/tfe/session-depot/dedoubler', { method: 'POST', body: JSON.stringify({ annee, section: u.section, ue_num: u.ue_num }) });
+      if (!(await demander(`L’UE ${u.ue_num} n’a qu’une organisation (juin).\n\nDédoubler : créer l’organisation 2 (janvier), sans dates — à poser ensuite dans Dates des UE —, et y recopier ses ${sim.lignes} ligne(s) d’attribution (${sim.periodes} p.) en « à désigner ».`))) return false;
+      await appel('/api/tfe/session-depot/dedoubler', { method: 'POST', body: JSON.stringify({ annee, section: u.section, ue_num: u.ue_num, ecrire: true }) });
+      return true;
+    } catch (e) { informer(`❌ ${e.message}`); return false; }
+  }
+  async function choisirOrg(u, x, n) {
+    if (n === x.org) return;
+    if (n > 1 && !u.organisations.some(o => Number(o.n || 1) === n)) { if (!(await dedoubler(u))) return; }
+    try { await appel('/api/tfe/session-depot', { method: 'PUT', body: JSON.stringify({ annee, section: u.section, ue_num: u.ue_num, etudiant_id: x.id, num_organisation: n }) }); charger(); }
+    catch (e) { informer(`❌ ${e.message}`); }
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-nowrap">
+        <div className="segments">
+          {[['tous', 'Tous'], ['doubleurs', 'Doubleurs'], ['janvier', 'En janvier']].map(([k, l]) =>
+            <button key={k} type="button" className={filtre === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'} onClick={() => setFiltre(k)}>{l}</button>)}
+        </div>
+        <span className="text-second text-slate-500 truncate">Juin = organisation 1 de l’UE d’épreuve intégrée, janvier = organisation 2. Le choix range l’étudiant dans l’organisation.</span>
+      </div>
+      {d.ues.map(u => {
+        const lst = u.inscrits.filter(x => filtre === 'tous' || (filtre === 'doubleurs' ? x.doubleur : x.org === 2));
+        const nOrgs = Math.max(1, ...u.organisations.map(o => Number(o.n || 1)));
+        const enJanvier = u.inscrits.filter(x => x.org === 2).length;
+        return (
+          <div key={u.section + u.ue_num} className="carte overflow-hidden">
+            <EnteteCarte titre={`${u.section} · UE ${u.ue_num} ${u.ue_nom}`}
+              sous={`${u.inscrits.length} inscrit(s) · ${enJanvier} en janvier · ${nOrgs === 1 ? 'une seule organisation (juin)' : `${nOrgs} organisations`}`} />
+            <Tableau className="!border-0 !rounded-none">
+              <TableauEntete><Th>Étudiant</Th><Th>Doubleur</Th><Th>Stages</Th><Th>Épreuve intégrée</Th></TableauEntete>
+              <tbody>
+                {lst.map(x => (
+                  <Tr key={x.id}>
+                    <Td>{String(x.nom || '').toUpperCase()} {x.prenom}</Td>
+                    <Td>{x.doubleur ? <PastilleEtat etat="surveiller">doubleur</PastilleEtat> : <span className="text-slate-400">—</span>}</Td>
+                    <Td ton="secondaire">{[x.stages_faits.length ? `réussi : UE ${x.stages_faits.join(', ')}` : '', x.stages_annee.length ? `cette année : UE ${x.stages_annee.join(', ')}` : ''].filter(Boolean).join(' · ') || '—'}</Td>
+                    <Td>
+                      <div className="segments">
+                        {[...new Set([1, 2, ...u.organisations.map(o => Number(o.n || 1))])].sort((a, b) => a - b).map(n =>
+                          <button key={n} type="button" className={x.org === n ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'} onClick={() => choisirOrg(u, x, n)}>{NOM_ORG(n)}</button>)}
+                      </div>
+                    </Td>
+                  </Tr>))}
+                {!lst.length && <tr><td colSpan={4} className="px-4 py-4 text-center text-sm text-slate-400">Personne dans ce filtre.</td></tr>}
+              </tbody>
+            </Tableau>
+          </div>);
+      })}
     </div>
   );
 }

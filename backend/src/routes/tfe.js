@@ -214,6 +214,82 @@ r.get('/annee', authRequired, (req, res) => {
   res.json(lireAnnee(req, annee));
 });
 
+/* LE TFE EN JANVIER OU EN JUIN (3.5.779, Marie Lambert, idée 68 ; tranché par Charles : « deux organisations de l'UE d'épreuve
+   intégrée ; un test et une proposition de dédoublement »). L'organisation 1 de l'UE d'épreuve intégrée = juin (tout le monde par
+   défaut), l'organisation 2 = janvier. Le choix d'un étudiant EST son organisation dans l'UE (etudiant_inscription.num_organisation).
+   Choisir janvier quand l'UE n'a qu'une organisation : Lucie propose de la dédoubler — l'organisation 2 naît (dates à poser) et les
+   lignes d'attribution de l'organisation 1 y sont recopiées « à désigner », simulation d'abord. */
+const DEDOUBLE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
+const orgsDe = (annee, section, ue) => db.prepare(`SELECT num_organisation n, date_debut, date_fin FROM organisation_ue
+  WHERE annee_scolaire = ? AND section = ? AND ue_num = ? ORDER BY COALESCE(num_organisation, 1)`).all(annee, section, ue);
+
+r.get('/session-depot', authRequired, (req, res) => {
+  const annee = propre(req.query.annee);
+  if (!annee) return res.status(400).json({ error: 'année requise' });
+  const eis = uesEI(annee).filter(u => u.section && dansPerimetre(req, u.section));
+  const stageUE = new Set(db.prepare('SELECT DISTINCT ue_num FROM cours WHERE COALESCE(is_stage, 0) = 1').all().map(x => x.ue_num));
+  const ues = eis.map(u => {
+    const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, e.section_rattachement sec, COALESCE(i.num_organisation, 1) org, i.resultat
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND COALESCE(e.sortie_statut, '') NOT IN ('archive', 'diplome')
+      ORDER BY e.nom, e.prenom`).all(annee, u.ue_num)
+      .filter(x => !x.sec || x.sec === u.section)
+      .map(x => {
+        const avant = db.prepare(`SELECT ue_num, resultat, annee_scolaire FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire < ?`).all(x.id, annee);
+        const cette = db.prepare(`SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?`).all(x.id, annee).map(y => y.ue_num);
+        const stagesFaits = avant.filter(y => stageUE.has(y.ue_num) && y.resultat === 'reussi').map(y => y.ue_num);
+        const stagesAnnee = cette.filter(n => stageUE.has(n) && !stagesFaits.includes(n));
+        return { id: x.id, nom: x.nom, prenom: x.prenom, org: x.org, resultat: x.resultat,
+          doubleur: avant.some(y => y.ue_num === u.ue_num), stages_faits: [...new Set(stagesFaits)], stages_annee: stagesAnnee };
+      });
+    return { ue_num: u.ue_num, section: u.section,
+      ue_nom: db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(u.ue_num, annee)?.ue_nom || '',
+      organisations: orgsDe(annee, u.section, u.ue_num), inscrits };
+  }).filter(u => u.inscrits.length);
+  res.json({ annee, ues, peut_dedoubler: DEDOUBLE.includes(req.user?.role) });
+});
+
+r.put('/session-depot', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const { annee, section, ue_num, etudiant_id, num_organisation } = req.body || {};
+  const ue = Number(ue_num), n = Number(num_organisation) || 1;
+  if (!annee || !section || !ue || !etudiant_id) return res.status(400).json({ error: 'année, section, UE et étudiant requis' });
+  if (!dansPerimetre(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  if (!uesEI(annee).some(u => u.ue_num === ue)) return res.status(400).json({ error: `L’UE ${ue} n’est pas une épreuve intégrée cette année.` });
+  if (n > 1 && !orgsDe(annee, section, ue).some(o => Number(o.n || 1) === n)) {
+    return res.status(409).json({ error: `L’UE ${ue} n’a pas d’organisation ${n}.`, dedoubler: true });
+  }
+  const r2 = db.prepare(`UPDATE etudiant_inscription SET num_organisation = ? WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+    .run(n, Number(etudiant_id), annee, ue);
+  if (!r2.changes) return res.status(404).json({ error: 'Cet étudiant n’est pas inscrit à cette UE cette année.' });
+  res.json({ ok: true });
+});
+
+r.post('/session-depot/dedoubler', authRequired, roleRequired(...DEDOUBLE), (req, res) => {
+  const { annee, section, ue_num, ecrire } = req.body || {};
+  const ue = Number(ue_num);
+  if (!annee || !section || !ue) return res.status(400).json({ error: 'année, section et UE requis' });
+  if (!uesEI(annee).some(u => u.ue_num === ue)) return res.status(400).json({ error: `L’UE ${ue} n’est pas une épreuve intégrée cette année.` });
+  const orgs = orgsDe(annee, section, ue);
+  if (orgs.some(o => Number(o.n || 1) >= 2)) return res.status(409).json({ error: `L’UE ${ue} a déjà une organisation 2.` });
+  const lignes = db.prepare(`SELECT * FROM attribution WHERE annee_scolaire = ? AND ue_num = ? AND COALESCE(num_organisation, 1) = 1
+    AND (section = ? OR section IS NULL) AND COALESCE(en_conge, 0) = 0 AND remplace_attribution_id IS NULL`).all(annee, ue, section);
+  const simulation = { ue_num: ue, section, organisation: 2, lignes: lignes.length,
+    periodes: lignes.reduce((t, l) => t + (Number(l.periodes_attribuees) || 0), 0) };
+  if (!ecrire) return res.json({ simulation: true, ...simulation });
+  const aDes = db.prepare(`SELECT id FROM professeur WHERE COALESCE(est_a_designer, 0) = 1 OR nom = 'À DÉSIGNER' LIMIT 1`).get()?.id ?? null;
+  const COPIE = ['section', 'etablissement_referent', 'contrat_mdp', 'organisation', 'annee_scolaire', 'ue_num', 'quadrimestre_attribue',
+    'code_cours', 'type_cours', 'type_cours_helb', 'code', 'nb_groupes', 'split_groupe', 'num_split', 'num_groupe', 'activite_id',
+    'cours_ept_ad', 'coordination_encadrement', 'per_etudiant_total_dp', 'periodes_attribuees', 'autonomie_attribuee', 'helb_nature'];
+  db.transaction(() => {
+    if (!orgs.length) db.prepare('INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation) VALUES (?,?,?,1)').run(ue, section, annee);
+    db.prepare('INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation) VALUES (?,?,?,2)').run(ue, section, annee);
+    const ins = db.prepare(`INSERT INTO attribution (${COPIE.join(', ')}, num_organisation, professeur_id, commentaire, created_by)
+      VALUES (${COPIE.map(() => '?').join(', ')}, 2, ?, ?, ?)`);
+    for (const l of lignes) ins.run(...COPIE.map(c => l[c] ?? null), aDes, 'Organisation de janvier (épreuve intégrée), créée depuis TFE', req.user?.email || null);
+  })();
+  res.json({ ok: true, ...simulation });
+});
+
 /** Le calendrier des remises d'une section : on renvoie la liste entière. Un jalon déjà remis ne se retire pas. */
 r.put('/jalons', authRequired, roleRequired(...ECRITURE), (req, res) => {
   const { annee, section, jalons } = req.body || {};
