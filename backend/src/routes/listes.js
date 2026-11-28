@@ -193,6 +193,10 @@ r.get('/etudiants', authRequired, (req, res) => {
      2026 : « une liste des 84 étudiants avec, sur chaque ligne, leurs UE »).
      Les unités de l'année, dans l'ordre des numéros, et leur nombre. */
   const uesPar = new Map();
+  /* LES ECTS AU PROGRAMME (3.5.778, Marie Lambert, idée 70 : « trier des étudiants en indiquant le nombre d'ECTS à leur
+     programme ») : la somme des ECTS des unités de l'année, au référentiel de l'année. */
+  const ectsUE = new Map(db.prepare(`SELECT ue_num, MAX(COALESCE(ects, 0)) e FROM ue WHERE annee_scolaire = ? GROUP BY ue_num`)
+    .all(annee).map(x => [x.ue_num, Number(x.e) || 0]));
   for (const x of db.prepare(`SELECT etudiant_id, ue_num FROM etudiant_inscription
       WHERE annee_scolaire = ? ORDER BY ue_num`).all(annee)) {
     if (!uesPar.has(x.etudiant_id)) uesPar.set(x.etudiant_id, []);
@@ -209,6 +213,7 @@ r.get('/etudiants', authRequired, (req, res) => {
       groupe: grpPar.get(x.id) || '',
       ues_inscrites: (uesPar.get(x.id) || []).join(', '),
       nb_ues: (uesPar.get(x.id) || []).length,
+      ects_pae: (uesPar.get(x.id) || []).reduce((t, n) => t + (ectsUE.get(n) || 0), 0),
     };
   };
   const garder = (x) =>

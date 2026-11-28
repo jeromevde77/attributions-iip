@@ -329,6 +329,7 @@ const ENTITES = {
       { key: 'groupe',      label: 'Groupe',    defaut: false },
       { key: 'ues_inscrites', label: 'UE inscrites', defaut: false },
       { key: 'nb_ues',      label: 'Nombre d’UE', defaut: false },
+      { key: 'ects_pae',    label: 'ECTS au programme', defaut: false },
       // TOUS LES CHAMPS DE LA FICHE (2 octobre 2026), à la carte.
       { key: 'date_naissance', label: 'Né(e) le', defaut: false },
       { key: 'lieu_naissance', label: 'Lieu de naissance', defaut: false },
@@ -372,11 +373,17 @@ const ENTITES = {
         // SEULEMENT LA SÉLECTION de la liste des étudiants (7 octobre 2026).
         const sel = selectionEtudiants().ids;
         if (filtres.selection && sel.length) { const s = new Set(sel); l = l.filter(r => s.has(Number(r.id_lucie ?? r.id))); }
+        /* LES ECTS AU PROGRAMME (3.5.778, idée 70 de Marie Lambert) : de … à …, et l'ordre de la liste. */
+        const mini = filtres.ects_min === '' || filtres.ects_min == null ? null : Number(filtres.ects_min);
+        const maxi = filtres.ects_max === '' || filtres.ects_max == null ? null : Number(filtres.ects_max);
+        if (mini != null || maxi != null) l = l.filter(r => (mini == null || Number(r.ects_pae || 0) >= mini) && (maxi == null || Number(r.ects_pae || 0) <= maxi));
+        if (filtres.ordre_ects) l = [...l].sort((a, b) => (filtres.ordre_ects === 'asc' ? 1 : -1) * ((Number(a.ects_pae) || 0) - (Number(b.ects_pae) || 0))
+          || String(a.nom || '').localeCompare(String(b.nom || ''), 'fr'));
         l.groupesDispo = dispo;
         return l;
       });
     },
-    filtres: ['section', 'ue_num', 'cours_code', 'groupe', 'primo', 'niveau_etu'],
+    filtres: ['section', 'ue_num', 'cours_code', 'groupe', 'primo', 'niveau_etu', 'ects'],
   },
 
   etudiants_ue: {
@@ -1835,6 +1842,20 @@ ${methodologie}
                 <option value="BA3">BA3 / diplômant</option>
                 <option value="MIXTE">Parcours mixte</option>
                 <option value="aucun">Sans niveau</option>
+              </select>
+            </label>
+          )}
+          {def.filtres.includes('ects') && (
+            <label className="flex items-center gap-2" title="Les ECTS des unités au programme de l'année">
+              <span className="text-xs text-slate-500 whitespace-nowrap">ECTS au programme</span>
+              <input type="number" min="0" step="1" value={filtres.ects_min ?? ''} placeholder="de"
+                onChange={e => setFiltres(f => ({ ...f, ects_min: e.target.value }))} className="controle w-16" />
+              <input type="number" min="0" step="1" value={filtres.ects_max ?? ''} placeholder="à"
+                onChange={e => setFiltres(f => ({ ...f, ects_max: e.target.value }))} className="controle w-16" />
+              <select value={filtres.ordre_ects || ''} onChange={e => setFiltres(f => ({ ...f, ordre_ects: e.target.value }))} className="controle">
+                <option value="">Ordre : nom</option>
+                <option value="desc">ECTS décroissants</option>
+                <option value="asc">ECTS croissants</option>
               </select>
             </label>
           )}
