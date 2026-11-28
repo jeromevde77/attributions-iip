@@ -12,7 +12,8 @@
      Dédoubler (un groupe de plus, lettre suivante, mêmes périodes).
    3.5.775 (Charles : « aux intersections, pas de nombres, juste des cases ; au survol les valeurs ; la structure visible ; par UE,
    le numéro ou le nom au-dessus ; le nom des profs en vertical ») : une UE à la fois, l'arbre relié d'Attributions
-   (`celluleArbre`), des colonnes étroites et égales, les noms à la verticale. */
+   (`celluleArbre`), des colonnes étroites et égales, les noms à la verticale.
+   3.5.776 : les parties d'un groupe coupé — « Partie n », une accolade qui porte leur somme, la barre du cours (somme / périodes). */
 import { useMemo, useState } from 'react';
 import { IconCheck, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { choisir, saisir, informer, demander } from '../lib/dialogue.jsx';
@@ -171,7 +172,9 @@ export default function MatriceAttributions({ sectionGroups, professeurs, badge,
           </button>
         </td>);
     };
-    const casesVides = (cle2) => [<td key={cle2 + 'd'} style={{ ...tdCase, background: 'color-mix(in srgb, var(--c-attente) 6%, transparent)', borderLeft: '1px solid var(--c-filet, rgb(var(--gris-200)))' }} />,
+    const LARGEUR_SOMME = 118;
+    const tdSomme = (cle2, contenu = null, props = {}) => <td key={cle2 + 's'} className="align-middle" style={{ width: LARGEUR_SOMME, minWidth: LARGEUR_SOMME, padding: '0 8px 0 0' }} {...props}>{contenu}</td>;
+    const casesVides = (cle2, somme = null) => [tdSomme(cle2, somme), <td key={cle2 + 'd'} style={{ ...tdCase, background: 'color-mix(in srgb, var(--c-attente) 6%, transparent)', borderLeft: '1px solid var(--c-filet, rgb(var(--gris-200)))' }} />,
       ...cols.map(p => <td key={cle2 + p.id} style={{ ...tdCase, borderLeft: '1px solid var(--c-filet, rgb(var(--gris-200)))' }} />), <td key={cle2 + 'f'} />];
 
     // L'arbre : (organisation) → cours → activité → groupes, relié comme dans Attributions.
@@ -197,6 +200,30 @@ export default function MatriceAttributions({ sectionGroups, professeurs, badge,
         }
         const acts = [...parAct.values()];
         const avecActs = acts.length > 1 || acts.some(a => a.nom);
+        /* LES PARTIES (3.5.776, Charles : « que l'on comprenne que ce sont des parties, et que la somme c'est le cours » ; « barre
+           = accolade ») : des lignes coupées (✂) d'un même groupe se partagent les heures du cours. Sur la ligne du cours, une
+           barre découpée en autant de morceaux, et la somme face aux périodes du cours ; sur les parties, une accolade. */
+        const ensembles = [];
+        for (const a of acts) {
+          const parCode = new Map();
+          for (const r of a.rows) { if (r.en_conge) continue; const k = String(r.code || 'TS').toUpperCase(); if (!parCode.has(k)) parCode.set(k, []); parCode.get(k).push(r); }
+          for (const [k, lst] of parCode) if (lst.length > 1 && lst.some(r => r.split_groupe === 'O')) ensembles.push({ a, code: k, rows: lst });
+        }
+        const coursPer = Number(c.rows.find(r => r.cours_per != null)?.cours_per) || 0;
+        const barre = (!avecActs && ensembles.length === 1 && coursPer) ? (() => {
+          const e = ensembles[0];
+          const tot = e.rows.reduce((t, r) => t + nPer(r), 0);
+          const ok = Math.abs(tot - coursPer) < 0.01;
+          const ech = Math.max(tot, coursPer);
+          const teinte = ok ? 'var(--c-reussi)' : 'var(--c-attente)';
+          return <div className="flex items-center gap-1.5" title={`${e.rows.length} parties : ${e.rows.map(r => nPer(r)).join(' + ')} = ${tot} p. — le cours en compte ${coursPer}`}>
+            <div className="flex h-2.5 flex-1 rounded-sm overflow-hidden" style={{ background: 'rgb(var(--gris-100))' }}>
+              {e.rows.map((r, i) => <span key={r.id} style={{ width: `${(nPer(r) / ech) * 100}%`, background: teinte, opacity: i % 2 ? 0.6 : 1,
+                borderRight: i < e.rows.length - 1 ? '2px solid #fff' : undefined }} />)}
+            </div>
+            <span className="text-mention tabular-nums whitespace-nowrap font-semibold" style={{ color: teinte }}>{tot}/{coursPer}</span>
+          </div>;
+        })() : null;
         lignes.push(
           <tr key={`c-${kc}`} className="ligne-maison" style={{ height: 34 }}>
             {celluleArbre({ niveau: base + 1, suites: suitesOrg, dernier: dernierC, enfants: !ferme && c.rows.length > 0,
@@ -206,7 +233,7 @@ export default function MatriceAttributions({ sectionGroups, professeurs, badge,
                   className="text-slate-500 hover:text-slate-800 flex-none">{ferme ? <IconChevronRight size={14} /> : <IconChevronDown size={14} />}</button>
                 <span className="font-mono text-slate-600 flex-none">{c.code_cours}</span>
                 <span className="font-semibold truncate">{c.nom_cours}</span></> })}
-            {casesVides('c' + kc)}
+            {casesVides('c' + kc, barre)}
           </tr>);
         if (ferme) return;
         const suitesC = [...suitesOrg, !dernierC];
@@ -222,16 +249,39 @@ export default function MatriceAttributions({ sectionGroups, professeurs, badge,
               </tr>);
             niveauG = base + 3; suitesG = [...suitesC, !dernierA];
           }
-          const tri = [...a.rows].sort((x, y) => String(x.code || 'zz').localeCompare(String(y.code || 'zz'), 'fr', { numeric: true }));
-          tri.forEach((r, ir) => lignes.push(
+          const tri = [...a.rows].sort((x, y) => (x.en_conge ? 1 : 0) - (y.en_conge ? 1 : 0) || String(x.code || 'zz').localeCompare(String(y.code || 'zz'), 'fr', { numeric: true }));
+          const ensDe = new Map();
+          for (const e of ensembles) if (e.a === a) for (const [i, r] of e.rows.entries()) ensDe.set(r.id, { e, i });
+          tri.forEach((r, ir) => {
+            const part = ensDe.get(r.id);
+            let accolade = tdSomme('g' + r.id);
+            if (part && part.i > 0) accolade = null;
+            else if (part) {
+              const e = part.e;
+              const tot = e.rows.reduce((t, x) => t + nPer(x), 0);
+              const cible = !avecActs && ensembles.filter(x => x.a === a).length === 1 ? coursPer : 0;
+              const ok = !cible || Math.abs(tot - cible) < 0.01;
+              const teinte = ok ? 'var(--c-reussi)' : 'var(--c-attente)';
+              accolade = tdSomme('g' + r.id, (
+                <div className="flex items-center gap-1.5 h-full py-1.5" title={`${e.rows.map(x => nPer(x)).join(' + ')} = ${tot} p.${cible ? ` — le cours en compte ${cible}` : ''}`}>
+                  <span className="flex-none self-stretch" style={{ width: 8, borderTop: `2px solid ${teinte}`, borderRight: `2px solid ${teinte}`, borderBottom: `2px solid ${teinte}`, borderRadius: '0 7px 7px 0' }} />
+                  <span className="text-mention tabular-nums font-semibold whitespace-nowrap" style={{ color: teinte }}>= {tot}{cible ? `/${cible}` : ''} p.{ok && cible ? ' ✓' : ''}</span>
+                </div>), { rowSpan: e.rows.length });
+            }
+            lignes.push(
             <tr key={r.id} className={`ligne-maison ${r.en_conge ? 'opacity-50' : ''}`} style={{ height: 32 }}>
               {celluleArbre({ niveau: niveauG, suites: suitesG, dernier: ir === tri.length - 1,
                 title: `${nPer(r)} p.${nAut(r) ? ` + ${nAut(r)} a.` : ''}${r.en_conge ? ' · en congé' : ''}`,
-                children: <>{pastille(r)}{r.en_conge ? <span className="text-mention text-slate-500">congé</span> : null}</> })}
+                children: <>{pastille(r)}
+                  {part ? <span className="text-second text-slate-700 whitespace-nowrap">Partie {part.i + 1} <span className="text-slate-500 tabular-nums">· {nPer(r)} p.</span></span>
+                    : <span className="text-second text-slate-500 tabular-nums">{nPer(r)} p.</span>}
+                  {r.en_conge ? <span className="text-mention text-slate-500">congé</span> : null}</> })}
+              {accolade}
               {caseDe(r, 'designer')}
               {cols.map(p => caseDe(r, p))}
               <td />
-            </tr>));
+            </tr>);
+          });
         });
       });
     });
@@ -253,6 +303,7 @@ export default function MatriceAttributions({ sectionGroups, professeurs, badge,
                   <div className="titre-carte">UE {ues[0].ue_num}</div>
                   <div className="font-normal text-slate-600 truncate" style={{ maxWidth: 280 }}>{ues[0].ue_nom}</div>
                 </th>
+                <th className="align-bottom text-left px-1 py-2 text-mention font-medium text-slate-500" style={{ width: LARGEUR_SOMME, minWidth: LARGEUR_SOMME }}>Parties</th>
                 {entete('À désigner', 'Lignes encore à désigner', 'var(--c-attente)')}
                 {cols.map(p => entete(nomCourt(p), `${nomCourt(p)} — ${somme(rows, r => !libre(r) && r.professeur_id === p.id)} p. dans l'unité`))}
                 <th className="align-bottom px-2 py-2 text-left font-medium">
