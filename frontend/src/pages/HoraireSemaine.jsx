@@ -341,6 +341,7 @@ export default function HoraireSemaine({ consultation = false }) {
                         <div className={`font-semibold truncate flex items-center gap-1.5 ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>
                           <span className="truncate">{s.cours_code} {s.cours_nom || s.matiere || ''}</span>{pastille}</div>
                         {act && <div className="truncate text-slate-500 italic">{act}</div>}
+                        {s.examen ? <div className="truncate text-mention font-bold uppercase" style={{ color: 'var(--c-refuse)' }}>Examen · {s.examen === 2 ? '2e' : '1re'} session</div> : null}
                         <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}</div>
                         <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>
                       </> : pl.cols <= 2 ? <div className="flex flex-col justify-center gap-0.5 h-full min-w-0">
@@ -515,6 +516,7 @@ export default function HoraireSemaine({ consultation = false }) {
               ...(sel._groupe !== undefined ? { sous_groupe: sel._groupe } : {}),
               ...(sel._prof !== undefined || sel._attr !== undefined || sel._groupe !== undefined ? { suivantes: !!sel._suivantes } : {}),
               heure_fin: deHm(hm(sel.heure_debut) + (sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut)))),
+              ...(sel._examen !== undefined ? { examen: sel._examen } : {}),
               annule: sel._annule ?? !!sel.annule, commentaire: sel._commentaire ?? sel.commentaire })}>Enregistrer</button>
           </> : null}>
           <div className="space-y-3 text-sm">
@@ -617,6 +619,19 @@ export default function HoraireSemaine({ consultation = false }) {
               <input type="checkbox" disabled={!roleEcrit} checked={sel._annule ?? !!sel.annule} onChange={e => setSel({ ...sel, _annule: e.target.checked })} />
               Séance annulée <span className="text-slate-400 text-xs">— elle reste visible, barrée, et ne compte plus dans les heures posées</span>
             </label>
+            {/* L'EXAMEN (3.5.778, idée 67 de Marie Lambert) : la séance porte l'examen du cours ; sa date, son heure et son local vont
+                au calendrier des sessions, et suivent la séance quand elle bouge. */}
+            {sel.cours_code && (
+              <label className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-500">Examen</span>
+                <select className="controle" disabled={!roleEcrit} value={String(sel._examen ?? sel.examen ?? '')}
+                  onChange={e => setSel({ ...sel, _examen: e.target.value ? Number(e.target.value) : null })}>
+                  <option value="">Non — séance de cours</option>
+                  <option value="1">Examen de 1re session</option>
+                  <option value="2">Examen de 2e session</option>
+                </select>
+                <span className="text-slate-400 text-xs">— la date, l’heure et le local vont au calendrier des sessions, et suivent la séance</span>
+              </label>)}
             <label className="block">
               <span className="text-xs text-slate-500">Remarque</span>
               <input className="controle w-full" disabled={!roleEcrit} value={sel._commentaire ?? sel.commentaire ?? ''}

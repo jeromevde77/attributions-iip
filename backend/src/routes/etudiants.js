@@ -152,8 +152,15 @@ export function niveauEtudiant(etudId, annee) {
      de BA1 → Parcours B1, de BA2 → Parcours B2, de BA3 → Diplômant. Sans
      stage, la règle des blocs. Toutes les sections. Le niveau ne sert qu'à
      lire et à filtrer : le moteur du PAE ne le consulte pas. */
-  const LIB = { BA1: 'Parcours B1', BA2: 'Parcours B2', BA3: 'Diplômant' };
-  const nums = lignes.map(l => l.ue_num);
+  /* « DIPLÔMANT » = L'ÉPREUVE INTÉGRÉE DE SA SECTION (3.5.778, Marie Lambert, idée 71 ; tranché par Charles) : l'épreuve intégrée
+     d'une autre section (MUNGU, inscrite aussi en ATNUP : l'UE 224) ne rend pas diplômant en TIM ; et une UE de BA3 seule, sans
+     épreuve intégrée ni stage de BA3 (WINDJIENZEUKO : l'UE 251), donne « Parcours B3 ». Le stage de BA3 reste « Diplômant ». */
+  const LIB = { BA1: 'Parcours B1', BA2: 'Parcours B2', BA3: 'Parcours B3' };
+  const rat = db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(etudId)?.s || null;
+  const qSec = db.prepare(`SELECT 1 FROM ue WHERE ue_num = ? AND (section = ? OR COALESCE(hors_cursus, 0) = 1)
+      UNION SELECT 1 FROM ue_section WHERE ue_num = ? AND section_code = ? LIMIT 1`);
+  const deSaSection = n => !rat || !!qSec.get(n, rat, n, rat);
+  const nums = lignes.map(l => l.ue_num).filter(deSaSection);
   const ph = nums.map(() => '?').join(',');
   let ei = false;
   try {
@@ -171,7 +178,7 @@ export function niveauEtudiant(etudId, annee) {
   } catch { /* colonne absente */ }
   if (stages.length) {
     const haut = stages.sort().pop();
-    return { niveau: haut, libelle: LIB[haut], detail, annee: anneeRetenue, par: 'stage' };
+    return { niveau: haut, libelle: haut === 'BA3' ? 'Diplômant' : LIB[haut], detail, annee: anneeRetenue, par: 'stage' };
   }
 
   if (presents.length === 1) {

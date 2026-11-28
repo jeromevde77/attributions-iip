@@ -75,7 +75,7 @@ export function migrerHoraire(base = db) {
   const cols = base.prepare('PRAGMA table_info(horaire_seance)').all().map(c => c.name);
   for (const [nom, type] of [['groupe_id', 'INTEGER'], ['annule', 'INTEGER NOT NULL DEFAULT 0'],
     ['commentaire', 'TEXT'], ['modifie_lucie', 'INTEGER NOT NULL DEFAULT 0'], ['cree_par', 'TEXT'],
-    ['cree_le', 'TEXT'], ['modifie_par', 'TEXT'], ['modifie_le', 'TEXT'], ['bloc', 'TEXT'], ['sous_groupe', 'TEXT'], ['attribution_id', 'INTEGER']]) {
+    ['cree_le', 'TEXT'], ['modifie_par', 'TEXT'], ['modifie_le', 'TEXT'], ['bloc', 'TEXT'], ['sous_groupe', 'TEXT'], ['attribution_id', 'INTEGER'], ['examen', 'INTEGER']]) {
     if (!cols.includes(nom)) base.exec(`ALTER TABLE horaire_seance ADD COLUMN ${nom} ${type}`);
   }
   base.exec('CREATE INDEX IF NOT EXISTS idx_hs_groupe ON horaire_seance(groupe_id)');
@@ -796,7 +796,15 @@ r.put('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) 
   } else if (('professeur_id' in req.body && profNouveau !== s.professeur_id) || groupeChange) {
     attrNouvelle = profNouveau ? attributionPour(s.annee_scolaire, { ...s, sous_groupe: sgNouveau }, profNouveau) : null;
   }
+  /* L'EXAMEN DANS L'HORAIRE (3.5.778, Marie Lambert, idée 67 : « une case à cocher sur le cours dans l'horaire pour stipuler que
+     c'est l'examen, et que la date aille dans le calendrier ; en cas de changement d'horaire, la date suit »). `examen` = 1 (première
+     session) ou 2 (seconde), vide sinon. Marquée, la séance écrit sa date, son heure et son local dans le calendrier des sessions
+     (epreuve_session1 / deliberation_session2, la ligne de SON cours), et les réécrit à chaque déplacement. Retirer la marque ne
+     touche pas au calendrier. */
+  const examenNouveau = 'examen' in req.body ? ([1, 2].includes(Number(req.body.examen)) ? Number(req.body.examen) : null) : (s.examen ?? null);
+  if (examenNouveau && (!s.ue_num || !s.cours_code)) return res.status(400).json({ error: 'Cette séance n’a pas de cours rattaché : elle ne peut pas porter l’examen.' });
   db.transaction(() => {
+    db.prepare('UPDATE horaire_seance SET examen = ? WHERE id = ?').run(examenNouveau, s.id);
     db.prepare(`UPDATE horaire_seance SET date = ?, heure_debut = ?, heure_fin = ?, minutes = ?,
         local_texte = ?, annule = ?, commentaire = ?, professeur_id = ?, attribution_id = ?, sous_groupe = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
       WHERE id = ?`).run(b.date, b.heure_debut, b.heure_fin, hm(b.heure_fin) - hm(b.heure_debut),
@@ -812,8 +820,26 @@ r.put('/seance/:id', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) 
         .run(profNouveau, attrNouvelle, sgNouveau, qui(req), s.annee_scolaire, s.id, s.date, s.cours_code || '', s.sous_groupe || '', s.professeur_id || 0, s.section || '').changes;
     }
   })();
-  res.json({ ok: true, suivantes, conflits: conflitsDeLaSeance(s.id) });
+  const calendrier = examenNouveau ? poserExamenAuCalendrier(s.id) : null;
+  res.json({ ok: true, suivantes, conflits: conflitsDeLaSeance(s.id), calendrier });
 });
+
+/* La date d'examen d'une séance marquée, recopiée au calendrier des sessions (ligne du cours). */
+function poserExamenAuCalendrier(id) {
+  const x = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(id);
+  if (!x?.examen || !x.ue_num || !x.cours_code) return null;
+  const ses = x.examen === 2 ? 2 : 1;
+  const table = ses === 2 ? 'deliberation_session2' : 'epreuve_session1';
+  const p = ses === 2 ? 's2' : 's1';
+  try {
+    db.prepare(`INSERT INTO ${table} (ue_num, annee_scolaire, cours_code, ${p}_date, ${p}_heure, ${p}_local)
+      VALUES (?,?,?,?,?,?)
+      ON CONFLICT(ue_num, annee_scolaire, cours_code) DO UPDATE SET ${p}_date = excluded.${p}_date, ${p}_heure = excluded.${p}_heure,
+        ${p}_local = COALESCE(excluded.${p}_local, ${p}_local)`)
+      .run(Number(x.ue_num), x.annee_scolaire, String(x.cours_code), x.date, x.heure_debut || null, x.local_texte || null);
+    return { session: ses, cours_code: x.cours_code, date: x.date, heure: x.heure_debut };
+  } catch (e) { console.error('[examen → calendrier]', e.message); return { erreur: e.message }; }
+}
 
 /* RELIER LES SÉANCES AUX ATTRIBUTIONS (3.5.727, lib/lienAttribution.js) : le plan (d'office, et les cas à trancher), puis l'écriture. */
 r.get('/liaison', authRequired, roleRequired(...EDITEURS_SEANCE), (req, res) => {
