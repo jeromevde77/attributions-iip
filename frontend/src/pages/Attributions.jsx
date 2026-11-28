@@ -2563,7 +2563,7 @@ export default function Attributions() {
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
           : <MatriceAttributions sectionGroups={sectionGroups} professeurs={professeurs} badge={badge} groupCodeSeq={groupCodeSeq}
               peutEcrire={peutEcrireAttr} changerProf={(id, pid) => appliquerCellule(id, 'professeur_id', pid)}
-              payloadCopie={payloadCopie} api={api} recharger={() => load()} />}
+              payloadCopie={payloadCopie} api={api} recharger={() => load()} celluleArbre={celluleArbre} />}
       </div>}
 
       {viewMode!=='flat' && viewMode!=='matrice' && <div className="hidden md:block">
