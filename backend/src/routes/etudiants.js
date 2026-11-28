@@ -4450,7 +4450,13 @@ export function revuePAE(etudId, annee) {
   const dejaAcquises = new Map(db.prepare(`SELECT ue_num, MIN(annee_scolaire) a FROM etudiant_inscription WHERE etudiant_id = ?
       AND resultat = 'reussi' AND annee_scolaire < ? GROUP BY ue_num`).all(etudId, annee).map(x => [x.ue_num, x.a]));
   for (const u of ues) if (dejaAcquises.has(u.ue_num)) u.deja = dejaAcquises.get(u.ue_num);
-  const ectsAcquis = [...new Set(acquises)].reduce((t, n) => t + (Number(refUe.get(n, annee, section)?.ects) || 0), 0);
+  /* LES ECTS DE LA SECTION, ET D'ELLE SEULE (3.5.777, Marie Lambert, GAROFALO : « 22 ECTS validés, mais pas en TIM ») : une
+     unité réussie dans un autre cursus (le tronc commun d'optométrie suivi l'an dernier) ne compte pas dans les ECTS réussis
+     de la section ; une unité rattachée à la section (ue_section) ou hors cursus, oui. */
+  const deLaSection = db.prepare(`SELECT 1 FROM ue WHERE ue_num = ? AND (section = ? OR COALESCE(hors_cursus, 0) = 1)
+      UNION SELECT 1 FROM ue_section WHERE ue_num = ? AND section_code = ? LIMIT 1`);
+  const ectsAcquis = [...new Set(acquises)].filter(n => !section || deLaSection.get(n, section, n, section))
+    .reduce((t, n) => t + (Number(refUe.get(n, annee, section)?.ects) || 0), 0);
   const tousCours = ues.flatMap(u => u.cours);
   const aSuivre = tousCours.filter(c => c.statut === 'suivre');
   const revu = db.prepare('SELECT revu_le, revu_par, ects_confirme FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(etudId, annee) || null;
